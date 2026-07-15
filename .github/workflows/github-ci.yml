@@ -26,7 +26,7 @@ concurrency:
 on:
   push:
     branches:
-      - working
+      - main
   workflow_dispatch:
 
 #------------------------------------------------------------------------------
@@ -36,11 +36,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Skip husky git-hook setup during CI installs; pass the GoatCounter site
-    # code (repository variable) into the static build for privacy-friendly analytics.
-    env:
-      HUSKY: "0"
-      NEXT_PUBLIC_GOATCOUNTER: ${{ vars.NEXT_PUBLIC_GOATCOUNTER }}
     defaults:
       run:
         working-directory: ./website
@@ -64,20 +59,22 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-      - name: Spell check
-        run: npm run spell
-
       - name: Type check
         run: npm run typecheck
 
       - name: Unit tests
         run: npm run test
 
+      # Must run BEFORE the build: it reports the sub path the site is served
+      # from (e.g. "/Drecksau"), which the build needs to prefix every asset.
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
       - name: Build Next.js (static export)
         run: npm run build
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        env:
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

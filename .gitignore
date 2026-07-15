@@ -26,3 +26,4 @@ website/*.log
 website/*.tsbuildinfo
 website/next-env.d.ts
 website/docs/api
+website/.lighthouseci

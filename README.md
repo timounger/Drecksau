@@ -54,6 +54,28 @@ website/src/
   hooks/          Bindeglied zwischen Engine und React
 ```
 
+## Deployment (GitHub Pages)
+
+Ein Push auf `main` baut und veroeffentlicht die Seite automatisch
+([.github/workflows/github-ci.yml](.github/workflows/github-ci.yml)).
+
+Das Spiel laeuft komplett im Browser, deshalb wird es als **statischer Export**
+gebaut (`output: "export"` in [website/next.config.ts](website/next.config.ts))
+und landet in `website/out/`.
+
+**Einmalig noetig:** in den Repo-Einstellungen unter *Settings -> Pages* als
+Source **"GitHub Actions"** auswaehlen. Ohne das schlaegt der Workflow-Schritt
+`configure-pages` fehl.
+
+Die Seite liegt dann unter einem Unterpfad (`/Drecksau`). Den setzt die CI
+automatisch per `NEXT_PUBLIC_BASE_PATH`, damit alle Asset-Pfade stimmen - lokal
+ist die Variable leer und die Seite laeuft unter `/`. Einen Pages-Build lokal
+nachstellen:
+
+```powershell
+$env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
+```
+
 ## Regeln
 
 Die verbindliche Spezifikation steht in [docs/game-rules.md](docs/game-rules.md),
