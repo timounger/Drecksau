@@ -1,0 +1,9 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/game", "src/i18n"],
+  "entryPointStrategy": "expand",
+  "out": "docs/api",
+  "exclude": ["**/*.test.ts"],
+  "name": "Drecksau",
+  "readme": "none"
+}

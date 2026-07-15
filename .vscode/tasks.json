@@ -1,0 +1,160 @@
+{
+  "version": "2.0.0",
+  "windows": {
+    "options": {
+      "shell": {
+        "executable": "cmd.exe",
+        "args": ["/d", "/c"]
+      }
+    }
+  },
+  "tasks": [
+    {
+      "label": "Website: Dev-Server starten",
+      "type": "process",
+      "command": "${workspaceFolder}/start.bat",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Website: Dev-Server starten (clean)",
+      "type": "process",
+      "command": "${workspaceFolder}/start.bat",
+      "args": ["clean"],
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Website: Code formatieren",
+      "type": "shell",
+      "command": "npm run format",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Website: Format prüfen",
+      "type": "shell",
+      "command": "npm run format:check",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "Website: Lint (ESLint)",
+      "type": "shell",
+      "command": "npm run lint",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": ["$eslint-stylish"],
+      "group": "test"
+    },
+    {
+      "label": "Website: Lint + Fix (ESLint)",
+      "type": "shell",
+      "command": "npm run lint:fix",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "Website: Pakete prüfen (outdated)",
+      "type": "shell",
+      "command": "npm run deps:check",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Website: Pakete aktualisieren (sicher)",
+      "type": "shell",
+      "command": "npm run deps:update",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Website: Pakete aktualisieren (Major / Breaking)",
+      "type": "shell",
+      "command": "npm run deps:upgrade",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Website: API-Doku generieren (TypeDoc)",
+      "type": "shell",
+      "command": "npm run docs",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

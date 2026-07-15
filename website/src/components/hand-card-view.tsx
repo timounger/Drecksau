@@ -1,0 +1,85 @@
+/**
+ * One hand card of the human player.
+ *
+ * @module
+ */
+"use client";
+
+import type { ReactElement } from "react";
+import type { Card } from "@/game/cards";
+import {
+  CARD_BLOCKED_HINTS,
+  CARD_DESCRIPTIONS,
+  CARD_ICONS,
+  CARD_NAMES,
+  UI_TEXTS,
+} from "@/i18n/translations";
+
+/** Props of {@link HandCardView}. */
+export type HandCardViewProps = {
+  readonly card: Card;
+  /** False when no legal target exists for this card right now. */
+  readonly isPlayable: boolean;
+  /** True while this card waits for a target. */
+  readonly isSelected: boolean;
+  /** True while it is not the player's turn. */
+  readonly isDisabled: boolean;
+  readonly onSelect: (cardId: string) => void;
+  readonly onDiscard: (cardId: string) => void;
+};
+
+/**
+ * Renders a hand card with its effect and a discard button.
+ *
+ * @param props - the card and its interaction state
+ * @returns the hand card element
+ */
+export function HandCardView({
+  card,
+  isPlayable,
+  isSelected,
+  isDisabled,
+  onSelect,
+  onDiscard,
+}: HandCardViewProps): ReactElement {
+  const hint = isPlayable
+    ? CARD_DESCRIPTIONS[card.type]
+    : CARD_BLOCKED_HINTS[card.type];
+
+  return (
+    <div
+      className={[
+        "flex w-40 flex-col rounded-xl border-2 bg-white p-2 shadow-sm transition",
+        "dark:bg-zinc-900",
+        isSelected
+          ? "-translate-y-2 border-emerald-500 ring-2 ring-emerald-400"
+          : "border-zinc-200 dark:border-zinc-700",
+        isPlayable && !isDisabled ? "" : "opacity-60",
+      ].join(" ")}
+    >
+      <button
+        type="button"
+        disabled={!isPlayable || isDisabled}
+        onClick={() => onSelect(card.id)}
+        className="flex flex-1 flex-col items-center gap-1 rounded-lg p-1 enabled:cursor-pointer enabled:hover:bg-zinc-50 dark:enabled:hover:bg-zinc-800"
+      >
+        <span className="text-3xl" aria-hidden="true">
+          {CARD_ICONS[card.type]}
+        </span>
+        <span className="text-sm font-semibold">{CARD_NAMES[card.type]}</span>
+        <span className="text-center text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
+          {hint}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        disabled={isDisabled}
+        onClick={() => onDiscard(card.id)}
+        className="mt-1 rounded-md py-0.5 text-[11px] text-zinc-400 enabled:cursor-pointer enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 dark:enabled:hover:bg-zinc-800"
+      >
+        {UI_TEXTS.discard}
+      </button>
+    </div>
+  );
+}
