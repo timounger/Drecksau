@@ -54,6 +54,17 @@ website/src/
   hooks/          Bindeglied zwischen Engine und React
 ```
 
+## Favicon
+
+Das Icon liegt in [website/src/app/favicon.ico](website/src/app/favicon.ico)
+und wird von Next.js automatisch verlinkt - im `layout.tsx` ist dafuer nichts
+einzutragen. Zum Aendern einfach die Datei ersetzen.
+
+**Achtung:** Next erkennt in `src/app/` auch `icon.svg`, `icon.png` und
+`apple-icon.png`. Liegt eine davon daneben, wird sie **zusaetzlich** verlinkt,
+und moderne Browser bevorzugen dann das SVG - das `favicon.ico` erscheint nicht
+mehr. Also entweder `favicon.ico` **oder** die `icon.*`-Variante verwenden.
+
 ## Deployment (GitHub Pages)
 
 Ein Push auf `main` baut und veroeffentlicht die Seite automatisch
