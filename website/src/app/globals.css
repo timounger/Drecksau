@@ -24,3 +24,161 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ---------------------------------------------------------------------------
+   Card effect animations.
+
+   Played on a full screen overlay that never takes clicks. Every effect ends
+   invisible, so a half finished animation cannot leave anything on screen.
+   Switching them off is handled in the component, not here - the setting has
+   to be a real choice, not just a media query.
+   --------------------------------------------------------------------------- */
+
+/* Rain: a drop falls the whole height of the screen. */
+@keyframes drecksau-drop {
+  from {
+    transform: translateY(-10vh);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(110vh);
+    opacity: 0;
+  }
+}
+
+/* A short coloured wash over the whole screen. */
+@keyframes drecksau-tint {
+  from {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Mud: a blob flies outward and drops away. */
+@keyframes drecksau-splat {
+  from {
+    transform: translate(0, 0) scale(0.2);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--dx), var(--dy)) scale(1.1);
+    opacity: 0;
+  }
+}
+
+/* Lightning: two hard flashes, as a storm does it. */
+@keyframes drecksau-flash {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  5%,
+  15% {
+    opacity: 0.9;
+  }
+  10% {
+    opacity: 0.2;
+  }
+  30% {
+    opacity: 0.7;
+  }
+  45% {
+    opacity: 0;
+  }
+}
+
+/* Something heavy drops in and settles. */
+@keyframes drecksau-drop-in {
+  from {
+    transform: translateY(-40vh) scale(0.7);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(0) scale(1.05);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(-8%) scale(1);
+  }
+  85% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+}
+
+/* Bubbles and sparks rise and fade. */
+@keyframes drecksau-rise {
+  from {
+    transform: translateY(20vh) scale(0.4);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-30vh) scale(1);
+    opacity: 0;
+  }
+}
+
+/* A few hard knocks. */
+@keyframes drecksau-hammer {
+  0% {
+    transform: rotate(-40deg) scale(0.8);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  25%,
+  55%,
+  85% {
+    transform: rotate(10deg) scale(1);
+  }
+  40%,
+  70% {
+    transform: rotate(-35deg) scale(1);
+  }
+  to {
+    transform: rotate(-35deg) scale(1);
+    opacity: 0;
+  }
+}
+
+/* The centre symbol of an effect: grows, holds, fades. */
+@keyframes drecksau-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.1);
+    opacity: 0;
+  }
+}

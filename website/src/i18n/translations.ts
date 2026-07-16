@@ -75,6 +75,45 @@ export const UI_TEXTS = {
   playerCount: "Mitspieler",
   rulesLink: "Spielregeln",
   cardsLeft: "Karten",
+  statistics: "Statistik",
+  settings: "Einstellungen",
+} as const;
+
+/** Texts of the settings page. */
+export const SETTINGS_TEXTS = {
+  title: "Einstellungen",
+  subtitle: "Gilt nur in diesem Browser.",
+  backToGame: "Zurück zum Spiel",
+  animations: "Animationen",
+  animationsHint:
+    "Kurze Effekte, wenn eine Karte gespielt wird - z. B. Regen über den Bildschirm.",
+  reducedMotionNotice:
+    "Dein System ist auf „Bewegung reduzieren“ gestellt. Deshalb sind Animationen hier standardmäßig aus - du kannst sie aber jederzeit einschalten.",
+  on: "An",
+  off: "Aus",
+} as const;
+
+/** Texts of the statistics page. */
+export const STATS_TEXTS = {
+  title: "Statistik",
+  subtitle: "Wird nur in deinem Browser gespeichert.",
+  backToGame: "Zurück zum Spiel",
+  startedGames: "Spiele begonnen",
+  finishedGames: "Abgeschlossen",
+  abandonedGames: "Abgebrochen oder laufend",
+  wins: "Gewonnen",
+  losses: "Verloren",
+  winRate: "Siegquote",
+  totalPlayTime: "Gesamte Spielzeit",
+  averagePlayTime: "Schnitt pro Spiel",
+  fastestWin: "Schnellster Sieg",
+  lastPlayed: "Zuletzt gespielt",
+  nothingYet: "Noch nichts gespielt.",
+  reset: "Statistik zurücksetzen",
+  resetConfirm:
+    "Wirklich alles zurücksetzen? Das laufende Spiel geht dabei verloren.",
+  resetDone: "Zurückgesetzt.",
+  noValue: "-",
 } as const;
 
 /**

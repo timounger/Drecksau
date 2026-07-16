@@ -5,7 +5,9 @@
  */
 "use client";
 
+import Image from "next/image";
 import type { ReactElement } from "react";
+import { PIG_ASPECT, PIG_IMAGES } from "@/assets/cards/card-images";
 import { hasBarn, hasBarnDoor, hasLightningRod, type Pig } from "@/game/state";
 import { CARD_ICONS, UI_TEXTS } from "@/i18n/translations";
 
@@ -23,6 +25,9 @@ export type PigViewProps = {
  *
  * @param props - the pig and its interaction state
  * @returns the pig card element
+ * @remarks
+ * The pig artwork is landscape, unlike the portrait action cards - hence the
+ * wider box here.
  */
 export function PigView({
   pig,
@@ -38,7 +43,7 @@ export function PigView({
       onClick={() => onSelect(pig.id)}
       aria-label={`${label}${hasBarn(pig) ? `, ${UI_TEXTS.barnLabel}` : ""}`}
       className={[
-        "relative flex h-24 w-20 flex-col items-center justify-center gap-1",
+        "relative flex w-32 flex-col items-center gap-1 p-1.5",
         "rounded-xl border-2 transition",
         pig.isDirty
           ? "border-amber-800 bg-amber-100 dark:bg-amber-950/60"
@@ -49,11 +54,19 @@ export function PigView({
           : "cursor-default",
       ].join(" ")}
     >
-      <span className="text-3xl" aria-hidden="true">
-        {pig.isDirty ? "\u{1F416}" : "\u{1F437}"}
-      </span>
-      <span className="text-[10px] font-medium text-zinc-600 dark:text-zinc-300">
-        {label}
+      {/* No caption underneath: the artwork shows clean or dirty at a glance,
+          and the aria-label above carries it for screen readers. */}
+      <span
+        className="relative w-full overflow-hidden rounded-md"
+        style={{ aspectRatio: PIG_ASPECT }}
+      >
+        <Image
+          src={pig.isDirty ? PIG_IMAGES.dirty : PIG_IMAGES.clean}
+          alt=""
+          fill
+          sizes="112px"
+          className="object-contain"
+        />
       </span>
 
       {/* Attachments, shown as small badges around the pig. */}

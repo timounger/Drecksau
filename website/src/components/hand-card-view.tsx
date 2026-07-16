@@ -5,12 +5,13 @@
  */
 "use client";
 
+import Image from "next/image";
 import type { ReactElement } from "react";
+import { CARD_ASPECT, CARD_IMAGES } from "@/assets/cards/card-images";
 import type { Card } from "@/game/cards";
 import {
   CARD_BLOCKED_HINTS,
   CARD_DESCRIPTIONS,
-  CARD_ICONS,
   CARD_NAMES,
   UI_TEXTS,
 } from "@/i18n/translations";
@@ -29,7 +30,7 @@ export type HandCardViewProps = {
 };
 
 /**
- * Renders a hand card with its effect and a discard button.
+ * Renders a hand card with its artwork, effect and a discard button.
  *
  * @param props - the card and its interaction state
  * @returns the hand card element
@@ -49,7 +50,7 @@ export function HandCardView({
   return (
     <div
       className={[
-        "flex w-40 flex-col rounded-xl border-2 bg-white p-2 shadow-sm transition",
+        "flex w-32 flex-col rounded-xl border-2 bg-white p-2 shadow-sm transition",
         "dark:bg-zinc-900",
         isSelected
           ? "-translate-y-2 border-emerald-500 ring-2 ring-emerald-400"
@@ -63,10 +64,23 @@ export function HandCardView({
         onClick={() => onSelect(card.id)}
         className="flex flex-1 flex-col items-center gap-1 rounded-lg p-1 enabled:cursor-pointer enabled:hover:bg-zinc-50 dark:enabled:hover:bg-zinc-800"
       >
-        <span className="text-3xl" aria-hidden="true">
-          {CARD_ICONS[card.type]}
+        {/* Sized by height, not width: the artwork is about 190px tall, so
+            this stays just below its native size and keeps it crisp. The files
+            differ a little in ratio, hence the fixed box plus object-contain -
+            it keeps the row even without squashing anyone's artwork. */}
+        <span
+          className="relative h-44 overflow-hidden rounded-md"
+          style={{ aspectRatio: CARD_ASPECT }}
+        >
+          <Image
+            src={CARD_IMAGES[card.type]}
+            alt=""
+            fill
+            sizes="112px"
+            className="object-contain"
+          />
         </span>
-        <span className="text-sm font-semibold">{CARD_NAMES[card.type]}</span>
+        <span className="text-xs font-semibold">{CARD_NAMES[card.type]}</span>
         <span className="text-center text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
           {hint}
         </span>

@@ -5,12 +5,14 @@
  */
 "use client";
 
-import { useState, type ReactElement } from "react";
+import Link from "next/link";
+import type { ReactElement } from "react";
 import { isCardPlayable } from "@/game/moves";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/game/setup";
 import { currentPlayer, playerById } from "@/game/state";
 import { useDrecksauGame } from "@/hooks/use-drecksau-game";
 import { CARD_NAMES, HUMAN_PLAYER_NAME, UI_TEXTS } from "@/i18n/translations";
+import { ActionEffectOverlay } from "./action-effect-overlay";
 import { GameLog } from "./game-log";
 import { HandCardView } from "./hand-card-view";
 import { PlayerBoard } from "./player-board";
@@ -30,7 +32,6 @@ const DEFAULT_PLAYER_COUNT = 3;
  * @returns the game element
  */
 export function DrecksauGame(): ReactElement {
-  const [playerCount, setPlayerCount] = useState(DEFAULT_PLAYER_COUNT);
   const game = useDrecksauGame(DEFAULT_PLAYER_COUNT);
   const { state } = game;
 
@@ -40,13 +41,14 @@ export function DrecksauGame(): ReactElement {
   const winner =
     state.winnerId === null ? null : playerById(state, state.winnerId);
 
-  const handleNewGame = (count: number) => {
-    setPlayerCount(count);
-    game.startGame(count);
-  };
+  // The table size comes from the running game, so a restored game keeps its
+  // own player count instead of the last thing that was picked here.
+  const handleNewGame = (count: number) => game.startGame(count);
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-4">
+      <ActionEffectOverlay effect={game.effect} />
+
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">{UI_TEXTS.appTitle}</h1>
@@ -64,7 +66,7 @@ export function DrecksauGame(): ReactElement {
           </label>
           <select
             id="player-count"
-            value={playerCount}
+            value={game.playerCount}
             onChange={(event) => handleNewGame(Number(event.target.value))}
             className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           >
@@ -76,11 +78,23 @@ export function DrecksauGame(): ReactElement {
           </select>
           <button
             type="button"
-            onClick={() => handleNewGame(playerCount)}
+            onClick={() => handleNewGame(game.playerCount)}
             className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
           >
             {UI_TEXTS.newGame}
           </button>
+          <Link
+            href="/statistik"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {UI_TEXTS.statistics}
+          </Link>
+          <Link
+            href="/einstellungen"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {UI_TEXTS.settings}
+          </Link>
         </div>
       </header>
 
@@ -109,7 +123,7 @@ export function DrecksauGame(): ReactElement {
             actorName={actor.name}
             selectedCardName={selectedCardName(game)}
             onCancel={game.clearSelection}
-            onPlayAgain={() => handleNewGame(playerCount)}
+            onPlayAgain={() => handleNewGame(game.playerCount)}
           />
 
           <section>
