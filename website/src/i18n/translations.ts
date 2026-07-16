@@ -81,6 +81,10 @@ export const UI_TEXTS = {
   discard: "Ablegen",
   redrawHand: "Blockiert - 3 neue Karten ziehen",
   redrawHint: "Keine deiner Karten ist spielbar.",
+  luckyBirdPending: (remaining: number) =>
+    remaining === 1
+      ? "Glücksvogel: noch 1 Karte ausspielen oder ablegen - danach ziehst du 3 neue."
+      : `Glücksvogel: noch ${remaining} Karten ausspielen oder ablegen - danach ziehst du 3 neue.`,
   cleanPig: "Sauberschwein",
   dirtyPig: "Drecksau",
   beautyPig: "Schönsau",

@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { applyMove } from "./engine";
-import { isCardPlayable, legalTargets } from "./moves";
+import { isCardPlayable, legalMoves, legalTargets } from "./moves";
 import { hasWon, type GameState } from "./state";
 import { handCardId, makeState, totalCardCount } from "./test-helpers";
 
@@ -308,6 +308,57 @@ describe("Glücksvogel", () => {
     expect(next.pendingCardIds).toHaveLength(0);
     expect(next.players[0].hand).toHaveLength(3);
     expect(next.currentPlayerIndex).toBe(1);
+  });
+
+  it("never traps the player with an unplayable pending card", () => {
+    // The feared dead end: the bird hands over a card that has no legal
+    // target, and nothing may be drawn until the turn is done.
+    const state = makeState(
+      [
+        // No own stall, so the rod has nowhere to go.
+        { pigs: [{}, {}], hand: ["luckyBird", "mud", "lightningRod"] },
+        { pigs: [{}], hand: [] },
+      ],
+      { drawPile: ["rain", "barn", "mud"], hasExpansion: true },
+    );
+
+    const afterBird = play(state, "luckyBird");
+    const afterMud = play(afterBird, "mud", "p0-pig0");
+
+    // The rod is stuck - but discarding it is always allowed.
+    expect(isCardPlayable(afterMud, "p0", "lightningRod")).toBe(false);
+    const moves = legalMoves(afterMud);
+    expect(moves.length).toBeGreaterThan(0);
+    expect(moves.every((move) => move.kind === "discardCard")).toBe(true);
+
+    const afterDiscard = applyMove(afterMud, moves[0]);
+    expect(afterDiscard.pendingCardIds).toHaveLength(0);
+    expect(afterDiscard.players[0].hand).toHaveLength(3);
+    expect(afterDiscard.currentPlayerIndex).toBe(1);
+  });
+
+  it("leaves a move even when both pending cards are stuck", () => {
+    const state = makeState(
+      [
+        { pigs: [{}], hand: ["luckyBird", "lightningRod", "barnDoor"] },
+        { pigs: [{}], hand: [] },
+      ],
+      { drawPile: ["rain", "barn", "mud"], hasExpansion: true },
+    );
+
+    let current = play(state, "luckyBird");
+    expect(current.pendingCardIds).toHaveLength(2);
+
+    // Two discards get the turn done - no dead end at any point.
+    for (let step = 0; step < 2; step++) {
+      const moves = legalMoves(current);
+      expect(moves.length).toBeGreaterThan(0);
+      current = applyMove(current, moves[0]);
+    }
+
+    expect(current.pendingCardIds).toHaveLength(0);
+    expect(current.players[0].hand).toHaveLength(3);
+    expect(current.currentPlayerIndex).toBe(1);
   });
 
   it("can win the game on the second of its two cards", () => {

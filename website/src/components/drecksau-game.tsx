@@ -127,6 +127,7 @@ export function DrecksauGame(): ReactElement {
             isHumanTurn={game.isHumanTurn}
             actorName={actor.name}
             selectedCardName={selectedCardName(game)}
+            pendingCount={game.isHumanTurn ? state.pendingCardIds.length : 0}
             onCancel={game.clearSelection}
             onPlayAgain={() => handleNewGame(game.playerCount)}
           />
@@ -183,6 +184,8 @@ type TurnBannerProps = {
   readonly isHumanTurn: boolean;
   readonly actorName: string;
   readonly selectedCardName: string | null;
+  /** Cards the Glücksvogel still expects from the player; 0 for a normal turn. */
+  readonly pendingCount: number;
   readonly onCancel: () => void;
   readonly onPlayAgain: () => void;
 };
@@ -193,6 +196,7 @@ function TurnBanner({
   isHumanTurn,
   actorName,
   selectedCardName,
+  pendingCount,
   onCancel,
   onPlayAgain,
 }: TurnBannerProps): ReactElement {
@@ -230,6 +234,15 @@ function TurnBanner({
           {UI_TEXTS.cancel}
         </button>
       </div>
+    );
+  } else if (pendingCount > 0) {
+    // A Glücksvogel turn is unusual: the hand is short and the turn does not
+    // pass. Say what is expected, and that discarding is a way out too - the
+    // card may well have no legal target.
+    content = (
+      <span className="font-medium">
+        {"\u{1F426}"} {UI_TEXTS.luckyBirdPending(pendingCount)}
+      </span>
     );
   } else if (isHumanTurn) {
     content = <span className="font-medium">{UI_TEXTS.yourTurn}</span>;
