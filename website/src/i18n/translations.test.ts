@@ -14,6 +14,16 @@ describe("dativeName", () => {
   it("leaves opponent names alone", () => {
     expect(dativeName("Berta")).toBe("Berta");
   });
+
+  it("leaves a chosen player name alone - 'von Timo' is already correct", () => {
+    expect(dativeName("Timo")).toBe("Timo");
+    expect(LOG_TEXTS.lightning("Timo")).toBe(
+      "Blitz! Der Stall von Timo brennt ab.",
+    );
+    expect(LOG_TEXTS.farmerScrubs("Timo")).toBe(
+      "Der Bauer schrubbt eine Drecksau von Timo.",
+    );
+  });
 });
 
 describe("log texts", () => {
@@ -35,5 +45,13 @@ describe("log texts", () => {
   it("uses singular and plural for rain", () => {
     expect(LOG_TEXTS.rain(1)).toContain("1 Drecksau wurde");
     expect(LOG_TEXTS.rain(3)).toContain("3 Drecksäue wurden");
+  });
+
+  it("phrases rain that hit nobody without a bare zero", () => {
+    // "0 Drecksäue wurden sauber" is not how anyone would say it.
+    expect(LOG_TEXTS.rain(0)).not.toContain("0");
+    expect(LOG_TEXTS.rain(0)).toBe(
+      "Regen! Aber es war keine Drecksau im Freien.",
+    );
   });
 });

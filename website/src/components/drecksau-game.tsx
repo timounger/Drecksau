@@ -11,7 +11,7 @@ import { isCardPlayable } from "@/game/moves";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/game/setup";
 import { currentPlayer, playerById } from "@/game/state";
 import { useDrecksauGame } from "@/hooks/use-drecksau-game";
-import { CARD_NAMES, HUMAN_PLAYER_NAME, UI_TEXTS } from "@/i18n/translations";
+import { CARD_NAMES, UI_TEXTS } from "@/i18n/translations";
 import { ActionEffectOverlay } from "./action-effect-overlay";
 import { GameLog } from "./game-log";
 import { HandCardView } from "./hand-card-view";
@@ -124,6 +124,7 @@ export function DrecksauGame(): ReactElement {
 
           <TurnBanner
             winnerName={winner?.name ?? null}
+            didHumanWin={winner?.isHuman ?? false}
             isHumanTurn={game.isHumanTurn}
             actorName={actor.name}
             selectedCardName={selectedCardName(game)}
@@ -181,6 +182,8 @@ export function DrecksauGame(): ReactElement {
 /** Props of {@link TurnBanner}. */
 type TurnBannerProps = {
   readonly winnerName: string | null;
+  /** True if the winner is the human - checked by identity, not by name. */
+  readonly didHumanWin: boolean;
   readonly isHumanTurn: boolean;
   readonly actorName: string;
   readonly selectedCardName: string | null;
@@ -193,6 +196,7 @@ type TurnBannerProps = {
 /** Status line: whose turn it is, what to do next, or who won. */
 function TurnBanner({
   winnerName,
+  didHumanWin,
   isHumanTurn,
   actorName,
   selectedCardName,
@@ -207,9 +211,8 @@ function TurnBanner({
       <div className="flex items-center gap-3">
         <span className="font-semibold">
           {"\u{1F389}"}{" "}
-          {winnerName === HUMAN_PLAYER_NAME
-            ? "Du hast gewonnen!"
-            : `${winnerName} hat gewonnen!`}
+          {/* Addressed directly, whatever the player calls themselves. */}
+          {didHumanWin ? UI_TEXTS.youWon : UI_TEXTS.playerWon(winnerName)}
         </span>
         <button
           type="button"

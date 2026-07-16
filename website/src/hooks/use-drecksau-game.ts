@@ -16,7 +16,7 @@ import { applyMove } from "@/game/engine";
 import { isBlocked, legalTargets, needsTarget } from "@/game/moves";
 import { isGameState } from "@/game/serialization";
 import { createGame, type PlayerSetup } from "@/game/setup";
-import { loadSettings } from "@/lib/settings/app-settings";
+import { humanName, loadSettings } from "@/lib/settings/app-settings";
 import {
   currentPlayer,
   handCardById,
@@ -36,8 +36,15 @@ import { HUMAN_PLAYER_NAME } from "@/i18n/translations";
 /** Which game this hook drives - the key for saved state and statistics. */
 const GAME_ID: GameId = "drecksau";
 
-/** Names of the computer opponents, in seating order. */
-const OPPONENT_NAMES = ["Berta", "Cleo", "Doris"];
+/**
+ * Names of the computer opponents, in seating order.
+ *
+ * @remarks
+ * One more than the three opponents a table can hold: if the player picks one
+ * of these as their own name, that one is skipped and the spare takes over -
+ * two Bertas in the log would be unreadable.
+ */
+const OPPONENT_NAMES = ["Berta", "Cleo", "Doris", "Emma"];
 
 /** Seed of the very first game - fixed so server and client render alike. */
 const INITIAL_SEED = 20260715;
@@ -103,9 +110,10 @@ export type DrecksauGame = {
  */
 export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
   // The prerender must not read localStorage, so the very first game is always
-  // the base game; the saved game and the settings arrive on mount.
+  // the base game under the neutral name; the saved game and the settings
+  // arrive on mount.
   const [state, setState] = useState<GameState>(() =>
-    createGame(buildSetups(initialPlayerCount), {
+    createGame(buildSetups(initialPlayerCount, HUMAN_PLAYER_NAME), {
       seed: INITIAL_SEED,
       withExpansion: false,
     }),
@@ -165,14 +173,19 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
       const saved = loadSession(GAME_ID, isGameState);
 
       if (saved === null) {
-        // Nothing saved: the prerendered base game only stands if the player
-        // has not switched the expansion on - otherwise deal a proper one.
-        const fresh = loadSettings().isExpansionEnabled
-          ? createGame(buildSetups(initialPlayerCount), {
+        // Nothing saved: the prerendered game only stands if it matches the
+        // settings. A chosen name or the expansion means dealing a proper one.
+        const settings = loadSettings();
+        const name = humanName(settings);
+        const matchesPrerender =
+          !settings.isExpansionEnabled && name === HUMAN_PLAYER_NAME;
+        const fresh = matchesPrerender
+          ? state
+          : createGame(buildSetups(initialPlayerCount, name), {
               seed: Date.now(),
-              withExpansion: true,
-            })
-          : state;
+              withExpansion: settings.isExpansionEnabled,
+            });
+
         beginGame(fresh);
         if (fresh !== state) {
           // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
@@ -233,11 +246,12 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
     (count: number) => {
       setSelectedCardId(null);
       setEffect(null);
-      // Read the setting here, not at render: a game keeps the deck it was
-      // dealt with, so switching the expansion only affects the next game.
-      const next = createGame(buildSetups(count), {
+      // Read the settings here, not at render: a game keeps the deck and the
+      // names it was dealt with, so changes only affect the next game.
+      const settings = loadSettings();
+      const next = createGame(buildSetups(count, humanName(settings)), {
         seed: Date.now(),
-        withExpansion: loadSettings().isExpansionEnabled,
+        withExpansion: settings.isExpansionEnabled,
       });
       beginGame(next);
       setState(next);
@@ -377,11 +391,17 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
   };
 }
 
-/** Builds the seating: the human first, then the computer opponents. */
-function buildSetups(playerCount: number): PlayerSetup[] {
-  const opponents = OPPONENT_NAMES.slice(0, playerCount - 1).map((name) => ({
-    name,
-    isHuman: false,
-  }));
-  return [{ name: HUMAN_PLAYER_NAME, isHuman: true }, ...opponents];
+/**
+ * Builds the seating: the human first, then the computer opponents.
+ *
+ * @param playerCount - how many sit at the table
+ * @param humanName - what the human is called, "Du" if they gave no name
+ * @returns the seats, in turn order
+ */
+function buildSetups(playerCount: number, humanName: string): PlayerSetup[] {
+  const opponents = OPPONENT_NAMES.filter((name) => name !== humanName)
+    .slice(0, playerCount - 1)
+    .map((name) => ({ name, isHuman: false }));
+
+  return [{ name: humanName, isHuman: true }, ...opponents];
 }

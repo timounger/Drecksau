@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   defaultSettings,
+  humanName,
   isAppSettings,
   prefersReducedMotion,
 } from "./app-settings";
@@ -38,6 +39,12 @@ describe("defaultSettings", () => {
     mockReducedMotion(true);
     expect(defaultSettings().isExpansionEnabled).toBe(false);
   });
+
+  it("starts without a name, so the game says 'Du'", () => {
+    mockReducedMotion(false);
+    expect(defaultSettings().playerName).toBe("");
+    expect(humanName(defaultSettings())).toBe("Du");
+  });
 });
 
 describe("prefersReducedMotion", () => {
@@ -60,24 +67,55 @@ describe("prefersReducedMotion", () => {
 });
 
 describe("isAppSettings", () => {
+  const valid = {
+    playerName: "Timo",
+    areAnimationsEnabled: true,
+    isExpansionEnabled: false,
+  };
+
   it("accepts real settings", () => {
-    expect(
-      isAppSettings({ areAnimationsEnabled: true, isExpansionEnabled: false }),
-    ).toBe(true);
-    expect(
-      isAppSettings({ areAnimationsEnabled: false, isExpansionEnabled: true }),
-    ).toBe(true);
+    expect(isAppSettings(valid)).toBe(true);
+    expect(isAppSettings({ ...valid, playerName: "" })).toBe(true);
   });
 
   it("rejects anything else", () => {
     expect(isAppSettings(null)).toBe(false);
     expect(isAppSettings({})).toBe(false);
-    expect(isAppSettings({ areAnimationsEnabled: "ja" })).toBe(false);
+    expect(isAppSettings({ ...valid, areAnimationsEnabled: "ja" })).toBe(false);
     expect(isAppSettings("an")).toBe(false);
   });
 
-  it("rejects settings stored before the expansion existed", () => {
+  it("rejects a name that would break the layout", () => {
+    expect(isAppSettings({ ...valid, playerName: "T".repeat(200) })).toBe(
+      false,
+    );
+  });
+
+  it("rejects settings stored before a field existed", () => {
     // Falls back to the defaults instead of running with a missing field.
     expect(isAppSettings({ areAnimationsEnabled: true })).toBe(false);
+    const { playerName, ...withoutName } = valid;
+    expect(playerName).toBe("Timo");
+    expect(isAppSettings(withoutName)).toBe(false);
+  });
+});
+
+describe("humanName", () => {
+  const base = { areAnimationsEnabled: true, isExpansionEnabled: false };
+
+  it("uses the chosen name", () => {
+    expect(humanName({ ...base, playerName: "Timo" })).toBe("Timo");
+  });
+
+  it("falls back to 'Du' when no name was given", () => {
+    expect(humanName({ ...base, playerName: "" })).toBe("Du");
+  });
+
+  it("treats blanks as no name", () => {
+    expect(humanName({ ...base, playerName: "   " })).toBe("Du");
+  });
+
+  it("trims the name", () => {
+    expect(humanName({ ...base, playerName: "  Timo  " })).toBe("Timo");
   });
 });

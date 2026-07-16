@@ -7,7 +7,10 @@
 
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
-import { prefersReducedMotion } from "@/lib/settings/app-settings";
+import {
+  MAX_PLAYER_NAME_LENGTH,
+  prefersReducedMotion,
+} from "@/lib/settings/app-settings";
 import {
   getServerSettingsSnapshot,
   getSettingsSnapshot,
@@ -44,6 +47,29 @@ export function SettingsView(): ReactElement {
           {SETTINGS_TEXTS.backToGame}
         </Link>
       </header>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+        <label className="flex cursor-text flex-col gap-1">
+          <span className="font-semibold">{SETTINGS_TEXTS.playerName}</span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            {SETTINGS_TEXTS.playerNameHint}
+          </span>
+          <input
+            type="text"
+            data-testid="input-player-name"
+            value={settings.playerName}
+            maxLength={MAX_PLAYER_NAME_LENGTH}
+            placeholder={SETTINGS_TEXTS.playerNamePlaceholder}
+            onChange={(event) =>
+              updateSettings({ ...settings, playerName: event.target.value })
+            }
+            className="mt-1 w-56 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </label>
+        <p className="mt-3 rounded-lg bg-zinc-100 p-2 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+          {SETTINGS_TEXTS.expansionNotice}
+        </p>
+      </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
         <Toggle

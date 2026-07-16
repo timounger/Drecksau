@@ -60,6 +60,20 @@ website/src/
   hooks/          Bindeglied zwischen Engine und React
 ```
 
+## Spielername
+
+Unter **Einstellungen** eintragbar. Er erscheint im Spielverlauf neben den
+Mitspielern („Timo: Matsch! …“). Bleibt das Feld leer, heisst der Spieler
+schlicht **„Du"** - so wie vor dieser Einstellung.
+
+Direkte Anreden bleiben immer beim „Du" („Du bist dran", „Deine Schweine",
+„Du hast gewonnen!") - der Name ersetzt nur die dritte Person. Waehlt man den
+Namen eines Gegners, weicht dieser auf einen anderen aus; zwei Bertas im
+Spielverlauf waere unlesbar.
+
+Gilt ab dem naechsten Spiel: Die Namen werden beim Austeilen vergeben, und ein
+laufender Spielverlauf soll nicht ruecklaufend andere Namen zeigen.
+
 ## Erweiterung „Sauschön“
 
 Unter **Einstellungen** zuschaltbar, standardmaessig **aus** - ohne sie ist es

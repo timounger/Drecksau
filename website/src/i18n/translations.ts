@@ -76,6 +76,8 @@ export const UI_TEXTS = {
   log: "Spielverlauf",
   newGame: "Neues Spiel",
   playAgain: "Nochmal spielen",
+  youWon: "Du hast gewonnen!",
+  playerWon: (playerName: string) => `${playerName} hat gewonnen!`,
   chooseTarget: "Ziel wählen",
   cancel: "Abbrechen",
   discard: "Ablegen",
@@ -114,6 +116,10 @@ export const SETTINGS_TEXTS = {
   expansionHint:
     "Bringt Schönsau, Aus dem Staub und Glücksvogel ins Spiel. Du gewinnst dann entweder mit lauter Drecksäuen oder mit lauter Schönsäuen. Jeder hat dann 3 Schweine.",
   expansionNotice: "Gilt ab dem nächsten Spiel.",
+  playerName: "Dein Name",
+  playerNameHint:
+    "Erscheint im Spielverlauf neben den Mitspielern. Leer lassen, dann heißt du einfach „Du“.",
+  playerNamePlaceholder: "Du",
 } as const;
 
 /** Texts of the statistics page. */
@@ -175,10 +181,20 @@ export function dativeName(playerName: string): string {
 /** Log phrasings for the effects of each card. */
 export const LOG_TEXTS = {
   mud: "Matsch! Ein Schwein ist jetzt eine Drecksau.",
-  rain: (cleaned: number) =>
-    cleaned === 1
-      ? "Regen! 1 Drecksau wurde sauber."
-      : `Regen! ${cleaned} Drecksäue wurden sauber.`,
+  rain: (cleaned: number) => {
+    let text: string;
+    switch (cleaned) {
+      case 0:
+        text = "Regen! Aber es war keine Drecksau im Freien.";
+        break;
+      case 1:
+        text = "Regen! 1 Drecksau wurde sauber.";
+        break;
+      default:
+        text = `Regen! ${cleaned} Drecksäue wurden sauber.`;
+    }
+    return text;
+  },
   barn: "baut einen Stall.",
   lightning: (victimName: string) =>
     `Blitz! Der Stall von ${dativeName(victimName)} brennt ab.`,

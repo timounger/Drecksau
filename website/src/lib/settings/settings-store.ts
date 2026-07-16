@@ -14,8 +14,9 @@ const listeners = new Set<() => void>();
 /** Cached snapshot - `useSyncExternalStore` compares by identity. */
 let cache: AppSettings | null = null;
 
-/** What the prerender sees: the common case - animations on, base game only. */
+/** What the prerender sees: the common case - no name, animations on, base game. */
 const SERVER_SNAPSHOT: AppSettings = {
+  playerName: "",
   areAnimationsEnabled: true,
   isExpansionEnabled: false,
 };
