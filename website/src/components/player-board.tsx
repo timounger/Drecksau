@@ -53,7 +53,9 @@ export function PlayerBoard({
         </span>
       </header>
 
-      <div className="flex flex-wrap gap-2">
+      {/* Never wraps: a player's pigs belong on one line. When the window is
+          too narrow the pigs shrink instead - see PigView. */}
+      <div data-testid="pig-row" className="flex gap-2">
         {player.pigs.map((pig) => (
           <PigView
             key={pig.id}

@@ -50,8 +50,10 @@ export function HandCardView({
   return (
     <div
       className={[
-        "flex w-32 flex-col rounded-xl border-2 bg-white p-2 shadow-sm transition",
-        "dark:bg-zinc-900",
+        // Grows to at most 8rem, but shrinks as far as the row needs it to -
+        // the hand stays on one line even on a narrow phone.
+        "flex min-w-0 flex-1 shrink flex-col rounded-xl border-2 bg-white",
+        "max-w-32 p-2 shadow-sm transition dark:bg-zinc-900",
         isSelected
           ? "-translate-y-2 border-emerald-500 ring-2 ring-emerald-400"
           : "border-zinc-200 dark:border-zinc-700",
@@ -64,12 +66,13 @@ export function HandCardView({
         onClick={() => onSelect(card.id)}
         className="flex flex-1 flex-col items-center gap-1 rounded-lg p-1 enabled:cursor-pointer enabled:hover:bg-zinc-50 dark:enabled:hover:bg-zinc-800"
       >
-        {/* Sized by height, not width: the artwork is about 190px tall, so
-            this stays just below its native size and keeps it crisp. The files
-            differ a little in ratio, hence the fixed box plus object-contain -
-            it keeps the row even without squashing anyone's artwork. */}
+        {/* Sized by width so the picture shrinks with the card; the height
+            follows from the ratio. At full size that lands just under the
+            native ~190px of the artwork, which keeps it crisp. The files differ
+            a little in ratio, hence the fixed box plus object-contain - it
+            keeps the row even without squashing anyone's artwork. */}
         <span
-          className="relative h-44 overflow-hidden rounded-md"
+          className="relative w-full overflow-hidden rounded-md"
           style={{ aspectRatio: CARD_ASPECT }}
         >
           <Image

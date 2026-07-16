@@ -43,8 +43,10 @@ export function PigView({
       onClick={() => onSelect(pig.id)}
       aria-label={`${label}${hasBarn(pig) ? `, ${UI_TEXTS.barnLabel}` : ""}`}
       className={[
-        "relative flex w-32 flex-col items-center gap-1 p-1.5",
-        "rounded-xl border-2 transition",
+        // Grows to at most 8rem, but shrinks as far as the row needs it to -
+        // that keeps every player's pigs on one line on a phone as well.
+        "relative flex min-w-0 flex-1 shrink flex-col items-center gap-1 p-1.5",
+        "max-w-32 rounded-xl border-2 transition",
         pig.isDirty
           ? "border-amber-800 bg-amber-100 dark:bg-amber-950/60"
           : "border-pink-300 bg-pink-50 dark:bg-pink-950/40",

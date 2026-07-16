@@ -57,7 +57,9 @@ export function DrecksauGame(): ReactElement {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Unlike the card rows, these controls may wrap - otherwise they push
+            the page wider than a phone screen. */}
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <label
             htmlFor="player-count"
             className="text-xs text-zinc-500 dark:text-zinc-400"
@@ -128,7 +130,9 @@ export function DrecksauGame(): ReactElement {
 
           <section>
             <h2 className="mb-2 text-sm font-semibold">{UI_TEXTS.yourHand}</h2>
-            <div className="flex flex-wrap gap-2">
+            {/* Never wraps: the hand belongs on one line. Too narrow a window
+                shrinks the cards instead - see HandCardView. */}
+            <div data-testid="hand-row" className="flex gap-2">
               {human.hand.map((card) => (
                 <HandCardView
                   key={card.id}
