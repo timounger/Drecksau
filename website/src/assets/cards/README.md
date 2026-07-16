@@ -20,10 +20,24 @@ Kartentypen ab.
 | `pig-clean.png`     | Sauberschwein          | -              |
 | `pig-dirty.png`     | Drecksau               | -              |
 
+### Erweiterung „Sauschön"
+
+| Datei            | Karte         | Engine-Typ  |
+| ---------------- | ------------- | ----------- |
+| `beauty.png`     | Schönsau      | `beauty`    |
+| `dust-off.png`   | Aus dem Staub | `dustOff`   |
+| `lucky-bird.png` | Glücksvogel   | `luckyBird` |
+
+**Die Schönsau ist quer, nicht hoch.** Sie ist im echten Spiel eine einzige
+Karte, die zwei Rollen hat: Man haelt sie auf der Hand und legt sie dann auf
+ein Schwein. Deshalb liegt sie im Schweine-Format (~8:5) vor und wird an beiden
+Stellen quer angezeigt - eine zweite Datei braucht es nicht.
+
 ## Format
 
 - **PNG** (mit Transparenz) oder **WebP** (deutlich kleiner).
-- Hochkant, Seitenverhaeltnis der echten Karten (ca. 2:3).
+- Aktionskarten **hochkant** (ca. 2:3), Schweinekarten und die Schönsau
+  **quer** (ca. 8:5) - so wie im echten Spiel.
 - Breite **ca. 320-400 px**. Der Build hat keinen Bild-Optimierer
   (`images: { unoptimized: true }`, noetig fuer den statischen Export), es wird
   also genau die abgelegte Datei ausgeliefert. Ein 4000-px-Scan wuerde

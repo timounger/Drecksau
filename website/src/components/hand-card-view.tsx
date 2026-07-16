@@ -7,7 +7,7 @@
 
 import Image from "next/image";
 import type { ReactElement } from "react";
-import { CARD_ASPECT, CARD_IMAGES } from "@/assets/cards/card-images";
+import { CARD_ASPECTS, CARD_IMAGES } from "@/assets/cards/card-images";
 import type { Card } from "@/game/cards";
 import {
   CARD_BLOCKED_HINTS,
@@ -64,16 +64,18 @@ export function HandCardView({
         type="button"
         disabled={!isPlayable || isDisabled}
         onClick={() => onSelect(card.id)}
-        className="flex flex-1 flex-col items-center gap-1 rounded-lg p-1 enabled:cursor-pointer enabled:hover:bg-zinc-50 dark:enabled:hover:bg-zinc-800"
+        // Centred, so the landscape Schönsau does not leave a gap at the
+        // bottom while its portrait neighbours set the card height.
+        className="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-1 enabled:cursor-pointer enabled:hover:bg-zinc-50 dark:enabled:hover:bg-zinc-800"
       >
         {/* Sized by width so the picture shrinks with the card; the height
-            follows from the ratio. At full size that lands just under the
-            native ~190px of the artwork, which keeps it crisp. The files differ
-            a little in ratio, hence the fixed box plus object-contain - it
-            keeps the row even without squashing anyone's artwork. */}
+            follows from the ratio. The files differ a little in ratio, hence
+            the fixed box plus object-contain - it keeps the row even without
+            squashing anyone's artwork. The ratio comes per card because the
+            Schönsau is landscape while everything else is portrait. */}
         <span
           className="relative w-full overflow-hidden rounded-md"
-          style={{ aspectRatio: CARD_ASPECT }}
+          style={{ aspectRatio: CARD_ASPECTS[card.type] }}
         >
           <Image
             src={CARD_IMAGES[card.type]}

@@ -77,6 +77,70 @@ Diese Punkte laesst die Original-Anleitung offen. Die Engine legt fest:
    Das ist eine Kernstrategie: Stall an sauberes Schwein, spaeter Matsch - die
    Drecksau ist sofort regensicher.
 
+## Erweiterung: Sauschön
+
+Optional, in den Einstellungen zuschaltbar (Standard: aus). Quelle: offizielle
+Kosmos-Anleitung (Art.-Nr. 740375, 2016).
+
+> **Namenshinweis:** Die Erweiterung heisst **Sauschön**. Ein Kosmos-Produkt
+> namens "Schau-schön" gibt es nicht.
+
+### Material (32 Karten)
+
+| Karte           | Anzahl | Engine-Typ  |
+| --------------- | ------ | ----------- |
+| Schönsau        | 16     | `beauty`    |
+| Aus-dem-Staub   | 12     | `dustOff`   |
+| Glücksvogel     | 4      | `luckyBird` |
+
+Die Turnier-Marker (3 Pokale, 3 Matscheimer) sind nicht implementiert - sie
+gehoeren zu einer optionalen Turnierwertung ueber mehrere Runden.
+
+### Geaenderter Aufbau
+
+- **Jeder Spieler erhaelt 3 Schweine** - unabhaengig von der Spielerzahl. Das
+  weicht vom Grundspiel (5/4/3) ab und wird leicht uebersehen.
+- Grundspiel- und Erweiterungskarten werden zusammen gemischt: 54 + 32 = 86.
+- Handkarten bleiben 3, Spielerzahl bleibt 2-4.
+
+### Geaenderte Siegbedingung
+
+Es gewinnt, wer zuerst **entweder** nur noch Drecksaeue **oder** nur noch
+Schönsaeue vor sich liegen hat. Eine Mischung gewinnt **nicht**. Man darf das
+Ziel waehrend des Spiels wechseln.
+
+### Kartenwirkungen
+
+| Karte         | Ziel                                        | Wirkung                                                       |
+| ------------- | ------------------------------------------- | ------------------------------------------------------------- |
+| Schönsau      | **jedes** Schwein, eigenes oder fremdes     | wird auf die Schweinekarte **gelegt**; darunter bleibt der bisherige Zustand |
+| Aus-dem-Staub | **jede** ausliegende Schönsau, eigene oder fremde | entfernt die Schönsau; darunter kommt wieder Sauberschwein oder Drecksau zum Vorschein |
+| Glücksvogel   | kein Ziel                                   | der Spieler darf **beide** anderen Handkarten sofort ausspielen, danach zieht er 3 neue |
+
+Weitere Glücksvoegel auf der Hand werden dabei ungenutzt mit abgelegt.
+
+### Zusammenspiel mit dem Grundspiel
+
+- **Regen:** Die Schönsau hat einen Schirm - sie bleibt bei Regen sauschön.
+- **Nur Aus-dem-Staub entfernt eine Schönsau.** Matsch, Regen und
+  Bauer-schrubbt-die-Sau koennen das **nicht**.
+- **Bauer-aergere-dich** kann **nicht** an einen Stall angelegt werden, in dem
+  eine Schönsau steht.
+- Auf eine **Drecksau im vernagelten Stall** kann **keine** Schönsau gelegt
+  werden.
+- Folge daraus: Die "gluecklichste Drecksau" (Stall + Blitzableiter +
+  Bauer-aergere-dich) kann nie mehr sauschön werden. Wer eine hat, **muss** das
+  Spiel ueber Drecksaeue gewinnen.
+
+### Bewusste Festlegung zur Schönsau (in der Anleitung nicht geregelt)
+
+Die Anleitung sagt nur, dass Matsch, Regen und Bauer eine Schönsau nicht
+**entfernen** koennen. Ob man das **verdeckte** Schwein darunter noch
+veraendern darf, laesst sie offen. Die Engine legt fest: **Eine Schönsau
+schirmt das Schwein vollstaendig ab** - Matsch, Regen und Bauer koennen ein
+Schwein mit Schönsau nicht als Ziel waehlen. Das ist die naheliegende Lesart
+und haelt den Zustand unter der Schönsau stabil.
+
 ## Abgrenzung: englische Ausgabe
 
 Die englische Ausgabe ("Dirty Pig") ist erweitert (2-6 Spieler, 12 Staelle,

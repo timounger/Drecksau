@@ -130,25 +130,31 @@ describe("chooseAiMove", () => {
 });
 
 describe("full games between computer players", () => {
-  it("always reach a winner within a sane number of turns", () => {
-    for (let seed = 0; seed < 25; seed++) {
-      let state: GameState = createGame(
-        [
-          { name: "Anna", isHuman: false },
-          { name: "Berta", isHuman: false },
-          { name: "Cleo", isHuman: false },
-        ],
-        seed,
-      );
+  it.each([
+    { label: "Grundspiel", withExpansion: false },
+    { label: "mit Sauschön", withExpansion: true },
+  ])(
+    "always reach a winner within a sane number of turns ($label)",
+    ({ withExpansion }) => {
+      for (let seed = 0; seed < 25; seed++) {
+        let state: GameState = createGame(
+          [
+            { name: "Anna", isHuman: false },
+            { name: "Berta", isHuman: false },
+            { name: "Cleo", isHuman: false },
+          ],
+          { seed, withExpansion },
+        );
 
-      let turns = 0;
-      const maxTurns = 600;
-      while (state.winnerId === null && turns < maxTurns) {
-        state = applyMove(state, chooseAiMove(state));
-        turns++;
+        let turns = 0;
+        const maxTurns = 600;
+        while (state.winnerId === null && turns < maxTurns) {
+          state = applyMove(state, chooseAiMove(state));
+          turns++;
+        }
+
+        expect(state.winnerId).not.toBeNull();
       }
-
-      expect(state.winnerId).not.toBeNull();
-    }
-  });
+    },
+  );
 });

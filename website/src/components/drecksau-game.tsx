@@ -53,7 +53,8 @@ export function DrecksauGame(): ReactElement {
         <div>
           <h1 className="text-2xl font-bold">{UI_TEXTS.appTitle}</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {UI_TEXTS.tagline}
+            {/* The expansion adds a second way to win, so the goal changes. */}
+            {state.hasExpansion ? UI_TEXTS.taglineExpansion : UI_TEXTS.tagline}
           </p>
         </div>
 
@@ -108,6 +109,7 @@ export function DrecksauGame(): ReactElement {
               player={opponent}
               isActive={opponent.id === actor.id}
               targetPigIds={game.targetPigIds}
+              showBeautyCount={state.hasExpansion}
               onSelectPig={game.playAtPig}
             />
           ))}
@@ -116,6 +118,7 @@ export function DrecksauGame(): ReactElement {
             player={human}
             isActive={human.id === actor.id}
             targetPigIds={game.targetPigIds}
+            showBeautyCount={state.hasExpansion}
             onSelectPig={game.playAtPig}
           />
 

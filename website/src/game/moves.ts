@@ -3,11 +3,12 @@
  *
  * @module
  */
-import type { ActionCardType } from "./cards";
+import { UNTARGETED_CARD_TYPES, type ActionCardType } from "./cards";
 import {
   currentPlayer,
   hasBarn,
   hasBarnDoor,
+  hasBeauty,
   hasLightningRod,
   ownerOfPig,
   playerById,
@@ -18,9 +19,6 @@ import {
   type Player,
 } from "./state";
 
-/** Cards that take effect without choosing a pig. */
-const UNTARGETED_CARD_TYPES: readonly ActionCardType[] = ["rain"];
-
 /**
  * Per card type: the pigs it may legally be played at.
  *
@@ -28,17 +26,24 @@ const UNTARGETED_CARD_TYPES: readonly ActionCardType[] = ["rain"];
  * A lookup instead of a long if-else chain, as required by the coding rules.
  * Each entry gets the full state and the acting player and returns the pigs
  * that are valid targets right now.
+ *
+ * The expansion adds one rule that runs through almost every entry: a Schönsau
+ * shields the pig underneath. Mud, rain and the farmer cannot touch it - only
+ * an Aus-dem-Staub takes the Schönsau off again.
  */
 const TARGET_RULES: Readonly<
   Record<ActionCardType, (state: GameState, actor: Player) => PigId[]>
 > = {
-  // Mud turns an own clean pig into a Drecksau - a stall does not prevent it.
-  mud: (state, actor) => pigIdsOf(actor, (pig) => !pig.isDirty),
+  // Mud turns an own clean pig into a Drecksau - a stall does not prevent it,
+  // a Schönsau does.
+  mud: (state, actor) =>
+    pigIdsOf(actor, (pig) => !pig.isDirty && !hasBeauty(pig)),
 
   // Rain hits the whole table, so it has no target pig.
   rain: () => [],
 
-  // A stall goes to any own pig that has none yet.
+  // A stall goes to any own pig that has none yet - a Schönsau may stand in a
+  // stall, so it is no obstacle here.
   barn: (state, actor) => pigIdsOf(actor, (pig) => !hasBarn(pig)),
 
   // Lightning burns down the stall of an opponent, unless a rod protects it.
@@ -54,13 +59,33 @@ const TARGET_RULES: Readonly<
     pigIdsOf(actor, (pig) => hasBarn(pig) && !hasLightningRod(pig)),
 
   // The farmer scrubs a dirty pig of an opponent - a stall does not help,
-  // only a nailed door does.
+  // only a nailed door or a Schönsau does.
   farmerScrubs: (state, actor) =>
-    opponentPigIds(state, actor, (pig) => pig.isDirty && !hasBarnDoor(pig)),
+    opponentPigIds(
+      state,
+      actor,
+      (pig) => pig.isDirty && !hasBarnDoor(pig) && !hasBeauty(pig),
+    ),
 
-  // The door may only be nailed onto an own stall that holds a Drecksau.
+  // The door may only be nailed onto an own stall that holds a Drecksau - and
+  // never onto a stall with a Schönsau in it.
   barnDoor: (state, actor) =>
-    pigIdsOf(actor, (pig) => hasBarn(pig) && pig.isDirty && !hasBarnDoor(pig)),
+    pigIdsOf(
+      actor,
+      (pig) =>
+        hasBarn(pig) && pig.isDirty && !hasBarnDoor(pig) && !hasBeauty(pig),
+    ),
+
+  // A Schönsau goes on any pig on the table, own or not - except a Drecksau
+  // that sits in a nailed stall.
+  beauty: (state) =>
+    allPigIds(state, (pig) => !hasBeauty(pig) && !hasBarnDoor(pig)),
+
+  // Aus-dem-Staub takes any Schönsau off the table again, own or not.
+  dustOff: (state) => allPigIds(state, hasBeauty),
+
+  // The lucky bird lets the player use their other two cards - no target.
+  luckyBird: () => [],
 };
 
 /**
@@ -92,15 +117,14 @@ export function isCardPlayable(
   playerId: PlayerId,
   type: ActionCardType,
 ): boolean {
-  const untargeted = UNTARGETED_CARD_TYPES.includes(type);
-  return untargeted || legalTargets(state, playerId, type).length > 0;
+  return !needsTarget(type) || legalTargets(state, playerId, type).length > 0;
 }
 
 /**
  * Tells whether a card needs a target pig chosen by the player.
  *
  * @param type - the card type to check
- * @returns true for every card except rain
+ * @returns false for rain and the lucky bird, true for the rest
  */
 export function needsTarget(type: ActionCardType): boolean {
   return !UNTARGETED_CARD_TYPES.includes(type);
@@ -115,8 +139,9 @@ export function needsTarget(type: ActionCardType): boolean {
  */
 export function isBlocked(state: GameState, playerId: PlayerId): boolean {
   const player = playerById(state, playerId);
-  return player.hand.every(
-    (card) => !isCardPlayable(state, playerId, card.type),
+  return (
+    state.pendingCardIds.length === 0 &&
+    player.hand.every((card) => !isCardPlayable(state, playerId, card.type))
   );
 }
 
@@ -134,7 +159,7 @@ export function isLegalMove(state: GameState, move: Move): boolean {
   switch (move.kind) {
     case "playCard": {
       const card = actor.hand.find((candidate) => candidate.id === move.cardId);
-      if (card === undefined) {
+      if (card === undefined || !isAllowedNow(state, move.cardId)) {
         legal = false;
       } else if (needsTarget(card.type)) {
         legal =
@@ -146,7 +171,9 @@ export function isLegalMove(state: GameState, move: Move): boolean {
       break;
     }
     case "discardCard":
-      legal = actor.hand.some((candidate) => candidate.id === move.cardId);
+      legal =
+        actor.hand.some((candidate) => candidate.id === move.cardId) &&
+        isAllowedNow(state, move.cardId);
       break;
     case "redrawHand":
       legal = isBlocked(state, actor.id);
@@ -168,7 +195,9 @@ export function legalMoves(state: GameState): Move[] {
   const moves: Move[] = [];
 
   if (state.winnerId === null) {
-    for (const card of actor.hand) {
+    const usable = actor.hand.filter((card) => isAllowedNow(state, card.id));
+
+    for (const card of usable) {
       if (needsTarget(card.type)) {
         for (const targetPigId of legalTargets(state, actor.id, card.type)) {
           moves.push({ kind: "playCard", cardId: card.id, targetPigId });
@@ -178,6 +207,7 @@ export function legalMoves(state: GameState): Move[] {
       }
       moves.push({ kind: "discardCard", cardId: card.id });
     }
+
     if (isBlocked(state, actor.id)) {
       moves.push({ kind: "redrawHand" });
     }
@@ -202,6 +232,19 @@ export function ownsPig(
   return ownerOfPig(state, pigId).id === playerId;
 }
 
+/**
+ * While a Glücksvogel is being resolved only its two cards may be used.
+ *
+ * @param state - the game state
+ * @param cardId - the card the player wants to use
+ * @returns true if the card may be used right now
+ */
+function isAllowedNow(state: GameState, cardId: string): boolean {
+  return (
+    state.pendingCardIds.length === 0 || state.pendingCardIds.includes(cardId)
+  );
+}
+
 /** Ids of the player's own pigs that match a predicate. */
 function pigIdsOf(
   player: Player,
@@ -219,4 +262,12 @@ function opponentPigIds(
   return state.players
     .filter((player) => player.id !== actor.id)
     .flatMap((player) => pigIdsOf(player, predicate));
+}
+
+/** Ids of every pig on the table that matches a predicate. */
+function allPigIds(
+  state: GameState,
+  predicate: (pig: Player["pigs"][number]) => boolean,
+): PigId[] {
+  return state.players.flatMap((player) => pigIdsOf(player, predicate));
 }

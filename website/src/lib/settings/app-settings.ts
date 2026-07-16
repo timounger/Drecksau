@@ -15,6 +15,14 @@ const SETTINGS_KEY = storageKey("settings");
 export type AppSettings = {
   /** Whether the card effects are animated. */
   readonly areAnimationsEnabled: boolean;
+  /**
+   * Whether the Sauschön expansion is part of new games.
+   *
+   * @remarks
+   * Off by default - the base game is what people know. Switching it only
+   * affects the next game, since deck and pig count are dealt at the start.
+   */
+  readonly isExpansionEnabled: boolean;
 };
 
 /**
@@ -49,7 +57,10 @@ export function saveSettings(settings: AppSettings): void {
  * it. They can still switch animations on by hand.
  */
 export function defaultSettings(): AppSettings {
-  return { areAnimationsEnabled: !prefersReducedMotion() };
+  return {
+    areAnimationsEnabled: !prefersReducedMotion(),
+    isExpansionEnabled: false,
+  };
 }
 
 /**
@@ -76,6 +87,7 @@ export function isAppSettings(value: unknown): value is AppSettings {
   return (
     typeof value === "object" &&
     value !== null &&
-    typeof settings.areAnimationsEnabled === "boolean"
+    typeof settings.areAnimationsEnabled === "boolean" &&
+    typeof settings.isExpansionEnabled === "boolean"
   );
 }

@@ -33,6 +33,9 @@ export const EFFECT_DURATIONS_MS: Readonly<Record<ActionCardType, number>> = {
   lightningRod: 1000,
   farmerScrubs: 1200,
   barnDoor: 1100,
+  beauty: 1100,
+  dustOff: 900,
+  luckyBird: 1100,
 };
 
 /** Longest effect - how long the trigger has to keep an effect alive. */
@@ -224,6 +227,40 @@ const EFFECTS: Readonly<Record<ActionCardType, () => ReactElement>> = {
         durationMs={EFFECT_DURATIONS_MS.farmerScrubs}
         className="h-4 w-4 rounded-full border border-white/70 bg-white/50"
       />
+    </>
+  ),
+
+  // The Schönsau: a pink shimmer and sparkles rising.
+  beauty: () => (
+    <>
+      <Tint
+        className="bg-fuchsia-300/25"
+        durationMs={EFFECT_DURATIONS_MS.beauty}
+      />
+      <Symbol durationMs={EFFECT_DURATIONS_MS.beauty}>{"\u{1F484}"}</Symbol>
+      <Rising
+        durationMs={EFFECT_DURATIONS_MS.beauty}
+        className="h-3 w-3 rounded-full bg-fuchsia-400/80"
+      />
+    </>
+  ),
+
+  // Aus dem Staub: the beauty is blown away in a puff of dust.
+  dustOff: () => (
+    <Burst
+      durationMs={EFFECT_DURATIONS_MS.dustOff}
+      className="h-4 w-4 rounded-full bg-zinc-400/70"
+    />
+  ),
+
+  // The lucky bird flies past.
+  luckyBird: () => (
+    <>
+      <Tint
+        className="bg-emerald-200/25"
+        durationMs={EFFECT_DURATIONS_MS.luckyBird}
+      />
+      <Symbol durationMs={EFFECT_DURATIONS_MS.luckyBird}>{"\u{1F426}"}</Symbol>
     </>
   ),
 

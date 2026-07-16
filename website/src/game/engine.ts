@@ -7,10 +7,10 @@ import { isAttachedCard, type ActionCardType, type Card } from "./cards";
 import { isLegalMove } from "./moves";
 import { shuffle, type RandomState } from "./random";
 import {
-  attachedCards,
   currentPlayer,
   handCardById,
   hasBarn,
+  hasBeauty,
   hasWon,
   ownerOfPig,
   HAND_SIZE,
@@ -29,6 +29,8 @@ type EffectResult = {
   readonly releasedCards: readonly Card[];
   /** Log text describing what happened, without the player name. */
   readonly logText: string;
+  /** Cards the player now has to use as well (Glücksvogel). */
+  readonly pendingCardIds?: readonly string[];
 };
 
 /**
@@ -38,6 +40,9 @@ type EffectResult = {
  * @param move - the move of the active player
  * @returns the state after effect, draw and turn change
  * @throws if the move breaks the rules
+ * @remarks
+ * A Glücksvogel keeps the turn open: as long as cards are pending, nothing is
+ * drawn and nobody else gets to move.
  * @example
  * ```ts
  * const next = applyMove(state, { kind: "playCard", cardId: "mud-0", targetPigId: "p0-pig1" });
@@ -49,8 +54,35 @@ export function applyMove(state: GameState, move: Move): GameState {
   }
 
   const afterMove = runMove(state, move);
-  const refilled = refillHand(afterMove);
-  return finishTurn(refilled);
+  let next: GameState;
+
+  if (afterMove.pendingCardIds.length > 0) {
+    // The Glücksvogel is still being resolved - the turn stays with us.
+    next = checkWinner(afterMove);
+  } else {
+    // A Glücksvogel turn ends here if one opened this move or was already
+    // running. Whatever is left in hand then goes unused - see the rulebook.
+    const endsLuckyBird =
+      state.pendingCardIds.length > 0 ||
+      playedCardType(state, move) === "luckyBird";
+    next = finishTurn(refillHand(afterMove, endsLuckyBird));
+  }
+
+  return next;
+}
+
+/** The type of the card a move plays, or null for other moves. */
+function playedCardType(state: GameState, move: Move): ActionCardType | null {
+  let type: ActionCardType | null = null;
+
+  if (move.kind === "playCard") {
+    const card = currentPlayer(state).hand.find(
+      (candidate) => candidate.id === move.cardId,
+    );
+    type = card?.type ?? null;
+  }
+
+  return type;
 }
 
 /** Runs the move itself, without drawing or passing the turn. */
@@ -72,7 +104,7 @@ function runMove(state: GameState, move: Move): GameState {
   return next;
 }
 
-/** Plays a card, resolves its effect and moves it to hand, pig or discard. */
+/** Plays a card, resolves its effect and moves it to the pig or discard. */
 function playCard(
   state: GameState,
   cardId: string,
@@ -94,6 +126,7 @@ function playCard(
         ...discarded,
         ...effect.releasedCards,
       ],
+      pendingCardIds: nextPending(state, cardId, effect.pendingCardIds),
     },
     logLine(actor.name, effect.logText),
   );
@@ -109,8 +142,9 @@ function discardCard(state: GameState, cardId: string): GameState {
       ...state,
       players: withoutHandCard(state.players, actor.id, cardId),
       discardPile: [...state.discardPile, card],
+      pendingCardIds: nextPending(state, cardId, undefined),
     },
-    logLine(actor.name, LOG_TEXTS.discard(cardTypeName(card.type))),
+    logLine(actor.name, LOG_TEXTS.discard(CARD_NAMES[card.type])),
   );
 }
 
@@ -159,7 +193,9 @@ const EFFECTS: Readonly<
 
   rain: (state) => {
     // Every dirty pig without a stall gets washed clean - the own ones too.
-    const isWashed = (pig: Pig) => pig.isDirty && !hasBarn(pig);
+    // A Schönsau carries an umbrella and stays as it is.
+    const isWashed = (pig: Pig) =>
+      pig.isDirty && !hasBarn(pig) && !hasBeauty(pig);
     const cleaned = state.players
       .flatMap((player) => player.pigs)
       .filter(isWashed).length;
@@ -182,8 +218,8 @@ const EFFECTS: Readonly<
   }),
 
   lightning: (state, actor, card, targetPigId) => {
-    // The stall burns down and takes the nailed door with it. Everything that
-    // was attached goes to the discard pile.
+    // The stall burns down and takes the nailed door with it. A Schönsau lies
+    // on the pig, not in the stall, so it survives.
     const victim = ownerOfPig(state, targetPigId!);
     const pig = victim.pigs.find((candidate) => candidate.id === targetPigId)!;
     return {
@@ -193,7 +229,9 @@ const EFFECTS: Readonly<
         lightningRod: null,
         barnDoor: null,
       })),
-      releasedCards: attachedCards(pig),
+      releasedCards: [pig.barn, pig.lightningRod, pig.barnDoor].filter(
+        (attached): attached is Card => attached !== null,
+      ),
       logText: LOG_TEXTS.lightning(victim.name),
     };
   },
@@ -224,6 +262,42 @@ const EFFECTS: Readonly<
     releasedCards: [],
     logText: LOG_TEXTS.barnDoor,
   }),
+
+  // The Schönsau is laid on the pig card - what is underneath stays untouched.
+  beauty: (state, actor, card, targetPigId) => ({
+    players: updatePig(state.players, targetPigId!, (pig) => ({
+      ...pig,
+      beauty: card,
+    })),
+    releasedCards: [],
+    logText: LOG_TEXTS.beauty(ownerOfPig(state, targetPigId!).name),
+  }),
+
+  // Aus-dem-Staub takes the Schönsau off; both cards go to the discard pile
+  // and whatever was hidden underneath shows again.
+  dustOff: (state, actor, card, targetPigId) => {
+    const victim = ownerOfPig(state, targetPigId!);
+    const pig = victim.pigs.find((candidate) => candidate.id === targetPigId)!;
+    return {
+      players: updatePig(state.players, targetPigId!, (target) => ({
+        ...target,
+        beauty: null,
+      })),
+      releasedCards: pig.beauty === null ? [] : [pig.beauty],
+      logText: LOG_TEXTS.dustOff(victim.name, pig.isDirty),
+    };
+  },
+
+  // The lucky bird itself does nothing to the table - it hands the player
+  // their other two cards to use at once.
+  luckyBird: (state, actor, card) => ({
+    players: state.players,
+    releasedCards: [],
+    logText: LOG_TEXTS.luckyBird,
+    pendingCardIds: actor.hand
+      .filter((other) => other.id !== card.id && other.type !== "luckyBird")
+      .map((other) => other.id),
+  }),
 };
 
 /** Dispatches to the effect of the played card. */
@@ -236,9 +310,31 @@ function applyEffect(
   return EFFECTS[card.type](state, actor, card, targetPigId);
 }
 
-/** Draws until the active player holds a full hand again. */
-function refillHand(state: GameState): GameState {
-  let current = state;
+/**
+ * Works out what is still pending after a card was used.
+ *
+ * @remarks
+ * A Glücksvogel opens the list; every card used afterwards takes itself off it
+ * again. Further Glücksvögel are never added - the rules say they are dropped
+ * unused, which happens because they are not in the list and the refill throws
+ * the rest of the hand away.
+ */
+function nextPending(
+  state: GameState,
+  usedCardId: string,
+  opened: readonly string[] | undefined,
+): readonly string[] {
+  return opened ?? state.pendingCardIds.filter((id) => id !== usedCardId);
+}
+
+/**
+ * Draws until the active player holds a full hand again.
+ *
+ * @param state - the state after the move
+ * @param dropRestOfHand - true at the end of a Glücksvogel turn
+ */
+function refillHand(state: GameState, dropRestOfHand: boolean): GameState {
+  let current = dropRestOfHand ? discardRestOfHand(state) : state;
   const actorId = currentPlayer(state).id;
 
   while (
@@ -261,6 +357,31 @@ function refillHand(state: GameState): GameState {
   }
 
   return current;
+}
+
+/**
+ * Throws away what is left in hand, so the refill draws a full three.
+ *
+ * @remarks
+ * Ends a Glücksvogel turn: "Hat der Spieler einen zweiten oder dritten
+ * Glücksvogel auf der Hand, werden diese Karten ungenutzt mit abgelegt.
+ * Danach zieht der Spieler drei neue Karten."
+ */
+function discardRestOfHand(state: GameState): GameState {
+  const actor = currentPlayer(state);
+  let next = state;
+
+  if (actor.hand.length > 0) {
+    next = {
+      ...state,
+      players: state.players.map((player) =>
+        player.id === actor.id ? { ...player, hand: [] } : player,
+      ),
+      discardPile: [...state.discardPile, ...actor.hand],
+    };
+  }
+
+  return next;
 }
 
 /** Takes the top card, reshuffling the discard pile when the deck runs out. */
@@ -301,20 +422,27 @@ function reshuffleDiscard(state: GameState): GameState {
   return next;
 }
 
+/** Checks for a winner without passing the turn on. */
+function checkWinner(state: GameState): GameState {
+  const actor = currentPlayer(state);
+  return hasWon(actor)
+    ? appendLog(
+        { ...state, winnerId: actor.id, pendingCardIds: [] },
+        LOG_TEXTS.win(actor.name),
+      )
+    : state;
+}
+
 /** Checks for a winner and otherwise passes the turn on. */
 function finishTurn(state: GameState): GameState {
-  const actor = currentPlayer(state);
-  let next: GameState;
+  const checked = checkWinner(state);
+  let next = checked;
 
-  if (hasWon(actor)) {
-    next = appendLog(
-      { ...state, winnerId: actor.id },
-      LOG_TEXTS.win(actor.name),
-    );
-  } else {
+  if (checked.winnerId === null) {
     next = {
-      ...state,
-      currentPlayerIndex: (state.currentPlayerIndex + 1) % state.players.length,
+      ...checked,
+      currentPlayerIndex:
+        (checked.currentPlayerIndex + 1) % checked.players.length,
     };
   }
 
@@ -353,9 +481,4 @@ function appendLog(state: GameState, text: string): GameState {
     log: [...state.log, { id: state.nextLogId, text }],
     nextLogId: state.nextLogId + 1,
   };
-}
-
-/** German name of a card type, for the log. */
-function cardTypeName(type: ActionCardType): string {
-  return CARD_NAMES[type];
 }

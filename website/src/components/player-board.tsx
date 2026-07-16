@@ -6,7 +6,7 @@
 "use client";
 
 import type { ReactElement } from "react";
-import type { PigId, Player } from "@/game/state";
+import { hasBeauty, showsDirty, type PigId, type Player } from "@/game/state";
 import { UI_TEXTS } from "@/i18n/translations";
 import { PigView } from "./pig-view";
 
@@ -17,6 +17,8 @@ export type PlayerBoardProps = {
   readonly isActive: boolean;
   /** Pigs the currently selected card may be played at. */
   readonly targetPigIds: readonly PigId[];
+  /** True with the expansion, where Schönsäue are a way to win too. */
+  readonly showBeautyCount: boolean;
   readonly onSelectPig: (pigId: PigId) => void;
 };
 
@@ -30,9 +32,12 @@ export function PlayerBoard({
   player,
   isActive,
   targetPigIds,
+  showBeautyCount,
   onSelectPig,
 }: PlayerBoardProps): ReactElement {
-  const dirtyCount = player.pigs.filter((pig) => pig.isDirty).length;
+  // A pig under a Schönsau is not a Drecksau - hence showsDirty, not isDirty.
+  const dirtyCount = player.pigs.filter(showsDirty).length;
+  const beautyCount = player.pigs.filter(hasBeauty).length;
 
   return (
     <section
@@ -49,6 +54,9 @@ export function PlayerBoard({
         </h2>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">
           {dirtyCount}/{player.pigs.length} {UI_TEXTS.dirtyPig}
+          {/* With the expansion both counts are a way to win, so both show. */}
+          {showBeautyCount &&
+            ` · ${beautyCount}/${player.pigs.length} ${UI_TEXTS.beautyPig}`}
           {!player.isHuman && ` · ${player.hand.length} ${UI_TEXTS.cardsLeft}`}
         </span>
       </header>

@@ -11,13 +11,13 @@ import { createGame } from "./setup";
 import { makeState } from "./test-helpers";
 
 /** A real state, round tripped through JSON like storage would do. */
-function roundTrip(): unknown {
+function roundTrip(withExpansion = false): unknown {
   let state = createGame(
     [
       { name: "Du", isHuman: true },
       { name: "Berta", isHuman: false },
     ],
-    7,
+    { seed: 7, withExpansion },
   );
   for (let i = 0; i < 10 && state.winnerId === null; i++) {
     state = applyMove(state, chooseAiMove(state));
@@ -32,9 +32,13 @@ describe("isGameState", () => {
         { name: "Du", isHuman: true },
         { name: "Berta", isHuman: false },
       ],
-      1,
+      { seed: 1, withExpansion: false },
     );
     expect(isGameState(JSON.parse(JSON.stringify(state)))).toBe(true);
+  });
+
+  it("accepts a game with the expansion", () => {
+    expect(isGameState(roundTrip(true))).toBe(true);
   });
 
   it("accepts a game that has been played for a while", () => {

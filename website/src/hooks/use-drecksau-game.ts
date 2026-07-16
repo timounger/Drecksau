@@ -16,6 +16,7 @@ import { applyMove } from "@/game/engine";
 import { isBlocked, legalTargets, needsTarget } from "@/game/moves";
 import { isGameState } from "@/game/serialization";
 import { createGame, type PlayerSetup } from "@/game/setup";
+import { loadSettings } from "@/lib/settings/app-settings";
 import {
   currentPlayer,
   handCardById,
@@ -101,8 +102,13 @@ export type DrecksauGame = {
  * from {@link INITIAL_SEED} is shown.
  */
 export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
+  // The prerender must not read localStorage, so the very first game is always
+  // the base game; the saved game and the settings arrive on mount.
   const [state, setState] = useState<GameState>(() =>
-    createGame(buildSetups(initialPlayerCount), INITIAL_SEED),
+    createGame(buildSetups(initialPlayerCount), {
+      seed: INITIAL_SEED,
+      withExpansion: false,
+    }),
   );
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [effect, setEffect] = useState<CardEffect | null>(null);
@@ -159,7 +165,19 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
       const saved = loadSession(GAME_ID, isGameState);
 
       if (saved === null) {
-        beginGame(state);
+        // Nothing saved: the prerendered base game only stands if the player
+        // has not switched the expansion on - otherwise deal a proper one.
+        const fresh = loadSettings().isExpansionEnabled
+          ? createGame(buildSetups(initialPlayerCount), {
+              seed: Date.now(),
+              withExpansion: true,
+            })
+          : state;
+        beginGame(fresh);
+        if (fresh !== state) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
+          setState(fresh);
+        }
       } else {
         session.current = {
           startedAt: saved.startedAt,
@@ -167,7 +185,6 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
           isOutcomeRecorded: saved.isOutcomeRecorded,
         };
         activeSince.current = saved.state.winnerId === null ? Date.now() : null;
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
         setState(saved.state);
       }
     }
@@ -216,7 +233,12 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
     (count: number) => {
       setSelectedCardId(null);
       setEffect(null);
-      const next = createGame(buildSetups(count), Date.now());
+      // Read the setting here, not at render: a game keeps the deck it was
+      // dealt with, so switching the expansion only affects the next game.
+      const next = createGame(buildSetups(count), {
+        seed: Date.now(),
+        withExpansion: loadSettings().isExpansionEnabled,
+      });
       beginGame(next);
       setState(next);
     },

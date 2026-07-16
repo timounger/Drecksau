@@ -24,12 +24,19 @@ afterEach(() => vi.unstubAllGlobals());
 describe("defaultSettings", () => {
   it("has animations on - the normal case", () => {
     mockReducedMotion(false);
-    expect(defaultSettings()).toEqual({ areAnimationsEnabled: true });
+    expect(defaultSettings().areAnimationsEnabled).toBe(true);
   });
 
   it("has animations off when the system asks for reduced motion", () => {
     mockReducedMotion(true);
-    expect(defaultSettings()).toEqual({ areAnimationsEnabled: false });
+    expect(defaultSettings().areAnimationsEnabled).toBe(false);
+  });
+
+  it("leaves the expansion off - the base game is what people expect", () => {
+    mockReducedMotion(false);
+    expect(defaultSettings().isExpansionEnabled).toBe(false);
+    mockReducedMotion(true);
+    expect(defaultSettings().isExpansionEnabled).toBe(false);
   });
 });
 
@@ -54,8 +61,12 @@ describe("prefersReducedMotion", () => {
 
 describe("isAppSettings", () => {
   it("accepts real settings", () => {
-    expect(isAppSettings({ areAnimationsEnabled: true })).toBe(true);
-    expect(isAppSettings({ areAnimationsEnabled: false })).toBe(true);
+    expect(
+      isAppSettings({ areAnimationsEnabled: true, isExpansionEnabled: false }),
+    ).toBe(true);
+    expect(
+      isAppSettings({ areAnimationsEnabled: false, isExpansionEnabled: true }),
+    ).toBe(true);
   });
 
   it("rejects anything else", () => {
@@ -63,5 +74,10 @@ describe("isAppSettings", () => {
     expect(isAppSettings({})).toBe(false);
     expect(isAppSettings({ areAnimationsEnabled: "ja" })).toBe(false);
     expect(isAppSettings("an")).toBe(false);
+  });
+
+  it("rejects settings stored before the expansion existed", () => {
+    // Falls back to the defaults instead of running with a missing field.
+    expect(isAppSettings({ areAnimationsEnabled: true })).toBe(false);
   });
 });

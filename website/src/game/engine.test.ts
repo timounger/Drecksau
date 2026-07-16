@@ -311,7 +311,7 @@ describe("draw pile", () => {
         { name: "Du", isHuman: true },
         { name: "Berta", isHuman: false },
       ],
-      2026,
+      { seed: 2026, withExpansion: false },
     );
     const expected = totalCardCount(state);
 

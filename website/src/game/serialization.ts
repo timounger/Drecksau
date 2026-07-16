@@ -9,11 +9,19 @@
  * or a curious user may have left something the engine cannot handle. Nothing
  * enters the engine without passing through here.
  */
-import { DECK_COMPOSITION, type ActionCardType, type Card } from "./cards";
+import {
+  BASE_DECK_COMPOSITION,
+  EXPANSION_DECK_COMPOSITION,
+  type ActionCardType,
+  type Card,
+} from "./cards";
 import type { GameState, LogEntry, Pig, Player } from "./state";
 
-/** The card types the current deck knows. */
-const KNOWN_CARD_TYPES = new Set(Object.keys(DECK_COMPOSITION));
+/** The card types the current version knows, base game and expansion. */
+const KNOWN_CARD_TYPES = new Set([
+  ...Object.keys(BASE_DECK_COMPOSITION),
+  ...Object.keys(EXPANSION_DECK_COMPOSITION),
+]);
 
 /**
  * Checks an unknown value against the shape of a game state.
@@ -39,7 +47,10 @@ export function isGameState(value: unknown): value is GameState {
     isWinnerId(state.winnerId, state.players) &&
     Array.isArray(state.log) &&
     state.log.every(isLogEntry) &&
-    isCount(state.nextLogId)
+    isCount(state.nextLogId) &&
+    Array.isArray(state.pendingCardIds) &&
+    state.pendingCardIds.every(isNonEmptyString) &&
+    typeof state.hasExpansion === "boolean"
   );
 }
 
@@ -68,8 +79,12 @@ function isPig(value: unknown): value is Pig {
     isOptionalCard(pig.barn) &&
     isOptionalCard(pig.lightningRod) &&
     isOptionalCard(pig.barnDoor) &&
+    isOptionalCard(pig.beauty) &&
     // A rod or a door without a stall is a state the rules cannot produce.
-    (pig.barn !== null || (pig.lightningRod === null && pig.barnDoor === null))
+    (pig.barn !== null ||
+      (pig.lightningRod === null && pig.barnDoor === null)) &&
+    // A Schönsau never lies on a pig behind a nailed door.
+    (pig.barnDoor === null || pig.beauty === null)
   );
 }
 

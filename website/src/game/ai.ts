@@ -11,9 +11,11 @@ import {
   handCardById,
   hasBarn,
   hasBarnDoor,
+  hasBeauty,
   hasLightningRod,
   ownerOfPig,
   pigById,
+  showsDirty,
   type GameState,
   type Move,
   type Pig,
@@ -25,8 +27,8 @@ import {
  *
  * @remarks
  * Tuned by hand, not by search. The ordering is what matters: winning beats
- * everything, dirtying an own pig beats attacking, and attacking beats a plain
- * discard.
+ * everything, working on the own goal beats attacking, and attacking beats a
+ * plain discard.
  */
 const SCORES = {
   /** Move that ends the game right now. */
@@ -57,11 +59,24 @@ const SCORES = {
   rainPerOpponentPig: 18,
   /** Loss per own Drecksau that rain washes clean. */
   rainPerOwnPig: 26,
+  /** A Schönsau on an own pig - a step towards the second way to win. */
+  beautyOnOwn: 52,
+  /** A Schönsau on an opponent pig only helps them - avoid. */
+  beautyOnOpponent: 2,
+  /** Taking an opponent's Schönsau off them. */
+  dustOffOpponent: 34,
+  /** Taking an own Schönsau off is usually a step backwards. */
+  dustOffOwn: 3,
+  /** Two cards for one turn is almost always good. */
+  luckyBird: 70,
   /** Getting rid of a useless card. */
   discard: 1,
   /** Swapping a fully blocked hand. */
   redraw: 5,
 } as const;
+
+/** A Drecksau that is safe from every attack counts double in the lead. */
+const SAFE_PIG_VALUE = 2;
 
 /**
  * Picks the move the computer opponent plays.
@@ -121,7 +136,7 @@ export function scoreMove(state: GameState, move: Move): number {
  *
  * @remarks
  * A lookup instead of an if-else chain. The target pig is undefined only for
- * rain, which judges the whole table.
+ * the untargeted cards, which judge the whole table.
  */
 const CARD_SCORES: Readonly<
   Record<
@@ -150,6 +165,21 @@ const CARD_SCORES: Readonly<
     leadOf(ownerOfPig(state, target!.id)) * SCORES.leaderWeight,
 
   barnDoor: () => SCORES.barnDoorOnDirty,
+
+  // A Schönsau on an own pig works towards the beauty win. On an opponent it
+  // would push them towards theirs, so it is nearly worthless.
+  beauty: (state, actor, target) =>
+    isOwnPig(actor, target!) ? SCORES.beautyOnOwn : SCORES.beautyOnOpponent,
+
+  // Wiping an opponent's Schönsau sets them back; wiping an own one is only
+  // useful when going for the mud win.
+  dustOff: (state, actor, target) =>
+    isOwnPig(actor, target!)
+      ? SCORES.dustOffOwn
+      : SCORES.dustOffOpponent +
+        leadOf(ownerOfPig(state, target!.id)) * SCORES.leaderWeight,
+
+  luckyBird: () => SCORES.luckyBird,
 };
 
 /** Scores playing a card, checking for an immediate win first. */
@@ -163,7 +193,7 @@ function scorePlayCard(
   const target = targetPigId === undefined ? null : pigById(state, targetPigId);
   let score: number;
 
-  if (card.type === "mud" && isLastCleanPig(actor, targetPigId!)) {
+  if (isWinningMove(actor, card.type, target)) {
     score = SCORES.win;
   } else {
     score = CARD_SCORES[card.type](state, actor, target);
@@ -173,11 +203,36 @@ function scorePlayCard(
 }
 
 /**
+ * Tells whether this card at this pig ends the game right now.
+ *
+ * @remarks
+ * Two ways to win, so two things to look for: the last clean pig turning to
+ * mud, or the last pig getting its Schönsau.
+ */
+function isWinningMove(
+  actor: Player,
+  type: ActionCardType,
+  target: Pig | null,
+): boolean {
+  let wins = false;
+
+  if (target !== null && isOwnPig(actor, target)) {
+    if (type === "mud") {
+      wins = actor.pigs.every((pig) => showsDirty(pig) || pig.id === target.id);
+    } else if (type === "beauty") {
+      wins = actor.pigs.every((pig) => hasBeauty(pig) || pig.id === target.id);
+    }
+  }
+
+  return wins;
+}
+
+/**
  * Judges rain: worth it only if it hurts the opponents more than the player.
  */
 function scoreRain(state: GameState, actor: Player): number {
   const washed = (player: Player) =>
-    player.pigs.filter((pig) => pig.isDirty && !hasBarn(pig)).length;
+    player.pigs.filter((pig) => showsDirty(pig) && !hasBarn(pig)).length;
 
   const ownLoss = washed(actor) * SCORES.rainPerOwnPig;
   const opponentLoss = state.players
@@ -187,32 +242,34 @@ function scoreRain(state: GameState, actor: Player): number {
   return opponentLoss * SCORES.rainPerOpponentPig - ownLoss;
 }
 
-/** Tells whether dirtying this pig wins the game immediately. */
-function isLastCleanPig(actor: Player, targetPigId: string): boolean {
-  return actor.pigs.every((pig) => pig.isDirty || pig.id === targetPigId);
-}
-
 /**
  * How close a player is to winning, as a share of their pigs.
  *
  * @remarks
- * A Drecksau that is safe from every attack counts double - it cannot be taken
- * away again, so that player is the real threat.
+ * Counts whichever of the two goals they are further along with. A Drecksau
+ * that is safe from every attack counts double - it cannot be taken away
+ * again, so that player is the real threat.
  */
 function leadOf(player: Player): number {
-  const value = player.pigs.reduce((sum, pig) => {
-    let pigValue = 0;
-    if (pig.isDirty) {
-      pigValue = isSafeDirtyPig(pig) ? 2 : 1;
-    }
-    return sum + pigValue;
-  }, 0);
-  return value / (player.pigs.length * 2);
+  const dirtyValue = player.pigs.reduce(
+    (sum, pig) =>
+      sum + (showsDirty(pig) ? (isSafeDirtyPig(pig) ? SAFE_PIG_VALUE : 1) : 0),
+    0,
+  );
+  const beautyValue = player.pigs.filter(hasBeauty).length;
+  return (
+    Math.max(dirtyValue, beautyValue) / (player.pigs.length * SAFE_PIG_VALUE)
+  );
 }
 
 /** Tells whether a Drecksau can no longer be attacked at all. */
 function isSafeDirtyPig(pig: Pig): boolean {
   return (
-    pig.isDirty && hasBarn(pig) && hasLightningRod(pig) && hasBarnDoor(pig)
+    showsDirty(pig) && hasBarn(pig) && hasLightningRod(pig) && hasBarnDoor(pig)
   );
+}
+
+/** Tells whether a pig belongs to the acting player. */
+function isOwnPig(actor: Player, pig: Pig): boolean {
+  return actor.pigs.some((own) => own.id === pig.id);
 }

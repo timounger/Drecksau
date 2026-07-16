@@ -46,23 +46,30 @@ export function SettingsView(): ReactElement {
       </header>
 
       <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
-        <label className="flex cursor-pointer items-start justify-between gap-4">
-          <span>
-            <span className="font-semibold">{SETTINGS_TEXTS.animations}</span>
-            <span className="mt-1 block text-sm text-zinc-500 dark:text-zinc-400">
-              {SETTINGS_TEXTS.animationsHint}
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            data-testid="toggle-animations"
-            checked={settings.areAnimationsEnabled}
-            onChange={(event) =>
-              updateSettings({ areAnimationsEnabled: event.target.checked })
-            }
-            className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-emerald-500"
-          />
-        </label>
+        <Toggle
+          name="expansion"
+          label={SETTINGS_TEXTS.expansion}
+          hint={SETTINGS_TEXTS.expansionHint}
+          checked={settings.isExpansionEnabled}
+          onChange={(checked) =>
+            updateSettings({ ...settings, isExpansionEnabled: checked })
+          }
+        />
+        <p className="mt-3 rounded-lg bg-zinc-100 p-2 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+          {SETTINGS_TEXTS.expansionNotice}
+        </p>
+      </section>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+        <Toggle
+          name="animations"
+          label={SETTINGS_TEXTS.animations}
+          hint={SETTINGS_TEXTS.animationsHint}
+          checked={settings.areAnimationsEnabled}
+          onChange={(checked) =>
+            updateSettings({ ...settings, areAnimationsEnabled: checked })
+          }
+        />
 
         {/* Only shown to people the default actually differs for. */}
         {prefersReducedMotion() && (
@@ -72,5 +79,42 @@ export function SettingsView(): ReactElement {
         )}
       </section>
     </div>
+  );
+}
+
+/** Props of {@link Toggle}. */
+type ToggleProps = {
+  /** Used for the test hook - not shown. */
+  readonly name: string;
+  readonly label: string;
+  readonly hint: string;
+  readonly checked: boolean;
+  readonly onChange: (checked: boolean) => void;
+};
+
+/** One labelled switch with an explanation. */
+function Toggle({
+  name,
+  label,
+  hint,
+  checked,
+  onChange,
+}: ToggleProps): ReactElement {
+  return (
+    <label className="flex cursor-pointer items-start justify-between gap-4">
+      <span>
+        <span className="font-semibold">{label}</span>
+        <span className="mt-1 block text-sm text-zinc-500 dark:text-zinc-400">
+          {hint}
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        data-testid={`toggle-${name}`}
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-emerald-500"
+      />
+    </label>
   );
 }

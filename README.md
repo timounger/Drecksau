@@ -60,6 +60,22 @@ website/src/
   hooks/          Bindeglied zwischen Engine und React
 ```
 
+## Erweiterung „Sauschön“
+
+Unter **Einstellungen** zuschaltbar, standardmaessig **aus** - ohne sie ist es
+das unveraenderte Grundspiel. Sie bringt 32 Karten dazu: 16 Schönsau, 12 Aus
+dem Staub, 4 Glücksvogel.
+
+Zwei Dinge aendern sich dadurch grundlegend:
+
+- **Zwei Wege zu gewinnen:** nur noch Drecksaeue **oder** nur noch Schönsaeue.
+  Eine Mischung gewinnt nicht.
+- **Jeder hat nur 3 Schweine**, unabhaengig von der Spielerzahl (statt 5/4/3).
+
+Die Umschaltung gilt ab dem naechsten Spiel - Deck und Schweinezahl werden beim
+Austeilen festgelegt. Details und Quellen in
+[docs/game-rules.md](docs/game-rules.md).
+
 ## Animationen
 
 Wird eine Karte gespielt - egal von wem - laeuft ein kurzer Effekt ueber den

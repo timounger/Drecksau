@@ -23,7 +23,13 @@ export type PigId = string;
  */
 export type Pig = {
   readonly id: PigId;
-  /** True once the pig has been turned to its Drecksau side. */
+  /**
+   * True once the pig has been turned to its Drecksau side.
+   *
+   * @remarks
+   * Keeps its value while a Schönsau lies on top: taking the Schönsau off
+   * uncovers whatever the pig was before.
+   */
   readonly isDirty: boolean;
   /** A stall protects against rain. */
   readonly barn: Card | null;
@@ -31,6 +37,14 @@ export type Pig = {
   readonly lightningRod: Card | null;
   /** A nailed door blocks the farmer. */
   readonly barnDoor: Card | null;
+  /**
+   * A Schönsau lying on the pig card (expansion only).
+   *
+   * @remarks
+   * Not an attachment like the others but a cover: while it lies there the pig
+   * counts as a Schönsau, no matter what {@link Pig.isDirty} says underneath.
+   */
+  readonly beauty: Card | null;
 };
 
 /** A player with their pigs and hand cards. */
@@ -58,11 +72,22 @@ export type GameState = {
   readonly drawPile: readonly Card[];
   readonly discardPile: readonly Card[];
   readonly random: RandomState;
-  /** Set as soon as somebody has only dirty pigs left. */
+  /** Set as soon as somebody has reached a win condition. */
   readonly winnerId: PlayerId | null;
   readonly log: readonly LogEntry[];
   /** Counter for stable log entry ids. */
   readonly nextLogId: number;
+  /**
+   * Cards the active player still has to use this turn (Glücksvogel).
+   *
+   * @remarks
+   * Empty for a normal turn. A Glücksvogel puts the player's two other hand
+   * cards in here: the turn does not end and no cards are drawn until all of
+   * them are gone.
+   */
+  readonly pendingCardIds: readonly string[];
+  /** True while the expansion is part of this game. */
+  readonly hasExpansion: boolean;
 };
 
 /** A move a player can make on their turn. */
@@ -190,25 +215,55 @@ export function hasBarnDoor(pig: Pig): boolean {
 }
 
 /**
+ * Tells whether a Schönsau lies on the pig (expansion only).
+ *
+ * @param pig - the pig to check
+ * @returns true if a Schönsau covers it
+ */
+export function hasBeauty(pig: Pig): boolean {
+  return pig.beauty !== null;
+}
+
+/**
+ * Tells whether the pig counts as a Drecksau right now.
+ *
+ * @param pig - the pig to check
+ * @returns true if it is dirty and no Schönsau covers it
+ * @remarks
+ * A Drecksau with a Schönsau on it is a Schönsau, not a Drecksau - that is
+ * what makes the two win conditions mutually exclusive.
+ */
+export function showsDirty(pig: Pig): boolean {
+  return pig.isDirty && !hasBeauty(pig);
+}
+
+/**
  * Collects the cards attached to a pig.
  *
  * @param pig - the pig to inspect
- * @returns barn, rod and door cards, if present
+ * @returns barn, rod, door and Schönsau cards, if present
  */
 export function attachedCards(pig: Pig): Card[] {
-  return [pig.barn, pig.lightningRod, pig.barnDoor].filter(
+  return [pig.barn, pig.lightningRod, pig.barnDoor, pig.beauty].filter(
     (card): card is Card => card !== null,
   );
 }
 
 /**
- * Tells whether a player has reached the win condition.
+ * Tells whether a player has reached a win condition.
  *
  * @param player - the player to check
- * @returns true if every pig in front of them is dirty
+ * @returns true if every pig shows a Drecksau, or every pig shows a Schönsau
+ * @remarks
+ * The base game only has the first path - it has no Schönsau cards, so nothing
+ * changes there. With the expansion both count, but a mixture does not: three
+ * Drecksäue win, three Schönsäue win, two and one wins nothing.
  */
 export function hasWon(player: Player): boolean {
-  return player.pigs.every((pig) => pig.isDirty);
+  return (
+    player.pigs.every((pig) => showsDirty(pig)) ||
+    player.pigs.every((pig) => hasBeauty(pig))
+  );
 }
 
 /**

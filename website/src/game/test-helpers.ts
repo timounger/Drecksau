@@ -13,6 +13,8 @@ export type PigSpec = {
   readonly hasBarn?: boolean;
   readonly hasLightningRod?: boolean;
   readonly hasBarnDoor?: boolean;
+  /** A Schönsau lying on the pig (expansion). */
+  readonly hasBeauty?: boolean;
 };
 
 /** Shorthand description of a player in a test scenario. */
@@ -50,6 +52,8 @@ export function makeState(
     readonly drawPile?: readonly ActionCardType[];
     readonly discardPile?: readonly ActionCardType[];
     readonly currentPlayerIndex?: number;
+    readonly pendingCardIds?: readonly string[];
+    readonly hasExpansion?: boolean;
   } = {},
 ): GameState {
   const players = specs.map((spec, playerIndex) =>
@@ -65,6 +69,8 @@ export function makeState(
     winnerId: null,
     log: [],
     nextLogId: 0,
+    pendingCardIds: options.pendingCardIds ?? [],
+    hasExpansion: options.hasExpansion ?? false,
   };
 }
 
@@ -101,7 +107,7 @@ export function totalCardCount(state: GameState): number {
   const onTable = state.players.flatMap((player) => [
     ...player.hand,
     ...player.pigs.flatMap((pig) =>
-      [pig.barn, pig.lightningRod, pig.barnDoor].filter(
+      [pig.barn, pig.lightningRod, pig.barnDoor, pig.beauty].filter(
         (card): card is Card => card !== null,
       ),
     ),
@@ -112,10 +118,11 @@ export function totalCardCount(state: GameState): number {
 /**
  * Builds the full action deck, for tests that need real card counts.
  *
- * @returns all 54 action cards
+ * @param withExpansion - true to include the Sauschön cards
+ * @returns all cards of that deck
  */
-export function fullDeck(): Card[] {
-  return createDeck();
+export function fullDeck(withExpansion = false): Card[] {
+  return createDeck(withExpansion);
 }
 
 /** Builds one player of a scenario. */
@@ -140,5 +147,6 @@ function makePig(spec: PigSpec, playerIndex: number, pigIndex: number): Pig {
     lightningRod:
       spec.hasLightningRod === true ? makeCard("lightningRod") : null,
     barnDoor: spec.hasBarnDoor === true ? makeCard("barnDoor") : null,
+    beauty: spec.hasBeauty === true ? makeCard("beauty") : null,
   };
 }

@@ -14,8 +14,11 @@ const listeners = new Set<() => void>();
 /** Cached snapshot - `useSyncExternalStore` compares by identity. */
 let cache: AppSettings | null = null;
 
-/** What the prerender sees. Animations on, so the markup is the common case. */
-const SERVER_SNAPSHOT: AppSettings = { areAnimationsEnabled: true };
+/** What the prerender sees: the common case - animations on, base game only. */
+const SERVER_SNAPSHOT: AppSettings = {
+  areAnimationsEnabled: true,
+  isExpansionEnabled: false,
+};
 
 /**
  * Subscribes to changes of the settings.

@@ -8,7 +8,13 @@
 import Image from "next/image";
 import type { ReactElement } from "react";
 import { PIG_ASPECT, PIG_IMAGES } from "@/assets/cards/card-images";
-import { hasBarn, hasBarnDoor, hasLightningRod, type Pig } from "@/game/state";
+import {
+  hasBarn,
+  hasBarnDoor,
+  hasBeauty,
+  hasLightningRod,
+  type Pig,
+} from "@/game/state";
 import { CARD_ICONS, UI_TEXTS } from "@/i18n/translations";
 
 /** Props of {@link PigView}. */
@@ -34,7 +40,7 @@ export function PigView({
   isTargetable,
   onSelect,
 }: PigViewProps): ReactElement {
-  const label = pig.isDirty ? UI_TEXTS.dirtyPig : UI_TEXTS.cleanPig;
+  const label = pigLabel(pig);
 
   return (
     <button
@@ -47,23 +53,22 @@ export function PigView({
         // that keeps every player's pigs on one line on a phone as well.
         "relative flex min-w-0 flex-1 shrink flex-col items-center gap-1 p-1.5",
         "max-w-32 rounded-xl border-2 transition",
-        pig.isDirty
-          ? "border-amber-800 bg-amber-100 dark:bg-amber-950/60"
-          : "border-pink-300 bg-pink-50 dark:bg-pink-950/40",
+        borderOf(pig),
         hasBarn(pig) ? "ring-2 ring-amber-500/70" : "",
         isTargetable
           ? "cursor-pointer ring-4 ring-emerald-400 hover:-translate-y-1"
           : "cursor-default",
       ].join(" ")}
     >
-      {/* No caption underneath: the artwork shows clean or dirty at a glance,
-          and the aria-label above carries it for screen readers. */}
+      {/* No caption underneath: the artwork shows the state at a glance, and
+          the aria-label above carries it for screen readers. A Schönsau lies
+          on the pig card, so it simply replaces the picture. */}
       <span
         className="relative w-full overflow-hidden rounded-md"
         style={{ aspectRatio: PIG_ASPECT }}
       >
         <Image
-          src={pig.isDirty ? PIG_IMAGES.dirty : PIG_IMAGES.clean}
+          src={pigImageOf(pig)}
           alt=""
           fill
           sizes="112px"
@@ -85,6 +90,45 @@ export function PigView({
       </span>
     </button>
   );
+}
+
+/** The picture on the pig card - the Schönsau covers whatever is underneath. */
+function pigImageOf(pig: Pig) {
+  let image = PIG_IMAGES.clean;
+
+  if (hasBeauty(pig)) {
+    image = PIG_IMAGES.beauty;
+  } else if (pig.isDirty) {
+    image = PIG_IMAGES.dirty;
+  }
+
+  return image;
+}
+
+/** What the pig is called, for screen readers. */
+function pigLabel(pig: Pig): string {
+  let label: string = UI_TEXTS.cleanPig;
+
+  if (hasBeauty(pig)) {
+    label = UI_TEXTS.beautyPig;
+  } else if (pig.isDirty) {
+    label = UI_TEXTS.dirtyPig;
+  }
+
+  return label;
+}
+
+/** Frame colour: pink clean, brown dirty, violet for a Schönsau. */
+function borderOf(pig: Pig): string {
+  let border = "border-pink-300 bg-pink-50 dark:bg-pink-950/40";
+
+  if (hasBeauty(pig)) {
+    border = "border-fuchsia-400 bg-fuchsia-50 dark:bg-fuchsia-950/40";
+  } else if (pig.isDirty) {
+    border = "border-amber-800 bg-amber-100 dark:bg-amber-950/60";
+  }
+
+  return border;
 }
 
 /** A small icon badge on the corner of a pig card. */

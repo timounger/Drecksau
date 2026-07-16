@@ -14,6 +14,9 @@ export const CARD_NAMES: Readonly<Record<ActionCardType, string>> = {
   lightningRod: "Blitzableiter",
   farmerScrubs: "Bauer schrubbt die Sau",
   barnDoor: "Bauer-ärgere-dich",
+  beauty: "Schönsau",
+  dustOff: "Aus dem Staub",
+  luckyBird: "Glücksvogel",
 };
 
 /** What each card does, shown on the card in the hand. */
@@ -25,6 +28,9 @@ export const CARD_DESCRIPTIONS: Readonly<Record<ActionCardType, string>> = {
   lightningRod: "Macht einen eigenen Stall unzerstörbar.",
   farmerScrubs: "Schrubbt eine fremde Drecksau sauber - auch im Stall.",
   barnDoor: "Vernagelt einen eigenen Stall mit Drecksau gegen den Bauern.",
+  beauty: "Auf ein beliebiges Schwein legen - es wird sauschön.",
+  dustOff: "Entfernt eine beliebige Schönsau wieder.",
+  luckyBird: "Spiel deine beiden anderen Handkarten sofort aus.",
 };
 
 /** Emoji shown on each card - keeps the board readable without artwork. */
@@ -36,6 +42,9 @@ export const CARD_ICONS: Readonly<Record<ActionCardType, string>> = {
   lightningRod: "\u{1F517}",
   farmerScrubs: "\u{1F9FD}",
   barnDoor: "\u{1F528}",
+  beauty: "\u{1F484}",
+  dustOff: "\u{1F4A8}",
+  luckyBird: "\u{1F426}",
 };
 
 /** Why a card cannot be played right now - shown as a hint on the card. */
@@ -47,12 +56,17 @@ export const CARD_BLOCKED_HINTS: Readonly<Record<ActionCardType, string>> = {
   lightningRod: "Du hast keinen Stall ohne Blitzableiter.",
   farmerScrubs: "Keine erreichbare fremde Drecksau.",
   barnDoor: "Du hast keinen Stall mit einer Drecksau darin.",
+  beauty: "Kein Schwein frei für eine Schönsau.",
+  dustOff: "Es liegt keine Schönsau aus.",
+  luckyBird: "",
 };
 
 /** Static texts of the user interface. */
 export const UI_TEXTS = {
   appTitle: "Drecksau",
   tagline: "Wer zuerst nur noch Drecksäue hat, gewinnt.",
+  taglineExpansion:
+    "Wer zuerst nur noch Drecksäue oder nur noch Schönsäue hat, gewinnt.",
   yourTurn: "Du bist dran",
   opponentTurn: "ist am Zug",
   yourHand: "Deine Handkarten",
@@ -69,6 +83,7 @@ export const UI_TEXTS = {
   redrawHint: "Keine deiner Karten ist spielbar.",
   cleanPig: "Sauberschwein",
   dirtyPig: "Drecksau",
+  beautyPig: "Schönsau",
   barnLabel: "Stall",
   rodLabel: "Blitzableiter",
   doorLabel: "vernagelt",
@@ -91,6 +106,10 @@ export const SETTINGS_TEXTS = {
     "Dein System ist auf „Bewegung reduzieren“ gestellt. Deshalb sind Animationen hier standardmäßig aus - du kannst sie aber jederzeit einschalten.",
   on: "An",
   off: "Aus",
+  expansion: "Erweiterung „Sauschön“",
+  expansionHint:
+    "Bringt Schönsau, Aus dem Staub und Glücksvogel ins Spiel. Du gewinnst dann entweder mit lauter Drecksäuen oder mit lauter Schönsäuen. Jeder hat dann 3 Schweine.",
+  expansionNotice: "Gilt ab dem nächsten Spiel.",
 } as const;
 
 /** Texts of the statistics page. */
@@ -163,6 +182,13 @@ export const LOG_TEXTS = {
   farmerScrubs: (victimName: string) =>
     `Der Bauer schrubbt eine Drecksau von ${dativeName(victimName)}.`,
   barnDoor: "vernagelt die Stalltür.",
+  beauty: (ownerName: string) =>
+    `Schönsau! Ein Schwein von ${dativeName(ownerName)} ist jetzt sauschön.`,
+  dustOff: (ownerName: string, wasDirty: boolean) =>
+    `Aus dem Staub! Die Schönsau von ${dativeName(ownerName)} ist weg - darunter ${
+      wasDirty ? "steckte eine Drecksau" : "steckte ein Sauberschwein"
+    }.`,
+  luckyBird: "Glücksvogel! Beide anderen Handkarten dürfen sofort raus.",
   discard: (cardName: string) => `legt ${cardName} ungenutzt ab.`,
   redraw: "ist blockiert und zieht 3 neue Karten.",
   reshuffle: "Der Ablagestapel wird neu gemischt.",
