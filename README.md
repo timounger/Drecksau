@@ -74,6 +74,22 @@ Spielverlauf waere unlesbar.
 Gilt ab dem naechsten Spiel: Die Namen werden beim Austeilen vergeben, und ein
 laufender Spielverlauf soll nicht ruecklaufend andere Namen zeigen.
 
+### Namen der Computergegner
+
+Werden pro Partie aus einem Pool gezogen
+([player-names.ts](website/src/i18n/player-names.ts)) - jedes Spiel ein anderer
+Tisch.
+
+Wichtig dabei: Sie kommen aus dem **Seed der Partie**, nicht aus
+`Math.random()`. Zwei Gruende:
+
+- Das erste Spiel wird beim Build **vorgerendert**. Echter Zufall wuerde im
+  Browser andere Namen erzeugen als im ausgelieferten HTML - Hydration-Fehler.
+- Die Engine ist gesaet: gleicher Seed, gleiche Partie. Darauf bauen die Tests.
+
+Ein Reload zeigt darum denselben Tisch, und der eigene Name faellt vorher aus
+dem Pool.
+
 ## Erweiterung „Sauschön“
 
 Unter **Einstellungen** zuschaltbar, standardmaessig **aus** - ohne sie ist es

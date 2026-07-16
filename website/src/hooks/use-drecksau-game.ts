@@ -31,20 +31,11 @@ import {
   recordGameStarted,
   recordPlayTime,
 } from "@/lib/stats/stats-recorder";
+import { pickOpponentNames } from "@/i18n/player-names";
 import { HUMAN_PLAYER_NAME } from "@/i18n/translations";
 
 /** Which game this hook drives - the key for saved state and statistics. */
 const GAME_ID: GameId = "drecksau";
-
-/**
- * Names of the computer opponents, in seating order.
- *
- * @remarks
- * One more than the three opponents a table can hold: if the player picks one
- * of these as their own name, that one is skipped and the spare takes over -
- * two Bertas in the log would be unreadable.
- */
-const OPPONENT_NAMES = ["Berta", "Cleo", "Doris", "Emma"];
 
 /** Seed of the very first game - fixed so server and client render alike. */
 const INITIAL_SEED = 20260715;
@@ -113,10 +104,10 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
   // the base game under the neutral name; the saved game and the settings
   // arrive on mount.
   const [state, setState] = useState<GameState>(() =>
-    createGame(buildSetups(initialPlayerCount, HUMAN_PLAYER_NAME), {
-      seed: INITIAL_SEED,
-      withExpansion: false,
-    }),
+    createGame(
+      buildSetups(initialPlayerCount, HUMAN_PLAYER_NAME, INITIAL_SEED),
+      { seed: INITIAL_SEED, withExpansion: false },
+    ),
   );
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [effect, setEffect] = useState<CardEffect | null>(null);
@@ -179,10 +170,11 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
         const name = humanName(settings);
         const matchesPrerender =
           !settings.isExpansionEnabled && name === HUMAN_PLAYER_NAME;
+        const seed = Date.now();
         const fresh = matchesPrerender
           ? state
-          : createGame(buildSetups(initialPlayerCount, name), {
-              seed: Date.now(),
+          : createGame(buildSetups(initialPlayerCount, name, seed), {
+              seed,
               withExpansion: settings.isExpansionEnabled,
             });
 
@@ -249,8 +241,9 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
       // Read the settings here, not at render: a game keeps the deck and the
       // names it was dealt with, so changes only affect the next game.
       const settings = loadSettings();
-      const next = createGame(buildSetups(count, humanName(settings)), {
-        seed: Date.now(),
+      const seed = Date.now();
+      const next = createGame(buildSetups(count, humanName(settings), seed), {
+        seed,
         withExpansion: settings.isExpansionEnabled,
       });
       beginGame(next);
@@ -396,12 +389,17 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
  *
  * @param playerCount - how many sit at the table
  * @param humanName - what the human is called, "Du" if they gave no name
+ * @param seed - the game's seed; the opponents' names come out of it
  * @returns the seats, in turn order
  */
-function buildSetups(playerCount: number, humanName: string): PlayerSetup[] {
-  const opponents = OPPONENT_NAMES.filter((name) => name !== humanName)
-    .slice(0, playerCount - 1)
-    .map((name) => ({ name, isHuman: false }));
+function buildSetups(
+  playerCount: number,
+  humanName: string,
+  seed: number,
+): PlayerSetup[] {
+  const opponents = pickOpponentNames(playerCount - 1, humanName, seed).map(
+    (name) => ({ name, isHuman: false }),
+  );
 
   return [{ name: humanName, isHuman: true }, ...opponents];
 }
