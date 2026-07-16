@@ -5,55 +5,86 @@ Grund steht unten.
 
 ## Erwartete Dateien
 
-Die Namen sind kebab-case (Coding-Regeln); der Code bildet sie auf die
-Kartentypen ab.
+Die Namen sind kebab-case (Coding-Regeln); der Code bildet sie in
+[card-images.ts](card-images.ts) auf die Kartentypen ab.
 
-| Datei               | Karte                  | Engine-Typ     |
-| ------------------- | ---------------------- | -------------- |
-| `mud.png`           | Matsch                 | `mud`          |
-| `rain.png`          | Regen                  | `rain`         |
-| `barn.png`          | Stall                  | `barn`         |
-| `lightning.png`     | Blitz                  | `lightning`    |
-| `lightning-rod.png` | Blitzableiter          | `lightningRod` |
-| `farmer-scrubs.png` | Bauer schrubbt die Sau | `farmerScrubs` |
-| `barn-door.png`     | Bauer-ärgere-dich      | `barnDoor`     |
-| `pig-clean.png`     | Sauberschwein          | -              |
-| `pig-dirty.png`     | Drecksau               | -              |
+| Datei                | Karte                  | Engine-Typ     |
+| -------------------- | ---------------------- | -------------- |
+| `mud.webp`           | Matsch                 | `mud`          |
+| `rain.webp`          | Regen                  | `rain`         |
+| `barn.webp`          | Stall                  | `barn`         |
+| `lightning.webp`     | Blitz                  | `lightning`    |
+| `lightning-rod.webp` | Blitzableiter          | `lightningRod` |
+| `farmer-scrubs.webp` | Bauer schrubbt die Sau | `farmerScrubs` |
+| `barn-door.webp`     | Bauer-ärgere-dich      | `barnDoor`     |
+| `pig-clean.webp`     | Sauberschwein          | -              |
+| `pig-dirty.webp`     | Drecksau               | -              |
 
 ### Erweiterung „Sauschön"
 
-| Datei            | Karte         | Engine-Typ  |
-| ---------------- | ------------- | ----------- |
-| `beauty.png`     | Schönsau      | `beauty`    |
-| `dust-off.png`   | Aus dem Staub | `dustOff`   |
-| `lucky-bird.png` | Glücksvogel   | `luckyBird` |
+| Datei             | Karte         | Engine-Typ  |
+| ----------------- | ------------- | ----------- |
+| `beauty.webp`     | Schönsau      | `beauty`    |
+| `dust-off.webp`   | Aus dem Staub | `dustOff`   |
+| `lucky-bird.webp` | Glücksvogel   | `luckyBird` |
 
 **Die Schönsau ist quer, nicht hoch.** Sie ist im echten Spiel eine einzige
-Karte, die zwei Rollen hat: Man haelt sie auf der Hand und legt sie dann auf
-ein Schwein. Deshalb liegt sie im Schweine-Format (~8:5) vor und wird an beiden
-Stellen quer angezeigt - eine zweite Datei braucht es nicht.
+Karte mit zwei Rollen: Man haelt sie auf der Hand und legt sie dann auf ein
+Schwein. Deshalb liegt sie im Schweine-Format vor und wird an beiden Stellen
+quer angezeigt - eine zweite Datei braucht es nicht.
 
 ## Format
 
-- **PNG** (mit Transparenz) oder **WebP** (deutlich kleiner).
-- Aktionskarten **hochkant** (ca. 2:3), Schweinekarten und die Schönsau
-  **quer** (ca. 8:5) - so wie im echten Spiel.
-- Breite **ca. 320-400 px**. Der Build hat keinen Bild-Optimierer
-  (`images: { unoptimized: true }`, noetig fuer den statischen Export), es wird
-  also genau die abgelegte Datei ausgeliefert. Ein 4000-px-Scan wuerde
-  ungenutzt in voller Groesse ueber die Leitung gehen.
-- Alle Karten im gleichen Seitenverhaeltnis, sonst springt das Layout.
+- **WebP.** Gegenueber PNG spart es hier rund **85 Prozent** (1113 KB -> 172 KB)
+  ohne sichtbaren Unterschied. Qualitaet ca. 0.9; darunter drohen Artefakte in
+  den Farbverlaeufen. Alle aktuellen Browser koennen WebP, auch mit Transparenz.
+- **Aktionskarten hochkant**, Seitenverhaeltnis **5:8** - Richtwert
+  **400 x 640 px**.
+- **Schweinekarten und Schönsau quer**, Seitenverhaeltnis **8:5** - Richtwert
+  **640 x 400 px**.
+
+### Warum so gross - die App zeigt sie doch klein?
+
+Die App zeigt die Karten mit hoechstens **100 x 160** (hochkant) bzw.
+**112 x 70** (quer) an; `max-w-32` deckelt sie, auf schmalen Fenstern werden sie
+kleiner. Fuer die reine 1:1-Anzeige wuerde also das Doppelte reichen.
+
+Es zaehlt aber der **Zoom**: Wer im Browser hineinzoomt oder auf dem Handy
+aufzieht, bekommt mehr echte Pixel pro CSS-Pixel - und das Bild soll scharf
+bleiben. Gemessen an `pig-clean` (639 px):
+
+| Zoom | echte Pixel noetig | 639 px reichen? |
+| ---- | ------------------ | --------------- |
+| 1x   | 112                | ja              |
+| 2x   | 224                | ja              |
+| 3x   | 336                | ja              |
+| 5x   | 560                | ja              |
+
+Deshalb ist reichlich Aufloesung hier **richtig**, nicht verschwenderisch. Als
+WebP kostet ein 640-px-Schwein nur rund 15 KB - der Zoom ist das billiger zu
+haben als die Ladezeit teuer.
+
+Die Grenze bleibt die Dateigroesse: Ein Bild-Optimierer existiert nicht
+(`images: { unoptimized: true }`, noetig fuer GitHub Pages), es geht exakt die
+abgelegte Datei ueber die Leitung. Solange die Summe im Bereich von etwa
+150-250 KB bleibt, ist das unauffaellig.
+
+### Seitenverhaeltnis einheitlich halten
+
+Die Bilder werden mit `object-contain` in einen festen Rahmen gezeichnet, nichts
+wird verzerrt. Weicht ein Bild im Verhaeltnis ab, erscheint es dafuer etwas
+kleiner als seine Nachbarn. Einheitliche 5:8 bzw. 8:5 sehen am ruhigsten aus.
 
 ## Warum hier und nicht in `public/`
 
 Bilder werden per **Static Import** eingebunden
-(`import mud from "@/assets/cards/mud.png"`). Das hat vier Vorteile:
+(`import mud from "@/assets/cards/mud.webp"`). Das hat vier Vorteile:
 
 1. **Der `basePath` stimmt automatisch.** Die Seite laeuft auf GitHub Pages
    unter `/Drecksau`. Bei einem Pfad aus `public/` erzeugt `next/image` die URL
-   `/cards/mud.png` - **ohne** Praefix. Lokal geht das, auf GitHub Pages ist es
+   `/cards/mud.webp` - **ohne** Praefix. Lokal geht das, auf GitHub Pages ist es
    ein 404. Beim Static Import wird daraus
-   `/Drecksau/_next/static/media/mud.<hash>.png`. (Steht auch so in der
+   `/Drecksau/_next/static/media/mud.<hash>.webp`. (Steht auch so in der
    Next-Doku: "you will need to add the basePath in front of src".)
 2. **Tippfehler brechen den Build**, statt still ein kaputtes Bild zu zeigen.
 3. **Groesse ist bekannt** - `next/image` setzt width/height selbst, das Layout

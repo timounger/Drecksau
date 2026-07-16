@@ -10,18 +10,18 @@
  */
 import type { StaticImageData } from "next/image";
 import type { ActionCardType } from "@/game/cards";
-import barnDoor from "./barn-door.png";
-import barn from "./barn.png";
-import beauty from "./beauty.png";
-import dustOff from "./dust-off.png";
-import farmerScrubs from "./farmer-scrubs.png";
-import lightningRod from "./lightning-rod.png";
-import lightning from "./lightning.png";
-import luckyBird from "./lucky-bird.png";
-import mud from "./mud.png";
-import pigClean from "./pig-clean.png";
-import pigDirty from "./pig-dirty.png";
-import rain from "./rain.png";
+import barnDoor from "./barn-door.webp";
+import barn from "./barn.webp";
+import beauty from "./beauty.webp";
+import dustOff from "./dust-off.webp";
+import farmerScrubs from "./farmer-scrubs.webp";
+import lightningRod from "./lightning-rod.webp";
+import lightning from "./lightning.webp";
+import luckyBird from "./lucky-bird.webp";
+import mud from "./mud.webp";
+import pigClean from "./pig-clean.webp";
+import pigDirty from "./pig-dirty.webp";
+import rain from "./rain.webp";
 
 /** Artwork of every action card. Portrait, roughly 2:3. */
 export const CARD_IMAGES: Readonly<Record<ActionCardType, StaticImageData>> = {
