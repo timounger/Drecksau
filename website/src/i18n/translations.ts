@@ -114,6 +114,43 @@ export const UI_TEXTS = {
   settings: "Einstellungen",
 } as const;
 
+/** Texts of the online multiplayer mode. */
+export const ONLINE_TEXTS = {
+  title: "Online spielen",
+  subtitle: "Mit Freunden per Raumcode - alle brauchen nur den Link.",
+  backToGame: "Zurück zum Spiel",
+  yourName: "Dein Name",
+  yourNamePlaceholder: "Spieler",
+  createRoom: "Raum erstellen",
+  joinRoom: "Raum beitreten",
+  roomCode: "Raumcode",
+  roomCodePlaceholder: "z. B. ABCD",
+  connecting: "Verbinde ...",
+  waitingForHost: "Warte auf den Gastgeber ...",
+  lobbyTitle: "Lobby",
+  shareHint: "Teile diesen Code oder Link, damit Freunde beitreten können:",
+  copyCode: "Code kopieren",
+  copyLink: "Link kopieren",
+  copied: "Kopiert!",
+  players: "Mitspieler",
+  hostBadge: "Gastgeber",
+  youBadge: "Du",
+  startGame: "Spiel starten",
+  needMorePlayers: "Mindestens 2 Mitspieler nötig.",
+  onlyHostStarts: "Nur der Gastgeber kann das Spiel starten.",
+  withExpansion: "Mit Erweiterung „Sauschön“",
+  withDefense: "Mit „Drecksau total“ (Extra-Matsch & Lippenstift)",
+  yourTurnOnline: "Du bist dran",
+  waitingForPlayer: (name: string) => `${name} ist am Zug ...`,
+  leaveRoom: "Raum verlassen",
+  errorConnect:
+    "Verbindung fehlgeschlagen. Prüfe die Firebase-Einrichtung oder den Raumcode.",
+  errorRoomNotFound:
+    "Kein Raum mit diesem Code gefunden. Stimmt der Code, und läuft der Gastgeber noch?",
+  hostLeftNotice:
+    "Hinweis: Wenn der Gastgeber die Seite schließt, endet die Partie.",
+} as const;
+
 /** Texts of the settings page. */
 export const SETTINGS_TEXTS = {
   title: "Einstellungen",

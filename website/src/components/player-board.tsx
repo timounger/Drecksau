@@ -16,6 +16,16 @@ export type PlayerBoardProps = {
   readonly player: Player;
   /** True while this player is to move. */
   readonly isActive: boolean;
+  /**
+   * Whether this board belongs to the viewer.
+   *
+   * @remarks
+   * Decides between "Deine Schweine" and the player's name, and whether the
+   * hand count is shown (only for others). Defaults to {@link Player.isHuman},
+   * which is right for the single-player game where the one human is the
+   * viewer; online it is set explicitly, since there every seat is human.
+   */
+  readonly isSelf?: boolean;
   /** Pigs the currently selected card may be played at. */
   readonly targetPigIds: readonly PigId[];
   /** True with the expansion, where Schönsäue are a way to win too. */
@@ -34,11 +44,14 @@ export type PlayerBoardProps = {
 export function PlayerBoard({
   player,
   isActive,
+  isSelf,
   targetPigIds,
   showBeautyCount,
   theme,
   onSelectPig,
 }: PlayerBoardProps): ReactElement {
+  // In the single-player game the one human is the viewer; online it is passed.
+  const self = isSelf ?? player.isHuman;
   // A pig under a Schönsau is not a Drecksau - hence showsDirty, not isDirty.
   const dirtyCount = player.pigs.filter(showsDirty).length;
   const beautyCount = player.pigs.filter(hasBeauty).length;
@@ -54,14 +67,14 @@ export function PlayerBoard({
     >
       <header className="mb-2 flex items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">
-          {player.isHuman ? UI_TEXTS.yourPigs : player.name}
+          {self ? UI_TEXTS.yourPigs : player.name}
         </h2>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">
           {dirtyCount}/{player.pigs.length} {UI_TEXTS.dirtyPig}
           {/* With the expansion both counts are a way to win, so both show. */}
           {showBeautyCount &&
             ` · ${beautyCount}/${player.pigs.length} ${UI_TEXTS.beautyPig}`}
-          {!player.isHuman && ` · ${player.hand.length} ${UI_TEXTS.cardsLeft}`}
+          {!self && ` · ${player.hand.length} ${UI_TEXTS.cardsLeft}`}
         </span>
       </header>
 

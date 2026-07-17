@@ -16,7 +16,7 @@ import {
   getSettingsSnapshot,
   subscribeSettings,
 } from "@/lib/settings/settings-store";
-import { CARD_NAMES, UI_TEXTS } from "@/i18n/translations";
+import { CARD_NAMES, ONLINE_TEXTS, UI_TEXTS } from "@/i18n/translations";
 import { ActionEffectOverlay } from "./action-effect-overlay";
 import { GameLog } from "./game-log";
 import { HandCardView } from "./hand-card-view";
@@ -98,6 +98,12 @@ export function DrecksauGame(): ReactElement {
           >
             {UI_TEXTS.newGame}
           </button>
+          <Link
+            href="/online"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {ONLINE_TEXTS.title}
+          </Link>
           <Link
             href="/statistik"
             className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
