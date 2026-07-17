@@ -17,7 +17,8 @@ import {
   subscribeSettings,
   updateSettings,
 } from "@/lib/settings/settings-store";
-import { SETTINGS_TEXTS } from "@/i18n/translations";
+import { CARD_THEMES } from "@/assets/cards/themes";
+import { CARD_THEME_LABELS, SETTINGS_TEXTS } from "@/i18n/translations";
 
 /**
  * Renders the settings page.
@@ -47,6 +48,32 @@ export function SettingsView(): ReactElement {
           {SETTINGS_TEXTS.backToGame}
         </Link>
       </header>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+        <label className="flex cursor-pointer flex-col gap-1">
+          <span className="font-semibold">{SETTINGS_TEXTS.cardTheme}</span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            {SETTINGS_TEXTS.cardThemeHint}
+          </span>
+          <select
+            data-testid="select-card-theme"
+            value={settings.cardTheme}
+            onChange={(event) =>
+              updateSettings({
+                ...settings,
+                cardTheme: event.target.value as (typeof CARD_THEMES)[number],
+              })
+            }
+            className="mt-1 w-56 cursor-pointer rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            {CARD_THEMES.map((theme) => (
+              <option key={theme} value={theme}>
+                {CARD_THEME_LABELS[theme]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
         <label className="flex cursor-text flex-col gap-1">

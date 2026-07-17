@@ -7,7 +7,8 @@
 
 import Image from "next/image";
 import type { ReactElement } from "react";
-import { CARD_ASPECTS, CARD_IMAGES } from "@/assets/cards/card-images";
+import { CARD_ASPECTS, CARD_IMAGES_BY_THEME } from "@/assets/cards/card-images";
+import type { CardTheme } from "@/assets/cards/themes";
 import type { Card } from "@/game/cards";
 import {
   CARD_BLOCKED_HINTS,
@@ -19,6 +20,8 @@ import {
 /** Props of {@link HandCardView}. */
 export type HandCardViewProps = {
   readonly card: Card;
+  /** The card design to draw. */
+  readonly theme: CardTheme;
   /** False when no legal target exists for this card right now. */
   readonly isPlayable: boolean;
   /** True while this card waits for a target. */
@@ -37,6 +40,7 @@ export type HandCardViewProps = {
  */
 export function HandCardView({
   card,
+  theme,
   isPlayable,
   isSelected,
   isDisabled,
@@ -91,7 +95,7 @@ export function HandCardView({
           style={{ aspectRatio: CARD_ASPECTS[card.type] }}
         >
           <Image
-            src={CARD_IMAGES[card.type]}
+            src={CARD_IMAGES_BY_THEME[theme][card.type]}
             alt=""
             fill
             sizes="112px"

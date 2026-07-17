@@ -132,6 +132,16 @@ Aktiv spielen kann man sie nicht - auf der Hand nur ablegen. Warum automatisch
 und nicht auf Nachfrage, steht als bewusste Festlegung in
 [docs/game-rules.md](docs/game-rules.md).
 
+## Kartendesign
+
+Unter **Einstellungen** waehlbar: **Modern** (Standard) oder **Klassisch**. Rein
+visuell, darum wirkt die Umschaltung **sofort** - kein neues Spiel noetig.
+
+Jedes Design ist ein Bildordner
+([website/src/assets/cards/](website/src/assets/cards/)) mit denselben
+Dateinamen. Ein weiteres Design anzulegen heisst: neuer Ordner, ein Eintrag in
+der Theme-Liste und ein Import-Block - siehe die README im Bildordner.
+
 ## Animationen
 
 Wird eine Karte gespielt - egal von wem - laeuft ein kurzer Effekt ueber den

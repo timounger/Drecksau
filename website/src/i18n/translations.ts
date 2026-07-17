@@ -3,6 +3,7 @@
  *
  * @module
  */
+import type { CardTheme } from "@/assets/cards/themes";
 import type { ActionCardType } from "@/game/cards";
 
 /** Short name of each card, as printed on the physical card. */
@@ -131,6 +132,8 @@ export const SETTINGS_TEXTS = {
   defenseCards: "Extra-Matsch & Lippenstift („Drecksau total“)",
   defenseCardsHint:
     "Zwei Verteidigungskarten, die automatisch auslösen: Extra-Matsch rettet eine Drecksau vor Bauer und Regen, Lippenstift eine Schönsau vor Aus dem Staub. Lippenstift nur zusammen mit der Erweiterung.",
+  cardTheme: "Kartendesign",
+  cardThemeHint: "Wählt das Aussehen der Karten. Wirkt sofort.",
   playerName: "Dein Name",
   playerNameHint:
     "Erscheint im Spielverlauf neben den Mitspielern. Leer lassen, dann heißt du einfach „Du“.",
@@ -159,6 +162,12 @@ export const STATS_TEXTS = {
   resetDone: "Zurückgesetzt.",
   noValue: "-",
 } as const;
+
+/** Name of each card design, shown in the settings. */
+export const CARD_THEME_LABELS: Readonly<Record<CardTheme, string>> = {
+  modern: "Modern",
+  klassisch: "Klassisch",
+};
 
 /**
  * Name of the human player.

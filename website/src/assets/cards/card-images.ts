@@ -1,5 +1,5 @@
 /**
- * The artwork of the cards and pigs.
+ * The artwork of the cards and pigs, per design theme.
  *
  * @module
  * @remarks
@@ -7,54 +7,107 @@
  * the `basePath` the site runs under, a wrong file name breaks the build
  * instead of showing a broken image, and `next/image` knows the size without
  * being told. See the README next to this file.
+ *
+ * Every theme is a folder with the same file names, so a new design is a new
+ * folder plus one block of imports here - nothing else changes.
  */
 import type { StaticImageData } from "next/image";
 import type { ActionCardType } from "@/game/cards";
-import barnDoor from "./barn-door.webp";
-import barn from "./barn.webp";
-import beauty from "./beauty.webp";
-import dustOff from "./dust-off.webp";
-import extraMud from "./extra-mud.webp";
-import farmerScrubs from "./farmer-scrubs.webp";
-import lightningRod from "./lightning-rod.webp";
-import lightning from "./lightning.webp";
-import lipstick from "./lipstick.webp";
-import luckyBird from "./lucky-bird.webp";
-import mud from "./mud.webp";
-import pigClean from "./pig-clean.webp";
-import pigDirty from "./pig-dirty.webp";
-import rain from "./rain.webp";
+import type { CardTheme } from "./themes";
 
-/** Artwork of every action card. Portrait, roughly 2:3. */
-export const CARD_IMAGES: Readonly<Record<ActionCardType, StaticImageData>> = {
-  mud,
-  rain,
-  barn,
-  lightning,
-  lightningRod,
-  farmerScrubs,
-  barnDoor,
-  beauty,
-  dustOff,
-  luckyBird,
-  extraMud,
-  lipstick,
+import barnDoorModern from "./modern/barn-door.webp";
+import barnModern from "./modern/barn.webp";
+import beautyModern from "./modern/beauty.webp";
+import dustOffModern from "./modern/dust-off.webp";
+import extraMudModern from "./modern/extra-mud.webp";
+import farmerScrubsModern from "./modern/farmer-scrubs.webp";
+import lightningRodModern from "./modern/lightning-rod.webp";
+import lightningModern from "./modern/lightning.webp";
+import lipstickModern from "./modern/lipstick.webp";
+import luckyBirdModern from "./modern/lucky-bird.webp";
+import mudModern from "./modern/mud.webp";
+import pigCleanModern from "./modern/pig-clean.webp";
+import pigDirtyModern from "./modern/pig-dirty.webp";
+import rainModern from "./modern/rain.webp";
+
+import barnDoorKlassisch from "./klassisch/barn-door.webp";
+import barnKlassisch from "./klassisch/barn.webp";
+import beautyKlassisch from "./klassisch/beauty.webp";
+import dustOffKlassisch from "./klassisch/dust-off.webp";
+import extraMudKlassisch from "./klassisch/extra-mud.webp";
+import farmerScrubsKlassisch from "./klassisch/farmer-scrubs.webp";
+import lightningRodKlassisch from "./klassisch/lightning-rod.webp";
+import lightningKlassisch from "./klassisch/lightning.webp";
+import lipstickKlassisch from "./klassisch/lipstick.webp";
+import luckyBirdKlassisch from "./klassisch/lucky-bird.webp";
+import mudKlassisch from "./klassisch/mud.webp";
+import pigCleanKlassisch from "./klassisch/pig-clean.webp";
+import pigDirtyKlassisch from "./klassisch/pig-dirty.webp";
+import rainKlassisch from "./klassisch/rain.webp";
+
+/** Artwork of every action card in one theme. */
+type CardImageSet = Readonly<Record<ActionCardType, StaticImageData>>;
+
+/** Artwork of the pig sides in one theme. */
+type PigImageSet = Readonly<
+  Record<"clean" | "dirty" | "beauty", StaticImageData>
+>;
+
+const MODERN_CARDS: CardImageSet = {
+  mud: mudModern,
+  rain: rainModern,
+  barn: barnModern,
+  lightning: lightningModern,
+  lightningRod: lightningRodModern,
+  farmerScrubs: farmerScrubsModern,
+  barnDoor: barnDoorModern,
+  beauty: beautyModern,
+  dustOff: dustOffModern,
+  luckyBird: luckyBirdModern,
+  extraMud: extraMudModern,
+  lipstick: lipstickModern,
+};
+
+const KLASSISCH_CARDS: CardImageSet = {
+  mud: mudKlassisch,
+  rain: rainKlassisch,
+  barn: barnKlassisch,
+  lightning: lightningKlassisch,
+  lightningRod: lightningRodKlassisch,
+  farmerScrubs: farmerScrubsKlassisch,
+  barnDoor: barnDoorKlassisch,
+  beauty: beautyKlassisch,
+  dustOff: dustOffKlassisch,
+  luckyBird: luckyBirdKlassisch,
+  extraMud: extraMudKlassisch,
+  lipstick: lipstickKlassisch,
 };
 
 /**
- * Artwork of the pig sides. Landscape, roughly 8:5.
+ * Artwork of every action card, by theme.
  *
  * @remarks
  * The Schönsau is the very same file as the hand card: in the real game it is
  * one landscape card that does both jobs - you hold it, then you lay it on a
  * pig. So it is drawn landscape in both places.
  */
-export const PIG_IMAGES: Readonly<
-  Record<"clean" | "dirty" | "beauty", StaticImageData>
-> = {
-  clean: pigClean,
-  dirty: pigDirty,
-  beauty,
+export const CARD_IMAGES_BY_THEME: Readonly<Record<CardTheme, CardImageSet>> = {
+  modern: MODERN_CARDS,
+  klassisch: KLASSISCH_CARDS,
+};
+
+/** Artwork of the pig sides, by theme. */
+export const PIG_IMAGES_BY_THEME: Readonly<Record<CardTheme, PigImageSet>> = {
+  modern: {
+    clean: pigCleanModern,
+    dirty: pigDirtyModern,
+    beauty: beautyModern,
+  },
+  klassisch: {
+    clean: pigCleanKlassisch,
+    dirty: pigDirtyKlassisch,
+    beauty: beautyKlassisch,
+  },
 };
 
 /**
@@ -74,9 +127,9 @@ export const PIG_ASPECT = "8 / 5";
  * Aspect ratio of each card in the hand.
  *
  * @remarks
- * Almost every card is portrait. The Schönsau is the exception: it is printed
- * landscape because it doubles as the card laid onto a pig, and it is shown
- * that way here too rather than letterboxed into a portrait box.
+ * Theme independent - both designs share the same shapes. Almost every card is
+ * portrait; the Schönsau is landscape because it doubles as the card laid onto
+ * a pig, and it is shown that way here too rather than letterboxed.
  */
 export const CARD_ASPECTS: Readonly<Record<ActionCardType, string>> = {
   mud: CARD_ASPECT,

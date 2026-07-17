@@ -20,6 +20,7 @@ const SERVER_SNAPSHOT: AppSettings = {
   areAnimationsEnabled: true,
   isExpansionEnabled: false,
   areDefenseCardsEnabled: false,
+  cardTheme: "modern",
 };
 
 /**

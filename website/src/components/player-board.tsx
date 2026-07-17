@@ -6,6 +6,7 @@
 "use client";
 
 import type { ReactElement } from "react";
+import type { CardTheme } from "@/assets/cards/themes";
 import { hasBeauty, showsDirty, type PigId, type Player } from "@/game/state";
 import { UI_TEXTS } from "@/i18n/translations";
 import { PigView } from "./pig-view";
@@ -19,6 +20,8 @@ export type PlayerBoardProps = {
   readonly targetPigIds: readonly PigId[];
   /** True with the expansion, where Schönsäue are a way to win too. */
   readonly showBeautyCount: boolean;
+  /** The card design to draw. */
+  readonly theme: CardTheme;
   readonly onSelectPig: (pigId: PigId) => void;
 };
 
@@ -33,6 +36,7 @@ export function PlayerBoard({
   isActive,
   targetPigIds,
   showBeautyCount,
+  theme,
   onSelectPig,
 }: PlayerBoardProps): ReactElement {
   // A pig under a Schönsau is not a Drecksau - hence showsDirty, not isDirty.
@@ -68,6 +72,7 @@ export function PlayerBoard({
           <PigView
             key={pig.id}
             pig={pig}
+            theme={theme}
             isTargetable={targetPigIds.includes(pig.id)}
             onSelect={onSelectPig}
           />

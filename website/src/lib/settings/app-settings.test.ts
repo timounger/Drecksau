@@ -47,6 +47,11 @@ describe("defaultSettings", () => {
     expect(defaultSettings().playerName).toBe("");
     expect(humanName(defaultSettings())).toBe("Du");
   });
+
+  it("starts on the Modern card design", () => {
+    mockReducedMotion(false);
+    expect(defaultSettings().cardTheme).toBe("modern");
+  });
 });
 
 describe("prefersReducedMotion", () => {
@@ -74,11 +79,18 @@ describe("isAppSettings", () => {
     areAnimationsEnabled: true,
     isExpansionEnabled: false,
     areDefenseCardsEnabled: false,
+    cardTheme: "modern",
   };
 
   it("accepts real settings", () => {
     expect(isAppSettings(valid)).toBe(true);
     expect(isAppSettings({ ...valid, playerName: "" })).toBe(true);
+    expect(isAppSettings({ ...valid, cardTheme: "klassisch" })).toBe(true);
+  });
+
+  it("rejects an unknown card theme", () => {
+    expect(isAppSettings({ ...valid, cardTheme: "neon" })).toBe(false);
+    expect(isAppSettings({ ...valid, cardTheme: 7 })).toBe(false);
   });
 
   it("rejects anything else", () => {
@@ -108,6 +120,7 @@ describe("humanName", () => {
     areAnimationsEnabled: true,
     isExpansionEnabled: false,
     areDefenseCardsEnabled: false,
+    cardTheme: "modern" as const,
   };
 
   it("uses the chosen name", () => {

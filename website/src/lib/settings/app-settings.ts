@@ -3,6 +3,11 @@
  *
  * @module
  */
+import {
+  DEFAULT_CARD_THEME,
+  isCardTheme,
+  type CardTheme,
+} from "@/assets/cards/themes";
 import { HUMAN_PLAYER_NAME as DEFAULT_HUMAN_NAME } from "@/i18n/translations";
 import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 
@@ -43,6 +48,13 @@ export type AppSettings = {
    * Off by default.
    */
   readonly areDefenseCardsEnabled: boolean;
+  /**
+   * Which card design is shown.
+   *
+   * @remarks
+   * Purely visual, so it takes effect at once - no need to start a new game.
+   */
+  readonly cardTheme: CardTheme;
 };
 
 /**
@@ -82,6 +94,7 @@ export function defaultSettings(): AppSettings {
     areAnimationsEnabled: !prefersReducedMotion(),
     isExpansionEnabled: false,
     areDefenseCardsEnabled: false,
+    cardTheme: DEFAULT_CARD_THEME,
   };
 }
 
@@ -128,6 +141,7 @@ export function isAppSettings(value: unknown): value is AppSettings {
     settings.playerName.length <= MAX_PLAYER_NAME_LENGTH &&
     typeof settings.areAnimationsEnabled === "boolean" &&
     typeof settings.isExpansionEnabled === "boolean" &&
-    typeof settings.areDefenseCardsEnabled === "boolean"
+    typeof settings.areDefenseCardsEnabled === "boolean" &&
+    isCardTheme(settings.cardTheme)
   );
 }

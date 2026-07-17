@@ -7,7 +7,8 @@
 
 import Image from "next/image";
 import type { ReactElement } from "react";
-import { PIG_ASPECT, PIG_IMAGES } from "@/assets/cards/card-images";
+import { PIG_ASPECT, PIG_IMAGES_BY_THEME } from "@/assets/cards/card-images";
+import type { CardTheme } from "@/assets/cards/themes";
 import {
   hasBarn,
   hasBarnDoor,
@@ -20,6 +21,8 @@ import { CARD_ICONS, UI_TEXTS } from "@/i18n/translations";
 /** Props of {@link PigView}. */
 export type PigViewProps = {
   readonly pig: Pig;
+  /** The card design to draw. */
+  readonly theme: CardTheme;
   /** True while the selected card may be played at this pig. */
   readonly isTargetable: boolean;
   /** Called when the player clicks a targetable pig. */
@@ -37,6 +40,7 @@ export type PigViewProps = {
  */
 export function PigView({
   pig,
+  theme,
   isTargetable,
   onSelect,
 }: PigViewProps): ReactElement {
@@ -68,7 +72,7 @@ export function PigView({
         style={{ aspectRatio: PIG_ASPECT }}
       >
         <Image
-          src={pigImageOf(pig)}
+          src={pigImageOf(pig, theme)}
           alt=""
           fill
           sizes="112px"
@@ -93,13 +97,14 @@ export function PigView({
 }
 
 /** The picture on the pig card - the Schönsau covers whatever is underneath. */
-function pigImageOf(pig: Pig) {
-  let image = PIG_IMAGES.clean;
+function pigImageOf(pig: Pig, theme: CardTheme) {
+  const images = PIG_IMAGES_BY_THEME[theme];
+  let image = images.clean;
 
   if (hasBeauty(pig)) {
-    image = PIG_IMAGES.beauty;
+    image = images.beauty;
   } else if (pig.isDirty) {
-    image = PIG_IMAGES.dirty;
+    image = images.dirty;
   }
 
   return image;

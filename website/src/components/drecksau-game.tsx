@@ -6,11 +6,16 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactElement } from "react";
+import { useSyncExternalStore, type ReactElement } from "react";
 import { isCardPlayable } from "@/game/moves";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/game/setup";
 import { currentPlayer, playerById } from "@/game/state";
 import { useDrecksauGame } from "@/hooks/use-drecksau-game";
+import {
+  getServerSettingsSnapshot,
+  getSettingsSnapshot,
+  subscribeSettings,
+} from "@/lib/settings/settings-store";
 import { CARD_NAMES, UI_TEXTS } from "@/i18n/translations";
 import { ActionEffectOverlay } from "./action-effect-overlay";
 import { GameLog } from "./game-log";
@@ -34,6 +39,13 @@ const DEFAULT_PLAYER_COUNT = 3;
 export function DrecksauGame(): ReactElement {
   const game = useDrecksauGame(DEFAULT_PLAYER_COUNT);
   const { state } = game;
+
+  // The card design is a live visual setting - switching it redraws at once.
+  const theme = useSyncExternalStore(
+    subscribeSettings,
+    getSettingsSnapshot,
+    getServerSettingsSnapshot,
+  ).cardTheme;
 
   const human = state.players[0];
   const opponents = state.players.slice(1);
@@ -110,6 +122,7 @@ export function DrecksauGame(): ReactElement {
               isActive={opponent.id === actor.id}
               targetPigIds={game.targetPigIds}
               showBeautyCount={state.hasExpansion}
+              theme={theme}
               onSelectPig={game.playAtPig}
             />
           ))}
@@ -119,6 +132,7 @@ export function DrecksauGame(): ReactElement {
             isActive={human.id === actor.id}
             targetPigIds={game.targetPigIds}
             showBeautyCount={state.hasExpansion}
+            theme={theme}
             onSelectPig={game.playAtPig}
           />
 
@@ -142,6 +156,7 @@ export function DrecksauGame(): ReactElement {
                 <HandCardView
                   key={card.id}
                   card={card}
+                  theme={theme}
                   isPlayable={isCardPlayable(state, human.id, card.type)}
                   isSelected={card.id === game.selectedCardId}
                   isDisabled={!game.isHumanTurn}

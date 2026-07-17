@@ -3,7 +3,24 @@
 Hier liegen die Bilder der Spielkarten. **Nicht** nach `public/` legen - der
 Grund steht unten.
 
-## Erwartete Dateien
+## Themes: ein Ordner pro Design
+
+Jedes Kartendesign ist ein **Unterordner** mit denselben Dateinamen:
+
+```text
+modern/     das Standard-Design
+klassisch/  das klassische Design
+```
+
+In den Einstellungen waehlt man zwischen ihnen; die Umschaltung wirkt sofort.
+Ein neues Design = neuer Ordner mit denselben Dateinamen plus ein Import-Block in
+[card-images.ts](card-images.ts).
+
+Beide Ordner brauchen **jeweils alle** unten gelisteten Dateien - fehlt eine,
+bricht der Build (Static Import, siehe unten). Der Ordner `klassisch/` enthaelt
+aktuell nur Platzhalter; ersetze sie durch die echten Bilder.
+
+## Erwartete Dateien (in jedem Theme-Ordner)
 
 Die Namen sind kebab-case (Coding-Regeln); der Code bildet sie in
 [card-images.ts](card-images.ts) auf die Kartentypen ab.
@@ -87,7 +104,7 @@ kleiner als seine Nachbarn. Einheitliche 5:8 bzw. 8:5 sehen am ruhigsten aus.
 ## Warum hier und nicht in `public/`
 
 Bilder werden per **Static Import** eingebunden
-(`import mud from "@/assets/cards/mud.webp"`). Das hat vier Vorteile:
+(`import mud from "@/assets/cards/modern/mud.webp"`). Das hat vier Vorteile:
 
 1. **Der `basePath` stimmt automatisch.** Die Seite laeuft auf GitHub Pages
    unter `/Drecksau`. Bei einem Pfad aus `public/` erzeugt `next/image` die URL
