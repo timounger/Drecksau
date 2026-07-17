@@ -18,7 +18,12 @@ import {
   updateSettings,
 } from "@/lib/settings/settings-store";
 import { CARD_THEMES } from "@/assets/cards/themes";
-import { CARD_THEME_LABELS, SETTINGS_TEXTS } from "@/i18n/translations";
+import { DIFFICULTIES } from "@/game/difficulty";
+import {
+  CARD_THEME_LABELS,
+  DIFFICULTY_LABELS,
+  SETTINGS_TEXTS,
+} from "@/i18n/translations";
 
 /**
  * Renders the settings page.
@@ -51,6 +56,30 @@ export function SettingsView(): ReactElement {
 
       <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
         <label className="flex cursor-pointer flex-col gap-1">
+          <span className="font-semibold">{SETTINGS_TEXTS.difficulty}</span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            {SETTINGS_TEXTS.difficultyHint}
+          </span>
+          <select
+            data-testid="select-difficulty"
+            value={settings.difficulty}
+            onChange={(event) =>
+              updateSettings({
+                ...settings,
+                difficulty: event.target.value as (typeof DIFFICULTIES)[number],
+              })
+            }
+            className="mt-1 w-56 cursor-pointer rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            {DIFFICULTIES.map((level) => (
+              <option key={level} value={level}>
+                {DIFFICULTY_LABELS[level]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="mt-4 flex cursor-pointer flex-col gap-1 border-t border-zinc-200 pt-4 dark:border-zinc-800">
           <span className="font-semibold">{SETTINGS_TEXTS.cardTheme}</span>
           <span className="text-sm text-zinc-500 dark:text-zinc-400">
             {SETTINGS_TEXTS.cardThemeHint}

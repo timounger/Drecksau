@@ -15,7 +15,7 @@ import { chooseAiMove } from "@/game/ai";
 import { applyMove } from "@/game/engine";
 import { isBlocked, legalTargets, needsTarget } from "@/game/moves";
 import { isGameState } from "@/game/serialization";
-import { createGame, type PlayerSetup } from "@/game/setup";
+import { createGame, pickFirstPlayer, type PlayerSetup } from "@/game/setup";
 import { humanName, loadSettings } from "@/lib/settings/app-settings";
 import {
   currentPlayer,
@@ -164,28 +164,28 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
       const saved = loadSession(GAME_ID, isGameState);
 
       if (saved === null) {
-        // Nothing saved: the prerendered game only stands if it matches the
-        // settings. A chosen name or the expansion means dealing a proper one.
+        // Nothing saved: deal a real game from the settings. This happens in
+        // an effect, after the first render already matched the prerendered
+        // placeholder, so replacing it here does not break hydration.
         const settings = loadSettings();
-        const name = humanName(settings);
-        const matchesPrerender =
-          !settings.isExpansionEnabled &&
-          !settings.areDefenseCardsEnabled &&
-          name === HUMAN_PLAYER_NAME;
         const seed = Date.now();
-        const fresh = matchesPrerender
-          ? state
-          : createGame(buildSetups(initialPlayerCount, name, seed), {
+        const fresh = createGame(
+          buildSetups(initialPlayerCount, humanName(settings), seed),
+          {
+            seed,
+            withExpansion: settings.isExpansionEnabled,
+            withDefense: settings.areDefenseCardsEnabled,
+            firstPlayerIndex: pickFirstPlayer(
+              initialPlayerCount,
+              settings.difficulty,
               seed,
-              withExpansion: settings.isExpansionEnabled,
-              withDefense: settings.areDefenseCardsEnabled,
-            });
+            ),
+          },
+        );
 
         beginGame(fresh);
-        if (fresh !== state) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
-          setState(fresh);
-        }
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
+        setState(fresh);
       } else {
         session.current = {
           startedAt: saved.startedAt,
@@ -249,6 +249,7 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
         seed,
         withExpansion: settings.isExpansionEnabled,
         withDefense: settings.areDefenseCardsEnabled,
+        firstPlayerIndex: pickFirstPlayer(count, settings.difficulty, seed),
       });
       beginGame(next);
       setState(next);
@@ -330,7 +331,8 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
       timer = setTimeout(() => {
         // Pick the move out here: the animation has to be announced before the
         // state changes, and a state updater must stay free of side effects.
-        const move = chooseAiMove(state);
+        // The difficulty is read live, so a change applies to this game too.
+        const move = chooseAiMove(state, loadSettings().difficulty);
         triggerEffect(state, move);
         setState((current) =>
           // Skip if a new game replaced the state while we were waiting.

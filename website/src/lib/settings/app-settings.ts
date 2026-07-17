@@ -8,6 +8,11 @@ import {
   isCardTheme,
   type CardTheme,
 } from "@/assets/cards/themes";
+import {
+  DEFAULT_DIFFICULTY,
+  isDifficulty,
+  type Difficulty,
+} from "@/game/difficulty";
 import { HUMAN_PLAYER_NAME as DEFAULT_HUMAN_NAME } from "@/i18n/translations";
 import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 
@@ -55,6 +60,13 @@ export type AppSettings = {
    * Purely visual, so it takes effect at once - no need to start a new game.
    */
   readonly cardTheme: CardTheme;
+  /**
+   * How hard the computer opponents play.
+   *
+   * @remarks
+   * Applies to the AI at once, and decides who starts the next game.
+   */
+  readonly difficulty: Difficulty;
 };
 
 /**
@@ -95,6 +107,7 @@ export function defaultSettings(): AppSettings {
     isExpansionEnabled: false,
     areDefenseCardsEnabled: false,
     cardTheme: DEFAULT_CARD_THEME,
+    difficulty: DEFAULT_DIFFICULTY,
   };
 }
 
@@ -142,6 +155,7 @@ export function isAppSettings(value: unknown): value is AppSettings {
     typeof settings.areAnimationsEnabled === "boolean" &&
     typeof settings.isExpansionEnabled === "boolean" &&
     typeof settings.areDefenseCardsEnabled === "boolean" &&
-    isCardTheme(settings.cardTheme)
+    isCardTheme(settings.cardTheme) &&
+    isDifficulty(settings.difficulty)
   );
 }

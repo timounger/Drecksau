@@ -21,6 +21,7 @@ const SERVER_SNAPSHOT: AppSettings = {
   isExpansionEnabled: false,
   areDefenseCardsEnabled: false,
   cardTheme: "modern",
+  difficulty: "mittel",
 };
 
 /**

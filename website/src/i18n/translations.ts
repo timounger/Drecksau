@@ -5,6 +5,7 @@
  */
 import type { CardTheme } from "@/assets/cards/themes";
 import type { ActionCardType } from "@/game/cards";
+import type { Difficulty } from "@/game/difficulty";
 
 /** Short name of each card, as printed on the physical card. */
 export const CARD_NAMES: Readonly<Record<ActionCardType, string>> = {
@@ -134,6 +135,9 @@ export const SETTINGS_TEXTS = {
     "Zwei Verteidigungskarten, die automatisch auslösen: Extra-Matsch rettet eine Drecksau vor Bauer und Regen, Lippenstift eine Schönsau vor Aus dem Staub. Lippenstift nur zusammen mit der Erweiterung.",
   cardTheme: "Kartendesign",
   cardThemeHint: "Wählt das Aussehen der Karten. Wirkt sofort.",
+  difficulty: "Schwierigkeit",
+  difficultyHint:
+    "Wie stark die Computergegner spielen. Sie sehen nie deine Handkarten. Gilt ab dem nächsten Spiel.",
   playerName: "Dein Name",
   playerNameHint:
     "Erscheint im Spielverlauf neben den Mitspielern. Leer lassen, dann heißt du einfach „Du“.",
@@ -167,6 +171,13 @@ export const STATS_TEXTS = {
 export const CARD_THEME_LABELS: Readonly<Record<CardTheme, string>> = {
   modern: "Modern",
   klassisch: "Klassisch",
+};
+
+/** Name of each difficulty level, shown in the settings. */
+export const DIFFICULTY_LABELS: Readonly<Record<Difficulty, string>> = {
+  leicht: "Leicht",
+  mittel: "Mittel",
+  schwer: "Schwer",
 };
 
 /**

@@ -52,6 +52,11 @@ describe("defaultSettings", () => {
     mockReducedMotion(false);
     expect(defaultSettings().cardTheme).toBe("modern");
   });
+
+  it("starts on the Mittel difficulty", () => {
+    mockReducedMotion(false);
+    expect(defaultSettings().difficulty).toBe("mittel");
+  });
 });
 
 describe("prefersReducedMotion", () => {
@@ -80,6 +85,7 @@ describe("isAppSettings", () => {
     isExpansionEnabled: false,
     areDefenseCardsEnabled: false,
     cardTheme: "modern",
+    difficulty: "mittel",
   };
 
   it("accepts real settings", () => {
@@ -91,6 +97,11 @@ describe("isAppSettings", () => {
   it("rejects an unknown card theme", () => {
     expect(isAppSettings({ ...valid, cardTheme: "neon" })).toBe(false);
     expect(isAppSettings({ ...valid, cardTheme: 7 })).toBe(false);
+  });
+
+  it("rejects an unknown difficulty", () => {
+    expect(isAppSettings({ ...valid, difficulty: "unmoeglich" })).toBe(false);
+    expect(isAppSettings({ ...valid, difficulty: null })).toBe(false);
   });
 
   it("rejects anything else", () => {
@@ -121,6 +132,7 @@ describe("humanName", () => {
     isExpansionEnabled: false,
     areDefenseCardsEnabled: false,
     cardTheme: "modern" as const,
+    difficulty: "mittel" as const,
   };
 
   it("uses the chosen name", () => {

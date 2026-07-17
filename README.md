@@ -132,6 +132,24 @@ Aktiv spielen kann man sie nicht - auf der Hand nur ablegen. Warum automatisch
 und nicht auf Nachfrage, steht als bewusste Festlegung in
 [docs/game-rules.md](docs/game-rules.md).
 
+## Schwierigkeit
+
+Unter **Einstellungen** waehlbar: **Leicht**, **Mittel** (Standard) oder
+**Schwer**. Auf keiner Stufe schaut der Gegner in deine Handkarten - schwerer
+heisst cleverer, nicht unfairer. Der Code steht in
+[ai.ts](website/src/game/ai.ts).
+
+- **Leicht:** spielt meist zufaellig (nimmt aber einen sofortigen Sieg mit).
+  **Du faengst immer an.**
+- **Mittel:** die Heuristik - bester Zug pro Runde, zielt schon leicht auf den
+  Fuehrenden. Zufaelliger Startspieler.
+- **Schwer:** die Heuristik **plus ein Zug Vorausschau** - steht ein Gegner
+  einen Zug vor dem Sieg, wird er bevorzugt zurueckgesetzt. Zufaelliger
+  Startspieler.
+
+Die Stufe wirkt sofort auf die KI; der Startspieler wird beim Austeilen des
+naechsten Spiels festgelegt.
+
 ## Kartendesign
 
 Unter **Einstellungen** waehlbar: **Modern** (Standard) oder **Klassisch**. Rein

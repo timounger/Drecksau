@@ -4,6 +4,8 @@
  * @module
  */
 import type { ActionCardType } from "./cards";
+import { DEFAULT_DIFFICULTY, type Difficulty } from "./difficulty";
+import { applyMove } from "./engine";
 import { legalMoves } from "./moves";
 import { pickRandom } from "./random";
 import {
@@ -79,23 +81,57 @@ const SCORES = {
 const SAFE_PIG_VALUE = 2;
 
 /**
+ * Bonus on "schwer" for a move that pushes a near-winning opponent back.
+ *
+ * @remarks
+ * Bigger than any ordinary move (~50) so blocking wins over own progress, but
+ * below {@link SCORES.win} so finishing the game still comes first.
+ */
+const BLOCK_BONUS = 200;
+
+/** An opponent this many pigs from a win counts as an imminent threat. */
+const IMMINENT_STEPS = 1;
+
+/**
  * Picks the move the computer opponent plays.
  *
  * @param state - the game state, with a computer player to move
+ * @param difficulty - how hard to play; defaults to the middle level
  * @returns the chosen move
  * @throws if no legal move exists, e.g. because the game is already over
+ * @remarks
+ * No level ever looks at the opponents' hands - only the board and the AI's
+ * own hand. "leicht" plays at random, "mittel" the plain heuristic, "schwer"
+ * the heuristic plus a one-move block of an opponent about to win.
  * @example
  * ```ts
- * const state = applyMove(current, chooseAiMove(current));
+ * const state = applyMove(current, chooseAiMove(current, "schwer"));
  * ```
  */
-export function chooseAiMove(state: GameState): Move {
+export function chooseAiMove(
+  state: GameState,
+  difficulty: Difficulty = DEFAULT_DIFFICULTY,
+): Move {
   const moves = legalMoves(state);
   if (moves.length === 0) {
     throw new Error("no legal move available");
   }
 
-  const scored = moves.map((move) => ({ move, score: scoreMove(state, move) }));
+  // Every level takes a move that wins the game right now.
+  const winning = moves.filter((move) => scoreMove(state, move) >= SCORES.win);
+  if (winning.length > 0) {
+    return pickRandom(winning, state.random).item;
+  }
+
+  // "leicht" otherwise just plays something - that is what makes it easy.
+  if (difficulty === "leicht") {
+    return pickRandom(moves, state.random).item;
+  }
+
+  const scored = moves.map((move) => ({
+    move,
+    score: rankedScore(state, move, difficulty),
+  }));
   const best = Math.max(...scored.map((entry) => entry.score));
   const bestMoves = scored
     .filter((entry) => entry.score === best)
@@ -129,6 +165,66 @@ export function scoreMove(state: GameState, move: Move): number {
   }
 
   return score;
+}
+
+/**
+ * Scores a move at the chosen difficulty.
+ *
+ * @param state - the game state
+ * @param move - the move to judge
+ * @param difficulty - the level; only "schwer" adds the block bonus
+ * @returns the value used to rank the move
+ * @remarks
+ * "schwer" looks one move ahead: if an opponent is a single pig from winning,
+ * a move that pushes them back gets {@link BLOCK_BONUS}. The look-ahead only
+ * reads the board after simulating the move - never the opponents' hands.
+ */
+function rankedScore(
+  state: GameState,
+  move: Move,
+  difficulty: Difficulty,
+): number {
+  const base = scoreMove(state, move);
+  let score = base;
+
+  if (difficulty === "schwer") {
+    // Measure the same opponents before and after - applyMove hands the turn
+    // on, so the acting AI must be pinned by id rather than "current player".
+    const aiId = currentPlayer(state).id;
+    const before = minOpponentSteps(state, aiId);
+    if (before <= IMMINENT_STEPS) {
+      const after = minOpponentSteps(applyMove(state, move), aiId);
+      if (after > before) {
+        score = base + BLOCK_BONUS;
+      }
+    }
+  }
+
+  return score;
+}
+
+/**
+ * Fewest pigs any opponent still needs to win.
+ *
+ * @param state - the game state
+ * @param aiId - the acting AI, whose own pigs do not count
+ * @returns the smallest step count across the opponents; big if none exist
+ * @remarks
+ * Board only. A player wins with all pigs dirty or all pigs Schönsau, so the
+ * distance to a win is the smaller of the two remaining counts.
+ */
+function minOpponentSteps(state: GameState, aiId: string): number {
+  const distances = state.players
+    .filter((player) => player.id !== aiId)
+    .map((player) =>
+      Math.min(
+        player.pigs.filter((pig) => !showsDirty(pig)).length,
+        player.pigs.filter((pig) => !hasBeauty(pig)).length,
+      ),
+    );
+  return distances.length === 0
+    ? Number.MAX_SAFE_INTEGER
+    : Math.min(...distances);
 }
 
 /**

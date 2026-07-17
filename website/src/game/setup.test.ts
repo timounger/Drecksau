@@ -5,7 +5,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { BASE_ACTION_CARD_COUNT, EXPANSION_CARD_COUNT } from "./cards";
-import { createGame, pigsPerPlayer, type PlayerSetup } from "./setup";
+import {
+  createGame,
+  pickFirstPlayer,
+  pigsPerPlayer,
+  type PlayerSetup,
+} from "./setup";
 import { HAND_SIZE } from "./state";
 
 const SETUPS: PlayerSetup[] = [
@@ -97,6 +102,48 @@ describe("createGame", () => {
     expect(state.winnerId).toBeNull();
     expect(state.pendingCardIds).toEqual([]);
     expect(state.hasExpansion).toBe(false);
+  });
+});
+
+describe("pickFirstPlayer", () => {
+  it("lets the human start on the easy level", () => {
+    for (let seed = 0; seed < 20; seed++) {
+      expect(pickFirstPlayer(4, "leicht", seed)).toBe(0);
+    }
+  });
+
+  it("picks a valid seat on the harder levels", () => {
+    for (const difficulty of ["mittel", "schwer"] as const) {
+      for (let seed = 0; seed < 40; seed++) {
+        const index = pickFirstPlayer(3, difficulty, seed);
+        expect(index).toBeGreaterThanOrEqual(0);
+        expect(index).toBeLessThan(3);
+      }
+    }
+  });
+
+  it("is reproducible for the same seed", () => {
+    expect(pickFirstPlayer(4, "schwer", 123)).toBe(
+      pickFirstPlayer(4, "schwer", 123),
+    );
+  });
+
+  it("does not always pick the same seat across seeds", () => {
+    const seats = new Set(
+      Array.from({ length: 40 }, (unused, seed) =>
+        pickFirstPlayer(4, "mittel", seed),
+      ),
+    );
+    expect(seats.size).toBeGreaterThan(1);
+  });
+
+  it("hands the game the chosen starter", () => {
+    const state = createGame(SETUPS, {
+      seed: 42,
+      withExpansion: false,
+      firstPlayerIndex: 2,
+    });
+    expect(state.currentPlayerIndex).toBe(2);
   });
 });
 

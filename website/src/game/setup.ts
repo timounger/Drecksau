@@ -4,7 +4,8 @@
  * @module
  */
 import { createDeck, type Card } from "./cards";
-import { createRandom, shuffle } from "./random";
+import type { Difficulty } from "./difficulty";
+import { createRandom, nextRandom, shuffle } from "./random";
 import { HAND_SIZE, type GameState, type Pig, type Player } from "./state";
 
 /** Description of one seat at the table. */
@@ -21,7 +22,36 @@ export type GameOptions = {
   readonly withExpansion: boolean;
   /** True to add the "Drecksau total" defence cards. */
   readonly withDefense?: boolean;
+  /** Index of the player who moves first; defaults to 0 (the human). */
+  readonly firstPlayerIndex?: number;
 };
+
+/** Offset so the first-player draw does not share the deck's random numbers. */
+const FIRST_PLAYER_SEED_OFFSET = 4241;
+
+/**
+ * Decides who begins a game, based on the difficulty.
+ *
+ * @param playerCount - number of players at the table
+ * @param difficulty - the chosen level
+ * @param seed - the game's seed
+ * @returns the index of the first player, 0 being the human
+ * @remarks
+ * On "leicht" the human always starts - that free tempo is part of what makes
+ * it easy. On the harder levels a seeded draw decides, so the same seed always
+ * picks the same starter.
+ */
+export function pickFirstPlayer(
+  playerCount: number,
+  difficulty: Difficulty,
+  seed: number,
+): number {
+  if (difficulty === "leicht") {
+    return 0;
+  }
+  const { value } = nextRandom(createRandom(seed + FIRST_PLAYER_SEED_OFFSET));
+  return Math.floor(value * playerCount);
+}
 
 /** Smallest supported table size. */
 export const MIN_PLAYERS = 2;
@@ -77,7 +107,7 @@ export function createGame(
 
   return {
     players: dealt.players,
-    currentPlayerIndex: 0,
+    currentPlayerIndex: options.firstPlayerIndex ?? 0,
     drawPile: dealt.drawPile,
     discardPile: [],
     random: shuffled.state,
