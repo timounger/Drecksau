@@ -92,9 +92,9 @@ describe("Extra-Matsch defends a Drecksau", () => {
     const state = makeState(
       [
         { pigs: [{}], hand: ["farmerScrubs", "mud", "mud"] },
-        { pigs: [{ isDirty: true }], hand: ["extraMud"] },
+        { pigs: [{ isDirty: true }], hand: ["extraMud", "mud", "mud"] },
       ],
-      { drawPile: ["mud"], hasExpansion: true },
+      { drawPile: ["rain", "rain", "rain", "rain"], hasExpansion: true },
     );
     const next = play(state, "farmerScrubs", "p1-pig0");
 
@@ -106,6 +106,21 @@ describe("Extra-Matsch defends a Drecksau", () => {
       "extraMud",
       "farmerScrubs",
     ]);
+  });
+
+  it("draws a replacement at once, so defending costs no card", () => {
+    const state = makeState(
+      [
+        { pigs: [{}], hand: ["farmerScrubs", "mud", "mud"] },
+        { pigs: [{ isDirty: true }], hand: ["extraMud", "mud", "mud"] },
+      ],
+      { drawPile: ["rain", "rain", "rain"], hasExpansion: true },
+    );
+    const next = play(state, "farmerScrubs", "p1-pig0");
+
+    // The defender kept a full hand: spent the Extra-Matsch, drew one back.
+    expect(next.players[1].hand).toHaveLength(3);
+    expect(next.players[1].hand.some((c) => c.type === "rain")).toBe(true);
   });
 
   it("without it, the scrub cleans the Drecksau as usual", () => {
@@ -175,9 +190,9 @@ describe("Lippenstift defends a Schönsau", () => {
     const state = makeState(
       [
         { pigs: [{}], hand: ["dustOff", "mud", "mud"] },
-        { pigs: [{ hasBeauty: true }], hand: ["lipstick"] },
+        { pigs: [{ hasBeauty: true }], hand: ["lipstick", "mud", "mud"] },
       ],
-      { drawPile: ["mud"], hasExpansion: true },
+      { drawPile: ["rain", "rain", "rain", "rain"], hasExpansion: true },
     );
     const next = play(state, "dustOff", "p1-pig0");
 
@@ -189,6 +204,8 @@ describe("Lippenstift defends a Schönsau", () => {
       "dustOff",
       "lipstick",
     ]);
+    // The defender drew a replacement, keeping a full hand.
+    expect(next.players[1].hand).toHaveLength(3);
   });
 
   it("does not defend against your own Aus-dem-Staub", () => {

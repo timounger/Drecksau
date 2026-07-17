@@ -37,6 +37,17 @@ type EffectResult = {
   /** Cards the player now has to use as well (Glücksvogel). */
   readonly pendingCardIds?: readonly string[];
   /**
+   * Players who spent a defence card and draw a replacement at once.
+   *
+   * @remarks
+   * "Anschließend ziehst du eine Karte vom Nachziehstapel" - a defender is not
+   * left a card short. One replacement per defence card used.
+   */
+  readonly redraw?: readonly {
+    readonly playerId: string;
+    readonly count: number;
+  }[];
+  /**
    * Extra log lines, not attributed to the active player.
    *
    * @remarks
@@ -145,7 +156,13 @@ function playCard(
   );
 
   // A defence that fired gets its own, unattributed log lines.
-  return (effect.extraLog ?? []).reduce(appendLog, withMove);
+  const withLog = (effect.extraLog ?? []).reduce(appendLog, withMove);
+
+  // A defender draws a replacement at once, so defending costs no card.
+  return (effect.redraw ?? []).reduce(
+    (current, entry) => drawReplacements(current, entry.playerId, entry.count),
+    withLog,
+  );
 }
 
 /** Puts a card on the discard pile without using it. */
@@ -214,6 +231,7 @@ const EFFECTS: Readonly<
     const isWashed = (pig: Pig) =>
       pig.isDirty && !hasBarn(pig) && !hasBeauty(pig);
     const released: Card[] = [];
+    const redraw: { playerId: string; count: number }[] = [];
     let cleaned = 0;
     let defended = 0;
 
@@ -243,6 +261,9 @@ const EFFECTS: Readonly<
         hand = taken.hand;
         released.push(taken.card);
       }
+      if (used > 0) {
+        redraw.push({ playerId: player.id, count: used });
+      }
 
       return { ...player, pigs, hand };
     });
@@ -252,6 +273,7 @@ const EFFECTS: Readonly<
       releasedCards: released,
       logText: LOG_TEXTS.rain(cleaned),
       extraLog: defended > 0 ? [LOG_TEXTS.extraMudRain(defended)] : undefined,
+      redraw,
     };
   },
 
@@ -303,6 +325,7 @@ const EFFECTS: Readonly<
         releasedCards: [defence.card],
         logText: LOG_TEXTS.farmerScrubs(victim.name),
         extraLog: [LOG_TEXTS.extraMudScrub],
+        redraw: [{ playerId: victim.id, count: 1 }],
       };
     }
 
@@ -350,6 +373,7 @@ const EFFECTS: Readonly<
         releasedCards: [defence.card],
         logText: LOG_TEXTS.dustOffAttempt(victim.name),
         extraLog: [LOG_TEXTS.lipstickDefend],
+        redraw: [{ playerId: victim.id, count: 1 }],
       };
     }
 
@@ -443,6 +467,42 @@ function nextPending(
   opened: readonly string[] | undefined,
 ): readonly string[] {
   return opened ?? state.pendingCardIds.filter((id) => id !== usedCardId);
+}
+
+/**
+ * Draws a set number of cards for one player, right away.
+ *
+ * @param state - the current state
+ * @param playerId - who draws
+ * @param count - how many cards to draw
+ * @returns the state after the draws; stops early if no card is left
+ * @remarks
+ * Used for the immediate replacement after a defence card - it may draw for a
+ * player who is not the one to move.
+ */
+function drawReplacements(
+  state: GameState,
+  playerId: string,
+  count: number,
+): GameState {
+  let current = state;
+
+  for (let drawnCount = 0; drawnCount < count; drawnCount += 1) {
+    const drawn = drawCard(current);
+    if (drawn === null) {
+      break;
+    }
+    current = {
+      ...drawn.state,
+      players: drawn.state.players.map((player) =>
+        player.id === playerId
+          ? { ...player, hand: [...player.hand, drawn.card] }
+          : player,
+      ),
+    };
+  }
+
+  return current;
 }
 
 /**
