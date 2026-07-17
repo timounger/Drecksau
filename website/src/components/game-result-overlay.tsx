@@ -27,8 +27,8 @@ import { UI_TEXTS } from "@/i18n/translations";
 /** How the game ended for the viewer. */
 export type GameOutcome = "won" | "lost";
 
-/** How long the whole end animation runs, in milliseconds - longer than a card. */
-const GAME_OVER_DURATION_MS = 3400;
+/** How long the whole end animation runs, in milliseconds - a proper finale. */
+const GAME_OVER_DURATION_MS = 7000;
 
 /** Look of each outcome: the centre icon, the raining icon, tint and word. */
 const OUTCOMES: Readonly<
@@ -146,7 +146,9 @@ export function GameResultOverlay({
             className="absolute top-0 text-4xl"
             style={{
               left: `${(index * FALL_SPREAD_STEP_PERCENT) % FULL_WIDTH_PERCENT}%`,
-              animation: `drecksau-drop ${FALL_MIN_MS + (index % FALL_VARIANTS) * FALL_STEP_MS}ms linear ${(index % FALL_DELAY_VARIANTS) * FALL_DELAY_STEP_MS}ms both`,
+              // Repeats so it keeps raining for the whole (longer) finale
+              // instead of stopping after the first drop.
+              animation: `drecksau-drop ${FALL_MIN_MS + (index % FALL_VARIANTS) * FALL_STEP_MS}ms linear ${(index % FALL_DELAY_VARIANTS) * FALL_DELAY_STEP_MS}ms infinite`,
             }}
           >
             {look.fallIcon}

@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { createGame } from "@/game/setup";
+import { makeState } from "@/game/test-helpers";
 import {
   isChatPayload,
   isHand,
@@ -64,6 +65,28 @@ describe("redactHands", () => {
     );
     // One decoy type for all cards - nothing about the real hand leaks.
     expect(types.size).toBe(1);
+  });
+});
+
+describe("pig state over the wire", () => {
+  it("keeps a dirty pig's stall through redact, JSON and merge", () => {
+    // Guards against an online-only corruption: a dirty pig in a stall (with a
+    // lightning rod) must arrive intact at the client, so rain still spares it.
+    const game = makeState([
+      {
+        pigs: [{ isDirty: true, hasBarn: true, hasLightningRod: true }],
+        hand: ["rain", "mud", "mud"],
+      },
+      { pigs: [{}], hand: ["mud", "mud", "mud"] },
+    ]);
+
+    const overWire = JSON.parse(JSON.stringify(redactHands(game)));
+    const view = withOwnHand(overWire, 0, game.players[0].hand);
+    const pig = view.players[0].pigs[0];
+
+    expect(pig.isDirty).toBe(true);
+    expect(pig.barn).not.toBeNull();
+    expect(pig.lightningRod).not.toBeNull();
   });
 });
 

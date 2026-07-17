@@ -5,7 +5,7 @@
  */
 "use client";
 
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { CardTheme } from "@/assets/cards/themes";
 import { hasBeauty, showsDirty, type PigId, type Player } from "@/game/state";
 import { UI_TEXTS } from "@/i18n/translations";
@@ -32,6 +32,8 @@ export type PlayerBoardProps = {
   readonly showBeautyCount: boolean;
   /** The card design to draw. */
   readonly theme: CardTheme;
+  /** Optional badge shown next to the name, e.g. an auto-play countdown. */
+  readonly headerBadge?: ReactNode;
   readonly onSelectPig: (pigId: PigId) => void;
 };
 
@@ -48,6 +50,7 @@ export function PlayerBoard({
   targetPigIds,
   showBeautyCount,
   theme,
+  headerBadge,
   onSelectPig,
 }: PlayerBoardProps): ReactElement {
   // In the single-player game the one human is the viewer; online it is passed.
@@ -66,8 +69,9 @@ export function PlayerBoard({
       ].join(" ")}
     >
       <header className="mb-2 flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
           {self ? UI_TEXTS.yourPigs : player.name}
+          {headerBadge}
         </h2>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">
           {dirtyCount}/{player.pigs.length} {UI_TEXTS.dirtyPig}

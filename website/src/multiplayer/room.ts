@@ -68,6 +68,14 @@ export type RoomState = {
    * host runs the timer, since it holds the authoritative game.
    */
   readonly autoPlayMs?: number | null;
+  /**
+   * Seats now played by the computer because the player left mid-game.
+   *
+   * @remarks
+   * The host plays these seats' turns itself. Kept in the shared state so every
+   * client can show that the computer took over.
+   */
+  readonly botSeatIds?: readonly SeatId[];
 };
 
 /** How a room's game is set up. */
@@ -176,6 +184,7 @@ export function startGame(
     phase: "playing",
     game,
     autoPlayMs: options.autoPlayMs ?? null,
+    botSeatIds: [],
   });
 }
 
@@ -190,7 +199,42 @@ export function startGame(
  * make a new room. The seats and the code stay; only the game is cleared.
  */
 export function returnToLobby(room: RoomState): RoomState {
-  return bump({ ...room, phase: "lobby", game: null });
+  return bump({ ...room, phase: "lobby", game: null, botSeatIds: [] });
+}
+
+/**
+ * Hands seats over to the computer, for players who left mid-game.
+ *
+ * @param room - the room in play
+ * @param seatIds - seats to mark as computer-controlled
+ * @returns the room with those seats added to {@link RoomState.botSeatIds}, or
+ *   the same room if none were new
+ */
+export function markSeatsAsBots(
+  room: RoomState,
+  seatIds: readonly SeatId[],
+): RoomState {
+  const current = room.botSeatIds ?? [];
+  const merged = [...current];
+  for (const seatId of seatIds) {
+    if (!merged.includes(seatId)) {
+      merged.push(seatId);
+    }
+  }
+  return merged.length === current.length
+    ? room
+    : bump({ ...room, botSeatIds: merged });
+}
+
+/**
+ * Tells whether a seat is played by the computer.
+ *
+ * @param room - the room
+ * @param seatId - the seat to check
+ * @returns true if the computer plays this seat
+ */
+export function isBotSeat(room: RoomState, seatId: SeatId): boolean {
+  return (room.botSeatIds ?? []).includes(seatId);
 }
 
 /**

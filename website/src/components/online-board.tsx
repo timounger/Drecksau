@@ -44,6 +44,13 @@ import { HandCardView } from "./hand-card-view";
 import { OnlineChat } from "./online-chat";
 import { PlayerBoard } from "./player-board";
 
+/** How often the auto-play countdown refreshes, in milliseconds. */
+const COUNTDOWN_TICK_MS = 250;
+/** Milliseconds in a second, for the countdown label. */
+const MS_PER_SECOND = 1000;
+/** At or below this, the countdown turns red to signal the takeover is near. */
+const LOW_TIME_MS = 5000;
+
 /** Props of {@link OnlineBoard}. */
 export type OnlineBoardProps = {
   /** The room to render, this player's own hand already merged in. */
@@ -74,9 +81,12 @@ export function OnlineBoard({
   const game = room.game as GameState;
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [effect, setEffect] = useState<CardEffect | null>(null);
+  const [remainingMs, setRemainingMs] = useState<number | null>(null);
   // The id of the last play we already animated. Starts at the stamp present
   // when the board mounts, so a play from before we joined is not replayed.
   const lastShownEffectId = useRef(room.lastEffect?.id ?? null);
+
+  const autoPlayMs = room.autoPlayMs ?? null;
 
   const theme = useSyncExternalStore(
     subscribeSettings,
@@ -113,6 +123,26 @@ export function OnlineBoard({
     }
     return () => clearTimeout(timer);
   }, [effect]);
+
+  // Count the auto-play timeout down for whoever is on turn. It restarts on
+  // every turn (a new version), matching when the host restarts its own timer.
+  useEffect(() => {
+    if (autoPlayMs === null || autoPlayMs <= 0 || game.winnerId !== null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- no countdown to show
+      setRemainingMs(null);
+      return;
+    }
+    const deadline = Date.now() + autoPlayMs;
+    setRemainingMs(autoPlayMs);
+    const timer = setInterval(() => {
+      const left = deadline - Date.now();
+      setRemainingMs(left > 0 ? left : 0);
+      if (left <= 0) {
+        clearInterval(timer);
+      }
+    }, COUNTDOWN_TICK_MS);
+    return () => clearInterval(timer);
+  }, [room.version, autoPlayMs, game.winnerId]);
 
   // A card the viewer owns is missing from a redacted view only if something is
   // very wrong; guard so a mid-join snapshot cannot crash the board.
@@ -172,6 +202,24 @@ export function OnlineBoard({
     .filter((entry) => entry.index !== mySeatIndex);
   const outcome: GameOutcome | null =
     game.winnerId === null ? null : game.winnerId === me.id ? "won" : "lost";
+  // Countdown badge for the player on turn, shown only while auto-play is on.
+  const autoPlayBadge =
+    remainingMs === null ? null : (
+      <AutoPlayCountdown remainingMs={remainingMs} />
+    );
+  const botSeatIds = room.botSeatIds ?? [];
+  const isBotIndex = (index: number) =>
+    botSeatIds.includes(room.seats[index]?.id);
+  const actorIsBot = isBotIndex(actorIndex);
+
+  // A seat the computer took over is always labelled; otherwise the on-turn
+  // player may show the auto-play countdown.
+  const badgeFor = (index: number) =>
+    isBotIndex(index) ? (
+      <ComputerBadge />
+    ) : index === actorIndex ? (
+      autoPlayBadge
+    ) : undefined;
 
   return (
     <div className="flex flex-col gap-3">
@@ -189,6 +237,7 @@ export function OnlineBoard({
               targetPigIds={targetPigIds}
               showBeautyCount={game.hasExpansion}
               theme={theme}
+              headerBadge={badgeFor(index)}
               onSelectPig={playAtPig}
             />
           ))}
@@ -200,12 +249,14 @@ export function OnlineBoard({
             targetPigIds={targetPigIds}
             showBeautyCount={game.hasExpansion}
             theme={theme}
+            headerBadge={mySeatIndex === actorIndex ? autoPlayBadge : undefined}
             onSelectPig={playAtPig}
           />
 
           <OnlineTurnBanner
             game={game}
             actorName={game.players[actorIndex].name}
+            actorIsBot={actorIsBot}
             isMyTurn={isMyTurn}
             didIWin={game.winnerId === me.id}
             winnerName={winnerName(game)}
@@ -277,6 +328,8 @@ export function OnlineBoard({
 type OnlineTurnBannerProps = {
   readonly game: GameState;
   readonly actorName: string;
+  /** True when the player on turn has been taken over by the computer. */
+  readonly actorIsBot: boolean;
   readonly isMyTurn: boolean;
   readonly didIWin: boolean;
   readonly winnerName: string | null;
@@ -288,6 +341,7 @@ type OnlineTurnBannerProps = {
 function OnlineTurnBanner({
   game,
   actorName,
+  actorIsBot,
   isMyTurn,
   didIWin,
   winnerName,
@@ -332,7 +386,9 @@ function OnlineTurnBanner({
   } else {
     content = (
       <span className="text-zinc-500 dark:text-zinc-400">
-        {ONLINE_TEXTS.waitingForPlayer(actorName)}
+        {actorIsBot
+          ? ONLINE_TEXTS.computerPlaysFor(actorName)
+          : ONLINE_TEXTS.waitingForPlayer(actorName)}
       </span>
     );
   }
@@ -351,4 +407,36 @@ function winnerName(game: GameState): string | null {
       ? null
       : game.players.find((player) => player.id === game.winnerId);
   return winner?.name ?? null;
+}
+
+/** A pill marking a seat the computer took over after the player left. */
+function ComputerBadge(): ReactElement {
+  return (
+    <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+      {"\u{1F916}"} {ONLINE_TEXTS.computerBadge}
+    </span>
+  );
+}
+
+/** A small pill showing the seconds left before the computer takes over. */
+function AutoPlayCountdown({
+  remainingMs,
+}: {
+  remainingMs: number;
+}): ReactElement {
+  const seconds = Math.ceil(remainingMs / MS_PER_SECOND);
+  const isLow = remainingMs <= LOW_TIME_MS;
+  return (
+    <span
+      title={ONLINE_TEXTS.autoPlay}
+      className={[
+        "rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums",
+        isLow
+          ? "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300"
+          : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+      ].join(" ")}
+    >
+      {"\u{23F1}\u{FE0F}"} {seconds}s
+    </span>
+  );
 }

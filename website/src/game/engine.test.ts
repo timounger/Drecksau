@@ -82,6 +82,25 @@ describe("rain", () => {
     );
     expect(play(state, "rain").players[0].pigs[0].isDirty).toBe(false);
   });
+
+  it("keeps a dirty pig in a stall dirty, lightning rod and all", () => {
+    // The exact online report: a dirty pig in a stall with a lightning rod must
+    // survive the rain - the rod is irrelevant here, the stall does the work.
+    const state = makeState(
+      [
+        {
+          pigs: [{ isDirty: true, hasBarn: true, hasLightningRod: true }],
+          hand: ["rain"],
+        },
+        { pigs: [{}], hand: [] },
+      ],
+      { drawPile: ["barn"] },
+    );
+    const pig = play(state, "rain").players[0].pigs[0];
+    expect(pig.isDirty).toBe(true);
+    expect(pig.barn).not.toBeNull();
+    expect(pig.lightningRod).not.toBeNull();
+  });
 });
 
 describe("barn", () => {

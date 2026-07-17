@@ -9,8 +9,10 @@ import { legalMoves } from "@/game/moves";
 import {
   applySeatMove,
   createRoom,
+  isBotSeat,
   joinRoom,
   leaveRoom,
+  markSeatsAsBots,
   returnToLobby,
   seatOnTurn,
   startGame,
@@ -107,6 +109,30 @@ describe("starting the game", () => {
       "Du",
       "Berta",
     ]);
+  });
+});
+
+describe("computer takeover when a player leaves", () => {
+  it("marks a seat as a bot and reports it", () => {
+    const room = startGame(lobbyOfTwo(), OPTIONS);
+    expect(isBotSeat(room, GUEST.id)).toBe(false);
+
+    const next = markSeatsAsBots(room, [GUEST.id]);
+    expect(isBotSeat(next, GUEST.id)).toBe(true);
+    expect(next.version).toBeGreaterThan(room.version);
+  });
+
+  it("leaves the room untouched when there is no new bot", () => {
+    const room = markSeatsAsBots(startGame(lobbyOfTwo(), OPTIONS), [GUEST.id]);
+    expect(markSeatsAsBots(room, [GUEST.id])).toBe(room);
+  });
+
+  it("clears the bots when returning to the lobby", () => {
+    const playing = markSeatsAsBots(startGame(lobbyOfTwo(), OPTIONS), [
+      GUEST.id,
+    ]);
+    expect(returnToLobby(playing).botSeatIds).toEqual([]);
+    expect(isBotSeat(returnToLobby(playing), GUEST.id)).toBe(false);
   });
 });
 

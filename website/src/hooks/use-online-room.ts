@@ -17,12 +17,15 @@ import { chooseAiMove } from "@/game/ai";
 import type { Card } from "@/game/cards";
 import type { Move } from "@/game/state";
 import { MAX_PLAYERS } from "@/game/setup";
+import { loadSettings } from "@/lib/settings/app-settings";
 import { database, signIn } from "@/multiplayer/firebase-app";
 import { createFirebaseTransport } from "@/multiplayer/firebase-transport";
 import { redactHands, withOwnHand } from "@/multiplayer/online-state";
 import {
   applySeatMove,
   createRoom,
+  isBotSeat,
+  markSeatsAsBots,
   returnToLobby,
   seatOnTurn,
   startGame,
@@ -80,6 +83,9 @@ const DEFAULT_PLAYER_NAME = "Spieler";
 
 /** How long a guest waits for the room before giving up. */
 const JOIN_TIMEOUT_MS = 12_000;
+
+/** Pause before the computer plays a taken-over seat, so it stays watchable. */
+const BOT_MOVE_DELAY_MS = 900;
 
 /** Longest chat line accepted, in characters. */
 const MAX_CHAT_LENGTH = 300;
@@ -263,7 +269,7 @@ async function runHost(
   sinks: Sinks,
 ): Promise<void> {
   let authoritative = createRoom(code, seat);
-  let autoTimer: ReturnType<typeof setTimeout> | undefined;
+  let aiTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Stores, publishes and shows a new authoritative room. */
   const commit = (next: RoomState) => {
@@ -273,8 +279,8 @@ async function runHost(
       sinks.setRoom(next);
       sinks.setStatus(phaseToStatus(next.phase));
     }
-    // Any change restarts the auto-play clock for whoever is now on turn.
-    scheduleAutoPlay();
+    // Any change restarts the clock for whoever is now on turn.
+    scheduleAiTurn();
   };
 
   /** Referees a move and, if it was a play, stamps it for the animation. */
@@ -286,30 +292,36 @@ async function runHost(
     }
   };
 
+  /** Plays a move for the seat on turn, at the host's chosen difficulty. */
+  const playAiTurn = () => {
+    const onTurn = seatOnTurn(authoritative);
+    // Do nothing once the room has been left, so no stray write goes out.
+    if (!sinks.cancelled() && onTurn !== null && authoritative.game !== null) {
+      refereeApply(
+        onTurn.id,
+        chooseAiMove(authoritative.game, loadSettings().difficulty),
+      );
+    }
+  };
+
   /**
-   * Arms the auto-play timer, if the host turned it on. When it fires, the
-   * computer makes a move for whoever is on turn - the same referee path as a
-   * real move, so nothing special happens to the rest of the game.
+   * Arms the computer to take a turn. A seat a player left is played right
+   * away (after a short, watchable pause); a present player is only played for
+   * once the auto-play timeout runs out, and only if the host turned that on.
    */
-  const scheduleAutoPlay = () => {
-    clearTimeout(autoTimer);
-    const timeout = authoritative.autoPlayMs;
-    if (
-      authoritative.phase === "playing" &&
-      typeof timeout === "number" &&
-      timeout > 0
-    ) {
-      autoTimer = setTimeout(() => {
-        const onTurn = seatOnTurn(authoritative);
-        // Do nothing once the room has been left, so no stray write goes out.
-        if (
-          !sinks.cancelled() &&
-          onTurn !== null &&
-          authoritative.game !== null
-        ) {
-          refereeApply(onTurn.id, chooseAiMove(authoritative.game));
-        }
-      }, timeout);
+  const scheduleAiTurn = () => {
+    clearTimeout(aiTimer);
+    const onTurn = seatOnTurn(authoritative);
+    if (authoritative.phase !== "playing" || onTurn === null) {
+      return;
+    }
+    if (isBotSeat(authoritative, onTurn.id)) {
+      aiTimer = setTimeout(playAiTurn, BOT_MOVE_DELAY_MS);
+    } else {
+      const timeout = authoritative.autoPlayMs;
+      if (typeof timeout === "number" && timeout > 0) {
+        aiTimer = setTimeout(playAiTurn, timeout);
+      }
     }
   };
 
@@ -334,6 +346,8 @@ async function runHost(
 
   // In the lobby the seat list follows who is present. Once the game is on,
   // the seats are frozen - a mid-game presence change must not renumber them.
+  // Instead, a seat whose player left is handed to the computer, so the game
+  // keeps going.
   transport.onMembers((members) => {
     if (authoritative.phase === "lobby") {
       commit({
@@ -341,6 +355,15 @@ async function runHost(
         seats: members.slice(0, MAX_PLAYERS),
         version: authoritative.version + 1,
       });
+    } else {
+      const present = new Set(members.map((member) => member.id));
+      const gone = authoritative.seats
+        .filter((s) => !present.has(s.id))
+        .map((s) => s.id);
+      const next = markSeatsAsBots(authoritative, gone);
+      if (next !== authoritative) {
+        commit(next);
+      }
     }
   });
 

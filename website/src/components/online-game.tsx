@@ -9,6 +9,10 @@ import Link from "next/link";
 import { useEffect, useState, type ReactElement } from "react";
 import { loadSettings } from "@/lib/settings/app-settings";
 import {
+  loadOnlineHostSettings,
+  saveOnlineHostSettings,
+} from "@/lib/settings/online-host-settings";
+import {
   generateRoomCode,
   isValidRoomCode,
   normalizeRoomCode,
@@ -51,6 +55,12 @@ function autoPlayLabel(ms: number | null): string {
   return ms === null
     ? ONLINE_TEXTS.autoPlayOff
     : ONLINE_TEXTS.autoPlaySeconds(ms / MS_PER_SECOND);
+}
+
+/** The option index for a saved timeout, or the default if it is unknown. */
+function autoPlayIndexOf(ms: number | null): number {
+  const found = AUTO_PLAY_OPTIONS.findIndex((option) => option.ms === ms);
+  return found >= 0 ? found : DEFAULT_AUTO_PLAY_INDEX;
 }
 
 /**
@@ -201,10 +211,27 @@ type RoomViewProps = {
 
 /** The lobby: share the code, see who is in, and (host) start the game. */
 function OnlineLobby({ room, online, onLeave }: RoomViewProps): ReactElement {
-  const [withExpansion, setWithExpansion] = useState(false);
-  const [withDefense, setWithDefense] = useState(false);
-  const [autoPlayIndex, setAutoPlayIndex] = useState(DEFAULT_AUTO_PLAY_INDEX);
+  // Start from the host's last choices. This component only ever mounts on the
+  // client (after connecting), so reading storage here is safe.
+  const [initial] = useState(loadOnlineHostSettings);
+  const [withExpansion, setWithExpansion] = useState(initial.withExpansion);
+  const [withDefense, setWithDefense] = useState(initial.withDefense);
+  const [autoPlayIndex, setAutoPlayIndex] = useState(() =>
+    autoPlayIndexOf(initial.autoPlayMs),
+  );
   const enoughPlayers = room.seats.length >= 2;
+
+  // Remember the host's choices so the next room starts from them. Only the
+  // host changes these, so a guest never overwrites its own saved settings.
+  useEffect(() => {
+    if (online.isHost) {
+      saveOnlineHostSettings({
+        withExpansion,
+        withDefense,
+        autoPlayMs: AUTO_PLAY_OPTIONS[autoPlayIndex].ms,
+      });
+    }
+  }, [online.isHost, withExpansion, withDefense, autoPlayIndex]);
 
   return (
     <div className="flex max-w-md flex-col gap-6">

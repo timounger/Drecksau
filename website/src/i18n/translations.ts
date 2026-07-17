@@ -150,6 +150,10 @@ export const ONLINE_TEXTS = {
   autoPlaySeconds: (seconds: number) => `${seconds} Sekunden`,
   yourTurnOnline: "Du bist dran",
   waitingForPlayer: (name: string) => `${name} ist am Zug ...`,
+  computerBadge: "Computer",
+  computerPlaysFor: (name: string) => `Computer spielt für ${name} ...`,
+  playerLeftTakeover: (name: string) =>
+    `${name} hat das Spiel verlassen - der Computer übernimmt.`,
   leaveRoom: "Raum verlassen",
   newRound: "Neues Spiel",
   waitingForRematch: "Warte auf eine neue Runde vom Gastgeber ...",

@@ -94,7 +94,16 @@ export function isRoomState(value: unknown): value is RoomState {
     isPhaseGame(room.phase, room.game) &&
     isCount(room.version) &&
     isOptionalEffect(room.lastEffect) &&
-    isOptionalTimeout(room.autoPlayMs)
+    isOptionalTimeout(room.autoPlayMs) &&
+    isOptionalSeatIds(room.botSeatIds)
+  );
+}
+
+/** Checks the optional list of computer-controlled seat ids. */
+function isOptionalSeatIds(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) && value.every(isNonEmptyString))
   );
 }
 
