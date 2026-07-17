@@ -24,6 +24,14 @@ export type HandCardViewProps = {
   readonly theme: CardTheme;
   /** False when no legal target exists for this card right now. */
   readonly isPlayable: boolean;
+  /**
+   * Whether the card may be discarded right now.
+   *
+   * @remarks
+   * False for a leftover card during a Glücksvogel - it must wait for the turn
+   * to end. Discarding is otherwise always allowed.
+   */
+  readonly canDiscard: boolean;
   /** True while this card waits for a target. */
   readonly isSelected: boolean;
   /** True while it is not the player's turn. */
@@ -42,6 +50,7 @@ export function HandCardView({
   card,
   theme,
   isPlayable,
+  canDiscard,
   isSelected,
   isDisabled,
   onSelect,
@@ -51,9 +60,10 @@ export function HandCardView({
     ? CARD_DESCRIPTIONS[card.type]
     : CARD_BLOCKED_HINTS[card.type];
 
-  // Discarding is always an option, and on an unplayable card it is the only
-  // one - so highlight it there instead of leaving it in the general dimming.
-  const highlightDiscard = !isPlayable && !isDisabled;
+  // Discarding is usually the fallback move, and on an unplayable card it is
+  // the only one - so highlight it there. But not when it cannot be discarded
+  // either (a leftover card mid-Glücksvogel), where the card is fully inert.
+  const highlightDiscard = !isPlayable && !isDisabled && canDiscard;
 
   return (
     <div
@@ -110,10 +120,10 @@ export function HandCardView({
 
       <button
         type="button"
-        disabled={isDisabled}
+        disabled={isDisabled || !canDiscard}
         onClick={() => onDiscard(card.id)}
         className={[
-          "mt-1 rounded-md py-0.5 text-[11px] enabled:cursor-pointer",
+          "mt-1 rounded-md py-0.5 text-[11px] enabled:cursor-pointer disabled:opacity-40",
           highlightDiscard
             ? // The only move on this card - make it clearly clickable.
               "bg-amber-100 font-semibold text-amber-900 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-100 dark:hover:bg-amber-900/70"

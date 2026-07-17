@@ -6,7 +6,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { applyMove } from "./engine";
-import { isCardPlayable, legalMoves, legalTargets } from "./moves";
+import {
+  isCardPlayable,
+  isCardUsableNow,
+  legalMoves,
+  legalTargets,
+} from "./moves";
 import { hasWon, type GameState } from "./state";
 import { handCardId, makeState, totalCardCount } from "./test-helpers";
 
@@ -268,6 +273,34 @@ describe("Glücksvogel", () => {
         .map((card) => card.type),
     );
     expect(offered).toEqual(new Set(["mud", "barn"]));
+  });
+
+  it("does not offer a second Glücksvogel while one is resolving", () => {
+    // Regression: the untargeted second bird used to look playable and crash
+    // the app on click, because playing it is an illegal move.
+    const state = makeState(
+      [
+        { pigs: [{}, {}], hand: ["luckyBird", "luckyBird", "mud"] },
+        { pigs: [{}], hand: [] },
+      ],
+      { drawPile: ["rain", "barn", "mud"], hasExpansion: true },
+    );
+    const afterBird = play(state, "luckyBird");
+
+    const secondBird = afterBird.players[0].hand.find(
+      (card) => card.type === "luckyBird",
+    )!;
+    // It may neither be played nor discarded until the turn ends.
+    expect(isCardUsableNow(afterBird, secondBird.id)).toBe(false);
+    expect(
+      legalMoves(afterBird).some(
+        (move) => "cardId" in move && move.cardId === secondBird.id,
+      ),
+    ).toBe(false);
+    // And forcing it through is rejected, not crashed past.
+    expect(() =>
+      applyMove(afterBird, { kind: "playCard", cardId: secondBird.id }),
+    ).toThrow();
   });
 
   it("drops a second Glücksvogel unused and draws three fresh cards", () => {

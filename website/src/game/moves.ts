@@ -164,7 +164,7 @@ export function isLegalMove(state: GameState, move: Move): boolean {
   switch (move.kind) {
     case "playCard": {
       const card = actor.hand.find((candidate) => candidate.id === move.cardId);
-      if (card === undefined || !isAllowedNow(state, move.cardId)) {
+      if (card === undefined || !isCardUsableNow(state, move.cardId)) {
         legal = false;
       } else if (needsTarget(card.type)) {
         legal =
@@ -178,7 +178,7 @@ export function isLegalMove(state: GameState, move: Move): boolean {
     case "discardCard":
       legal =
         actor.hand.some((candidate) => candidate.id === move.cardId) &&
-        isAllowedNow(state, move.cardId);
+        isCardUsableNow(state, move.cardId);
       break;
     case "redrawHand":
       legal = isBlocked(state, actor.id);
@@ -200,7 +200,7 @@ export function legalMoves(state: GameState): Move[] {
   const moves: Move[] = [];
 
   if (state.winnerId === null) {
-    const usable = actor.hand.filter((card) => isAllowedNow(state, card.id));
+    const usable = actor.hand.filter((card) => isCardUsableNow(state, card.id));
 
     for (const card of usable) {
       if (needsTarget(card.type)) {
@@ -238,13 +238,16 @@ export function ownsPig(
 }
 
 /**
- * While a Glücksvogel is being resolved only its two cards may be used.
+ * Tells whether a hand card may be used at this very moment.
  *
  * @param state - the game state
  * @param cardId - the card the player wants to use
- * @returns true if the card may be used right now
+ * @returns true unless a Glücksvogel is being resolved and this card is not one
+ *   of its two - such a card can neither be played nor discarded until the turn
+ *   ends. The UI must respect this, or offering the card would dispatch an
+ *   illegal move.
  */
-function isAllowedNow(state: GameState, cardId: string): boolean {
+export function isCardUsableNow(state: GameState, cardId: string): boolean {
   return (
     state.pendingCardIds.length === 0 || state.pendingCardIds.includes(cardId)
   );

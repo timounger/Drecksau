@@ -13,7 +13,12 @@ import {
 } from "@/components/action-effect-overlay";
 import { chooseAiMove } from "@/game/ai";
 import { applyMove } from "@/game/engine";
-import { isBlocked, legalTargets, needsTarget } from "@/game/moves";
+import {
+  isBlocked,
+  isLegalMove,
+  legalTargets,
+  needsTarget,
+} from "@/game/moves";
 import { isGameState } from "@/game/serialization";
 import { createGame, pickFirstPlayer, type PlayerSetup } from "@/game/setup";
 import { humanName, loadSettings } from "@/lib/settings/app-settings";
@@ -275,6 +280,12 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
   /** Runs a move of the human player and animates it. */
   const play = useCallback(
     (move: Move) => {
+      // A safety net: never dispatch an illegal move. applyMove throws on one,
+      // which would crash the page - the UI should already prevent it, but a
+      // stray click must not take the whole app down.
+      if (!isLegalMove(state, move)) {
+        return;
+      }
       triggerEffect(state, move);
       setState((current) => applyMove(current, move));
       setSelectedCardId(null);

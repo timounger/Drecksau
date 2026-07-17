@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
-import { isCardPlayable } from "@/game/moves";
+import { isCardPlayable, isCardUsableNow } from "@/game/moves";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/game/setup";
 import { currentPlayer, playerById } from "@/game/state";
 import { useDrecksauGame } from "@/hooks/use-drecksau-game";
@@ -152,18 +152,27 @@ export function DrecksauGame(): ReactElement {
             {/* Never wraps: the hand belongs on one line. Too narrow a window
                 shrinks the cards instead - see HandCardView. */}
             <div data-testid="hand-row" className="flex gap-2">
-              {human.hand.map((card) => (
-                <HandCardView
-                  key={card.id}
-                  card={card}
-                  theme={theme}
-                  isPlayable={isCardPlayable(state, human.id, card.type)}
-                  isSelected={card.id === game.selectedCardId}
-                  isDisabled={!game.isHumanTurn}
-                  onSelect={game.selectCard}
-                  onDiscard={game.discard}
-                />
-              ))}
+              {human.hand.map((card) => {
+                // While a Glücksvogel is resolving, only its two cards may be
+                // touched - a leftover card can neither be played nor
+                // discarded until the turn ends.
+                const usableNow = isCardUsableNow(state, card.id);
+                return (
+                  <HandCardView
+                    key={card.id}
+                    card={card}
+                    theme={theme}
+                    isPlayable={
+                      usableNow && isCardPlayable(state, human.id, card.type)
+                    }
+                    canDiscard={usableNow}
+                    isSelected={card.id === game.selectedCardId}
+                    isDisabled={!game.isHumanTurn}
+                    onSelect={game.selectCard}
+                    onDiscard={game.discard}
+                  />
+                );
+              })}
             </div>
 
             {game.isHumanBlocked && (
