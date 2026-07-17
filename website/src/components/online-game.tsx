@@ -28,6 +28,31 @@ const ROOM_QUERY_PARAM = "raum";
 /** How long the "copied!" confirmation stays up, in milliseconds. */
 const COPIED_FEEDBACK_MS = 1500;
 
+/** Milliseconds in a second, for the auto-play labels. */
+const MS_PER_SECOND = 1000;
+/** The auto-play timeouts the host can pick from, in milliseconds. */
+const AUTO_PLAY_SHORT_MS = 15_000;
+const AUTO_PLAY_MEDIUM_MS = 30_000;
+const AUTO_PLAY_LONG_MS = 60_000;
+
+/** Auto-play choices in the lobby: off, then a few sensible timeouts. */
+const AUTO_PLAY_OPTIONS: readonly { readonly ms: number | null }[] = [
+  { ms: null },
+  { ms: AUTO_PLAY_SHORT_MS },
+  { ms: AUTO_PLAY_MEDIUM_MS },
+  { ms: AUTO_PLAY_LONG_MS },
+];
+
+/** Default selection: 30 seconds - the third option, a sensible middle. */
+const DEFAULT_AUTO_PLAY_INDEX = 2;
+
+/** Label for one auto-play choice. */
+function autoPlayLabel(ms: number | null): string {
+  return ms === null
+    ? ONLINE_TEXTS.autoPlayOff
+    : ONLINE_TEXTS.autoPlaySeconds(ms / MS_PER_SECOND);
+}
+
 /**
  * Renders the whole online mode, from joining a room to playing.
  *
@@ -178,6 +203,7 @@ type RoomViewProps = {
 function OnlineLobby({ room, online, onLeave }: RoomViewProps): ReactElement {
   const [withExpansion, setWithExpansion] = useState(false);
   const [withDefense, setWithDefense] = useState(false);
+  const [autoPlayIndex, setAutoPlayIndex] = useState(DEFAULT_AUTO_PLAY_INDEX);
   const enoughPlayers = room.seats.length >= 2;
 
   return (
@@ -240,10 +266,36 @@ function OnlineLobby({ room, online, onLeave }: RoomViewProps): ReactElement {
             />
             {ONLINE_TEXTS.withDefense}
           </label>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="auto-play" className="text-sm font-medium">
+              {ONLINE_TEXTS.autoPlay}
+            </label>
+            <select
+              id="auto-play"
+              value={autoPlayIndex}
+              onChange={(event) => setAutoPlayIndex(Number(event.target.value))}
+              className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              {AUTO_PLAY_OPTIONS.map((option, index) => (
+                <option key={index} value={index}>
+                  {autoPlayLabel(option.ms)}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              {ONLINE_TEXTS.autoPlayHint}
+            </span>
+          </div>
           <button
             type="button"
             disabled={!enoughPlayers}
-            onClick={() => online.start({ withExpansion, withDefense })}
+            onClick={() =>
+              online.start({
+                withExpansion,
+                withDefense,
+                autoPlayMs: AUTO_PLAY_OPTIONS[autoPlayIndex].ms,
+              })
+            }
             className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {ONLINE_TEXTS.startGame}
@@ -267,6 +319,8 @@ function OnlineLobby({ room, online, onLeave }: RoomViewProps): ReactElement {
 
 /** The running (or finished) game, with the code and a leave button. */
 function PlayingArea({ room, online, onLeave }: RoomViewProps): ReactElement {
+  const isFinished = room.phase === "finished";
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -274,13 +328,31 @@ function PlayingArea({ room, online, onLeave }: RoomViewProps): ReactElement {
           {ONLINE_TEXTS.roomCode}:{" "}
           <span className="font-mono font-semibold">{room.code}</span>
         </span>
-        <LeaveButton onLeave={onLeave} />
+        <div className="flex items-center gap-2">
+          {/* After a game the host can deal a fresh round with the same table
+              instead of everyone leaving and making a new room. */}
+          {isFinished && online.isHost && (
+            <button
+              type="button"
+              onClick={online.newRound}
+              className="cursor-pointer rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              {ONLINE_TEXTS.newRound}
+            </button>
+          )}
+          {isFinished && !online.isHost && (
+            <span>{ONLINE_TEXTS.waitingForRematch}</span>
+          )}
+          <LeaveButton onLeave={onLeave} />
+        </div>
       </div>
       {online.seatId !== null && (
         <OnlineBoard
           room={room}
           seatId={online.seatId}
           sendMove={online.sendMove}
+          messages={online.messages}
+          sendChat={online.sendChat}
         />
       )}
     </div>

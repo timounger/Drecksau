@@ -9,6 +9,7 @@
  * This module is that decision logic, kept pure so it can be tested without any
  * network and reused behind any transport (Firebase first, see the README).
  */
+import type { ActionCardType } from "@/game/cards";
 import { applyMove } from "@/game/engine";
 import { isLegalMove } from "@/game/moves";
 import { createGame, MAX_PLAYERS, MIN_PLAYERS } from "@/game/setup";
@@ -16,6 +17,21 @@ import type { GameState, Move } from "@/game/state";
 
 /** Identifies a player across a whole room; stable per browser/session. */
 export type SeatId = string;
+
+/**
+ * The card just played, so every client can animate it.
+ *
+ * @remarks
+ * A played card is public - it goes to the discard pile or onto a pig - so
+ * sharing its type reveals nothing hidden. The host stamps this on each play;
+ * clients animate when the id changes. Discards and hand swaps clear it, since
+ * they have no effect to show.
+ */
+export type RoomEffect = {
+  readonly type: ActionCardType;
+  /** Unique per play (the room version), so each play animates exactly once. */
+  readonly id: number;
+};
 
 /** Where a room is in its life. */
 export type RoomPhase = "lobby" | "playing" | "finished";
@@ -42,6 +58,16 @@ export type RoomState = {
   readonly game: GameState | null;
   /** Bumped on every change so clients can ignore stale snapshots. */
   readonly version: number;
+  /** The last card played, for the animation; absent outside a fresh play. */
+  readonly lastEffect?: RoomEffect;
+  /**
+   * If set, how long a player may take before the computer plays their turn.
+   *
+   * @remarks
+   * In milliseconds, chosen by the host. Null or absent means no auto-play. The
+   * host runs the timer, since it holds the authoritative game.
+   */
+  readonly autoPlayMs?: number | null;
 };
 
 /** How a room's game is set up. */
@@ -49,6 +75,8 @@ export type RoomGameOptions = {
   readonly seed: number;
   readonly withExpansion: boolean;
   readonly withDefense: boolean;
+  /** Auto-play timeout in milliseconds, or null for none. */
+  readonly autoPlayMs?: number | null;
 };
 
 /**
@@ -143,7 +171,26 @@ export function startGame(
     },
   );
 
-  return bump({ ...room, phase: "playing", game });
+  return bump({
+    ...room,
+    phase: "playing",
+    game,
+    autoPlayMs: options.autoPlayMs ?? null,
+  });
+}
+
+/**
+ * Brings a room back to the lobby, keeping its players.
+ *
+ * @param room - a room that is playing or finished
+ * @returns the room in the lobby again, ready for a fresh {@link startGame}
+ * @remarks
+ * How a rematch works online: the host sends the finished game back to the
+ * lobby, where the same seats can start another round - no need to leave and
+ * make a new room. The seats and the code stay; only the game is cleared.
+ */
+export function returnToLobby(room: RoomState): RoomState {
+  return bump({ ...room, phase: "lobby", game: null });
 }
 
 /**

@@ -45,6 +45,24 @@ import pigCleanKlassisch from "./klassisch/pig-clean.webp";
 import pigDirtyKlassisch from "./klassisch/pig-dirty.webp";
 import rainKlassisch from "./klassisch/rain.webp";
 
+// Benjamin-Blümchen style. Placeholders for now - these are copies of the
+// klassisch artwork; replacing the files in the benjamin/ folder is all it
+// takes to give the theme its own look.
+import barnDoorBenjamin from "./benjamin/barn-door.webp";
+import barnBenjamin from "./benjamin/barn.webp";
+import beautyBenjamin from "./benjamin/beauty.webp";
+import dustOffBenjamin from "./benjamin/dust-off.webp";
+import extraMudBenjamin from "./benjamin/extra-mud.webp";
+import farmerScrubsBenjamin from "./benjamin/farmer-scrubs.webp";
+import lightningRodBenjamin from "./benjamin/lightning-rod.webp";
+import lightningBenjamin from "./benjamin/lightning.webp";
+import lipstickBenjamin from "./benjamin/lipstick.webp";
+import luckyBirdBenjamin from "./benjamin/lucky-bird.webp";
+import mudBenjamin from "./benjamin/mud.webp";
+import pigCleanBenjamin from "./benjamin/pig-clean.webp";
+import pigDirtyBenjamin from "./benjamin/pig-dirty.webp";
+import rainBenjamin from "./benjamin/rain.webp";
+
 /** Artwork of every action card in one theme. */
 type CardImageSet = Readonly<Record<ActionCardType, StaticImageData>>;
 
@@ -83,6 +101,21 @@ const KLASSISCH_CARDS: CardImageSet = {
   lipstick: lipstickKlassisch,
 };
 
+const BENJAMIN_CARDS: CardImageSet = {
+  mud: mudBenjamin,
+  rain: rainBenjamin,
+  barn: barnBenjamin,
+  lightning: lightningBenjamin,
+  lightningRod: lightningRodBenjamin,
+  farmerScrubs: farmerScrubsBenjamin,
+  barnDoor: barnDoorBenjamin,
+  beauty: beautyBenjamin,
+  dustOff: dustOffBenjamin,
+  luckyBird: luckyBirdBenjamin,
+  extraMud: extraMudBenjamin,
+  lipstick: lipstickBenjamin,
+};
+
 /**
  * Artwork of every action card, by theme.
  *
@@ -94,6 +127,7 @@ const KLASSISCH_CARDS: CardImageSet = {
 export const CARD_IMAGES_BY_THEME: Readonly<Record<CardTheme, CardImageSet>> = {
   modern: MODERN_CARDS,
   klassisch: KLASSISCH_CARDS,
+  benjamin: BENJAMIN_CARDS,
 };
 
 /** Artwork of the pig sides, by theme. */
@@ -107,6 +141,11 @@ export const PIG_IMAGES_BY_THEME: Readonly<Record<CardTheme, PigImageSet>> = {
     clean: pigCleanKlassisch,
     dirty: pigDirtyKlassisch,
     beauty: beautyKlassisch,
+  },
+  benjamin: {
+    clean: pigCleanBenjamin,
+    dirty: pigDirtyBenjamin,
+    beauty: beautyBenjamin,
   },
 };
 

@@ -19,6 +19,7 @@ import {
 import { CARD_NAMES, ONLINE_TEXTS, UI_TEXTS } from "@/i18n/translations";
 import { ActionEffectOverlay } from "./action-effect-overlay";
 import { GameLog } from "./game-log";
+import { GameResultOverlay, type GameOutcome } from "./game-result-overlay";
 import { HandCardView } from "./hand-card-view";
 import { PlayerBoard } from "./player-board";
 
@@ -52,6 +53,8 @@ export function DrecksauGame(): ReactElement {
   const actor = currentPlayer(state);
   const winner =
     state.winnerId === null ? null : playerById(state, state.winnerId);
+  const outcome: GameOutcome | null =
+    winner === null ? null : winner.isHuman ? "won" : "lost";
 
   // The table size comes from the running game, so a restored game keeps its
   // own player count instead of the last thing that was picked here.
@@ -60,6 +63,7 @@ export function DrecksauGame(): ReactElement {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-4">
       <ActionEffectOverlay effect={game.effect} />
+      <GameResultOverlay outcome={outcome} />
 
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>

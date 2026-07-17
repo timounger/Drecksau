@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { createGame } from "@/game/setup";
 import {
+  isChatPayload,
   isHand,
   isMoveIntent,
   isRoomState,
@@ -99,6 +100,15 @@ describe("isRoomState", () => {
     expect(isRoomState(broken)).toBe(false);
   });
 
+  it("accepts a valid last-effect stamp and rejects a broken one", () => {
+    const room = playingRoom();
+    expect(isRoomState({ ...room, lastEffect: { type: "rain", id: 3 } })).toBe(
+      true,
+    );
+    // A stamp without a real type is malformed.
+    expect(isRoomState({ ...room, lastEffect: { id: 3 } })).toBe(false);
+  });
+
   it("rejects junk", () => {
     expect(isRoomState(null)).toBe(false);
     expect(isRoomState({ code: "ABCD" })).toBe(false);
@@ -136,5 +146,16 @@ describe("isHand", () => {
     expect(isHand([])).toBe(true);
     expect(isHand("nope")).toBe(false);
     expect(isHand([{ id: "c1" }])).toBe(false);
+  });
+});
+
+describe("isChatPayload", () => {
+  it("accepts a full line and rejects one missing a field", () => {
+    expect(
+      isChatPayload({ seatId: "g", name: "Berta", text: "Hallo \u{1F44D}" }),
+    ).toBe(true);
+    expect(isChatPayload({ seatId: "g", name: "Berta", text: "" })).toBe(false);
+    expect(isChatPayload({ seatId: "g", text: "Hi" })).toBe(false);
+    expect(isChatPayload(null)).toBe(false);
   });
 });

@@ -92,6 +92,9 @@ export const UI_TEXTS = {
   playAgain: "Nochmal spielen",
   youWon: "Du hast gewonnen!",
   playerWon: (playerName: string) => `${playerName} hat gewonnen!`,
+  /** Big word on the end-of-game animation. */
+  resultWon: "Gewonnen",
+  resultLost: "Verloren",
   chooseTarget: "Ziel wählen",
   cancel: "Abbrechen",
   discard: "Ablegen",
@@ -140,9 +143,21 @@ export const ONLINE_TEXTS = {
   onlyHostStarts: "Nur der Gastgeber kann das Spiel starten.",
   withExpansion: "Mit Erweiterung „Sauschön“",
   withDefense: "Mit „Drecksau total“ (Extra-Matsch & Lippenstift)",
+  autoPlay: "Auto-Zug bei Untätigkeit",
+  autoPlayHint:
+    "Reagiert ein Spieler nicht rechtzeitig, übernimmt der Computer seinen Zug.",
+  autoPlayOff: "Aus",
+  autoPlaySeconds: (seconds: number) => `${seconds} Sekunden`,
   yourTurnOnline: "Du bist dran",
   waitingForPlayer: (name: string) => `${name} ist am Zug ...`,
   leaveRoom: "Raum verlassen",
+  newRound: "Neues Spiel",
+  waitingForRematch: "Warte auf eine neue Runde vom Gastgeber ...",
+  chatTitle: "Chat",
+  chatPlaceholder: "Nachricht schreiben ...",
+  chatSend: "Senden",
+  chatEmpty: "Noch keine Nachrichten. Schreib etwas!",
+  chatYou: "Du",
   errorConnect:
     "Verbindung fehlgeschlagen. Prüfe die Firebase-Einrichtung oder den Raumcode.",
   errorRoomNotFound:
@@ -208,6 +223,7 @@ export const STATS_TEXTS = {
 export const CARD_THEME_LABELS: Readonly<Record<CardTheme, string>> = {
   modern: "Modern",
   klassisch: "Klassisch",
+  benjamin: "Benjamin Blümchen",
 };
 
 /** Name of each difficulty level, shown in the settings. */

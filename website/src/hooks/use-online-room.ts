@@ -13,6 +13,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { chooseAiMove } from "@/game/ai";
 import type { Card } from "@/game/cards";
 import type { Move } from "@/game/state";
 import { MAX_PLAYERS } from "@/game/setup";
@@ -22,12 +23,14 @@ import { redactHands, withOwnHand } from "@/multiplayer/online-state";
 import {
   applySeatMove,
   createRoom,
+  returnToLobby,
+  seatOnTurn,
   startGame,
   type RoomState,
   type Seat,
   type SeatId,
 } from "@/multiplayer/room";
-import type { RoomTransport } from "@/multiplayer/transport";
+import type { ChatMessage, RoomTransport } from "@/multiplayer/transport";
 
 /** What the player wants to do: host a new room or join one by code. */
 export type OnlineSession = {
@@ -42,6 +45,8 @@ export type OnlineSession = {
 export type StartChoices = {
   readonly withExpansion: boolean;
   readonly withDefense: boolean;
+  /** Auto-play timeout in milliseconds, or null to let players take their time. */
+  readonly autoPlayMs: number | null;
 };
 
 /** Where the connection stands. */
@@ -60,8 +65,14 @@ export type OnlineRoom = {
   readonly error: string | null;
   /** Host only: deal the cards and begin. */
   readonly start: (choices: StartChoices) => void;
+  /** Host only: send a finished game back to the lobby for a rematch. */
+  readonly newRound: () => void;
   /** Play a move - applied directly by the host, sent as an intent by a guest. */
   readonly sendMove: (move: Move) => void;
+  /** Chat lines so far, oldest first. */
+  readonly messages: readonly ChatMessage[];
+  /** Sends a chat line to everyone in the room. */
+  readonly sendChat: (text: string) => void;
 };
 
 /** Fallback name for a player who left the field empty. */
@@ -70,10 +81,18 @@ const DEFAULT_PLAYER_NAME = "Spieler";
 /** How long a guest waits for the room before giving up. */
 const JOIN_TIMEOUT_MS = 12_000;
 
+/** Longest chat line accepted, in characters. */
+const MAX_CHAT_LENGTH = 300;
+
+/** How many chat lines are kept in memory. */
+const MAX_CHAT_MESSAGES = 100;
+
 /** The actions the async setup wires up, reached through a ref to stay fresh. */
 type RoomActions = {
   start: (choices: StartChoices) => void;
+  newRound: () => void;
   sendMove: (move: Move) => void;
+  sendChat: (text: string) => void;
 };
 
 /**
@@ -87,8 +106,18 @@ export function useOnlineRoom(session: OnlineSession | null): OnlineRoom {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [seatId, setSeatId] = useState<SeatId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
 
   const actionsRef = useRef<RoomActions | null>(null);
+
+  /** Appends a chat line, ignoring duplicates and capping the history. */
+  const addMessage = useCallback((message: ChatMessage) => {
+    setMessages((prev) =>
+      prev.some((existing) => existing.id === message.id)
+        ? prev
+        : [...prev, message].slice(-MAX_CHAT_MESSAGES),
+    );
+  }, []);
 
   useEffect(() => {
     if (session === null) {
@@ -101,6 +130,7 @@ export function useOnlineRoom(session: OnlineSession | null): OnlineRoom {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on new session
     setStatus("connecting");
     setError(null);
+    setMessages([]);
 
     /** Reports a fatal problem, unless the effect was already torn down. */
     const fail = (message: string) => {
@@ -115,6 +145,7 @@ export function useOnlineRoom(session: OnlineSession | null): OnlineRoom {
       setStatus,
       setRoom,
       setSeatId,
+      addMessage,
       actionsRef,
     });
 
@@ -123,14 +154,22 @@ export function useOnlineRoom(session: OnlineSession | null): OnlineRoom {
       actionsRef.current = null;
       void transport?.disconnect();
     };
-  }, [session]);
+  }, [session, addMessage]);
 
   const start = useCallback((choices: StartChoices) => {
     actionsRef.current?.start(choices);
   }, []);
 
+  const newRound = useCallback(() => {
+    actionsRef.current?.newRound();
+  }, []);
+
   const sendMove = useCallback((move: Move) => {
     actionsRef.current?.sendMove(move);
+  }, []);
+
+  const sendChat = useCallback((text: string) => {
+    actionsRef.current?.sendChat(text);
   }, []);
 
   return {
@@ -140,7 +179,10 @@ export function useOnlineRoom(session: OnlineSession | null): OnlineRoom {
     room,
     error,
     start,
+    newRound,
     sendMove,
+    messages,
+    sendChat,
   };
 }
 
@@ -150,8 +192,26 @@ type Sinks = {
   setStatus: (status: OnlineStatus) => void;
   setRoom: (room: RoomState) => void;
   setSeatId: (seatId: SeatId) => void;
+  addMessage: (message: ChatMessage) => void;
   actionsRef: { current: RoomActions | null };
 };
+
+/** Cleans a chat line before sending: trims and caps its length. */
+function cleanChat(text: string): string {
+  return text.trim().slice(0, MAX_CHAT_LENGTH);
+}
+
+/** Sends a chat line from a seat, unless it is empty after cleaning. */
+function sendChatFrom(
+  transport: RoomTransport,
+  seat: Seat,
+  text: string,
+): void {
+  const clean = cleanChat(text);
+  if (clean.length > 0) {
+    void transport.sendChat({ seatId: seat.id, name: seat.name, text: clean });
+  }
+}
 
 /** Signs in, opens the transport, and wires up host or guest handling. */
 async function connect(
@@ -176,6 +236,13 @@ async function connect(
       isHost: session.mode === "host",
     };
 
+    // Chat is peer to peer: everyone writes and reads it directly, host or not.
+    transport.onChat((message) => {
+      if (!sinks.cancelled()) {
+        sinks.addMessage(message);
+      }
+    });
+
     if (session.mode === "host") {
       await runHost(transport, seat, session.code, sinks);
     } else {
@@ -196,6 +263,7 @@ async function runHost(
   sinks: Sinks,
 ): Promise<void> {
   let authoritative = createRoom(code, seat);
+  let autoTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Stores, publishes and shows a new authoritative room. */
   const commit = (next: RoomState) => {
@@ -205,6 +273,44 @@ async function runHost(
       sinks.setRoom(next);
       sinks.setStatus(phaseToStatus(next.phase));
     }
+    // Any change restarts the auto-play clock for whoever is now on turn.
+    scheduleAutoPlay();
+  };
+
+  /** Referees a move and, if it was a play, stamps it for the animation. */
+  const refereeApply = (seatId: SeatId, move: Move) => {
+    const next = applySeatMove(authoritative, seatId, move);
+    // Unchanged means the referee rejected it - nothing to publish or animate.
+    if (next !== authoritative) {
+      commit(stampEffect(authoritative, next, move));
+    }
+  };
+
+  /**
+   * Arms the auto-play timer, if the host turned it on. When it fires, the
+   * computer makes a move for whoever is on turn - the same referee path as a
+   * real move, so nothing special happens to the rest of the game.
+   */
+  const scheduleAutoPlay = () => {
+    clearTimeout(autoTimer);
+    const timeout = authoritative.autoPlayMs;
+    if (
+      authoritative.phase === "playing" &&
+      typeof timeout === "number" &&
+      timeout > 0
+    ) {
+      autoTimer = setTimeout(() => {
+        const onTurn = seatOnTurn(authoritative);
+        // Do nothing once the room has been left, so no stray write goes out.
+        if (
+          !sinks.cancelled() &&
+          onTurn !== null &&
+          authoritative.game !== null
+        ) {
+          refereeApply(onTurn.id, chooseAiMove(authoritative.game));
+        }
+      }, timeout);
+    }
   };
 
   sinks.actionsRef.current = {
@@ -213,9 +319,15 @@ async function runHost(
         commit(startGame(authoritative, { seed: freshSeed(), ...choices }));
       }
     },
-    sendMove: (move) => {
-      commit(applySeatMove(authoritative, seat.id, move));
+    newRound: () => {
+      if (authoritative.phase !== "lobby") {
+        commit(returnToLobby(authoritative));
+      }
     },
+    sendMove: (move) => {
+      refereeApply(seat.id, move);
+    },
+    sendChat: (text) => sendChatFrom(transport, seat, text),
   };
 
   await transport.join(seat);
@@ -233,10 +345,33 @@ async function runHost(
   });
 
   transport.onIntents((intent) => {
-    commit(applySeatMove(authoritative, intent.seatId, intent.move));
+    refereeApply(intent.seatId, intent.move);
   });
 
   commit(authoritative);
+}
+
+/**
+ * Stamps a played card onto the new room so every client can animate it.
+ *
+ * @param pre - the room before the move, where the mover still holds the card
+ * @param next - the room after the move
+ * @param move - the move that was applied
+ * @returns the new room, with {@link RoomState.lastEffect} set for a play
+ * @remarks
+ * Only a played card animates; a discard or hand swap has no effect to show and
+ * simply carries the previous stamp, whose id the clients have already seen.
+ */
+function stampEffect(pre: RoomState, next: RoomState, move: Move): RoomState {
+  let stamped = next;
+  if (move.kind === "playCard" && pre.game !== null) {
+    const mover = pre.game.players[pre.game.currentPlayerIndex];
+    const card = mover?.hand.find((candidate) => candidate.id === move.cardId);
+    if (card !== undefined) {
+      stamped = { ...next, lastEffect: { type: card.type, id: next.version } };
+    }
+  }
+  return stamped;
 }
 
 /** Runs a guest: sends intents, renders the host's snapshots with its own hand. */
@@ -262,9 +397,13 @@ async function runGuest(
     start: () => {
       // Only the host may start; ignore if a guest's UI ever calls this.
     },
+    newRound: () => {
+      // Only the host may open a rematch; a guest's UI never offers it.
+    },
     sendMove: (move) => {
       void transport.sendIntent({ seatId: uid, move });
     },
+    sendChat: (text) => sendChatFrom(transport, seat, text),
   };
 
   await transport.join(seat);

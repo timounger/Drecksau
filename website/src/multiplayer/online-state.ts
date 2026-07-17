@@ -92,8 +92,24 @@ export function isRoomState(value: unknown): value is RoomState {
     typeof room.phase === "string" &&
     ROOM_PHASES.has(room.phase) &&
     isPhaseGame(room.phase, room.game) &&
-    isCount(room.version)
+    isCount(room.version) &&
+    isOptionalEffect(room.lastEffect) &&
+    isOptionalTimeout(room.autoPlayMs)
   );
+}
+
+/** Checks the optional last-played-card stamp used for the animation. */
+function isOptionalEffect(value: unknown): boolean {
+  const effect = value as { type: unknown; id: unknown };
+  return (
+    value === undefined ||
+    (isObject(value) && isNonEmptyString(effect.type) && isCount(effect.id))
+  );
+}
+
+/** Checks the optional auto-play timeout: absent, null, or a positive count. */
+function isOptionalTimeout(value: unknown): boolean {
+  return value === undefined || value === null || isCount(value);
 }
 
 /**
@@ -117,6 +133,27 @@ export function isMoveIntent(value: unknown): value is MoveIntent {
  */
 export function isHand(value: unknown): value is Card[] {
   return Array.isArray(value) && value.every(isCard);
+}
+
+/**
+ * Checks an untrusted value is a chat line (without its id).
+ *
+ * @param value - the value read from the transport
+ * @returns true if it names a sender and carries some text
+ * @remarks
+ * The text is displayed as plain text - React escapes it, so it cannot inject
+ * markup. Only the shape is checked here.
+ */
+export function isChatPayload(
+  value: unknown,
+): value is { seatId: string; name: string; text: string } {
+  const message = value as { seatId: unknown; name: unknown; text: unknown };
+  return (
+    isObject(value) &&
+    isNonEmptyString(message.seatId) &&
+    isNonEmptyString(message.name) &&
+    isNonEmptyString(message.text)
+  );
 }
 
 /** Checks one seat entry. */

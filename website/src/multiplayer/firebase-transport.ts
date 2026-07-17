@@ -10,6 +10,7 @@
  *   by that player.
  * - `intents/{pushId}` - a guest's requested move; the host consumes and
  *   removes it.
+ * - `chat/{pushId}` - a chat line; kept so a joiner sees the history.
  *
  * Every value is stored as a JSON string on purpose. The Realtime Database
  * drops `null`s and empty arrays and turns sparse arrays into objects, which
@@ -28,9 +29,14 @@ import {
   type Database,
 } from "firebase/database";
 import type { Card } from "@/game/cards";
-import { isHand, isMoveIntent, isRoomState } from "./online-state";
+import {
+  isChatPayload,
+  isHand,
+  isMoveIntent,
+  isRoomState,
+} from "./online-state";
 import type { RoomState, Seat, SeatId } from "./room";
-import type { MoveIntent, RoomTransport } from "./transport";
+import type { ChatMessage, MoveIntent, RoomTransport } from "./transport";
 
 /** A present member as stored: the seat plus when it joined, for turn order. */
 type StoredMember = Seat & { readonly joinedAt: number };
@@ -51,6 +57,7 @@ export function createFirebaseTransport(
   const sharedPath = `${roomPath}/shared`;
   const handsPath = `${roomPath}/hands`;
   const intentsPath = `${roomPath}/intents`;
+  const chatPath = `${roomPath}/chat`;
 
   // Every listener's unsubscribe, plus a cleanup for the presence node.
   const unsubscribes: Array<() => void> = [];
@@ -134,6 +141,22 @@ export function createFirebaseTransport(
     return stop;
   };
 
+  const sendChat = async (message: Omit<ChatMessage, "id">): Promise<void> => {
+    await push(ref(database, chatPath), JSON.stringify(message));
+  };
+
+  const onChat = (onMessage: (message: ChatMessage) => void): (() => void) => {
+    // Chat lines are kept, not consumed, so a new joiner sees the history.
+    const stop = onChildAdded(ref(database, chatPath), (snapshot) => {
+      const payload = parseJson(snapshot.val(), isChatPayload);
+      if (payload !== null && snapshot.key !== null) {
+        onMessage({ id: snapshot.key, ...payload });
+      }
+    });
+    unsubscribes.push(stop);
+    return stop;
+  };
+
   const disconnect = async (): Promise<void> => {
     for (const stop of unsubscribes) {
       stop();
@@ -155,6 +178,8 @@ export function createFirebaseTransport(
     onHand,
     sendIntent,
     onIntents,
+    sendChat,
+    onChat,
     disconnect,
   };
 }

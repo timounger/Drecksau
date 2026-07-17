@@ -9,10 +9,14 @@
  */
 
 /** A card design. Add a new id here and a folder of images to match. */
-export type CardTheme = "modern" | "klassisch";
+export type CardTheme = "modern" | "klassisch" | "benjamin";
 
 /** All themes, in the order they appear in the settings. */
-export const CARD_THEMES: readonly CardTheme[] = ["modern", "klassisch"];
+export const CARD_THEMES: readonly CardTheme[] = [
+  "modern",
+  "klassisch",
+  "benjamin",
+];
 
 /** The theme new visitors see. */
 export const DEFAULT_CARD_THEME: CardTheme = "modern";

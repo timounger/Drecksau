@@ -10,15 +10,17 @@ Jedes Kartendesign ist ein **Unterordner** mit denselben Dateinamen:
 ```text
 modern/     das Standard-Design
 klassisch/  das klassische Design
+benjamin/   Benjamin-Blümchen-Stil
 ```
 
 In den Einstellungen waehlt man zwischen ihnen; die Umschaltung wirkt sofort.
 Ein neues Design = neuer Ordner mit denselben Dateinamen plus ein Import-Block in
 [card-images.ts](card-images.ts).
 
-Beide Ordner brauchen **jeweils alle** unten gelisteten Dateien - fehlt eine,
-bricht der Build (Static Import, siehe unten). Der Ordner `klassisch/` enthaelt
-aktuell nur Platzhalter; ersetze sie durch die echten Bilder.
+Jeder Ordner braucht **alle** unten gelisteten Dateien - fehlt eine, bricht der
+Build (Static Import, siehe unten). Die Ordner `klassisch/` und `benjamin/`
+enthalten aktuell nur Platzhalter (`benjamin/` ist eine Kopie von `klassisch/`);
+ersetze sie durch die echten Bilder.
 
 ## Erwartete Dateien (in jedem Theme-Ordner)
 

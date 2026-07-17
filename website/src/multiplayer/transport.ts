@@ -30,6 +30,17 @@ export type MoveIntent = {
   readonly move: Move;
 };
 
+/** One line of chat between the players. */
+export type ChatMessage = {
+  /** Stable id, so the list can key on it and drop duplicates. */
+  readonly id: string;
+  /** Who wrote it. */
+  readonly seatId: SeatId;
+  /** Their display name at the time. */
+  readonly name: string;
+  readonly text: string;
+};
+
 /** Carries room snapshots, private hands and move intents between the players. */
 export type RoomTransport = {
   /**
@@ -92,6 +103,21 @@ export type RoomTransport = {
    * @returns an unsubscribe function
    */
   onIntents(onIntent: (intent: MoveIntent) => void): () => void;
+
+  /**
+   * Sends a chat line. Everyone writes directly; the host does not mediate.
+   *
+   * @param message - the line to send, without its id
+   */
+  sendChat(message: Omit<ChatMessage, "id">): Promise<void>;
+
+  /**
+   * Subscribes to chat lines, including any already in the room.
+   *
+   * @param onMessage - called with each line, oldest first on first attach
+   * @returns an unsubscribe function
+   */
+  onChat(onMessage: (message: ChatMessage) => void): () => void;
 
   /** Leaves the room and releases every listener and the connection. */
   disconnect(): Promise<void>;

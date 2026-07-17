@@ -11,6 +11,7 @@ import {
   createRoom,
   joinRoom,
   leaveRoom,
+  returnToLobby,
   seatOnTurn,
   startGame,
   type RoomState,
@@ -82,6 +83,30 @@ describe("starting the game", () => {
 
   it("refuses to start with a single player", () => {
     expect(() => startGame(createRoom("ABCD", HOST), OPTIONS)).toThrow();
+  });
+
+  it("stores the auto-play timeout, defaulting to none", () => {
+    const timed = startGame(lobbyOfTwo(), { ...OPTIONS, autoPlayMs: 30000 });
+    expect(timed.autoPlayMs).toBe(30000);
+    expect(startGame(lobbyOfTwo(), OPTIONS).autoPlayMs).toBeNull();
+  });
+
+  it("can return to the lobby and start again with the same seats", () => {
+    const playing = startGame(lobbyOfTwo(), OPTIONS);
+    const lobby = returnToLobby(playing);
+
+    expect(lobby.phase).toBe("lobby");
+    expect(lobby.game).toBeNull();
+    expect(lobby.seats).toEqual(playing.seats);
+    expect(lobby.version).toBeGreaterThan(playing.version);
+
+    // A fresh game deals again from the very same table.
+    const replayed = startGame(lobby, OPTIONS);
+    expect(replayed.phase).toBe("playing");
+    expect(replayed.game?.players.map((player) => player.name)).toEqual([
+      "Du",
+      "Berta",
+    ]);
   });
 });
 

@@ -182,3 +182,47 @@ body {
     opacity: 0;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   End of game: a big result that pops in and stays readable almost the whole
+   time before fading, so it plays longer than a card effect.
+   --------------------------------------------------------------------------- */
+
+/* The result icon and word: grow with a little bounce, hold, then fade late. */
+@keyframes drecksau-result {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  18% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  32% {
+    transform: scale(1);
+  }
+  85% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+}
+
+/* A colour wash that holds most of the result, then fades. */
+@keyframes drecksau-result-tint {
+  from {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

@@ -22,7 +22,6 @@ import {
   ActionEffectOverlay,
   type CardEffect,
 } from "@/components/action-effect-overlay";
-import type { ActionCardType } from "@/game/cards";
 import {
   isBlocked,
   isCardPlayable,
@@ -32,6 +31,7 @@ import {
 } from "@/game/moves";
 import type { GameState, Move, PigId } from "@/game/state";
 import type { RoomState, SeatId } from "@/multiplayer/room";
+import type { ChatMessage } from "@/multiplayer/transport";
 import {
   getServerSettingsSnapshot,
   getSettingsSnapshot,
@@ -39,7 +39,9 @@ import {
 } from "@/lib/settings/settings-store";
 import { CARD_NAMES, ONLINE_TEXTS, UI_TEXTS } from "@/i18n/translations";
 import { GameLog } from "./game-log";
+import { GameResultOverlay, type GameOutcome } from "./game-result-overlay";
 import { HandCardView } from "./hand-card-view";
+import { OnlineChat } from "./online-chat";
 import { PlayerBoard } from "./player-board";
 
 /** Props of {@link OnlineBoard}. */
@@ -50,6 +52,10 @@ export type OnlineBoardProps = {
   readonly seatId: SeatId;
   /** Sends a move - applied by the host if it is this player's turn. */
   readonly sendMove: (move: Move) => void;
+  /** Chat lines so far, oldest first. */
+  readonly messages: readonly ChatMessage[];
+  /** Sends a chat line to everyone in the room. */
+  readonly sendChat: (text: string) => void;
 };
 
 /**
@@ -62,11 +68,15 @@ export function OnlineBoard({
   room,
   seatId,
   sendMove,
+  messages,
+  sendChat,
 }: OnlineBoardProps): ReactElement {
   const game = room.game as GameState;
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [effect, setEffect] = useState<CardEffect | null>(null);
-  const effectCounter = useRef(0);
+  // The id of the last play we already animated. Starts at the stamp present
+  // when the board mounts, so a play from before we joined is not replayed.
+  const lastShownEffectId = useRef(room.lastEffect?.id ?? null);
 
   const theme = useSyncExternalStore(
     subscribeSettings,
@@ -81,6 +91,16 @@ export function OnlineBoard({
   // A selection only counts while it is this player's turn; deriving it avoids
   // an effect just to clear a stale pick when the turn moves on.
   const activeSelectionId = isMyTurn ? selectedCardId : null;
+
+  // Animate whenever the host stamps a newly played card - own move or not.
+  // The id only changes on a real play, so discards and hand swaps show nothing.
+  useEffect(() => {
+    const latest = room.lastEffect;
+    if (latest !== undefined && latest.id !== lastShownEffectId.current) {
+      lastShownEffectId.current = latest.id;
+      setEffect({ type: latest.type, id: latest.id });
+    }
+  }, [room.lastEffect]);
 
   // Take the effect off screen once it has played.
   useEffect(() => {
@@ -100,15 +120,9 @@ export function OnlineBoard({
     return <p className="p-4 text-sm">{ONLINE_TEXTS.connecting}</p>;
   }
 
-  const triggerEffect = (type: ActionCardType) => {
-    effectCounter.current += 1;
-    setEffect({ type, id: effectCounter.current });
-  };
-
-  const doPlay = (move: Move, animate: ActionCardType | null) => {
-    if (animate !== null) {
-      triggerEffect(animate);
-    }
+  // Every client, mover included, animates from the host's published stamp, so
+  // playing only sends the move; the animation follows from the next snapshot.
+  const doPlay = (move: Move) => {
     sendMove(move);
     setSelectedCardId(null);
   };
@@ -120,7 +134,7 @@ export function OnlineBoard({
         if (needsTarget(card.type)) {
           setSelectedCardId(cardId);
         } else {
-          doPlay({ kind: "playCard", cardId }, card.type);
+          doPlay({ kind: "playCard", cardId });
         }
       }
     }
@@ -128,23 +142,19 @@ export function OnlineBoard({
 
   const playAtPig = (pigId: PigId) => {
     if (isMyTurn && selectedCardId !== null) {
-      const card = me.hand.find((candidate) => candidate.id === selectedCardId);
-      doPlay(
-        { kind: "playCard", cardId: selectedCardId, targetPigId: pigId },
-        card?.type ?? null,
-      );
+      doPlay({ kind: "playCard", cardId: selectedCardId, targetPigId: pigId });
     }
   };
 
   const discard = (cardId: string) => {
     if (isMyTurn) {
-      doPlay({ kind: "discardCard", cardId }, null);
+      doPlay({ kind: "discardCard", cardId });
     }
   };
 
   const redraw = () => {
     if (isMyTurn) {
-      doPlay({ kind: "redrawHand" }, null);
+      doPlay({ kind: "redrawHand" });
     }
   };
 
@@ -160,10 +170,13 @@ export function OnlineBoard({
   const others = room.seats
     .map((seat, index) => ({ seat, index }))
     .filter((entry) => entry.index !== mySeatIndex);
+  const outcome: GameOutcome | null =
+    game.winnerId === null ? null : game.winnerId === me.id ? "won" : "lost";
 
   return (
     <div className="flex flex-col gap-3">
       <ActionEffectOverlay effect={effect} />
+      <GameResultOverlay outcome={outcome} />
 
       <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
         <div className="flex flex-col gap-3">
@@ -235,6 +248,13 @@ export function OnlineBoard({
               </button>
             )}
           </section>
+
+          {/* Chat sits right under the hand, newest line on top. */}
+          <OnlineChat
+            messages={messages}
+            ownSeatId={seatId}
+            onSend={sendChat}
+          />
         </div>
 
         <aside className="flex min-h-0 flex-col gap-3 lg:max-h-[calc(100vh-8rem)]">

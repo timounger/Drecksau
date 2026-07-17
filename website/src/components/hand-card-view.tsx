@@ -65,6 +65,17 @@ export function HandCardView({
   // either (a leftover card mid-Glücksvogel), where the card is fully inert.
   const highlightDiscard = !isPlayable && !isDisabled && canDiscard;
 
+  // Some artwork is dark to begin with, so a faint fade barely reads as "off".
+  // Inactive cards are therefore actually darkened, not just made transparent:
+  // a card you cannot click gets the strongest wash, a card that is only
+  // waiting for your turn a lighter one.
+  const isDimmed = !isPlayable || isDisabled;
+  const imageWash = !isPlayable
+    ? "bg-zinc-950/65"
+    : isDisabled
+      ? "bg-zinc-950/45"
+      : "";
+
   return (
     <div
       className={[
@@ -75,24 +86,19 @@ export function HandCardView({
         isSelected
           ? "-translate-y-2 border-emerald-500 ring-2 ring-emerald-400"
           : "border-zinc-200 dark:border-zinc-700",
-        // Dim the whole card only when it is not the player's turn; an
-        // unplayable card is dimmed on its picture alone, below, so its
-        // discard button stays bright.
-        isDisabled ? "opacity-60" : "",
       ].join(" ")}
     >
       <button
         type="button"
         disabled={!isPlayable || isDisabled}
         onClick={() => onSelect(card.id)}
-        // Centred, so the landscape Schönsau does not leave a gap at the
-        // bottom while its portrait neighbours set the card height. Dimmed on
-        // its own when the card cannot be played, so the discard button below
-        // is the one thing that still stands out.
+        // Centred, so the landscape Schönsau does not leave a gap at the bottom
+        // while its portrait neighbours set the card height. The picture itself
+        // carries the disabled look (darkened below), so the discard button
+        // stays bright and clearly clickable.
         className={[
           "flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-1",
           "enabled:cursor-pointer enabled:hover:bg-zinc-50 dark:enabled:hover:bg-zinc-800",
-          isPlayable ? "" : "opacity-50",
         ].join(" ")}
       >
         {/* Sized by width so the picture shrinks with the card; the height
@@ -109,11 +115,30 @@ export function HandCardView({
             alt=""
             fill
             sizes="112px"
-            className="object-contain"
+            className={`object-contain ${isDimmed ? "grayscale" : ""}`}
           />
+          {imageWash !== "" && (
+            <span
+              className={`pointer-events-none absolute inset-0 rounded-md ${imageWash}`}
+            />
+          )}
         </span>
-        <span className="text-xs font-semibold">{CARD_NAMES[card.type]}</span>
-        <span className="text-center text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
+        <span
+          className={[
+            "text-xs font-semibold",
+            isDimmed ? "text-zinc-400 dark:text-zinc-500" : "",
+          ].join(" ")}
+        >
+          {CARD_NAMES[card.type]}
+        </span>
+        <span
+          className={[
+            "text-center text-[11px] leading-tight",
+            isDimmed
+              ? "text-zinc-400 dark:text-zinc-600"
+              : "text-zinc-500 dark:text-zinc-400",
+          ].join(" ")}
+        >
           {hint}
         </span>
       </button>
