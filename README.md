@@ -1,10 +1,20 @@
 # Drecksau
 
-Das Kartenspiel [Drecksau](https://de.wikipedia.org/wiki/Drecksau_(Spiel))
+Das Kartenspiel [Drecksau](<https://de.wikipedia.org/wiki/Drecksau_(Spiel)>)
 (Frank Bebenroth, Kosmos) als Browserspiel gegen Computergegner.
 
 Wer zuerst nur noch Drecksäue und kein sauberes Schwein mehr vor sich liegen
 hat, gewinnt.
+
+## Spielanleitungen
+
+Offizielle Regeln von Kosmos als PDF:
+
+- Grundspiel: [Drecksau-Anleitung (Art.-Nr. 740276)](https://cms.kosmos.de/game-instructions/4002051740276_Drecksau_Manual_2023_web.pdf)
+- Erweiterung: [Sauschön-Anleitung (Art.-Nr. 740375)](https://gesellschaftsspiele.spielen.de/uploads/files/2669/5718aca153430.pdf)
+
+Wie die Regeln in dieser Umsetzung genau greifen, steht in
+[docs/game-rules.md](docs/game-rules.md).
 
 ## Starten
 
@@ -23,15 +33,15 @@ npm run dev     # http://localhost:3000
 
 ## Skripte (im Ordner website/)
 
-| Befehl              | Zweck                                  |
-| ------------------- | -------------------------------------- |
-| `npm run dev`       | Dev-Server                             |
-| `npm run build`     | Produktions-Build                      |
-| `npm test`          | Unit-Tests der Spiel-Engine (Vitest)   |
-| `npm run lint`      | ESLint                                 |
-| `npm run format`    | Prettier                               |
-| `npm run typecheck` | TypeScript ohne Emit                   |
-| `npm run docs`      | API-Doku via TypeDoc nach `docs/api/`  |
+| Befehl              | Zweck                                 |
+| ------------------- | ------------------------------------- |
+| `npm run dev`       | Dev-Server                            |
+| `npm run build`     | Produktions-Build                     |
+| `npm test`          | Unit-Tests der Spiel-Engine (Vitest)  |
+| `npm run lint`      | ESLint                                |
+| `npm run format`    | Prettier                              |
+| `npm run typecheck` | TypeScript ohne Emit                  |
+| `npm run docs`      | API-Doku via TypeDoc nach `docs/api/` |
 
 ## Aufbau
 
@@ -106,6 +116,22 @@ Die Umschaltung gilt ab dem naechsten Spiel - Deck und Schweinezahl werden beim
 Austeilen festgelegt. Details und Quellen in
 [docs/game-rules.md](docs/game-rules.md).
 
+## Zusatzkarten „Drecksau total“
+
+Eigene Einstellung, Standard **aus**. Bringt zwei **Verteidigungskarten** aus
+der Ausgabe Drecksau total - der Name taeuscht, es sind keine Angriffe:
+
+- **Extra-Matsch** (2x): rettet eine eigene Drecksau vor „Bauer schrubbt" und
+  vor Regen.
+- **Lippenstift** (2x): rettet eine eigene Schönsau vor „Aus dem Staub".
+  Kommt nur ins Spiel, wenn auch die Erweiterung Sauschön an ist.
+
+Beide **loesen automatisch aus**: Wird eine eigene Sau angegriffen und man haelt
+die passende Karte, wird sie von selbst eingesetzt (eine Karte rettet eine Sau).
+Aktiv spielen kann man sie nicht - auf der Hand nur ablegen. Warum automatisch
+und nicht auf Nachfrage, steht als bewusste Festlegung in
+[docs/game-rules.md](docs/game-rules.md).
+
 ## Animationen
 
 Wird eine Karte gespielt - egal von wem - laeuft ein kurzer Effekt ueber den
@@ -169,7 +195,7 @@ Das Spiel laeuft komplett im Browser, deshalb wird es als **statischer Export**
 gebaut (`output: "export"` in [website/next.config.ts](website/next.config.ts))
 und landet in `website/out/`.
 
-**Einmalig noetig:** in den Repo-Einstellungen unter *Settings -> Pages* als
+**Einmalig noetig:** in den Repo-Einstellungen unter _Settings -> Pages_ als
 Source **"GitHub Actions"** auswaehlen. Ohne das schlaegt der Workflow-Schritt
 `configure-pages` fehl.
 

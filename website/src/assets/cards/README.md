@@ -28,6 +28,15 @@ Die Namen sind kebab-case (Coding-Regeln); der Code bildet sie in
 | `dust-off.webp`   | Aus dem Staub | `dustOff`   |
 | `lucky-bird.webp` | Glücksvogel   | `luckyBird` |
 
+### Zusatzkarten „Drecksau total"
+
+| Datei            | Karte        | Engine-Typ |
+| ---------------- | ------------ | ---------- |
+| `extra-mud.webp` | Extra-Matsch | `extraMud` |
+| `lipstick.webp`  | Lippenstift  | `lipstick` |
+
+Beide hochkant wie die anderen Aktionskarten.
+
 **Die Schönsau ist quer, nicht hoch.** Sie ist im echten Spiel eine einzige
 Karte mit zwei Rollen: Man haelt sie auf der Hand und legt sie dann auf ein
 Schwein. Deshalb liegt sie im Schweine-Format vor und wird an beiden Stellen

@@ -131,11 +131,17 @@ describe("chooseAiMove", () => {
 
 describe("full games between computer players", () => {
   it.each([
-    { label: "Grundspiel", withExpansion: false },
-    { label: "mit Sauschön", withExpansion: true },
+    { label: "Grundspiel", withExpansion: false, withDefense: false },
+    { label: "mit Sauschön", withExpansion: true, withDefense: false },
+    {
+      label: "mit Verteidigungskarten",
+      withExpansion: false,
+      withDefense: true,
+    },
+    { label: "Drecksau total", withExpansion: true, withDefense: true },
   ])(
     "always reach a winner within a sane number of turns ($label)",
-    ({ withExpansion }) => {
+    ({ withExpansion, withDefense }) => {
       for (let seed = 0; seed < 25; seed++) {
         let state: GameState = createGame(
           [
@@ -143,7 +149,7 @@ describe("full games between computer players", () => {
             { name: "Berta", isHuman: false },
             { name: "Cleo", isHuman: false },
           ],
-          { seed, withExpansion },
+          { seed, withExpansion, withDefense },
         );
 
         let turns = 0;

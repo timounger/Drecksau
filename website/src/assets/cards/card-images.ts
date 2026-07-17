@@ -14,9 +14,11 @@ import barnDoor from "./barn-door.webp";
 import barn from "./barn.webp";
 import beauty from "./beauty.webp";
 import dustOff from "./dust-off.webp";
+import extraMud from "./extra-mud.webp";
 import farmerScrubs from "./farmer-scrubs.webp";
 import lightningRod from "./lightning-rod.webp";
 import lightning from "./lightning.webp";
+import lipstick from "./lipstick.webp";
 import luckyBird from "./lucky-bird.webp";
 import mud from "./mud.webp";
 import pigClean from "./pig-clean.webp";
@@ -35,6 +37,8 @@ export const CARD_IMAGES: Readonly<Record<ActionCardType, StaticImageData>> = {
   beauty,
   dustOff,
   luckyBird,
+  extraMud,
+  lipstick,
 };
 
 /**
@@ -85,4 +89,6 @@ export const CARD_ASPECTS: Readonly<Record<ActionCardType, string>> = {
   beauty: PIG_ASPECT,
   dustOff: CARD_ASPECT,
   luckyBird: CARD_ASPECT,
+  extraMud: CARD_ASPECT,
+  lipstick: CARD_ASPECT,
 };

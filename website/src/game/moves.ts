@@ -86,6 +86,11 @@ const TARGET_RULES: Readonly<
 
   // The lucky bird lets the player use their other two cards - no target.
   luckyBird: () => [],
+
+  // Defence cards are never played actively - they only trigger when an attack
+  // hits one of your pigs. No target, and (not being untargeted) unplayable.
+  extraMud: () => [],
+  lipstick: () => [],
 };
 
 /**

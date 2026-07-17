@@ -33,11 +33,13 @@ describe("defaultSettings", () => {
     expect(defaultSettings().areAnimationsEnabled).toBe(false);
   });
 
-  it("leaves the expansion off - the base game is what people expect", () => {
+  it("leaves the expansion and the defence cards off by default", () => {
     mockReducedMotion(false);
     expect(defaultSettings().isExpansionEnabled).toBe(false);
+    expect(defaultSettings().areDefenseCardsEnabled).toBe(false);
     mockReducedMotion(true);
     expect(defaultSettings().isExpansionEnabled).toBe(false);
+    expect(defaultSettings().areDefenseCardsEnabled).toBe(false);
   });
 
   it("starts without a name, so the game says 'Du'", () => {
@@ -71,6 +73,7 @@ describe("isAppSettings", () => {
     playerName: "Timo",
     areAnimationsEnabled: true,
     isExpansionEnabled: false,
+    areDefenseCardsEnabled: false,
   };
 
   it("accepts real settings", () => {
@@ -101,7 +104,11 @@ describe("isAppSettings", () => {
 });
 
 describe("humanName", () => {
-  const base = { areAnimationsEnabled: true, isExpansionEnabled: false };
+  const base = {
+    areAnimationsEnabled: true,
+    isExpansionEnabled: false,
+    areDefenseCardsEnabled: false,
+  };
 
   it("uses the chosen name", () => {
     expect(humanName({ ...base, playerName: "Timo" })).toBe("Timo");

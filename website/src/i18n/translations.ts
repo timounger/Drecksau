@@ -17,6 +17,8 @@ export const CARD_NAMES: Readonly<Record<ActionCardType, string>> = {
   beauty: "Schönsau",
   dustOff: "Aus dem Staub",
   luckyBird: "Glücksvogel",
+  extraMud: "Extra-Matsch",
+  lipstick: "Lippenstift",
 };
 
 /** What each card does, shown on the card in the hand. */
@@ -31,6 +33,10 @@ export const CARD_DESCRIPTIONS: Readonly<Record<ActionCardType, string>> = {
   beauty: "Auf ein beliebiges Schwein legen - es wird sauschön.",
   dustOff: "Entfernt eine beliebige Schönsau wieder.",
   luckyBird: "Spiel deine beiden anderen Handkarten sofort aus.",
+  extraMud:
+    "Verteidigt automatisch: rettet eine eigene Drecksau vor Bauer und Regen.",
+  lipstick:
+    "Verteidigt automatisch: rettet eine eigene Schönsau vor Aus dem Staub.",
 };
 
 /** Emoji shown on each card - keeps the board readable without artwork. */
@@ -45,6 +51,8 @@ export const CARD_ICONS: Readonly<Record<ActionCardType, string>> = {
   beauty: "\u{1F484}",
   dustOff: "\u{1F4A8}",
   luckyBird: "\u{1F426}",
+  extraMud: "\u{1F6E1}\u{FE0F}",
+  lipstick: "\u{1F48B}",
 };
 
 /** Why a card cannot be played right now - shown as a hint on the card. */
@@ -59,6 +67,10 @@ export const CARD_BLOCKED_HINTS: Readonly<Record<ActionCardType, string>> = {
   beauty: "Kein Schwein frei für eine Schönsau.",
   dustOff: "Es liegt keine Schönsau aus.",
   luckyBird: "",
+  // Not really "blocked" - these are never actively played. The hint explains
+  // why the card cannot be clicked to play.
+  extraMud: "Wird automatisch eingesetzt, wenn du angegriffen wirst.",
+  lipstick: "Wird automatisch eingesetzt, wenn du angegriffen wirst.",
 };
 
 /** Static texts of the user interface. */
@@ -116,6 +128,9 @@ export const SETTINGS_TEXTS = {
   expansionHint:
     "Bringt Schönsau, Aus dem Staub und Glücksvogel ins Spiel. Du gewinnst dann entweder mit lauter Drecksäuen oder mit lauter Schönsäuen. Jeder hat dann 3 Schweine.",
   expansionNotice: "Gilt ab dem nächsten Spiel.",
+  defenseCards: "Extra-Matsch & Lippenstift („Drecksau total“)",
+  defenseCardsHint:
+    "Zwei Verteidigungskarten, die automatisch auslösen: Extra-Matsch rettet eine Drecksau vor Bauer und Regen, Lippenstift eine Schönsau vor Aus dem Staub. Lippenstift nur zusammen mit der Erweiterung.",
   playerName: "Dein Name",
   playerNameHint:
     "Erscheint im Spielverlauf neben den Mitspielern. Leer lassen, dann heißt du einfach „Du“.",
@@ -208,9 +223,20 @@ export const LOG_TEXTS = {
     `Aus dem Staub! Die Schönsau von ${dativeName(ownerName)} ist weg - darunter ${
       wasDirty ? "steckte eine Drecksau" : "steckte ein Sauberschwein"
     }.`,
+  dustOffAttempt: (ownerName: string) =>
+    `wirft Aus dem Staub auf die Schönsau von ${dativeName(ownerName)}.`,
   luckyBird: "Glücksvogel! Beide anderen Handkarten dürfen sofort raus.",
+  extraMudScrub: "Extra-Matsch! Die Drecksau bleibt dreckig.",
+  extraMudRain: (defended: number) =>
+    defended === 1
+      ? "Extra-Matsch! 1 Drecksau bleibt dreckig."
+      : `Extra-Matsch! ${defended} Drecksäue bleiben dreckig.`,
+  lipstickDefend: "Lippenstift! Die Schönsau bleibt schön.",
   discard: (cardName: string) => `legt ${cardName} ungenutzt ab.`,
   redraw: "ist blockiert und zieht 3 neue Karten.",
   reshuffle: "Der Ablagestapel wird neu gemischt.",
-  win: (playerName: string) => `${playerName} hat gewonnen!`,
+  win: (playerName: string) =>
+    playerName === HUMAN_PLAYER_NAME
+      ? "Du hast gewonnen!"
+      : `${playerName} hat gewonnen!`,
 } as const;

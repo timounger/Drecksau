@@ -180,6 +180,11 @@ const CARD_SCORES: Readonly<
         leadOf(ownerOfPig(state, target!.id)) * SCORES.leaderWeight,
 
   luckyBird: () => SCORES.luckyBird,
+
+  // Defence cards are never offered as a play move, so these are unreachable -
+  // present only to satisfy the exhaustive lookup.
+  extraMud: () => 0,
+  lipstick: () => 0,
 };
 
 /** Scores playing a card, checking for an immediate win first. */
@@ -234,7 +239,11 @@ function scoreRain(state: GameState, actor: Player): number {
   const washed = (player: Player) =>
     player.pigs.filter((pig) => showsDirty(pig) && !hasBarn(pig)).length;
 
-  const ownLoss = washed(actor) * SCORES.rainPerOwnPig;
+  // Own Extra-Matsch cards keep that many of the AI's own Drecksäue dirty, so
+  // they do not count as a loss. Only the AI's own hand is consulted - it must
+  // not peek at what the opponents hold.
+  const shields = actor.hand.filter((card) => card.type === "extraMud").length;
+  const ownLoss = Math.max(0, washed(actor) - shields) * SCORES.rainPerOwnPig;
   const opponentLoss = state.players
     .filter((player) => player.id !== actor.id)
     .reduce((sum, player) => sum + washed(player), 0);

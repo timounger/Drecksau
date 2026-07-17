@@ -3,7 +3,12 @@
  *
  * @module
  */
-import { isAttachedCard, type ActionCardType, type Card } from "./cards";
+import {
+  isAttachedCard,
+  type ActionCardType,
+  type Card,
+  type DefenseCardType,
+} from "./cards";
 import { isLegalMove } from "./moves";
 import { shuffle, type RandomState } from "./random";
 import {
@@ -31,6 +36,14 @@ type EffectResult = {
   readonly logText: string;
   /** Cards the player now has to use as well (Glücksvogel). */
   readonly pendingCardIds?: readonly string[];
+  /**
+   * Extra log lines, not attributed to the active player.
+   *
+   * @remarks
+   * Used when a defence card fires on its own: "Extra-Matsch! Die Drecksau
+   * bleibt dreckig." belongs to the defender, not the attacker.
+   */
+  readonly extraLog?: readonly string[];
 };
 
 /**
@@ -117,7 +130,7 @@ function playCard(
   // Attached cards stay on the pig, everything else goes to the discard pile.
   const discarded = isAttachedCard(card.type) ? [] : [card];
 
-  return appendLog(
+  const withMove = appendLog(
     {
       ...state,
       players: withoutHandCard(effect.players, actor.id, cardId),
@@ -130,6 +143,9 @@ function playCard(
     },
     logLine(actor.name, effect.logText),
   );
+
+  // A defence that fired gets its own, unattributed log lines.
+  return (effect.extraLog ?? []).reduce(appendLog, withMove);
 }
 
 /** Puts a card on the discard pile without using it. */
@@ -193,19 +209,50 @@ const EFFECTS: Readonly<
 
   rain: (state) => {
     // Every dirty pig without a stall gets washed clean - the own ones too.
-    // A Schönsau carries an umbrella and stays as it is.
+    // A Schönsau carries an umbrella and stays as it is; and each Extra-Matsch
+    // in a player's hand keeps one of their Drecksäue dirty.
     const isWashed = (pig: Pig) =>
       pig.isDirty && !hasBarn(pig) && !hasBeauty(pig);
-    const cleaned = state.players
-      .flatMap((player) => player.pigs)
-      .filter(isWashed).length;
-    const players = state.players.map((player) => ({
-      ...player,
-      pigs: player.pigs.map((pig) =>
-        isWashed(pig) ? { ...pig, isDirty: false } : pig,
-      ),
-    }));
-    return { players, releasedCards: [], logText: LOG_TEXTS.rain(cleaned) };
+    const released: Card[] = [];
+    let cleaned = 0;
+    let defended = 0;
+
+    const players = state.players.map((player) => {
+      let shields = player.hand.filter(
+        (candidate) => candidate.type === "extraMud",
+      ).length;
+      let used = 0;
+
+      const pigs = player.pigs.map((pig) => {
+        if (!isWashed(pig)) {
+          return pig;
+        }
+        if (shields > 0) {
+          shields -= 1;
+          used += 1;
+          defended += 1;
+          return pig; // Extra-Matsch keeps it dirty.
+        }
+        cleaned += 1;
+        return { ...pig, isDirty: false };
+      });
+
+      let hand = player.hand;
+      for (let spent = 0; spent < used; spent += 1) {
+        const taken = takeDefenseCard(hand, "extraMud")!;
+        hand = taken.hand;
+        released.push(taken.card);
+      }
+
+      return { ...player, pigs, hand };
+    });
+
+    return {
+      players,
+      releasedCards: released,
+      logText: LOG_TEXTS.rain(cleaned),
+      extraLog: defended > 0 ? [LOG_TEXTS.extraMudRain(defended)] : undefined,
+    };
   },
 
   barn: (state, actor, card, targetPigId) => ({
@@ -245,14 +292,29 @@ const EFFECTS: Readonly<
     logText: LOG_TEXTS.lightningRod,
   }),
 
-  farmerScrubs: (state, actor, card, targetPigId) => ({
-    players: updatePig(state.players, targetPigId!, (pig) => ({
-      ...pig,
-      isDirty: false,
-    })),
-    releasedCards: [],
-    logText: LOG_TEXTS.farmerScrubs(ownerOfPig(state, targetPigId!).name),
-  }),
+  farmerScrubs: (state, actor, card, targetPigId) => {
+    const victim = ownerOfPig(state, targetPigId!);
+    const defence = takeDefenseCard(victim.hand, "extraMud");
+
+    // Held Extra-Matsch bounces the scrub off - the Drecksau stays dirty.
+    if (defence !== null) {
+      return {
+        players: setPlayerHand(state.players, victim.id, defence.hand),
+        releasedCards: [defence.card],
+        logText: LOG_TEXTS.farmerScrubs(victim.name),
+        extraLog: [LOG_TEXTS.extraMudScrub],
+      };
+    }
+
+    return {
+      players: updatePig(state.players, targetPigId!, (pig) => ({
+        ...pig,
+        isDirty: false,
+      })),
+      releasedCards: [],
+      logText: LOG_TEXTS.farmerScrubs(victim.name),
+    };
+  },
 
   barnDoor: (state, actor, card, targetPigId) => ({
     players: updatePig(state.players, targetPigId!, (pig) => ({
@@ -274,10 +336,23 @@ const EFFECTS: Readonly<
   }),
 
   // Aus-dem-Staub takes the Schönsau off; both cards go to the discard pile
-  // and whatever was hidden underneath shows again.
+  // and whatever was hidden underneath shows again. A Lippenstift in the
+  // victim's hand defends it - but only against a Mitspieler, not your own.
   dustOff: (state, actor, card, targetPigId) => {
     const victim = ownerOfPig(state, targetPigId!);
     const pig = victim.pigs.find((candidate) => candidate.id === targetPigId)!;
+    const defence =
+      victim.id === actor.id ? null : takeDefenseCard(victim.hand, "lipstick");
+
+    if (defence !== null) {
+      return {
+        players: setPlayerHand(state.players, victim.id, defence.hand),
+        releasedCards: [defence.card],
+        logText: LOG_TEXTS.dustOffAttempt(victim.name),
+        extraLog: [LOG_TEXTS.lipstickDefend],
+      };
+    }
+
     return {
       players: updatePig(state.players, targetPigId!, (target) => ({
         ...target,
@@ -298,6 +373,14 @@ const EFFECTS: Readonly<
       .filter((other) => other.id !== card.id && other.type !== "luckyBird")
       .map((other) => other.id),
   }),
+
+  // Defence cards never reach this point - isLegalMove blocks playing them.
+  extraMud: () => {
+    throw new Error("extraMud cannot be played actively");
+  },
+  lipstick: () => {
+    throw new Error("lipstick cannot be played actively");
+  },
 };
 
 /** Dispatches to the effect of the played card. */
@@ -308,6 +391,41 @@ function applyEffect(
   targetPigId: PigId | undefined,
 ): EffectResult {
   return EFFECTS[card.type](state, actor, card, targetPigId);
+}
+
+/**
+ * Removes one defence card of a type from a hand, if present.
+ *
+ * @param hand - the hand to take from
+ * @param type - the defence card type to look for
+ * @returns the hand without that card and the card itself, or null
+ */
+function takeDefenseCard(
+  hand: readonly Card[],
+  type: DefenseCardType,
+): { hand: Card[]; card: Card } | null {
+  const index = hand.findIndex((card) => card.type === type);
+  let result: { hand: Card[]; card: Card } | null = null;
+
+  if (index !== -1) {
+    result = {
+      card: hand[index],
+      hand: [...hand.slice(0, index), ...hand.slice(index + 1)],
+    };
+  }
+
+  return result;
+}
+
+/** Replaces one player's hand, leaving the others untouched. */
+function setPlayerHand(
+  players: readonly Player[],
+  playerId: string,
+  hand: readonly Card[],
+): Player[] {
+  return players.map((player) =>
+    player.id === playerId ? { ...player, hand: [...hand] } : player,
+  );
 }
 
 /**

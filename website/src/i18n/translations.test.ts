@@ -42,6 +42,12 @@ describe("log texts", () => {
     );
   });
 
+  it("inflects the win line for the human", () => {
+    // "Du hat gewonnen" would be wrong German.
+    expect(LOG_TEXTS.win("Du")).toBe("Du hast gewonnen!");
+    expect(LOG_TEXTS.win("Berta")).toBe("Berta hat gewonnen!");
+  });
+
   it("uses singular and plural for rain", () => {
     expect(LOG_TEXTS.rain(1)).toContain("1 Drecksau wurde");
     expect(LOG_TEXTS.rain(3)).toContain("3 Drecksäue wurden");

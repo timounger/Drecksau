@@ -29,8 +29,17 @@ export type BaseCardType =
  */
 export type ExpansionCardType = "beauty" | "dustOff" | "luckyBird";
 
-/** Every card that can be in a deck, with or without the expansion. */
-export type ActionCardType = BaseCardType | ExpansionCardType;
+/**
+ * The two extra cards of the "Drecksau total" edition.
+ *
+ * @remarks
+ * Both are defence cards that trigger automatically - see `docs/game-rules.md`.
+ * `extraMud` shields a Drecksau, `lipstick` shields a Schönsau.
+ */
+export type DefenseCardType = "extraMud" | "lipstick";
+
+/** Every card that can be in a deck. */
+export type ActionCardType = BaseCardType | ExpansionCardType | DefenseCardType;
 
 /** A single action card in the deck, in a hand or on a pile. */
 export type Card = {
@@ -70,6 +79,21 @@ export const EXPANSION_DECK_COMPOSITION: Readonly<
   luckyBird: 4,
 };
 
+/**
+ * How many copies of each defence card "Drecksau total" adds.
+ *
+ * @remarks
+ * `extraMud` belongs to the base half and protects a Drecksau; `lipstick`
+ * belongs to the Sauschön half and protects a Schönsau. That split decides
+ * when each one joins the deck - see {@link createDeck}.
+ */
+export const DEFENSE_DECK_COMPOSITION: Readonly<
+  Record<DefenseCardType, number>
+> = {
+  extraMud: 2,
+  lipstick: 2,
+};
+
 /** Total number of action cards in the base game. */
 export const BASE_ACTION_CARD_COUNT = 54;
 
@@ -100,19 +124,45 @@ export const UNTARGETED_CARD_TYPES: readonly ActionCardType[] = [
 ];
 
 /**
+ * Cards that cannot be played actively - they only defend automatically.
+ *
+ * @remarks
+ * On your own turn these can only be discarded. They spend themselves when an
+ * attack hits one of your pigs - see the engine.
+ */
+export const DEFENSE_CARD_TYPES: readonly ActionCardType[] = [
+  "extraMud",
+  "lipstick",
+];
+
+/**
  * Builds the full, unshuffled action card deck.
  *
  * @param withExpansion - true to mix in the Sauschön cards
+ * @param withDefense - true to add the "Drecksau total" defence cards
  * @returns all cards of the deck, with unique ids
+ * @remarks
+ * The lipstick only defends a Schönsau, so it joins only when the expansion is
+ * in as well - otherwise it could never do anything and would just clog hands.
  * @example
  * ```ts
- * createDeck(true).length; // 86
+ * createDeck(true, true).length; // 90
  * ```
  */
-export function createDeck(withExpansion: boolean): Card[] {
-  const composition: Record<string, number> = withExpansion
-    ? { ...BASE_DECK_COMPOSITION, ...EXPANSION_DECK_COMPOSITION }
-    : { ...BASE_DECK_COMPOSITION };
+export function createDeck(
+  withExpansion: boolean,
+  withDefense = false,
+): Card[] {
+  const composition: Record<string, number> = { ...BASE_DECK_COMPOSITION };
+  if (withExpansion) {
+    Object.assign(composition, EXPANSION_DECK_COMPOSITION);
+  }
+  if (withDefense) {
+    composition.extraMud = DEFENSE_DECK_COMPOSITION.extraMud;
+    if (withExpansion) {
+      composition.lipstick = DEFENSE_DECK_COMPOSITION.lipstick;
+    }
+  }
 
   const cards: Card[] = [];
   for (const [type, count] of Object.entries(composition)) {
@@ -141,4 +191,14 @@ export function isAttachedCard(type: ActionCardType): boolean {
  */
 export function isExpansionCard(type: ActionCardType): boolean {
   return type in EXPANSION_DECK_COMPOSITION;
+}
+
+/**
+ * Tells whether a card only ever defends, never gets actively played.
+ *
+ * @param type - the card type to check
+ * @returns true for Extra-Matsch and Lippenstift
+ */
+export function isDefenseCard(type: ActionCardType): boolean {
+  return DEFENSE_CARD_TYPES.includes(type);
 }

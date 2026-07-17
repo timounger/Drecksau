@@ -11,16 +11,18 @@
  */
 import {
   BASE_DECK_COMPOSITION,
+  DEFENSE_DECK_COMPOSITION,
   EXPANSION_DECK_COMPOSITION,
   type ActionCardType,
   type Card,
 } from "./cards";
 import type { GameState, LogEntry, Pig, Player } from "./state";
 
-/** The card types the current version knows, base game and expansion. */
+/** Every card type the current version knows - base, expansion and defence. */
 const KNOWN_CARD_TYPES = new Set([
   ...Object.keys(BASE_DECK_COMPOSITION),
   ...Object.keys(EXPANSION_DECK_COMPOSITION),
+  ...Object.keys(DEFENSE_DECK_COMPOSITION),
 ]);
 
 /**

@@ -36,6 +36,10 @@ export const EFFECT_DURATIONS_MS: Readonly<Record<ActionCardType, number>> = {
   beauty: 1100,
   dustOff: 900,
   luckyBird: 1100,
+  // Defence cards never play actively, so these are never shown - present only
+  // to keep the lookup exhaustive.
+  extraMud: 0,
+  lipstick: 0,
 };
 
 /** Longest effect - how long the trigger has to keep an effect alive. */
@@ -276,6 +280,10 @@ const EFFECTS: Readonly<Record<ActionCardType, () => ReactElement>> = {
       {"\u{1F528}"}
     </span>
   ),
+
+  // Defence cards never play actively, so their overlay is never rendered.
+  extraMud: () => <></>,
+  lipstick: () => <></>,
 };
 
 /** A short wash of colour over the screen. */

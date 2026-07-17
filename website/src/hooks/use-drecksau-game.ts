@@ -169,13 +169,16 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
         const settings = loadSettings();
         const name = humanName(settings);
         const matchesPrerender =
-          !settings.isExpansionEnabled && name === HUMAN_PLAYER_NAME;
+          !settings.isExpansionEnabled &&
+          !settings.areDefenseCardsEnabled &&
+          name === HUMAN_PLAYER_NAME;
         const seed = Date.now();
         const fresh = matchesPrerender
           ? state
           : createGame(buildSetups(initialPlayerCount, name, seed), {
               seed,
               withExpansion: settings.isExpansionEnabled,
+              withDefense: settings.areDefenseCardsEnabled,
             });
 
         beginGame(fresh);
@@ -245,6 +248,7 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
       const next = createGame(buildSetups(count, humanName(settings), seed), {
         seed,
         withExpansion: settings.isExpansionEnabled,
+        withDefense: settings.areDefenseCardsEnabled,
       });
       beginGame(next);
       setState(next);

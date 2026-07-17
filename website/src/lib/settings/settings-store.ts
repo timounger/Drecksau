@@ -19,6 +19,7 @@ const SERVER_SNAPSHOT: AppSettings = {
   playerName: "",
   areAnimationsEnabled: true,
   isExpansionEnabled: false,
+  areDefenseCardsEnabled: false,
 };
 
 /**

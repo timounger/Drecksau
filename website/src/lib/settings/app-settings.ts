@@ -35,6 +35,14 @@ export type AppSettings = {
    * affects the next game, since deck and pig count are dealt at the start.
    */
   readonly isExpansionEnabled: boolean;
+  /**
+   * Whether the "Drecksau total" defence cards are in.
+   *
+   * @remarks
+   * Adds Extra-Matsch always and Lippenstift only alongside the expansion.
+   * Off by default.
+   */
+  readonly areDefenseCardsEnabled: boolean;
 };
 
 /**
@@ -73,6 +81,7 @@ export function defaultSettings(): AppSettings {
     playerName: "",
     areAnimationsEnabled: !prefersReducedMotion(),
     isExpansionEnabled: false,
+    areDefenseCardsEnabled: false,
   };
 }
 
@@ -118,6 +127,7 @@ export function isAppSettings(value: unknown): value is AppSettings {
     typeof settings.playerName === "string" &&
     settings.playerName.length <= MAX_PLAYER_NAME_LENGTH &&
     typeof settings.areAnimationsEnabled === "boolean" &&
-    typeof settings.isExpansionEnabled === "boolean"
+    typeof settings.isExpansionEnabled === "boolean" &&
+    typeof settings.areDefenseCardsEnabled === "boolean"
   );
 }

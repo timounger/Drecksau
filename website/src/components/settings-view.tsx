@@ -81,6 +81,17 @@ export function SettingsView(): ReactElement {
             updateSettings({ ...settings, isExpansionEnabled: checked })
           }
         />
+        <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <Toggle
+            name="defense"
+            label={SETTINGS_TEXTS.defenseCards}
+            hint={SETTINGS_TEXTS.defenseCardsHint}
+            checked={settings.areDefenseCardsEnabled}
+            onChange={(checked) =>
+              updateSettings({ ...settings, areDefenseCardsEnabled: checked })
+            }
+          />
+        </div>
         <p className="mt-3 rounded-lg bg-zinc-100 p-2 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
           {SETTINGS_TEXTS.expansionNotice}
         </p>

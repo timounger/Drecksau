@@ -19,6 +19,8 @@ export type GameOptions = {
   readonly seed: number;
   /** True to play with the Sauschön expansion. */
   readonly withExpansion: boolean;
+  /** True to add the "Drecksau total" defence cards. */
+  readonly withDefense?: boolean;
 };
 
 /** Smallest supported table size. */
@@ -68,7 +70,7 @@ export function createGame(
   }
 
   const shuffled = shuffle(
-    createDeck(options.withExpansion),
+    createDeck(options.withExpansion, options.withDefense ?? false),
     createRandom(options.seed),
   );
   const dealt = dealPlayers(setups, shuffled.items, options.withExpansion);
