@@ -47,6 +47,10 @@ export function HandCardView({
     ? CARD_DESCRIPTIONS[card.type]
     : CARD_BLOCKED_HINTS[card.type];
 
+  // Discarding is always an option, and on an unplayable card it is the only
+  // one - so highlight it there instead of leaving it in the general dimming.
+  const highlightDiscard = !isPlayable && !isDisabled;
+
   return (
     <div
       className={[
@@ -57,7 +61,10 @@ export function HandCardView({
         isSelected
           ? "-translate-y-2 border-emerald-500 ring-2 ring-emerald-400"
           : "border-zinc-200 dark:border-zinc-700",
-        isPlayable && !isDisabled ? "" : "opacity-60",
+        // Dim the whole card only when it is not the player's turn; an
+        // unplayable card is dimmed on its picture alone, below, so its
+        // discard button stays bright.
+        isDisabled ? "opacity-60" : "",
       ].join(" ")}
     >
       <button
@@ -65,8 +72,14 @@ export function HandCardView({
         disabled={!isPlayable || isDisabled}
         onClick={() => onSelect(card.id)}
         // Centred, so the landscape Schönsau does not leave a gap at the
-        // bottom while its portrait neighbours set the card height.
-        className="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-1 enabled:cursor-pointer enabled:hover:bg-zinc-50 dark:enabled:hover:bg-zinc-800"
+        // bottom while its portrait neighbours set the card height. Dimmed on
+        // its own when the card cannot be played, so the discard button below
+        // is the one thing that still stands out.
+        className={[
+          "flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-1",
+          "enabled:cursor-pointer enabled:hover:bg-zinc-50 dark:enabled:hover:bg-zinc-800",
+          isPlayable ? "" : "opacity-50",
+        ].join(" ")}
       >
         {/* Sized by width so the picture shrinks with the card; the height
             follows from the ratio. The files differ a little in ratio, hence
@@ -95,7 +108,13 @@ export function HandCardView({
         type="button"
         disabled={isDisabled}
         onClick={() => onDiscard(card.id)}
-        className="mt-1 rounded-md py-0.5 text-[11px] text-zinc-400 enabled:cursor-pointer enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 dark:enabled:hover:bg-zinc-800"
+        className={[
+          "mt-1 rounded-md py-0.5 text-[11px] enabled:cursor-pointer",
+          highlightDiscard
+            ? // The only move on this card - make it clearly clickable.
+              "bg-amber-100 font-semibold text-amber-900 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-100 dark:hover:bg-amber-900/70"
+            : "text-zinc-400 enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 dark:enabled:hover:bg-zinc-800",
+        ].join(" ")}
       >
         {UI_TEXTS.discard}
       </button>
