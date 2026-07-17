@@ -119,6 +119,33 @@ export type RoomTransport = {
    */
   onChat(onMessage: (message: ChatMessage) => void): () => void;
 
+  /**
+   * Records who the current host is, in a slot separate from the room.
+   *
+   * @param seatId - the host's seat
+   * @remarks
+   * Used for host failover: if the host leaves, a guest can atomically claim
+   * this slot with {@link RoomTransport.claimHost} and take over.
+   */
+  markHost(seatId: SeatId): Promise<void>;
+
+  /**
+   * Atomically claims the host role from a specific previous host.
+   *
+   * @param seatId - the seat claiming to be the new host
+   * @param previousHostId - the host being replaced
+   * @returns true if this player is now the host; false if someone else claimed
+   *   it first
+   */
+  claimHost(seatId: SeatId, previousHostId: SeatId): Promise<boolean>;
+
+  /**
+   * Reads every seat's real hand, to rebuild the game when taking over.
+   *
+   * @returns each seat's private cards, by seat id
+   */
+  readHands(): Promise<ReadonlyMap<SeatId, readonly Card[]>>;
+
   /** Leaves the room and releases every listener and the connection. */
   disconnect(): Promise<void>;
 };

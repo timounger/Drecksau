@@ -11,6 +11,7 @@
  * - `intents/{pushId}` - a guest's requested move; the host consumes and
  *   removes it.
  * - `chat/{pushId}` - a chat line; kept so a joiner sees the history.
+ * - `host` - the current host's seat id, claimed atomically on failover.
  *
  * Every value is stored as a JSON string on purpose. The Realtime Database
  * drops `null`s and empty arrays and turns sparse arrays into objects, which
@@ -18,12 +19,14 @@
  * pile). Stringifying keeps the data exactly as the engine wrote it.
  */
 import {
+  get,
   onChildAdded,
   onDisconnect,
   onValue,
   push,
   ref,
   remove,
+  runTransaction,
   set,
   update,
   type Database,
@@ -58,6 +61,7 @@ export function createFirebaseTransport(
   const handsPath = `${roomPath}/hands`;
   const intentsPath = `${roomPath}/intents`;
   const chatPath = `${roomPath}/chat`;
+  const hostPath = `${roomPath}/host`;
 
   // Every listener's unsubscribe, plus a cleanup for the presence node.
   const unsubscribes: Array<() => void> = [];
@@ -157,6 +161,39 @@ export function createFirebaseTransport(
     return stop;
   };
 
+  const markHost = async (seatId: SeatId): Promise<void> => {
+    await set(ref(database, hostPath), seatId);
+  };
+
+  const claimHost = async (
+    seatId: SeatId,
+    previousHostId: SeatId,
+  ): Promise<boolean> => {
+    // Only the first claimer wins: the transaction takes the slot only while it
+    // still holds the previous host, so a second racer sees the new id and aborts.
+    const result = await runTransaction(ref(database, hostPath), (current) =>
+      current === null || current === previousHostId ? seatId : undefined,
+    );
+    return result.committed && result.snapshot.val() === seatId;
+  };
+
+  const readHands = async (): Promise<ReadonlyMap<SeatId, readonly Card[]>> => {
+    const snapshot = await get(ref(database, handsPath));
+    const hands = new Map<SeatId, readonly Card[]>();
+    const value = snapshot.val();
+    if (value !== null && typeof value === "object") {
+      for (const [seatId, raw] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
+        const hand = parseJson(raw, isHand);
+        if (hand !== null) {
+          hands.set(seatId, hand);
+        }
+      }
+    }
+    return hands;
+  };
+
   const disconnect = async (): Promise<void> => {
     for (const stop of unsubscribes) {
       stop();
@@ -180,6 +217,9 @@ export function createFirebaseTransport(
     onIntents,
     sendChat,
     onChat,
+    markHost,
+    claimHost,
+    readHands,
     disconnect,
   };
 }

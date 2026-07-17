@@ -75,6 +75,32 @@ export function withOwnHand(
 }
 
 /**
+ * Puts every seat's real hand back into a shared, redacted state.
+ *
+ * @param state - the shared state with redacted hands
+ * @param seats - the seats, in player order
+ * @param hands - each seat's real cards, by seat id
+ * @returns a copy with real hands, for a new host to referee from
+ * @remarks
+ * Used on host failover: the shared state has real pigs and piles but hidden
+ * hands, and the per-seat hands come from the transport. Together they rebuild
+ * the full authoritative game.
+ */
+export function withAllHands(
+  state: GameState,
+  seats: readonly Seat[],
+  hands: ReadonlyMap<string, readonly Card[]>,
+): GameState {
+  return {
+    ...state,
+    players: state.players.map((player, index) => ({
+      ...player,
+      hand: [...(hands.get(seats[index]?.id ?? "") ?? [])],
+    })),
+  };
+}
+
+/**
  * Checks an untrusted value is a room snapshot the client can render.
  *
  * @param value - the value read from the transport

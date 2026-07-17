@@ -6,9 +6,11 @@
  * The host holds the authoritative room and is the only one that changes it -
  * on a guest's intent, on its own move, or when the lobby's membership changes.
  * A guest only sends intents and renders what the host publishes, its own hand
- * merged back in. All the network lives behind a {@link RoomTransport}; this
- * hook is the glue, so the referee itself ({@link ./multiplayer/room}) stays
- * pure and tested.
+ * merged back in. If the host leaves, the first remaining player takes over -
+ * it rebuilds the game from the last snapshot plus the per-seat hands, hands
+ * the departed host's seat to the computer, and hosts on. All the network
+ * lives behind a {@link RoomTransport}; this hook is the glue, so the referee
+ * itself ({@link ./multiplayer/room}) stays pure and tested.
  */
 "use client";
 
@@ -20,7 +22,11 @@ import { MAX_PLAYERS } from "@/game/setup";
 import { loadSettings } from "@/lib/settings/app-settings";
 import { database, signIn } from "@/multiplayer/firebase-app";
 import { createFirebaseTransport } from "@/multiplayer/firebase-transport";
-import { redactHands, withOwnHand } from "@/multiplayer/online-state";
+import {
+  redactHands,
+  withAllHands,
+  withOwnHand,
+} from "@/multiplayer/online-state";
 import {
   applySeatMove,
   createRoom,
@@ -113,6 +119,8 @@ export function useOnlineRoom(session: OnlineSession | null): OnlineRoom {
   const [seatId, setSeatId] = useState<SeatId | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
+  // Not derived from the session: a guest can become the host on failover.
+  const [isHost, setIsHost] = useState(false);
 
   const actionsRef = useRef<RoomActions | null>(null);
 
@@ -137,6 +145,7 @@ export function useOnlineRoom(session: OnlineSession | null): OnlineRoom {
     setStatus("connecting");
     setError(null);
     setMessages([]);
+    setIsHost(session.mode === "host");
 
     /** Reports a fatal problem, unless the effect was already torn down. */
     const fail = (message: string) => {
@@ -151,6 +160,7 @@ export function useOnlineRoom(session: OnlineSession | null): OnlineRoom {
       setStatus,
       setRoom,
       setSeatId,
+      setIsHost,
       addMessage,
       actionsRef,
     });
@@ -181,7 +191,7 @@ export function useOnlineRoom(session: OnlineSession | null): OnlineRoom {
   return {
     status,
     seatId,
-    isHost: session?.mode === "host",
+    isHost,
     room,
     error,
     start,
@@ -198,6 +208,7 @@ type Sinks = {
   setStatus: (status: OnlineStatus) => void;
   setRoom: (room: RoomState) => void;
   setSeatId: (seatId: SeatId) => void;
+  setIsHost: (isHost: boolean) => void;
   addMessage: (message: ChatMessage) => void;
   actionsRef: { current: RoomActions | null };
 };
@@ -250,7 +261,8 @@ async function connect(
     });
 
     if (session.mode === "host") {
-      await runHost(transport, seat, session.code, sinks);
+      await transport.markHost(uid);
+      await installHost(transport, seat, createRoom(session.code, seat), sinks);
     } else {
       await runGuest(transport, seat, uid, sinks);
     }
@@ -261,14 +273,23 @@ async function connect(
   }
 }
 
-/** Runs the host: seats players, refereess moves, publishes every change. */
-async function runHost(
+/**
+ * Takes on the host role: referees moves, runs the computer, publishes changes.
+ *
+ * @param transport - the room transport
+ * @param seat - this player's seat
+ * @param initialRoom - the room to start hosting from (a fresh lobby for the
+ *   original host, or the rebuilt game for a guest taking over on failover)
+ * @param sinks - the React state to drive
+ */
+async function installHost(
   transport: RoomTransport,
   seat: Seat,
-  code: string,
+  initialRoom: RoomState,
   sinks: Sinks,
 ): Promise<void> {
-  let authoritative = createRoom(code, seat);
+  sinks.setIsHost(true);
+  let authoritative = initialRoom;
   let aiTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Stores, publishes and shows a new authoritative room. */
@@ -406,9 +427,11 @@ async function runGuest(
 ): Promise<void> {
   let shared: RoomState | null = null;
   let ownHand: readonly Card[] = [];
+  // Once this guest takes over as host, the guest listeners fall silent.
+  let promoted = false;
 
   const render = () => {
-    if (shared === null || sinks.cancelled()) {
+    if (promoted || shared === null || sinks.cancelled()) {
       return;
     }
     const view = mergeGuestView(shared, uid, ownHand);
@@ -429,15 +452,66 @@ async function runGuest(
     sendChat: (text) => sendChatFrom(transport, seat, text),
   };
 
+  /**
+   * Takes over as host if the current host has left. The first present seat in
+   * seat order is elected; the atomic claim makes sure only one guest wins.
+   */
+  const maybeTakeOverHost = async (members: readonly Seat[]): Promise<void> => {
+    if (promoted || shared === null || sinks.cancelled()) {
+      return;
+    }
+    const present = new Set(members.map((member) => member.id));
+    if (present.has(shared.hostId)) {
+      return; // The host is still here.
+    }
+    const elected = shared.seats.find((s) => present.has(s.id));
+    if (elected === undefined || elected.id !== uid) {
+      return; // Someone else is first in line.
+    }
+
+    promoted = true; // Stop rendering as a guest; revert if the claim fails.
+    const previousHostId = shared.hostId;
+    const claimed = await transport
+      .claimHost(uid, previousHostId)
+      .catch(() => false);
+    if (!claimed || sinks.cancelled()) {
+      promoted = false;
+      return;
+    }
+
+    // Rebuild the full game: the last shared snapshot has the real pigs and
+    // piles, and the private hands come from the transport. The seat whose
+    // player left is handed to the computer.
+    const hands = await transport
+      .readHands()
+      .catch(() => new Map<SeatId, readonly Card[]>());
+    const base = shared;
+    const game =
+      base.game === null ? null : withAllHands(base.game, base.seats, hands);
+    const rebuilt = markSeatsAsBots({ ...base, game, hostId: uid }, [
+      previousHostId,
+    ]);
+    await installHost(transport, seat, rebuilt, sinks);
+  };
+
   await transport.join(seat);
 
   transport.onShared((next) => {
+    if (promoted) {
+      return;
+    }
     shared = next;
     render();
   });
   transport.onHand(uid, (hand) => {
+    if (promoted) {
+      return;
+    }
     ownHand = [...hand];
     render();
+  });
+  transport.onMembers((members) => {
+    void maybeTakeOverHost(members);
   });
 
   // A wrong code means no host ever publishes here - do not spin forever.
