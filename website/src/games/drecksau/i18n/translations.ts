@@ -162,6 +162,7 @@ export const ONLINE_TEXTS = {
   chatSend: "Senden",
   chatEmpty: "Noch keine Nachrichten. Schreib etwas!",
   chatYou: "Du",
+  chatNewest: "neu",
   errorConnect:
     "Verbindung fehlgeschlagen. Prüfe die Firebase-Einrichtung oder den Raumcode.",
   errorRoomNotFound:

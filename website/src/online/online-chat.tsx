@@ -39,6 +39,8 @@ export type OnlineChatTexts = {
   readonly chatYou: string;
   readonly chatPlaceholder: string;
   readonly chatSend: string;
+  /** Tag on the most recent line, so the top of the list reads as newest. */
+  readonly chatNewest: string;
 };
 
 /** Props of {@link OnlineChat}. */
@@ -92,49 +94,10 @@ export function OnlineChat({
     <section className="mt-3 flex flex-col rounded-2xl border border-zinc-200 bg-white/60 p-3 dark:border-zinc-800 dark:bg-zinc-900/40">
       <h2 className="mb-2 text-sm font-semibold">{texts.chatTitle}</h2>
 
-      <ol
-        ref={listRef}
-        onScroll={handleScroll}
-        className="flex max-h-48 flex-col gap-1 overflow-y-auto text-sm"
-      >
-        {newestFirst.length === 0 ? (
-          <li className="text-xs text-zinc-400">{texts.chatEmpty}</li>
-        ) : (
-          newestFirst.map((message) => {
-            const mine = message.seatId === ownSeatId;
-            return (
-              <li key={message.id} className="leading-snug">
-                <span
-                  className={`font-semibold ${mine ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500 dark:text-zinc-400"}`}
-                >
-                  {mine ? texts.chatYou : message.name}:
-                </span>{" "}
-                <span className="break-words text-zinc-700 dark:text-zinc-200">
-                  {message.text}
-                </span>
-              </li>
-            );
-          })
-        )}
-      </ol>
-
-      {/* Quick emojis: one tap appends to the message being written. */}
-      <div className="mt-2 flex flex-wrap gap-1">
-        {QUICK_EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            type="button"
-            onClick={() => setDraft((current) => current + emoji)}
-            className="cursor-pointer rounded-md px-1.5 py-0.5 text-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            aria-label={emoji}
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
-
+      {/* The input sits above the history, so you write where you look; the
+          newest line then appears directly below it, marked as newest. */}
       <form
-        className="mt-2 flex gap-2"
+        className="flex gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           submit();
@@ -155,6 +118,56 @@ export function OnlineChat({
           {texts.chatSend}
         </button>
       </form>
+
+      {/* Quick emojis: one tap appends to the message being written. */}
+      <div className="mt-2 flex flex-wrap gap-1">
+        {QUICK_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            onClick={() => setDraft((current) => current + emoji)}
+            className="cursor-pointer rounded-md px-1.5 py-0.5 text-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            aria-label={emoji}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+
+      <ol
+        ref={listRef}
+        onScroll={handleScroll}
+        className="mt-2 flex max-h-48 flex-col gap-1 overflow-y-auto text-sm"
+      >
+        {newestFirst.length === 0 ? (
+          <li className="text-xs text-zinc-400">{texts.chatEmpty}</li>
+        ) : (
+          newestFirst.map((message, index) => {
+            const mine = message.seatId === ownSeatId;
+            const isNewest = index === 0;
+            return (
+              <li
+                key={message.id}
+                className={`leading-snug ${isNewest ? "rounded-md bg-emerald-50/70 px-1.5 py-0.5 dark:bg-emerald-950/30" : ""}`}
+              >
+                {isNewest && (
+                  <span className="mr-1 rounded-full bg-emerald-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
+                    {texts.chatNewest}
+                  </span>
+                )}
+                <span
+                  className={`font-semibold ${mine ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500 dark:text-zinc-400"}`}
+                >
+                  {mine ? texts.chatYou : message.name}:
+                </span>{" "}
+                <span className="break-words text-zinc-700 dark:text-zinc-200">
+                  {message.text}
+                </span>
+              </li>
+            );
+          })
+        )}
+      </ol>
     </section>
   );
 }
