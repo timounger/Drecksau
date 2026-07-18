@@ -29,6 +29,7 @@ import {
   legalTargets,
   needsTarget,
 } from "@/games/drecksau/engine/moves";
+import type { ActionCardType } from "@/games/drecksau/engine/cards";
 import type { GameState, Move, PigId } from "@/games/drecksau/engine/state";
 import type { RoomState, SeatId } from "@/games/drecksau/multiplayer/room";
 import type { ChatMessage } from "@/games/drecksau/multiplayer/transport";
@@ -45,7 +46,7 @@ import {
 import { GameLog } from "./game-log";
 import { GameResultOverlay, type GameOutcome } from "./game-result-overlay";
 import { HandCardView } from "./hand-card-view";
-import { OnlineChat } from "./online-chat";
+import { OnlineChat } from "@/online/online-chat";
 import { PlayerBoard } from "./player-board";
 
 /** How often the auto-play countdown refreshes, in milliseconds. */
@@ -112,7 +113,8 @@ export function OnlineBoard({
     const latest = room.lastEffect;
     if (latest !== undefined && latest.id !== lastShownEffectId.current) {
       lastShownEffectId.current = latest.id;
-      setEffect({ type: latest.type, id: latest.id });
+      // The host only ever stamps a real card type; the wire type is a string.
+      setEffect({ type: latest.type as ActionCardType, id: latest.id });
     }
   }, [room.lastEffect]);
 
@@ -309,6 +311,7 @@ export function OnlineBoard({
             messages={messages}
             ownSeatId={seatId}
             onSend={sendChat}
+            texts={ONLINE_TEXTS}
           />
         </div>
 

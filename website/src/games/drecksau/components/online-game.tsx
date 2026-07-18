@@ -16,7 +16,7 @@ import {
   generateRoomCode,
   isValidRoomCode,
   normalizeRoomCode,
-} from "@/games/drecksau/multiplayer/room-code";
+} from "@/online/room-code";
 import type { RoomState } from "@/games/drecksau/multiplayer/room";
 import {
   useOnlineRoom,

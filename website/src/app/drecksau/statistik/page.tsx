@@ -1,5 +1,5 @@
 /**
- * Statistics page.
+ * Drecksau statistics page.
  *
  * @module
  */
@@ -8,19 +8,19 @@ import type { ReactElement } from "react";
 import { StatsView } from "@/components/stats-view";
 
 export const metadata: Metadata = {
-  title: "Statistik",
-  description: "Gespielte Partien, Siege und Spielzeiten.",
+  title: "Drecksau - Statistik",
+  description: "Gespielte Partien, Siege und Spielzeiten von Drecksau.",
 };
 
 /**
- * Renders the statistics page.
+ * Renders the Drecksau statistics page.
  *
  * @returns the page element
  */
-export default function StatistikPage(): ReactElement {
+export default function DrecksauStatistikPage(): ReactElement {
   return (
     <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
-      <StatsView />
+      <StatsView gameId="drecksau" />
     </main>
   );
 }

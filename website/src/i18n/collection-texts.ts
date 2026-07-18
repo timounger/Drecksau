@@ -22,6 +22,7 @@ export const STATS_TEXTS = {
   title: "Statistik",
   subtitle: "Wird nur in deinem Browser gespeichert.",
   backToOverview: "Zurück zur Übersicht",
+  backToGame: "Zurück zum Spiel",
   startedGames: "Spiele begonnen",
   finishedGames: "Abgeschlossen",
   abandonedGames: "Abgebrochen oder laufend",

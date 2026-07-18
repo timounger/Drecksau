@@ -1,34 +1,38 @@
 /**
- * Tests for hand redaction, the own-hand merge, and the wire guards.
+ * Tests for the Drecksau online adapter: hand redaction, the own-hand merge,
+ * and the wire guards built from the adapter.
  *
  * @module
  */
 import { describe, expect, it } from "vitest";
 import { createGame } from "@/games/drecksau/engine/setup";
 import { makeState } from "@/games/drecksau/engine/test-helpers";
-import {
-  isChatPayload,
-  isHand,
-  isMoveIntent,
-  isRoomState,
-  redactHands,
-  withOwnHand,
-} from "./online-state";
-import {
-  createRoom,
-  joinRoom,
-  startGame,
-  type RoomState,
-  type Seat,
-} from "./room";
+import type { GameState } from "@/games/drecksau/engine/state";
+import type { RoomState, Seat } from "@/online/adapter";
+import { createWireGuards } from "@/online/online-state";
+import { createRoom, joinRoom, startGame } from "@/online/room";
+import { drecksauAdapter, isHand, redactHands, withOwnHand } from "./adapter";
 
 const HOST: Seat = { id: "h", name: "Du", isHost: true };
 const GUEST: Seat = { id: "g", name: "Berta", isHost: false };
-const OPTIONS = { seed: 42, withExpansion: false, withDefense: false };
+const DECK = { seed: 42, withExpansion: false, withDefense: false };
+const { isRoomState, isMoveIntent, isChatPayload } =
+  createWireGuards(drecksauAdapter);
 
 /** A room mid-game, with a dealt authoritative state. */
-function playingRoom(): RoomState {
-  return startGame(joinRoom(createRoom("ABCD", HOST), GUEST), OPTIONS);
+function playingRoom(): RoomState<GameState> {
+  const lobby = joinRoom(
+    createRoom<GameState>("ABCD", HOST),
+    GUEST,
+    drecksauAdapter.maxPlayers,
+  );
+  return startGame(
+    lobby,
+    drecksauAdapter,
+    DECK.seed,
+    { withExpansion: false, withDefense: false },
+    null,
+  );
 }
 
 describe("redactHands", () => {
@@ -38,7 +42,7 @@ describe("redactHands", () => {
         { name: "A", isHuman: true },
         { name: "B", isHuman: true },
       ],
-      OPTIONS,
+      DECK,
     );
     const redacted = redactHands(game);
 
@@ -56,7 +60,7 @@ describe("redactHands", () => {
         { name: "A", isHuman: true },
         { name: "B", isHuman: true },
       ],
-      OPTIONS,
+      DECK,
     );
     const types = new Set(
       redactHands(game).players.flatMap((player) =>
@@ -107,7 +111,7 @@ describe("withOwnHand", () => {
 
 describe("isRoomState", () => {
   it("accepts a lobby room", () => {
-    expect(isRoomState(createRoom("ABCD", HOST))).toBe(true);
+    expect(isRoomState(createRoom<GameState>("ABCD", HOST))).toBe(true);
   });
 
   it("accepts a playing room, even after a JSON round trip", () => {
@@ -135,9 +139,9 @@ describe("isRoomState", () => {
   it("rejects junk", () => {
     expect(isRoomState(null)).toBe(false);
     expect(isRoomState({ code: "ABCD" })).toBe(false);
-    expect(isRoomState({ ...createRoom("ABCD", HOST), phase: "nope" })).toBe(
-      false,
-    );
+    expect(
+      isRoomState({ ...createRoom<GameState>("ABCD", HOST), phase: "nope" }),
+    ).toBe(false);
   });
 });
 

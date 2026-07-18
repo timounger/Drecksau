@@ -7,7 +7,12 @@
 
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
-import { GAMES, type GameDefinition, type GameId } from "@/games/registry";
+import {
+  GAMES,
+  gameById,
+  type GameDefinition,
+  type GameId,
+} from "@/games/registry";
 import { clearSession } from "@/lib/storage/game-session";
 import {
   abandonedGames,
@@ -26,27 +31,39 @@ import { resetStats } from "@/lib/stats/stats-storage";
 import { formatDateTime, formatDuration, formatPercent } from "@/i18n/format";
 import { STATS_TEXTS } from "@/i18n/collection-texts";
 
+/** Props of {@link StatsView}. */
+export type StatsViewProps = {
+  /** Show only this game's statistics; omit to show every game. */
+  readonly gameId?: GameId;
+};
+
 /**
- * Renders the statistics page.
+ * Renders the statistics page, either for one game or the whole collection.
  *
+ * @param props - the game to scope to, if any
  * @returns the page element
  */
-export function StatsView(): ReactElement {
+export function StatsView({ gameId }: StatsViewProps = {}): ReactElement {
   const statsByGame = useSyncExternalStore(
     subscribeStats,
     getStatsSnapshot,
     getServerStatsSnapshot,
   );
 
-  const handleReset = (gameId: GameId) => {
+  const handleReset = (id: GameId) => {
     if (window.confirm(STATS_TEXTS.resetConfirm)) {
-      resetStats(gameId);
+      resetStats(id);
       // The running game goes too - counters at zero next to a game in
       // progress would contradict each other.
-      clearSession(gameId);
+      clearSession(id);
       invalidateStats();
     }
   };
+
+  const games = gameId === undefined ? GAMES : [gameById(gameId)];
+  const backHref = gameId === undefined ? "/" : gameById(gameId).href;
+  const backLabel =
+    gameId === undefined ? STATS_TEXTS.backToOverview : STATS_TEXTS.backToGame;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4">
@@ -58,14 +75,14 @@ export function StatsView(): ReactElement {
           </p>
         </div>
         <Link
-          href="/"
+          href={backHref}
           className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
-          {STATS_TEXTS.backToOverview}
+          {backLabel}
         </Link>
       </header>
 
-      {GAMES.map((game) => (
+      {games.map((game) => (
         <GameStatsCard
           key={game.id}
           game={game}

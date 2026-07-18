@@ -11,7 +11,7 @@
  */
 
 /** Identifies a game for storage and statistics. Never reuse an old id. */
-export type GameId = "drecksau";
+export type GameId = "drecksau" | "binokel";
 
 /** One game of the collection. */
 export type GameDefinition = {
@@ -34,6 +34,13 @@ export const GAMES: readonly GameDefinition[] = [
     tagline: "Wer zuerst nur noch Drecksäue hat, gewinnt.",
     emoji: "\u{1F437}",
     href: "/drecksau",
+  },
+  {
+    id: "binokel",
+    name: "Binokel",
+    tagline: "Schwäbisches Stichspiel - Reizen, Melden, Stechen.",
+    emoji: "\u{1F0CF}",
+    href: "/binokel",
   },
 ];
 

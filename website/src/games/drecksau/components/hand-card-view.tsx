@@ -69,14 +69,14 @@ export function HandCardView({
   const highlightDiscard = !isPlayable && !isDisabled && canDiscard;
 
   // Some artwork is dark to begin with, so a faint fade barely reads as "off".
-  // Inactive cards are therefore actually darkened, not just made transparent:
-  // a card you cannot click gets the strongest wash, a card that is only
-  // waiting for your turn a lighter one.
+  // Inactive cards are therefore darkened a little, not just made transparent -
+  // but only mildly, so the picture stays clearly legible: a card you cannot
+  // click gets a slightly stronger wash than one that only waits for your turn.
   const isDimmed = !isPlayable || isDisabled;
   const imageWash = !isPlayable
-    ? "bg-zinc-950/65"
+    ? "bg-zinc-950/35"
     : isDisabled
-      ? "bg-zinc-950/45"
+      ? "bg-zinc-950/25"
       : "";
 
   return (
@@ -118,7 +118,7 @@ export function HandCardView({
             alt=""
             fill
             sizes="112px"
-            className={`object-contain ${isDimmed ? "grayscale" : ""}`}
+            className={`object-contain ${isDimmed ? "grayscale-[0.5]" : ""}`}
           />
           {imageWash !== "" && (
             <span

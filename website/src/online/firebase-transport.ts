@@ -1,9 +1,11 @@
 /**
- * A {@link RoomTransport} backed by the Firebase Realtime Database.
+ * A {@link RoomTransport} backed by the Firebase Realtime Database, generic in
+ * the game.
  *
  * @module
  * @remarks
- * Layout under `rooms/{code}`:
+ * Layout under `rooms/{gameId}-{code}` (the game prefix keeps the games apart
+ * within one database without a rule change):
  * - `members/{seatId}` - who is present; removed automatically on disconnect.
  * - `shared` - the authoritative room, hands redacted, written by the host.
  * - `hands/{seatId}` - one player's real cards, written by the host, read only
@@ -15,8 +17,8 @@
  *
  * Every value is stored as a JSON string on purpose. The Realtime Database
  * drops `null`s and empty arrays and turns sparse arrays into objects, which
- * would quietly corrupt a {@link GameState} (a `null` winner, an empty discard
- * pile). Stringifying keeps the data exactly as the engine wrote it.
+ * would quietly corrupt a game state (a `null` winner, an empty pile).
+ * Stringifying keeps the data exactly as the engine wrote it.
  */
 import {
   get,
@@ -31,15 +33,13 @@ import {
   update,
   type Database,
 } from "firebase/database";
-import type { Card } from "@/games/drecksau/engine/cards";
-import {
-  isChatPayload,
-  isHand,
-  isMoveIntent,
-  isRoomState,
-} from "./online-state";
-import type { RoomState, Seat, SeatId } from "./room";
-import type { ChatMessage, MoveIntent, RoomTransport } from "./transport";
+import type { RoomState, Seat, SeatId } from "./adapter";
+import type {
+  ChatMessage,
+  MoveIntent,
+  RoomTransport,
+  WireGuards,
+} from "./transport";
 
 /** A present member as stored: the seat plus when it joined, for turn order. */
 type StoredMember = Seat & { readonly joinedAt: number };
@@ -48,14 +48,18 @@ type StoredMember = Seat & { readonly joinedAt: number };
  * Creates a Firebase-backed transport for one room.
  *
  * @param database - the Realtime Database handle
- * @param code - the room code, i.e. the path segment under `rooms`
+ * @param gameId - namespaces the room within the shared database
+ * @param code - the room code
+ * @param guards - the untrusted-value guards for this game
  * @returns a transport wired to that room
  */
-export function createFirebaseTransport(
+export function createFirebaseTransport<G, M, H>(
   database: Database,
+  gameId: string,
   code: string,
-): RoomTransport {
-  const roomPath = `rooms/${code}`;
+  guards: WireGuards<G, M, H>,
+): RoomTransport<G, M, H> {
+  const roomPath = `rooms/${gameId}-${code}`;
   const membersPath = `${roomPath}/members`;
   const sharedPath = `${roomPath}/shared`;
   const handsPath = `${roomPath}/hands`;
@@ -87,8 +91,8 @@ export function createFirebaseTransport(
   };
 
   const publish = async (
-    shared: RoomState,
-    hands: ReadonlyMap<SeatId, readonly Card[]>,
+    shared: RoomState<G>,
+    hands: ReadonlyMap<SeatId, H>,
   ): Promise<void> => {
     // One atomic write: the shared room and every private hand together.
     const payload: Record<string, string> = {
@@ -100,9 +104,9 @@ export function createFirebaseTransport(
     await update(ref(database, roomPath), payload);
   };
 
-  const onShared = (onRoom: (shared: RoomState) => void): (() => void) => {
+  const onShared = (onRoom: (shared: RoomState<G>) => void): (() => void) => {
     const stop = onValue(ref(database, sharedPath), (snapshot) => {
-      const room = parseJson(snapshot.val(), isRoomState);
+      const room = parseJson(snapshot.val(), guards.isRoomState);
       if (room !== null) {
         onRoom(room);
       }
@@ -111,14 +115,11 @@ export function createFirebaseTransport(
     return stop;
   };
 
-  const onHand = (
-    seatId: SeatId,
-    onCards: (hand: readonly Card[]) => void,
-  ): (() => void) => {
+  const onHand = (seatId: SeatId, onCards: (hand: H) => void): (() => void) => {
     const stop = onValue(
       ref(database, `${handsPath}/${seatId}`),
       (snapshot) => {
-        const hand = parseJson(snapshot.val(), isHand);
+        const hand = parseJson(snapshot.val(), guards.isHand);
         if (hand !== null) {
           onCards(hand);
         }
@@ -128,13 +129,15 @@ export function createFirebaseTransport(
     return stop;
   };
 
-  const sendIntent = async (intent: MoveIntent): Promise<void> => {
+  const sendIntent = async (intent: MoveIntent<M>): Promise<void> => {
     await push(ref(database, intentsPath), JSON.stringify(intent));
   };
 
-  const onIntents = (onIntent: (intent: MoveIntent) => void): (() => void) => {
+  const onIntents = (
+    onIntent: (intent: MoveIntent<M>) => void,
+  ): (() => void) => {
     const stop = onChildAdded(ref(database, intentsPath), (snapshot) => {
-      const intent = parseJson(snapshot.val(), isMoveIntent);
+      const intent = parseJson(snapshot.val(), guards.isMoveIntent);
       if (intent !== null) {
         onIntent(intent);
       }
@@ -152,7 +155,7 @@ export function createFirebaseTransport(
   const onChat = (onMessage: (message: ChatMessage) => void): (() => void) => {
     // Chat lines are kept, not consumed, so a new joiner sees the history.
     const stop = onChildAdded(ref(database, chatPath), (snapshot) => {
-      const payload = parseJson(snapshot.val(), isChatPayload);
+      const payload = parseJson(snapshot.val(), guards.isChatPayload);
       if (payload !== null && snapshot.key !== null) {
         onMessage({ id: snapshot.key, ...payload });
       }
@@ -177,15 +180,15 @@ export function createFirebaseTransport(
     return result.committed && result.snapshot.val() === seatId;
   };
 
-  const readHands = async (): Promise<ReadonlyMap<SeatId, readonly Card[]>> => {
+  const readHands = async (): Promise<ReadonlyMap<SeatId, H>> => {
     const snapshot = await get(ref(database, handsPath));
-    const hands = new Map<SeatId, readonly Card[]>();
+    const hands = new Map<SeatId, H>();
     const value = snapshot.val();
     if (value !== null && typeof value === "object") {
       for (const [seatId, raw] of Object.entries(
         value as Record<string, unknown>,
       )) {
-        const hand = parseJson(raw, isHand);
+        const hand = parseJson(raw, guards.isHand);
         if (hand !== null) {
           hands.set(seatId, hand);
         }

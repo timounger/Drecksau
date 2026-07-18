@@ -175,6 +175,7 @@ export const SETTINGS_TEXTS = {
   title: "Einstellungen",
   subtitle: "Gilt nur in diesem Browser.",
   backToOverview: "Zurück zur Übersicht",
+  backToGame: "Zurück zum Spiel",
   animations: "Animationen",
   animationsHint:
     "Kurze Effekte, wenn eine Karte gespielt wird - z. B. Regen über den Bildschirm.",

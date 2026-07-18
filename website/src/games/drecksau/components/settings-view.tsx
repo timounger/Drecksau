@@ -47,10 +47,10 @@ export function SettingsView(): ReactElement {
           </p>
         </div>
         <Link
-          href="/"
+          href="/drecksau"
           className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
-          {SETTINGS_TEXTS.backToOverview}
+          {SETTINGS_TEXTS.backToGame}
         </Link>
       </header>
 

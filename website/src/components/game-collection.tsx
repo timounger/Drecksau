@@ -26,20 +26,8 @@ export function GameCollection(): ReactElement {
             {COLLECTION_TEXTS.subtitle}
           </p>
         </div>
-        <nav className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/statistik"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {COLLECTION_TEXTS.statistics}
-          </Link>
-          <Link
-            href="/einstellungen"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {COLLECTION_TEXTS.settings}
-          </Link>
-        </nav>
+        {/* Settings and statistics live inside each game, not here - every game
+            keeps its own. */}
       </header>
 
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

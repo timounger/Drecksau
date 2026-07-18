@@ -10,6 +10,12 @@
  */
 "use client";
 
+import { UI_TEXTS } from "@/games/drecksau/i18n/translations";
+import {
+  getServerSettingsSnapshot,
+  getSettingsSnapshot,
+  subscribeSettings,
+} from "@/games/drecksau/settings/settings-store";
 import {
   useEffect,
   useRef,
@@ -17,18 +23,12 @@ import {
   useSyncExternalStore,
   type ReactElement,
 } from "react";
-import {
-  getServerSettingsSnapshot,
-  getSettingsSnapshot,
-  subscribeSettings,
-} from "@/games/drecksau/settings/settings-store";
-import { UI_TEXTS } from "@/games/drecksau/i18n/translations";
 
 /** How the game ended for the viewer. */
 export type GameOutcome = "won" | "lost";
 
 /** How long the whole end animation runs, in milliseconds - a proper finale. */
-const GAME_OVER_DURATION_MS = 7000;
+const GAME_OVER_DURATION_MS = 5000;
 
 /** Look of each outcome: the centre icon, the raining icon, tint and word. */
 const OUTCOMES: Readonly<
