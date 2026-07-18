@@ -5,10 +5,10 @@
  */
 import type { Metadata } from "next";
 import type { ReactElement } from "react";
-import { SettingsView } from "@/components/settings-view";
+import { SettingsView } from "@/games/drecksau/components/settings-view";
 
 export const metadata: Metadata = {
-  title: "Drecksau - Einstellungen",
+  title: "Einstellungen",
   description: "Animationen und weitere Einstellungen.",
 };
 

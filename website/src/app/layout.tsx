@@ -19,8 +19,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Drecksau",
-  description: "Das Kartenspiel Drecksau gegen Computergegner.",
+  title: {
+    default: "Spielesammlung",
+    template: "%s - Spielesammlung",
+  },
+  description: "Eine kleine Sammlung von Spielen - aktuell Drecksau.",
 };
 
 export default function RootLayout({

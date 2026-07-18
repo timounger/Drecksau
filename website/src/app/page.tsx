@@ -1,20 +1,20 @@
 /**
- * Landing page - hosts the game.
+ * Start page - the game collection overview.
  *
  * @module
  */
 import type { ReactElement } from "react";
-import { DrecksauGame } from "@/components/drecksau-game";
+import { GameCollection } from "@/components/game-collection";
 
 /**
- * Renders the game page.
+ * Renders the start page.
  *
  * @returns the page element
  */
 export default function Home(): ReactElement {
   return (
     <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
-      <DrecksauGame />
+      <GameCollection />
     </main>
   );
 }

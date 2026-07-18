@@ -24,7 +24,7 @@ import {
 } from "@/lib/stats/stats-store";
 import { resetStats } from "@/lib/stats/stats-storage";
 import { formatDateTime, formatDuration, formatPercent } from "@/i18n/format";
-import { STATS_TEXTS } from "@/i18n/translations";
+import { STATS_TEXTS } from "@/i18n/collection-texts";
 
 /**
  * Renders the statistics page.
@@ -61,7 +61,7 @@ export function StatsView(): ReactElement {
           href="/"
           className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
-          {STATS_TEXTS.backToGame}
+          {STATS_TEXTS.backToOverview}
         </Link>
       </header>
 

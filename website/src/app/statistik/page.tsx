@@ -8,7 +8,7 @@ import type { ReactElement } from "react";
 import { StatsView } from "@/components/stats-view";
 
 export const metadata: Metadata = {
-  title: "Drecksau - Statistik",
+  title: "Statistik",
   description: "Gespielte Partien, Siege und Spielzeiten.",
 };
 
