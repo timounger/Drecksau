@@ -46,9 +46,6 @@ const TARGET_SCORE = 1000;
 /** Pause before a computer acts, so its turn is watchable. */
 const AI_DELAY_MS = 750;
 
-/** How long the melds stay up before trick play begins on its own. */
-const MELD_REVIEW_MS = 2200;
-
 /** How long the round result stays up before the next round is dealt. */
 const ROUND_REVIEW_MS = 3800;
 
@@ -77,11 +74,10 @@ export type BinokelGame = {
  * @param state - the game state
  * @returns a transition to apply, or null
  * @remarks
- * Besides the computer's own turns, this also advances the two review steps
- * that need no decision from anyone: showing the melds before trick play, and
- * showing the round result before the next deal. They run automatically after a
- * readable pause (see {@link stepDelay}), so the player never has to click to
- * keep the game moving; the panels still offer a button to skip the pause.
+ * Besides the computer's own turns, this also advances the round result to the
+ * next deal after a readable pause (see {@link stepDelay}). The melds are *not*
+ * advanced automatically - the player clicks "Weiter zum Stechen" so they can
+ * study the melds for as long as they like.
  */
 function autoStep(state: GameState): ((s: GameState) => GameState) | null {
   const actor = state.players[state.currentPlayerIndex];
@@ -102,8 +98,6 @@ function autoStep(state: GameState): ((s: GameState) => GameState) | null {
     } else if (state.trump === null) {
       move = (s) => chooseTrump(s, chooseTrumpSuit(s));
     }
-  } else if (state.phase === "melding") {
-    move = (s) => beginTricks(s);
   } else if (state.phase === "trick" && !actor.isHuman) {
     move = (s) => playCard(s, chooseCard(s));
   } else if (state.phase === "roundEnd") {
@@ -118,22 +112,11 @@ function autoStep(state: GameState): ((s: GameState) => GameState) | null {
  * @param state - the game state
  * @returns the pause in milliseconds
  * @remarks
- * The review steps get a longer pause so the melds and the round result can be
- * read; a computer's own turn only needs a short, watchable beat.
+ * The round result gets a longer pause so it can be read; a computer's own turn
+ * only needs a short, watchable beat.
  */
 function stepDelay(state: GameState): number {
-  let delay: number;
-  switch (state.phase) {
-    case "melding":
-      delay = MELD_REVIEW_MS;
-      break;
-    case "roundEnd":
-      delay = ROUND_REVIEW_MS;
-      break;
-    default:
-      delay = AI_DELAY_MS;
-  }
-  return delay;
+  return state.phase === "roundEnd" ? ROUND_REVIEW_MS : AI_DELAY_MS;
 }
 
 /**
@@ -158,6 +141,8 @@ function isHumanTurn(state: GameState): boolean {
       waiting = state.currentPlayerIndex === HUMAN_INDEX;
       break;
     case "melding":
+      waiting = true; // waits for the player to click "Weiter zum Stechen"
+      break;
     case "roundEnd":
       waiting = false; // advances on its own after a short review pause
       break;
@@ -188,7 +173,7 @@ export function useBinokelGame(): BinokelGame {
   );
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Drive the computer's turns and the review steps, each after its own pause.
+  // Drive the computer's turns and the round-result pause, each on its timer.
   useEffect(() => {
     clearTimeout(timer.current);
     if (autoStep(state) !== null) {

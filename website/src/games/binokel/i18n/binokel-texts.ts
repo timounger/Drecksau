@@ -24,10 +24,14 @@ export const BINOKEL_TEXTS = {
   pass: "Weg",
   passed: "weg",
   yourBidTurn: "Du bist am Reizen.",
+  meldEstimate: (min: number, max: number) =>
+    min === max ? `Melden: ${min}` : `Melden: ${min}-${max}`,
   // Exchange
   discardPrompt: (count: number) =>
     `Dabb aufgenommen - drücke ${count} Karten weg.`,
   confirmDiscard: "Ablegen",
+  swapHint:
+    "Karte antippen, dann eine aus der anderen Reihe - sie tauschen. Die obere Reihe (Dabb) wird weggedrückt.",
   chooseTrumpTitle: "Trumpf ansagen",
   declarerWorking: (name: string) => `${name} nimmt den Dabb und drückt ...`,
   // Melding

@@ -22,6 +22,7 @@ import {
   CARD_BACK,
   CARD_IMAGES,
 } from "@/games/binokel/assets/card-images";
+import { SUIT_IMAGES } from "@/games/binokel/assets/suit-images";
 import { useBinokelGame } from "@/games/binokel/hooks/use-binokel-game";
 import {
   BINOKEL_TEXTS,
@@ -33,6 +34,25 @@ import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 
 /** How many face-down cards to show for an opponent. */
 const OPPONENT_BACKS_SHOWN = 8;
+
+/**
+ * The meld a hand would score for the weakest and strongest trump choice.
+ *
+ * @param hand - the cards to score
+ * @param withSevens - whether the 48-card deck is in play
+ * @returns the lowest and highest meld total across the four possible trumps
+ * @remarks
+ * Trump is not chosen yet during bidding and discarding, so the exact meld is
+ * unknown - only this range is. Several melds (a Familie, the Dix) are worth
+ * more in trump, so the total differs by which suit becomes trump.
+ */
+function meldRange(
+  hand: readonly Card[],
+  withSevens: boolean,
+): { min: number; max: number } {
+  const totals = SUITS.map((suit) => findMelds(hand, suit, withSevens).total);
+  return { min: Math.min(...totals), max: Math.max(...totals) };
+}
 
 /**
  * Renders the Binokel game.
@@ -232,9 +252,13 @@ function BiddingPanel({
 }): ReactElement {
   const { state } = game;
   const humanTurn = state.currentPlayerIndex === 0 && state.players[0].bidding;
+  const meld = meldRange(state.players[0].hand, state.withSevens);
   return (
     <div className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold">{BINOKEL_TEXTS.bidding}</h2>
+      <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        {BINOKEL_TEXTS.meldEstimate(meld.min, meld.max)}
+      </p>
       {humanTurn ? (
         <div className="flex items-center gap-2">
           <span className="text-sm">{BINOKEL_TEXTS.yourBidTurn}</span>
@@ -299,9 +323,19 @@ function ExchangePanel({
                 key={suit}
                 type="button"
                 onClick={() => game.pickTrump(suit)}
-                className="cursor-pointer rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                aria-label={SUIT_LABELS[suit]}
+                className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-zinc-300 p-2 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
               >
-                {SUIT_LABELS[suit]}
+                <span className="relative block h-14 w-14 overflow-hidden rounded-md">
+                  <Image
+                    src={SUIT_IMAGES[suit]}
+                    alt=""
+                    fill
+                    sizes="56px"
+                    className="object-contain"
+                  />
+                </span>
+                <span className="text-xs font-medium">{SUIT_LABELS[suit]}</span>
               </button>
             ))}
           </div>
@@ -495,7 +529,6 @@ function HumanHand({
   game: ReturnType<typeof useBinokelGame>;
 }): ReactElement {
   const { state } = game;
-  const [selected, setSelected] = useState<string[]>([]);
 
   const base = baseHandSize(state);
   const isDiscard =
@@ -503,55 +536,16 @@ function HumanHand({
     state.declarerIndex === 0 &&
     state.trump === null &&
     state.players[0].hand.length > base;
-  const need = state.players[0].hand.length - base;
 
-  const toggle = (id: string) =>
-    setSelected((current) =>
-      current.includes(id)
-        ? current.filter((x) => x !== id)
-        : current.length < need
-          ? [...current, id]
-          : current,
-    );
-
-  // While discarding, the picked-up Dabb sits on top, the rest of the hand
-  // below; a click on any card marks it to be pushed away.
+  // Discarding is its own component so it starts fresh each round (a new Dabb).
   if (isDiscard) {
-    const dabbIds = new Set(state.takenDabb.map((card) => card.id));
-    const own = state.players[0].hand;
-    const dabbCards = sortHand(own.filter((card) => dabbIds.has(card.id)));
-    const handCards = sortHand(own.filter((card) => !dabbIds.has(card.id)));
-    const pickable = (card: Card): ReactElement => (
-      <CardView
-        key={card.id}
-        card={card}
-        selected={selected.includes(card.id)}
-        onClick={() => toggle(card.id)}
-      />
-    );
-
     return (
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-semibold">{BINOKEL_TEXTS.dabb}</h3>
-          <div className="flex flex-wrap gap-2">{dabbCards.map(pickable)}</div>
-        </div>
-        <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-semibold">{BINOKEL_TEXTS.yourHand}</h3>
-          <div className="flex flex-wrap gap-2">{handCards.map(pickable)}</div>
-        </div>
-        <button
-          type="button"
-          disabled={selected.length !== need}
-          onClick={() => {
-            game.confirmDiscard(selected);
-            setSelected([]);
-          }}
-          className="cursor-pointer self-start rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {BINOKEL_TEXTS.confirmDiscard} ({selected.length}/{need})
-        </button>
-      </div>
+      <DiscardHand
+        hand={state.players[0].hand}
+        takenDabb={state.takenDabb}
+        withSevens={state.withSevens}
+        onConfirm={game.confirmDiscard}
+      />
     );
   }
 
@@ -576,6 +570,98 @@ function HumanHand({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The discard (drücken) step: the top row is pushed away, the bottom row kept.
+ *
+ * @param props - the full hand, the picked-up Dabb and the confirm handler
+ * @returns the discard element
+ * @remarks
+ * Tapping a card marks it; tapping a card in the *other* row then swaps the two
+ * between the rows and clears the mark. So you drag cards you want to keep out
+ * of the top row and push unwanted ones up, then confirm. The top row always
+ * holds exactly the Dabb's worth of cards, which are the ones discarded.
+ */
+function DiscardHand({
+  hand,
+  takenDabb,
+  withSevens,
+  onConfirm,
+}: {
+  hand: readonly Card[];
+  takenDabb: readonly Card[];
+  withSevens: boolean;
+  onConfirm: (cardIds: readonly string[]) => void;
+}): ReactElement {
+  const [discardIds, setDiscardIds] = useState<ReadonlySet<string>>(
+    () => new Set(takenDabb.map((card) => card.id)),
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const click = (cardId: string) => {
+    if (selectedId === null || selectedId === cardId) {
+      // First tap marks; tapping the marked card again clears it.
+      setSelectedId(selectedId === cardId ? null : cardId);
+    } else if (discardIds.has(selectedId) !== discardIds.has(cardId)) {
+      // The two cards are in different rows - swap them and clear the mark.
+      setDiscardIds((prev) => {
+        const next = new Set(prev);
+        if (prev.has(selectedId)) {
+          next.delete(selectedId);
+          next.add(cardId);
+        } else {
+          next.delete(cardId);
+          next.add(selectedId);
+        }
+        return next;
+      });
+      setSelectedId(null);
+    } else {
+      // Same row - just move the mark to the new card.
+      setSelectedId(cardId);
+    }
+  };
+
+  const top = sortHand(hand.filter((card) => discardIds.has(card.id)));
+  const bottom = sortHand(hand.filter((card) => !discardIds.has(card.id)));
+  // The meld counts from the cards you keep (the bottom row), so it updates as
+  // you swap; trump is still open, hence the range.
+  const meld = meldRange(bottom, withSevens);
+  const pickable = (card: Card): ReactElement => (
+    <CardView
+      key={card.id}
+      card={card}
+      selected={selectedId === card.id}
+      onClick={() => click(card.id)}
+    />
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        {BINOKEL_TEXTS.swapHint}
+      </p>
+      <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        {BINOKEL_TEXTS.meldEstimate(meld.min, meld.max)}
+      </p>
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-semibold">{BINOKEL_TEXTS.dabb}</h3>
+        <div className="flex flex-wrap gap-2">{top.map(pickable)}</div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-semibold">{BINOKEL_TEXTS.yourHand}</h3>
+        <div className="flex flex-wrap gap-2">{bottom.map(pickable)}</div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onConfirm([...discardIds])}
+        className="cursor-pointer self-start rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
+      >
+        {BINOKEL_TEXTS.confirmDiscard}
+      </button>
     </div>
   );
 }

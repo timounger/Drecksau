@@ -15,6 +15,8 @@ export const COLLECTION_TEXTS = {
   statistics: "Statistik",
   settings: "Einstellungen",
   moreSoon: "Weitere Spiele folgen.",
+  searchPlaceholder: "Spiel suchen ...",
+  noResults: "Keine Spiele gefunden.",
 } as const;
 
 /** Texts of the statistics page - one section per game. */
