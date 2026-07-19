@@ -25,6 +25,10 @@ import {
   playCard,
 } from "@/games/binokel/engine/moves";
 import {
+  DEFAULT_DIFFICULTY,
+  type Difficulty,
+} from "@/games/binokel/engine/difficulty";
+import {
   createGame,
   MIN_PLAYERS,
   type PlayerSetup,
@@ -32,18 +36,26 @@ import {
 import { loadBinokelSettings } from "@/games/binokel/settings/binokel-settings";
 import type { GameState, GameType } from "@/games/binokel/engine/state";
 import { legalPlays } from "@/games/binokel/engine/tricks";
+import { pickOpponentNames } from "@/lib/names/opponent-names";
 
-/** The computer opponents' names, used up to the chosen player count. */
-const OPPONENT_NAMES = ["Anna", "Berta", "Cäsar", "Dora", "Emil"] as const;
-
-/** The human always sits first. */
+/** The human always sits first, under the neutral name. */
 const HUMAN_INDEX = 0;
 
-/** Builds the seating: the human plus enough computer opponents. */
-function buildSetups(playerCount: number): PlayerSetup[] {
+/** What the human player is called. */
+const HUMAN_NAME = "Du";
+
+/**
+ * Builds the seating: the human plus enough computer opponents.
+ *
+ * @param playerCount - how many seats the table has
+ * @param seed - the deal's seed; the opponents' names come out of it, so the
+ *   prerendered first game stays stable and a game replays with the same table
+ * @returns the seats, in turn order
+ */
+function buildSetups(playerCount: number, seed: number): PlayerSetup[] {
   return [
-    { name: "Du", isHuman: true },
-    ...OPPONENT_NAMES.slice(0, playerCount - 1).map((name) => ({
+    { name: HUMAN_NAME, isHuman: true },
+    ...pickOpponentNames(playerCount - 1, HUMAN_NAME, seed).map((name) => ({
       name,
       isHuman: false,
     })),
@@ -98,14 +110,17 @@ export type BinokelGame = {
  * melds via "Weiter zum Stechen", a full trick anywhere) so they can look for
  * as long as they like.
  */
-function autoStep(state: GameState): ((s: GameState) => GameState) | null {
+function autoStep(
+  state: GameState,
+  difficulty: Difficulty = DEFAULT_DIFFICULTY,
+): ((s: GameState) => GameState) | null {
   const actor = state.players[state.currentPlayerIndex];
   const declarer =
     state.declarerIndex === null ? null : state.players[state.declarerIndex];
   let move: ((s: GameState) => GameState) | null = null;
 
   if (state.phase === "bidding" && !actor.isHuman) {
-    move = (s) => applyBid(s, chooseBid(s));
+    move = (s) => applyBid(s, chooseBid(s, difficulty));
   } else if (
     state.phase === "exchange" &&
     declarer !== null &&
@@ -122,7 +137,7 @@ function autoStep(state: GameState): ((s: GameState) => GameState) | null {
     state.currentTrick.length < state.players.length &&
     !actor.isHuman
   ) {
-    move = (s) => playCard(s, chooseCard(s));
+    move = (s) => playCard(s, chooseCard(s, difficulty));
   } else if (state.phase === "roundEnd") {
     move = (s) => nextRound(s);
   }
@@ -192,7 +207,7 @@ export function useBinokelGame(): BinokelGame {
   // agree; the chosen deck and player count (settings) apply from the next
   // match, as with the Drecksau expansion.
   const [state, setState] = useState<GameState>(() =>
-    createGame(buildSetups(MIN_PLAYERS), {
+    createGame(buildSetups(MIN_PLAYERS, INITIAL_SEED), {
       seed: INITIAL_SEED,
       withSevens: true,
       targetScore: TARGET_SCORE,
@@ -200,13 +215,35 @@ export function useBinokelGame(): BinokelGame {
   );
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // The prerender's opening seat is fixed (deterministic seed). On the client,
+  // deal the opening match afresh once so the first bidder is random, not always
+  // the same seat. This runs after mount - prerender and hydration still agree -
+  // and lands before the first computer turn, so it is not noticeable.
+  const dealtOpening = useRef(false);
+  useEffect(() => {
+    if (dealtOpening.current) {
+      return;
+    }
+    dealtOpening.current = true;
+    const seed = freshSeed();
+    setState(
+      createGame(buildSetups(MIN_PLAYERS, seed), {
+        seed,
+        withSevens: true,
+        targetScore: TARGET_SCORE,
+      }),
+    );
+  }, []);
+
   // Drive the computer's turns and the round-result pause, each on its timer.
   useEffect(() => {
     clearTimeout(timer.current);
     if (autoStep(state) !== null) {
       timer.current = setTimeout(() => {
+        // The difficulty is read live, so a change applies to this game at once.
+        const difficulty = loadBinokelSettings().difficulty;
         setState((current) => {
-          const move = autoStep(current);
+          const move = autoStep(current, difficulty);
           return move === null ? current : move(current);
         });
       }, stepDelay(state));
@@ -243,9 +280,10 @@ export function useBinokelGame(): BinokelGame {
   const goNextRound = useCallback(() => setState((s) => nextRound(s)), []);
   const newMatch = useCallback(() => {
     const settings = loadBinokelSettings();
+    const seed = freshSeed();
     setState(
-      createGame(buildSetups(settings.playerCount), {
-        seed: freshSeed(),
+      createGame(buildSetups(settings.playerCount, seed), {
+        seed,
         withSevens: settings.withSevens,
         withDabb: settings.withDabb,
         teams: settings.teams,

@@ -13,6 +13,7 @@ import {
   isDifficulty,
   type Difficulty,
 } from "@/games/drecksau/engine/difficulty";
+import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/drecksau/engine/setup";
 import { HUMAN_PLAYER_NAME as DEFAULT_HUMAN_NAME } from "@/games/drecksau/i18n/translations";
 import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 
@@ -24,6 +25,9 @@ const SETTINGS_KEY = storageKey("settings");
 
 /** Longest name the UI can show without breaking the layout. */
 export const MAX_PLAYER_NAME_LENGTH = 16;
+
+/** Table size of a first-time visitor's game. */
+export const DEFAULT_PLAYER_COUNT = 3;
 
 /** What the player can configure. */
 export type AppSettings = {
@@ -67,6 +71,13 @@ export type AppSettings = {
    * Applies to the AI at once, and decides who starts the next game.
    */
   readonly difficulty: Difficulty;
+  /**
+   * How many players sit at the table (you plus computer opponents).
+   *
+   * @remarks
+   * Takes effect from the next game, since the board is dealt at the start.
+   */
+  readonly playerCount: number;
 };
 
 /**
@@ -75,10 +86,12 @@ export type AppSettings = {
  * @returns the stored settings, or the defaults if nothing is stored
  */
 export function loadSettings(): AppSettings {
-  return (
-    readStored(SETTINGS_KEY, SETTINGS_VERSION, isAppSettings) ??
-    defaultSettings()
-  );
+  const stored = readStored(SETTINGS_KEY, SETTINGS_VERSION, isAppSettings);
+  // Settings saved before the player count existed still load - it is filled in
+  // with the default rather than throwing the whole stored object away.
+  return stored === null
+    ? defaultSettings()
+    : { ...stored, playerCount: normalizePlayerCount(stored.playerCount) };
 }
 
 /**
@@ -108,7 +121,16 @@ export function defaultSettings(): AppSettings {
     areDefenseCardsEnabled: false,
     cardTheme: DEFAULT_CARD_THEME,
     difficulty: DEFAULT_DIFFICULTY,
+    playerCount: DEFAULT_PLAYER_COUNT,
   };
+}
+
+/** Clamps a stored player count to the supported range, else the default. */
+function normalizePlayerCount(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return DEFAULT_PLAYER_COUNT;
+  }
+  return Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, value));
 }
 
 /**

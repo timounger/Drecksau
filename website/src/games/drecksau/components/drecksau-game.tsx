@@ -8,9 +8,9 @@
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { isCardPlayable, isCardUsableNow } from "@/games/drecksau/engine/moves";
-import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/drecksau/engine/setup";
 import { currentPlayer, playerById } from "@/games/drecksau/engine/state";
 import { useDrecksauGame } from "@/games/drecksau/hooks/use-drecksau-game";
+import { DEFAULT_PLAYER_COUNT } from "@/games/drecksau/settings/app-settings";
 import {
   getServerSettingsSnapshot,
   getSettingsSnapshot,
@@ -28,15 +28,6 @@ import { GameResultOverlay, type GameOutcome } from "./game-result-overlay";
 import { HandCardView } from "./hand-card-view";
 import { PlayerBoard } from "./player-board";
 
-/** Table sizes the player can choose from, derived from the engine limits. */
-const PLAYER_COUNTS = Array.from(
-  { length: MAX_PLAYERS - MIN_PLAYERS + 1 },
-  (unused, index) => MIN_PLAYERS + index,
-);
-
-/** Default table size of the first game. */
-const DEFAULT_PLAYER_COUNT = 3;
-
 /**
  * Renders a complete game of Drecksau against computer opponents.
  *
@@ -47,11 +38,14 @@ export function DrecksauGame(): ReactElement {
   const { state } = game;
 
   // The card design is a live visual setting - switching it redraws at once.
-  const theme = useSyncExternalStore(
+  // The player count is read here too, so "Neues Spiel" starts at the size
+  // chosen in the settings.
+  const settings = useSyncExternalStore(
     subscribeSettings,
     getSettingsSnapshot,
     getServerSettingsSnapshot,
-  ).cardTheme;
+  );
+  const theme = settings.cardTheme;
 
   const human = state.players[0];
   const opponents = state.players.slice(1);
@@ -80,29 +74,12 @@ export function DrecksauGame(): ReactElement {
         </div>
 
         {/* Unlike the card rows, these controls may wrap - otherwise they push
-            the page wider than a phone screen. */}
+            the page wider than a phone screen. The table size lives in the
+            settings now, so a new game starts at the size chosen there. */}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <label
-            htmlFor="player-count"
-            className="text-xs text-zinc-500 dark:text-zinc-400"
-          >
-            {UI_TEXTS.playerCount}
-          </label>
-          <select
-            id="player-count"
-            value={game.playerCount}
-            onChange={(event) => handleNewGame(Number(event.target.value))}
-            className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          >
-            {PLAYER_COUNTS.map((count) => (
-              <option key={count} value={count}>
-                {count}
-              </option>
-            ))}
-          </select>
           <button
             type="button"
-            onClick={() => handleNewGame(game.playerCount)}
+            onClick={() => handleNewGame(settings.playerCount)}
             className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
           >
             {UI_TEXTS.newGame}

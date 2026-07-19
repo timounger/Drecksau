@@ -133,6 +133,7 @@ describe("humanName", () => {
     areDefenseCardsEnabled: false,
     cardTheme: "modern" as const,
     difficulty: "mittel" as const,
+    playerCount: 3,
   };
 
   it("uses the chosen name", () => {

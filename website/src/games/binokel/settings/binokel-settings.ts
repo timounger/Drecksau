@@ -9,6 +9,11 @@
  * applies at once.
  */
 import { SUITS, type Suit } from "@/games/binokel/engine/cards";
+import {
+  DEFAULT_DIFFICULTY,
+  isDifficulty,
+  type Difficulty,
+} from "@/games/binokel/engine/difficulty";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/binokel/engine/setup";
 import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 
@@ -30,6 +35,8 @@ export type BinokelSettings = {
   readonly playerCount: number;
   /** Whether two teams play (only takes effect for four or six players). */
   readonly teams: boolean;
+  /** How hard the computer opponents play. */
+  readonly difficulty: Difficulty;
 };
 
 /**
@@ -44,6 +51,7 @@ export function defaultBinokelSettings(): BinokelSettings {
     suitOrder: [...SUITS],
     playerCount: MIN_PLAYERS,
     teams: false,
+    difficulty: DEFAULT_DIFFICULTY,
   };
 }
 
@@ -65,6 +73,9 @@ export function loadBinokelSettings(): BinokelSettings {
         suitOrder: normalizeSuitOrder(stored.suitOrder),
         playerCount: normalizePlayerCount(stored.playerCount),
         teams: stored.teams === true,
+        difficulty: isDifficulty(stored.difficulty)
+          ? stored.difficulty
+          : DEFAULT_DIFFICULTY,
       };
 }
 
@@ -84,6 +95,7 @@ type StoredSettings = {
   readonly suitOrder?: unknown;
   readonly playerCount?: unknown;
   readonly teams?: unknown;
+  readonly difficulty?: unknown;
 };
 
 /** Checks the stored value at least carries the deck choice. */

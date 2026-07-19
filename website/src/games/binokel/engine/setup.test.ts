@@ -49,6 +49,31 @@ describe("createGame", () => {
     expect(state.currentPlayerIndex).toBe(1);
   });
 
+  it("varies the opening bidder across seeds", () => {
+    const forehands = new Set(
+      Array.from(
+        { length: 30 },
+        (_, seed) =>
+          createGame(SETUPS, { seed, withSevens: true, targetScore: 1000 })
+            .currentPlayerIndex,
+      ),
+    );
+    // Over many seeds every seat opens the bidding at least once - it is random.
+    expect(forehands).toEqual(new Set([0, 1, 2]));
+  });
+
+  it("honours an explicit dealer over the random draw", () => {
+    for (let dealer = 0; dealer < SETUPS.length; dealer++) {
+      const state = createGame(SETUPS, {
+        seed: 1,
+        withSevens: true,
+        targetScore: 1000,
+        dealerIndex: dealer,
+      });
+      expect(state.currentPlayerIndex).toBe((dealer + 1) % SETUPS.length);
+    }
+  });
+
   it("replays the same deal from the same seed", () => {
     const a = createGame(SETUPS, {
       seed: 42,

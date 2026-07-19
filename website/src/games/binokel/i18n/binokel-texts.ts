@@ -4,6 +4,7 @@
  * @module
  */
 import type { Rank, Suit } from "@/games/binokel/engine/cards";
+import type { Difficulty } from "@/games/binokel/engine/difficulty";
 import type { Meld, MeldKind } from "@/games/binokel/engine/melds";
 
 /** Static texts of the Binokel screen. */
@@ -65,8 +66,12 @@ export const BINOKEL_TEXTS = {
   // Settings & navigation
   settings: "Einstellungen",
   statistics: "Statistik",
+  online: "Online",
   settingsTitle: "Binokel-Einstellungen",
   settingsSubtitle: "Wird nur in deinem Browser gespeichert.",
+  difficulty: "Schwierigkeit",
+  difficultyHint:
+    "Wie stark die Computergegner reizen und stechen. Sie sehen nie deine Handkarten. Gilt sofort.",
   withSevensHint:
     "An: mit 7ern, 48 Karten. Aus: ohne 7er, 40 Karten. Gilt ab der nächsten Partie.",
   withDabb: "Mit Dabb spielen",
@@ -84,6 +89,63 @@ export const BINOKEL_TEXTS = {
     "Zwei Teams über Kreuz - nur bei 4 oder 6 Spielern (2er- bzw. 3er-Teams). Teamkollegen zählen ihre Punkte zusammen.",
   backToGame: "Zurück zum Spiel",
 } as const;
+
+/** Texts of the Binokel online mode (lobby, board shell and chat). */
+export const BINOKEL_ONLINE_TEXTS = {
+  title: "Binokel online",
+  subtitle: "Mit Freunden per Raumcode - alle brauchen nur den Link.",
+  backToGame: "Zurück zum Spiel",
+  yourName: "Dein Name",
+  yourNamePlaceholder: "Spieler",
+  createRoom: "Raum erstellen",
+  joinRoom: "Raum beitreten",
+  roomCode: "Raumcode",
+  roomCodePlaceholder: "z. B. ABCD",
+  connecting: "Verbinde ...",
+  waitingForHost: "Warte auf den Gastgeber ...",
+  lobbyTitle: "Lobby",
+  shareHint: "Teile diesen Code oder Link, damit Freunde beitreten können:",
+  copyCode: "Code kopieren",
+  copyLink: "Link kopieren",
+  copied: "Kopiert!",
+  players: "Mitspieler",
+  hostBadge: "Gastgeber",
+  youBadge: "Du",
+  startGame: "Spiel starten",
+  needMorePlayers: "Mindestens 3 Mitspieler nötig.",
+  withSevens: "Mit 7ern (48 Karten)",
+  withDabb: "Mit Dabb",
+  teams: "In Teams (bei 4 oder 6)",
+  autoPlay: "Auto-Zug bei Untätigkeit",
+  autoPlayHint:
+    "Reagiert ein Spieler nicht rechtzeitig, übernimmt der Computer seinen Zug.",
+  autoPlayOff: "Aus",
+  autoPlaySeconds: (seconds: number) => `${seconds} Sekunden`,
+  yourTurnOnline: "Du bist dran",
+  waitingForPlayer: (name: string) => `${name} ist am Zug ...`,
+  computerBadge: "Computer",
+  computerPlaysFor: (name: string) => `Computer spielt für ${name} ...`,
+  leaveRoom: "Raum verlassen",
+  newRound: "Neue Partie",
+  waitingForRematch: "Warte auf eine neue Partie vom Gastgeber ...",
+  chatTitle: "Chat",
+  chatPlaceholder: "Nachricht schreiben ...",
+  chatSend: "Senden",
+  chatEmpty: "Noch keine Nachrichten. Schreib etwas!",
+  chatYou: "Du",
+  chatNewest: "neu",
+  errorRoomNotFound:
+    "Kein Raum mit diesem Code gefunden. Stimmt der Code, und läuft der Gastgeber noch?",
+  hostLeftNotice:
+    "Hinweis: Wenn der Gastgeber die Seite schließt, endet die Partie.",
+} as const;
+
+/** Label of each difficulty level. */
+export const DIFFICULTY_LABELS: Readonly<Record<Difficulty, string>> = {
+  leicht: "Leicht",
+  mittel: "Mittel",
+  schwer: "Schwer",
+};
 
 /** Full name of each suit. */
 export const SUIT_LABELS: Readonly<Record<Suit, string>> = {

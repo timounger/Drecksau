@@ -39,7 +39,7 @@ import {
   MIN_PLAYERS,
 } from "@/games/binokel/engine/setup";
 import type { GameState, GameType } from "@/games/binokel/engine/state";
-import { trickWinnerIndex } from "@/games/binokel/engine/tricks";
+import { actingIndex } from "@/games/binokel/engine/turn";
 
 /** The options a Binokel host chooses when starting a game. */
 export type BinokelOptions = {
@@ -71,42 +71,6 @@ const DECOY_RANK = "sieben" as const;
 
 /** The suits a value may name as trump. */
 const SUIT_SET: ReadonlySet<string> = new Set(SUITS);
-
-/**
- * The seat that may act in the current phase, or null if none.
- *
- * @param game - the game state
- * @returns the acting seat index
- * @remarks
- * Bidding and trick play follow the player on turn; the exchange (discard then
- * trump) and melding belong to the declarer; between rounds the forehand (the
- * player left of the dealer) advances to the next deal.
- */
-function actorIndex(game: GameState): number | null {
-  let index: number | null;
-  switch (game.phase) {
-    case "bidding":
-      index = game.currentPlayerIndex;
-      break;
-    case "trick":
-      // A full trick waits to be collected by its winner.
-      index =
-        game.currentTrick.length === game.players.length
-          ? trickWinnerIndex(game.currentTrick, game.trump)
-          : game.currentPlayerIndex;
-      break;
-    case "exchange":
-    case "melding":
-      index = game.declarerIndex;
-      break;
-    case "roundEnd":
-      index = (game.dealerIndex + 1) % game.players.length;
-      break;
-    default:
-      index = null; // matchEnd - nobody acts
-  }
-  return index;
-}
 
 /** Replaces a card with a face-down decoy, keeping its id so it stays unique. */
 function decoy(card: Card): Card {
@@ -246,11 +210,11 @@ export const binokelAdapter: OnlineAdapter<
   },
 
   seatIndexOnTurn(game): number | null {
-    return actorIndex(game);
+    return actingIndex(game);
   },
 
   applyMove(game, seatIndex, move): GameState | null {
-    if (seatIndex !== actorIndex(game)) {
+    if (seatIndex !== actingIndex(game)) {
       return null;
     }
     let next: GameState | null = null;

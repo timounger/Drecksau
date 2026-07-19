@@ -51,8 +51,9 @@ Spielverlauf waere unlesbar.
 
 ### Namen der Computergegner
 
-Werden pro Partie aus einem Pool gezogen
-([i18n/player-names.ts](i18n/player-names.ts)) - jedes Spiel ein anderer Tisch.
+Werden pro Partie aus einem gemeinsamen Pool gezogen, den sich alle Spiele der
+Sammlung teilen ([lib/names/opponent-names.ts](../../lib/names/opponent-names.ts)) -
+jedes Spiel ein anderer Tisch.
 
 Wichtig dabei: Sie kommen aus dem **Seed der Partie**, nicht aus `Math.random()`.
 Zwei Gruende:

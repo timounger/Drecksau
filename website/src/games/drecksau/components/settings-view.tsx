@@ -11,6 +11,7 @@ import {
   MAX_PLAYER_NAME_LENGTH,
   prefersReducedMotion,
 } from "@/games/drecksau/settings/app-settings";
+import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/drecksau/engine/setup";
 import {
   getServerSettingsSnapshot,
   getSettingsSnapshot,
@@ -24,6 +25,12 @@ import {
   DIFFICULTY_LABELS,
   SETTINGS_TEXTS,
 } from "@/games/drecksau/i18n/translations";
+
+/** The supported table sizes, derived from the engine limits, e.g. [2, 3, 4]. */
+const PLAYER_COUNTS = Array.from(
+  { length: MAX_PLAYERS - MIN_PLAYERS + 1 },
+  (unused, index) => MIN_PLAYERS + index,
+);
 
 /**
  * Renders the settings page.
@@ -102,6 +109,32 @@ export function SettingsView(): ReactElement {
             ))}
           </select>
         </label>
+      </section>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+        <h2 className="font-semibold">{SETTINGS_TEXTS.playerCount}</h2>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          {SETTINGS_TEXTS.playerCountHint}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {PLAYER_COUNTS.map((count) => (
+            <button
+              key={count}
+              type="button"
+              onClick={() => updateSettings({ ...settings, playerCount: count })}
+              data-testid={`player-count-${count}`}
+              aria-pressed={settings.playerCount === count}
+              className={[
+                "cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium",
+                settings.playerCount === count
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800",
+              ].join(" ")}
+            >
+              {count}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">

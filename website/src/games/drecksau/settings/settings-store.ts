@@ -6,7 +6,12 @@
  * Same reason as the statistics store: localStorage does not exist during the
  * prerender, so the values may only be read after hydration.
  */
-import { loadSettings, saveSettings, type AppSettings } from "./app-settings";
+import {
+  DEFAULT_PLAYER_COUNT,
+  loadSettings,
+  saveSettings,
+  type AppSettings,
+} from "./app-settings";
 
 /** Everyone currently listening for changes. */
 const listeners = new Set<() => void>();
@@ -22,6 +27,7 @@ const SERVER_SNAPSHOT: AppSettings = {
   areDefenseCardsEnabled: false,
   cardTheme: "modern",
   difficulty: "mittel",
+  playerCount: DEFAULT_PLAYER_COUNT,
 };
 
 /**

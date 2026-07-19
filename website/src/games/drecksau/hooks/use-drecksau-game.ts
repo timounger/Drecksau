@@ -43,7 +43,7 @@ import {
   recordGameStarted,
   recordPlayTime,
 } from "@/lib/stats/stats-recorder";
-import { pickOpponentNames } from "@/games/drecksau/i18n/player-names";
+import { pickOpponentNames } from "@/lib/names/opponent-names";
 import { HUMAN_PLAYER_NAME } from "@/games/drecksau/i18n/translations";
 
 /** Which game this hook drives - the key for saved state and statistics. */
@@ -178,20 +178,19 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
       if (saved === null) {
         // Nothing saved: deal a real game from the settings. This happens in
         // an effect, after the first render already matched the prerendered
-        // placeholder, so replacing it here does not break hydration.
+        // placeholder, so replacing it here does not break hydration - which is
+        // why the table size may come from the settings here, unlike the fixed
+        // prerender.
         const settings = loadSettings();
         const seed = Date.now();
+        const count = settings.playerCount;
         const fresh = createGame(
-          buildSetups(initialPlayerCount, humanName(settings), seed),
+          buildSetups(count, humanName(settings), seed),
           {
             seed,
             withExpansion: settings.isExpansionEnabled,
             withDefense: settings.areDefenseCardsEnabled,
-            firstPlayerIndex: pickFirstPlayer(
-              initialPlayerCount,
-              settings.difficulty,
-              seed,
-            ),
+            firstPlayerIndex: pickFirstPlayer(count, settings.difficulty, seed),
           },
         );
 

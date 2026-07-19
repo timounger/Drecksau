@@ -14,7 +14,12 @@ import {
   MIN_PLAYERS,
   TEAM_PLAYER_COUNTS,
 } from "@/games/binokel/engine/setup";
-import { BINOKEL_TEXTS, SUIT_LABELS } from "@/games/binokel/i18n/binokel-texts";
+import { DIFFICULTIES } from "@/games/binokel/engine/difficulty";
+import {
+  BINOKEL_TEXTS,
+  DIFFICULTY_LABELS,
+  SUIT_LABELS,
+} from "@/games/binokel/i18n/binokel-texts";
 import {
   getBinokelSettingsSnapshot,
   getServerBinokelSettingsSnapshot,
@@ -66,6 +71,32 @@ export function BinokelSettingsView(): ReactElement {
           {BINOKEL_TEXTS.backToGame}
         </Link>
       </header>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+        <label className="flex cursor-pointer flex-col gap-1">
+          <span className="font-semibold">{BINOKEL_TEXTS.difficulty}</span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            {BINOKEL_TEXTS.difficultyHint}
+          </span>
+          <select
+            data-testid="select-difficulty"
+            value={settings.difficulty}
+            onChange={(event) =>
+              updateBinokelSettings({
+                ...settings,
+                difficulty: event.target.value as (typeof DIFFICULTIES)[number],
+              })
+            }
+            className="mt-1 w-56 cursor-pointer rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            {DIFFICULTIES.map((level) => (
+              <option key={level} value={level}>
+                {DIFFICULTY_LABELS[level]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
         <label className="flex cursor-pointer items-start justify-between gap-4">

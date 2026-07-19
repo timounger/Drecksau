@@ -8,7 +8,7 @@
  * same round.
  */
 import { createDeck, type Card } from "./cards";
-import { createRandom, shuffle } from "./random";
+import { createRandom, nextRandom, shuffle } from "./random";
 import type { BinokelPlayer, GameState } from "./state";
 
 /** Description of one seat at the table. */
@@ -138,7 +138,14 @@ export function createGame(
   }));
 
   const dabb: Card[] = cards.splice(0, dabbSize);
-  const dealerIndex = options.dealerIndex ?? 0;
+  // Draw the dealer from the shuffle's generator so the first bidder varies by
+  // seed; a fresh seed each match means a random opening seat. An explicit
+  // dealerIndex (e.g. a rotated next round, or a test) overrides this.
+  const dealerRoll = nextRandom(shuffled.state);
+  const dealerIndex =
+    options.dealerIndex ?? Math.floor(dealerRoll.value * setups.length);
+  const random =
+    options.dealerIndex === undefined ? dealerRoll.state : shuffled.state;
   const forehand = (dealerIndex + 1) % setups.length;
 
   return {
@@ -159,7 +166,7 @@ export function createGame(
     conceded: false,
     currentTrick: [],
     leaderIndex: forehand,
-    random: shuffled.state,
+    random,
     log: [],
     nextLogId: 0,
     matchWinnerId: null,

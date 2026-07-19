@@ -196,6 +196,8 @@ export const SETTINGS_TEXTS = {
   difficulty: "Schwierigkeit",
   difficultyHint:
     "Wie stark die Computergegner spielen. Sie sehen nie deine Handkarten. Gilt ab dem nächsten Spiel.",
+  playerCount: "Spieleranzahl",
+  playerCountHint: "Du plus Computergegner. Gilt ab dem nächsten Spiel.",
   playerName: "Dein Name",
   playerNameHint:
     "Erscheint im Spielverlauf neben den Mitspielern. Leer lassen, dann heißt du einfach „Du“.",

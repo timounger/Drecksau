@@ -6,9 +6,10 @@ jedes Spiel hat seine eigene Seite.
 
 ## Spiele
 
-| Spiel                                            | Beschreibung                                                      |
-| ------------------------------------------------ | ----------------------------------------------------------------- |
-| [Drecksau](website/src/games/drecksau/README.md) | Kosmos-Kartenspiel gegen Computergegner oder online mit Freunden. |
+| Spiel                                            | Beschreibung                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------------ |
+| [Drecksau](website/src/games/drecksau/README.md) | Kosmos-Kartenspiel gegen Computergegner oder online mit Freunden.              |
+| [Binokel](website/src/games/binokel/README.md)   | Schwaebisches Stichspiel (Reizen, Melden, Stechen) gegen Computer oder online. |
 
 Weitere Spiele docken ueber die Registry an (siehe
 [Ein weiteres Spiel hinzufuegen](#ein-weiteres-spiel-hinzufuegen)).
@@ -48,10 +49,12 @@ neues Spiel nichts an den geteilten Schichten.
 
 ```text
 website/src/
-  app/            Routen (Uebersicht /, /drecksau, /statistik, /einstellungen)
+  app/            Routen (Uebersicht /, je Spiel /<spiel> mit /einstellungen, /statistik, /online)
   games/
     registry.ts     Liste aller Spiele - hier docken weitere an
     drecksau/       das Spiel Drecksau (eigene README im Ordner)
+    binokel/        das Spiel Binokel (eigene README im Ordner)
+  online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)
   lib/
     storage/        Generisch: localStorage mit Namensraum und Versionierung

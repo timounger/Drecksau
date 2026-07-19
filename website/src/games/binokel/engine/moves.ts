@@ -55,26 +55,30 @@ export function applyBid(state: GameState, action: BidAction): GameState {
       ? patch(state.players, index, { bid: value, bidding: true })
       : patch(state.players, index, { bidding: false });
   const highestBid = action.kind === "bid" ? value : state.highestBid;
+  const base = { ...state, players, highestBid };
 
   const stillBidding = players.filter((player) => player.bidding);
   let next: GameState;
-  if (stillBidding.length <= 1) {
-    next = enterExchange({ ...state, players, highestBid });
+  if (stillBidding.length === 0) {
+    // Everyone passed without a bid - the forehand is forced at the minimum.
+    const forehand = (state.dealerIndex + 1) % players.length;
+    next = enterExchange({ ...base, highestBid: MIN_BID }, forehand);
+  } else if (stillBidding.length === 1 && stillBidding[0].bid !== null) {
+    // Only the highest bidder is left - they win the auction.
+    next = enterExchange(
+      base,
+      players.findIndex((player) => player.bidding),
+    );
   } else {
-    next = {
-      ...state,
-      players,
-      highestBid,
-      currentPlayerIndex: nextBiddingIndex(players, index),
-    };
+    // The auction goes on - this also gives a lone survivor who has not bid yet
+    // (usually the human, who never passes on their own) a turn to bid or pass.
+    next = { ...base, currentPlayerIndex: nextBiddingIndex(players, index) };
   }
   return next;
 }
 
 /** Hands the Dabb to the winning bidder and opens the exchange phase. */
-function enterExchange(state: GameState): GameState {
-  const declarerIndex = state.players.findIndex((player) => player.bidding);
-  const winner = declarerIndex >= 0 ? declarerIndex : state.currentPlayerIndex;
+function enterExchange(state: GameState, winner: number): GameState {
   const highestBid = Math.max(state.highestBid, MIN_BID);
 
   const players = patch(state.players, winner, {

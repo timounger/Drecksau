@@ -166,6 +166,47 @@ describe("conceding and Durch", () => {
   });
 });
 
+describe("bidding", () => {
+  // Fix the dealer to 0, so the forehand (first bidder) is player 1.
+  const game = () =>
+    createGame(SETUPS, {
+      seed: 5,
+      withSevens: true,
+      targetScore: 1000,
+      dealerIndex: 0,
+    });
+  const pass = { kind: "pass" } as const;
+  const bid = { kind: "bid" } as const;
+
+  it("gives the human a turn instead of declaring them when the AIs pass", () => {
+    // Player 1 (forehand) then player 2 pass; player 0 (human) never passed.
+    let state = applyBid(game(), pass);
+    state = applyBid(state, pass);
+    // The human is not auto-declared - it becomes their turn to bid or pass.
+    expect(state.phase).toBe("bidding");
+    expect(state.currentPlayerIndex).toBe(0);
+    expect(state.declarerIndex).toBeNull();
+  });
+
+  it("forces the forehand, not the last survivor, when everyone passes", () => {
+    let state = applyBid(game(), pass); // player 1 passes
+    state = applyBid(state, pass); // player 2 passes -> human's turn
+    state = applyBid(state, pass); // human passes too -> nobody wanted it
+    expect(state.phase).toBe("exchange");
+    // The forehand (player 1) is forced, not the human (player 0).
+    expect(state.declarerIndex).toBe(1);
+    expect(state.highestBid).toBe(150);
+  });
+
+  it("lets the human take the game by bidding when it is their turn", () => {
+    let state = applyBid(game(), pass); // player 1 passes
+    state = applyBid(state, pass); // player 2 passes -> human's turn
+    state = applyBid(state, bid); // human bids
+    expect(state.phase).toBe("exchange");
+    expect(state.declarerIndex).toBe(0);
+  });
+});
+
 describe("teams", () => {
   const fourSeats: PlayerSetup[] = Array.from({ length: 4 }, (_, i) => ({
     name: `P${i}`,

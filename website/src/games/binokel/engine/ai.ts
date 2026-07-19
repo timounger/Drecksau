@@ -7,8 +7,10 @@
  * The AI never looks at other players' hands. Stronger play can come later.
  */
 import { cardStrength, cardValue, SUITS, type Card, type Suit } from "./cards";
+import { DEFAULT_DIFFICULTY, type Difficulty } from "./difficulty";
 import { findMelds } from "./melds";
 import { nextBidValue, type BidAction } from "./moves";
+import { createRandom, nextRandom } from "./random";
 import type { GameState } from "./state";
 import { legalPlays } from "./tricks";
 
@@ -24,6 +26,20 @@ const KEEP_TRUMP = 1000;
 const SUIT_LENGTH_WEIGHT = 100;
 /** Points an Ace contributes to the bid estimate. */
 const ACE_POINTS = 11;
+
+/**
+ * How far the AI's hand estimate must clear the next bid before it raises.
+ *
+ * @remarks
+ * A positive margin makes it timid (it lets the game go), a negative one bold
+ * (it competes even on a slightly short hand). This is the main knob for how
+ * hard the opponents fight over who plays.
+ */
+const BID_MARGIN: Readonly<Record<Difficulty, number>> = {
+  leicht: 30,
+  mittel: 0,
+  schwer: -10,
+};
 
 /**
  * The suit that makes the best trump for a hand - most cards, then most points.
@@ -72,12 +88,17 @@ export function estimateHand(
  * Whether the current AI bidder raises or passes.
  *
  * @param state - a state in the bidding phase
+ * @param difficulty - how boldly to bid; defaults to the middle level
  * @returns the bid action
  */
-export function chooseBid(state: GameState): BidAction {
+export function chooseBid(
+  state: GameState,
+  difficulty: Difficulty = DEFAULT_DIFFICULTY,
+): BidAction {
   const hand = state.players[state.currentPlayerIndex].hand;
   const estimate = estimateHand(hand, state.withSevens);
-  return estimate >= nextBidValue(state) ? { kind: "bid" } : { kind: "pass" };
+  const threshold = nextBidValue(state) + BID_MARGIN[difficulty];
+  return estimate >= threshold ? { kind: "bid" } : { kind: "pass" };
 }
 
 /**
@@ -117,21 +138,64 @@ function keepScore(card: Card, trump: Suit): number {
  * The card the AI plays into the current trick.
  *
  * @param state - a state in the trick phase
+ * @param difficulty - how well to play; defaults to the middle level
  * @returns the id of the card to play
  * @remarks
- * Picks the cheapest legal card. Because the legal set already forces a player
- * to head the trick when they can, this wins tricks cheaply when winning is
- * required and throws a low card away otherwise.
+ * The legal set already forces a player to head the trick when they can, so the
+ * cheapest legal card ("mittel") wins tricks cheaply when winning is required
+ * and sheds a low card otherwise. "leicht" plays a random legal card, throwing
+ * away winners; "schwer" additionally cashes its winners by leading its
+ * strongest card to pull trumps and take points.
  */
-export function chooseCard(state: GameState): string {
+export function chooseCard(
+  state: GameState,
+  difficulty: Difficulty = DEFAULT_DIFFICULTY,
+): string {
   const actor = state.players[state.currentPlayerIndex];
   const legal = legalPlays(actor.hand, state.currentTrick, state.trump);
-  const cheapest = legal.reduce((best, card) =>
+
+  if (difficulty === "leicht") {
+    return randomCard(state, legal).id;
+  }
+  if (difficulty === "schwer" && state.currentTrick.length === 0) {
+    // On lead there is no card to beat, so cash the strongest one.
+    return legal.reduce((best, card) =>
+      beatsForLead(card, best) ? card : best,
+    ).id;
+  }
+  return legal.reduce((best, card) => (cheaper(card, best) ? card : best)).id;
+}
+
+/** Whether the first card is the cheaper shed - lower value, then weaker. */
+function cheaper(card: Card, best: Card): boolean {
+  return (
     cardValue(card) < cardValue(best) ||
     (cardValue(card) === cardValue(best) &&
       cardStrength(card) < cardStrength(best))
-      ? card
-      : best,
   );
-  return cheapest.id;
+}
+
+/** Whether the first card is the stronger lead - higher value, then stronger. */
+function beatsForLead(card: Card, best: Card): boolean {
+  return (
+    cardValue(card) > cardValue(best) ||
+    (cardValue(card) === cardValue(best) &&
+      cardStrength(card) > cardStrength(best))
+  );
+}
+
+/**
+ * A legal card chosen at random - the easy level's weak play.
+ *
+ * @remarks
+ * The generator is not advanced by playing a card, so the seed is mixed with
+ * how many cards have already been played this round; that varies the pick from
+ * trick to trick while staying deterministic for a given deal.
+ */
+function randomCard(state: GameState, legal: readonly Card[]): Card {
+  const played =
+    state.currentTrick.length +
+    state.players.reduce((sum, player) => sum + player.won.length, 0);
+  const draw = nextRandom(createRandom(state.random.seed + played));
+  return legal[Math.floor(draw.value * legal.length)];
 }

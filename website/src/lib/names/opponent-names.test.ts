@@ -1,13 +1,13 @@
 /**
- * Tests for the opponent names.
+ * Tests for the shared opponent-name generator.
  *
  * @module
  */
 import { describe, expect, it } from "vitest";
-import { OPPONENT_NAME_POOL, pickOpponentNames } from "./player-names";
+import { OPPONENT_NAME_POOL, pickOpponentNames } from "./opponent-names";
 
-/** The largest table: three opponents. */
-const MAX_OPPONENTS = 3;
+/** The largest table across the collection: six players, so five opponents. */
+const MAX_OPPONENTS = 5;
 
 describe("pickOpponentNames", () => {
   it("draws as many names as asked for", () => {
