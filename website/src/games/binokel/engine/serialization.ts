@@ -39,6 +39,8 @@ export function isGameState(value: unknown): value is GameState {
     state.players.length > 0 &&
     state.players.every(isPlayer) &&
     typeof state.withSevens === "boolean" &&
+    typeof state.withDabb === "boolean" &&
+    typeof state.teams === "boolean" &&
     isInteger(state.targetScore) &&
     isInteger(state.dealerIndex) &&
     typeof state.phase === "string" &&
@@ -49,6 +51,8 @@ export function isGameState(value: unknown): value is GameState {
     isInteger(state.highestBid) &&
     isNullableInteger(state.declarerIndex) &&
     isNullableSuit(state.trump) &&
+    isGameType(state.gameType) &&
+    typeof state.conceded === "boolean" &&
     Array.isArray(state.currentTrick) &&
     state.currentTrick.every(isTrickCard) &&
     isInteger(state.leaderIndex) &&
@@ -122,6 +126,11 @@ function isRandomState(value: unknown): boolean {
 /** A value that is null or a valid suit. */
 function isNullableSuit(value: unknown): boolean {
   return value === null || (typeof value === "string" && SUIT_SET.has(value));
+}
+
+/** A value that is null, "normal" or "durch". */
+function isGameType(value: unknown): boolean {
+  return value === null || value === "normal" || value === "durch";
 }
 
 /** A value that is null or a string. */

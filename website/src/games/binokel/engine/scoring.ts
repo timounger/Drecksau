@@ -9,7 +9,7 @@
  * off" for double the bid. See `docs/games/binokel/game-rules.md`.
  */
 import { cardValue } from "./cards";
-import type { GameState } from "./state";
+import { teamCount, teamOf, type GameState } from "./state";
 
 /** Extra points for the last trick. */
 const LAST_TRICK_BONUS = 10;
@@ -19,6 +19,9 @@ const ROUND_TO = 10;
 
 /** The declarer loses this many times the bid on going off. */
 const BETE_FACTOR = 2;
+
+/** A Durch (winning every trick) is worth this, won or lost. */
+const DURCH_VALUE = 1000;
 
 /** One player's result for the round. */
 export type PlayerRoundResult = {
@@ -55,31 +58,70 @@ function roundToTen(augen: number): number {
  */
 export function roundResult(state: GameState): RoundResult {
   const declarer = state.declarerIndex ?? 0;
+  const declarerTeam = teamOf(state, declarer);
   const lastTrickWinnerIndex = state.leaderIndex;
+  const teams = teamCount(state);
+  const bete = -(BETE_FACTOR * state.highestBid);
 
-  const raw = state.players.map((player, index) => {
-    const augen =
+  // The declarer's team conceded before playing: they go off, nobody else scores.
+  if (state.conceded) {
+    const perPlayer = state.players.map((_, index) => ({
+      trickPoints: 0,
+      meldPoints: 0,
+      delta: teamOf(state, index) === declarerTeam ? bete : 0,
+    }));
+    return { perPlayer, lastTrickWinnerIndex, declarerMadeBid: false };
+  }
+
+  // Pool each team's captured Augen, melds and whether it took any trick.
+  const augen = new Array<number>(teams).fill(0);
+  const meldRaw = new Array<number>(teams).fill(0);
+  const tookTrick = new Array<boolean>(teams).fill(false);
+  state.players.forEach((player, index) => {
+    const team = teamOf(state, index);
+    augen[team] +=
       player.won.reduce((sum, card) => sum + cardValue(card), 0) +
       (index === lastTrickWinnerIndex ? LAST_TRICK_BONUS : 0);
-    return {
-      trickPoints: roundToTen(augen),
-      meldPoints: player.hasTrick ? player.meldPoints : 0,
-    };
+    meldRaw[team] += player.meldPoints;
+    if (player.hasTrick) {
+      tookTrick[team] = true;
+    }
+  });
+  const trickPoints = augen.map(roundToTen);
+  const meldPoints = meldRaw.map((meld, team) => (tookTrick[team] ? meld : 0));
+  const total = trickPoints.map((points, team) => points + meldPoints[team]);
+
+  // A Durch: the declarer's team wins or loses a flat value on taking every trick.
+  const wonAll =
+    state.gameType === "durch" &&
+    state.players.every(
+      (player, index) =>
+        teamOf(state, index) === declarerTeam || !player.hasTrick,
+    );
+  const declarerMadeBid =
+    state.gameType === "durch"
+      ? wonAll
+      : total[declarerTeam] >= state.highestBid;
+
+  const teamDelta = total.map((teamTotal, team) => {
+    let delta: number;
+    if (team !== declarerTeam) {
+      delta = teamTotal;
+    } else if (state.gameType === "durch") {
+      delta = wonAll ? DURCH_VALUE : -DURCH_VALUE;
+    } else {
+      delta = declarerMadeBid ? teamTotal : bete;
+    }
+    return delta;
   });
 
-  const declarerTotal = raw[declarer].trickPoints + raw[declarer].meldPoints;
-  const declarerMadeBid = declarerTotal >= state.highestBid;
-
-  const perPlayer = raw.map((result, index) => {
-    let delta: number;
-    if (index === declarer) {
-      delta = declarerMadeBid
-        ? result.trickPoints + result.meldPoints
-        : -(BETE_FACTOR * state.highestBid);
-    } else {
-      delta = result.trickPoints + result.meldPoints;
-    }
-    return { ...result, delta };
+  const perPlayer = state.players.map((_, index) => {
+    const team = teamOf(state, index);
+    return {
+      trickPoints: trickPoints[team],
+      meldPoints: meldPoints[team],
+      delta: teamDelta[team],
+    };
   });
 
   return { perPlayer, lastTrickWinnerIndex, declarerMadeBid };

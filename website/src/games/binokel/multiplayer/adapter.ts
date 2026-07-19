@@ -4,9 +4,9 @@
  * @module
  * @remarks
  * Binokel has more phases than a plain trick game, so a move carries which kind
- * of action it is (`bid`, `pass`, `discard`, `trump`, `beginTricks`, `playCard`,
- * `nextRound`), and the referee checks each one comes from the seat that may act
- * in the current phase before handing it to the engine.
+ * of action it is (`bid`, `pass`, `discard`, `trump`, `declareGame`, `concede`,
+ * `playCard`, `collectTrick`, `nextRound`), and the referee checks each one comes
+ * from the seat that may act in the current phase before handing it to the engine.
  *
  * Hidden information: every player's hand is redacted from the shared snapshot
  * (replaced by decoy cards keeping only ids and counts) and delivered to its
@@ -24,20 +24,31 @@ import { type Card, SUITS, type Suit } from "@/games/binokel/engine/cards";
 import {
   applyBid,
   baseHandSize,
-  beginTricks,
   chooseTrump,
+  collectTrick,
+  concede,
+  declareGame,
   discard,
   nextRound,
   playCard,
 } from "@/games/binokel/engine/moves";
 import { isGameState } from "@/games/binokel/engine/serialization";
-import { createGame, PLAYER_COUNT } from "@/games/binokel/engine/setup";
-import type { GameState } from "@/games/binokel/engine/state";
+import {
+  createGame,
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+} from "@/games/binokel/engine/setup";
+import type { GameState, GameType } from "@/games/binokel/engine/state";
+import { trickWinnerIndex } from "@/games/binokel/engine/tricks";
 
 /** The options a Binokel host chooses when starting a game. */
 export type BinokelOptions = {
   /** True for the 48-card deck (with sevens), false for 40 cards. */
   readonly withSevens: boolean;
+  /** Whether a Dabb (widow) is played. Defaults to true. */
+  readonly withDabb?: boolean;
+  /** Whether two teams play (four or six players). Defaults to false. */
+  readonly teams?: boolean;
   /** Points that end the match. */
   readonly targetScore: number;
 };
@@ -48,8 +59,10 @@ export type BinokelMove =
   | { readonly kind: "pass" }
   | { readonly kind: "discard"; readonly cardIds: readonly string[] }
   | { readonly kind: "trump"; readonly suit: Suit }
-  | { readonly kind: "beginTricks" }
+  | { readonly kind: "declareGame"; readonly gameType: GameType }
+  | { readonly kind: "concede" }
   | { readonly kind: "playCard"; readonly cardId: string }
+  | { readonly kind: "collectTrick" }
   | { readonly kind: "nextRound" };
 
 /** The suit and rank a decoy (hidden) card shows; never rendered face-up. */
@@ -73,15 +86,21 @@ function actorIndex(game: GameState): number | null {
   let index: number | null;
   switch (game.phase) {
     case "bidding":
-    case "trick":
       index = game.currentPlayerIndex;
+      break;
+    case "trick":
+      // A full trick waits to be collected by its winner.
+      index =
+        game.currentTrick.length === game.players.length
+          ? trickWinnerIndex(game.currentTrick, game.trump)
+          : game.currentPlayerIndex;
       break;
     case "exchange":
     case "melding":
       index = game.declarerIndex;
       break;
     case "roundEnd":
-      index = (game.dealerIndex + 1) % PLAYER_COUNT;
+      index = (game.dealerIndex + 1) % game.players.length;
       break;
     default:
       index = null; // matchEnd - nobody acts
@@ -130,9 +149,13 @@ export function isMove(value: unknown): value is BinokelMove {
     switch (move.kind) {
       case "bid":
       case "pass":
-      case "beginTricks":
+      case "concede":
+      case "collectTrick":
       case "nextRound":
         valid = true;
+        break;
+      case "declareGame":
+        valid = move.gameType === "normal" || move.gameType === "durch";
         break;
       case "discard":
         valid =
@@ -170,10 +193,14 @@ function aiMove(game: GameState): BinokelMove | null {
       break;
     }
     case "melding":
-      move = { kind: "beginTricks" };
+      // The computer declarer always plays a normal game.
+      move = { kind: "declareGame", gameType: "normal" };
       break;
     case "trick":
-      move = { kind: "playCard", cardId: chooseCard(game) };
+      move =
+        game.currentTrick.length === game.players.length
+          ? { kind: "collectTrick" }
+          : { kind: "playCard", cardId: chooseCard(game) };
       break;
     case "roundEnd":
       move = { kind: "nextRound" };
@@ -202,8 +229,8 @@ export const binokelAdapter: OnlineAdapter<
   BinokelOptions
 > = {
   gameId: "binokel",
-  minPlayers: PLAYER_COUNT,
-  maxPlayers: PLAYER_COUNT,
+  minPlayers: MIN_PLAYERS,
+  maxPlayers: MAX_PLAYERS,
 
   createGame(seats: readonly SeatSetup[], options, seed): GameState {
     return createGame(
@@ -211,6 +238,8 @@ export const binokelAdapter: OnlineAdapter<
       {
         seed,
         withSevens: options.withSevens,
+        withDabb: options.withDabb ?? true,
+        teams: options.teams ?? false,
         targetScore: options.targetScore,
       },
     );
@@ -242,11 +271,18 @@ export const binokelAdapter: OnlineAdapter<
           next =
             game.phase === "exchange" ? chooseTrump(game, move.suit) : null;
           break;
-        case "beginTricks":
-          next = game.phase === "melding" ? beginTricks(game) : null;
+        case "declareGame":
+          next =
+            game.phase === "melding" ? declareGame(game, move.gameType) : null;
+          break;
+        case "concede":
+          next = game.phase === "melding" ? concede(game) : null;
           break;
         case "playCard":
           next = game.phase === "trick" ? playCard(game, move.cardId) : null;
+          break;
+        case "collectTrick":
+          next = game.phase === "trick" ? collectTrick(game) : null;
           break;
         case "nextRound":
           next = game.phase === "roundEnd" ? nextRound(game) : null;

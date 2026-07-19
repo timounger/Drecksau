@@ -9,8 +9,8 @@ import type { Meld, MeldKind } from "@/games/binokel/engine/melds";
 /** Static texts of the Binokel screen. */
 export const BINOKEL_TEXTS = {
   title: "Binokel",
-  subtitle: "Schwaebisches Stichspiel gegen zwei Computergegner.",
-  withSevens: "Mit Siebenern (48 Karten)",
+  subtitle: "Schwaebisches Stichspiel gegen Computergegner.",
+  withSevens: "Mit 7ern spielen (Siebener · 48 Karten)",
   newMatch: "Neue Partie",
   yourHand: "Deine Karten",
   dabb: "Dabb",
@@ -39,10 +39,17 @@ export const BINOKEL_TEXTS = {
   meldPoints: "Meldepunkte",
   noMelds: "keine",
   toTricks: "Weiter zum Stechen",
+  concede: "Abgehen",
+  playOn: "Spielen",
+  playNormal: "Normal",
+  playDurch: "Durch",
+  durchHint: "Durch = alle Stiche machen (gewonnen +1000, verloren -1000).",
   // Trick
   trickTitle: "Stich",
   yourTurn: "Du bist dran.",
   waiting: (name: string) => `${name} ist am Zug ...`,
+  trickComplete: "Stich komplett",
+  continueTrick: "Weiter",
   // Round / match end
   roundResultTitle: "Rundenergebnis",
   colTricks: "Stiche",
@@ -54,13 +61,27 @@ export const BINOKEL_TEXTS = {
   nextRound: "Nächste Runde",
   matchOver: "Partie zu Ende",
   winner: (name: string) => `${name} gewinnt die Partie!`,
+  teamWinner: (names: string) => `Team ${names} gewinnt die Partie!`,
   // Settings & navigation
   settings: "Einstellungen",
   statistics: "Statistik",
   settingsTitle: "Binokel-Einstellungen",
   settingsSubtitle: "Wird nur in deinem Browser gespeichert.",
   withSevensHint:
-    "48-Karten-Deck mit Siebenern statt 40 Karten. Gilt ab der nächsten Partie.",
+    "An: mit 7ern, 48 Karten. Aus: ohne 7er, 40 Karten. Gilt ab der nächsten Partie.",
+  withDabb: "Mit Dabb spielen",
+  withDabbHint:
+    "An: mit Dabb (Widow) und Drücken. Aus: Karten werden aufgeteilt, kein Drücken. Gilt ab der nächsten Partie.",
+  suitOrderTitle: "Farb-Reihenfolge",
+  suitOrderHint:
+    "So werden deine Handkarten sortiert - von links (oben) nach rechts (unten).",
+  moveUp: "Nach oben",
+  moveDown: "Nach unten",
+  playerCountTitle: "Spieleranzahl",
+  playerCountHint: "Du plus Computergegner. Gilt ab der nächsten Partie.",
+  teams: "In Teams spielen",
+  teamsHint:
+    "Zwei Teams über Kreuz - nur bei 4 oder 6 Spielern (2er- bzw. 3er-Teams). Teamkollegen zählen ihre Punkte zusammen.",
   backToGame: "Zurück zum Spiel",
 } as const;
 

@@ -8,8 +8,11 @@ import { cardValue } from "./cards";
 import { chooseBid, chooseCard, chooseDiscard, chooseTrumpSuit } from "./ai";
 import {
   applyBid,
-  beginTricks,
+  baseHandSize,
   chooseTrump,
+  collectTrick,
+  concede,
+  declareGame,
   discard,
   nextRound,
   playCard,
@@ -23,23 +26,39 @@ const SETUPS: readonly PlayerSetup[] = [
   { name: "Berta", isHuman: false },
 ];
 
-/** Plays one round to its end, every seat driven by the AI. */
-function driveRound(start: GameState): GameState {
+/** Bids, discards and names trump - stops at the melding phase. */
+function driveToMelding(start: GameState): GameState {
   let state = start;
   let guard = 0;
   while (state.phase === "bidding" && guard++ < 30) {
     state = applyBid(state, chooseBid(state));
   }
-  const base = state.withSevens ? 15 : 12;
-  const need = state.players[state.declarerIndex ?? 0].hand.length - base;
-  state = discard(state, chooseDiscard(state, need));
-  state = chooseTrump(state, chooseTrumpSuit(state));
-  state = beginTricks(state);
-  guard = 0;
+  const declarer = state.players[state.declarerIndex ?? 0];
+  const need = declarer.hand.length - baseHandSize(state);
+  // Without a Dabb there is nothing to push away, so skip the discard.
+  if (need > 0) {
+    state = discard(state, chooseDiscard(state, need));
+  }
+  return chooseTrump(state, chooseTrumpSuit(state));
+}
+
+/** Plays out the tricks of a state that is in the trick phase. */
+function playTricks(start: GameState): GameState {
+  let state = start;
+  let guard = 0;
   while (state.phase === "trick" && guard++ < 300) {
-    state = playCard(state, chooseCard(state));
+    // A full trick waits to be collected; otherwise the next card is played.
+    state =
+      state.currentTrick.length === state.players.length
+        ? collectTrick(state)
+        : playCard(state, chooseCard(state));
   }
   return state;
+}
+
+/** Plays one normal round to its end, every seat driven by the AI. */
+function driveRound(start: GameState): GameState {
+  return playTricks(declareGame(driveToMelding(start), "normal"));
 }
 
 /** Total Augen sitting in the players' won piles. */
@@ -74,6 +93,31 @@ describe("a full round", () => {
     expect(state.highestBid).toBeGreaterThanOrEqual(150);
   });
 
+  it("plays whole rounds for 3 to 6 players, with and without the Dabb", () => {
+    for (let count = 3; count <= 6; count++) {
+      const seats: PlayerSetup[] = Array.from({ length: count }, (_, i) => ({
+        name: `P${i}`,
+        isHuman: i === 0,
+      }));
+      for (const withSevens of [true, false]) {
+        for (const withDabb of [true, false]) {
+          const state = driveRound(
+            createGame(seats, {
+              seed: count,
+              withSevens,
+              withDabb,
+              targetScore: 100000,
+            }),
+          );
+          expect(["roundEnd", "matchEnd"]).toContain(state.phase);
+          expect(state.players.every((p) => p.hand.length === 0)).toBe(true);
+          // Sevens are worth 0, so the deck's total Augen is 240 either way.
+          expect(capturedAugen(state)).toBe(240);
+        }
+      }
+    }
+  });
+
   it("plays whole rounds for many seeds without an illegal move", () => {
     for (let seed = 0; seed < 15; seed++) {
       const state = driveRound(
@@ -86,6 +130,76 @@ describe("a full round", () => {
       expect(["roundEnd", "matchEnd"]).toContain(state.phase);
       expect(capturedAugen(state)).toBe(240);
     }
+  });
+});
+
+describe("conceding and Durch", () => {
+  it("lets the declarer concede at melding for double the bid", () => {
+    const melding = driveToMelding(
+      createGame(SETUPS, { seed: 4, withSevens: true, targetScore: 1000000 }),
+    );
+    const declarer = melding.declarerIndex!;
+    const bid = melding.highestBid;
+    const state = concede(melding);
+
+    expect(["roundEnd", "matchEnd"]).toContain(state.phase);
+    expect(state.players[declarer].score).toBe(-2 * bid);
+    state.players.forEach((player, index) => {
+      if (index !== declarer) {
+        expect(player.score).toBe(0);
+      }
+    });
+  });
+
+  it("scores a Durch as a flat plus or minus 1000", () => {
+    for (let seed = 0; seed < 6; seed++) {
+      const melding = driveToMelding(
+        createGame(SETUPS, { seed, withSevens: true, targetScore: 1000000 }),
+      );
+      const declarer = melding.declarerIndex!;
+      const state = playTricks(declareGame(melding, "durch"));
+
+      expect(["roundEnd", "matchEnd"]).toContain(state.phase);
+      // Flat outcome: won every trick (+1000) or not (-1000).
+      expect([1000, -1000]).toContain(state.players[declarer].score);
+    }
+  });
+});
+
+describe("teams", () => {
+  const fourSeats: PlayerSetup[] = Array.from({ length: 4 }, (_, i) => ({
+    name: `P${i}`,
+    isHuman: i === 0,
+  }));
+
+  it("pools points within teams over the cross partnership", () => {
+    const state = driveRound(
+      createGame(fourSeats, {
+        seed: 3,
+        withSevens: true,
+        teams: true,
+        targetScore: 1000000,
+      }),
+    );
+    expect(state.teams).toBe(true);
+    // Partners sit across (0 with 2, 1 with 3) and share one cumulative score.
+    expect(state.players[0].score).toBe(state.players[2].score);
+    expect(state.players[1].score).toBe(state.players[3].score);
+    expect(capturedAugen(state)).toBe(240);
+  });
+
+  it("ignores teams for odd player counts", () => {
+    const threeSeats: PlayerSetup[] = Array.from({ length: 3 }, (_, i) => ({
+      name: `P${i}`,
+      isHuman: i === 0,
+    }));
+    const state = createGame(threeSeats, {
+      seed: 1,
+      withSevens: true,
+      teams: true,
+      targetScore: 1000,
+    });
+    expect(state.teams).toBe(false);
   });
 });
 

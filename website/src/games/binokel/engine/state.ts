@@ -17,6 +17,9 @@ export type PlayerId = string;
 export type Phase =
   "bidding" | "exchange" | "melding" | "trick" | "roundEnd" | "matchEnd";
 
+/** What the declarer plays: a normal game or a "Durch" (win every trick). */
+export type GameType = "normal" | "durch";
+
 /** A single line of the game log, already translated for the UI. */
 export type LogEntry = {
   readonly id: number;
@@ -55,6 +58,16 @@ export type GameState = {
   readonly players: readonly BinokelPlayer[];
   /** True for the 48-card deck, false for 40 cards. */
   readonly withSevens: boolean;
+  /**
+   * Whether a Dabb (widow) is played. Without it the cards are dealt out as far
+   * as they divide; any remainder still forms a small Dabb.
+   */
+  readonly withDabb: boolean;
+  /**
+   * Whether two teams play (cross partnership: even seats vs odd seats). Only
+   * for four or six players; teammates pool their points.
+   */
+  readonly teams: boolean;
   /** Points that end the match. */
   readonly targetScore: number;
   readonly dealerIndex: number;
@@ -74,6 +87,10 @@ export type GameState = {
   readonly declarerIndex: number | null;
   /** The declarer's chosen trump, or null until announced. */
   readonly trump: Suit | null;
+  /** Normal or Durch, chosen by the declarer after melding; null until then. */
+  readonly gameType: GameType | null;
+  /** True if the declarer conceded (went off) instead of playing the round. */
+  readonly conceded: boolean;
   readonly currentTrick: readonly TrickCard[];
   /** Who leads the current trick. */
   readonly leaderIndex: number;
@@ -111,4 +128,27 @@ export function playerById(
     throw new Error(`unknown player: ${playerId}`);
   }
   return player;
+}
+
+/**
+ * The team a seat belongs to.
+ *
+ * @param state - the game state
+ * @param index - the seat index
+ * @returns the team index; each seat is its own team when teams are off
+ * @remarks
+ * With teams on, partners sit across (even seats are one team, odd the other).
+ */
+export function teamOf(state: GameState, index: number): number {
+  return state.teams ? index % 2 : index;
+}
+
+/**
+ * How many teams are at the table.
+ *
+ * @param state - the game state
+ * @returns two with teams on, otherwise one per player
+ */
+export function teamCount(state: GameState): number {
+  return state.teams ? 2 : state.players.length;
 }

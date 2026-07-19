@@ -16,26 +16,39 @@ import {
 import {
   applyBid,
   baseHandSize,
-  beginTricks,
   chooseTrump,
+  collectTrick,
+  concede,
+  declareGame,
   discard,
   nextRound,
   playCard,
 } from "@/games/binokel/engine/moves";
-import { createGame, type PlayerSetup } from "@/games/binokel/engine/setup";
+import {
+  createGame,
+  MIN_PLAYERS,
+  type PlayerSetup,
+} from "@/games/binokel/engine/setup";
 import { loadBinokelSettings } from "@/games/binokel/settings/binokel-settings";
-import type { GameState } from "@/games/binokel/engine/state";
+import type { GameState, GameType } from "@/games/binokel/engine/state";
 import { legalPlays } from "@/games/binokel/engine/tricks";
 
-/** The human plus two computer opponents. */
-const SETUPS: readonly PlayerSetup[] = [
-  { name: "Du", isHuman: true },
-  { name: "Anna", isHuman: false },
-  { name: "Berta", isHuman: false },
-];
+/** The computer opponents' names, used up to the chosen player count. */
+const OPPONENT_NAMES = ["Anna", "Berta", "Cäsar", "Dora", "Emil"] as const;
 
 /** The human always sits first. */
 const HUMAN_INDEX = 0;
+
+/** Builds the seating: the human plus enough computer opponents. */
+function buildSetups(playerCount: number): PlayerSetup[] {
+  return [
+    { name: "Du", isHuman: true },
+    ...OPPONENT_NAMES.slice(0, playerCount - 1).map((name) => ({
+      name,
+      isHuman: false,
+    })),
+  ];
+}
 
 /** Fixed seed of the first deal - server and client render it alike. */
 const INITIAL_SEED = 20260718;
@@ -61,8 +74,13 @@ export type BinokelGame = {
   readonly pass: () => void;
   readonly confirmDiscard: (cardIds: readonly string[]) => void;
   readonly pickTrump: (suit: Suit) => void;
-  readonly beginTrickPlay: () => void;
+  /** After melding, the declarer commits to a normal game or a Durch. */
+  readonly declare: (gameType: GameType) => void;
+  /** After melding, the declarer concedes (goes off) instead of playing. */
+  readonly concede: () => void;
   readonly play: (cardId: string) => void;
+  /** Gathers the completed trick and moves on - the player clicks to continue. */
+  readonly collect: () => void;
   readonly nextRound: () => void;
   /** Starts a fresh match with the deck chosen in the Binokel settings. */
   readonly newMatch: () => void;
@@ -75,9 +93,10 @@ export type BinokelGame = {
  * @returns a transition to apply, or null
  * @remarks
  * Besides the computer's own turns, this also advances the round result to the
- * next deal after a readable pause (see {@link stepDelay}). The melds are *not*
- * advanced automatically - the player clicks "Weiter zum Stechen" so they can
- * study the melds for as long as they like.
+ * next deal after a readable pause (see {@link stepDelay}). The melds and a
+ * completed trick are *not* advanced automatically - the player clicks (the
+ * melds via "Weiter zum Stechen", a full trick anywhere) so they can look for
+ * as long as they like.
  */
 function autoStep(state: GameState): ((s: GameState) => GameState) | null {
   const actor = state.players[state.currentPlayerIndex];
@@ -98,7 +117,11 @@ function autoStep(state: GameState): ((s: GameState) => GameState) | null {
     } else if (state.trump === null) {
       move = (s) => chooseTrump(s, chooseTrumpSuit(s));
     }
-  } else if (state.phase === "trick" && !actor.isHuman) {
+  } else if (
+    state.phase === "trick" &&
+    state.currentTrick.length < state.players.length &&
+    !actor.isHuman
+  ) {
     move = (s) => playCard(s, chooseCard(s));
   } else if (state.phase === "roundEnd") {
     move = (s) => nextRound(s);
@@ -138,7 +161,11 @@ function isHumanTurn(state: GameState): boolean {
       waiting = declarerIsHuman;
       break;
     case "trick":
-      waiting = state.currentPlayerIndex === HUMAN_INDEX;
+      // A full trick waits for the player to collect it; otherwise it is the
+      // human's turn only when the play is on their seat.
+      waiting =
+        state.currentTrick.length === state.players.length ||
+        state.currentPlayerIndex === HUMAN_INDEX;
       break;
     case "melding":
       waiting = true; // waits for the player to click "Weiter zum Stechen"
@@ -162,10 +189,10 @@ function isHumanTurn(state: GameState): boolean {
  */
 export function useBinokelGame(): BinokelGame {
   // The first match is dealt deterministically so the prerender and the client
-  // agree; the chosen deck (settings) applies from the next match, as with the
-  // Drecksau expansion.
+  // agree; the chosen deck and player count (settings) apply from the next
+  // match, as with the Drecksau expansion.
   const [state, setState] = useState<GameState>(() =>
-    createGame(SETUPS, {
+    createGame(buildSetups(MIN_PLAYERS), {
       seed: INITIAL_SEED,
       withSevens: true,
       targetScore: TARGET_SCORE,
@@ -203,24 +230,34 @@ export function useBinokelGame(): BinokelGame {
     (suit: Suit) => setState((s) => chooseTrump(s, suit)),
     [],
   );
-  const beginTrickPlay = useCallback(() => setState((s) => beginTricks(s)), []);
+  const declare = useCallback(
+    (gameType: GameType) => setState((s) => declareGame(s, gameType)),
+    [],
+  );
+  const doConcede = useCallback(() => setState((s) => concede(s)), []);
   const play = useCallback(
     (cardId: string) => setState((s) => playCard(s, cardId)),
     [],
   );
+  const collect = useCallback(() => setState((s) => collectTrick(s)), []);
   const goNextRound = useCallback(() => setState((s) => nextRound(s)), []);
   const newMatch = useCallback(() => {
+    const settings = loadBinokelSettings();
     setState(
-      createGame(SETUPS, {
+      createGame(buildSetups(settings.playerCount), {
         seed: freshSeed(),
-        withSevens: loadBinokelSettings().withSevens,
+        withSevens: settings.withSevens,
+        withDabb: settings.withDabb,
+        teams: settings.teams,
         targetScore: TARGET_SCORE,
       }),
     );
   }, []);
 
   const legalCardIds =
-    state.phase === "trick" && state.currentPlayerIndex === HUMAN_INDEX
+    state.phase === "trick" &&
+    state.currentPlayerIndex === HUMAN_INDEX &&
+    state.currentTrick.length < state.players.length
       ? legalPlays(
           state.players[HUMAN_INDEX].hand,
           state.currentTrick,
@@ -237,8 +274,10 @@ export function useBinokelGame(): BinokelGame {
     pass,
     confirmDiscard,
     pickTrump,
-    beginTrickPlay,
+    declare,
+    concede: doConcede,
     play,
+    collect,
     nextRound: goNextRound,
     newMatch,
   };

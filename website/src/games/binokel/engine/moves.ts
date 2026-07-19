@@ -12,8 +12,8 @@ import { createDeck, SUITS, type Suit } from "./cards";
 import { findMelds } from "./melds";
 import { shuffle } from "./random";
 import { roundResult } from "./scoring";
-import { PLAYER_COUNT } from "./setup";
-import type { BinokelPlayer, GameState } from "./state";
+import { dealSizes } from "./setup";
+import type { BinokelPlayer, GameState, GameType } from "./state";
 import { legalPlays, trickWinnerIndex } from "./tricks";
 
 /** Smallest bid a player may make. */
@@ -92,23 +92,15 @@ function enterExchange(state: GameState): GameState {
   };
 }
 
-/** Hand size per player with Sevens. */
-const HAND_WITH_SEVENS = 15;
-/** Hand size per player without Sevens. */
-const HAND_WITHOUT_SEVENS = 12;
-/** Dabb size with Sevens. */
-const DABB_WITH_SEVENS = 3;
-/** Dabb size without Sevens. */
-const DABB_WITHOUT_SEVENS = 4;
-
 /**
- * Base hand size for the current deck.
+ * Base hand size for the current table and deck.
  *
  * @param state - the game state
  * @returns cards per player once the declarer has discarded
  */
 export function baseHandSize(state: GameState): number {
-  return state.withSevens ? HAND_WITH_SEVENS : HAND_WITHOUT_SEVENS;
+  return dealSizes(state.players.length, state.withSevens, state.withDabb)
+    .handSize;
 }
 
 /**
@@ -172,24 +164,43 @@ export function chooseTrump(state: GameState, trump: Suit): GameState {
 }
 
 /**
- * Moves from showing the melds into trick play.
+ * The declarer commits to a normal game or a Durch and trick play begins.
  *
  * @param state - a state in the melding phase
+ * @param gameType - "normal" or "durch"
  * @returns the state in the trick phase, the declarer to lead
  * @throws if it is not the melding phase
  */
-export function beginTricks(state: GameState): GameState {
+export function declareGame(state: GameState, gameType: GameType): GameState {
   const index = state.declarerIndex;
   if (state.phase !== "melding" || index === null) {
-    throw new Error("not ready for tricks");
+    throw new Error("not ready to declare the game");
   }
   return {
     ...state,
+    gameType,
     phase: "trick",
     leaderIndex: index,
     currentPlayerIndex: index,
     currentTrick: [],
   };
+}
+
+/**
+ * The declarer concedes at melding rather than playing - they go off.
+ *
+ * @param state - a state in the melding phase
+ * @returns the scored state, in the roundEnd or matchEnd phase
+ * @throws if it is not the melding phase
+ * @remarks
+ * Going off costs the declarer double the bid; nobody else scores. See the
+ * "geht ab" ruling in `docs/games/binokel/game-rules.md`.
+ */
+export function concede(state: GameState): GameState {
+  if (state.phase !== "melding" || state.declarerIndex === null) {
+    throw new Error("nothing to concede here");
+  }
+  return finishRound({ ...state, conceded: true });
 }
 
 /**
@@ -202,7 +213,10 @@ export function beginTricks(state: GameState): GameState {
  */
 export function playCard(state: GameState, cardId: string): GameState {
   const index = state.currentPlayerIndex;
-  if (state.phase !== "trick") {
+  if (
+    state.phase !== "trick" ||
+    state.currentTrick.length >= state.players.length
+  ) {
     throw new Error("no card is expected here");
   }
   const actor = state.players[index];
@@ -217,25 +231,36 @@ export function playCard(state: GameState, cardId: string): GameState {
   });
   const trick = [...state.currentTrick, { playerIndex: index, card }];
 
-  let next: GameState;
-  if (trick.length < PLAYER_COUNT) {
-    next = {
-      ...state,
-      players,
-      currentTrick: trick,
-      currentPlayerIndex: (index + 1) % PLAYER_COUNT,
-    };
-  } else {
-    next = resolveTrick({ ...state, players }, trick);
-  }
-  return next;
+  // A full trick stays on the table until collectTrick is called, so the last
+  // card can be seen before the trick is gathered up.
+  return trick.length < state.players.length
+    ? {
+        ...state,
+        players,
+        currentTrick: trick,
+        currentPlayerIndex: (index + 1) % state.players.length,
+      }
+    : { ...state, players, currentTrick: trick };
 }
 
-/** Awards a completed trick and, if the hands are empty, scores the round. */
-function resolveTrick(
-  state: GameState,
-  trick: GameState["currentTrick"],
-): GameState {
+/**
+ * Gathers a full trick to its winner and scores the round if it was the last.
+ *
+ * @param state - a trick state with a full trick on the table
+ * @returns the state in the next trick, or in scoring if the hands are empty
+ * @throws if there is no full trick to collect
+ * @remarks
+ * Split from {@link playCard} so the completed trick can be shown before it is
+ * gathered; the UI (or the AI) calls this when the players have seen it.
+ */
+export function collectTrick(state: GameState): GameState {
+  if (
+    state.phase !== "trick" ||
+    state.currentTrick.length < state.players.length
+  ) {
+    throw new Error("no full trick to collect");
+  }
+  const trick = state.currentTrick;
   const winner = trickWinnerIndex(trick, state.trump);
   const wonCards = trick.map((played) => played.card);
   const players = patch(state.players, winner, {
@@ -287,11 +312,14 @@ export function nextRound(state: GameState): GameState {
   if (state.phase !== "roundEnd") {
     throw new Error("the round is not over");
   }
-  const handSize = baseHandSize(state);
-  const dabbSize = state.withSevens ? DABB_WITH_SEVENS : DABB_WITHOUT_SEVENS;
+  const { handSize, dabbSize } = dealSizes(
+    state.players.length,
+    state.withSevens,
+    state.withDabb,
+  );
   const shuffled = shuffle(createDeck(state.withSevens), state.random);
   const cards = [...shuffled.items];
-  const dealerIndex = (state.dealerIndex + 1) % PLAYER_COUNT;
+  const dealerIndex = (state.dealerIndex + 1) % state.players.length;
 
   const players: BinokelPlayer[] = state.players.map((player) => ({
     ...player,
@@ -303,7 +331,7 @@ export function nextRound(state: GameState): GameState {
     bidding: true,
   }));
   const dabb = cards.splice(0, dabbSize);
-  const forehand = (dealerIndex + 1) % PLAYER_COUNT;
+  const forehand = (dealerIndex + 1) % state.players.length;
 
   return {
     ...state,
@@ -316,6 +344,8 @@ export function nextRound(state: GameState): GameState {
     highestBid: 0,
     declarerIndex: null,
     trump: null,
+    gameType: null,
+    conceded: false,
     currentTrick: [],
     leaderIndex: forehand,
     random: shuffled.state,
@@ -330,7 +360,7 @@ function nextBiddingIndex(
 ): number {
   let index = from;
   do {
-    index = (index + 1) % PLAYER_COUNT;
+    index = (index + 1) % players.length;
   } while (!players[index].bidding);
   return index;
 }

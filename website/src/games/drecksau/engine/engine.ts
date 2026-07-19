@@ -607,10 +607,14 @@ function reshuffleDiscard(state: GameState): GameState {
 /** Checks for a winner without passing the turn on. */
 function checkWinner(state: GameState): GameState {
   const actor = currentPlayer(state);
-  return hasWon(actor)
+  // A move can complete someone else's board too - rain washing the mud off a
+  // rival's Schönsäue makes them win, even though they did not move. So check
+  // everyone, preferring the mover if their own move just won.
+  const winner = hasWon(actor) ? actor : state.players.find(hasWon);
+  return winner !== undefined
     ? appendLog(
-        { ...state, winnerId: actor.id, pendingCardIds: [] },
-        LOG_TEXTS.win(actor.name),
+        { ...state, winnerId: winner.id, pendingCardIds: [] },
+        LOG_TEXTS.win(winner.name),
       )
     : state;
 }

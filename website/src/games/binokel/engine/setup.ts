@@ -23,43 +23,100 @@ export type GameOptions = {
   readonly seed: number;
   /** True for the 48-card deck (with Sevens), false for 40 cards. */
   readonly withSevens: boolean;
+  /** Whether a Dabb (widow) is played. Defaults to true. */
+  readonly withDabb?: boolean;
+  /** Whether two teams play (only for four or six players). Defaults to false. */
+  readonly teams?: boolean;
   /** Points that end the match. */
   readonly targetScore: number;
   /** Who deals; bidding starts to their right. Defaults to 0. */
   readonly dealerIndex?: number;
 };
 
-/** Only three players are supported for now. */
-export const PLAYER_COUNT = 3;
+/** Fewest players Binokel supports. */
+export const MIN_PLAYERS = 3;
 
-/** Hand size per player, by deck. */
-const HAND_SIZE = { withSevens: 15, withoutSevens: 12 } as const;
+/** Most players Binokel supports. */
+export const MAX_PLAYERS = 6;
 
-/** Dabb (widow) size, by deck. */
-const DABB_SIZE = { withSevens: 3, withoutSevens: 4 } as const;
+/** Player counts that split into two even teams (cross partnership): 4 and 6. */
+export const TEAM_PLAYER_COUNTS: readonly number[] = Array.from(
+  { length: MAX_PLAYERS - MIN_PLAYERS + 1 },
+  (_, offset) => MIN_PLAYERS + offset,
+).filter((count) => count % 2 === 0);
+
+/** Cards in each deck. */
+const DECK_SIZE = { withSevens: 48, withoutSevens: 40 } as const;
+
+/** Hand and Dabb sizes so that players * hand + dabb fills the deck exactly. */
+const DEALS: Readonly<
+  Record<
+    number,
+    {
+      readonly withSevens: { readonly hand: number; readonly dabb: number };
+      readonly withoutSevens: { readonly hand: number; readonly dabb: number };
+    }
+  >
+> = {
+  3: {
+    withSevens: { hand: 15, dabb: 3 },
+    withoutSevens: { hand: 12, dabb: 4 },
+  },
+  4: { withSevens: { hand: 11, dabb: 4 }, withoutSevens: { hand: 9, dabb: 4 } },
+  5: { withSevens: { hand: 9, dabb: 3 }, withoutSevens: { hand: 7, dabb: 5 } },
+  6: { withSevens: { hand: 7, dabb: 6 }, withoutSevens: { hand: 6, dabb: 4 } },
+};
+
+/**
+ * Hand and Dabb sizes for a given table.
+ *
+ * @param playerCount - how many players sit at the table (3 to 6)
+ * @param withSevens - whether the 48-card deck is in play
+ * @param withDabb - whether a Dabb is played
+ * @returns the cards each player is dealt and the size of the Dabb
+ * @remarks
+ * Without a Dabb the cards are dealt out evenly; any remainder that will not
+ * divide still forms a small Dabb, so the deal always uses the whole deck.
+ */
+export function dealSizes(
+  playerCount: number,
+  withSevens: boolean,
+  withDabb: boolean,
+): { handSize: number; dabbSize: number } {
+  const total = withSevens ? DECK_SIZE.withSevens : DECK_SIZE.withoutSevens;
+  if (!withDabb) {
+    const handSize = Math.floor(total / playerCount);
+    return { handSize, dabbSize: total - handSize * playerCount };
+  }
+  const deal = DEALS[playerCount] ?? DEALS[MIN_PLAYERS];
+  const sizes = withSevens ? deal.withSevens : deal.withoutSevens;
+  return { handSize: sizes.hand, dabbSize: sizes.dabb };
+}
 
 /**
  * Creates a ready-to-bid round.
  *
- * @param setups - the three players, in seating order
+ * @param setups - the players (3 to 6), in seating order
  * @param options - deck, seed and target score
  * @returns the initial state, in the bidding phase
- * @throws if the number of players is not exactly three
+ * @throws if the number of players is not between three and six
  */
 export function createGame(
   setups: readonly PlayerSetup[],
   options: GameOptions,
 ): GameState {
-  if (setups.length !== PLAYER_COUNT) {
-    throw new Error(`Binokel needs exactly ${PLAYER_COUNT} players for now`);
+  if (setups.length < MIN_PLAYERS || setups.length > MAX_PLAYERS) {
+    throw new Error(`Binokel needs ${MIN_PLAYERS} to ${MAX_PLAYERS} players`);
   }
 
-  const handSize = options.withSevens
-    ? HAND_SIZE.withSevens
-    : HAND_SIZE.withoutSevens;
-  const dabbSize = options.withSevens
-    ? DABB_SIZE.withSevens
-    : DABB_SIZE.withoutSevens;
+  const withDabb = options.withDabb ?? true;
+  const teams =
+    (options.teams ?? false) && TEAM_PLAYER_COUNTS.includes(setups.length);
+  const { handSize, dabbSize } = dealSizes(
+    setups.length,
+    options.withSevens,
+    withDabb,
+  );
 
   const shuffled = shuffle(
     createDeck(options.withSevens),
@@ -82,11 +139,13 @@ export function createGame(
 
   const dabb: Card[] = cards.splice(0, dabbSize);
   const dealerIndex = options.dealerIndex ?? 0;
-  const forehand = (dealerIndex + 1) % PLAYER_COUNT;
+  const forehand = (dealerIndex + 1) % setups.length;
 
   return {
     players,
     withSevens: options.withSevens,
+    withDabb,
+    teams,
     targetScore: options.targetScore,
     dealerIndex,
     phase: "bidding",
@@ -96,6 +155,8 @@ export function createGame(
     highestBid: 0,
     declarerIndex: null,
     trump: null,
+    gameType: null,
+    conceded: false,
     currentTrick: [],
     leaderIndex: forehand,
     random: shuffled.state,
