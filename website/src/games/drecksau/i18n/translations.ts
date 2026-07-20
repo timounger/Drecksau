@@ -169,6 +169,19 @@ export const ONLINE_TEXTS = {
     "Kein Raum mit diesem Code gefunden. Stimmt der Code, und läuft der Gastgeber noch?",
   hostLeftNotice:
     "Hinweis: Wenn der Gastgeber die Seite schließt, endet die Partie.",
+  // Online count and automatic matchmaking
+  playersOnline: (count: number) =>
+    count === 1 ? "1 Spieler online" : `${count} Spieler online`,
+  autoMatch: "Automatisch Spiel suchen",
+  autoMatchHint: "Wir setzen dich mit anderen Spielern an einen Tisch.",
+  orDivider: "oder privat spielen",
+  searching: "Suche Mitspieler ...",
+  playersHere: (count: number) =>
+    count === 1 ? "1 Spieler im Raum" : `${count} Spieler im Raum`,
+  startingIn: (seconds: number) => `Spiel startet in ${seconds} s ...`,
+  waitingForMore: "Warte auf weitere Mitspieler ...",
+  almostReady: "Genug Spieler - es geht gleich los ...",
+  cancelSearch: "Suche abbrechen",
 } as const;
 
 /** Texts of the settings page. */

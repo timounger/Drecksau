@@ -6,17 +6,33 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 import { loadSettings } from "@/games/drecksau/settings/app-settings";
 import {
   loadOnlineHostSettings,
   saveOnlineHostSettings,
 } from "@/games/drecksau/settings/online-host-settings";
+import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/drecksau/engine/setup";
+import { drecksauAdapter } from "@/games/drecksau/multiplayer/adapter";
+import { database } from "@/online/firebase-app";
+import {
+  clearMatch,
+  findMatch,
+  refreshMatch,
+  type Match,
+} from "@/online/matchmaking";
 import {
   generateRoomCode,
   isValidRoomCode,
   normalizeRoomCode,
 } from "@/online/room-code";
+import { useOnlineCount } from "@/online/use-online-presence";
 import type { RoomState } from "@/games/drecksau/multiplayer/room";
 import {
   useOnlineRoom,
@@ -26,13 +42,28 @@ import {
 import { ONLINE_TEXTS } from "@/games/drecksau/i18n/translations";
 import { OnlineBoard } from "./online-board";
 
+/** This game's id, for presence and matchmaking namespacing. */
+const GAME_ID = drecksauAdapter.gameId;
+
+/** How often the open room's matchmaking slot is kept alive, in ms. */
+const HEARTBEAT_MS = 10_000;
+
+/** Grace time before an auto-matched game starts once enough players joined. */
+const AUTO_START_MS = 10_000;
+
+/** Auto-play timeout for matched games, so a stranger cannot stall the table. */
+const AUTO_MATCH_AUTOPLAY_MS = 30_000;
+
+/** The tick of the auto-start countdown, in milliseconds. */
+const COUNTDOWN_TICK_MS = 250;
+
 /** Query parameter that carries a room code in an invite link. */
 const ROOM_QUERY_PARAM = "raum";
 
 /** How long the "copied!" confirmation stays up, in milliseconds. */
 const COPIED_FEEDBACK_MS = 1500;
 
-/** Milliseconds in a second, for the auto-play labels. */
+/** Milliseconds in a second, for the auto-play and countdown labels. */
 const MS_PER_SECOND = 1000;
 /** The auto-play timeouts the host can pick from, in milliseconds. */
 const AUTO_PLAY_SHORT_MS = 15_000;
@@ -69,32 +100,64 @@ function autoPlayIndexOf(ms: number | null): number {
  * @returns the online element
  */
 export function OnlineGame(): ReactElement {
+  const onlineCount = useOnlineCount(GAME_ID);
   const [session, setSession] = useState<OnlineSession | null>(null);
+  // Set while the player is in an auto-matched (public) room, so the lobby knows
+  // to search and auto-start rather than wait for a host to press start.
+  const [match, setMatch] = useState<Match | null>(null);
+
   const room = useOnlineRoom(session);
+
+  // Leaving: an auto-match host also frees its open-room slot for the next wave.
+  const leave = useCallback(() => {
+    if (match?.mode === "host") {
+      void clearMatch(database(), GAME_ID, match.code);
+    }
+    setMatch(null);
+    setSession(null);
+  }, [match]);
+
+  // Auto-match: find an open public room to join, or open one to host, then drop
+  // into the normal room flow with a searching lobby.
+  const startAuto = useCallback(async (name: string) => {
+    const found = await findMatch(database(), GAME_ID, Date.now());
+    setMatch(found);
+    setSession({ mode: found.mode, code: found.code, name });
+  }, []);
+
+  const startPrivate = useCallback((next: OnlineSession) => {
+    setMatch(null);
+    setSession(next);
+  }, []);
 
   let body: ReactElement;
   if (session === null) {
-    body = <OnlineEntry onStart={setSession} />;
+    body = (
+      <OnlineEntry
+        onStart={startPrivate}
+        onAutoMatch={startAuto}
+        onlineCount={onlineCount}
+      />
+    );
   } else if (room.status === "error") {
-    body = <OnlineError onBack={() => setSession(null)} />;
+    body = <OnlineError onBack={leave} />;
   } else if (room.room === null || room.status === "connecting") {
     body = <p className="text-sm">{ONLINE_TEXTS.connecting}</p>;
   } else if (room.status === "lobby") {
-    body = (
-      <OnlineLobby
-        room={room.room}
-        online={room}
-        onLeave={() => setSession(null)}
-      />
-    );
+    body =
+      match !== null ? (
+        <SearchingLobby
+          room={room.room}
+          online={room}
+          match={match}
+          onlineCount={onlineCount}
+          onCancel={leave}
+        />
+      ) : (
+        <OnlineLobby room={room.room} online={room} onLeave={leave} />
+      );
   } else {
-    body = (
-      <PlayingArea
-        room={room.room}
-        online={room}
-        onLeave={() => setSession(null)}
-      />
-    );
+    body = <PlayingArea room={room.room} online={room} onLeave={leave} />;
   }
 
   return (
@@ -121,12 +184,20 @@ export function OnlineGame(): ReactElement {
 /** Props of {@link OnlineEntry}. */
 type OnlineEntryProps = {
   readonly onStart: (session: OnlineSession) => void;
+  readonly onAutoMatch: (name: string) => Promise<void>;
+  /** How many players are online right now, or null while still connecting. */
+  readonly onlineCount: number | null;
 };
 
-/** The first screen: pick a name, then host or join a room. */
-function OnlineEntry({ onStart }: OnlineEntryProps): ReactElement {
+/** The first screen: pick a name, then auto-match, host or join a room. */
+function OnlineEntry({
+  onStart,
+  onAutoMatch,
+  onlineCount,
+}: OnlineEntryProps): ReactElement {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [searching, setSearching] = useState(false);
 
   // Prefill the name from the settings and the code from an invite link, both
   // only in the browser so the prerendered HTML stays stable. Reading storage
@@ -151,9 +222,17 @@ function OnlineEntry({ onStart }: OnlineEntryProps): ReactElement {
       onStart({ mode: "guest", code: clean, name });
     }
   };
+  const autoMatch = () => {
+    setSearching(true);
+    // The parent swaps this screen out once the match resolves; on failure fall
+    // back so the button is usable again.
+    void onAutoMatch(name).catch(() => setSearching(false));
+  };
 
   return (
     <div className="flex max-w-md flex-col gap-6">
+      <OnlineCountBadge count={onlineCount} />
+
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">{ONLINE_TEXTS.yourName}</span>
         <input
@@ -164,6 +243,26 @@ function OnlineEntry({ onStart }: OnlineEntryProps): ReactElement {
           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />
       </label>
+
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={autoMatch}
+          disabled={searching}
+          className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {searching ? ONLINE_TEXTS.searching : ONLINE_TEXTS.autoMatch}
+        </button>
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          {ONLINE_TEXTS.autoMatchHint}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-3 text-xs text-zinc-400">
+        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        {ONLINE_TEXTS.orDivider}
+        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+      </div>
 
       <button
         type="button"
@@ -382,6 +481,172 @@ function PlayingArea({ room, online, onLeave }: RoomViewProps): ReactElement {
           sendChat={online.sendChat}
         />
       )}
+    </div>
+  );
+}
+
+/** Props of {@link SearchingLobby}. */
+type SearchingLobbyProps = {
+  readonly room: RoomState;
+  readonly online: OnlineRoom;
+  readonly match: Match;
+  readonly onlineCount: number | null;
+  readonly onCancel: () => void;
+};
+
+/**
+ * The auto-match waiting screen: shows who has gathered and starts on its own.
+ *
+ * @param props - the room, the match, the online count and a cancel handler
+ * @returns the searching element
+ * @remarks
+ * The host keeps its open-room slot alive, and starts the game once the table is
+ * full or a short grace has passed with enough players. Guests only wait; when
+ * the host starts, everyone drops into the board through the normal room flow.
+ */
+function SearchingLobby({
+  room,
+  online,
+  match,
+  onlineCount,
+  onCancel,
+}: SearchingLobbyProps): ReactElement {
+  const seats = room.seats.length;
+  const isHost = online.isHost;
+  const enough = seats >= MIN_PLAYERS;
+  const full = seats >= MAX_PLAYERS;
+  const [remainingMs, setRemainingMs] = useState<number | null>(null);
+  const startedRef = useRef(false);
+
+  // `start` is a stable callback from the hook, so this stays stable too - the
+  // auto-start timer below must not restart on every render.
+  const start = online.start;
+  const startNow = useCallback(() => {
+    if (startedRef.current) {
+      return;
+    }
+    startedRef.current = true;
+    void clearMatch(database(), GAME_ID, match.code);
+    start({
+      withExpansion: false,
+      withDefense: false,
+      autoPlayMs: AUTO_MATCH_AUTOPLAY_MS,
+    });
+  }, [match.code, start]);
+
+  // Host keeps its open-room slot alive while it waits for players.
+  useEffect(() => {
+    if (!isHost) {
+      return;
+    }
+    const db = database();
+    const timer = setInterval(
+      () => void refreshMatch(db, GAME_ID, match.code, Date.now()),
+      HEARTBEAT_MS,
+    );
+    return () => clearInterval(timer);
+  }, [isHost, match.code]);
+
+  // Host frees the slot on any exit from the search (cancel, start, navigate),
+  // so the next player opens a fresh room instead of a dead one.
+  useEffect(() => {
+    if (!isHost) {
+      return;
+    }
+    return () => void clearMatch(database(), GAME_ID, match.code);
+  }, [isHost, match.code]);
+
+  // Host auto-start: a full table starts at once; enough players start after a
+  // short grace so latecomers still make it in.
+  useEffect(() => {
+    if (!isHost || room.phase !== "lobby") {
+      return;
+    }
+    if (full) {
+      startNow();
+      return;
+    }
+    if (!enough) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears the countdown
+      setRemainingMs(null);
+      return;
+    }
+    const deadline = Date.now() + AUTO_START_MS;
+    setRemainingMs(AUTO_START_MS);
+    const timer = setInterval(() => {
+      const left = deadline - Date.now();
+      setRemainingMs(left > 0 ? left : 0);
+      if (left <= 0) {
+        clearInterval(timer);
+        startNow();
+      }
+    }, COUNTDOWN_TICK_MS);
+    return () => clearInterval(timer);
+  }, [isHost, room.phase, enough, full, startNow]);
+
+  let statusLine: string;
+  if (isHost && remainingMs !== null) {
+    statusLine = ONLINE_TEXTS.startingIn(
+      Math.ceil(remainingMs / MS_PER_SECOND),
+    );
+  } else if (enough) {
+    statusLine = ONLINE_TEXTS.almostReady;
+  } else {
+    statusLine = ONLINE_TEXTS.waitingForMore;
+  }
+
+  return (
+    <div className="flex max-w-md flex-col gap-6">
+      <OnlineCountBadge count={onlineCount} />
+
+      <section className="flex flex-col items-center gap-3 rounded-2xl border border-zinc-200 p-6 text-center dark:border-zinc-800">
+        <span
+          aria-hidden
+          className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent"
+        />
+        <h2 className="text-lg font-semibold">{ONLINE_TEXTS.searching}</h2>
+        <p className="text-sm text-zinc-600 dark:text-zinc-300">
+          {ONLINE_TEXTS.playersHere(seats)}
+        </p>
+        <ul className="flex flex-wrap justify-center gap-1">
+          {room.seats.map((seat) => (
+            <li
+              key={seat.id}
+              className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800"
+            >
+              {seat.name}
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+          {statusLine}
+        </p>
+      </section>
+
+      <button
+        type="button"
+        onClick={onCancel}
+        className="cursor-pointer self-start rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+      >
+        {ONLINE_TEXTS.cancelSearch}
+      </button>
+    </div>
+  );
+}
+
+/** A small pill with the live count of players online, or nothing yet. */
+function OnlineCountBadge({
+  count,
+}: {
+  count: number | null;
+}): ReactElement | null {
+  if (count === null) {
+    return null;
+  }
+  return (
+    <div className="flex items-center gap-2 self-start rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+      {ONLINE_TEXTS.playersOnline(count)}
     </div>
   );
 }

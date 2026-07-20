@@ -121,7 +121,9 @@ export function SettingsView(): ReactElement {
             <button
               key={count}
               type="button"
-              onClick={() => updateSettings({ ...settings, playerCount: count })}
+              onClick={() =>
+                updateSettings({ ...settings, playerCount: count })
+              }
               data-testid={`player-count-${count}`}
               aria-pressed={settings.playerCount === count}
               className={[

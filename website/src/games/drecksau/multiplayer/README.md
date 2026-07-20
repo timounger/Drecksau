@@ -82,6 +82,28 @@ Deshalb ist sie committet. Wer für einen lokalen Build auf ein Wegwerf-Projekt
 zeigen will, kann jeden Wert per `NEXT_PUBLIC_FIREBASE_*`-Umgebungsvariable
 überschreiben (siehe [firebase-config.ts](firebase-config.ts)).
 
+## Automatische Spielsuche und „wie viele online"
+
+Neben privatem Raum-Erstellen und Beitreten gibt es die **automatische
+Spielsuche**: Wer darauf klickt, wird ohne Code mit anderen an einen Tisch
+gesetzt. Der erste Suchende eröffnet einen öffentlichen Raum, die nächsten
+treten ihm bei; ist der Tisch voll oder nach kurzer Wartezeit genug Spieler da,
+startet der Gastgeber die Partie automatisch. Auf dem Einstiegsbildschirm steht
+zudem, **wie viele Spieler gerade online sind**.
+
+Beides liegt in der geteilten Schicht und ist spielunabhängig:
+
+| Datei                                            | Aufgabe                                                    |
+| ------------------------------------------------ | ---------------------------------------------------------- |
+| [presence.ts](../../../online/presence.ts)       | Präsenz-Markierung + Live-Zähler „wie viele online"        |
+| [matchmaking.ts](../../../online/matchmaking.ts) | Öffentlichen Raum finden/eröffnen (ein Slot je Spiel, TTL) |
+
+**Ohne Regeländerung:** Präsenz und Matchmaking liegen bewusst unter `rooms/`
+(z. B. `rooms/drecksau-__presence`, `rooms/drecksau-__match`). Der doppelte
+Unterstrich kann nie mit einem echten vierstelligen Raumcode kollidieren, und die
+bestehende `rooms/$code`-Regel deckt sie mit ab - die Sicherheitsregeln aus
+Schritt 4 müssen also nicht angefasst werden.
+
 ## Grenzen dieser Version
 
 - **2-4 Spieler**, alle menschlich (KI-Sitze online sind noch nicht dabei).
