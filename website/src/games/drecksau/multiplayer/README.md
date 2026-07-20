@@ -115,10 +115,23 @@ Unterstrich kann nie mit einem echten vierstelligen Raumcode kollidieren, und di
 bestehende `rooms/$code`-Regel deckt sie mit ab - die Sicherheitsregeln aus
 Schritt 4 müssen also nicht angefasst werden.
 
+## Host-Wechsel und aussteigende Spieler
+
+Die Partie ist gegen Aussteiger robust:
+
+- **Verlässt ein Spieler** (Seite geschlossen oder Verbindung weg), **übernimmt
+  der Computer seinen Sitz** und die Partie läuft weiter - dieselbe KI wie im
+  Einzelspiel ([use-online-room.ts](../../../online/use-online-room.ts) →
+  `markSeatsAsBots`).
+- **Geht der Gastgeber**, wählt der erste verbliebene Spieler sich atomar zum
+  neuen Host, baut den Spielzustand aus dem letzten Snapshot plus den privaten
+  Händen neu auf und führt die Partie fort (`maybeTakeOverHost` / `claimHost`).
+- Schließt der **letzte** verbliebene Spieler die Seite, endet die Partie - dann
+  ist niemand mehr da, der übernehmen könnte.
+
 ## Grenzen dieser Version
 
-- **2-4 Spieler**, alle menschlich (KI-Sitze online sind noch nicht dabei).
-- **Geht der Gastgeber, endet die Partie** - der Host hält den Zustand; es gibt
-  noch keinen Host-Wechsel. Ein kurzer Reload eines Gasts ist unkritisch.
-- **Kein Rematch-Knopf:** Für eine neue Runde verlässt man den Raum und erstellt
-  einen neuen. (Lässt sich später als „Zurück in die Lobby" ergänzen.)
+- **2-4 Spieler** starten die Partie, alle menschlich - KI kommt nur beim
+  Übernehmen eines frei gewordenen Sitzes ins Spiel (siehe oben).
+- Nach dem Spielende kann der Gastgeber mit **„Neues Spiel"** dieselbe Runde neu
+  starten, statt dass alle den Raum verlassen.

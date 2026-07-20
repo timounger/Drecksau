@@ -61,56 +61,8 @@ export function SettingsView(): ReactElement {
         </Link>
       </header>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
-        <label className="flex cursor-pointer flex-col gap-1">
-          <span className="font-semibold">{SETTINGS_TEXTS.difficulty}</span>
-          <span className="text-sm text-zinc-500 dark:text-zinc-400">
-            {SETTINGS_TEXTS.difficultyHint}
-          </span>
-          <select
-            data-testid="select-difficulty"
-            value={settings.difficulty}
-            onChange={(event) =>
-              updateSettings({
-                ...settings,
-                difficulty: event.target.value as (typeof DIFFICULTIES)[number],
-              })
-            }
-            className="mt-1 w-56 cursor-pointer rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          >
-            {DIFFICULTIES.map((level) => (
-              <option key={level} value={level}>
-                {DIFFICULTY_LABELS[level]}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="mt-4 flex cursor-pointer flex-col gap-1 border-t border-zinc-200 pt-4 dark:border-zinc-800">
-          <span className="font-semibold">{SETTINGS_TEXTS.cardTheme}</span>
-          <span className="text-sm text-zinc-500 dark:text-zinc-400">
-            {SETTINGS_TEXTS.cardThemeHint}
-          </span>
-          <select
-            data-testid="select-card-theme"
-            value={settings.cardTheme}
-            onChange={(event) =>
-              updateSettings({
-                ...settings,
-                cardTheme: event.target.value as (typeof CARD_THEMES)[number],
-              })
-            }
-            className="mt-1 w-56 cursor-pointer rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          >
-            {CARD_THEMES.map((theme) => (
-              <option key={theme} value={theme}>
-                {CARD_THEME_LABELS[theme]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-
+      {/* Game setup first - the settings that change how a game plays and are
+          chosen most often; the look and personal touches follow below. */}
       <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
         <h2 className="font-semibold">{SETTINGS_TEXTS.playerCount}</h2>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -140,26 +92,29 @@ export function SettingsView(): ReactElement {
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
-        <label className="flex cursor-text flex-col gap-1">
-          <span className="font-semibold">{SETTINGS_TEXTS.playerName}</span>
+        <label className="flex cursor-pointer flex-col gap-1">
+          <span className="font-semibold">{SETTINGS_TEXTS.difficulty}</span>
           <span className="text-sm text-zinc-500 dark:text-zinc-400">
-            {SETTINGS_TEXTS.playerNameHint}
+            {SETTINGS_TEXTS.difficultyHint}
           </span>
-          <input
-            type="text"
-            data-testid="input-player-name"
-            value={settings.playerName}
-            maxLength={MAX_PLAYER_NAME_LENGTH}
-            placeholder={SETTINGS_TEXTS.playerNamePlaceholder}
+          <select
+            data-testid="select-difficulty"
+            value={settings.difficulty}
             onChange={(event) =>
-              updateSettings({ ...settings, playerName: event.target.value })
+              updateSettings({
+                ...settings,
+                difficulty: event.target.value as (typeof DIFFICULTIES)[number],
+              })
             }
-            className="mt-1 w-56 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
+            className="mt-1 w-56 cursor-pointer rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            {DIFFICULTIES.map((level) => (
+              <option key={level} value={level}>
+                {DIFFICULTY_LABELS[level]}
+              </option>
+            ))}
+          </select>
         </label>
-        <p className="mt-3 rounded-lg bg-zinc-100 p-2 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-          {SETTINGS_TEXTS.expansionNotice}
-        </p>
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
@@ -183,6 +138,55 @@ export function SettingsView(): ReactElement {
             }
           />
         </div>
+        <p className="mt-3 rounded-lg bg-zinc-100 p-2 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+          {SETTINGS_TEXTS.expansionNotice}
+        </p>
+      </section>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+        <label className="flex cursor-pointer flex-col gap-1">
+          <span className="font-semibold">{SETTINGS_TEXTS.cardTheme}</span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            {SETTINGS_TEXTS.cardThemeHint}
+          </span>
+          <select
+            data-testid="select-card-theme"
+            value={settings.cardTheme}
+            onChange={(event) =>
+              updateSettings({
+                ...settings,
+                cardTheme: event.target.value as (typeof CARD_THEMES)[number],
+              })
+            }
+            className="mt-1 w-56 cursor-pointer rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            {CARD_THEMES.map((theme) => (
+              <option key={theme} value={theme}>
+                {CARD_THEME_LABELS[theme]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+        <label className="flex cursor-text flex-col gap-1">
+          <span className="font-semibold">{SETTINGS_TEXTS.playerName}</span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            {SETTINGS_TEXTS.playerNameHint}
+          </span>
+          <input
+            type="text"
+            data-testid="input-player-name"
+            value={settings.playerName}
+            maxLength={MAX_PLAYER_NAME_LENGTH}
+            placeholder={SETTINGS_TEXTS.playerNamePlaceholder}
+            onChange={(event) =>
+              updateSettings({ ...settings, playerName: event.target.value })
+            }
+            className="mt-1 w-56 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </label>
         <p className="mt-3 rounded-lg bg-zinc-100 p-2 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
           {SETTINGS_TEXTS.expansionNotice}
         </p>

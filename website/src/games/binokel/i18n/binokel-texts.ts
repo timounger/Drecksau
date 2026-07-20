@@ -137,7 +137,7 @@ export const BINOKEL_ONLINE_TEXTS = {
   errorRoomNotFound:
     "Kein Raum mit diesem Code gefunden. Stimmt der Code, und läuft der Gastgeber noch?",
   hostLeftNotice:
-    "Hinweis: Wenn der Gastgeber die Seite schließt, endet die Partie.",
+    "Hinweis: Verlässt jemand die Seite, übernimmt der Computer seinen Sitz und die Partie läuft weiter - auch die Gastgeberrolle geht dann an einen anderen Spieler.",
 } as const;
 
 /** Label of each difficulty level. */
