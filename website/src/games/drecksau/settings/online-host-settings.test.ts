@@ -15,6 +15,7 @@ describe("online host settings", () => {
       withExpansion: false,
       withDefense: false,
       autoPlayMs: 30_000,
+      matchPlayerCount: 4,
     });
   });
 

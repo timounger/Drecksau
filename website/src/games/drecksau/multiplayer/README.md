@@ -86,17 +86,28 @@ zeigen will, kann jeden Wert per `NEXT_PUBLIC_FIREBASE_*`-Umgebungsvariable
 
 Neben privatem Raum-Erstellen und Beitreten gibt es die **automatische
 Spielsuche**: Wer darauf klickt, wird ohne Code mit anderen an einen Tisch
-gesetzt. Der erste Suchende eröffnet einen öffentlichen Raum, die nächsten
-treten ihm bei; ist der Tisch voll oder nach kurzer Wartezeit genug Spieler da,
-startet der Gastgeber die Partie automatisch. Auf dem Einstiegsbildschirm steht
-zudem, **wie viele Spieler gerade online sind**.
+gesetzt. Auf dem Einstiegsbildschirm steht zudem, **wie viele Spieler gerade
+online sind**.
+
+Man gibt einen **Wunsch-Tisch** an (Spieleranzahl, mit/ohne Erweiterung,
+mit/ohne Zusatzkarten). Gesucht wird zuerst nur ein **exakt passender** offener
+Tisch; passt keiner, eröffnet man selbst einen mit seinem Wunsch. Findet sich
+nach einer **kurzen Wartezeit** kein passender, wird die Bedingung gelockert und
+man wird mit einem beliebigen offenen Tisch zusammengeführt - **deterministisch**
+(nur der „jüngere", höher codierte Gastgeber wechselt), damit sich zwei Wartende
+nie gegenseitig verpassen. Gestartet wird, sobald die Wunschzahl erreicht ist,
+sonst nach längerer Wartezeit mit den Vorhandenen (ab zwei).
+
+Bewusst **eine gemeinsame Warteliste** statt getrennter Töpfe je Wunsch: Bei dem
+geringen Andrang würden getrennte Töpfe die Spieler zersplittern und stranden
+lassen. Die Lockerung führt sie stattdessen nach kurzer Zeit zusammen.
 
 Beides liegt in der geteilten Schicht und ist spielunabhängig:
 
-| Datei                                            | Aufgabe                                                    |
-| ------------------------------------------------ | ---------------------------------------------------------- |
-| [presence.ts](../../../online/presence.ts)       | Präsenz-Markierung + Live-Zähler „wie viele online"        |
-| [matchmaking.ts](../../../online/matchmaking.ts) | Öffentlichen Raum finden/eröffnen (ein Slot je Spiel, TTL) |
+| Datei                                            | Aufgabe                                                                 |
+| ------------------------------------------------ | ----------------------------------------------------------------------- |
+| [presence.ts](../../../online/presence.ts)       | Präsenz-Markierung + Live-Zähler „wie viele online"                     |
+| [matchmaking.ts](../../../online/matchmaking.ts) | Offene Räume je Wunsch führen, passenden finden/eröffnen, Lockern (TTL) |
 
 **Ohne Regeländerung:** Präsenz und Matchmaking liegen bewusst unter `rooms/`
 (z. B. `rooms/drecksau-__presence`, `rooms/drecksau-__match`). Der doppelte

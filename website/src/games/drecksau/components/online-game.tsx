@@ -24,8 +24,10 @@ import { database } from "@/online/firebase-app";
 import {
   clearMatch,
   findMatch,
-  refreshMatch,
+  hostEntry,
+  relaxMatch,
   type Match,
+  type Wish,
 } from "@/online/matchmaking";
 import {
   generateRoomCode,
@@ -45,17 +47,29 @@ import { OnlineBoard } from "./online-board";
 /** This game's id, for presence and matchmaking namespacing. */
 const GAME_ID = drecksauAdapter.gameId;
 
-/** How often the open room's matchmaking slot is kept alive, in ms. */
+/** How often the open room's matchmaking entry is kept alive, in ms. */
 const HEARTBEAT_MS = 10_000;
 
-/** Grace time before an auto-matched game starts once enough players joined. */
-const AUTO_START_MS = 10_000;
+/** Grace before an auto-matched game starts without reaching the wished size. */
+const AUTO_START_MS = 20_000;
+
+/** How long the search only merges exactly-matching tables before widening. */
+const RELAX_MS = 15_000;
+
+/** How often a lone waiting host looks for a table to merge into, in ms. */
+const RELAX_TICK_MS = 4_000;
 
 /** Auto-play timeout for matched games, so a stranger cannot stall the table. */
 const AUTO_MATCH_AUTOPLAY_MS = 30_000;
 
 /** The tick of the auto-start countdown, in milliseconds. */
 const COUNTDOWN_TICK_MS = 250;
+
+/** The wished table sizes a searcher can pick, e.g. [2, 3, 4]. */
+const MATCH_COUNTS = Array.from(
+  { length: MAX_PLAYERS - MIN_PLAYERS + 1 },
+  (unused, index) => MIN_PLAYERS + index,
+);
 
 /** Query parameter that carries a room code in an invite link. */
 const ROOM_QUERY_PARAM = "raum";
@@ -102,32 +116,45 @@ function autoPlayIndexOf(ms: number | null): number {
 export function OnlineGame(): ReactElement {
   const onlineCount = useOnlineCount(GAME_ID);
   const [session, setSession] = useState<OnlineSession | null>(null);
-  // Set while the player is in an auto-matched (public) room, so the lobby knows
-  // to search and auto-start rather than wait for a host to press start.
-  const [match, setMatch] = useState<Match | null>(null);
+  // Set while the player is auto-matching, so the lobby knows to search and
+  // auto-start rather than wait for a host to press start. Carries the wished
+  // config so the host can start with it and relax the search over time.
+  const [auto, setAuto] = useState<{ match: Match; wish: Wish } | null>(null);
 
   const room = useOnlineRoom(session);
 
   // Leaving: an auto-match host also frees its open-room slot for the next wave.
   const leave = useCallback(() => {
-    if (match?.mode === "host") {
-      void clearMatch(database(), GAME_ID, match.code);
+    if (auto?.match.mode === "host") {
+      void clearMatch(database(), GAME_ID, auto.match.code);
     }
-    setMatch(null);
+    setAuto(null);
     setSession(null);
-  }, [match]);
+  }, [auto]);
 
-  // Auto-match: find an open public room to join, or open one to host, then drop
-  // into the normal room flow with a searching lobby.
-  const startAuto = useCallback(async (name: string) => {
-    const found = await findMatch(database(), GAME_ID, Date.now());
-    setMatch(found);
+  // Auto-match: find an open public room matching the wish, or open one to host,
+  // then drop into the normal room flow with a searching lobby.
+  const startAuto = useCallback(async (name: string, wish: Wish) => {
+    const found = await findMatch(database(), GAME_ID, wish, Date.now());
+    setAuto({ match: found, wish });
     setSession({ mode: found.mode, code: found.code, name });
   }, []);
 
   const startPrivate = useCallback((next: OnlineSession) => {
-    setMatch(null);
+    setAuto(null);
     setSession(next);
+  }, []);
+
+  // Merge into another open room mid-search: keep the wish, become its guest.
+  const hop = useCallback((targetCode: string) => {
+    setAuto((prev) =>
+      prev === null
+        ? prev
+        : { match: { code: targetCode, mode: "guest" }, wish: prev.wish },
+    );
+    setSession((prev) =>
+      prev === null ? prev : { ...prev, mode: "guest", code: targetCode },
+    );
   }, []);
 
   let body: ReactElement;
@@ -145,12 +172,14 @@ export function OnlineGame(): ReactElement {
     body = <p className="text-sm">{ONLINE_TEXTS.connecting}</p>;
   } else if (room.status === "lobby") {
     body =
-      match !== null ? (
+      auto !== null ? (
         <SearchingLobby
           room={room.room}
           online={room}
-          match={match}
+          match={auto.match}
+          wish={auto.wish}
           onlineCount={onlineCount}
+          onHop={hop}
           onCancel={leave}
         />
       ) : (
@@ -184,12 +213,19 @@ export function OnlineGame(): ReactElement {
 /** Props of {@link OnlineEntry}. */
 type OnlineEntryProps = {
   readonly onStart: (session: OnlineSession) => void;
-  readonly onAutoMatch: (name: string) => Promise<void>;
+  readonly onAutoMatch: (name: string, wish: Wish) => Promise<void>;
   /** How many players are online right now, or null while still connecting. */
   readonly onlineCount: number | null;
 };
 
-/** The first screen: pick a name, then auto-match, host or join a room. */
+/** The wished config before anything is loaded from storage. */
+const DEFAULT_WISH: Wish = {
+  count: MAX_PLAYERS,
+  expansion: false,
+  defense: false,
+};
+
+/** The first screen: pick a name and wish, then auto-match, host or join. */
 function OnlineEntry({
   onStart,
   onAutoMatch,
@@ -197,23 +233,45 @@ function OnlineEntry({
 }: OnlineEntryProps): ReactElement {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [wish, setWish] = useState<Wish>(DEFAULT_WISH);
   const [searching, setSearching] = useState(false);
 
-  // Prefill the name from the settings and the code from an invite link, both
-  // only in the browser so the prerendered HTML stays stable. Reading storage
-  // and the URL into state on mount is exactly the sync this effect is for.
+  // Prefill from storage and an invite link, only in the browser so the
+  // prerendered HTML stays stable. Reading storage and the URL into state on
+  // mount is exactly the sync this effect is for.
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- mount-time prefill from storage/URL */
     const savedName = loadSettings().playerName.trim();
+    const host = loadOnlineHostSettings();
     const params = new URLSearchParams(window.location.search);
     const invited = params.get(ROOM_QUERY_PARAM);
     if (savedName.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time prefill
       setName(savedName);
     }
+    setWish({
+      count: host.matchPlayerCount,
+      expansion: host.withExpansion,
+      defense: host.withDefense,
+    });
     if (invited !== null) {
       setCode(normalizeRoomCode(invited));
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
+
+  // Remember the wish (shared with the private-room lobby's choices).
+  const updateWish = (partial: Partial<Wish>) => {
+    setWish((prev) => {
+      const next = { ...prev, ...partial };
+      saveOnlineHostSettings({
+        ...loadOnlineHostSettings(),
+        withExpansion: next.expansion,
+        withDefense: next.defense,
+        matchPlayerCount: next.count,
+      });
+      return next;
+    });
+  };
 
   const host = () => onStart({ mode: "host", code: generateRoomCode(), name });
   const join = () => {
@@ -226,7 +284,7 @@ function OnlineEntry({
     setSearching(true);
     // The parent swaps this screen out once the match resolves; on failure fall
     // back so the button is usable again.
-    void onAutoMatch(name).catch(() => setSearching(false));
+    void onAutoMatch(name, wish).catch(() => setSearching(false));
   };
 
   return (
@@ -244,7 +302,55 @@ function OnlineEntry({
         />
       </label>
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+        <div>
+          <h2 className="text-sm font-semibold">{ONLINE_TEXTS.matchWish}</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {ONLINE_TEXTS.matchWishHint}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            {ONLINE_TEXTS.matchCount}
+          </span>
+          {MATCH_COUNTS.map((count) => (
+            <button
+              key={count}
+              type="button"
+              onClick={() => updateWish({ count })}
+              data-testid={`match-count-${count}`}
+              aria-pressed={wish.count === count}
+              className={[
+                "cursor-pointer rounded-lg border px-3 py-1 text-sm font-medium",
+                wish.count === count
+                  ? "border-emerald-500 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200"
+                  : "border-zinc-300 bg-white hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800",
+              ].join(" ")}
+            >
+              {count}
+            </button>
+          ))}
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            data-testid="match-expansion"
+            checked={wish.expansion}
+            onChange={(event) =>
+              updateWish({ expansion: event.target.checked })
+            }
+          />
+          {ONLINE_TEXTS.matchExpansion}
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            data-testid="match-defense"
+            checked={wish.defense}
+            onChange={(event) => updateWish({ defense: event.target.checked })}
+          />
+          {ONLINE_TEXTS.matchDefense}
+        </label>
         <button
           type="button"
           onClick={autoMatch}
@@ -253,9 +359,6 @@ function OnlineEntry({
         >
           {searching ? ONLINE_TEXTS.searching : ONLINE_TEXTS.autoMatch}
         </button>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-          {ONLINE_TEXTS.autoMatchHint}
-        </span>
       </div>
 
       <div className="flex items-center gap-3 text-xs text-zinc-400">
@@ -328,9 +431,10 @@ function OnlineLobby({ room, online, onLeave }: RoomViewProps): ReactElement {
         withExpansion,
         withDefense,
         autoPlayMs: AUTO_PLAY_OPTIONS[autoPlayIndex].ms,
+        matchPlayerCount: initial.matchPlayerCount,
       });
     }
-  }, [online.isHost, withExpansion, withDefense, autoPlayIndex]);
+  }, [online.isHost, withExpansion, withDefense, autoPlayIndex, initial]);
 
   return (
     <div className="flex max-w-md flex-col gap-6">
@@ -490,31 +594,37 @@ type SearchingLobbyProps = {
   readonly room: RoomState;
   readonly online: OnlineRoom;
   readonly match: Match;
+  readonly wish: Wish;
   readonly onlineCount: number | null;
+  readonly onHop: (code: string) => void;
   readonly onCancel: () => void;
 };
 
 /**
  * The auto-match waiting screen: shows who has gathered and starts on its own.
  *
- * @param props - the room, the match, the online count and a cancel handler
+ * @param props - the room, the match, the wish, the count and the callbacks
  * @returns the searching element
  * @remarks
- * The host keeps its open-room slot alive, and starts the game once the table is
- * full or a short grace has passed with enough players. Guests only wait; when
- * the host starts, everyone drops into the board through the normal room flow.
+ * The host advertises its wished table, keeps the entry alive, and - while still
+ * waiting alone - merges into a matching open room (any room once the grace
+ * passes) via {@link SearchingLobbyProps.onHop}. It starts the game once the
+ * wished size is reached, or after a longer grace with at least two players.
+ * Guests only wait; when the host starts, everyone drops into the board.
  */
 function SearchingLobby({
   room,
   online,
   match,
+  wish,
   onlineCount,
+  onHop,
   onCancel,
 }: SearchingLobbyProps): ReactElement {
   const seats = room.seats.length;
   const isHost = online.isHost;
   const enough = seats >= MIN_PLAYERS;
-  const full = seats >= MAX_PLAYERS;
+  const reachedTarget = seats >= wish.count;
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
   const startedRef = useRef(false);
 
@@ -528,27 +638,27 @@ function SearchingLobby({
     startedRef.current = true;
     void clearMatch(database(), GAME_ID, match.code);
     start({
-      withExpansion: false,
-      withDefense: false,
+      withExpansion: wish.expansion,
+      withDefense: wish.defense,
       autoPlayMs: AUTO_MATCH_AUTOPLAY_MS,
     });
-  }, [match.code, start]);
+  }, [match.code, start, wish.expansion, wish.defense]);
 
-  // Host keeps its open-room slot alive while it waits for players.
+  // Host keeps its own open-room entry alive while it waits for players.
   useEffect(() => {
     if (!isHost) {
       return;
     }
     const db = database();
     const timer = setInterval(
-      () => void refreshMatch(db, GAME_ID, match.code, Date.now()),
+      () => void hostEntry(db, GAME_ID, match.code, wish, Date.now()),
       HEARTBEAT_MS,
     );
     return () => clearInterval(timer);
-  }, [isHost, match.code]);
+  }, [isHost, match.code, wish]);
 
-  // Host frees the slot on any exit from the search (cancel, start, navigate),
-  // so the next player opens a fresh room instead of a dead one.
+  // Host frees its entry on any exit from the search (cancel, start, merge,
+  // navigate), so the next player opens a fresh room instead of a dead one.
   useEffect(() => {
     if (!isHost) {
       return;
@@ -556,13 +666,41 @@ function SearchingLobby({
     return () => void clearMatch(database(), GAME_ID, match.code);
   }, [isHost, match.code]);
 
-  // Host auto-start: a full table starts at once; enough players start after a
-  // short grace so latecomers still make it in.
+  // While a lone host waits, merge into another open room: only exactly matching
+  // ones at first, any of them once the grace has passed. Deterministic seniority
+  // means only one of two waiting hosts moves. A room with a guest never merges.
+  useEffect(() => {
+    if (!isHost || seats > 1) {
+      return;
+    }
+    const db = database();
+    const started = Date.now();
+    const tick = async () => {
+      const allowAny = Date.now() - started > RELAX_MS;
+      const target = await relaxMatch(
+        db,
+        GAME_ID,
+        wish,
+        match.code,
+        Date.now(),
+        allowAny,
+      );
+      if (target !== null && !startedRef.current) {
+        await clearMatch(db, GAME_ID, match.code);
+        onHop(target);
+      }
+    };
+    const timer = setInterval(() => void tick(), RELAX_TICK_MS);
+    return () => clearInterval(timer);
+  }, [isHost, seats, match.code, wish, onHop]);
+
+  // Host auto-start: the wished size starts at once; two or more start after a
+  // longer grace, so latecomers still make it in.
   useEffect(() => {
     if (!isHost || room.phase !== "lobby") {
       return;
     }
-    if (full) {
+    if (reachedTarget) {
       startNow();
       return;
     }
@@ -582,7 +720,7 @@ function SearchingLobby({
       }
     }, COUNTDOWN_TICK_MS);
     return () => clearInterval(timer);
-  }, [isHost, room.phase, enough, full, startNow]);
+  }, [isHost, room.phase, enough, reachedTarget, startNow]);
 
   let statusLine: string;
   if (isHost && remainingMs !== null) {
@@ -605,6 +743,23 @@ function SearchingLobby({
           className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent"
         />
         <h2 className="text-lg font-semibold">{ONLINE_TEXTS.searching}</h2>
+
+        <div className="flex flex-wrap justify-center gap-1 text-xs">
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">
+            {ONLINE_TEXTS.matchCountValue(wish.count)}
+          </span>
+          {wish.expansion && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">
+              {ONLINE_TEXTS.matchExpansion}
+            </span>
+          )}
+          {wish.defense && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">
+              {ONLINE_TEXTS.matchDefense}
+            </span>
+          )}
+        </div>
+
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
           {ONLINE_TEXTS.playersHere(seats)}
         </p>

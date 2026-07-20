@@ -175,6 +175,13 @@ export const ONLINE_TEXTS = {
   autoMatch: "Automatisch Spiel suchen",
   autoMatchHint: "Wir setzen dich mit anderen Spielern an einen Tisch.",
   orDivider: "oder privat spielen",
+  matchWish: "Dein Wunsch-Tisch",
+  matchWishHint:
+    "Passt ein offener Tisch, geht es sofort los - sonst nach kurzer Wartezeit auch mit anderen Einstellungen.",
+  matchCount: "Spieler:",
+  matchCountValue: (count: number) => `${count} Spieler`,
+  matchExpansion: "Mit Erweiterung",
+  matchDefense: "Mit Zusatzkarten",
   searching: "Suche Mitspieler ...",
   playersHere: (count: number) =>
     count === 1 ? "1 Spieler im Raum" : `${count} Spieler im Raum`,
