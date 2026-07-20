@@ -11,7 +11,7 @@
  */
 
 /** Identifies a game for storage and statistics. Never reuse an old id. */
-export type GameId = "drecksau" | "binokel";
+export type GameId = "drecksau" | "binokel" | "panzerkiste";
 
 /** One game of the collection. */
 export type GameDefinition = {
@@ -41,6 +41,13 @@ export const GAMES: readonly GameDefinition[] = [
     tagline: "Schwäbisches Stichspiel - Reizen, Melden, Stechen.",
     emoji: "\u{1F0CF}",
     href: "/binokel",
+  },
+  {
+    id: "panzerkiste",
+    name: "Panzerkiste",
+    tagline: "Zerstöre alle feindlichen Panzer - schießen, minen, ausweichen.",
+    emoji: "\u{1F696}",
+    href: "/panzerkiste",
   },
 ];
 

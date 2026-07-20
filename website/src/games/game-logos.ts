@@ -13,9 +13,11 @@ import type { GameId } from "./registry";
 
 import drecksau from "./drecksau/assets/logo.webp";
 import binokel from "./binokel/assets/logo.webp";
+import panzerkiste from "./panzerkiste/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   drecksau,
   binokel,
+  panzerkiste,
 };

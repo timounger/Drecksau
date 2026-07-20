@@ -10,6 +10,7 @@ jedes Spiel hat seine eigene Seite.
 | ------------------------------------------------ | ------------------------------------------------------------------------------ |
 | [Drecksau](website/src/games/drecksau/README.md) | Kosmos-Kartenspiel gegen Computergegner oder online mit Freunden.              |
 | [Binokel](website/src/games/binokel/README.md)   | Schwaebisches Stichspiel (Reizen, Melden, Stechen) gegen Computer oder online. |
+| [Panzerkiste](website/src/games/panzerkiste/README.md) | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen). |
 
 Weitere Spiele docken ueber die Registry an (siehe
 [Ein weiteres Spiel hinzufuegen](#ein-weiteres-spiel-hinzufuegen)).
