@@ -19,12 +19,19 @@ import {
   type ReactElement,
 } from "react";
 import type { Suit } from "@/games/binokel/engine/cards";
+import type {
+  DiscardMode,
+  RankOrder,
+} from "@/games/binokel/settings/binokel-settings";
 import { findMelds } from "@/games/binokel/engine/melds";
 import { baseHandSize, nextBidValue } from "@/games/binokel/engine/moves";
 import { legalPlays } from "@/games/binokel/engine/tricks";
 import { actingIndex } from "@/games/binokel/engine/turn";
 import type { GameState, GameType } from "@/games/binokel/engine/state";
-import type { BinokelMove } from "@/games/binokel/multiplayer/adapter";
+import {
+  binokelTurnTimeoutMs,
+  type BinokelMove,
+} from "@/games/binokel/multiplayer/adapter";
 import type { RoomState, SeatId } from "@/online/adapter";
 import type { ChatMessage } from "@/online/transport";
 import { OnlineChat } from "@/online/online-chat";
@@ -37,6 +44,7 @@ import {
   BINOKEL_ONLINE_TEXTS,
   BINOKEL_TEXTS,
 } from "@/games/binokel/i18n/binokel-texts";
+import { BinokelNamingProvider, useBinokelNaming } from "./naming-context";
 import {
   CardView,
   DeclarerChoice,
@@ -88,11 +96,18 @@ export function OnlineBoard({
   sendChat,
 }: OnlineBoardProps): ReactElement {
   const game = room.game as GameState;
-  const suitOrder = useSyncExternalStore(
+  const settings = useSyncExternalStore(
     subscribeBinokelSettings,
     getBinokelSettingsSnapshot,
     getServerBinokelSettingsSnapshot,
-  ).suitOrder;
+  );
+  const suitOrder = settings.suitOrder;
+  const naming = {
+    suitNames: settings.suitNames,
+    dixName: settings.dixName,
+    aceName: settings.aceName,
+    bidName: settings.bidName,
+  };
   const remainingMs = useAutoPlayCountdown(room);
 
   const mySeatIndex = room.seats.findIndex((seat) => seat.id === seatId);
@@ -128,45 +143,49 @@ export function OnlineBoard({
     .filter((index) => index !== mySeatIndex);
 
   return (
-    <div className="flex flex-col gap-3">
-      <Scoreboard state={game} />
+    <BinokelNamingProvider value={naming}>
+      <div className="flex flex-col gap-3">
+        <Scoreboard state={game} />
 
-      <TurnBanner
-        canAct={canAct}
-        actorName={actorName}
-        actorIsBot={actorIsBot}
-        remainingMs={remainingMs}
-      />
+        <TurnBanner
+          canAct={canAct}
+          actorName={actorName}
+          actorIsBot={actorIsBot}
+          remainingMs={remainingMs}
+        />
 
-      <div className="flex flex-wrap gap-3">
-        {others.map((index) => (
-          <OpponentSeat
-            key={game.players[index].id}
-            state={game}
-            index={index}
-          />
-        ))}
+        <div className="flex flex-wrap gap-3">
+          {others.map((index) => (
+            <OpponentSeat
+              key={game.players[index].id}
+              state={game}
+              index={index}
+            />
+          ))}
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+          <CenterPanel game={game} canAct={canAct} act={act} me={me} />
+        </div>
+
+        <MyHand
+          game={game}
+          me={me}
+          canAct={canAct}
+          act={act}
+          suitOrder={suitOrder}
+          rankOrder={settings.rankOrder}
+          discardMode={settings.discardMode}
+        />
+
+        <OnlineChat
+          messages={messages}
+          ownSeatId={seatId}
+          onSend={sendChat}
+          texts={BINOKEL_ONLINE_TEXTS}
+        />
       </div>
-
-      <div className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
-        <CenterPanel game={game} canAct={canAct} act={act} me={me} />
-      </div>
-
-      <MyHand
-        game={game}
-        me={me}
-        canAct={canAct}
-        act={act}
-        suitOrder={suitOrder}
-      />
-
-      <OnlineChat
-        messages={messages}
-        ownSeatId={seatId}
-        onSend={sendChat}
-        texts={BINOKEL_ONLINE_TEXTS}
-      />
-    </div>
+    </BinokelNamingProvider>
   );
 }
 
@@ -225,22 +244,25 @@ function CenterPanel({ game, canAct, act, me }: PanelProps): ReactElement {
 
 /** Bidding: reizen or pass on your turn; the meld range for your hand. */
 function BiddingPanel({ game, canAct, act, me }: PanelProps): ReactElement {
+  const naming = useBinokelNaming();
   const meld = meldRange(me.hand, game.withSevens);
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold">{BINOKEL_TEXTS.bidding}</h2>
+      <h2 className="text-sm font-semibold">{naming.bidName}</h2>
       <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
         {BINOKEL_TEXTS.meldEstimate(meld.min, meld.max)}
       </p>
       {canAct ? (
         <div className="flex items-center gap-2">
-          <span className="text-sm">{BINOKEL_TEXTS.yourBidTurn}</span>
+          <span className="text-sm">
+            {BINOKEL_TEXTS.yourBidTurn(naming.bidName)}
+          </span>
           <button
             type="button"
             onClick={act.bid}
             className="cursor-pointer rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
           >
-            {BINOKEL_TEXTS.reizen(nextBidValue(game))}
+            {BINOKEL_TEXTS.reizen(naming.bidName, nextBidValue(game))}
           </button>
           <button
             type="button"
@@ -367,6 +389,8 @@ function RoundEndPanel({ game, canAct, act }: PanelProps): ReactElement {
 /** Props of {@link MyHand}. */
 type MyHandProps = PanelProps & {
   readonly suitOrder: readonly Suit[];
+  readonly rankOrder: RankOrder;
+  readonly discardMode: DiscardMode;
 };
 
 /** The viewer's own hand - the discard swap, or clickable trick cards. */
@@ -376,6 +400,8 @@ function MyHand({
   canAct,
   act,
   suitOrder,
+  rankOrder,
+  discardMode,
 }: MyHandProps): ReactElement {
   const base = baseHandSize(game);
   const isDiscard =
@@ -391,12 +417,14 @@ function MyHand({
         takenDabb={game.takenDabb}
         withSevens={game.withSevens}
         suitOrder={suitOrder}
+        rankOrder={rankOrder}
+        mode={discardMode}
         onConfirm={act.discard}
       />
     );
   }
 
-  const hand = sortHand(me.hand, suitOrder);
+  const hand = sortHand(me.hand, suitOrder, rankOrder);
   const isPlay =
     game.phase === "trick" &&
     canAct &&
@@ -512,18 +540,24 @@ function AutoPlayCountdown({
  * own timer, so both sides expect the takeover at the same moment.
  */
 function useAutoPlayCountdown(room: RoomState<GameState>): number | null {
-  const autoPlayMs = room.autoPlayMs ?? null;
+  // The shown time matches the host's phase-based timeout (fixed 3 min on the
+  // discard and end screens, the host's value otherwise), so it counts to the
+  // same moment the takeover actually happens.
+  const timeoutMs =
+    room.game === null
+      ? null
+      : binokelTurnTimeoutMs(room.game, room.autoPlayMs ?? null);
   const finished = room.phase === "finished";
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
 
   useEffect(() => {
-    if (autoPlayMs === null || autoPlayMs <= 0 || finished) {
+    if (timeoutMs === null || timeoutMs <= 0 || finished) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- no countdown to show
       setRemainingMs(null);
       return;
     }
-    const deadline = Date.now() + autoPlayMs;
-    setRemainingMs(autoPlayMs);
+    const deadline = Date.now() + timeoutMs;
+    setRemainingMs(timeoutMs);
     const timer = setInterval(() => {
       const left = deadline - Date.now();
       setRemainingMs(left > 0 ? left : 0);
@@ -532,7 +566,7 @@ function useAutoPlayCountdown(room: RoomState<GameState>): number | null {
       }
     }, COUNTDOWN_TICK_MS);
     return () => clearInterval(timer);
-  }, [room.version, autoPlayMs, finished]);
+  }, [room.version, timeoutMs, finished]);
 
   return remainingMs;
 }

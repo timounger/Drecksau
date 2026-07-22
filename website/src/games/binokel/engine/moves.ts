@@ -49,32 +49,68 @@ export function applyBid(state: GameState, action: BidAction): GameState {
     throw new Error("no bid is expected here");
   }
 
-  const value = nextBidValue(state);
-  const players =
-    action.kind === "bid"
-      ? patch(state.players, index, { bid: value, bidding: true })
-      : patch(state.players, index, { bidding: false });
-  const highestBid = action.kind === "bid" ? value : state.highestBid;
-  const base = { ...state, players, highestBid };
+  // Binokel is bid as a duel: the speaker and the current holder (the top bid)
+  // raise against each other until one drops. The survivor then takes on the
+  // next player, and so on, rather than everyone bidding round the table.
+  const holder = bidHolder(state);
 
-  const stillBidding = players.filter((player) => player.bidding);
   let next: GameState;
-  if (stillBidding.length === 0) {
-    // Everyone passed without a bid - the forehand is forced at the minimum.
-    const forehand = (state.dealerIndex + 1) % players.length;
-    next = enterExchange({ ...base, highestBid: MIN_BID }, forehand);
-  } else if (stillBidding.length === 1 && stillBidding[0].bid !== null) {
-    // Only the highest bidder is left - they win the auction.
-    next = enterExchange(
-      base,
-      players.findIndex((player) => player.bidding),
-    );
+  if (action.kind === "bid") {
+    const value = nextBidValue(state);
+    const players = patch(state.players, index, { bid: value });
+    // The speaker now holds the top bid; the player they topped must answer.
+    next = { ...state, players, highestBid: value, currentPlayerIndex: holder };
   } else {
-    // The auction goes on - this also gives a lone survivor who has not bid yet
-    // (usually the human, who never passes on their own) a turn to bid or pass.
-    next = { ...base, currentPlayerIndex: nextBiddingIndex(players, index) };
+    // A pass drops the speaker; the holder stays and takes on the next player.
+    const players = patch(state.players, index, { bidding: false });
+    const challenger = nextChallenger(players, index, holder);
+    next =
+      challenger === null
+        ? // No one is left to challenge the holder - they win the auction. A
+          // holder never topped (bid still null) is forced to the minimum.
+          enterExchange({ ...state, players }, holder)
+        : { ...state, players, currentPlayerIndex: challenger };
   }
   return next;
+}
+
+/**
+ * The player holding the top bid.
+ *
+ * @param state - a state in the bidding phase
+ * @returns the seat of the current holder
+ * @remarks
+ * That is whoever last raised; before anyone has, the forehand holds the deal
+ * (and is forced to the minimum bid if every challenger passes).
+ */
+function bidHolder(state: GameState): number {
+  const index = state.players.findIndex(
+    (player) => player.bidding && player.bid === state.highestBid,
+  );
+  return index >= 0 ? index : (state.dealerIndex + 1) % state.players.length;
+}
+
+/**
+ * The next player, in seating order, to take on the holder.
+ *
+ * @param players - the players after the current speaker dropped out
+ * @param from - the seat that just acted
+ * @param holder - the seat holding the top bid, which is skipped
+ * @returns the next seat still bidding, or null if only the holder is left
+ */
+function nextChallenger(
+  players: readonly BinokelPlayer[],
+  from: number,
+  holder: number,
+): number | null {
+  let index = from;
+  for (let step = 0; step < players.length; step++) {
+    index = (index + 1) % players.length;
+    if (index !== holder && players[index].bidding) {
+      return index;
+    }
+  }
+  return null;
 }
 
 /** Hands the Dabb to the winning bidder and opens the exchange phase. */
@@ -344,7 +380,8 @@ export function nextRound(state: GameState): GameState {
     phase: "bidding",
     dabb,
     takenDabb: [],
-    currentPlayerIndex: forehand,
+    // The forehand holds the deal; the next player is the first to challenge.
+    currentPlayerIndex: (forehand + 1) % state.players.length,
     highestBid: 0,
     declarerIndex: null,
     trump: null,
@@ -355,18 +392,6 @@ export function nextRound(state: GameState): GameState {
     random: shuffled.state,
     matchWinnerId: null,
   };
-}
-
-/** The next player who is still bidding, going round the table. */
-function nextBiddingIndex(
-  players: readonly BinokelPlayer[],
-  from: number,
-): number {
-  let index = from;
-  do {
-    index = (index + 1) % players.length;
-  } while (!players[index].bidding);
-  return index;
 }
 
 /** Returns a copy of the players with one player patched. */

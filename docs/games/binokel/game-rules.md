@@ -45,14 +45,17 @@ Grund-Handzahl haelt.
 
 ## Reizen (Bieten)
 
-Reihum, in 10er-Schritten. Wer nicht mehr mitgeht, sagt „weg" und ist raus. Der
-letzte Bietende ist **Spielmacher** und hat den Reizwert als Zielvorgabe.
+Als Duell, nicht reihum: Die **Vorhand** (links vom Geber) haelt zunaechst den
+Reiz. Der naechste Spieler reizt gegen sie - beide gehen abwechselnd in
+10er-Schritten hoch, **bis einer „weg" sagt**. Der Gewinner reizt dann gegen den
+naechsten Spieler, und so weiter. Der zuletzt Verbliebene ist **Spielmacher** und
+hat den Reizwert als Zielvorgabe.
 
 Bewusste Festlegungen (Engine):
 
 1. **Reizschritt = 10.**
 2. **Mindestgebot = 150.** Wer gar nichts bieten will, passt sofort. Passen alle
-   ausser dem Geber, spielt der Geber zum Mindestgebot.
+   Herausforderer, spielt die **Vorhand** zum Mindestgebot.
 3. Gereizt wird auf **Melde- plus erwartete Stichpunkte**; die KI schaetzt das
    aus ihrer Hand.
 

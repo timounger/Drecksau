@@ -8,6 +8,7 @@
  * drawn back to front (painter's order) so nearer things overlap farther ones.
  */
 import {
+  BULLET_SPEED,
   MINE_RADIUS,
   TANK_RADIUS,
   TILE,
@@ -35,7 +36,11 @@ const TANK_TOP: Readonly<Record<TankKind, string>> = {
   player: "#3b82f6",
   brown: "#c2740c",
   grey: "#64748b",
-  teal: "#0d9488",
+  teal: "#06b6d4",
+  green: "#22c55e",
+  yellow: "#facc15",
+  purple: "#a855f7",
+  invisible: "#ffffff",
 };
 
 /** The shaded front face colour of each tank kind. */
@@ -43,8 +48,22 @@ const TANK_SIDE: Readonly<Record<TankKind, string>> = {
   player: "#1e40af",
   brown: "#7c4a06",
   grey: "#3f4a5a",
-  teal: "#0a6a60",
+  teal: "#0e7490",
+  green: "#166534",
+  yellow: "#a16207",
+  purple: "#6b21a8",
+  invisible: "#cbd5e1",
 };
+
+/** The co-op partner ("player2") is drawn indigo, to tell it from player one. */
+const PLAYER2_TOP = "#818cf8";
+const PLAYER2_SIDE = "#4338ca";
+
+/** How long an invisible tank stays fully white before it starts to fade, s. */
+const INVISIBLE_SOLID_TIME = 1;
+
+/** When an invisible tank has faded out completely, in seconds. */
+const INVISIBLE_HIDE_TIME = 1.6;
 
 /** Colours and sizes of the arena, blocks, tanks, shells, mines and blasts. */
 const RENDER = {
@@ -80,6 +99,11 @@ const RENDER = {
   bullet: "#111827",
   bulletRing: "#f8fafc",
   bulletRingWidth: 1.5,
+  rocketSpeedFactor: 1.2,
+  rocketLen: 16,
+  rocketWidth: 6,
+  rocketBody: "#1f2937",
+  rocketTip: "#f97316",
   shadow: "rgba(15, 23, 42, 0.22)",
   mineCore: "#eab308",
   mineBlink: "#dc2626",
@@ -166,10 +190,11 @@ export function draw(
     items.push({ depth: bullet.y, draw: () => drawBullet(ctx, bullet) });
   }
   for (const tank of state.tanks) {
-    if (tank.alive) {
+    const alpha = tankAlpha(tank, state.time);
+    if (tank.alive && alpha > 0) {
       items.push({
         depth: tank.y + TANK_RADIUS,
-        draw: () => drawTank(ctx, tank),
+        draw: () => drawTankAt(ctx, tank, alpha),
       });
     }
   }
@@ -451,6 +476,44 @@ function drawBlock(
 }
 
 /**
+ * How opaque a tank is drawn: always solid, except an invisible tank, which
+ * shows white for a moment at the level's start and then fades out of sight.
+ *
+ * @param tank - the tank
+ * @param time - the level's elapsed time in seconds
+ * @returns the alpha in 0..1 (0 means do not draw it at all)
+ */
+function tankAlpha(tank: Tank, time: number): number {
+  let alpha = 1;
+  if (tank.kind === "invisible") {
+    if (time >= INVISIBLE_HIDE_TIME) {
+      alpha = 0;
+    } else if (time > INVISIBLE_SOLID_TIME) {
+      alpha =
+        (INVISIBLE_HIDE_TIME - time) /
+        (INVISIBLE_HIDE_TIME - INVISIBLE_SOLID_TIME);
+    }
+  }
+  return alpha;
+}
+
+/** Draws a tank at the given opacity (used for the invisible tank's fade). */
+function drawTankAt(
+  ctx: CanvasRenderingContext2D,
+  tank: Tank,
+  alpha: number,
+): void {
+  if (alpha >= 1) {
+    drawTank(ctx, tank);
+  } else {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    drawTank(ctx, tank);
+    ctx.restore();
+  }
+}
+
+/**
  * One tank: a shadow, two caterpillar tracks and a coloured hull that all turn
  * to face the driving direction, topped by a round turret whose barrel aims on
  * its own. The chassis angle snaps to eight directions (the four sides and the
@@ -468,11 +531,21 @@ function drawTank(ctx: CanvasRenderingContext2D, tank: Tank): void {
     RENDER.hullHalfY,
     chassis,
     BODY_HEIGHT,
-    TANK_TOP[tank.kind],
-    TANK_SIDE[tank.kind],
+    tankTop(tank),
+    tankSide(tank),
   );
   drawTurret(ctx, tank);
   drawBarrel(ctx, tank);
+}
+
+/** The lit top colour of a tank; the co-op partner ("player2") is indigo. */
+function tankTop(tank: Tank): string {
+  return tank.id === "player2" ? PLAYER2_TOP : TANK_TOP[tank.kind];
+}
+
+/** The shaded side colour of a tank; the co-op partner is a darker indigo. */
+function tankSide(tank: Tank): string {
+  return tank.id === "player2" ? PLAYER2_SIDE : TANK_SIDE[tank.kind];
 }
 
 /** The two side tracks as low dark blocks with tread rungs, turned with the hull. */
@@ -622,14 +695,14 @@ function drawTurret(ctx: CanvasRenderingContext2D, tank: Tank): void {
   const crown = project(tank.x, tank.y, BODY_HEIGHT + RENDER.turretRise);
 
   // Cylinder wall: the darker side colour between the two rims.
-  ctx.fillStyle = TANK_SIDE[tank.kind];
+  ctx.fillStyle = tankSide(tank);
   ctx.beginPath();
   ctx.ellipse(foot.x, foot.y, radiusX, radiusY, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillRect(crown.x - radiusX, crown.y, radiusX * 2, foot.y - crown.y);
 
   // Lit top face.
-  ctx.fillStyle = TANK_TOP[tank.kind];
+  ctx.fillStyle = tankTop(tank);
   ctx.strokeStyle = RENDER.outline;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -661,17 +734,51 @@ function drawBarrel(ctx: CanvasRenderingContext2D, tank: Tank): void {
   ctx.fill();
 }
 
-/** One shell: a shadow and a small dark ball floating above the floor. */
+/** One shell: a shadow and a small dark ball, or a rocket if it flies fast. */
 function drawBullet(ctx: CanvasRenderingContext2D, bullet: Bullet): void {
   drawShadow(ctx, bullet.x, bullet.y, RENDER.bulletRadius);
-  const p = project(bullet.x, bullet.y, BULLET_HEIGHT);
-  ctx.fillStyle = RENDER.bullet;
-  ctx.strokeStyle = RENDER.bulletRing;
-  ctx.lineWidth = RENDER.bulletRingWidth;
+  const speed = Math.hypot(bullet.vx, bullet.vy);
+  if (speed > BULLET_SPEED * RENDER.rocketSpeedFactor) {
+    drawRocket(ctx, bullet, speed);
+  } else {
+    const p = project(bullet.x, bullet.y, BULLET_HEIGHT);
+    ctx.fillStyle = RENDER.bullet;
+    ctx.strokeStyle = RENDER.bulletRing;
+    ctx.lineWidth = RENDER.bulletRingWidth;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, RENDER.bulletRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+/** A rocket: a short body along its flight with a bright nose, flat on the floor. */
+function drawRocket(
+  ctx: CanvasRenderingContext2D,
+  bullet: Bullet,
+  speed: number,
+): void {
+  const centre = project(bullet.x, bullet.y, BULLET_HEIGHT);
+  const ux = bullet.vx / speed;
+  const uy = bullet.vy / speed;
+  const half = RENDER.rocketLen / 2;
+  const tailX = centre.x - ux * half;
+  const tailY = centre.y - uy * half * DEPTH;
+  const noseX = centre.x + ux * half;
+  const noseY = centre.y + uy * half * DEPTH;
+
+  ctx.strokeStyle = RENDER.rocketBody;
+  ctx.lineWidth = RENDER.rocketWidth;
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.arc(p.x, p.y, RENDER.bulletRadius, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(tailX, tailY);
+  ctx.lineTo(noseX, noseY);
   ctx.stroke();
+
+  ctx.fillStyle = RENDER.rocketTip;
+  ctx.beginPath();
+  ctx.arc(noseX, noseY, RENDER.rocketWidth / 2, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 /**

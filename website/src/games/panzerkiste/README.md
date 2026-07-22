@@ -14,7 +14,8 @@ alle Gegner, um das Level zu schaffen.
   mit (auch dich). Ein **Treffer durch einen Schuss zündet sie sofort**. Der
   Explosionsradius wird bewusst **nicht** angezeigt.
 
-Drei Leben pro Mission, drei Level mit stärker werdenden Gegnern.
+Drei Leben zum Start, mit stärker werdenden Gegnern über viele Level. Alle fünf
+Level (5, 10, 15, ...) gibt es ein Bonusleben dazu.
 
 ## Aufbau des Spielmoduls
 

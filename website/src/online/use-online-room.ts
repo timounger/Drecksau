@@ -342,13 +342,18 @@ async function installHost<G, M, H, O>(
   const scheduleAiTurn = () => {
     clearTimeout(aiTimer);
     const onTurn = seatOnTurn(authoritative, adapter);
-    if (authoritative.phase !== "playing" || onTurn === null) {
+    const game = authoritative.game;
+    if (authoritative.phase !== "playing" || onTurn === null || game === null) {
       return;
     }
     if (isBotSeat(authoritative, onTurn.id)) {
       aiTimer = setTimeout(playAiTurn, BOT_MOVE_DELAY_MS);
     } else {
-      const timeout = authoritative.autoPlayMs;
+      // The game may vary the timeout by phase; else the host's value is used.
+      const configured = authoritative.autoPlayMs ?? null;
+      const timeout = adapter.turnTimeoutMs
+        ? adapter.turnTimeoutMs(game, configured)
+        : configured;
       if (typeof timeout === "number" && timeout > 0) {
         aiTimer = setTimeout(playAiTurn, timeout);
       }

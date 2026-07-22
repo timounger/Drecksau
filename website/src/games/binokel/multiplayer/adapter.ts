@@ -175,6 +175,33 @@ function aiMove(game: GameState): BinokelMove | null {
   return move;
 }
 
+/** A fixed 3-minute timeout for the slower discard and end-of-round screens. */
+const SLOW_PHASE_TIMEOUT_MS = 180_000;
+
+/**
+ * The auto-play timeout for the current turn, given the host's chosen value.
+ *
+ * @param game - the game state on some seat's turn
+ * @param configuredMs - the host's timeout in ms, or null when auto-play is off
+ * @returns the timeout in ms for this turn, or null for no auto-play
+ * @remarks
+ * The host's value governs the fast phases - bidding ("Reizen") and trick play.
+ * The slower discard ("Dabb drücken", the exchange phase) and the end-of-round
+ * tricks display (roundEnd) get a fixed 3 minutes instead, so nobody is rushed
+ * there but the table still cannot hang. With auto-play off, no turn is played.
+ */
+export function binokelTurnTimeoutMs(
+  game: GameState,
+  configuredMs: number | null,
+): number | null {
+  if (configuredMs === null || configuredMs <= 0) {
+    return null;
+  }
+  return game.phase === "exchange" || game.phase === "roundEnd"
+    ? SLOW_PHASE_TIMEOUT_MS
+    : configuredMs;
+}
+
 /** A string with content. */
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
@@ -268,7 +295,17 @@ export const binokelAdapter: OnlineAdapter<
     return aiMove(game);
   },
 
+  turnTimeoutMs(game, configuredMs): number | null {
+    return binokelTurnTimeoutMs(game, configuredMs);
+  },
+
   redact(game): GameState {
+    // Melds are announced openly, so during melding every hand is shown to all
+    // players (each client then computes and displays everyone's melds). The
+    // rest of the time each hand is hidden behind decoys, size only.
+    if (game.phase === "melding") {
+      return game;
+    }
     return {
       ...game,
       players: game.players.map((player) => ({

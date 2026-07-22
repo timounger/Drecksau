@@ -9,12 +9,20 @@
  * which is what makes the enemy behaviour testable without a browser.
  */
 import { LEVELS } from "./levels";
-import { loadLevel, LIVES_START } from "./setup";
+import {
+  firstFreeCell,
+  freeCellNear,
+  LEVELS_PER_BONUS,
+  loadLevel,
+  LIVES_START,
+} from "./setup";
 import { nextRandom, type RandomState } from "./random";
 import {
   BULLET_BOUNCES,
   BULLET_RADIUS,
   BULLET_SPEED,
+  ENEMY_MAX_MINES,
+  ENEMY_MINE_RATE,
   ENEMY_TRAITS,
   EXPLOSION_TIME,
   MAX_STEP,
@@ -53,21 +61,41 @@ const LOS_STEP = TILE / LOS_SAMPLES_PER_TILE;
 /** How far a tank must drive before it drops another trail breadcrumb, px. */
 const TRAIL_STEP = 6;
 
+/** Time step the bank-shot path tracer walks with, in seconds. */
+const TRACE_DT = 0.02;
+
+/** Most steps the bank-shot tracer walks before giving up. */
+const TRACE_STEPS = 320;
+
+/** A no-op input: stand still, hold fire, no aim change. */
+export const IDLE_INPUT: Input = {
+  move: { x: 0, y: 0 },
+  aim: { x: 0, y: 0 },
+  fire: false,
+  layMine: false,
+};
+
 /**
  * Advances the whole world by `dt` seconds.
  *
  * @param state - the current state
- * @param input - what the player asks of their tank this step
+ * @param input - what the first player (id "player") asks of their tank
  * @param dt - elapsed time in seconds (clamped to {@link MAX_STEP})
+ * @param input2 - the second player (id "player2") input, for co-op; idle if omitted
  * @returns the next state
  */
-export function step(state: GameState, input: Input, dt: number): GameState {
+export function step(
+  state: GameState,
+  input: Input,
+  dt: number,
+  input2: Input = IDLE_INPUT,
+): GameState {
   let result: GameState;
   if (state.phase !== "playing") {
     result = state;
   } else {
     const time = state.time + Math.min(dt, MAX_STEP);
-    const acted = actTanks(state, input, time, dt);
+    const acted = actTanks(state, input, input2, time, dt);
     const shots = advanceBullets(state, acted.tanks, acted.newBullets, dt);
     // A shell that reaches a mine sets it off at once; the mines then detonate.
     const armed = triggerMinesByBullets(
@@ -113,11 +141,27 @@ export function step(state: GameState, input: Input, dt: number): GameState {
  *
  * @param state - a state whose phase is "cleared"
  * @returns the next level, or the same state if there is nothing to advance to
+ * @remarks
+ * Reaching every {@link LEVELS_PER_BONUS}-th level (5, 10, ...) grants one bonus
+ * life on top of the ones carried over.
  */
 export function advance(state: GameState): GameState {
-  return state.phase === "cleared"
-    ? loadLevel(state.level + 1, state.lives, state.random)
-    : state;
+  if (state.phase !== "cleared") {
+    return state;
+  }
+  const nextLevel = state.level + 1;
+  const bonus = (nextLevel + 1) % LEVELS_PER_BONUS === 0 ? 1 : 0;
+  return loadLevel(
+    nextLevel,
+    state.lives + bonus,
+    state.random,
+    playerCount(state),
+  );
+}
+
+/** How many human tanks are in the mission (1 solo, 2 co-op). */
+export function playerCount(state: GameState): number {
+  return state.tanks.filter((tank) => tank.kind === "player").length;
 }
 
 /**
@@ -127,7 +171,7 @@ export function advance(state: GameState): GameState {
  * @returns a fresh mission at level 0
  */
 export function restart(state: GameState): GameState {
-  return loadLevel(0, LIVES_START, state.random);
+  return loadLevel(0, LIVES_START, state.random, playerCount(state));
 }
 
 /** How many levels the mission has. */
@@ -182,6 +226,7 @@ type TankStep = {
 function actTanks(
   state: GameState,
   input: Input,
+  input2: Input,
   time: number,
   dt: number,
 ): TankStep {
@@ -196,21 +241,23 @@ function actTanks(
     if (!tank.alive) {
       updated = tank;
     } else if (tank.kind === "player") {
-      const moved = movePlayer(state, tank, input, dt);
-      const owned = countOwned(state.bullets, newBullets, "player");
+      // In co-op the second seat's tank is "player2"; both are driven the same.
+      const own = tank.id === "player2" ? input2 : input;
+      const moved = movePlayer(state, tank, own, dt);
+      const owned = countOwned(state.bullets, newBullets, tank.id);
       const canFire =
-        input.fire && time >= tank.reloadUntil && owned < PLAYER_MAX_BULLETS;
+        own.fire && time >= tank.reloadUntil && owned < PLAYER_MAX_BULLETS;
       if (canFire) {
         newBullets.push(
           makeBullet(nextId++, moved, moved.turret, BULLET_BOUNCES),
         );
       }
-      if (input.layMine && minesRoom(state.mines, newMines)) {
+      if (own.layMine && minesRoom(state.mines, newMines, tank.id)) {
         newMines.push({
           id: `m${nextId++}`,
           x: moved.x,
           y: moved.y,
-          ownerId: "player",
+          ownerId: tank.id,
           explodeAt: time + MINE_FUSE,
         });
       }
@@ -222,14 +269,25 @@ function actTanks(
       const ai = driveEnemy(state, tank, player, time, dt, random);
       random = ai.random;
       if (ai.fire) {
+        const traits = ENEMY_TRAITS[tank.kind as keyof typeof ENEMY_TRAITS];
         newBullets.push(
           makeBullet(
             nextId++,
             ai.tank,
             ai.fireAngle,
-            ENEMY_TRAITS[tank.kind].bounces,
+            traits.bounces,
+            traits.bulletSpeed,
           ),
         );
+      }
+      if (ai.layMine) {
+        newMines.push({
+          id: `m${nextId++}`,
+          x: ai.tank.x,
+          y: ai.tank.y,
+          ownerId: tank.id,
+          explodeAt: time + MINE_FUSE,
+        });
       }
       updated = ai.tank;
     }
@@ -263,11 +321,12 @@ function movePlayer(
   return { ...tank, x, y, turret, heading };
 }
 
-/** One enemy's decision: where it ends up and whether it fires. */
+/** One enemy's decision: where it ends up, whether it fires and lays a mine. */
 type EnemyStep = {
   readonly tank: Tank;
   readonly fire: boolean;
   readonly fireAngle: number;
+  readonly layMine: boolean;
   readonly random: RandomState;
 };
 
@@ -296,15 +355,29 @@ function driveEnemy(
 
   let x = tank.x;
   let y = tank.y;
+  let moved = false;
   if (traits.speed > 0) {
     const dx = Math.cos(heading) * traits.speed * dt;
     const dy = Math.sin(heading) * traits.speed * dt;
     const pos = slide(state, tank.x, tank.y, dx, dy);
+    moved = pos.x !== tank.x || pos.y !== tank.y;
     x = pos.x;
     y = pos.y;
     // Walked into a wall: repick a heading next step.
-    if (pos.x === tank.x && pos.y === tank.y) {
+    if (!moved) {
       headingUntil = time;
+    }
+  }
+
+  // Mine-layers (the yellow tank) drop a mine now and then as they drive, up to
+  // a small number out at once, and only while actually rolling forward.
+  let layMine = false;
+  if (traits.laysMines && moved) {
+    const mineCount = state.mines.filter((m) => m.ownerId === tank.id).length;
+    if (mineCount < ENEMY_MAX_MINES) {
+      const roll = nextRandom(rng);
+      rng = roll.state;
+      layMine = roll.value < ENEMY_MINE_RATE * dt;
     }
   }
 
@@ -316,11 +389,27 @@ function driveEnemy(
   if (player !== null) {
     turret = Math.atan2(player.y - y, player.x - x);
     const owned = state.bullets.filter((b) => b.ownerId === tank.id).length;
-    const ready =
-      time >= tank.reloadUntil &&
-      owned < traits.maxBullets &&
-      hasLineOfSight(state, x, y, player.x, player.y);
-    if (ready) {
+    const ready = time >= tank.reloadUntil && owned < traits.maxBullets;
+    if (traits.banks) {
+      // Bank-shooter (green): keep the barrel on a bank-shot solution off the
+      // walls, and fire it when reloaded. Holds if the player cannot be reached.
+      const bank = bankFireAngle(
+        state,
+        x,
+        y,
+        player,
+        traits.bounces,
+        traits.bulletSpeed,
+      );
+      if (bank !== null) {
+        turret = bank;
+        if (ready) {
+          fire = true;
+          fireAngle = bank;
+          reloadUntil = time + traits.reload;
+        }
+      }
+    } else if (ready && hasLineOfSight(state, x, y, player.x, player.y)) {
       const err = nextRandom(rng);
       rng = err.state;
       fire = true;
@@ -334,6 +423,7 @@ function driveEnemy(
     tank: { ...tank, x, y, turret, heading, headingUntil, reloadUntil },
     fire,
     fireAngle,
+    layMine,
     random: rng,
   };
 }
@@ -493,26 +583,73 @@ function advanceMines(
 
 /** Decides the phase after a step: respawn, loss, level cleared or win. */
 function resolve(draft: GameState): GameState {
-  const player = draft.tanks.find((tank) => tank.id === "player");
-  const playerDead = player === undefined || !player.alive;
+  const players = draft.tanks.filter((tank) => tank.kind === "player");
   const enemies = draft.tanks.filter(
     (tank) => tank.kind !== "player" && tank.alive,
   ).length;
 
   let result: GameState;
-  if (playerDead) {
-    const lives = draft.lives - 1;
-    result =
-      lives > 0
-        ? loadLevel(draft.level, lives, draft.random)
-        : { ...draft, lives: 0, phase: "lost" };
-  } else if (enemies === 0) {
-    result =
-      draft.level + 1 < LEVELS.length
-        ? { ...draft, phase: "cleared" }
-        : { ...draft, phase: "won" };
+  if (players.length >= 2) {
+    result = resolveCoop(draft, enemies);
   } else {
-    result = draft;
+    const player = players[0];
+    const playerDead = player === undefined || !player.alive;
+    if (playerDead) {
+      const lives = draft.lives - 1;
+      result =
+        lives > 0
+          ? loadLevel(draft.level, lives, draft.random)
+          : { ...draft, lives: 0, phase: "lost" };
+    } else if (enemies === 0) {
+      result = clearedOrWon(draft);
+    } else {
+      result = draft;
+    }
+  }
+  return result;
+}
+
+/** "cleared" if more levels remain, else "won". */
+function clearedOrWon(draft: GameState): GameState {
+  return draft.level + 1 < LEVELS.length
+    ? { ...draft, phase: "cleared" }
+    : { ...draft, phase: "won" };
+}
+
+/**
+ * Co-op resolution: each downed player respawns beside a living partner and
+ * spends one shared life; the level runs on. Out of lives ends the mission.
+ */
+function resolveCoop(draft: GameState, enemies: number): GameState {
+  const partner = draft.tanks.find(
+    (tank) => tank.kind === "player" && tank.alive,
+  );
+  let lives = draft.lives;
+  let lost = false;
+  const tanks = draft.tanks.map((tank) => {
+    let next = tank;
+    if (tank.kind === "player" && !tank.alive) {
+      if (lives <= 0) {
+        lost = true;
+      } else {
+        lives -= 1;
+        const spot =
+          partner !== undefined
+            ? freeCellNear(draft, partner.x, partner.y)
+            : firstFreeCell(draft);
+        next = { ...tank, alive: true, x: spot.x, y: spot.y };
+      }
+    }
+    return next;
+  });
+
+  let result: GameState;
+  if (lost) {
+    result = { ...draft, lives: 0, phase: "lost" };
+  } else if (enemies === 0) {
+    result = clearedOrWon({ ...draft, tanks, lives });
+  } else {
+    result = { ...draft, tanks, lives };
   }
   return result;
 }
@@ -537,19 +674,20 @@ function moveBullet(state: GameState, bullet: Bullet, dt: number): Bullet {
   return { ...bullet, x, y, vx, vy, bouncesLeft, armed };
 }
 
-/** A shell fired from a tank along an angle, with the given bounce budget. */
+/** A shell fired from a tank along an angle, with a bounce budget and speed. */
 function makeBullet(
   id: number,
   from: Tank,
   angle: number,
   bounces: number,
+  speed = BULLET_SPEED,
 ): Bullet {
   return {
     id: `b${id}`,
     x: from.x,
     y: from.y,
-    vx: Math.cos(angle) * BULLET_SPEED,
-    vy: Math.sin(angle) * BULLET_SPEED,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
     bouncesLeft: bounces,
     ownerId: from.id,
     armed: false,
@@ -624,6 +762,130 @@ function hasLineOfSight(
   return clear;
 }
 
+/** How a traced shot fared: did it reach the target, after how many bounces. */
+type TraceResult = {
+  readonly hit: boolean;
+  readonly bounced: boolean;
+  readonly closest: number;
+};
+
+/**
+ * Walks a shot's bouncing path and reports whether it reaches the target.
+ *
+ * @param state - the game (for its walls)
+ * @param x - the muzzle x
+ * @param y - the muzzle y
+ * @param angle - the firing angle
+ * @param speed - the shell speed
+ * @param bounces - how many wall bounces the shell gets
+ * @param target - the point to reach (the player)
+ * @returns whether the path passed within a hit of the target, and how
+ */
+function traceShot(
+  state: GameState,
+  x: number,
+  y: number,
+  angle: number,
+  speed: number,
+  bounces: number,
+  target: { readonly x: number; readonly y: number },
+): TraceResult {
+  let vx = Math.cos(angle) * speed;
+  let vy = Math.sin(angle) * speed;
+  let px = x;
+  let py = y;
+  let left = bounces;
+  let used = 0;
+  const reach = TANK_RADIUS + BULLET_RADIUS;
+  let result: TraceResult = { hit: false, bounced: false, closest: Infinity };
+  for (let step = 0; step < TRACE_STEPS; step++) {
+    let nx = px + vx * TRACE_DT;
+    if (isWallAtPoint(state, nx, py)) {
+      vx = -vx;
+      nx = px;
+      left -= 1;
+      used += 1;
+    }
+    let ny = py + vy * TRACE_DT;
+    if (isWallAtPoint(state, nx, ny)) {
+      vy = -vy;
+      ny = py;
+      left -= 1;
+      used += 1;
+    }
+    px = nx;
+    py = ny;
+    if (left < 0) {
+      break;
+    }
+    const dist = Math.hypot(px - target.x, py - target.y);
+    if (dist <= reach) {
+      result = { hit: true, bounced: used > 0, closest: dist };
+      break;
+    }
+  }
+  return result;
+}
+
+/**
+ * The angle for a bank shot that reaches the player, or null if none is found.
+ *
+ * @remarks
+ * Candidate aims are the player and the player mirrored across the four border
+ * walls and the four corners (one- and two-bounce banks). Each is traced with
+ * the real wall bounces (so interior walls count too); bounced solutions are
+ * preferred over a direct one, and the most centred of those is chosen.
+ */
+function bankFireAngle(
+  state: GameState,
+  x: number,
+  y: number,
+  player: Tank,
+  bounces: number,
+  speed: number,
+): number | null {
+  const minX = TILE;
+  const maxX = (state.cols - 1) * TILE;
+  const minY = TILE;
+  const maxY = (state.rows - 1) * TILE;
+  const left = 2 * minX - player.x;
+  const right = 2 * maxX - player.x;
+  const top = 2 * minY - player.y;
+  const bottom = 2 * maxY - player.y;
+  const targets = [
+    { x: player.x, y: player.y },
+    { x: left, y: player.y },
+    { x: right, y: player.y },
+    { x: player.x, y: top },
+    { x: player.x, y: bottom },
+    { x: left, y: top },
+    { x: left, y: bottom },
+    { x: right, y: top },
+    { x: right, y: bottom },
+  ];
+
+  let bestAngle: number | null = null;
+  let bestBounced = false;
+  let bestClosest = Infinity;
+  for (const target of targets) {
+    const angle = Math.atan2(target.y - y, target.x - x);
+    const trace = traceShot(state, x, y, angle, speed, bounces, player);
+    if (trace.hit) {
+      // A bounced (bank) shot beats a direct one; among equals, the most centred.
+      const better =
+        bestAngle === null ||
+        (trace.bounced && !bestBounced) ||
+        (trace.bounced === bestBounced && trace.closest < bestClosest);
+      if (better) {
+        bestAngle = angle;
+        bestBounced = trace.bounced;
+        bestClosest = trace.closest;
+      }
+    }
+  }
+  return bestAngle;
+}
+
 /** Whether two points are within `reach` pixels of each other. */
 function within(
   a: { x: number; y: number },
@@ -678,11 +940,15 @@ function countOwned(
   return count(existing) + count(fresh);
 }
 
-/** Whether the player still has room to lay another mine. */
-function minesRoom(existing: readonly Mine[], fresh: readonly Mine[]): boolean {
+/** Whether a player still has room to lay another mine. */
+function minesRoom(
+  existing: readonly Mine[],
+  fresh: readonly Mine[],
+  ownerId: string,
+): boolean {
   const laid =
-    existing.filter((mine) => mine.ownerId === "player").length +
-    fresh.filter((mine) => mine.ownerId === "player").length;
+    existing.filter((mine) => mine.ownerId === ownerId).length +
+    fresh.filter((mine) => mine.ownerId === ownerId).length;
   return laid < PLAYER_MAX_MINES;
 }
 

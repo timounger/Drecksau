@@ -139,6 +139,20 @@ export type OnlineAdapter<G, M, H, O> = {
   aiMove(game: G): M | null;
 
   /**
+   * How long the seat on turn may take before the computer plays for them.
+   *
+   * @param game - the game state, on some seat's turn
+   * @param configuredMs - the host's chosen auto-play timeout, or null for off
+   * @returns the timeout in ms for this turn, or null for no auto-play
+   * @remarks
+   * Optional. Lets a game vary the timeout by phase - e.g. Binokel keeps the
+   * host's value for bidding and trick play, but forces a fixed longer timeout
+   * on the slower discard and end-of-round screens so the table cannot hang.
+   * Games that omit it just use `configuredMs` for every turn.
+   */
+  turnTimeoutMs?(game: G, configuredMs: number | null): number | null;
+
+  /**
    * Hides every seat's private data for the shared snapshot.
    *
    * @param game - the authoritative game state

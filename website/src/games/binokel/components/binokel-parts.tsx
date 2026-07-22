@@ -11,7 +11,13 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactElement,
+} from "react";
 import {
   RANK_STRENGTH,
   SUITS,
@@ -31,12 +37,18 @@ import {
   CARD_IMAGES,
 } from "@/games/binokel/assets/card-images";
 import { SUIT_IMAGES } from "@/games/binokel/assets/suit-images";
+import { BINOKEL_TEXTS, RANK_LABELS } from "@/games/binokel/i18n/binokel-texts";
+import { meldName, suitName } from "@/games/binokel/i18n/naming";
+import { useBinokelNaming } from "@/games/binokel/components/naming-context";
 import {
-  BINOKEL_TEXTS,
-  RANK_LABELS,
-  SUIT_LABELS,
-  meldLabel,
-} from "@/games/binokel/i18n/binokel-texts";
+  getBinokelSettingsSnapshot,
+  getServerBinokelSettingsSnapshot,
+  subscribeBinokelSettings,
+} from "@/games/binokel/settings/binokel-settings-store";
+import type {
+  DiscardMode,
+  RankOrder,
+} from "@/games/binokel/settings/binokel-settings";
 
 /** How many face-down cards to show for an opponent. */
 const OPPONENT_BACKS_SHOWN = 8;
@@ -60,15 +72,26 @@ export function meldRange(
   return { min: Math.min(...totals), max: Math.max(...totals) };
 }
 
-/** Sorts a hand by the chosen suit order, then by trick strength high to low. */
+/**
+ * Sorts a hand by the chosen suit order, then by rank within each suit.
+ *
+ * @param hand - the cards to sort
+ * @param suitOrder - the suit grouping, left to right
+ * @param rankOrder - "aceToSeven" runs high to low, "sevenToAce" low to high
+ * @returns a new, sorted array
+ */
 export function sortHand(
   hand: readonly Card[],
   suitOrder: readonly Suit[],
+  rankOrder: RankOrder = "aceToSeven",
 ): Card[] {
+  const byRank =
+    rankOrder === "aceToSeven"
+      ? (a: Card, b: Card) => RANK_STRENGTH[b.rank] - RANK_STRENGTH[a.rank]
+      : (a: Card, b: Card) => RANK_STRENGTH[a.rank] - RANK_STRENGTH[b.rank];
   return [...hand].sort(
     (a, b) =>
-      suitOrder.indexOf(a.suit) - suitOrder.indexOf(b.suit) ||
-      RANK_STRENGTH[b.rank] - RANK_STRENGTH[a.rank],
+      suitOrder.indexOf(a.suit) - suitOrder.indexOf(b.suit) || byRank(a, b),
   );
 }
 
@@ -79,6 +102,7 @@ export function signed(value: number): string {
 
 /** The cumulative scores and the round's key facts. */
 export function Scoreboard({ state }: { state: GameState }): ReactElement {
+  const naming = useBinokelNaming();
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-zinc-200 bg-white/60 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900/40">
       {state.players.map((player, index) => (
@@ -97,7 +121,7 @@ export function Scoreboard({ state }: { state: GameState }): ReactElement {
         {state.trump !== null && (
           <>
             {" · "}
-            {BINOKEL_TEXTS.trump}: {SUIT_LABELS[state.trump]}
+            {BINOKEL_TEXTS.trump}: {suitName(state.trump, naming)}
           </>
         )}
       </span>
@@ -164,6 +188,7 @@ function biddingStatus(state: GameState, index: number): string {
 
 /** Every player's melds, laid out in a grid. */
 export function MeldsGrid({ state }: { state: GameState }): ReactElement {
+  const naming = useBinokelNaming();
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
       {state.players.map((player) => {
@@ -186,7 +211,7 @@ export function MeldsGrid({ state }: { state: GameState }): ReactElement {
                 {found.melds.map((meld, i) => (
                   <li key={i} className="flex flex-col gap-1">
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {meldLabel(meld)} ({meld.points})
+                      {meldName(meld, naming)} ({meld.points})
                     </span>
                     <div className="flex flex-wrap gap-0.5">
                       {meld.cards.map((card) => (
@@ -422,19 +447,34 @@ export function FannedHand({
  * of the top row and push unwanted ones up, then confirm. The top row always
  * holds exactly the Dabb's worth of cards, which are the ones discarded.
  */
-export function DiscardHand({
+export function DiscardHand(props: DiscardHandProps): ReactElement {
+  return props.mode === "mark" ? (
+    <MarkDiscardHand {...props} discardCount={props.takenDabb.length} />
+  ) : (
+    <SwapDiscardHand {...props} />
+  );
+}
+
+/** What the discard step needs, whichever mode is chosen. */
+type DiscardHandProps = {
+  readonly hand: readonly Card[];
+  readonly takenDabb: readonly Card[];
+  readonly withSevens: boolean;
+  readonly suitOrder: readonly Suit[];
+  readonly rankOrder: RankOrder;
+  readonly mode: DiscardMode;
+  readonly onConfirm: (cardIds: readonly string[]) => void;
+};
+
+/** The two-row swap discard: the Dabb sits on top and is pushed away. */
+function SwapDiscardHand({
   hand,
   takenDabb,
   withSevens,
   suitOrder,
+  rankOrder,
   onConfirm,
-}: {
-  hand: readonly Card[];
-  takenDabb: readonly Card[];
-  withSevens: boolean;
-  suitOrder: readonly Suit[];
-  onConfirm: (cardIds: readonly string[]) => void;
-}): ReactElement {
+}: DiscardHandProps): ReactElement {
   const [discardIds, setDiscardIds] = useState<ReadonlySet<string>>(
     () => new Set(takenDabb.map((card) => card.id)),
   );
@@ -467,10 +507,12 @@ export function DiscardHand({
   const top = sortHand(
     hand.filter((card) => discardIds.has(card.id)),
     suitOrder,
+    rankOrder,
   );
   const bottom = sortHand(
     hand.filter((card) => !discardIds.has(card.id)),
     suitOrder,
+    rankOrder,
   );
   // The meld counts from the cards you keep (the bottom row), so it updates as
   // you swap; trump is still open, hence the range.
@@ -511,6 +553,72 @@ export function DiscardHand({
   );
 }
 
+/**
+ * The mark-and-drop discard: the whole hand in one row; tap the cards to drop,
+ * then confirm once exactly the right number are marked.
+ */
+function MarkDiscardHand({
+  hand,
+  discardCount,
+  withSevens,
+  suitOrder,
+  rankOrder,
+  onConfirm,
+}: DiscardHandProps & { readonly discardCount: number }): ReactElement {
+  const [markedIds, setMarkedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  const toggle = (cardId: string) => {
+    setMarkedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(cardId)) {
+        next.delete(cardId);
+      } else {
+        next.add(cardId);
+      }
+      return next;
+    });
+  };
+
+  const cards = sortHand(hand, suitOrder, rankOrder);
+  const kept = hand.filter((card) => !markedIds.has(card.id));
+  const meld = meldRange(kept, withSevens);
+  const ready = markedIds.size === discardCount;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        {BINOKEL_TEXTS.markDiscardHint(discardCount)}
+      </p>
+      <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        {BINOKEL_TEXTS.meldEstimate(meld.min, meld.max)}
+      </p>
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-semibold">{BINOKEL_TEXTS.yourHand}</h3>
+        <div className="flex flex-wrap gap-2">
+          {cards.map((card) => (
+            <CardView
+              key={card.id}
+              card={card}
+              selected={markedIds.has(card.id)}
+              onClick={() => toggle(card.id)}
+            />
+          ))}
+        </div>
+      </div>
+      <button
+        type="button"
+        disabled={!ready}
+        onClick={() => onConfirm([...markedIds])}
+        className="cursor-pointer self-start rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {BINOKEL_TEXTS.confirmDiscardCount(markedIds.size, discardCount)}
+      </button>
+    </div>
+  );
+}
+
 /** Props of {@link CardView}. */
 type CardViewProps = {
   readonly card: Card;
@@ -529,6 +637,7 @@ export function CardView({
   dim,
   highlight,
 }: CardViewProps): ReactElement {
+  const naming = useBinokelNaming();
   const frame = selected
     ? "-translate-y-2 border-emerald-500 ring-2 ring-emerald-400"
     : highlight
@@ -539,17 +648,22 @@ export function CardView({
       className={[
         "relative block w-16 overflow-hidden rounded-lg border shadow-sm",
         frame,
-        dim ? "opacity-40" : "",
+        // Unplayable cards are greyed out (opaque), not made see-through, so a
+        // fanned hand does not show the cards behind them.
+        dim ? "grayscale brightness-95" : "",
       ].join(" ")}
       style={{ aspectRatio: CARD_ASPECT }}
     >
       <Image
         src={CARD_IMAGES[card.suit][card.rank]}
-        alt={`${RANK_LABELS[card.rank]} ${SUIT_LABELS[card.suit]}`}
+        alt={`${RANK_LABELS[card.rank]} ${suitName(card.suit, naming)}`}
         fill
         sizes="64px"
         className="object-contain"
       />
+      {dim && (
+        <span className="absolute inset-0 bg-zinc-500/25 dark:bg-zinc-900/35" />
+      )}
     </span>
   );
 
@@ -564,6 +678,7 @@ export function CardView({
 
 /** A small face-up card, for showing the cards that make up a meld. */
 function MeldCard({ card }: { card: Card }): ReactElement {
+  const naming = useBinokelNaming();
   return (
     <span
       className="relative block w-9 overflow-hidden rounded border border-zinc-200 dark:border-zinc-700"
@@ -571,7 +686,7 @@ function MeldCard({ card }: { card: Card }): ReactElement {
     >
       <Image
         src={CARD_IMAGES[card.suit][card.rank]}
-        alt={`${RANK_LABELS[card.rank]} ${SUIT_LABELS[card.suit]}`}
+        alt={`${RANK_LABELS[card.rank]} ${suitName(card.suit, naming)}`}
         fill
         sizes="36px"
         className="object-contain"
@@ -613,18 +728,25 @@ export function TrumpChoice({
 }: {
   onPick: (suit: Suit) => void;
 }): ReactElement {
+  const naming = useBinokelNaming();
+  // The buttons follow the suit order the player set in the settings.
+  const order = useSyncExternalStore(
+    subscribeBinokelSettings,
+    getBinokelSettingsSnapshot,
+    getServerBinokelSettingsSnapshot,
+  ).suitOrder;
   return (
     <div className="flex flex-col gap-2">
       <h2 className="text-sm font-semibold">
         {BINOKEL_TEXTS.chooseTrumpTitle}
       </h2>
       <div className="flex flex-wrap gap-2">
-        {SUITS.map((suit) => (
+        {order.map((suit) => (
           <button
             key={suit}
             type="button"
             onClick={() => onPick(suit)}
-            aria-label={SUIT_LABELS[suit]}
+            aria-label={suitName(suit, naming)}
             className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-zinc-300 p-2 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
           >
             <span className="relative block h-14 w-14 overflow-hidden rounded-md">
@@ -636,7 +758,9 @@ export function TrumpChoice({
                 className="object-contain"
               />
             </span>
-            <span className="text-xs font-medium">{SUIT_LABELS[suit]}</span>
+            <span className="text-xs font-medium">
+              {suitName(suit, naming)}
+            </span>
           </button>
         ))}
       </div>
@@ -659,17 +783,17 @@ export function DeclarerChoice({
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => onDeclare("normal")}
-          className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
-        >
-          {BINOKEL_TEXTS.playNormal}
-        </button>
-        <button
-          type="button"
           onClick={() => onDeclare("durch")}
           className="cursor-pointer rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-amber-700"
         >
           {BINOKEL_TEXTS.playDurch}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDeclare("normal")}
+          className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
+        >
+          {BINOKEL_TEXTS.playNormal}
         </button>
       </div>
       <span className="text-xs text-zinc-500 dark:text-zinc-400">

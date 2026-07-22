@@ -19,7 +19,11 @@ import {
   canvasHeight,
   canvasWidth,
 } from "@/games/panzerkiste/components/projection";
-import { FIELD_COLS, FIELD_ROWS } from "@/games/panzerkiste/engine/setup";
+import {
+  FIELD_COLS,
+  FIELD_ROWS,
+  LEVELS_PER_BONUS,
+} from "@/games/panzerkiste/engine/setup";
 import { PANZERKISTE_TEXTS } from "@/games/panzerkiste/i18n/texts";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 
@@ -186,11 +190,19 @@ function Overlay({
       </button>
     );
   } else if (hud.phase === "cleared") {
+    // The next level's 1-based number; a multiple of it earns a bonus life.
+    const nextNumber = hud.level + 2;
+    const bonus = nextNumber % LEVELS_PER_BONUS === 0;
     content = (
       <Panel>
         <p className="text-lg font-semibold">
           {PANZERKISTE_TEXTS.levelCleared}
         </p>
+        {bonus && (
+          <p className="text-sm font-semibold text-emerald-300">
+            {PANZERKISTE_TEXTS.bonusLife}
+          </p>
+        )}
         <OverlayButton onClick={onNext}>
           {PANZERKISTE_TEXTS.nextLevel}
         </OverlayButton>

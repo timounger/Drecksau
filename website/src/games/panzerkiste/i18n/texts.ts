@@ -22,6 +22,7 @@ export const PANZERKISTE_TEXTS = {
   start: "Los geht's",
   startHint: "Klick auf das Feld, um zu starten.",
   levelCleared: "Level geschafft!",
+  bonusLife: "+1 Bonusleben!",
   nextLevel: "Nächstes Level",
   won: "Alle Panzer zerstört - du hast gewonnen!",
   lost: "Dein Panzer wurde getroffen.",

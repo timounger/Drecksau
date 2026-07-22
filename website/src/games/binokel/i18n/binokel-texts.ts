@@ -19,20 +19,23 @@ export const BINOKEL_TEXTS = {
   trump: "Trumpf",
   target: (points: number) => `Ziel ${points}`,
   cardsLeft: "Karten",
-  // Bidding
-  bidding: "Reizen",
-  reizen: (value: number) => `Reizen (${value})`,
+  // Bidding (the "Reizen"/"Steigern" term is chosen in the settings)
+  reizen: (term: string, value: number) => `${term} (${value})`,
   pass: "Weg",
   passed: "weg",
-  yourBidTurn: "Du bist am Reizen.",
+  yourBidTurn: (term: string) => `Du bist am ${term}.`,
   meldEstimate: (min: number, max: number) =>
     min === max ? `Melden: ${min}` : `Melden: ${min}-${max}`,
   // Exchange
   discardPrompt: (count: number) =>
     `Dabb aufgenommen - drücke ${count} Karten weg.`,
   confirmDiscard: "Ablegen",
+  confirmDiscardCount: (marked: number, total: number) =>
+    `Ablegen (${marked}/${total})`,
   swapHint:
     "Karte antippen, dann eine aus der anderen Reihe - sie tauschen. Die obere Reihe (Dabb) wird weggedrückt.",
+  markDiscardHint: (count: number) =>
+    `Markiere ${count} Karten zum Ablegen, dann auf Ablegen klicken.`,
   chooseTrumpTitle: "Trumpf ansagen",
   declarerWorking: (name: string) => `${name} nimmt den Dabb und drückt ...`,
   // Melding
@@ -77,9 +80,25 @@ export const BINOKEL_TEXTS = {
   withDabb: "Mit Dabb spielen",
   withDabbHint:
     "An: mit Dabb (Widow) und Drücken. Aus: Karten werden aufgeteilt, kein Drücken. Gilt ab der nächsten Partie.",
+  discardModeTitle: "Dabb ablegen",
+  discardModeHint:
+    "Wie du beim Drücken die Karten weglegst. Gilt sofort für dein nächstes Drücken.",
+  discardModeSwap: "Wie bisher (zwei Reihen tauschen)",
+  discardModeMark: "Karten markieren und ablegen",
   suitOrderTitle: "Farb-Reihenfolge",
   suitOrderHint:
     "So werden deine Handkarten sortiert - von links (oben) nach rechts (unten).",
+  rankOrderTitle: "Reihenfolge je Farbe",
+  rankOrderHint:
+    "Ob innerhalb einer Farbe von hoch nach niedrig oder umgekehrt sortiert wird.",
+  rankAceFirst: (ace: string) => `${ace} nach 7`,
+  rankSevenFirst: (ace: string) => `7 nach ${ace}`,
+  namingTitle: "Bezeichnungen",
+  namingHint:
+    "Wähle, wie Farben und Karten heißen. Standard ist jeweils die erste Bezeichnung. Gilt sofort.",
+  namingDix: "Trumpf-Sieben",
+  namingAce: "Ass",
+  namingBid: "Reiz-Vorgang",
   moveUp: "Nach oben",
   moveDown: "Nach unten",
   playerCountTitle: "Spieleranzahl",

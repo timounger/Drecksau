@@ -35,11 +35,11 @@ schon reserviert, im Spiel noch nicht vorhanden).
 | `P`     | Spieler (blau)    |   ✓    | Vom Menschen gesteuert (WASD, Maus, Leertaste).        |
 | `B`     | Braun             |   ✓    | Steht fest, feuert langsame, gerade Schüsse.           |
 | `G`     | Grau              |   ✓    | Fährt langsam umher und nimmt gezielte Schüsse.        |
-| `Y`     | Gelb              |   ○    | Verhalten noch festzulegen.                            |
-| `U`     | Blau              |   ○    | Verhalten noch festzulegen.                            |
-| `N`     | Grün              |   ○    | Verhalten noch festzulegen.                            |
-| `L`     | Lila              |   ○    | Verhalten noch festzulegen.                            |
-| `I`     | Unsichtbar        |   ○    | Verhalten noch festzulegen.                            |
+| `Y`     | Gelb              |   ✓    | Fährt schnell, feuert und legt beim Fahren Minen.      |
+| `U`     | Blau (türkis)     |   ✓    | Fährt umher, feuert schnelle Raketen, die **nicht** abprallen. |
+| `N`     | Grün              |   ✓    | Steht fest, feuert schnelle Raketen (2× Abpraller) und zielt per Bank-Schuss über Ecken. |
+| `L`     | Lila              |   ✓    | Sehr schnell, feuert doppelt so schnell, Schüsse prallen ab. |
+| `I`     | Unsichtbar        |   ✓    | Beim Start kurz weiß, dann unsichtbar; fährt, legt Minen und schießt normal. |
 | `S`     | Schwarz           |   ○    | Verhalten noch festzulegen.                            |
 
 > Hinweis: Nur die mit **✓** markierten Zeichen sind aktuell in der Engine

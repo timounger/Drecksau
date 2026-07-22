@@ -13,6 +13,10 @@
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
 import type { Suit } from "@/games/binokel/engine/cards";
+import type {
+  DiscardMode,
+  RankOrder,
+} from "@/games/binokel/settings/binokel-settings";
 import { findMelds } from "@/games/binokel/engine/melds";
 import { baseHandSize, nextBidValue } from "@/games/binokel/engine/moves";
 import { useBinokelGame } from "@/games/binokel/hooks/use-binokel-game";
@@ -23,6 +27,7 @@ import {
 } from "@/games/binokel/settings/binokel-settings-store";
 import { BINOKEL_TEXTS } from "@/games/binokel/i18n/binokel-texts";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
+import { BinokelNamingProvider, useBinokelNaming } from "./naming-context";
 import {
   CardView,
   DeclarerChoice,
@@ -59,98 +64,111 @@ export function BinokelGame(): ReactElement {
   // The melds stay on screen until the player taps to move on. The declarer
   // instead uses the Abgehen/Spielen choice in the melds panel.
   const meldingReview = state.phase === "melding" && state.declarerIndex !== 0;
+  const naming = {
+    suitNames: settings.suitNames,
+    dixName: settings.dixName,
+    aceName: settings.aceName,
+    bidName: settings.bidName,
+  };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{BINOKEL_TEXTS.title}</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {BINOKEL_TEXTS.subtitle}
-          </p>
+    <BinokelNamingProvider value={naming}>
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold">{BINOKEL_TEXTS.title}</h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {BINOKEL_TEXTS.subtitle}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => game.newMatch()}
+              className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            >
+              {BINOKEL_TEXTS.newMatch}
+            </button>
+            <Link
+              href="/binokel/online"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              {BINOKEL_TEXTS.online}
+            </Link>
+            <Link
+              href="/binokel/statistik"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              {BINOKEL_TEXTS.statistics}
+            </Link>
+            <Link
+              href="/binokel/einstellungen"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              {BINOKEL_TEXTS.settings}
+            </Link>
+            <Link
+              href="/"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              {COLLECTION_TEXTS.title}
+            </Link>
+          </div>
+        </header>
+
+        <Scoreboard state={state} />
+
+        <div className="flex flex-wrap gap-3">
+          {state.players.slice(1).map((_, offset) => (
+            <OpponentSeat
+              key={state.players[offset + 1].id}
+              state={state}
+              index={offset + 1}
+            />
+          ))}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+
+        <CenterPanel game={game} />
+
+        <section className="flex flex-col gap-2">
+          <HumanHand
+            game={game}
+            suitOrder={settings.suitOrder}
+            rankOrder={settings.rankOrder}
+            discardMode={settings.discardMode}
+          />
+        </section>
+
+        {/* When a trick is complete, a full-screen layer waits for a click (or a
+          key) so the last card can be seen before the trick is gathered. */}
+        {trickPending && (
           <button
             type="button"
-            onClick={() => game.newMatch()}
-            className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            onClick={game.collect}
+            aria-label={BINOKEL_TEXTS.continueTrick}
+            className="fixed inset-0 z-40 flex cursor-pointer items-end justify-center pb-10"
           >
-            {BINOKEL_TEXTS.newMatch}
+            <span className="rounded-full bg-zinc-900/90 px-5 py-2 text-sm font-medium text-white shadow-lg dark:bg-zinc-100/90 dark:text-zinc-900">
+              {BINOKEL_TEXTS.trickComplete} - {BINOKEL_TEXTS.continueTrick}
+            </span>
           </button>
-          <Link
-            href="/binokel/online"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {BINOKEL_TEXTS.online}
-          </Link>
-          <Link
-            href="/binokel/statistik"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {BINOKEL_TEXTS.statistics}
-          </Link>
-          <Link
-            href="/binokel/einstellungen"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {BINOKEL_TEXTS.settings}
-          </Link>
-          <Link
-            href="/"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {COLLECTION_TEXTS.title}
-          </Link>
-        </div>
-      </header>
+        )}
 
-      <Scoreboard state={state} />
-
-      <div className="flex flex-wrap gap-3">
-        {state.players.slice(1).map((_, offset) => (
-          <OpponentSeat
-            key={state.players[offset + 1].id}
-            state={state}
-            index={offset + 1}
-          />
-        ))}
+        {/* The melds stay until the player taps anywhere to move to trick play. */}
+        {meldingReview && (
+          <button
+            type="button"
+            onClick={() => game.declare("normal")}
+            aria-label={BINOKEL_TEXTS.toTricks}
+            className="fixed inset-0 z-40 flex cursor-pointer items-end justify-center pb-10"
+          >
+            <span className="rounded-full bg-zinc-900/90 px-5 py-2 text-sm font-medium text-white shadow-lg dark:bg-zinc-100/90 dark:text-zinc-900">
+              {BINOKEL_TEXTS.toTricks}
+            </span>
+          </button>
+        )}
       </div>
-
-      <CenterPanel game={game} />
-
-      <section className="flex flex-col gap-2">
-        <HumanHand game={game} suitOrder={settings.suitOrder} />
-      </section>
-
-      {/* When a trick is complete, a full-screen layer waits for a click (or a
-          key) so the last card can be seen before the trick is gathered. */}
-      {trickPending && (
-        <button
-          type="button"
-          onClick={game.collect}
-          aria-label={BINOKEL_TEXTS.continueTrick}
-          className="fixed inset-0 z-40 flex cursor-pointer items-end justify-center pb-10"
-        >
-          <span className="rounded-full bg-zinc-900/90 px-5 py-2 text-sm font-medium text-white shadow-lg dark:bg-zinc-100/90 dark:text-zinc-900">
-            {BINOKEL_TEXTS.trickComplete} - {BINOKEL_TEXTS.continueTrick}
-          </span>
-        </button>
-      )}
-
-      {/* The melds stay until the player taps anywhere to move to trick play. */}
-      {meldingReview && (
-        <button
-          type="button"
-          onClick={() => game.declare("normal")}
-          aria-label={BINOKEL_TEXTS.toTricks}
-          className="fixed inset-0 z-40 flex cursor-pointer items-end justify-center pb-10"
-        >
-          <span className="rounded-full bg-zinc-900/90 px-5 py-2 text-sm font-medium text-white shadow-lg dark:bg-zinc-100/90 dark:text-zinc-900">
-            {BINOKEL_TEXTS.toTricks}
-          </span>
-        </button>
-      )}
-    </div>
+    </BinokelNamingProvider>
   );
 }
 
@@ -200,23 +218,26 @@ function BiddingPanel({
   game: ReturnType<typeof useBinokelGame>;
 }): ReactElement {
   const { state } = game;
+  const naming = useBinokelNaming();
   const humanTurn = state.currentPlayerIndex === 0 && state.players[0].bidding;
   const meld = meldRange(state.players[0].hand, state.withSevens);
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold">{BINOKEL_TEXTS.bidding}</h2>
+      <h2 className="text-sm font-semibold">{naming.bidName}</h2>
       <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
         {BINOKEL_TEXTS.meldEstimate(meld.min, meld.max)}
       </p>
       {humanTurn ? (
         <div className="flex items-center gap-2">
-          <span className="text-sm">{BINOKEL_TEXTS.yourBidTurn}</span>
+          <span className="text-sm">
+            {BINOKEL_TEXTS.yourBidTurn(naming.bidName)}
+          </span>
           <button
             type="button"
             onClick={game.bid}
             className="cursor-pointer rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
           >
-            {BINOKEL_TEXTS.reizen(nextBidValue(state))}
+            {BINOKEL_TEXTS.reizen(naming.bidName, nextBidValue(state))}
           </button>
           <button
             type="button"
@@ -364,9 +385,13 @@ function MatchEndPanel({
 function HumanHand({
   game,
   suitOrder,
+  rankOrder,
+  discardMode,
 }: {
   game: ReturnType<typeof useBinokelGame>;
   suitOrder: readonly Suit[];
+  rankOrder: RankOrder;
+  discardMode: DiscardMode;
 }): ReactElement {
   const { state } = game;
 
@@ -385,12 +410,14 @@ function HumanHand({
         takenDabb={state.takenDabb}
         withSevens={state.withSevens}
         suitOrder={suitOrder}
+        rankOrder={rankOrder}
+        mode={discardMode}
         onConfirm={game.confirmDiscard}
       />
     );
   }
 
-  const hand = sortHand(state.players[0].hand, suitOrder);
+  const hand = sortHand(state.players[0].hand, suitOrder, rankOrder);
   const isPlay = state.phase === "trick" && state.currentPlayerIndex === 0;
 
   // While the melds are shown, mark the hand cards that make up a meld.

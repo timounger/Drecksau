@@ -10,6 +10,9 @@ import { TILE, type GameState, type Tank, type TankKind } from "./types";
 /** Lives the player starts a mission with. */
 export const LIVES_START = 3;
 
+/** A bonus life is granted on reaching every this-many-th level (5, 10, ...). */
+export const LEVELS_PER_BONUS = 5;
+
 /** Playable width of every field, in cells - a fixed size, as in Wii Play. */
 export const FIELD_COLS = 22;
 
@@ -32,6 +35,11 @@ const SPAWN_KIND: Readonly<Record<string, TankKind>> = {
   B: "brown",
   G: "grey",
   T: "teal",
+  U: "teal", // the turquoise "blue" enemy
+  N: "green",
+  Y: "yellow",
+  L: "purple",
+  I: "invisible",
 };
 
 /**
@@ -40,8 +48,8 @@ const SPAWN_KIND: Readonly<Record<string, TankKind>> = {
  * @param seed - the seed for the enemies' random behaviour
  * @returns the initial state, ready to play
  */
-export function createGame(seed: number): GameState {
-  return loadLevel(0, LIVES_START, createRandom(seed));
+export function createGame(seed: number, players = 1): GameState {
+  return loadLevel(0, LIVES_START, createRandom(seed), players);
 }
 
 /**
@@ -50,21 +58,24 @@ export function createGame(seed: number): GameState {
  * @param level - the level index into {@link LEVELS}
  * @param lives - how many lives the player has left
  * @param random - the generator to carry on with
+ * @param players - how many human tanks (2 for co-op adds "player2" beside "player")
  * @returns a fresh "playing" state for that level
  */
 export function loadLevel(
   level: number,
   lives: number,
   random: RandomState,
+  players = 1,
 ): GameState {
   const parsed = parseLevel(LEVELS[level]);
-  return {
+  const tanks = [...parsed.tanks];
+  const state: GameState = {
     cols: parsed.cols,
     rows: parsed.rows,
     walls: parsed.walls,
     breakable: parsed.breakable,
     holes: parsed.holes,
-    tanks: parsed.tanks,
+    tanks,
     bullets: [],
     mines: [],
     explosions: [],
@@ -77,6 +88,75 @@ export function loadLevel(
     random,
     nextId: 0,
   };
+  // Co-op: the second player spawns on a free cell right beside the first.
+  const first =
+    players >= 2 ? tanks.find((tank) => tank.id === "player") : null;
+  if (first !== null && first !== undefined) {
+    const spot = freeCellNear(state, first.x, first.y);
+    tanks.push({ ...first, id: "player2", x: spot.x, y: spot.y });
+  }
+  return state;
+}
+
+/** The four sides then the diagonals, for finding a free cell nearby. */
+const NEIGHBOUR_OFFSETS: readonly (readonly [number, number])[] = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [1, 1],
+  [-1, 1],
+  [1, -1],
+  [-1, -1],
+];
+
+/** The grid parts needed to find a free (drivable) cell. */
+type CellGrid = Pick<GameState, "cols" | "rows" | "walls" | "holes">;
+
+/** Whether the point (px, py) is a drivable cell (no wall, no hole, on-grid). */
+export function isFreePoint(grid: CellGrid, px: number, py: number): boolean {
+  const col = Math.floor(px / TILE);
+  const row = Math.floor(py / TILE);
+  const inside = col >= 0 && col < grid.cols && row >= 0 && row < grid.rows;
+  const index = row * grid.cols + col;
+  return inside && !grid.walls[index] && !grid.holes[index];
+}
+
+/** A free cell centre next to (x, y), or (x, y) itself if none is free. */
+export function freeCellNear(
+  grid: CellGrid,
+  x: number,
+  y: number,
+): { readonly x: number; readonly y: number } {
+  let spot = { x, y };
+  for (const [dx, dy] of NEIGHBOUR_OFFSETS) {
+    const px = x + dx * TILE;
+    const py = y + dy * TILE;
+    if (isFreePoint(grid, px, py)) {
+      spot = { x: px, y: py };
+      break;
+    }
+  }
+  return spot;
+}
+
+/** The first free cell centre, scanning the interior top-left to bottom-right. */
+export function firstFreeCell(grid: CellGrid): {
+  readonly x: number;
+  readonly y: number;
+} {
+  let spot = { x: TILE + TILE / 2, y: TILE + TILE / 2 };
+  let done = false;
+  for (let row = 1; row < grid.rows - 1 && !done; row++) {
+    for (let col = 1; col < grid.cols - 1 && !done; col++) {
+      const index = row * grid.cols + col;
+      if (!grid.walls[index] && !grid.holes[index]) {
+        spot = { x: col * TILE + TILE / 2, y: row * TILE + TILE / 2 };
+        done = true;
+      }
+    }
+  }
+  return spot;
 }
 
 /** Pixel width of the arena for a state. */

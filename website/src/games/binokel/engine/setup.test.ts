@@ -46,7 +46,8 @@ describe("createGame", () => {
       dealerIndex: 0,
     });
     expect(state.phase).toBe("bidding");
-    expect(state.currentPlayerIndex).toBe(1);
+    // The forehand (player 1) holds the deal; player 2 challenges first.
+    expect(state.currentPlayerIndex).toBe(2);
   });
 
   it("varies the opening bidder across seeds", () => {
@@ -70,7 +71,8 @@ describe("createGame", () => {
         targetScore: 1000,
         dealerIndex: dealer,
       });
-      expect(state.currentPlayerIndex).toBe((dealer + 1) % SETUPS.length);
+      // The first challenger is the player after the forehand (dealer + 2).
+      expect(state.currentPlayerIndex).toBe((dealer + 2) % SETUPS.length);
     }
   });
 

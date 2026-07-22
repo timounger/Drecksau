@@ -9,6 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { SUIT_IMAGES } from "@/games/binokel/assets/suit-images";
+import { SUITS } from "@/games/binokel/engine/cards";
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -18,14 +19,23 @@ import { DIFFICULTIES } from "@/games/binokel/engine/difficulty";
 import {
   BINOKEL_TEXTS,
   DIFFICULTY_LABELS,
-  SUIT_LABELS,
 } from "@/games/binokel/i18n/binokel-texts";
+import {
+  ACE_NAME_OPTIONS,
+  BID_NAME_OPTIONS,
+  DIX_NAME_OPTIONS,
+  SUIT_NAME_OPTIONS,
+} from "@/games/binokel/i18n/naming";
 import {
   getBinokelSettingsSnapshot,
   getServerBinokelSettingsSnapshot,
   subscribeBinokelSettings,
   updateBinokelSettings,
 } from "@/games/binokel/settings/binokel-settings-store";
+import {
+  DISCARD_MODES,
+  RANK_ORDERS,
+} from "@/games/binokel/settings/binokel-settings";
 
 /** The supported table sizes, e.g. [3, 4, 5, 6]. */
 const PLAYER_COUNTS = Array.from(
@@ -140,6 +150,35 @@ export function BinokelSettingsView(): ReactElement {
             className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-emerald-500"
           />
         </label>
+
+        <label className="mt-4 flex cursor-pointer flex-col gap-1 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <span className="font-semibold">
+            {BINOKEL_TEXTS.discardModeTitle}
+          </span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            {BINOKEL_TEXTS.discardModeHint}
+          </span>
+          <select
+            data-testid="select-discard-mode"
+            value={settings.discardMode}
+            onChange={(event) =>
+              updateBinokelSettings({
+                ...settings,
+                discardMode: event.target
+                  .value as (typeof DISCARD_MODES)[number],
+              })
+            }
+            className="mt-1 w-72 cursor-pointer rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            {DISCARD_MODES.map((discardMode) => (
+              <option key={discardMode} value={discardMode}>
+                {discardMode === "swap"
+                  ? BINOKEL_TEXTS.discardModeSwap
+                  : BINOKEL_TEXTS.discardModeMark}
+              </option>
+            ))}
+          </select>
+        </label>
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
@@ -219,7 +258,7 @@ export function BinokelSettingsView(): ReactElement {
                 />
               </span>
               <span className="flex-1 text-sm font-medium">
-                {SUIT_LABELS[suit]}
+                {settings.suitNames[suit]}
               </span>
               <button
                 type="button"
@@ -244,7 +283,133 @@ export function BinokelSettingsView(): ReactElement {
             </li>
           ))}
         </ol>
+
+        <label className="mt-4 flex cursor-pointer flex-col gap-1 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <span className="font-semibold">{BINOKEL_TEXTS.rankOrderTitle}</span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            {BINOKEL_TEXTS.rankOrderHint}
+          </span>
+          <select
+            data-testid="select-rank-order"
+            value={settings.rankOrder}
+            onChange={(event) =>
+              updateBinokelSettings({
+                ...settings,
+                rankOrder: event.target.value as (typeof RANK_ORDERS)[number],
+              })
+            }
+            className="mt-1 w-56 cursor-pointer rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            {RANK_ORDERS.map((order) => (
+              <option key={order} value={order}>
+                {order === "aceToSeven"
+                  ? BINOKEL_TEXTS.rankAceFirst(settings.aceName)
+                  : BINOKEL_TEXTS.rankSevenFirst(settings.aceName)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+        <h2 className="font-semibold">{BINOKEL_TEXTS.namingTitle}</h2>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          {BINOKEL_TEXTS.namingHint}
+        </p>
+        <div className="mt-3 flex flex-col gap-3">
+          <NameChoice
+            label={BINOKEL_TEXTS.namingDix}
+            testId="select-name-dix"
+            value={settings.dixName}
+            options={DIX_NAME_OPTIONS}
+            onChange={(name) =>
+              updateBinokelSettings({ ...settings, dixName: name })
+            }
+          />
+          <NameChoice
+            label={BINOKEL_TEXTS.namingAce}
+            testId="select-name-ace"
+            value={settings.aceName}
+            options={ACE_NAME_OPTIONS}
+            onChange={(name) =>
+              updateBinokelSettings({ ...settings, aceName: name })
+            }
+          />
+          <NameChoice
+            label={BINOKEL_TEXTS.namingBid}
+            testId="select-name-bid"
+            value={settings.bidName}
+            options={BID_NAME_OPTIONS}
+            onChange={(name) =>
+              updateBinokelSettings({ ...settings, bidName: name })
+            }
+          />
+          {SUITS.map((suit) => (
+            <NameChoice
+              key={suit}
+              testId={`select-name-${suit}`}
+              value={settings.suitNames[suit]}
+              options={SUIT_NAME_OPTIONS[suit]}
+              image={SUIT_IMAGES[suit]}
+              onChange={(name) =>
+                updateBinokelSettings({
+                  ...settings,
+                  suitNames: { ...settings.suitNames, [suit]: name },
+                })
+              }
+            />
+          ))}
+        </div>
       </section>
     </div>
+  );
+}
+
+/** One labelled dropdown for choosing a suit/card name. */
+function NameChoice({
+  label,
+  image,
+  testId,
+  value,
+  options,
+  onChange,
+}: {
+  readonly label?: string;
+  readonly image?: (typeof SUIT_IMAGES)[keyof typeof SUIT_IMAGES];
+  readonly testId: string;
+  readonly value: string;
+  readonly options: readonly string[];
+  readonly onChange: (name: string) => void;
+}): ReactElement {
+  return (
+    <label className="flex items-center justify-between gap-3">
+      <span className="flex items-center gap-2">
+        {image !== undefined && (
+          <span className="relative block h-6 w-6 shrink-0 overflow-hidden rounded">
+            <Image
+              src={image}
+              alt=""
+              fill
+              sizes="24px"
+              className="object-contain"
+            />
+          </span>
+        )}
+        <span className="text-sm font-medium">{label ?? value}</span>
+      </span>
+      <select
+        data-testid={testId}
+        value={value}
+        aria-label={label ?? value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-40 cursor-pointer rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

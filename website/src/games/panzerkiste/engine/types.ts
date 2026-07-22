@@ -17,7 +17,15 @@ export type Vec = {
 };
 
 /** Which sort of tank this is - the human or one of the enemy types. */
-export type TankKind = "player" | "brown" | "grey" | "teal";
+export type TankKind =
+  | "player"
+  | "brown"
+  | "grey"
+  | "teal"
+  | "green"
+  | "yellow"
+  | "purple"
+  | "invisible";
 
 /** How far the simulation has got. */
 export type Phase = "playing" | "cleared" | "won" | "lost";
@@ -148,6 +156,9 @@ export const BULLET_RADIUS = 4;
 /** Shell speed in pixels per second. */
 export const BULLET_SPEED = 250;
 
+/** Rocket speed in pixels per second - faster than an ordinary shell. */
+export const ROCKET_SPEED = 360;
+
 /** How many times a shell bounces off walls before it dies. */
 export const BULLET_BOUNCES = 1;
 
@@ -190,16 +201,103 @@ export type EnemyTraits = {
   readonly bounces: number;
   /** How accurately it tracks the player, 0..1 (1 = dead on). */
   readonly aim: number;
+  /** Whether it drops mines as it roams. */
+  readonly laysMines: boolean;
+  /** Speed of the shells it fires, in pixels per second. */
+  readonly bulletSpeed: number;
+  /** Whether it aims bank shots off walls to reach the player around cover. */
+  readonly banks: boolean;
 };
+
+/** How many mines an enemy that lays them keeps out at once. */
+export const ENEMY_MAX_MINES = 2;
+
+/** A mine-laying enemy's chance per second of dropping one while roaming. */
+export const ENEMY_MINE_RATE = 0.5;
 
 /** Per enemy type: how it drives and shoots. */
 export const ENEMY_TRAITS: Readonly<
   Record<Exclude<TankKind, "player">, EnemyTraits>
 > = {
   // Brown: a stationary turret that fires slow, straight shots.
-  brown: { speed: 0, reload: 1.6, maxBullets: 1, bounces: 1, aim: 0.75 },
+  brown: {
+    speed: 0,
+    reload: 1.6,
+    maxBullets: 1,
+    bounces: 1,
+    aim: 0.75,
+    laysMines: false,
+    bulletSpeed: BULLET_SPEED,
+    banks: false,
+  },
   // Grey: roams slowly and takes aimed shots.
-  grey: { speed: 62, reload: 1.3, maxBullets: 1, bounces: 1, aim: 0.85 },
-  // Teal: quicker, keeps two ricocheting shells in the air.
-  teal: { speed: 104, reload: 1.0, maxBullets: 2, bounces: 1, aim: 0.95 },
+  grey: {
+    speed: 62,
+    reload: 1.3,
+    maxBullets: 1,
+    bounces: 1,
+    aim: 0.85,
+    laysMines: false,
+    bulletSpeed: BULLET_SPEED,
+    banks: false,
+  },
+  // Teal (the turquoise "blue" enemy): roams and fires fast rockets that do NOT
+  // ricochet - they fly straight and die on the first wall.
+  teal: {
+    speed: 100,
+    reload: 1.1,
+    maxBullets: 2,
+    bounces: 0,
+    aim: 0.9,
+    laysMines: false,
+    bulletSpeed: ROCKET_SPEED,
+    banks: false,
+  },
+  // Green: a stationary sharpshooter; fires fast rockets that ricochet twice and
+  // it aims bank shots off walls to reach the player after one or two bounces.
+  green: {
+    speed: 0,
+    reload: 1.2,
+    maxBullets: 2,
+    bounces: 2,
+    aim: 0.92,
+    laysMines: false,
+    bulletSpeed: ROCKET_SPEED,
+    banks: true,
+  },
+  // Yellow: fast, presses forward, fires quickly and lays mines as it roams.
+  yellow: {
+    speed: 130,
+    reload: 1.0,
+    maxBullets: 2,
+    bounces: 1,
+    aim: 0.9,
+    laysMines: true,
+    bulletSpeed: BULLET_SPEED,
+    banks: false,
+  },
+  // Purple: fast and relentless; fires twice as fast as a normal tank, with
+  // ricocheting shells (a few in the air at once so the fast rate shows).
+  purple: {
+    speed: 135,
+    reload: 0.5,
+    maxBullets: 3,
+    bounces: 2,
+    aim: 0.95,
+    laysMines: false,
+    bulletSpeed: BULLET_SPEED,
+    banks: false,
+  },
+  // Invisible: white for a moment at the start, then unseen; roams, lays mines
+  // and fires ordinary shells (its trail, mines and shots give it away).
+  invisible: {
+    speed: 70,
+    reload: 1.2,
+    maxBullets: 1,
+    bounces: 1,
+    aim: 0.85,
+    laysMines: true,
+    bulletSpeed: BULLET_SPEED,
+    banks: false,
+  },
 };

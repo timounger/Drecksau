@@ -158,7 +158,8 @@ export function createGame(
     phase: "bidding",
     dabb,
     takenDabb: [],
-    currentPlayerIndex: forehand,
+    // The forehand holds the deal; the next player is the first to challenge.
+    currentPlayerIndex: (forehand + 1) % setups.length,
     highestBid: 0,
     declarerIndex: null,
     trump: null,

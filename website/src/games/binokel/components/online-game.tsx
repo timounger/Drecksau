@@ -14,6 +14,10 @@ import {
   saveBinokelHostSettings,
 } from "@/games/binokel/settings/online-host-settings";
 import {
+  loadPlayerName,
+  savePlayerName,
+} from "@/games/binokel/settings/player-name";
+import {
   generateRoomCode,
   isValidRoomCode,
   normalizeRoomCode,
@@ -132,8 +136,8 @@ function OnlineEntry({ onStart }: OnlineEntryProps): ReactElement {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
 
-  // Prefill the code from an invite link, only in the browser so the
-  // prerendered HTML stays stable.
+  // Prefill the code from an invite link and the name from last time, only in
+  // the browser so the prerendered HTML stays stable.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const invited = params.get(ROOM_QUERY_PARAM);
@@ -141,7 +145,17 @@ function OnlineEntry({ onStart }: OnlineEntryProps): ReactElement {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time prefill
       setCode(normalizeRoomCode(invited));
     }
+    const saved = loadPlayerName();
+    if (saved !== "") {
+      setName(saved);
+    }
   }, []);
+
+  // Keep the entered name for next time (always the last one chosen).
+  const changeName = (value: string) => {
+    setName(value);
+    savePlayerName(value);
+  };
 
   const host = () => onStart({ mode: "host", code: generateRoomCode(), name });
   const join = () => {
@@ -158,7 +172,7 @@ function OnlineEntry({ onStart }: OnlineEntryProps): ReactElement {
         <input
           type="text"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => changeName(event.target.value)}
           placeholder={BINOKEL_ONLINE_TEXTS.yourNamePlaceholder}
           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />

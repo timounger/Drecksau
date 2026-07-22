@@ -167,7 +167,8 @@ describe("conceding and Durch", () => {
 });
 
 describe("bidding", () => {
-  // Fix the dealer to 0, so the forehand (first bidder) is player 1.
+  // Fix the dealer to 0: the forehand (player 1) holds the deal, player 2 is
+  // the first challenger, and the auction is a duel between two players.
   const game = () =>
     createGame(SETUPS, {
       seed: 5,
@@ -178,32 +179,61 @@ describe("bidding", () => {
   const pass = { kind: "pass" } as const;
   const bid = { kind: "bid" } as const;
 
-  it("gives the human a turn instead of declaring them when the AIs pass", () => {
-    // Player 1 (forehand) then player 2 pass; player 0 (human) never passed.
-    let state = applyBid(game(), pass);
-    state = applyBid(state, pass);
-    // The human is not auto-declared - it becomes their turn to bid or pass.
+  it("passes the challenge on to the next player when a challenger drops", () => {
+    // Player 2 (first challenger) passes; the forehand still holds the deal, so
+    // player 0 (the human) becomes the next challenger - not auto-declared.
+    const state = applyBid(game(), pass);
     expect(state.phase).toBe("bidding");
     expect(state.currentPlayerIndex).toBe(0);
     expect(state.declarerIndex).toBeNull();
   });
 
-  it("forces the forehand, not the last survivor, when everyone passes", () => {
-    let state = applyBid(game(), pass); // player 1 passes
-    state = applyBid(state, pass); // player 2 passes -> human's turn
-    state = applyBid(state, pass); // human passes too -> nobody wanted it
+  it("forces the forehand, not a challenger, when every challenger passes", () => {
+    let state = applyBid(game(), pass); // player 2 passes -> human's turn
+    state = applyBid(state, pass); // human passes too -> only the forehand left
     expect(state.phase).toBe("exchange");
-    // The forehand (player 1) is forced, not the human (player 0).
+    // The forehand (player 1) is forced at the minimum, not a challenger.
     expect(state.declarerIndex).toBe(1);
     expect(state.highestBid).toBe(150);
   });
 
-  it("lets the human take the game by bidding when it is their turn", () => {
-    let state = applyBid(game(), pass); // player 1 passes
-    state = applyBid(state, pass); // player 2 passes -> human's turn
-    state = applyBid(state, bid); // human bids
+  it("makes the holder answer a raise, then declares the survivor", () => {
+    let state = applyBid(game(), pass); // player 2 passes -> human's turn
+    state = applyBid(state, bid); // human (0) bids 150 -> forehand must answer
+    expect(state.phase).toBe("bidding");
+    expect(state.currentPlayerIndex).toBe(1); // the forehand it topped
+    state = applyBid(state, pass); // the forehand drops -> the human wins
     expect(state.phase).toBe("exchange");
     expect(state.declarerIndex).toBe(0);
+    expect(state.highestBid).toBe(150);
+  });
+
+  it("keeps two players duelling, then sends the winner on to the next", () => {
+    const seats: PlayerSetup[] = Array.from({ length: 4 }, (_, i) => ({
+      name: `P${i}`,
+      isHuman: i === 0,
+    }));
+    // Dealer 0 -> forehand 1 holds, player 2 challenges first.
+    let state = createGame(seats, {
+      seed: 3,
+      withSevens: true,
+      targetScore: 1000,
+      dealerIndex: 0,
+    });
+    expect(state.currentPlayerIndex).toBe(2);
+    state = applyBid(state, bid); // player 2 bids 150 -> forehand answers
+    expect(state.currentPlayerIndex).toBe(1);
+    state = applyBid(state, bid); // forehand raises to 160 -> back to player 2
+    expect(state.currentPlayerIndex).toBe(2); // still the same two duelling
+    state = applyBid(state, pass); // player 2 drops -> the forehand faces player 3
+    expect(state.phase).toBe("bidding");
+    expect(state.currentPlayerIndex).toBe(3);
+    state = applyBid(state, pass); // player 3 drops -> next challenger, player 0
+    expect(state.currentPlayerIndex).toBe(0);
+    state = applyBid(state, pass); // player 0 drops -> the forehand wins
+    expect(state.phase).toBe("exchange");
+    expect(state.declarerIndex).toBe(1);
+    expect(state.highestBid).toBe(160);
   });
 });
 

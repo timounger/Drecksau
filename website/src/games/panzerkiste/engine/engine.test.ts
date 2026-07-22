@@ -4,7 +4,7 @@
  * @module
  */
 import { describe, expect, it } from "vitest";
-import { enemiesLeft, playerTank, restart, step } from "./engine";
+import { advance, enemiesLeft, playerTank, restart, step } from "./engine";
 import { LEVELS } from "./levels";
 import { createRandom } from "./random";
 import {
@@ -320,6 +320,97 @@ describe("mines", () => {
   });
 });
 
+describe("yellow tank", () => {
+  it("lays mines as it roams", () => {
+    let game = openState({
+      random: createRandom(7),
+      tanks: [
+        {
+          id: "e0",
+          kind: "yellow",
+          x: TILE * 4.5,
+          y: TILE * 2.5,
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER, // never shoots, so it just roams
+          heading: 0,
+          headingUntil: 0,
+        },
+        {
+          id: "player",
+          kind: "player",
+          x: TILE * 1.5,
+          y: TILE * 1.5,
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER,
+          heading: 0,
+          headingUntil: 0,
+        },
+      ],
+    });
+    let sawMine = false;
+    for (let i = 0; i < 1500 && !sawMine; i++) {
+      game = step(game, IDLE, 0.02);
+      sawMine = game.mines.some((mine) => mine.ownerId === "e0");
+    }
+    expect(sawMine).toBe(true);
+  });
+});
+
+describe("green tank", () => {
+  it("banks a fast rocket around cover to reach the player", () => {
+    const cols = 9;
+    const walls: boolean[] = [];
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < cols; col++) {
+        walls.push(row === 0 || row === 4 || col === 0 || col === cols - 1);
+      }
+    }
+    walls[2 * cols + 4] = true; // a pillar straight between green and player
+
+    let game = openState({
+      walls,
+      tanks: [
+        {
+          id: "e0",
+          kind: "green",
+          x: TILE * 1.5,
+          y: TILE * 2.5,
+          turret: 0,
+          alive: true,
+          reloadUntil: 0,
+          heading: 0,
+          headingUntil: Number.MAX_SAFE_INTEGER,
+        },
+        {
+          id: "player",
+          kind: "player",
+          x: TILE * 7.5,
+          y: TILE * 2.5, // straight to the right, but the pillar blocks the line
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER,
+          heading: 0,
+          headingUntil: 0,
+        },
+      ],
+    });
+
+    let rocket: Bullet | undefined;
+    for (let i = 0; i < 5 && rocket === undefined; i++) {
+      game = step(game, IDLE, 0.02);
+      rocket = game.bullets.find((b) => b.ownerId === "e0");
+    }
+    expect(rocket).toBeDefined();
+    // A fast rocket with a two-bounce budget ...
+    expect(Math.hypot(rocket!.vx, rocket!.vy)).toBeGreaterThan(BULLET_SPEED);
+    expect(rocket!.bouncesLeft).toBe(2);
+    // ... aimed off the line to the player (a bank shot, not straight across).
+    expect(Math.abs(rocket!.vy)).toBeGreaterThan(1);
+  });
+});
+
 describe("destructible walls", () => {
   it("a mine blasts a breakable wall to floor but leaves solid walls", () => {
     const cols = 9;
@@ -537,6 +628,89 @@ describe("progression", () => {
     expect(fresh.level).toBe(0);
     expect(fresh.phase).toBe("playing");
     expect(fresh.lives).toBe(LIVES_START);
+  });
+
+  it("grants a bonus life on reaching every fifth level", () => {
+    // Clearing level 4 (index 3) advances to level 5 - a milestone: +1 life.
+    const clearedFour: GameState = {
+      ...loadLevel(3, 2, createRandom(1)),
+      phase: "cleared",
+    };
+    const toFive = advance(clearedFour);
+    expect(toFive.level).toBe(4);
+    expect(toFive.lives).toBe(3); // 2 carried over + 1 bonus
+
+    // Clearing level 5 (index 4) advances to level 6 - no bonus there.
+    const clearedFive: GameState = {
+      ...loadLevel(4, 2, createRandom(1)),
+      phase: "cleared",
+    };
+    expect(advance(clearedFive).lives).toBe(2);
+  });
+});
+
+describe("co-op", () => {
+  it("spawns a second player right beside the first", () => {
+    const game = createGame(7, 2);
+    const players = game.tanks.filter((tank) => tank.kind === "player");
+    expect(players).toHaveLength(2);
+    const p1 = players.find((tank) => tank.id === "player")!;
+    const p2 = players.find((tank) => tank.id === "player2")!;
+    expect(p2).toBeDefined();
+    expect(Math.hypot(p2.x - p1.x, p2.y - p1.y)).toBeLessThanOrEqual(
+      TILE * 1.5,
+    );
+  });
+
+  it("respawns a downed player for one shared life, level running on", () => {
+    const game = openState({
+      lives: 3,
+      tanks: [
+        idleEnemy("e0", TILE * 7, TILE * 3.5),
+        {
+          id: "player",
+          kind: "player",
+          x: TILE * 2,
+          y: TILE * 2,
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER,
+          heading: 0,
+          headingUntil: 0,
+        },
+        {
+          id: "player2",
+          kind: "player",
+          x: TILE * 3,
+          y: TILE * 2,
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER,
+          heading: 0,
+          headingUntil: 0,
+        },
+      ],
+      bullets: [
+        {
+          id: "b0",
+          x: TILE * 3,
+          y: TILE * 2, // right on player2
+          vx: 0,
+          vy: 0,
+          bouncesLeft: 1,
+          ownerId: "e0",
+          armed: true,
+        },
+      ],
+    });
+    const after = step(game, IDLE, 0.016);
+    expect(after.phase).toBe("playing"); // the level is not reset
+    expect(after.lives).toBe(2); // one shared life spent
+    const alive = after.tanks.filter(
+      (tank) => tank.kind === "player" && tank.alive,
+    );
+    expect(alive).toHaveLength(2); // player2 respawned beside player one
+    expect(enemiesLeft(after)).toBe(1); // enemies stay
   });
 });
 
