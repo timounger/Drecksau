@@ -140,25 +140,6 @@ export function freeCellNear(
   return spot;
 }
 
-/** The first free cell centre, scanning the interior top-left to bottom-right. */
-export function firstFreeCell(grid: CellGrid): {
-  readonly x: number;
-  readonly y: number;
-} {
-  let spot = { x: TILE + TILE / 2, y: TILE + TILE / 2 };
-  let done = false;
-  for (let row = 1; row < grid.rows - 1 && !done; row++) {
-    for (let col = 1; col < grid.cols - 1 && !done; col++) {
-      const index = row * grid.cols + col;
-      if (!grid.walls[index] && !grid.holes[index]) {
-        spot = { x: col * TILE + TILE / 2, y: row * TILE + TILE / 2 };
-        done = true;
-      }
-    }
-  }
-  return spot;
-}
-
 /** Pixel width of the arena for a state. */
 export function arenaWidth(state: GameState): number {
   return state.cols * TILE;

@@ -86,7 +86,7 @@ const T = {
   lives: "Leben",
   enemies: "Gegner",
   controlsHint:
-    "PC: Fahren mit WASD/Pfeilen · zielen und schießen mit der Maus · Leertaste legt eine Mine. Handy: links fahren, rechts zielen und halten zum Schießen, Knopf unten rechts legt eine Mine.",
+    "PC: Fahren mit WASD/Pfeilen · zielen und schießen mit der Maus · Leertaste legt eine Mine. Handy: links fahren, rechts tippen zum Zielen und Schießen, rechts gedrückt halten legt eine Mine.",
   levelCleared: "Level geschafft!",
   missionWon: "Alle Level geschafft!",
   gameOver: "Game Over",
@@ -285,7 +285,7 @@ function OnlineEntry({
         />
       </label>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+      <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
         <div>
           <h2 className="text-sm font-semibold">{T.autoTitle}</h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -296,7 +296,7 @@ function OnlineEntry({
           type="button"
           onClick={autoMatch}
           disabled={searching}
-          className="cursor-pointer rounded-lg bg-amber-600 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {searching ? T.searching : T.autoMatch}
         </button>
@@ -387,7 +387,7 @@ function OnlineLobby({
             type="button"
             disabled={!enough}
             onClick={online.start}
-            className="cursor-pointer rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {T.startGame}
           </button>
@@ -524,7 +524,7 @@ function SearchingLobby({
       <section className="flex flex-col items-center gap-3 rounded-2xl border border-zinc-200 p-6 text-center dark:border-zinc-800">
         <span
           aria-hidden
-          className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent"
+          className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent"
         />
         <h2 className="text-lg font-semibold">{T.searching}</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
@@ -540,7 +540,7 @@ function SearchingLobby({
             </li>
           ))}
         </ul>
-        <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
           {enough ? T.almostReady : T.waitingForPartner}
         </p>
       </section>
@@ -632,7 +632,7 @@ function BoardOverlay({
           <button
             type="button"
             onClick={online.newMission}
-            className="cursor-pointer rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold hover:bg-amber-700"
+            className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold hover:bg-emerald-700"
           >
             {T.newMission}
           </button>
@@ -653,8 +653,8 @@ function OnlineCountBadge({
     return null;
   }
   return (
-    <div className="flex items-center gap-2 self-start rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-      <span className="h-2 w-2 rounded-full bg-amber-500" />
+    <div className="flex items-center gap-2 self-start rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+      <span className="h-2 w-2 rounded-full bg-emerald-500" />
       {T.playersOnline(count)}
     </div>
   );

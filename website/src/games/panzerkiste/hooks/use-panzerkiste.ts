@@ -16,7 +16,6 @@ import {
   enemiesLeft,
   LEVEL_COUNT,
   minesLeft,
-  playerTank,
   restart,
   setLevel,
   step,
@@ -24,10 +23,13 @@ import {
 import { createGame } from "@/games/panzerkiste/engine/setup";
 import type { GameState, Input, Phase } from "@/games/panzerkiste/engine/types";
 import { draw } from "@/games/panzerkiste/components/render";
+import { createSmoke, stepSmoke } from "@/games/panzerkiste/components/smoke";
 import {
   createTouchControls,
   drawTouchControls,
 } from "@/games/panzerkiste/components/touch-controls";
+import { detectSounds } from "@/games/panzerkiste/audio/events";
+import { createSoundPlayer } from "@/games/panzerkiste/audio/sounds";
 import {
   canvasHeight,
   canvasWidth,
@@ -169,6 +171,7 @@ export function usePanzerkiste(): PanzerkisteGame {
       const axis = (positive: Set<string>, negative: Set<string>) =>
         (anyHeld(held, positive) ? 1 : 0) - (anyHeld(held, negative) ? 1 : 0);
       const finger = touch.sample();
+      const fireEdge = touch.consumeFire();
       const mineEdge = touch.consumeMine();
       let move = {
         x: axis(RIGHT_KEYS, LEFT_KEYS),
@@ -176,20 +179,24 @@ export function usePanzerkiste(): PanzerkisteGame {
       };
       let aim = mouse.current;
       if (finger.engaged) {
-        // On a phone the sticks replace keyboard and mouse; the turret aims a
-        // touch away from the tank, in the stick's direction.
+        // On a phone the left stick drives; a right tap aims and fires, a long
+        // press lays a mine.
         move = finger.move;
-        const own = playerTank(stateRef.current);
-        if (own !== null) {
-          aim = { x: own.x + finger.aimDir.x, y: own.y + finger.aimDir.y };
-        }
+        aim = finger.aim;
       }
-      const fire = firePending.current || finger.fire;
+      const fire = firePending.current || fireEdge;
       const layMine = minePending.current || mineEdge;
       firePending.current = false;
       minePending.current = false;
       return { move, aim, fire, layMine };
     };
+
+    // Sound effects, driven by comparing the state before and after each step.
+    const sound = createSoundPlayer();
+    let soundPrev: GameState | null = null;
+    let announcedStart = false;
+    // View-only dust/smoke trailing the shells.
+    const smoke = createSmoke();
 
     let raf = 0;
     let last = performance.now();
@@ -201,12 +208,28 @@ export function usePanzerkiste(): PanzerkisteGame {
       const playing =
         runningRef.current && stateRef.current.phase === "playing";
       if (playing) {
-        stateRef.current = step(stateRef.current, readInput(), dt);
+        if (!announcedStart) {
+          announcedStart = true;
+          sound.play("roundStart");
+        }
+        const input = readInput();
+        stateRef.current = step(stateRef.current, input, dt);
+        sound.setMoving(input.move.x !== 0 || input.move.y !== 0);
         syncHud();
+      } else {
+        sound.setMoving(false);
       }
+      // Compare frames for one-shot sounds (also catches an out-of-loop advance).
+      if (soundPrev !== null) {
+        for (const event of detectSounds(soundPrev, stateRef.current)) {
+          sound.play(event);
+        }
+      }
+      soundPrev = stateRef.current;
       // Show the blue aim cursor only while actually playing with the mouse in.
       const pointer = playing && mouseInside.current ? mouse.current : null;
-      draw(ctx, stateRef.current, pointer);
+      stepSmoke(smoke, stateRef.current.bullets, dt);
+      draw(ctx, stateRef.current, pointer, smoke);
       drawTouchControls(ctx, touch.sample());
       raf = window.requestAnimationFrame(frame);
     };
@@ -214,6 +237,7 @@ export function usePanzerkiste(): PanzerkisteGame {
 
     return () => {
       window.cancelAnimationFrame(raf);
+      sound.dispose();
       touch.dispose();
       canvas.removeEventListener("mousemove", aimAt);
       canvas.removeEventListener("mousedown", onDown);

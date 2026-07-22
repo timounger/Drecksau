@@ -54,6 +54,11 @@ export function DrecksauGame(): ReactElement {
     state.winnerId === null ? null : playerById(state, state.winnerId);
   const outcome: GameOutcome | null =
     winner === null ? null : winner.isHuman ? "won" : "lost";
+  // A game restored on load already showed its finale last time; skip replaying
+  // the big animation, but keep the result banner and board.
+  const overlayOutcome: GameOutcome | null = game.isRestoredResult
+    ? null
+    : outcome;
 
   // The table size comes from the running game, so a restored game keeps its
   // own player count instead of the last thing that was picked here.
@@ -62,7 +67,7 @@ export function DrecksauGame(): ReactElement {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-4">
       <ActionEffectOverlay effect={game.effect} />
-      <GameResultOverlay outcome={outcome} />
+      <GameResultOverlay outcome={overlayOutcome} />
 
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>

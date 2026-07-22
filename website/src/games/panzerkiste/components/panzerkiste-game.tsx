@@ -60,7 +60,7 @@ export function PanzerkisteGame(): ReactElement {
         <div className="flex items-center gap-2">
           <Link
             href="/panzerkiste/online"
-            className="rounded-lg border border-amber-500 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/40"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
           >
             {PANZERKISTE_TEXTS.online}
           </Link>

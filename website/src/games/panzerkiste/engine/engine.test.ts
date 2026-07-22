@@ -662,55 +662,30 @@ describe("co-op", () => {
     );
   });
 
-  it("respawns a downed player for one shared life, level running on", () => {
-    const game = openState({
-      lives: 3,
-      tanks: [
-        idleEnemy("e0", TILE * 7, TILE * 3.5),
-        {
-          id: "player",
-          kind: "player",
-          x: TILE * 2,
-          y: TILE * 2,
-          turret: 0,
-          alive: true,
-          reloadUntil: Number.MAX_SAFE_INTEGER,
-          heading: 0,
-          headingUntil: 0,
-        },
-        {
-          id: "player2",
-          kind: "player",
-          x: TILE * 3,
-          y: TILE * 2,
-          turret: 0,
-          alive: true,
-          reloadUntil: Number.MAX_SAFE_INTEGER,
-          heading: 0,
-          headingUntil: 0,
-        },
-      ],
-      bullets: [
-        {
-          id: "b0",
-          x: TILE * 3,
-          y: TILE * 2, // right on player2
-          vx: 0,
-          vy: 0,
-          bouncesLeft: 1,
-          ownerId: "e0",
-          armed: true,
-        },
-      ],
-    });
-    const after = step(game, IDLE, 0.016);
-    expect(after.phase).toBe("playing"); // the level is not reset
+  it("reloads the whole level with every enemy when a co-op player dies", () => {
+    // A level with several enemies, some already eliminated before the death.
+    const level = LEVELS.findIndex(
+      (_map, index) => enemiesLeft(loadLevel(index, 3, createRandom(1))) >= 3,
+    );
+    const fresh = loadLevel(level, 3, createRandom(1), 2);
+    const fullEnemies = enemiesLeft(fresh);
+    const p1 = fresh.tanks.find((tank) => tank.id === "player")!;
+    const p2 = fresh.tanks.find((tank) => tank.id === "player2")!;
+    const oneEnemy = fresh.tanks.find((tank) => tank.kind !== "player")!;
+    // Only one enemy left and player2 just went down.
+    const dying: GameState = {
+      ...fresh,
+      tanks: [p1, { ...p2, alive: false }, oneEnemy],
+    };
+
+    const after = step(dying, IDLE, 0.016);
+    expect(after.phase).toBe("playing"); // still playing, lives remain
     expect(after.lives).toBe(2); // one shared life spent
     const alive = after.tanks.filter(
       (tank) => tank.kind === "player" && tank.alive,
     );
-    expect(alive).toHaveLength(2); // player2 respawned beside player one
-    expect(enemiesLeft(after)).toBe(1); // enemies stay
+    expect(alive).toHaveLength(2); // both players back at the start
+    expect(enemiesLeft(after)).toBe(fullEnemies); // ALL enemies reloaded
   });
 });
 

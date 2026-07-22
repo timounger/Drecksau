@@ -27,6 +27,10 @@ import {
   project,
   WALL_HEIGHT,
 } from "@/games/panzerkiste/components/projection";
+import {
+  drawSmoke,
+  type SmokeField,
+} from "@/games/panzerkiste/components/smoke";
 
 /** How many directions the chassis can face: the sides plus the diagonals. */
 const CHASSIS_DIRECTIONS = 8;
@@ -156,12 +160,17 @@ export function draw(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   pointer: Pointer,
+  smoke: SmokeField | null = null,
 ): void {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   drawFloor(ctx, state);
   drawHoles(ctx, state);
   drawTrails(ctx, state);
   drawMarks(ctx, state);
+  // Dust/smoke lingers on the floor, under the raised shells and tanks.
+  if (smoke !== null) {
+    drawSmoke(ctx, smoke);
+  }
 
   // Everything raised off the floor is drawn back (small y) to front (large y).
   const items: Item[] = [];

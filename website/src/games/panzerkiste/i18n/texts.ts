@@ -19,7 +19,7 @@ export const PANZERKISTE_TEXTS = {
   shootKeys: "Schießen: Linksklick",
   mineKeys: "Mine legen: Leertaste",
   touchControls:
-    "Handy: links fahren, rechts zielen + halten zum Schießen, Knopf legt Mine",
+    "Handy: links fahren, rechts tippen = zielen + schießen, rechts gedrückt halten = Mine legen",
   // Buttons / overlays
   start: "Los geht's",
   startHint: "Klick auf das Feld, um zu starten.",

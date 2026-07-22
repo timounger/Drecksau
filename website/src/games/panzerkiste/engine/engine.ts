@@ -9,13 +9,7 @@
  * which is what makes the enemy behaviour testable without a browser.
  */
 import { LEVELS } from "./levels";
-import {
-  firstFreeCell,
-  freeCellNear,
-  LEVELS_PER_BONUS,
-  loadLevel,
-  LIVES_START,
-} from "./setup";
+import { LEVELS_PER_BONUS, loadLevel, LIVES_START } from "./setup";
 import { nextRandom, type RandomState } from "./random";
 import {
   BULLET_BOUNCES,
@@ -603,30 +597,38 @@ function advanceMines(
   };
 }
 
-/** Decides the phase after a step: respawn, loss, level cleared or win. */
+/**
+ * Decides the phase after a step: reload on a death, loss, level cleared or win.
+ *
+ * @remarks
+ * Any human death repeats the whole level, freshly dealt with every enemy back
+ * and the players at their start spots, and spends one life. In co-op that means
+ * a single downed player restarts the level for both; the two share one life
+ * pool. When the last life is gone the mission is lost.
+ */
 function resolve(draft: GameState): GameState {
   const players = draft.tanks.filter((tank) => tank.kind === "player");
   const enemies = draft.tanks.filter(
     (tank) => tank.kind !== "player" && tank.alive,
   ).length;
+  const anyDead = players.length === 0 || players.some((tank) => !tank.alive);
 
   let result: GameState;
-  if (players.length >= 2) {
-    result = resolveCoop(draft, enemies);
+  if (anyDead) {
+    const lives = draft.lives - 1;
+    result =
+      lives > 0
+        ? loadLevel(
+            draft.level,
+            lives,
+            draft.random,
+            Math.max(1, players.length),
+          )
+        : { ...draft, lives: 0, phase: "lost" };
+  } else if (enemies === 0) {
+    result = clearedOrWon(draft);
   } else {
-    const player = players[0];
-    const playerDead = player === undefined || !player.alive;
-    if (playerDead) {
-      const lives = draft.lives - 1;
-      result =
-        lives > 0
-          ? loadLevel(draft.level, lives, draft.random)
-          : { ...draft, lives: 0, phase: "lost" };
-    } else if (enemies === 0) {
-      result = clearedOrWon(draft);
-    } else {
-      result = draft;
-    }
+    result = draft;
   }
   return result;
 }
@@ -636,44 +638,6 @@ function clearedOrWon(draft: GameState): GameState {
   return draft.level + 1 < LEVELS.length
     ? { ...draft, phase: "cleared" }
     : { ...draft, phase: "won" };
-}
-
-/**
- * Co-op resolution: each downed player respawns beside a living partner and
- * spends one shared life; the level runs on. Out of lives ends the mission.
- */
-function resolveCoop(draft: GameState, enemies: number): GameState {
-  const partner = draft.tanks.find(
-    (tank) => tank.kind === "player" && tank.alive,
-  );
-  let lives = draft.lives;
-  let lost = false;
-  const tanks = draft.tanks.map((tank) => {
-    let next = tank;
-    if (tank.kind === "player" && !tank.alive) {
-      if (lives <= 0) {
-        lost = true;
-      } else {
-        lives -= 1;
-        const spot =
-          partner !== undefined
-            ? freeCellNear(draft, partner.x, partner.y)
-            : firstFreeCell(draft);
-        next = { ...tank, alive: true, x: spot.x, y: spot.y };
-      }
-    }
-    return next;
-  });
-
-  let result: GameState;
-  if (lost) {
-    result = { ...draft, lives: 0, phase: "lost" };
-  } else if (enemies === 0) {
-    result = clearedOrWon({ ...draft, tanks, lives });
-  } else {
-    result = { ...draft, tanks, lives };
-  }
-  return result;
 }
 
 /** Moves a shell one step, reflecting it off any wall it meets. */

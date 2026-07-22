@@ -28,17 +28,15 @@ import {
   step,
 } from "@/games/panzerkiste/engine/engine";
 import { createGame } from "@/games/panzerkiste/engine/setup";
-import type {
-  GameState,
-  Input,
-  Phase,
-  Tank,
-} from "@/games/panzerkiste/engine/types";
+import type { GameState, Input, Phase } from "@/games/panzerkiste/engine/types";
 import { draw } from "@/games/panzerkiste/components/render";
 import {
   createTouchControls,
   drawTouchControls,
 } from "@/games/panzerkiste/components/touch-controls";
+import { createSmoke, stepSmoke } from "@/games/panzerkiste/components/smoke";
+import { detectSounds } from "@/games/panzerkiste/audio/events";
+import { createSoundPlayer } from "@/games/panzerkiste/audio/sounds";
 import {
   canvasHeight,
   canvasWidth,
@@ -384,25 +382,12 @@ export function usePanzerkisteOnline(
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
 
-    // The tank this client drives: the host is player one, the guest player two.
-    const ownTank = (): Tank | null => {
-      if (roleRef.current === "host") {
-        const state = authRef.current;
-        return state === null
-          ? null
-          : (state.tanks.find((tank) => tank.id === "player") ?? null);
-      }
-      const snap = snapshotRef.current;
-      return snap === null
-        ? null
-        : (snap.tanks.find((tank) => tank.id === "player2") ?? null);
-    };
-
     const readInput = (): Input => {
       const held = keys.current;
       const axis = (positive: Set<string>, negative: Set<string>) =>
         (anyHeld(held, positive) ? 1 : 0) - (anyHeld(held, negative) ? 1 : 0);
       const finger = touch.sample();
+      const fireEdge = touch.consumeFire();
       const mineEdge = touch.consumeMine();
       let move = {
         x: axis(RIGHT_KEYS, LEFT_KEYS),
@@ -410,17 +395,47 @@ export function usePanzerkisteOnline(
       };
       let aim = mouse.current;
       if (finger.engaged) {
+        // The left stick drives; a right tap aims at that floor spot (the same
+        // world point for host and guest) and fires, a long press lays a mine.
         move = finger.move;
-        const own = ownTank();
-        if (own !== null) {
-          aim = { x: own.x + finger.aimDir.x, y: own.y + finger.aimDir.y };
-        }
+        aim = finger.aim;
       }
-      const fire = firePending.current || finger.fire;
+      const fire = firePending.current || fireEdge;
       const layMine = minePending.current || mineEdge;
       firePending.current = false;
       minePending.current = false;
       return { move, aim, fire, layMine };
+    };
+
+    // View-only dust/smoke trailing the shells.
+    const smoke = createSmoke();
+    // Sound effects, driven by comparing successive states this client sees.
+    const sound = createSoundPlayer();
+    let soundPrev: GameState | null = null;
+    let announcedStart = false;
+    const emitSounds = (cur: GameState, isPlaying: boolean): void => {
+      if (isPlaying && !announcedStart) {
+        announcedStart = true;
+        sound.play("roundStart");
+      }
+      if (soundPrev !== null) {
+        for (const event of detectSounds(soundPrev, cur)) {
+          sound.play(event);
+        }
+      }
+      soundPrev = cur;
+    };
+    // Whether this client is driving its own tank right now (own input only).
+    const moveNow = (): boolean => {
+      const held = keys.current;
+      const finger = touch.sample();
+      const kx =
+        (anyHeld(held, RIGHT_KEYS) ? 1 : 0) -
+        (anyHeld(held, LEFT_KEYS) ? 1 : 0);
+      const ky =
+        (anyHeld(held, DOWN_KEYS) ? 1 : 0) - (anyHeld(held, UP_KEYS) ? 1 : 0);
+      const move = finger.engaged ? finger.move : { x: kx, y: ky };
+      return move.x !== 0 || move.y !== 0;
     };
 
     let raf = 0;
@@ -442,9 +457,12 @@ export function usePanzerkisteOnline(
         const state = authRef.current;
         if (state !== null) {
           resizeTo(canvas, state);
-          draw(ctx, state, pointer);
+          stepSmoke(smoke, state.bullets, dt);
+          draw(ctx, state, pointer, smoke);
           drawTouchControls(ctx, touch.sample());
           syncHud(state);
+          emitSounds(state, roomPhaseRef.current === "playing");
+          sound.setMoving(state.phase === "playing" && moveNow());
         }
       } else {
         sinceInput += dt;
@@ -461,9 +479,12 @@ export function usePanzerkisteOnline(
         const state = guestState(snapshotRef.current, renderedRef);
         if (state !== null) {
           resizeTo(canvas, state);
-          draw(ctx, state, pointer);
+          stepSmoke(smoke, state.bullets, dt);
+          draw(ctx, state, pointer, smoke);
           drawTouchControls(ctx, touch.sample());
           syncHud(state);
+          emitSounds(state, state.phase === "playing");
+          sound.setMoving(state.phase === "playing" && moveNow());
         }
       }
       raf = window.requestAnimationFrame(frame);
@@ -490,6 +511,7 @@ export function usePanzerkisteOnline(
     raf = window.requestAnimationFrame(frame);
     return () => {
       window.cancelAnimationFrame(raf);
+      sound.dispose();
       touch.dispose();
       canvas.removeEventListener("mousemove", aimAt);
       canvas.removeEventListener("mousedown", onDown);

@@ -87,6 +87,8 @@ export type DrecksauGame = {
   readonly isHumanBlocked: boolean;
   /** The card effect currently being animated, or null. */
   readonly effect: CardEffect | null;
+  /** True if the finished game was restored on load (skip the end animation). */
+  readonly isRestoredResult: boolean;
   /** Picks a hand card - plays it at once if it needs no target. */
   readonly selectCard: (cardId: string) => void;
   /** Drops the current selection. */
@@ -123,6 +125,9 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
   );
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [effect, setEffect] = useState<CardEffect | null>(null);
+  // True when a finished game was restored on load, so the big end-of-game
+  // animation is not replayed for a result that already happened last time.
+  const [isRestoredResult, setIsRestoredResult] = useState(false);
 
   // Rises with every effect so the same card twice restarts the animation.
   const effectCounter = useRef(0);
@@ -205,6 +210,11 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
         };
         activeSince.current = saved.state.winnerId === null ? Date.now() : null;
         setState(saved.state);
+        // A restored, already-finished game shows its result banner and board,
+        // but must not replay the big end-of-game animation.
+        if (saved.state.winnerId !== null) {
+          setIsRestoredResult(true);
+        }
       }
     }
     // Runs once on mount; `state` is only read to seed a brand new session.
@@ -252,6 +262,8 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
     (count: number) => {
       setSelectedCardId(null);
       setEffect(null);
+      // A fresh game may end again; let its result animate.
+      setIsRestoredResult(false);
       // Read the settings here, not at render: a game keeps the deck and the
       // names it was dealt with, so changes only affect the next game.
       const settings = loadSettings();
@@ -398,6 +410,7 @@ export function useDrecksauGame(initialPlayerCount: number): DrecksauGame {
     targetPigIds,
     isHumanBlocked,
     effect,
+    isRestoredResult,
     selectCard,
     clearSelection,
     playAtPig,
