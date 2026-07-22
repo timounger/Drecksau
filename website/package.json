@@ -20,9 +20,9 @@
   },
   "dependencies": {
     "firebase": "^12.16.0",
-    "next": "16.2.10",
-    "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "next": "16.2.11",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -30,8 +30,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "prettier": "^3.9.5",
+    "eslint-config-next": "16.2.11",
+    "prettier": "^3.9.6",
     "tailwindcss": "^4",
     "typedoc": "^0.28.20",
     "typescript": "^5",
