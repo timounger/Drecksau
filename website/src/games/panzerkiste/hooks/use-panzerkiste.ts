@@ -20,7 +20,10 @@ import {
   setLevel,
   step,
 } from "@/games/panzerkiste/engine/engine";
-import { createGame } from "@/games/panzerkiste/engine/setup";
+import {
+  createGame,
+  totalEnemiesThroughLevel,
+} from "@/games/panzerkiste/engine/setup";
 import type { GameState, Input, Phase } from "@/games/panzerkiste/engine/types";
 import { draw } from "@/games/panzerkiste/components/render";
 import { createSmoke, stepSmoke } from "@/games/panzerkiste/components/smoke";
@@ -30,6 +33,10 @@ import {
 } from "@/games/panzerkiste/components/touch-controls";
 import { detectSounds } from "@/games/panzerkiste/audio/events";
 import { createSoundPlayer } from "@/games/panzerkiste/audio/sounds";
+import {
+  ROUND_BANNER_MS,
+  type Banner,
+} from "@/games/panzerkiste/components/round-banner";
 import {
   canvasHeight,
   canvasWidth,
@@ -58,6 +65,8 @@ export type PanzerkisteGame = {
   /** Attach to the game `<canvas>`. */
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
   readonly hud: Hud;
+  /** The banner to show over the field (round start or completion), or null. */
+  readonly banner: Banner | null;
   /** Begins or resumes the loop (e.g. from a start button). */
   readonly start: () => void;
   /** Moves on to the next level after one is cleared. */
@@ -98,6 +107,35 @@ export function usePanzerkiste(): PanzerkisteGame {
     hudOf(createGame(INITIAL_SEED), false),
   );
   const hudRef = useRef(hud);
+
+  // A short banner shown at each round start and mission completion; cleared on
+  // its own timer.
+  const [banner, setBanner] = useState<Banner | null>(null);
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const bannerId = useRef(0);
+  const flashBanner = useCallback((make: (id: number) => Banner) => {
+    bannerId.current += 1;
+    setBanner(make(bannerId.current));
+    clearTimeout(bannerTimer.current);
+    bannerTimer.current = setTimeout(() => setBanner(null), ROUND_BANNER_MS);
+  }, []);
+  const showStart = useCallback(
+    (state: GameState) =>
+      flashBanner((id) => ({
+        kind: "start",
+        mission: state.level + 1,
+        enemies: enemiesLeft(state),
+        lives: state.lives,
+        id,
+      })),
+    [flashBanner],
+  );
+  const showComplete = useCallback(
+    (total: number) => flashBanner((id) => ({ kind: "complete", total, id })),
+    [flashBanner],
+  );
 
   /** Mirrors the HUD into React state only when a shown value changes. */
   const syncHud = useCallback(() => {
@@ -211,6 +249,7 @@ export function usePanzerkiste(): PanzerkisteGame {
         if (!announcedStart) {
           announcedStart = true;
           sound.play("roundStart");
+          showStart(stateRef.current);
         }
         const input = readInput();
         stateRef.current = step(stateRef.current, input, dt);
@@ -221,8 +260,20 @@ export function usePanzerkiste(): PanzerkisteGame {
       }
       // Compare frames for one-shot sounds (also catches an out-of-loop advance).
       if (soundPrev !== null) {
-        for (const event of detectSounds(soundPrev, stateRef.current)) {
+        const cur = stateRef.current;
+        for (const event of detectSounds(soundPrev, cur)) {
           sound.play(event);
+        }
+        // Any fresh level (advance, respawn, restart) resets the clock: banner.
+        if (cur.time < soundPrev.time && cur.phase === "playing") {
+          showStart(cur);
+        }
+        // The last enemy just fell: the mission (level) is complete.
+        if (
+          soundPrev.phase === "playing" &&
+          (cur.phase === "cleared" || cur.phase === "won")
+        ) {
+          showComplete(totalEnemiesThroughLevel(cur.level));
         }
       }
       soundPrev = stateRef.current;
@@ -237,6 +288,7 @@ export function usePanzerkiste(): PanzerkisteGame {
 
     return () => {
       window.cancelAnimationFrame(raf);
+      clearTimeout(bannerTimer.current);
       sound.dispose();
       touch.dispose();
       canvas.removeEventListener("mousemove", aimAt);
@@ -246,7 +298,7 @@ export function usePanzerkiste(): PanzerkisteGame {
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [syncHud]);
+  }, [syncHud, showStart, showComplete]);
 
   const start = () => {
     runningRef.current = true;
@@ -274,6 +326,7 @@ export function usePanzerkiste(): PanzerkisteGame {
   return {
     canvasRef,
     hud,
+    banner,
     start,
     next,
     newMission: restartMission,

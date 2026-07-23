@@ -242,11 +242,12 @@ export const ENEMY_TRAITS: Readonly<
     banks: false,
   },
   // Teal (the turquoise "blue" enemy): roams and fires fast rockets that do NOT
-  // ricochet - they fly straight and die on the first wall.
+  // ricochet - they fly straight and die on the first wall. Rockets are strong,
+  // so it reloads slowly and keeps only one in the air at a time.
   teal: {
     speed: 100,
-    reload: 1.1,
-    maxBullets: 2,
+    reload: 2.2,
+    maxBullets: 1,
     bounces: 0,
     aim: 0.9,
     laysMines: false,
@@ -255,10 +256,12 @@ export const ENEMY_TRAITS: Readonly<
   },
   // Green: a stationary sharpshooter; fires fast rockets that ricochet twice and
   // it aims bank shots off walls to reach the player after one or two bounces.
+  // Its rockets are dangerous, so it fires them sparingly - a long reload and
+  // only one rocket in flight at a time.
   green: {
     speed: 0,
-    reload: 1.2,
-    maxBullets: 2,
+    reload: 2.4,
+    maxBullets: 1,
     bounces: 2,
     aim: 0.92,
     laysMines: false,

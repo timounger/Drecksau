@@ -13,6 +13,7 @@ import {
   FIELD_ROWS,
   LIVES_START,
   loadLevel,
+  totalEnemiesThroughLevel,
 } from "./setup";
 import {
   BULLET_SPEED,
@@ -106,6 +107,19 @@ describe("levels", () => {
       expect(game.walls[r * game.cols]).toBe(true);
       expect(game.walls[r * game.cols + game.cols - 1]).toBe(true);
     }
+  });
+});
+
+describe("totalEnemiesThroughLevel", () => {
+  it("is the running sum of every level's enemy count", () => {
+    let sum = 0;
+    for (let level = 0; level < LEVELS.length; level++) {
+      sum += enemiesLeft(loadLevel(level, 0, createRandom(1)));
+      expect(totalEnemiesThroughLevel(level)).toBe(sum);
+    }
+    // The last level's total is the grand total, and it only ever grows.
+    expect(totalEnemiesThroughLevel(LEVELS.length - 1)).toBe(sum);
+    expect(totalEnemiesThroughLevel(0)).toBeLessThanOrEqual(sum);
   });
 });
 
@@ -662,30 +676,74 @@ describe("co-op", () => {
     );
   });
 
-  it("reloads the whole level with every enemy when a co-op player dies", () => {
-    // A level with several enemies, some already eliminated before the death.
-    const level = LEVELS.findIndex(
-      (_map, index) => enemiesLeft(loadLevel(index, 3, createRandom(1))) >= 3,
+  it("plays on when one co-op player dies: no life lost, partner keeps going", () => {
+    const fresh = loadLevel(2, 3, createRandom(1), 2);
+    const enemiesBefore = enemiesLeft(fresh);
+    const p1 = fresh.tanks.find((tank) => tank.id === "player")!;
+    const p2 = fresh.tanks.find((tank) => tank.id === "player2")!;
+    const enemies = fresh.tanks.filter((tank) => tank.kind !== "player");
+    // player2 just went down; player one and the enemies are still there.
+    const dying: GameState = {
+      ...fresh,
+      tanks: [{ ...p2, alive: false }, p1, ...enemies],
+    };
+
+    const after = step(dying, IDLE, 0.016);
+    expect(after.phase).toBe("playing");
+    expect(after.lives).toBe(3); // no life lost for a single death
+    // The downed player stays down; the partner is still on the field.
+    const alive = after.tanks.filter(
+      (tank) => tank.kind === "player" && tank.alive,
     );
-    const fresh = loadLevel(level, 3, createRandom(1), 2);
+    expect(alive).toHaveLength(1);
+    expect(enemiesLeft(after)).toBe(enemiesBefore); // enemies stay
+  });
+
+  it("clears the level with one player down: next level, both back, no life lost", () => {
+    // On the last level a clear wins; here the second-to-last still advances.
+    const fresh = loadLevel(1, 3, createRandom(1), 2);
+    const p1 = fresh.tanks.find((tank) => tank.id === "player")!;
+    const p2 = fresh.tanks.find((tank) => tank.id === "player2")!;
+    // A shell about to take the last enemy while player2 is already down.
+    const enemy = fresh.tanks.find((tank) => tank.kind !== "player")!;
+    const cleared: GameState = {
+      ...fresh,
+      tanks: [{ ...p2, alive: false }, p1, { ...enemy, alive: false }],
+    };
+
+    const after = step(cleared, IDLE, 0.016);
+    expect(after.phase).toBe("cleared");
+    expect(after.lives).toBe(3); // clearing costs no life
+
+    const next = advance(after);
+    expect(next.level).toBe(fresh.level + 1);
+    expect(next.lives).toBe(3); // still no life lost
+    const backAlive = next.tanks.filter(
+      (tank) => tank.kind === "player" && tank.alive,
+    );
+    expect(backAlive).toHaveLength(2); // both players revived on the next level
+  });
+
+  it("spends one life and reloads with both back only when both are down", () => {
+    const fresh = loadLevel(2, 3, createRandom(1), 2);
     const fullEnemies = enemiesLeft(fresh);
     const p1 = fresh.tanks.find((tank) => tank.id === "player")!;
     const p2 = fresh.tanks.find((tank) => tank.id === "player2")!;
     const oneEnemy = fresh.tanks.find((tank) => tank.kind !== "player")!;
-    // Only one enemy left and player2 just went down.
-    const dying: GameState = {
+    // Both players are down (a wipe), one enemy left.
+    const wiped: GameState = {
       ...fresh,
-      tanks: [p1, { ...p2, alive: false }, oneEnemy],
+      tanks: [{ ...p1, alive: false }, { ...p2, alive: false }, oneEnemy],
     };
 
-    const after = step(dying, IDLE, 0.016);
-    expect(after.phase).toBe("playing"); // still playing, lives remain
+    const after = step(wiped, IDLE, 0.016);
+    expect(after.phase).toBe("playing");
     expect(after.lives).toBe(2); // one shared life spent
     const alive = after.tanks.filter(
       (tank) => tank.kind === "player" && tank.alive,
     );
-    expect(alive).toHaveLength(2); // both players back at the start
-    expect(enemiesLeft(after)).toBe(fullEnemies); // ALL enemies reloaded
+    expect(alive).toHaveLength(2); // both back at the start
+    expect(enemiesLeft(after)).toBe(fullEnemies); // level reloaded fresh
   });
 });
 

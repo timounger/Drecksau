@@ -67,6 +67,19 @@ describe("detectSounds", () => {
     expect(detectSounds(prev, next)).toContain("playerDown");
   });
 
+  it("reports a player down when a co-op teammate goes down, no life lost", () => {
+    const prev = loadLevel(2, 3, createRandom(1), 2);
+    const next = {
+      ...prev,
+      tanks: prev.tanks.map((tank) =>
+        tank.id === "player2" ? { ...tank, alive: false } : tank,
+      ),
+    };
+    const events = detectSounds(prev, next);
+    expect(events).toContain("playerDown");
+    expect(next.lives).toBe(prev.lives); // still, no life was lost
+  });
+
   it("reports a round start when a new level is loaded", () => {
     const prev = { ...base(), time: 12 };
     const next = { ...loadLevel(3, 3, createRandom(1)), time: 0 };

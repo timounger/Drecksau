@@ -10,7 +10,8 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactElement } from "react";
+import { useRef, type ReactElement } from "react";
+import { useFullscreen } from "@/games/panzerkiste/hooks/use-fullscreen";
 import {
   usePanzerkiste,
   type Hud,
@@ -25,6 +26,7 @@ import {
   LEVELS_PER_BONUS,
 } from "@/games/panzerkiste/engine/setup";
 import { PANZERKISTE_TEXTS } from "@/games/panzerkiste/i18n/texts";
+import { BannerView } from "@/games/panzerkiste/components/round-banner";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 
 /** Intrinsic canvas size of the tilted field (fixed, so it prerenders stable). */
@@ -40,6 +42,7 @@ export function PanzerkisteGame(): ReactElement {
   const {
     canvasRef,
     hud,
+    banner,
     start,
     next,
     newMission,
@@ -47,6 +50,9 @@ export function PanzerkisteGame(): ReactElement {
     levelForward,
     levelCount,
   } = usePanzerkiste();
+
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const fullscreen = useFullscreen(fieldRef);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-4">
@@ -58,6 +64,17 @@ export function PanzerkisteGame(): ReactElement {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {fullscreen.supported && (
+            <button
+              type="button"
+              onClick={fullscreen.toggle}
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              {fullscreen.active
+                ? PANZERKISTE_TEXTS.fullscreenExit
+                : PANZERKISTE_TEXTS.fullscreen}
+            </button>
+          )}
           <Link
             href="/panzerkiste/online"
             className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
@@ -98,7 +115,7 @@ export function PanzerkisteGame(): ReactElement {
         </div>
       </div>
 
-      <div className="relative">
+      <div ref={fieldRef} className="pk-fullscreen relative">
         <canvas
           ref={canvasRef}
           data-testid="panzerkiste-canvas"
@@ -112,6 +129,16 @@ export function PanzerkisteGame(): ReactElement {
           onNext={next}
           onRestart={newMission}
         />
+        <BannerView banner={banner} />
+        {fullscreen.active && (
+          <button
+            type="button"
+            onClick={fullscreen.toggle}
+            className="absolute top-3 right-3 z-50 cursor-pointer rounded-lg bg-black/60 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
+          >
+            {PANZERKISTE_TEXTS.fullscreenExit}
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-2xl border border-zinc-200 bg-white/60 px-4 py-3 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">

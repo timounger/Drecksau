@@ -601,36 +601,76 @@ function advanceMines(
  * Decides the phase after a step: reload on a death, loss, level cleared or win.
  *
  * @remarks
- * Any human death repeats the whole level, freshly dealt with every enemy back
- * and the players at their start spots, and spends one life. In co-op that means
- * a single downed player restarts the level for both; the two share one life
- * pool. When the last life is gone the mission is lost.
+ * Solo, any death repeats the whole level (every enemy back, the player at its
+ * start) and spends one life. In co-op a single downed player is not the end:
+ * the partner plays the level out. Clearing it moves both on to the next level,
+ * both revived, with no life lost; only a full wipe (both down at once) spends a
+ * life and repeats the level. When the last life is gone the mission is lost.
  */
 function resolve(draft: GameState): GameState {
   const players = draft.tanks.filter((tank) => tank.kind === "player");
   const enemies = draft.tanks.filter(
     (tank) => tank.kind !== "player" && tank.alive,
   ).length;
-  const anyDead = players.length === 0 || players.some((tank) => !tank.alive);
 
   let result: GameState;
-  if (anyDead) {
-    const lives = draft.lives - 1;
-    result =
-      lives > 0
-        ? loadLevel(
-            draft.level,
-            lives,
-            draft.random,
-            Math.max(1, players.length),
-          )
-        : { ...draft, lives: 0, phase: "lost" };
+  if (players.length >= 2) {
+    result = resolveCoop(draft, players, enemies);
+  } else {
+    const dead = players.length === 0 || !players[0].alive;
+    if (dead) {
+      result = reloadOrLose(draft, 1);
+    } else if (enemies === 0) {
+      result = clearedOrWon(draft);
+    } else {
+      result = draft;
+    }
+  }
+  return result;
+}
+
+/**
+ * Co-op resolution: the level runs on while at least one player is alive.
+ *
+ * @param draft - the state after this step
+ * @param players - the human tanks (some may be down)
+ * @param enemies - how many enemies are still alive
+ * @returns the next state
+ * @remarks
+ * A wipe (no player left alive) spends one shared life and repeats the level
+ * with both back; clearing it advances - {@link advance} reloads the next level
+ * with both players, so a downed partner returns without costing a life.
+ */
+function resolveCoop(
+  draft: GameState,
+  players: readonly Tank[],
+  enemies: number,
+): GameState {
+  const anyAlive = players.some((tank) => tank.alive);
+  let result: GameState;
+  if (!anyAlive) {
+    result = reloadOrLose(draft, players.length);
   } else if (enemies === 0) {
     result = clearedOrWon(draft);
   } else {
     result = draft;
   }
   return result;
+}
+
+/**
+ * Spends one life and repeats the level with every player and enemy back, or
+ * ends the mission if that was the last life.
+ *
+ * @param draft - the state after the fatal step
+ * @param playerCount - how many human tanks to deal back in
+ * @returns a fresh level with one fewer life, or a "lost" state
+ */
+function reloadOrLose(draft: GameState, playerCount: number): GameState {
+  const lives = draft.lives - 1;
+  return lives > 0
+    ? loadLevel(draft.level, lives, draft.random, Math.max(1, playerCount))
+    : { ...draft, lives: 0, phase: "lost" };
 }
 
 /** "cleared" if more levels remain, else "won". */

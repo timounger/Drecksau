@@ -64,6 +64,8 @@ export function BinokelGame(): ReactElement {
   // The melds stay on screen until the player taps to move on. The declarer
   // instead uses the Abgehen/Spielen choice in the melds panel.
   const meldingReview = state.phase === "melding" && state.declarerIndex !== 0;
+  // The round result stays up until the player taps to deal the next round.
+  const roundReview = state.phase === "roundEnd";
   const naming = {
     suitNames: settings.suitNames,
     dixName: settings.dixName,
@@ -164,6 +166,21 @@ export function BinokelGame(): ReactElement {
           >
             <span className="rounded-full bg-zinc-900/90 px-5 py-2 text-sm font-medium text-white shadow-lg dark:bg-zinc-100/90 dark:text-zinc-900">
               {BINOKEL_TEXTS.toTricks}
+            </span>
+          </button>
+        )}
+
+        {/* The round result stays until the player taps anywhere (or the pill)
+            to deal the next round - it no longer moves on by itself. */}
+        {roundReview && (
+          <button
+            type="button"
+            onClick={game.nextRound}
+            aria-label={BINOKEL_TEXTS.nextRound}
+            className="fixed inset-0 z-40 flex cursor-pointer items-end justify-center pb-10"
+          >
+            <span className="rounded-full bg-zinc-900/90 px-5 py-2 text-sm font-medium text-white shadow-lg dark:bg-zinc-100/90 dark:text-zinc-900">
+              {BINOKEL_TEXTS.roundResultTitle} - {BINOKEL_TEXTS.nextRound}
             </span>
           </button>
         )}
@@ -348,13 +365,6 @@ function RoundEndPanel({
         {BINOKEL_TEXTS.roundResultTitle}
       </h2>
       <RoundEndTable state={game.state} />
-      <button
-        type="button"
-        onClick={game.nextRound}
-        className="cursor-pointer self-start rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
-      >
-        {BINOKEL_TEXTS.nextRound}
-      </button>
     </div>
   );
 }

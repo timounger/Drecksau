@@ -27,7 +27,10 @@ import {
   restart,
   step,
 } from "@/games/panzerkiste/engine/engine";
-import { createGame } from "@/games/panzerkiste/engine/setup";
+import {
+  createGame,
+  totalEnemiesThroughLevel,
+} from "@/games/panzerkiste/engine/setup";
 import type { GameState, Input, Phase } from "@/games/panzerkiste/engine/types";
 import { draw } from "@/games/panzerkiste/components/render";
 import {
@@ -37,6 +40,10 @@ import {
 import { createSmoke, stepSmoke } from "@/games/panzerkiste/components/smoke";
 import { detectSounds } from "@/games/panzerkiste/audio/events";
 import { createSoundPlayer } from "@/games/panzerkiste/audio/sounds";
+import {
+  ROUND_BANNER_MS,
+  type Banner,
+} from "@/games/panzerkiste/components/round-banner";
 import {
   canvasHeight,
   canvasWidth,
@@ -65,8 +72,9 @@ const PUBLISH_INTERVAL = 0.05;
 /** How often the guest streams its input, in seconds (about 20 per second). */
 const INPUT_INTERVAL = 0.05;
 
-/** How long a cleared level stays on screen before the host moves on, seconds. */
-const CLEARED_PAUSE = 1.5;
+/** How long a cleared level stays on screen before the host moves on, seconds.
+ * Matches the completion banner so it can play out fully before the next level. */
+const CLEARED_PAUSE = 2;
 
 /** The two co-op seats: the host plus one guest. */
 const COOP_PLAYERS = 2;
@@ -110,6 +118,8 @@ export type PanzerkisteOnline = {
   /** The players present in the room, host first. */
   readonly seats: readonly Seat[];
   readonly hud: OnlineHud;
+  /** The banner to show over the field (round start or completion), or null. */
+  readonly banner: Banner | null;
   /** Attach to the game `<canvas>` while playing. */
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
   /** Host only: deal the first level and begin the mission. */
@@ -137,6 +147,7 @@ export function usePanzerkisteOnline(
   const [seats, setSeats] = useState<readonly Seat[]>([]);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [hud, setHud] = useState<OnlineHud>(EMPTY_HUD);
+  const [banner, setBanner] = useState<Banner | null>(null);
 
   // The networking and simulation live in refs so the tight loop never waits on
   // React and stale closures never read an old game state.
@@ -187,6 +198,34 @@ export function usePanzerkisteOnline(
       prev.some((m) => m.id === message.id) ? prev : [...prev, message],
     );
   }, []);
+
+  // A short banner shown at each round start and mission completion; cleared on
+  // its own timer.
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const bannerId = useRef(0);
+  const flashBanner = useCallback((make: (id: number) => Banner) => {
+    bannerId.current += 1;
+    setBanner(make(bannerId.current));
+    clearTimeout(bannerTimer.current);
+    bannerTimer.current = setTimeout(() => setBanner(null), ROUND_BANNER_MS);
+  }, []);
+  const showStart = useCallback(
+    (state: GameState) =>
+      flashBanner((id) => ({
+        kind: "start",
+        mission: state.level + 1,
+        enemies: enemiesLeft(state),
+        lives: state.lives,
+        id,
+      })),
+    [flashBanner],
+  );
+  const showComplete = useCallback(
+    (total: number) => flashBanner((id) => ({ kind: "complete", total, id })),
+    [flashBanner],
+  );
 
   /** Publishes the host's authoritative world as the newest room snapshot. */
   const publishNow = useCallback(() => {
@@ -417,10 +456,22 @@ export function usePanzerkisteOnline(
       if (isPlaying && !announcedStart) {
         announcedStart = true;
         sound.play("roundStart");
+        showStart(cur);
       }
       if (soundPrev !== null) {
         for (const event of detectSounds(soundPrev, cur)) {
           sound.play(event);
+        }
+        // A fresh level (advance, respawn, restart) resets the clock: banner.
+        if (cur.time < soundPrev.time && cur.phase === "playing") {
+          showStart(cur);
+        }
+        // The last enemy just fell: the mission (level) is complete.
+        if (
+          soundPrev.phase === "playing" &&
+          (cur.phase === "cleared" || cur.phase === "won")
+        ) {
+          showComplete(totalEnemiesThroughLevel(cur.level));
         }
       }
       soundPrev = cur;
@@ -511,6 +562,7 @@ export function usePanzerkisteOnline(
     raf = window.requestAnimationFrame(frame);
     return () => {
       window.cancelAnimationFrame(raf);
+      clearTimeout(bannerTimer.current);
       sound.dispose();
       touch.dispose();
       canvas.removeEventListener("mousemove", aimAt);
@@ -520,7 +572,7 @@ export function usePanzerkisteOnline(
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [playing, publishNow, syncHud]);
+  }, [playing, publishNow, syncHud, showStart, showComplete]);
 
   return {
     status,
@@ -528,6 +580,7 @@ export function usePanzerkisteOnline(
     isHost,
     seats,
     hud,
+    banner,
     canvasRef,
     start,
     newMission,

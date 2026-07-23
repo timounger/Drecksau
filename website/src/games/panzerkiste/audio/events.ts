@@ -44,10 +44,21 @@ export function detectSounds(prev: GameState, next: GameState): SoundEvent[] {
     }
   }
 
-  // A human died: a life was spent and the level did not change (respawn or the
-  // final loss both reload/keep the same level).
-  if (next.lives < prev.lives && next.level === prev.level) {
-    events.push("playerDown");
+  // A human died: on the same level, either a life was spent (solo death or a
+  // co-op wipe) or a player tank went from alive to down (a co-op teammate
+  // going down costs no life but still deserves the sound).
+  if (next.level === prev.level) {
+    const aliveNow = new Set(
+      next.tanks
+        .filter((tank) => tank.kind === "player" && tank.alive)
+        .map((tank) => tank.id),
+    );
+    const someoneDied = prev.tanks.some(
+      (tank) => tank.kind === "player" && tank.alive && !aliveNow.has(tank.id),
+    );
+    if (next.lives < prev.lives || someoneDied) {
+      events.push("playerDown");
+    }
   }
 
   // An enemy died: only when nothing reloaded in between (same level and lives).

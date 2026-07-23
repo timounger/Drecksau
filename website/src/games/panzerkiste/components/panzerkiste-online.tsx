@@ -39,6 +39,8 @@ import {
   savePlayerName,
 } from "@/games/panzerkiste/settings/player-name";
 import { PANZERKISTE_GAME_ID } from "@/games/panzerkiste/multiplayer/net";
+import { BannerView } from "@/games/panzerkiste/components/round-banner";
+import { useFullscreen } from "@/games/panzerkiste/hooks/use-fullscreen";
 import {
   usePanzerkisteOnline,
   type OnlineSession,
@@ -85,6 +87,8 @@ const T = {
   level: "Level",
   lives: "Leben",
   enemies: "Gegner",
+  fullscreen: "Vollbild",
+  fullscreenExit: "Vollbild verlassen",
   controlsHint:
     "PC: Fahren mit WASD/Pfeilen · zielen und schießen mit der Maus · Leertaste legt eine Mine. Handy: links fahren, rechts tippen zum Zielen und Schießen, rechts gedrückt halten legt eine Mine.",
   levelCleared: "Level geschafft!",
@@ -563,7 +567,9 @@ type PlayingAreaProps = {
 
 /** The running game: the canvas board, the HUD, chat and a leave button. */
 function PlayingArea({ online, onLeave }: PlayingAreaProps): ReactElement {
-  const { hud, canvasRef, messages, seatId, sendChat } = online;
+  const { hud, banner, canvasRef, messages, seatId, sendChat } = online;
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const fullscreen = useFullscreen(fieldRef);
 
   return (
     <div className="flex flex-col gap-3">
@@ -579,15 +585,36 @@ function PlayingArea({ online, onLeave }: PlayingAreaProps): ReactElement {
             {T.enemies}: {hud.enemies}
           </span>
         </div>
-        <LeaveButton onLeave={onLeave} />
+        <div className="flex items-center gap-2">
+          {fullscreen.supported && (
+            <button
+              type="button"
+              onClick={fullscreen.toggle}
+              className="cursor-pointer rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              {fullscreen.active ? T.fullscreenExit : T.fullscreen}
+            </button>
+          )}
+          <LeaveButton onLeave={onLeave} />
+        </div>
       </div>
 
-      <div className="relative w-full">
+      <div ref={fieldRef} className="pk-fullscreen relative w-full">
         <canvas
           ref={canvasRef}
           className="w-full touch-none rounded-xl border border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900"
         />
         <BoardOverlay online={online} />
+        <BannerView banner={banner} />
+        {fullscreen.active && (
+          <button
+            type="button"
+            onClick={fullscreen.toggle}
+            className="absolute top-3 right-3 z-50 cursor-pointer rounded-lg bg-black/60 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
+          >
+            {T.fullscreenExit}
+          </button>
+        )}
       </div>
 
       <p className="text-xs text-zinc-500 dark:text-zinc-400">

@@ -9,6 +9,7 @@
  * reads. Stored per browser under a Binokel-specific key so it never clashes
  * with another game's host settings.
  */
+import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/binokel/engine/setup";
 import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 
 /** Schema version of the stored host settings - raise it on breaking changes. */
@@ -20,6 +21,9 @@ const HOST_SETTINGS_KEY = storageKey("binokel", "online-host-settings");
 /** Default auto-play timeout, in milliseconds - a sensible 30 seconds. */
 const DEFAULT_AUTO_PLAY_MS = 30_000;
 
+/** Default wished table size for automatic matchmaking. */
+const DEFAULT_MATCH_COUNT = 4;
+
 /** The room creator's lobby choices. */
 export type BinokelHostSettings = {
   /** True for the 48-card deck (with sevens). */
@@ -30,6 +34,8 @@ export type BinokelHostSettings = {
   readonly teams: boolean;
   /** Auto-play timeout in milliseconds, or null for none. */
   readonly autoPlayMs: number | null;
+  /** Wished table size when searching a game automatically. */
+  readonly matchPlayerCount: number;
 };
 
 /** What a first-time host sees before they change anything. */
@@ -38,21 +44,40 @@ export const defaultBinokelHostSettings: BinokelHostSettings = {
   withDabb: true,
   teams: false,
   autoPlayMs: DEFAULT_AUTO_PLAY_MS,
+  matchPlayerCount: DEFAULT_MATCH_COUNT,
 };
 
 /**
  * Loads the host's last lobby settings.
  *
  * @returns the stored settings, or the defaults if none are usable
+ * @remarks
+ * The wished table size was added later, so older stored settings that lack it
+ * are filled in with the default rather than dropped.
  */
 export function loadBinokelHostSettings(): BinokelHostSettings {
-  return (
-    readStored(
-      HOST_SETTINGS_KEY,
-      HOST_SETTINGS_VERSION,
-      isBinokelHostSettings,
-    ) ?? defaultBinokelHostSettings
+  const stored = readStored(
+    HOST_SETTINGS_KEY,
+    HOST_SETTINGS_VERSION,
+    isBinokelHostSettings,
   );
+  return stored === null
+    ? defaultBinokelHostSettings
+    : {
+        withSevens: stored.withSevens,
+        withDabb: stored.withDabb,
+        teams: stored.teams,
+        autoPlayMs: stored.autoPlayMs,
+        matchPlayerCount: normalizeMatchCount(stored.matchPlayerCount),
+      };
+}
+
+/** Clamps a stored wished table size into range, defaulting if it is unusable. */
+function normalizeMatchCount(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return DEFAULT_MATCH_COUNT;
+  }
+  return Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, value));
 }
 
 /**

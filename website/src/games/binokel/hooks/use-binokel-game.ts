@@ -71,9 +71,6 @@ const TARGET_SCORE = 1000;
 /** Pause before a computer acts, so its turn is watchable. */
 const AI_DELAY_MS = 750;
 
-/** How long the round result stays up before the next round is dealt. */
-const ROUND_REVIEW_MS = 3800;
-
 /** What the Binokel UI needs. */
 export type BinokelGame = {
   readonly state: GameState;
@@ -104,11 +101,10 @@ export type BinokelGame = {
  * @param state - the game state
  * @returns a transition to apply, or null
  * @remarks
- * Besides the computer's own turns, this also advances the round result to the
- * next deal after a readable pause (see {@link stepDelay}). The melds and a
- * completed trick are *not* advanced automatically - the player clicks (the
- * melds via "Weiter zum Stechen", a full trick anywhere) so they can look for
- * as long as they like.
+ * Only the computer's own turns run on their own. The melds, a completed trick
+ * and the round result are *not* advanced automatically - the player clicks (the
+ * melds via "Weiter zum Stechen", a full trick or the round result anywhere) so
+ * they can look for as long as they like.
  */
 function autoStep(
   state: GameState,
@@ -138,23 +134,8 @@ function autoStep(
     !actor.isHuman
   ) {
     move = (s) => playCard(s, chooseCard(s, difficulty));
-  } else if (state.phase === "roundEnd") {
-    move = (s) => nextRound(s);
   }
   return move;
-}
-
-/**
- * How long to wait before the next automatic step, by phase.
- *
- * @param state - the game state
- * @returns the pause in milliseconds
- * @remarks
- * The round result gets a longer pause so it can be read; a computer's own turn
- * only needs a short, watchable beat.
- */
-function stepDelay(state: GameState): number {
-  return state.phase === "roundEnd" ? ROUND_REVIEW_MS : AI_DELAY_MS;
 }
 
 /**
@@ -186,7 +167,7 @@ function isHumanTurn(state: GameState): boolean {
       waiting = true; // waits for the player to click "Weiter zum Stechen"
       break;
     case "roundEnd":
-      waiting = false; // advances on its own after a short review pause
+      waiting = true; // waits for the player to click "Weiter" or tap
       break;
     case "matchEnd":
       waiting = true; // waits for the player to start a new match
@@ -246,7 +227,7 @@ export function useBinokelGame(): BinokelGame {
           const move = autoStep(current, difficulty);
           return move === null ? current : move(current);
         });
-      }, stepDelay(state));
+      }, AI_DELAY_MS);
     }
     return () => clearTimeout(timer.current);
   }, [state]);

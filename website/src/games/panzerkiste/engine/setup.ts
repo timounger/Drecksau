@@ -52,6 +52,38 @@ export function createGame(seed: number, players = 1): GameState {
   return loadLevel(0, LIVES_START, createRandom(seed), players);
 }
 
+/** The running total of enemy tanks through each level, filled once on load. */
+const CUMULATIVE_ENEMIES: readonly number[] = buildCumulativeEnemies();
+
+/** Counts the enemies each level holds and sums them up from the first level. */
+function buildCumulativeEnemies(): number[] {
+  const totals: number[] = [];
+  let sum = 0;
+  for (const map of LEVELS) {
+    const enemies = parseLevel(map).tanks.filter(
+      (tank) => tank.kind !== "player",
+    ).length;
+    sum += enemies;
+    totals.push(sum);
+  }
+  return totals;
+}
+
+/**
+ * How many enemy tanks all levels up to and including this one hold together.
+ *
+ * @param level - the level index (clamped into range)
+ * @returns the total enemy count from the first level through this one
+ * @remarks
+ * Clearing a level means every one of its enemies was destroyed, so this is the
+ * grand total of enemies beaten once that level is cleared - independent of how
+ * many respawns it took, and the same figure on every client.
+ */
+export function totalEnemiesThroughLevel(level: number): number {
+  const index = Math.max(0, Math.min(CUMULATIVE_ENEMIES.length - 1, level));
+  return CUMULATIVE_ENEMIES[index];
+}
+
 /**
  * Builds the playing state for one level.
  *

@@ -118,6 +118,24 @@ export const BINOKEL_ONLINE_TEXTS = {
   yourNamePlaceholder: "Spieler",
   createRoom: "Raum erstellen",
   joinRoom: "Raum beitreten",
+  // Automatic matchmaking
+  autoMatch: "Automatisch Spiel suchen",
+  autoMatchHint: "Wir setzen dich mit anderen Spielern an einen Tisch.",
+  orDivider: "oder privat spielen",
+  matchWish: "Dein Wunsch-Tisch",
+  matchWishHint:
+    "Passt ein offener Tisch, geht es sofort los - sonst nach kurzer Wartezeit auch mit einer anderen Spieleranzahl.",
+  matchCount: "Spieler:",
+  matchCountValue: (count: number) => `${count} Spieler`,
+  searching: "Suche Mitspieler ...",
+  playersHere: (count: number) =>
+    count === 1 ? "1 Spieler im Raum" : `${count} Spieler im Raum`,
+  startingIn: (seconds: number) => `Spiel startet in ${seconds} s ...`,
+  waitingForMore: "Warte auf weitere Mitspieler ...",
+  almostReady: "Genug Spieler - es geht gleich los ...",
+  cancelSearch: "Suche abbrechen",
+  playersOnline: (count: number) =>
+    count === 1 ? "1 Spieler online" : `${count} Spieler online`,
   roomCode: "Raumcode",
   roomCodePlaceholder: "z. B. ABCD",
   connecting: "Verbinde ...",

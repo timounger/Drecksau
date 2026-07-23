@@ -10,6 +10,9 @@ export const PANZERKISTE_TEXTS = {
   subtitle: "Zerstöre alle feindlichen Panzer, um zu gewinnen.",
   // Heads-up display
   level: (n: number) => `Level ${n}`,
+  mission: (n: number) => `Mission ${n}`,
+  missionComplete: "Mission abgeschlossen!",
+  destroyedTotal: (n: number) => `Zerstörte Panzer: ${n}`,
   enemiesLeft: (n: number) => `Gegner: ${n}`,
   lives: (n: number) => `Leben: ${n}`,
   minesLeft: (n: number) => `Minen: ${n}`,
@@ -32,6 +35,8 @@ export const PANZERKISTE_TEXTS = {
   restart: "Neustart",
   // Navigation
   online: "Online spielen",
+  fullscreen: "Vollbild",
+  fullscreenExit: "Vollbild verlassen",
   statistics: "Statistik",
   paused: "Pause - klick zum Weiterspielen.",
   // Level jump buttons above the field
