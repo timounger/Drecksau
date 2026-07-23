@@ -18,6 +18,8 @@ export const PANZERKISTE_TEXTS = {
   moveKeys: "Bewegen: W A S D",
   shootKeys: "Schießen: Linksklick",
   mineKeys: "Mine legen: Leertaste",
+  touchControls:
+    "Handy: links fahren, rechts zielen + halten zum Schießen, Knopf legt Mine",
   // Buttons / overlays
   start: "Los geht's",
   startHint: "Klick auf das Feld, um zu starten.",
@@ -29,6 +31,7 @@ export const PANZERKISTE_TEXTS = {
   playAgain: "Nochmal",
   restart: "Neustart",
   // Navigation
+  online: "Online spielen",
   statistics: "Statistik",
   paused: "Pause - klick zum Weiterspielen.",
   // Level jump buttons above the field

@@ -16,6 +16,7 @@ import {
   enemiesLeft,
   LEVEL_COUNT,
   minesLeft,
+  playerTank,
   restart,
   setLevel,
   step,
@@ -23,6 +24,10 @@ import {
 import { createGame } from "@/games/panzerkiste/engine/setup";
 import type { GameState, Input, Phase } from "@/games/panzerkiste/engine/types";
 import { draw } from "@/games/panzerkiste/components/render";
+import {
+  createTouchControls,
+  drawTouchControls,
+} from "@/games/panzerkiste/components/touch-controls";
 import {
   canvasHeight,
   canvasWidth,
@@ -147,6 +152,9 @@ export function usePanzerkiste(): PanzerkisteGame {
       keys.current.delete(event.key.toLowerCase());
     const onBlur = () => keys.current.clear();
 
+    // Twin-stick touch controls for phones; idle (never engaged) on desktop.
+    const touch = createTouchControls(canvas);
+
     canvas.addEventListener("mousemove", aimAt);
     canvas.addEventListener("mousedown", onDown);
     canvas.addEventListener("mouseleave", onLeave);
@@ -155,21 +163,32 @@ export function usePanzerkiste(): PanzerkisteGame {
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
 
-    // Build this frame's input from the held keys, mouse and pending edges.
+    // Build this frame's input from the held keys, mouse, touch and pending edges.
     const readInput = (): Input => {
       const held = keys.current;
       const axis = (positive: Set<string>, negative: Set<string>) =>
         (anyHeld(held, positive) ? 1 : 0) - (anyHeld(held, negative) ? 1 : 0);
-      const fire = firePending.current;
-      const layMine = minePending.current;
+      const finger = touch.sample();
+      const mineEdge = touch.consumeMine();
+      let move = {
+        x: axis(RIGHT_KEYS, LEFT_KEYS),
+        y: axis(DOWN_KEYS, UP_KEYS),
+      };
+      let aim = mouse.current;
+      if (finger.engaged) {
+        // On a phone the sticks replace keyboard and mouse; the turret aims a
+        // touch away from the tank, in the stick's direction.
+        move = finger.move;
+        const own = playerTank(stateRef.current);
+        if (own !== null) {
+          aim = { x: own.x + finger.aimDir.x, y: own.y + finger.aimDir.y };
+        }
+      }
+      const fire = firePending.current || finger.fire;
+      const layMine = minePending.current || mineEdge;
       firePending.current = false;
       minePending.current = false;
-      return {
-        move: { x: axis(RIGHT_KEYS, LEFT_KEYS), y: axis(DOWN_KEYS, UP_KEYS) },
-        aim: mouse.current,
-        fire,
-        layMine,
-      };
+      return { move, aim, fire, layMine };
     };
 
     let raf = 0;
@@ -188,12 +207,14 @@ export function usePanzerkiste(): PanzerkisteGame {
       // Show the blue aim cursor only while actually playing with the mouse in.
       const pointer = playing && mouseInside.current ? mouse.current : null;
       draw(ctx, stateRef.current, pointer);
+      drawTouchControls(ctx, touch.sample());
       raf = window.requestAnimationFrame(frame);
     };
     raf = window.requestAnimationFrame(frame);
 
     return () => {
       window.cancelAnimationFrame(raf);
+      touch.dispose();
       canvas.removeEventListener("mousemove", aimAt);
       canvas.removeEventListener("mousedown", onDown);
       canvas.removeEventListener("mouseleave", onLeave);

@@ -57,12 +57,20 @@ export function PanzerkisteGame(): ReactElement {
             {PANZERKISTE_TEXTS.subtitle}
           </p>
         </div>
-        <Link
-          href="/"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {COLLECTION_TEXTS.title}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/panzerkiste/online"
+            className="rounded-lg border border-amber-500 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/40"
+          >
+            {PANZERKISTE_TEXTS.online}
+          </Link>
+          <Link
+            href="/"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {COLLECTION_TEXTS.title}
+          </Link>
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -113,6 +121,7 @@ export function PanzerkisteGame(): ReactElement {
         <span>{PANZERKISTE_TEXTS.moveKeys}</span>
         <span>{PANZERKISTE_TEXTS.shootKeys}</span>
         <span>{PANZERKISTE_TEXTS.mineKeys}</span>
+        <span>{PANZERKISTE_TEXTS.touchControls}</span>
       </div>
     </div>
   );

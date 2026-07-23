@@ -391,22 +391,44 @@ function driveEnemy(
     const owned = state.bullets.filter((b) => b.ownerId === tank.id).length;
     const ready = time >= tank.reloadUntil && owned < traits.maxBullets;
     if (traits.banks) {
-      // Bank-shooter (green): keep the barrel on a bank-shot solution off the
-      // walls, and fire it when reloaded. Holds if the player cannot be reached.
-      const bank = bankFireAngle(
-        state,
-        x,
-        y,
-        player,
-        traits.bounces,
-        traits.bulletSpeed,
-      );
-      if (bank !== null) {
-        turret = bank;
+      // Bank-shooter (green): if the player is in a clear line, aim straight at
+      // them; only when the line is blocked does it look for a bank shot off the
+      // walls. It keeps its current bank aim while that still lands, so the
+      // barrel does not flicker between solutions.
+      if (hasLineOfSight(state, x, y, player.x, player.y)) {
         if (ready) {
           fire = true;
-          fireAngle = bank;
+          fireAngle = turret; // straight at the player
           reloadUntil = time + traits.reload;
+        }
+      } else {
+        const held = traceShot(
+          state,
+          x,
+          y,
+          tank.turret,
+          traits.bulletSpeed,
+          traits.bounces,
+          player,
+        );
+        const bank =
+          held.hit && held.bounced
+            ? tank.turret
+            : bankFireAngle(
+                state,
+                x,
+                y,
+                player,
+                traits.bounces,
+                traits.bulletSpeed,
+              );
+        if (bank !== null) {
+          turret = bank;
+          if (ready) {
+            fire = true;
+            fireAngle = bank;
+            reloadUntil = time + traits.reload;
+          }
         }
       }
     } else if (ready && hasLineOfSight(state, x, y, player.x, player.y)) {
