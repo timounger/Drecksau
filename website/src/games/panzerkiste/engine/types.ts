@@ -60,6 +60,8 @@ export type Bullet = {
   readonly ownerId: string;
   /** True once it may hit its own tank (after the first bounce). */
   readonly armed: boolean;
+  /** A guided missile that steers itself towards the nearest enemy. */
+  readonly homing: boolean;
 };
 
 /** A laid mine, counting down to its blast. */
@@ -140,6 +142,8 @@ export type Input = {
   readonly aim: Vec;
   /** True on the step the player fires. */
   readonly fire: boolean;
+  /** True on the step the player launches a homing missile (the secret weapon). */
+  readonly fireHoming: boolean;
   /** True on the step the player lays a mine. */
   readonly layMine: boolean;
 };
@@ -150,6 +154,17 @@ export const TILE = 40;
 /** Collision radius of a tank body. */
 export const TANK_RADIUS = 14;
 
+/**
+ * How far in front of a tank's centre a shell is born, in pixels.
+ *
+ * @remarks
+ * This is the gun barrel's length, so a shell leaves at the muzzle rather than
+ * the tank's centre. The offset is along the aim direction, so the shell stays
+ * on the aim line and hits exactly where the barrel points. The renderer draws
+ * the barrel to this same length, so the two line up in the tilted view.
+ */
+export const MUZZLE_OFFSET = 22;
+
 /** Collision radius of a shell. */
 export const BULLET_RADIUS = 4;
 
@@ -158,6 +173,20 @@ export const BULLET_SPEED = 250;
 
 /** Rocket speed in pixels per second - faster than an ordinary shell. */
 export const ROCKET_SPEED = 360;
+
+/** Speed of a homing missile - the same as a rocket, but it steers. */
+export const HOMING_SPEED = ROCKET_SPEED;
+
+/** How fast a homing missile can turn, in radians/second - tight enough to
+ * whip around corners and thread gaps rather than overshoot. */
+export const HOMING_TURN_RATE = 12;
+
+/** Bounce budget of a homing missile - a small safety net for the rare graze;
+ * it mostly steers around walls (see the engine) rather than hitting them. */
+export const HOMING_BOUNCES = 4;
+
+/** Seconds the fire button is held before the secret homing missile launches. */
+export const HOMING_CHARGE_SECONDS = 1.5;
 
 /** How many times a shell bounces off walls before it dies. */
 export const BULLET_BOUNCES = 1;

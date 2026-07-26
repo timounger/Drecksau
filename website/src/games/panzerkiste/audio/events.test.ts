@@ -30,6 +30,7 @@ function shell(id: string, speed: number): Bullet {
     bouncesLeft: 1,
     ownerId: "player",
     armed: false,
+    homing: false,
   };
 }
 
@@ -78,6 +79,22 @@ describe("detectSounds", () => {
     const events = detectSounds(prev, next);
     expect(events).toContain("playerDown");
     expect(next.lives).toBe(prev.lives); // still, no life was lost
+  });
+
+  it("reports an enemy-down boom when a mine explodes", () => {
+    const prev = base();
+    const next = {
+      ...prev,
+      explosions: [{ x: 100, y: 100, until: prev.time + 0.35 }],
+    };
+    expect(detectSounds(prev, next)).toContain("enemyDown");
+  });
+
+  it("does not re-report a blast that is still fading", () => {
+    const blast = { x: 100, y: 100, until: 5 };
+    const prev = { ...base(), explosions: [blast] };
+    const next = { ...prev, explosions: [blast] };
+    expect(detectSounds(prev, next)).not.toContain("enemyDown");
   });
 
   it("reports a round start when a new level is loaded", () => {

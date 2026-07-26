@@ -24,6 +24,7 @@ import {
   FIELD_COLS,
   FIELD_ROWS,
   LEVELS_PER_BONUS,
+  totalEnemiesThroughLevel,
 } from "@/games/panzerkiste/engine/setup";
 import { PANZERKISTE_TEXTS } from "@/games/panzerkiste/i18n/texts";
 import { BannerView } from "@/games/panzerkiste/components/round-banner";
@@ -80,6 +81,12 @@ export function PanzerkisteGame(): ReactElement {
             className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
           >
             {PANZERKISTE_TEXTS.online}
+          </Link>
+          <Link
+            href="/panzerkiste/statistik"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {PANZERKISTE_TEXTS.statistics}
           </Link>
           <Link
             href="/"
@@ -245,10 +252,17 @@ function Overlay({
       </Panel>
     );
   } else if (hud.phase === "won") {
+    // Beating the last level ends the game: congratulate and show the grand total.
     content = (
       <Panel>
-        <p className="text-lg font-semibold">
-          {"\u{1F3C6}"} {PANZERKISTE_TEXTS.won}
+        <p className="text-2xl font-bold">
+          {"\u{1F3C6}"} {PANZERKISTE_TEXTS.congratulations}
+        </p>
+        <p className="text-sm text-zinc-200">{PANZERKISTE_TEXTS.won}</p>
+        <p className="text-base font-semibold text-emerald-300">
+          {PANZERKISTE_TEXTS.destroyedTotal(
+            totalEnemiesThroughLevel(hud.level),
+          )}
         </p>
         <OverlayButton onClick={onRestart}>
           {PANZERKISTE_TEXTS.playAgain}

@@ -29,6 +29,7 @@ export const PANZERKISTE_TEXTS = {
   levelCleared: "Level geschafft!",
   bonusLife: "+1 Bonusleben!",
   nextLevel: "Nächstes Level",
+  congratulations: "Herzlichen Glückwunsch!",
   won: "Alle Panzer zerstört - du hast gewonnen!",
   lost: "Dein Panzer wurde getroffen.",
   playAgain: "Nochmal",

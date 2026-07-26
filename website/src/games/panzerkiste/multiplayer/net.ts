@@ -193,7 +193,9 @@ function isPanzerMove(value: unknown): value is PanzerMove {
     isVec(move.move) &&
     isVec(move.aim) &&
     typeof move.fire === "boolean" &&
-    typeof move.layMine === "boolean"
+    typeof move.layMine === "boolean" &&
+    // Tolerated when missing, so a client without the secret weapon still plays.
+    (move.fireHoming === undefined || typeof move.fireHoming === "boolean")
   );
 }
 

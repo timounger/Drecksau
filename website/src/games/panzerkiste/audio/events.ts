@@ -28,6 +28,7 @@ const ROCKET_SPEED_FACTOR = 1.2;
  * - Every freshly fired shell is a "shot", or a "rocket" if it flies fast.
  * - A human losing a life on the same level is "playerDown" (respawn or loss).
  * - An enemy going down without a reload in between is "enemyDown".
+ * - A mine going off is "enemyDown" too - the same boom as a tank being hit.
  * - A freshly loaded level that is not a respawn is "roundStart".
  */
 export function detectSounds(prev: GameState, next: GameState): SoundEvent[] {
@@ -75,6 +76,20 @@ export function detectSounds(prev: GameState, next: GameState): SoundEvent[] {
     if (enemyDied) {
       events.push("enemyDown");
     }
+  }
+
+  // A mine just went off: use the same boom as a tank being hit. A fresh blast
+  // is one in `next` that was not already there (blasts carry over unchanged
+  // until they fade, so a new one has an `until` no old blast had).
+  const blastNew = next.explosions.some(
+    (blast) =>
+      !prev.explosions.some(
+        (old) =>
+          old.until === blast.until && old.x === blast.x && old.y === blast.y,
+      ),
+  );
+  if (blastNew && !events.includes("enemyDown")) {
+    events.push("enemyDown");
   }
 
   // A fresh level was loaded (its clock reset) and it is not a respawn: the

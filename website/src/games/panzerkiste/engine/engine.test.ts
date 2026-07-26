@@ -17,6 +17,8 @@ import {
 } from "./setup";
 import {
   BULLET_SPEED,
+  HOMING_BOUNCES,
+  HOMING_SPEED,
   MINE_FUSE,
   TILE,
   type Bullet,
@@ -30,8 +32,24 @@ const IDLE: Input = {
   move: { x: 0, y: 0 },
   aim: { x: 0, y: 0 },
   fire: false,
+  fireHoming: false,
   layMine: false,
 };
+
+/** A ready-to-fire human tank at a spot, turret pointing right. */
+function humanTank(x: number, y: number): Tank {
+  return {
+    id: "player",
+    kind: "player",
+    x,
+    y,
+    turret: 0,
+    alive: true,
+    reloadUntil: 0,
+    heading: 0,
+    headingUntil: 0,
+  };
+}
 
 /** A brown enemy that never shoots (reload far in the future) or moves. */
 function idleEnemy(id: string, x: number, y: number): Tank {
@@ -81,6 +99,130 @@ function openState(over: Partial<GameState> = {}): GameState {
     ...over,
   };
 }
+
+describe("homing missile", () => {
+  const CENTER_X = TILE * 4.5;
+  const CENTER_Y = TILE * 2.5;
+
+  it("launches one on the fire-homing input, marked as homing", () => {
+    const game = openState({
+      tanks: [
+        humanTank(CENTER_X, CENTER_Y),
+        idleEnemy("e0", TILE * 7, CENTER_Y),
+      ],
+    });
+    const next = step(game, { ...IDLE, fireHoming: true }, 0.016);
+    const homing = next.bullets.filter((bullet) => bullet.homing);
+    expect(homing).toHaveLength(1);
+  });
+
+  it("steers toward the enemy: fired straight up, it curves to the right", () => {
+    const game = openState({
+      tanks: [
+        humanTank(CENTER_X, CENTER_Y),
+        idleEnemy("e0", TILE * 7, CENTER_Y),
+      ],
+    });
+    // Aiming above the player makes the missile leave pointing up (-PI/2).
+    const up = {
+      ...IDLE,
+      aim: { x: CENTER_X, y: CENTER_Y - TILE * 3 },
+      fireHoming: true,
+    };
+    const next = step(game, up, 0.016);
+    const missile = next.bullets.find((bullet) => bullet.homing)!;
+    const heading = Math.atan2(missile.vy, missile.vx);
+    // The enemy on the right pulls the heading up from -PI/2 towards 0.
+    expect(heading).toBeGreaterThan(-Math.PI / 2);
+    expect(heading).toBeLessThan(0);
+  });
+
+  it("chases the nearer of two enemies", () => {
+    const near = idleEnemy("near", CENTER_X, CENTER_Y - TILE);
+    const far = idleEnemy("far", TILE * 8, CENTER_Y);
+    const game = openState({
+      tanks: [humanTank(CENTER_X, CENTER_Y), near, far],
+    });
+    // Fired to the right, it should still curve up towards the nearer enemy.
+    const right = {
+      ...IDLE,
+      aim: { x: CENTER_X + TILE * 3, y: CENTER_Y },
+      fireHoming: true,
+    };
+    const next = step(game, right, 0.016);
+    const missile = next.bullets.find((bullet) => bullet.homing)!;
+    const heading = Math.atan2(missile.vy, missile.vx);
+    expect(heading).toBeLessThan(0);
+  });
+
+  it("flies straight when there is no enemy to chase", () => {
+    const game = openState({ tanks: [humanTank(CENTER_X, CENTER_Y)] });
+    const up = {
+      ...IDLE,
+      aim: { x: CENTER_X, y: CENTER_Y - TILE * 3 },
+      fireHoming: true,
+    };
+    const next = step(game, up, 0.016);
+    const missile = next.bullets.find((bullet) => bullet.homing)!;
+    const heading = Math.atan2(missile.vy, missile.vx);
+    expect(heading).toBeCloseTo(-Math.PI / 2, 5);
+  });
+
+  it("cannot be shot down: a shell meeting it does not cancel it", () => {
+    // A homing missile and an enemy shell sit on the same spot and co-move.
+    const missile: Bullet = {
+      id: "h0",
+      x: CENTER_X,
+      y: CENTER_Y,
+      vx: HOMING_SPEED,
+      vy: 0,
+      bouncesLeft: HOMING_BOUNCES,
+      ownerId: "player",
+      armed: false,
+      homing: true,
+    };
+    const shell: Bullet = {
+      id: "s0",
+      x: CENTER_X,
+      y: CENTER_Y,
+      vx: HOMING_SPEED,
+      vy: 0,
+      bouncesLeft: 1,
+      ownerId: "e0",
+      armed: true,
+      homing: false,
+    };
+    const game = openState({
+      bullets: [missile, shell],
+      tanks: [humanTank(TILE * 1.5, CENTER_Y), idleEnemy("e0", TILE * 7, TILE)],
+    });
+    const next = step(game, IDLE, 0.016);
+    expect(next.bullets.some((bullet) => bullet.id === "h0")).toBe(true);
+  });
+
+  it("steers around a wall in its path instead of into it", () => {
+    const flat = openState({
+      tanks: [
+        humanTank(TILE * 2.5, CENTER_Y),
+        idleEnemy("e0", TILE * 6.5, CENTER_Y),
+      ],
+    });
+    // Drop a wall cell straight between the missile and the enemy.
+    const walls = [...flat.walls];
+    walls[2 * flat.cols + 4] = true;
+    const game: GameState = { ...flat, walls };
+    const right = {
+      ...IDLE,
+      aim: { x: TILE * 2.5 + TILE * 3, y: CENTER_Y },
+      fireHoming: true,
+    };
+    const next = step(game, right, 0.016);
+    const missile = next.bullets.find((bullet) => bullet.homing)!;
+    const heading = Math.atan2(missile.vy, missile.vx);
+    // Fired dead-on into the wall (heading 0), it turns aside to go around.
+    expect(Math.abs(heading)).toBeGreaterThan(0.1);
+  });
+});
 
 describe("levels", () => {
   it("all use the fixed interior size and hold exactly one player", () => {
@@ -177,6 +319,7 @@ describe("shells", () => {
     bouncesLeft: 1,
     ownerId: "player",
     armed: false,
+    homing: false,
   };
   const scene = () =>
     openState({
@@ -230,6 +373,7 @@ describe("shells", () => {
           bouncesLeft: 1,
           ownerId: "player",
           armed: true,
+          homing: false,
         },
       ],
       tanks: [
@@ -287,11 +431,11 @@ describe("mines", () => {
     for (let i = 0; i < Math.ceil(MINE_FUSE / 0.02) + 2; i++) {
       game = step(game, IDLE, 0.02);
     }
-    // The blast takes the enemy; the player, on the mine, dies and respawns.
-    expect(game.explosions.length + game.mines.length).toBeGreaterThanOrEqual(
-      0,
-    );
-    expect(game.phase === "playing" || game.phase === "lost").toBe(true);
+    // The blast takes both the enemy and the player: a life is spent, and with
+    // the only enemy destroyed (destroyed enemies do not return) the retry has
+    // nothing left to fight, so the level is cleared.
+    expect(game.lives).toBe(LIVES_START - 1);
+    expect(game.phase).toBe("cleared");
   });
 
   it("goes off at once when a shell hits it, well before the fuse", () => {
@@ -309,6 +453,7 @@ describe("mines", () => {
           bouncesLeft: 1,
           ownerId: "player",
           armed: true,
+          homing: false,
         },
       ],
       tanks: [
@@ -534,6 +679,7 @@ describe("holes", () => {
           bouncesLeft: 1,
           ownerId: "e9",
           armed: true,
+          homing: false,
         },
       ],
       // A live player and enemy must exist, or the round ends and time freezes.
@@ -576,6 +722,7 @@ describe("lives", () => {
           bouncesLeft: 1,
           ownerId: "e0",
           armed: true,
+          homing: false,
         },
       ],
       tanks: [
@@ -610,6 +757,7 @@ describe("lives", () => {
           bouncesLeft: 1,
           ownerId: "e0",
           armed: true,
+          homing: false,
         },
       ],
       tanks: [
@@ -629,6 +777,25 @@ describe("lives", () => {
     const after = step(game, IDLE, 0.016);
     expect(after.phase).toBe("lost");
     expect(after.lives).toBe(0);
+  });
+
+  it("on death, repeats the level but keeps already-eliminated enemies gone", () => {
+    const fresh = loadLevel(2, 3, createRandom(1)); // single player, 3 enemies
+    const player = fresh.tanks.find((tank) => tank.id === "player")!;
+    const survivor = fresh.tanks.find((tank) => tank.kind !== "player")!;
+    // The player just died; two of the three enemies were already destroyed.
+    const dying: GameState = {
+      ...fresh,
+      tanks: [{ ...player, alive: false }, survivor],
+    };
+
+    const after = step(dying, IDLE, 0.016);
+    expect(after.phase).toBe("playing");
+    expect(after.lives).toBe(2); // one life spent
+    expect(playerTank(after)).not.toBeNull(); // player is back at the start
+    // Only the survivor returns; the ones already destroyed do not reappear.
+    expect(enemiesLeft(after)).toBe(1);
+    expect(enemiesLeft(after)).toBeLessThan(enemiesLeft(fresh));
   });
 });
 
@@ -724,16 +891,16 @@ describe("co-op", () => {
     expect(backAlive).toHaveLength(2); // both players revived on the next level
   });
 
-  it("spends one life and reloads with both back only when both are down", () => {
+  it("on a wipe, reloads with both players back but keeps eliminated enemies gone", () => {
     const fresh = loadLevel(2, 3, createRandom(1), 2);
     const fullEnemies = enemiesLeft(fresh);
     const p1 = fresh.tanks.find((tank) => tank.id === "player")!;
     const p2 = fresh.tanks.find((tank) => tank.id === "player2")!;
-    const oneEnemy = fresh.tanks.find((tank) => tank.kind !== "player")!;
-    // Both players are down (a wipe), one enemy left.
+    const survivor = fresh.tanks.find((tank) => tank.kind !== "player")!;
+    // Both players down (a wipe); only one enemy survived, the others were killed.
     const wiped: GameState = {
       ...fresh,
-      tanks: [{ ...p1, alive: false }, { ...p2, alive: false }, oneEnemy],
+      tanks: [{ ...p1, alive: false }, { ...p2, alive: false }, survivor],
     };
 
     const after = step(wiped, IDLE, 0.016);
@@ -743,7 +910,134 @@ describe("co-op", () => {
       (tank) => tank.kind === "player" && tank.alive,
     );
     expect(alive).toHaveLength(2); // both back at the start
-    expect(enemiesLeft(after)).toBe(fullEnemies); // level reloaded fresh
+    // Only the survivor returns; the ones already destroyed stay gone.
+    expect(enemiesLeft(after)).toBe(1);
+    expect(enemiesLeft(after)).toBeLessThan(fullEnemies);
+  });
+});
+
+describe("enemy aiming", () => {
+  it("points the barrel where it drives when it has no shot at the player", () => {
+    const cols = 9;
+    const rows = 5;
+    const walls: boolean[] = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        // The border ring, plus a pillar at col 4 row 2 to block the sight line.
+        walls.push(
+          row === 0 ||
+            row === rows - 1 ||
+            col === 0 ||
+            col === cols - 1 ||
+            (row === 2 && col === 4),
+        );
+      }
+    }
+    const game = openState({
+      walls,
+      tanks: [
+        {
+          id: "e0",
+          kind: "grey",
+          x: TILE * 2,
+          y: TILE * 2,
+          turret: 0,
+          alive: true,
+          reloadUntil: 0,
+          heading: Math.PI / 2, // driving straight down
+          headingUntil: Number.MAX_SAFE_INTEGER, // keep that heading
+        },
+        {
+          id: "player",
+          kind: "player",
+          x: TILE * 6,
+          y: TILE * 2, // to the right, but the pillar blocks the view
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER,
+          heading: 0,
+          headingUntil: 0,
+        },
+      ],
+    });
+    const enemy = step(game, IDLE, 0.016).tanks.find((t) => t.id === "e0")!;
+    // Points down (where it drives), not right toward the hidden player.
+    expect(enemy.turret).toBeCloseTo(Math.PI / 2);
+  });
+
+  it("targets the second co-op player when they are the nearer, visible mark", () => {
+    const game = openState({
+      tanks: [
+        {
+          id: "e0",
+          kind: "grey",
+          x: TILE * 4,
+          y: TILE * 2,
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER, // just aim
+          heading: 0,
+          headingUntil: Number.MAX_SAFE_INTEGER,
+        },
+        {
+          id: "player",
+          kind: "player",
+          x: TILE * 1.5, // player one is far to the upper-left
+          y: TILE * 1,
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER,
+          heading: 0,
+          headingUntil: 0,
+        },
+        {
+          id: "player2",
+          kind: "player",
+          x: TILE * 4, // player two is right below the enemy
+          y: TILE * 3.5,
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER,
+          heading: 0,
+          headingUntil: 0,
+        },
+      ],
+    });
+    const enemy = step(game, IDLE, 0.016).tanks.find((t) => t.id === "e0")!;
+    // Aims down at player two (~PI/2), the nearer player, not at player one.
+    expect(enemy.turret).toBeCloseTo(Math.PI / 2, 1);
+  });
+
+  it("swings the barrel onto the player with a clear line of sight", () => {
+    const game = openState({
+      tanks: [
+        {
+          id: "e0",
+          kind: "grey",
+          x: TILE * 2,
+          y: TILE * 2,
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER, // just aim, do not shoot
+          heading: Math.PI / 2, // had been driving down
+          headingUntil: Number.MAX_SAFE_INTEGER,
+        },
+        {
+          id: "player",
+          kind: "player",
+          x: TILE * 6,
+          y: TILE * 2, // straight to the right, clear line
+          turret: 0,
+          alive: true,
+          reloadUntil: Number.MAX_SAFE_INTEGER,
+          heading: 0,
+          headingUntil: 0,
+        },
+      ],
+    });
+    const enemy = step(game, IDLE, 0.016).tanks.find((t) => t.id === "e0")!;
+    // Aims at the player (to the right, angle ~0), not the driving direction.
+    expect(enemy.turret).toBeCloseTo(0, 1);
   });
 });
 

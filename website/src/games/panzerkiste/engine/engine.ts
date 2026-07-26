@@ -19,10 +19,14 @@ import {
   ENEMY_MINE_RATE,
   ENEMY_TRAITS,
   EXPLOSION_TIME,
+  HOMING_BOUNCES,
+  HOMING_SPEED,
+  HOMING_TURN_RATE,
   MAX_STEP,
   MINE_BODY_RADIUS,
   MINE_FUSE,
   MINE_RADIUS,
+  MUZZLE_OFFSET,
   PLAYER_MAX_BULLETS,
   PLAYER_MAX_MINES,
   PLAYER_RELOAD,
@@ -66,6 +70,7 @@ export const IDLE_INPUT: Input = {
   move: { x: 0, y: 0 },
   aim: { x: 0, y: 0 },
   fire: false,
+  fireHoming: false,
   layMine: false,
 };
 
@@ -224,7 +229,9 @@ function actTanks(
   time: number,
   dt: number,
 ): TankStep {
-  const player = state.tanks.find((tank) => tank.id === "player") ?? null;
+  const players = state.tanks.filter(
+    (tank) => tank.kind === "player" && tank.alive,
+  );
   const newBullets: Bullet[] = [];
   const newMines: Mine[] = [];
   let random = state.random;
@@ -246,6 +253,20 @@ function actTanks(
           makeBullet(nextId++, moved, moved.turret, BULLET_BOUNCES),
         );
       }
+      // The secret homing missile ignores the reload and the shell cap, so the
+      // held-fire trigger always launches it; it steers itself from here on.
+      if (own.fireHoming) {
+        newBullets.push(
+          makeBullet(
+            nextId++,
+            moved,
+            moved.turret,
+            HOMING_BOUNCES,
+            HOMING_SPEED,
+            true,
+          ),
+        );
+      }
       if (own.layMine && minesRoom(state.mines, newMines, tank.id)) {
         newMines.push({
           id: `m${nextId++}`,
@@ -260,7 +281,8 @@ function actTanks(
         reloadUntil: canFire ? time + PLAYER_RELOAD : moved.reloadUntil,
       };
     } else {
-      const ai = driveEnemy(state, tank, player, time, dt, random);
+      const target = chooseTarget(state, players, tank);
+      const ai = driveEnemy(state, tank, target, time, dt, random);
       random = ai.random;
       if (ai.fire) {
         const traits = ENEMY_TRAITS[tank.kind as keyof typeof ENEMY_TRAITS];
@@ -324,6 +346,47 @@ type EnemyStep = {
   readonly random: RandomState;
 };
 
+/**
+ * Picks which player an enemy goes after.
+ *
+ * @param state - the game state, for the line-of-sight test
+ * @param players - the living human tanks
+ * @param from - the enemy choosing a target
+ * @returns the chosen player tank, or null if none is alive
+ * @remarks
+ * It prefers the nearest player it can actually see (so it engages someone it
+ * can hit); with none in sight it falls back to the nearest player, so it still
+ * roams and banks toward one. In co-op this lets enemies go after *either*
+ * player, not only the first seat.
+ */
+function chooseTarget(
+  state: GameState,
+  players: readonly Tank[],
+  from: Tank,
+): Tank | null {
+  let visible: Tank | null = null;
+  let visibleDist = Infinity;
+  let nearest: Tank | null = null;
+  let nearestDist = Infinity;
+  for (const player of players) {
+    const dx = player.x - from.x;
+    const dy = player.y - from.y;
+    const dist = dx * dx + dy * dy;
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = player;
+    }
+    if (
+      dist < visibleDist &&
+      hasLineOfSight(state, from.x, from.y, player.x, player.y)
+    ) {
+      visibleDist = dist;
+      visible = player;
+    }
+  }
+  return visible ?? nearest;
+}
+
 /** Drives one enemy tank: roam, track the player and shoot on a clear line. */
 function driveEnemy(
   state: GameState,
@@ -375,24 +438,28 @@ function driveEnemy(
     }
   }
 
-  // Aim at the player and decide whether to fire.
-  let turret = tank.turret;
+  // The barrel points where the tank drives; it swings onto the player only
+  // while it actually has a shot at them - a clear line, or (green) a bank shot.
+  // A stationary tank has no driving direction, so it just holds its last aim.
+  let turret = traits.speed > 0 ? heading : tank.turret;
   let fire = false;
   let fireAngle = turret;
   let reloadUntil = tank.reloadUntil;
   if (player !== null) {
-    turret = Math.atan2(player.y - y, player.x - x);
+    const toPlayer = Math.atan2(player.y - y, player.x - x);
     const owned = state.bullets.filter((b) => b.ownerId === tank.id).length;
     const ready = time >= tank.reloadUntil && owned < traits.maxBullets;
+    const inSight = hasLineOfSight(state, x, y, player.x, player.y);
     if (traits.banks) {
-      // Bank-shooter (green): if the player is in a clear line, aim straight at
-      // them; only when the line is blocked does it look for a bank shot off the
-      // walls. It keeps its current bank aim while that still lands, so the
+      // Bank-shooter (green): a clear line aims straight at the player; a blocked
+      // line looks for a bank shot off the walls (that bank IS its aim at the
+      // player). It keeps its current bank aim while that still lands, so the
       // barrel does not flicker between solutions.
-      if (hasLineOfSight(state, x, y, player.x, player.y)) {
+      if (inSight) {
+        turret = toPlayer;
         if (ready) {
           fire = true;
-          fireAngle = turret; // straight at the player
+          fireAngle = toPlayer;
           reloadUntil = time + traits.reload;
         }
       } else {
@@ -425,14 +492,20 @@ function driveEnemy(
           }
         }
       }
-    } else if (ready && hasLineOfSight(state, x, y, player.x, player.y)) {
-      const err = nextRandom(rng);
-      rng = err.state;
-      fire = true;
-      // err.value in [0, 1) maps to a symmetric [-spread, spread) offset.
-      fireAngle = turret + (err.value * 2 - 1) * (1 - traits.aim) * MAX_SPREAD;
-      reloadUntil = time + traits.reload;
+    } else if (inSight) {
+      // Player in sight: aim the barrel at them, and fire once reloaded.
+      turret = toPlayer;
+      if (ready) {
+        const err = nextRandom(rng);
+        rng = err.state;
+        fire = true;
+        // err.value in [0, 1) maps to a symmetric [-spread, spread) offset.
+        fireAngle =
+          toPlayer + (err.value * 2 - 1) * (1 - traits.aim) * MAX_SPREAD;
+        reloadUntil = time + traits.reload;
+      }
     }
+    // Otherwise no shot at the player: the barrel stays on the driving direction.
   }
 
   return {
@@ -458,14 +531,21 @@ function advanceBullets(
   dt: number,
 ): BulletStep {
   const moved = [...state.bullets, ...fresh]
-    .map((bullet) => moveBullet(state, bullet, dt))
+    .map((bullet) =>
+      moveBullet(state, steerHoming(state, bullet, tanks, dt), dt),
+    )
     .filter((bullet) => bullet.bouncesLeft >= 0);
 
   const dead = new Set<number>();
-  // Two shells that meet cancel each other out.
+  // Two shells that meet cancel each other out - but a homing missile shrugs
+  // off any shell it meets and cannot be shot down.
   for (let i = 0; i < moved.length; i++) {
     for (let j = i + 1; j < moved.length; j++) {
-      if (within(moved[i], moved[j], BULLET_RADIUS * 2)) {
+      if (
+        !moved[i].homing &&
+        !moved[j].homing &&
+        within(moved[i], moved[j], BULLET_RADIUS * 2)
+      ) {
         dead.add(i);
         dead.add(j);
       }
@@ -601,11 +681,13 @@ function advanceMines(
  * Decides the phase after a step: reload on a death, loss, level cleared or win.
  *
  * @remarks
- * Solo, any death repeats the whole level (every enemy back, the player at its
- * start) and spends one life. In co-op a single downed player is not the end:
- * the partner plays the level out. Clearing it moves both on to the next level,
- * both revived, with no life lost; only a full wipe (both down at once) spends a
- * life and repeats the level. When the last life is gone the mission is lost.
+ * Solo, any death repeats the level (the player back at the start) and spends
+ * one life - but enemies already destroyed stay gone, so each retry has fewer of
+ * them. In co-op a single downed player is not the end: the partner plays the
+ * level out. Clearing it moves both on to the next level, both revived, with no
+ * life lost; only a full wipe (both down at once) spends a life and repeats the
+ * level (again without the enemies already destroyed). When the last life is
+ * gone the mission is lost.
  */
 function resolve(draft: GameState): GameState {
   const players = draft.tanks.filter((tank) => tank.kind === "player");
@@ -638,8 +720,9 @@ function resolve(draft: GameState): GameState {
  * @returns the next state
  * @remarks
  * A wipe (no player left alive) spends one shared life and repeats the level
- * with both back; clearing it advances - {@link advance} reloads the next level
- * with both players, so a downed partner returns without costing a life.
+ * with both back (but the enemies already destroyed stay gone); clearing it
+ * advances - {@link advance} reloads the next level with both players, so a
+ * downed partner returns without costing a life.
  */
 function resolveCoop(
   draft: GameState,
@@ -659,18 +742,42 @@ function resolveCoop(
 }
 
 /**
- * Spends one life and repeats the level with every player and enemy back, or
- * ends the mission if that was the last life.
+ * Spends one life and repeats the level, or ends the mission if that was the
+ * last life.
  *
  * @param draft - the state after the fatal step
  * @param playerCount - how many human tanks to deal back in
- * @returns a fresh level with one fewer life, or a "lost" state
+ * @returns the level dealt again with one fewer life, or a "lost" state
+ * @remarks
+ * The players return to their start spots, but enemies that were already
+ * destroyed do NOT come back: only the ones still alive when the round ended are
+ * kept (matched by their stable per-level id). So each retry faces fewer enemies.
  */
 function reloadOrLose(draft: GameState, playerCount: number): GameState {
   const lives = draft.lives - 1;
-  return lives > 0
-    ? loadLevel(draft.level, lives, draft.random, Math.max(1, playerCount))
-    : { ...draft, lives: 0, phase: "lost" };
+  let result: GameState;
+  if (lives <= 0) {
+    result = { ...draft, lives: 0, phase: "lost" };
+  } else {
+    const fresh = loadLevel(
+      draft.level,
+      lives,
+      draft.random,
+      Math.max(1, playerCount),
+    );
+    const survivors = new Set(
+      draft.tanks
+        .filter((tank) => tank.kind !== "player" && tank.alive)
+        .map((tank) => tank.id),
+    );
+    result = {
+      ...fresh,
+      tanks: fresh.tanks.filter(
+        (tank) => tank.kind === "player" || survivors.has(tank.id),
+      ),
+    };
+  }
+  return result;
 }
 
 /** "cleared" if more levels remain, else "won". */
@@ -678,6 +785,174 @@ function clearedOrWon(draft: GameState): GameState {
   return draft.level + 1 < LEVELS.length
     ? { ...draft, phase: "cleared" }
     : { ...draft, phase: "won" };
+}
+
+/**
+ * Turns a homing missile a little towards the nearest enemy before it moves.
+ *
+ * @param state - the game, for its walls
+ * @param bullet - the shell this step
+ * @param tanks - every tank on the field
+ * @param dt - elapsed time in seconds
+ * @returns the bullet with its velocity rotated towards its target, or unchanged
+ * @remarks
+ * A plain shell is returned untouched. A homing missile keeps its speed but
+ * rotates its heading by at most {@link HOMING_TURN_RATE} times `dt` towards a
+ * steering angle picked by {@link chooseHomingHeading}: straight at the nearest
+ * enemy when the way is clear, or around a wall in its path otherwise, so it
+ * threads corridors instead of ramming a wall. With no enemy it flies straight.
+ */
+function steerHoming(
+  state: GameState,
+  bullet: Bullet,
+  tanks: readonly Tank[],
+  dt: number,
+): Bullet {
+  let result = bullet;
+  if (bullet.homing) {
+    const target = nearestEnemy(bullet, tanks);
+    if (target !== null) {
+      const speed = Math.hypot(bullet.vx, bullet.vy);
+      const heading = Math.atan2(bullet.vy, bullet.vx);
+      const desired = chooseHomingHeading(state, bullet, target);
+      const turned = turnTowards(heading, desired, HOMING_TURN_RATE * dt);
+      result = {
+        ...bullet,
+        vx: Math.cos(turned) * speed,
+        vy: Math.sin(turned) * speed,
+      };
+    }
+  }
+  return result;
+}
+
+/** How far ahead a homing missile probes for a wall when steering, in pixels. */
+const HOMING_LOOKAHEAD = 56;
+
+/** Step size of that probe walk, in pixels. */
+const HOMING_PROBE_STEP = 6;
+
+/** Angular spacing of the steering candidates, in radians (~15 degrees). */
+const HOMING_FAN_STEP = 0.26;
+
+/** How many candidates are tried on each side of the straight-at-target line. */
+const HOMING_FAN_STEPS = 11;
+
+/** Slack (px) within which two probe distances count as equally clear. */
+const HOMING_CLEAR_EPS = 1;
+
+/**
+ * Picks the heading a homing missile should aim for: straight at the target if
+ * the way ahead is clear, else the least-turning heading that skirts the wall.
+ *
+ * @param state - the game, for its walls
+ * @param bullet - the missile
+ * @param target - the tank it is chasing
+ * @returns the world angle to steer towards
+ * @remarks
+ * A fan of candidate angles is spread around the straight-at-target line. Each
+ * is scored by how far the missile could fly along it before a wall (capped at
+ * {@link HOMING_LOOKAHEAD}); the clearest wins. Ties break first towards the
+ * candidate nearest the target (the smallest fan offset), so a clear straight
+ * line is taken and a blocked one deviates as little as possible; a remaining
+ * left/right tie breaks towards the smaller turn from the current heading, which
+ * keeps the missile from oscillating as it rounds a corner.
+ */
+function chooseHomingHeading(
+  state: GameState,
+  bullet: Bullet,
+  target: Tank,
+): number {
+  const toTarget = Math.atan2(target.y - bullet.y, target.x - bullet.x);
+  const heading = Math.atan2(bullet.vy, bullet.vx);
+  let bestAngle = toTarget;
+  let bestClear = -1;
+  let bestOffset = Infinity;
+  let bestTurn = Infinity;
+  for (let i = 0; i <= HOMING_FAN_STEPS; i++) {
+    const signs = i === 0 ? [0] : [1, -1];
+    for (const sign of signs) {
+      const candidate = toTarget + sign * i * HOMING_FAN_STEP;
+      const clear = clearAhead(state, bullet.x, bullet.y, candidate);
+      const turn = Math.abs(signedGap(candidate, heading));
+      const tied = Math.abs(clear - bestClear) <= HOMING_CLEAR_EPS;
+      const better =
+        clear > bestClear + HOMING_CLEAR_EPS ||
+        (tied && (i < bestOffset || (i === bestOffset && turn < bestTurn)));
+      if (better) {
+        bestAngle = candidate;
+        bestClear = clear;
+        bestOffset = i;
+        bestTurn = turn;
+      }
+    }
+  }
+  return bestAngle;
+}
+
+/** How far a straight probe from (x, y) along `angle` runs before a wall, px. */
+function clearAhead(
+  state: GameState,
+  x: number,
+  y: number,
+  angle: number,
+): number {
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+  let reach = HOMING_LOOKAHEAD;
+  let blocked = false;
+  for (
+    let dist = HOMING_PROBE_STEP;
+    dist <= HOMING_LOOKAHEAD && !blocked;
+    dist += HOMING_PROBE_STEP
+  ) {
+    if (isWallAtPoint(state, x + dx * dist, y + dy * dist)) {
+      reach = dist;
+      blocked = true;
+    }
+  }
+  return reach;
+}
+
+/** The signed angle from `b` to `a`, wrapped into the range (-PI, PI]. */
+function signedGap(a: number, b: number): number {
+  const full = Math.PI * 2;
+  let diff = (a - b) % full;
+  if (diff > Math.PI) {
+    diff -= full;
+  } else if (diff < -Math.PI) {
+    diff += full;
+  }
+  return diff;
+}
+
+/** The nearest alive enemy tank to a bullet (an enemy of the bullet's owner). */
+function nearestEnemy(bullet: Bullet, tanks: readonly Tank[]): Tank | null {
+  let best: Tank | null = null;
+  let bestDist = Infinity;
+  for (const tank of tanks) {
+    if (tank.alive && tank.kind !== "player" && tank.id !== bullet.ownerId) {
+      const dist = (tank.x - bullet.x) ** 2 + (tank.y - bullet.y) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = tank;
+      }
+    }
+  }
+  return best;
+}
+
+/** Rotates `from` towards `to` by at most `maxDelta` radians, the short way. */
+function turnTowards(from: number, to: number, maxDelta: number): number {
+  const full = Math.PI * 2;
+  let diff = (to - from) % full;
+  if (diff > Math.PI) {
+    diff -= full;
+  } else if (diff < -Math.PI) {
+    diff += full;
+  }
+  const clamped = Math.max(-maxDelta, Math.min(maxDelta, diff));
+  return from + clamped;
 }
 
 /** Moves a shell one step, reflecting it off any wall it meets. */
@@ -707,16 +982,21 @@ function makeBullet(
   angle: number,
   bounces: number,
   speed = BULLET_SPEED,
+  homing = false,
 ): Bullet {
+  const dirX = Math.cos(angle);
+  const dirY = Math.sin(angle);
   return {
     id: `b${id}`,
-    x: from.x,
-    y: from.y,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
+    // Born at the muzzle - the barrel's tip along the aim - not the tank centre.
+    x: from.x + dirX * MUZZLE_OFFSET,
+    y: from.y + dirY * MUZZLE_OFFSET,
+    vx: dirX * speed,
+    vy: dirY * speed,
     bouncesLeft: bounces,
     ownerId: from.id,
     armed: false,
+    homing,
   };
 }
 

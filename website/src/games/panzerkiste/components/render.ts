@@ -10,6 +10,7 @@
 import {
   BULLET_SPEED,
   MINE_RADIUS,
+  MUZZLE_OFFSET,
   TANK_RADIUS,
   TILE,
   type Bullet,
@@ -31,6 +32,14 @@ import {
   drawSmoke,
   type SmokeField,
 } from "@/games/panzerkiste/components/smoke";
+import {
+  drawMuzzleFlashes,
+  type MuzzleFlashField,
+} from "@/games/panzerkiste/components/muzzle-flash";
+import {
+  drawTankExplosions,
+  type TankExplosionField,
+} from "@/games/panzerkiste/components/tank-explosion";
 
 /** How many directions the chassis can face: the sides plus the diagonals. */
 const CHASSIS_DIRECTIONS = 8;
@@ -96,18 +105,34 @@ const RENDER = {
   treadCenter: 0.5,
   turretRadius: 7,
   turretRise: 5,
-  barrelLen: 22,
+  barrelLen: MUZZLE_OFFSET,
   barrelWidth: 5,
   muzzleRadius: 3,
   bulletRadius: 4,
   bullet: "#111827",
   bulletRing: "#f8fafc",
   bulletRingWidth: 1.5,
+  bulletLen: 11,
+  bulletBodyWidth: 5,
+  bulletTip: "#d97706",
+  bulletTipLen: 4,
   rocketSpeedFactor: 1.2,
   rocketLen: 16,
   rocketWidth: 6,
   rocketBody: "#1f2937",
   rocketTip: "#f97316",
+  homingLen: 18,
+  homingWidth: 6,
+  homingRim: 1.5,
+  homingBody: "#0e7490",
+  homingEdge: "#22d3ee",
+  homingTip: "#ecfeff",
+  homingFlame: "#f59e0b",
+  homingFlameLen: 6,
+  homingFlameWidth: 0.7,
+  homingFinBack: 3,
+  homingFinSpan: 6,
+  homingFinWidth: 2,
   shadow: "rgba(15, 23, 42, 0.22)",
   mineCore: "#eab308",
   mineBlink: "#dc2626",
@@ -161,6 +186,8 @@ export function draw(
   state: GameState,
   pointer: Pointer,
   smoke: SmokeField | null = null,
+  flashes: MuzzleFlashField | null = null,
+  explosions: TankExplosionField | null = null,
 ): void {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   drawFloor(ctx, state);
@@ -211,6 +238,14 @@ export function draw(
   items.sort((a, b) => a.depth - b.depth);
   for (const item of items) {
     item.draw();
+  }
+
+  // Tank explosions and muzzle flashes sit on top of the scene.
+  if (explosions !== null) {
+    drawTankExplosions(ctx, explosions);
+  }
+  if (flashes !== null) {
+    drawMuzzleFlashes(ctx, flashes);
   }
 
   if (pointer !== null) {
@@ -743,22 +778,131 @@ function drawBarrel(ctx: CanvasRenderingContext2D, tank: Tank): void {
   ctx.fill();
 }
 
-/** One shell: a shadow and a small dark ball, or a rocket if it flies fast. */
+/** One shell: a cartridge, a homing missile, or a rocket if it flies fast. */
 function drawBullet(ctx: CanvasRenderingContext2D, bullet: Bullet): void {
   drawShadow(ctx, bullet.x, bullet.y, RENDER.bulletRadius);
   const speed = Math.hypot(bullet.vx, bullet.vy);
-  if (speed > BULLET_SPEED * RENDER.rocketSpeedFactor) {
+  if (bullet.homing) {
+    drawHomingMissile(ctx, bullet, speed);
+  } else if (speed > BULLET_SPEED * RENDER.rocketSpeedFactor) {
     drawRocket(ctx, bullet, speed);
   } else {
-    const p = project(bullet.x, bullet.y, BULLET_HEIGHT);
-    ctx.fillStyle = RENDER.bullet;
-    ctx.strokeStyle = RENDER.bulletRing;
-    ctx.lineWidth = RENDER.bulletRingWidth;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, RENDER.bulletRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    drawShell(ctx, bullet, speed);
   }
+}
+
+/**
+ * A homing missile: a sleek teal body with tail fins, a glowing nose and a
+ * flame, laid along its flight so it clearly reads as the guided secret weapon.
+ */
+function drawHomingMissile(
+  ctx: CanvasRenderingContext2D,
+  bullet: Bullet,
+  speed: number,
+): void {
+  const ux = speed > 0 ? bullet.vx / speed : 1;
+  const uy = speed > 0 ? bullet.vy / speed : 0;
+  const ax = -uy;
+  const ay = ux;
+  // World points (flat on the floor plane), projected so the tilt squashes them.
+  const at = (along: number, across: number) =>
+    project(
+      bullet.x + ux * along + ax * across,
+      bullet.y + uy * along + ay * across,
+      BULLET_HEIGHT,
+    );
+  const half = RENDER.homingLen / 2;
+  const tail = at(-half, 0);
+  const nose = at(half, 0);
+
+  // Tail flame first, so the body covers its root.
+  ctx.strokeStyle = RENDER.homingFlame;
+  ctx.lineWidth = RENDER.homingWidth * RENDER.homingFlameWidth;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  const flame = at(-half - RENDER.homingFlameLen, 0);
+  ctx.moveTo(flame.x, flame.y);
+  ctx.lineTo(tail.x, tail.y);
+  ctx.stroke();
+
+  // Tail fins: a short vee across the back.
+  ctx.strokeStyle = RENDER.homingEdge;
+  ctx.lineWidth = RENDER.homingFinWidth;
+  ctx.beginPath();
+  for (const side of [-1, 1] as const) {
+    const finTip = at(
+      -half - RENDER.homingFinBack,
+      side * RENDER.homingFinSpan,
+    );
+    ctx.moveTo(tail.x, tail.y);
+    ctx.lineTo(finTip.x, finTip.y);
+  }
+  ctx.stroke();
+
+  // The body: a cyan rim under a teal casing.
+  ctx.strokeStyle = RENDER.homingEdge;
+  ctx.lineWidth = RENDER.homingWidth + RENDER.homingRim * 2;
+  ctx.beginPath();
+  ctx.moveTo(tail.x, tail.y);
+  ctx.lineTo(nose.x, nose.y);
+  ctx.stroke();
+  ctx.strokeStyle = RENDER.homingBody;
+  ctx.lineWidth = RENDER.homingWidth;
+  ctx.beginPath();
+  ctx.moveTo(tail.x, tail.y);
+  ctx.lineTo(nose.x, nose.y);
+  ctx.stroke();
+
+  // The glowing nose.
+  ctx.fillStyle = RENDER.homingTip;
+  ctx.beginPath();
+  ctx.arc(nose.x, nose.y, RENDER.homingWidth / 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/**
+ * A cartridge-shaped shell: an elongated dark body with a light rim and a brass
+ * nose, laid along its flight direction so it reads as a bullet, not a ball.
+ */
+function drawShell(
+  ctx: CanvasRenderingContext2D,
+  bullet: Bullet,
+  speed: number,
+): void {
+  const centre = project(bullet.x, bullet.y, BULLET_HEIGHT);
+  // Flat on the tilted floor: squash the y component of the travel direction.
+  const ux = speed > 0 ? bullet.vx / speed : 1;
+  const uy = speed > 0 ? bullet.vy / speed : 0;
+  const half = RENDER.bulletLen / 2;
+  const tailX = centre.x - ux * half;
+  const tailY = centre.y - uy * half * DEPTH;
+  const noseX = centre.x + ux * half;
+  const noseY = centre.y + uy * half * DEPTH;
+  // A brass tip sits just short of the nose, marking the pointed front.
+  const tipX = noseX - ux * RENDER.bulletTipLen;
+  const tipY = noseY - uy * RENDER.bulletTipLen * DEPTH;
+
+  ctx.lineCap = "round";
+  // The light rim, drawn as a slightly wider capsule underneath the body.
+  ctx.strokeStyle = RENDER.bulletRing;
+  ctx.lineWidth = RENDER.bulletBodyWidth + RENDER.bulletRingWidth * 2;
+  ctx.beginPath();
+  ctx.moveTo(tailX, tailY);
+  ctx.lineTo(noseX, noseY);
+  ctx.stroke();
+  // The dark brass casing body.
+  ctx.strokeStyle = RENDER.bullet;
+  ctx.lineWidth = RENDER.bulletBodyWidth;
+  ctx.beginPath();
+  ctx.moveTo(tailX, tailY);
+  ctx.lineTo(noseX, noseY);
+  ctx.stroke();
+  // The brass projectile tip.
+  ctx.strokeStyle = RENDER.bulletTip;
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(noseX, noseY);
+  ctx.stroke();
 }
 
 /** A rocket: a short body along its flight with a bright nose, flat on the floor. */

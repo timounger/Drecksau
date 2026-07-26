@@ -24,9 +24,24 @@ import {
   createGame,
   totalEnemiesThroughLevel,
 } from "@/games/panzerkiste/engine/setup";
-import type { GameState, Input, Phase } from "@/games/panzerkiste/engine/types";
+import {
+  HOMING_CHARGE_SECONDS,
+  type GameState,
+  type Input,
+  type Phase,
+} from "@/games/panzerkiste/engine/types";
 import { draw } from "@/games/panzerkiste/components/render";
 import { createSmoke, stepSmoke } from "@/games/panzerkiste/components/smoke";
+import {
+  createMuzzleFlashes,
+  stepMuzzleFlashes,
+} from "@/games/panzerkiste/components/muzzle-flash";
+import {
+  createTankExplosions,
+  detectTankDeaths,
+  spawnTankExplosion,
+  stepTankExplosions,
+} from "@/games/panzerkiste/components/tank-explosion";
 import {
   createTouchControls,
   drawTouchControls,
@@ -42,12 +57,32 @@ import {
   canvasWidth,
   unprojectFloor,
 } from "@/games/panzerkiste/components/projection";
+import {
+  recordGameFinished,
+  recordGameStarted,
+  recordPlayTime,
+} from "@/lib/stats/stats-recorder";
+import { invalidateStats } from "@/lib/stats/stats-store";
+import type { GameId } from "@/games/registry";
 
 /** Seed of the first mission - fixed so the prerender is stable. */
 const INITIAL_SEED = 20260720;
 
 /** Milliseconds in a second, for turning frame timestamps into seconds. */
 const MS_PER_SECOND = 1000;
+
+/** How long the fire button is held (ms) before the homing missile launches. */
+const HOMING_CHARGE_MS = HOMING_CHARGE_SECONDS * MS_PER_SECOND;
+
+/** Which game the statistics are recorded under. */
+const GAME_ID: GameId = "panzerkiste";
+
+/** How often accumulated play time is written to the statistics, in ms. */
+const STATS_FLUSH_MS = 4000;
+
+/** Longest single frame that still counts as play time, so a backgrounded tab
+ * (rAF paused, then one huge frame on return) does not inflate the total. */
+const MAX_FRAME_S = 0.1;
 
 /** The heads-up facts the UI shows around the canvas. */
 export type Hud = {
@@ -137,6 +172,37 @@ export function usePanzerkiste(): PanzerkisteGame {
     [flashBanner],
   );
 
+  // Statistics for the current mission: whether its start was counted, the play
+  // time gathered, the part not yet written to storage, and whether its outcome
+  // was counted. A mission runs from the first level until it is won or lost;
+  // dying and retrying a level is the same mission.
+  const missionStats = useRef({
+    recorded: false,
+    playMs: 0,
+    unflushedMs: 0,
+    outcomeRecorded: false,
+  });
+
+  /** Writes the play time gathered but not yet stored to the statistics. */
+  const flushStatsTime = useCallback(() => {
+    if (missionStats.current.unflushedMs > 0) {
+      recordPlayTime(GAME_ID, missionStats.current.unflushedMs, Date.now());
+      missionStats.current.unflushedMs = 0;
+      invalidateStats();
+    }
+  }, []);
+
+  /** Starts counting a fresh mission (books any leftover time from the last). */
+  const beginMissionStats = useCallback(() => {
+    flushStatsTime();
+    missionStats.current = {
+      recorded: false,
+      playMs: 0,
+      unflushedMs: 0,
+      outcomeRecorded: false,
+    };
+  }, [flushStatsTime]);
+
   /** Mirrors the HUD into React state only when a shown value changes. */
   const syncHud = useCallback(() => {
     const nextHud = hudOf(stateRef.current, runningRef.current);
@@ -165,6 +231,10 @@ export function usePanzerkiste(): PanzerkisteGame {
     const onLeave = () => {
       mouseInside.current = false;
     };
+    // The fire button is charged by holding it: at HOMING_CHARGE_MS the secret
+    // homing missile launches. These track the current hold.
+    let fireDownAt: number | null = null;
+    let homingLaunched = false;
     const onDown = (event: MouseEvent) => {
       event.preventDefault();
       aimAt(event);
@@ -174,8 +244,13 @@ export function usePanzerkiste(): PanzerkisteGame {
         runningRef.current = true;
       } else if (stateRef.current.phase === "playing") {
         firePending.current = true;
+        fireDownAt = performance.now();
+        homingLaunched = false;
       }
       syncHud();
+    };
+    const onUp = () => {
+      fireDownAt = null;
     };
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
@@ -199,6 +274,7 @@ export function usePanzerkiste(): PanzerkisteGame {
     canvas.addEventListener("mousedown", onDown);
     canvas.addEventListener("mouseleave", onLeave);
     canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+    window.addEventListener("mouseup", onUp);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
@@ -224,9 +300,19 @@ export function usePanzerkiste(): PanzerkisteGame {
       }
       const fire = firePending.current || fireEdge;
       const layMine = minePending.current || mineEdge;
+      // Held the fire button long enough: launch the homing missile once.
+      let fireHoming = false;
+      if (
+        fireDownAt !== null &&
+        !homingLaunched &&
+        performance.now() - fireDownAt >= HOMING_CHARGE_MS
+      ) {
+        fireHoming = true;
+        homingLaunched = true;
+      }
       firePending.current = false;
       minePending.current = false;
-      return { move, aim, fire, layMine };
+      return { move, aim, fire, fireHoming, layMine };
     };
 
     // Sound effects, driven by comparing the state before and after each step.
@@ -235,6 +321,10 @@ export function usePanzerkiste(): PanzerkisteGame {
     let announcedStart = false;
     // View-only dust/smoke trailing the shells.
     const smoke = createSmoke();
+    // View-only muzzle flashes at the barrel when a shell is fired.
+    const flashes = createMuzzleFlashes();
+    // View-only explosions where a tank is destroyed.
+    const explosions = createTankExplosions();
 
     let raf = 0;
     let last = performance.now();
@@ -251,9 +341,21 @@ export function usePanzerkiste(): PanzerkisteGame {
           sound.play("roundStart");
           showStart(stateRef.current);
         }
+        if (!missionStats.current.recorded) {
+          missionStats.current.recorded = true;
+          recordGameStarted(GAME_ID, Date.now());
+          invalidateStats();
+        }
         const input = readInput();
         stateRef.current = step(stateRef.current, input, dt);
         sound.setMoving(input.move.x !== 0 || input.move.y !== 0);
+        // Count the played time, capped so a laggy/background frame cannot skew it.
+        const playedMs = Math.min(dt, MAX_FRAME_S) * MS_PER_SECOND;
+        missionStats.current.playMs += playedMs;
+        missionStats.current.unflushedMs += playedMs;
+        if (missionStats.current.unflushedMs >= STATS_FLUSH_MS) {
+          flushStatsTime();
+        }
         syncHud();
       } else {
         sound.setMoving(false);
@@ -263,6 +365,10 @@ export function usePanzerkiste(): PanzerkisteGame {
         const cur = stateRef.current;
         for (const event of detectSounds(soundPrev, cur)) {
           sound.play(event);
+        }
+        // An explosion wherever a tank (mine, enemy or player) was just destroyed.
+        for (const spot of detectTankDeaths(soundPrev, cur)) {
+          spawnTankExplosion(explosions, spot);
         }
         // Any fresh level (advance, respawn, restart) resets the clock: banner.
         if (cur.time < soundPrev.time && cur.phase === "playing") {
@@ -275,12 +381,29 @@ export function usePanzerkiste(): PanzerkisteGame {
         ) {
           showComplete(totalEnemiesThroughLevel(cur.level));
         }
+        // The mission just ended (all levels won, or out of lives): count it once.
+        if (
+          soundPrev.phase === "playing" &&
+          (cur.phase === "won" || cur.phase === "lost") &&
+          !missionStats.current.outcomeRecorded
+        ) {
+          missionStats.current.outcomeRecorded = true;
+          flushStatsTime();
+          recordGameFinished(GAME_ID, {
+            won: cur.phase === "won",
+            durationMs: missionStats.current.playMs,
+            finishedAt: Date.now(),
+          });
+          invalidateStats();
+        }
       }
       soundPrev = stateRef.current;
       // Show the blue aim cursor only while actually playing with the mouse in.
       const pointer = playing && mouseInside.current ? mouse.current : null;
       stepSmoke(smoke, stateRef.current.bullets, dt);
-      draw(ctx, stateRef.current, pointer, smoke);
+      stepMuzzleFlashes(flashes, stateRef.current.bullets, dt);
+      stepTankExplosions(explosions, dt);
+      draw(ctx, stateRef.current, pointer, smoke, flashes, explosions);
       drawTouchControls(ctx, touch.sample());
       raf = window.requestAnimationFrame(frame);
     };
@@ -288,17 +411,20 @@ export function usePanzerkiste(): PanzerkisteGame {
 
     return () => {
       window.cancelAnimationFrame(raf);
+      // Book the play time gathered so far before leaving the page.
+      flushStatsTime();
       clearTimeout(bannerTimer.current);
       sound.dispose();
       touch.dispose();
       canvas.removeEventListener("mousemove", aimAt);
       canvas.removeEventListener("mousedown", onDown);
       canvas.removeEventListener("mouseleave", onLeave);
+      window.removeEventListener("mouseup", onUp);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [syncHud, showStart, showComplete]);
+  }, [syncHud, showStart, showComplete, flushStatsTime]);
 
   const start = () => {
     runningRef.current = true;
@@ -310,6 +436,8 @@ export function usePanzerkiste(): PanzerkisteGame {
     syncHud();
   };
   const restartMission = () => {
+    // A brand-new mission: start a fresh statistics run.
+    beginMissionStats();
     stateRef.current = restart(stateRef.current);
     runningRef.current = true;
     syncHud();

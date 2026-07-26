@@ -31,7 +31,12 @@ import {
   createGame,
   totalEnemiesThroughLevel,
 } from "@/games/panzerkiste/engine/setup";
-import type { GameState, Input, Phase } from "@/games/panzerkiste/engine/types";
+import {
+  HOMING_CHARGE_SECONDS,
+  type GameState,
+  type Input,
+  type Phase,
+} from "@/games/panzerkiste/engine/types";
 import { draw } from "@/games/panzerkiste/components/render";
 import {
   createTouchControls,
@@ -65,6 +70,9 @@ import type { ChatMessage, RoomTransport } from "@/online/transport";
 
 /** Milliseconds in a second, for turning frame timestamps into seconds. */
 const MS_PER_SECOND = 1000;
+
+/** How long the fire button is held (ms) before the homing missile launches. */
+const HOMING_CHARGE_MS = HOMING_CHARGE_SECONDS * MS_PER_SECOND;
 
 /** How often the host publishes a snapshot, in seconds (about 20 per second). */
 const PUBLISH_INTERVAL = 0.05;
@@ -391,10 +399,19 @@ export function usePanzerkisteOnline(
     const onLeave = () => {
       mouseInside.current = false;
     };
+    // The fire button is charged by holding it: at HOMING_CHARGE_MS the secret
+    // homing missile launches. These track the current hold.
+    let fireDownAt: number | null = null;
+    let homingLaunched = false;
     const onDown = (event: MouseEvent) => {
       event.preventDefault();
       aimAt(event);
       firePending.current = true;
+      fireDownAt = performance.now();
+      homingLaunched = false;
+    };
+    const onUp = () => {
+      fireDownAt = null;
     };
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
@@ -417,6 +434,7 @@ export function usePanzerkisteOnline(
     canvas.addEventListener("mousedown", onDown);
     canvas.addEventListener("mouseleave", onLeave);
     canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+    window.addEventListener("mouseup", onUp);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
@@ -441,9 +459,19 @@ export function usePanzerkisteOnline(
       }
       const fire = firePending.current || fireEdge;
       const layMine = minePending.current || mineEdge;
+      // Held the fire button long enough: launch the homing missile once.
+      let fireHoming = false;
+      if (
+        fireDownAt !== null &&
+        !homingLaunched &&
+        performance.now() - fireDownAt >= HOMING_CHARGE_MS
+      ) {
+        fireHoming = true;
+        homingLaunched = true;
+      }
       firePending.current = false;
       minePending.current = false;
-      return { move, aim, fire, layMine };
+      return { move, aim, fire, fireHoming, layMine };
     };
 
     // View-only dust/smoke trailing the shells.
@@ -568,6 +596,7 @@ export function usePanzerkisteOnline(
       canvas.removeEventListener("mousemove", aimAt);
       canvas.removeEventListener("mousedown", onDown);
       canvas.removeEventListener("mouseleave", onLeave);
+      window.removeEventListener("mouseup", onUp);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
