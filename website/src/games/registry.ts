@@ -11,7 +11,7 @@
  */
 
 /** Identifies a game for storage and statistics. Never reuse an old id. */
-export type GameId = "drecksau" | "binokel" | "panzerkiste";
+export type GameId = "drecksau" | "binokel" | "panzerkiste" | "krakel";
 
 /** One game of the collection. */
 export type GameDefinition = {
@@ -48,6 +48,14 @@ export const GAMES: readonly GameDefinition[] = [
     tagline: "Zerstöre alle feindlichen Panzer - schießen, minen, ausweichen.",
     emoji: "\u{1F696}",
     href: "/panzerkiste",
+  },
+  {
+    id: "krakel",
+    name: "Krakel Orakel",
+    tagline:
+      "Mach aus einer Kritzelei ein Bild - die anderen raten den Begriff.",
+    emoji: "\u{1F52E}",
+    href: "/krakel",
   },
 ];
 
