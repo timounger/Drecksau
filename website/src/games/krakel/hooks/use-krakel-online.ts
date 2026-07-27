@@ -33,10 +33,17 @@ import {
 import {
   PALETTE,
   PEN_WIDTHS,
+  SNAP_MAX_JUMP,
+  SNAP_TOLERANCE,
   type KrakelPhase,
   type Point,
   type Stroke,
 } from "@/games/krakel/engine/types";
+import {
+  krakelTemplate,
+  snapToTemplate,
+  templatePoints,
+} from "@/games/krakel/engine/krakel-path";
 import { drawBoard } from "@/games/krakel/components/krakel-canvas";
 import {
   KRAKEL_GAME_ID,
@@ -191,6 +198,11 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
   const localStrokeRef = useRef<Stroke | null>(null);
   const drawingRef = useRef(false);
   const lastLiveSentRef = useRef(0);
+  // The current round's template points, rebuilt when the krakel seed changes.
+  const templateRef = useRef<{ seed: number; points: readonly Point[] }>({
+    seed: Number.NaN,
+    points: [],
+  });
 
   const viewSigRef = useRef("");
   const messageIdsRef = useRef(new Set<string>());
@@ -466,6 +478,38 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
       const snap = currentSnapshot(roleRef.current, gameRef, snapRef);
       return snap !== null && snap.phase === "drawing" && iAmDrawer();
     };
+    // Snaps a raw pointer point onto the round's template, or null if off the
+    // lines. The template is (re)built lazily when the krakel seed changes.
+    const snapPoint = (raw: Point): Point | null => {
+      const snapshot = currentSnapshot(roleRef.current, gameRef, snapRef);
+      if (snapshot === null) {
+        return null;
+      }
+      if (templateRef.current.seed !== snapshot.krakelSeed) {
+        templateRef.current = {
+          seed: snapshot.krakelSeed,
+          points: templatePoints(krakelTemplate(snapshot.krakelSeed)),
+        };
+      }
+      return snapToTemplate(templateRef.current.points, raw, SNAP_TOLERANCE);
+    };
+    // Starts a fresh stroke at a snapped point.
+    const beginLocal = (point: Point) => {
+      localStrokeRef.current = {
+        color: colorRef.current,
+        width: widthRef.current,
+        points: [point],
+      };
+    };
+    // Commits the in-progress stroke (a pen lift), if it has anything on it.
+    const commitLocal = () => {
+      const stroke = localStrokeRef.current;
+      if (stroke !== null) {
+        localStrokeRef.current = null;
+        myStrokesRef.current = [...myStrokesRef.current, stroke];
+        dispatchDraw({ kind: "stroke", stroke });
+      }
+    };
 
     const onDown = (event: PointerEvent) => {
       if (!canDraw()) {
@@ -474,21 +518,35 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
       event.preventDefault();
       canvas.setPointerCapture(event.pointerId);
       drawingRef.current = true;
-      localStrokeRef.current = {
-        color: colorRef.current,
-        width: widthRef.current,
-        points: [norm(event)],
-      };
+      localStrokeRef.current = null;
       lastLiveSentRef.current = 0;
+      const point = snapPoint(norm(event));
+      if (point !== null) {
+        beginLocal(point);
+      }
     };
     const onMove = (event: PointerEvent) => {
-      const stroke = localStrokeRef.current;
-      if (!drawingRef.current || stroke === null) {
+      if (!drawingRef.current) {
         return;
       }
-      const point = norm(event);
+      const point = snapPoint(norm(event));
+      if (point === null) {
+        // Off the lines: the pen lifts, ending any current stroke.
+        commitLocal();
+        return;
+      }
+      const stroke = localStrokeRef.current;
+      if (stroke === null) {
+        beginLocal(point);
+        return;
+      }
       const last = stroke.points[stroke.points.length - 1];
-      if (Math.hypot(point.x - last.x, point.y - last.y) >= MIN_POINT_DIST) {
+      const gap = Math.hypot(point.x - last.x, point.y - last.y);
+      if (gap > SNAP_MAX_JUMP) {
+        // The snap jumped to a far line: lift and start fresh, never bridge it.
+        commitLocal();
+        beginLocal(point);
+      } else if (gap >= MIN_POINT_DIST) {
         localStrokeRef.current = {
           ...stroke,
           points: [...stroke.points, point],
@@ -496,14 +554,11 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
       }
     };
     const onUp = () => {
-      const stroke = localStrokeRef.current;
-      if (!drawingRef.current || stroke === null) {
+      if (!drawingRef.current) {
         return;
       }
       drawingRef.current = false;
-      localStrokeRef.current = null;
-      myStrokesRef.current = [...myStrokesRef.current, stroke];
-      dispatchDraw({ kind: "stroke", stroke });
+      commitLocal();
     };
 
     canvas.addEventListener("pointerdown", onDown);

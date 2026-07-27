@@ -14,8 +14,8 @@ export const KRAKEL_TEXTS = {
   rulesTitle: "So wird gespielt",
   rules: [
     "Reihum ist eine Person am Zug und bekommt heimlich einen Begriff.",
-    "Auf der Leinwand liegt eine zufällige Krakel-Linie - baue sie in dein Bild ein.",
-    "Zeichne den Begriff, die anderen tippen ihre Vermutung ins Ratefeld.",
+    "Auf der Leinwand liegen zufällige Linien - du darfst nur auf diesen Linien zeichnen.",
+    "Mach mit den vorgegebenen Linien ein Bild, die anderen tippen ihre Vermutung ins Ratefeld.",
     "Wer früh richtig rät, bekommt mehr Punkte - und die zeichnende Person auch.",
     "Nach ein paar Runden gewinnt, wer die meisten Punkte gesammelt hat.",
   ],

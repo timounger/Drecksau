@@ -46,6 +46,13 @@ export const MAX_STROKES = 600;
 /** Most points one stroke keeps, so a long scribble stays bounded. */
 export const MAX_STROKE_POINTS = 400;
 
+/** How close (normalised) the pen must be to a template line to ink it. */
+export const SNAP_TOLERANCE = 0.035;
+
+/** A snapped jump larger than this (normalised) lifts the pen, so the stroke
+ * never leaps across a gap to another line. */
+export const SNAP_MAX_JUMP = 0.07;
+
 /** The colours a drawer can pick; the last one paints the background (eraser). */
 export const PALETTE: readonly string[] = [
   "#1e293b",

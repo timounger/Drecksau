@@ -34,6 +34,7 @@ const T = {
   guessedOf: (a: number, b: number) => `${a}/${b} erraten`,
   undo: "Zurück",
   clear: "Leeren",
+  onlyOnLines: "Du kannst nur auf den vorgegebenen Linien zeichnen.",
   scoreboard: "Punkte",
   finalTitle: "Spiel vorbei!",
   winner: (name: string) => `${name} gewinnt!`,
@@ -252,6 +253,9 @@ function Toolbar({ tools }: { tools: KrakelTools }): ReactElement {
         <ToolButton onClick={tools.undo}>{T.undo}</ToolButton>
         <ToolButton onClick={tools.clear}>{T.clear}</ToolButton>
       </div>
+      <p className="w-full text-xs text-zinc-500 dark:text-zinc-400">
+        {"✏️"} {T.onlyOnLines}
+      </p>
     </section>
   );
 }

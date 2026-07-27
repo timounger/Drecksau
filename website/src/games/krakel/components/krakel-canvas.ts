@@ -9,14 +9,14 @@
  * with rounded caps and midpoint smoothing so a fast scribble still looks like a
  * line, not a chain of dots.
  */
-import { krakelPath } from "@/games/krakel/engine/krakel-path";
+import { krakelTemplate } from "@/games/krakel/engine/krakel-path";
 import type { Point, Stroke } from "@/games/krakel/engine/types";
 
-/** Colour of the faint base squiggle. */
-const KRAKEL_COLOR = "rgba(148, 163, 184, 0.5)";
+/** Colour of the faint template lines the drawing must stay on. */
+const KRAKEL_COLOR = "rgba(148, 163, 184, 0.55)";
 
-/** Width of the base squiggle, as a fraction of the canvas height. */
-const KRAKEL_WIDTH = 0.02;
+/** Width of a template line, as a fraction of the canvas height. */
+const KRAKEL_WIDTH = 0.018;
 
 /** Background the board is cleared to. */
 const BOARD_BACKGROUND = "#ffffff";
@@ -40,16 +40,15 @@ export function drawBoard(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.fillStyle = BOARD_BACKGROUND;
   ctx.fillRect(0, 0, scene.width, scene.height);
 
-  drawStroke(
-    ctx,
-    {
-      color: KRAKEL_COLOR,
-      width: KRAKEL_WIDTH,
-      points: krakelPath(scene.krakelSeed),
-    },
-    scene.width,
-    scene.height,
-  );
+  // The faint template: the only lines the drawing is allowed to run along.
+  for (const line of krakelTemplate(scene.krakelSeed)) {
+    drawStroke(
+      ctx,
+      { color: KRAKEL_COLOR, width: KRAKEL_WIDTH, points: line },
+      scene.width,
+      scene.height,
+    );
+  }
 
   for (const stroke of scene.strokes) {
     drawStroke(ctx, stroke, scene.width, scene.height);
