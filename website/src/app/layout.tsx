@@ -4,8 +4,8 @@
  * @module
  */
 import type { Metadata } from "next";
-import type { ReactElement } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
+import type { ReactElement } from "react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     default: "Spielesammlung",
     template: "%s - Spielesammlung",
   },
-  description: "Eine kleine Sammlung von Spielen - aktuell Drecksau.",
+  description: "Eine kleine Sammlung von Spielen.",
 };
 
 export default function RootLayout({
