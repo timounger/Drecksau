@@ -1,27 +1,34 @@
 /**
- * The German terms a player may be asked to picture.
+ * The German terms a player may be asked to picture, in two difficulties.
  *
  * @module
  * @remarks
- * A hand-picked list: mostly concrete, drawable things, plus a handful of
- * deliberately harder prompts - activities ("tauchen"), properties ("rund") and
- * ideas ("Trauer") - so not every round is a still life. Kept as one flat list
- * the round draws from with the seeded generator, so a game replays identically
- * from its seed and the rules stay testable.
+ * Two hand-picked lists. **Leicht** is mostly concrete, drawable things;
+ * **schwer** leans on ideas, places and activities that have no obvious picture
+ * ("Langeweile", "Perfektion", "Vergangenheit") and therefore need a detour
+ * through something the others can read.
+ *
+ * Both lists share one convention: entries that are **not** things are written
+ * in lower case - activities ("backen", "pilgern") and properties ("giftig",
+ * "wortkarg"). That is deliberate and marks them at a glance.
+ *
+ * A round draws from the list its game was dealt, with the seeded generator, so
+ * a game replays identically from its seed and the rules stay testable.
  *
  * The seeding is not what keeps the words secret - the candidate list is public
  * by design, and each player's own term travels in their private hand. What
  * keeps the rest hidden is simply that the base seed never leaves the host.
  *
- * Every entry must be unique: a round deals the terms and the decoys in one
- * draw, and a word listed twice could be dealt twice - handing two players the
- * same term, or making a decoy somebody's real term. {@link words.test.ts}
- * guards this.
+ * Every entry within a list must be unique: a round deals the terms and the
+ * decoys in one draw, and a word listed twice could be dealt twice - handing two
+ * players the same term, or making a decoy somebody's real term. The two lists
+ * may overlap; only one of them is ever in play. `words.test.ts` guards this.
  */
 import { randomInt, type Random } from "./random";
+import type { Difficulty } from "./types";
 
-/** All terms, in no particular order. */
-export const KRAKEL_WORDS: readonly string[] = [
+/** The everyday, drawable terms. */
+export const EASY_WORDS: readonly string[] = [
   "Surfbrett",
   "Schneeflocke",
   "Wein",
@@ -262,12 +269,272 @@ export const KRAKEL_WORDS: readonly string[] = [
   "Essen",
 ];
 
+/** The harder terms: ideas, places and activities. */
+export const HARD_WORDS: readonly string[] = [
+  "Lockenwickler",
+  "Dudelsack",
+  "Mutter",
+  "Fortbewegung",
+  "genial",
+  "Mikroskop",
+  "backen",
+  "Braten",
+  "Afrika",
+  "Richterin",
+  "Scharnier",
+  "Loch Ness",
+  "schnell",
+  "Weltreise",
+  "Leseratte",
+  "bügeln",
+  "Ferienhaus",
+  "Sauerei",
+  "irritiert",
+  "Wissenschaftlerin",
+  "Höhlenmalerei",
+  "Traum",
+  "Biergarten",
+  "Nordlicht",
+  "Physik",
+  "Japan",
+  "Herbst",
+  "scharf",
+  "Ohrwurm",
+  "Chaos",
+  "nass",
+  "Sofaritze",
+  "pilgern",
+  "Seuche",
+  "Schlaraffenland",
+  "Dietrich",
+  "Heiligtum",
+  "Rollmops",
+  "steil",
+  "elegant",
+  "Wüstenrennmaus",
+  "Atlantis",
+  "dumm",
+  "Tierklinik",
+  "Amboss",
+  "Ruhm",
+  "Kompliment",
+  "Muskel",
+  "Videospiel",
+  "giftig",
+  "Rockmusik",
+  "Biber",
+  "langsam",
+  "Witz",
+  "Laubbläser",
+  "Zoo",
+  "graben",
+  "Statistik",
+  "Küche",
+  "Natur",
+  "Büro",
+  "Pantomime",
+  "Nebel",
+  "Perfektion",
+  "Teleportation",
+  "Biologie",
+  "Erinnerung",
+  "Alpaka",
+  "schwimmen",
+  "Blattspinat",
+  "Rasen mähen",
+  "Olympiade",
+  "Schredder",
+  "Karneval",
+  "Trompete",
+  "China",
+  "Skandinavien",
+  "Abneigung",
+  "Knäckebrot",
+  "Mischung",
+  "Zeit",
+  "Angst",
+  "Pfarrer",
+  "entspannt",
+  "reiten",
+  "Rechnung",
+  "glücklich",
+  "Naschkatze",
+  "Architektin",
+  "Schlangenbeschwörer",
+  "Kratzbaum",
+  "Kaugummi",
+  "Schall",
+  "zaubern",
+  "Napoleon",
+  "sitzen",
+  "Spiegelbild",
+  "Fehler",
+  "Tag",
+  "Schneewittchen",
+  "fahren",
+  "Savanne",
+  "Australien",
+  "Kloster",
+  "Expedition",
+  "Macht",
+  "Posaune",
+  "erschrecken",
+  "Botschaft",
+  "Yoga",
+  "Gezeiten",
+  "USA",
+  "fasten",
+  "Europa",
+  "Heimweh",
+  "Hundeschule",
+  "Pirat",
+  "Schokoladenbrunnen",
+  "servieren",
+  "Düsenantrieb",
+  "Muttermal",
+  "Reichtum",
+  "Bauernhof",
+  "Langeweile",
+  "Zukunft",
+  "Blätterteig",
+  "Tätowierung",
+  "laut",
+  "Elster",
+  "Fantasie",
+  "Restaurant",
+  "Umzug",
+  "Vortrag",
+  "Berlin",
+  "Dschungel",
+  "schlafen",
+  "Polizei",
+  "Pilotin",
+  "Lasagne",
+  "Glaube",
+  "Weinhandlung",
+  "Universität",
+  "Schweißgerät",
+  "klebrig",
+  "Frieden",
+  "sortieren",
+  "Absturz",
+  "wortkarg",
+  "Sänger",
+  "Nationalpark",
+  "Frühling",
+  "Sammlung",
+  "Tankstelle",
+  "Vergangenheit",
+  "Vampir",
+  "Delfin",
+  "Teufel",
+  "Koch",
+  "Konzert",
+  "Honigwabe",
+  "Sportlerin",
+  "Weihnachten",
+  "Vorfreude",
+  "Rattenplage",
+  "Lieferung",
+  "nachdenken",
+  "Dating",
+  "Kindergarten",
+  "Kneipe",
+  "Brettspiel",
+  "Grand Canyon",
+  "Tauschgeschäft",
+  "Maurerin",
+  "Batman",
+  "schön",
+  "hässlich",
+  "Bienenstich",
+  "Lotterie",
+  "Lehrer",
+  "Xylophon",
+  "klettern",
+  "Boxsack",
+  "Rathaus",
+  "Sommerferien",
+  "Taschendiebin",
+  "Jenseits",
+  "Marke",
+  "Auszeichnung",
+  "Talisman",
+  "Chamäleon",
+  "Journalist",
+  "Frankreich",
+  "Vorgarten",
+  "Himalaya",
+  "Reflexion",
+  "Packesel",
+  "bequem",
+  "gefährlich",
+  "Raumstation",
+  "Geburtstagsparty",
+  "Südafrika",
+  "Mandala",
+  "Festival",
+  "Waschanlage",
+  "Pferdestall",
+  "ekelhaft",
+  "Tragödie",
+  "Paragliderin",
+  "Silvester",
+  "Geometrie",
+  "Künstlerin",
+  "Rente",
+  "Klettergerüst",
+  "Baustelle",
+  "wohlklingend",
+  "Kannibalin",
+  "Baumarkt",
+  "Murmelbahn",
+  "Konsum",
+  "staubsaugen",
+  "neidisch",
+  "Wickeltisch",
+  "Hollywoodschaukel",
+  "Paradies",
+  "Schmiedin",
+  "London",
+  "Dinosaurier",
+  "Gefängnis",
+  "Flohmarkt",
+  "Geschichte",
+  "Passwort",
+  "Hölle",
+  "Basar",
+  "Demonstration",
+  "Bagger",
+  "Dichter",
+  "Südamerika",
+  "Jubiläum",
+  "Disco",
+];
+
+/** The word pool behind each difficulty. */
+const POOLS: Readonly<Record<Difficulty, readonly string[]>> = {
+  easy: EASY_WORDS,
+  hard: HARD_WORDS,
+};
+
+/**
+ * The words a difficulty draws from.
+ *
+ * @param difficulty - the difficulty the game was dealt
+ * @returns that difficulty's whole word list
+ */
+export function wordsFor(difficulty: Difficulty): readonly string[] {
+  return POOLS[difficulty];
+}
+
 /**
  * Draws a number of distinct terms, avoiding the already used ones.
  *
  * @param random - the seeded generator to draw from
  * @param count - how many terms to deal
  * @param used - the terms already played this game
+ * @param difficulty - which list to draw from
  * @returns that many distinct terms
  * @remarks
  * Draws from the still-unused terms; once those run out (a long game) it falls
@@ -279,12 +546,14 @@ export function pickWords(
   random: Random,
   count: number,
   used: readonly string[],
+  difficulty: Difficulty,
 ): string[] {
-  const fresh = KRAKEL_WORDS.filter((word) => !used.includes(word));
-  const pool = fresh.length >= count ? [...fresh] : [...KRAKEL_WORDS];
+  const pool = wordsFor(difficulty);
+  const fresh = pool.filter((word) => !used.includes(word));
+  const source = fresh.length >= count ? [...fresh] : [...pool];
   const picked: string[] = [];
-  while (picked.length < count && pool.length > 0) {
-    picked.push(...pool.splice(randomInt(random, pool.length), 1));
+  while (picked.length < count && source.length > 0) {
+    picked.push(...source.splice(randomInt(random, source.length), 1));
   }
   return picked;
 }

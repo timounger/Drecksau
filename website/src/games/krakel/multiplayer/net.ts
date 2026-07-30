@@ -23,7 +23,11 @@ import {
   type KrakelGame,
   type PlayerId,
 } from "@/games/krakel/engine/game";
-import type { KrakelPhase, Stroke } from "@/games/krakel/engine/types";
+import type {
+  Difficulty,
+  KrakelPhase,
+  Stroke,
+} from "@/games/krakel/engine/types";
 import { isChatPayload } from "@/online/online-state";
 import type { RoomState, Seat, SeatId } from "@/online/adapter";
 import type { MoveIntent, WireGuards } from "@/online/transport";
@@ -77,6 +81,8 @@ export type NetSnapshot = {
   readonly phase: KrakelPhase;
   readonly round: number;
   readonly totalRounds: number;
+  /** Which word list the host dealt, so every client can show it. */
+  readonly difficulty: Difficulty;
   /** Every player's board, in the order they strike words. */
   readonly boards: readonly BoardLine[];
   /** Milliseconds since the epoch at which the current phase ends. */
@@ -109,6 +115,7 @@ export function toSnapshot(game: KrakelGame): NetSnapshot {
     phase: game.phase,
     round: game.round,
     totalRounds: game.totalRounds,
+    difficulty: game.difficulty,
     boards: game.order.map((seatId) => ({
       seatId,
       boardId: game.boardIds[seatId] ?? 0,
@@ -209,6 +216,7 @@ function isNetSnapshot(value: unknown): value is NetSnapshot {
     typeof snap.phase === "string" &&
     typeof snap.round === "number" &&
     typeof snap.totalRounds === "number" &&
+    (snap.difficulty === "easy" || snap.difficulty === "hard") &&
     Array.isArray(snap.boards) &&
     snap.boards.every(isBoardLine) &&
     typeof snap.deadline === "number" &&

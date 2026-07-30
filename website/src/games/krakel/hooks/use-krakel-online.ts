@@ -40,11 +40,18 @@ import {
   PEN_WIDTHS,
   SNAP_MAX_JUMP,
   SNAP_TOLERANCE,
+  type Difficulty,
   type KrakelPhase,
   type Point,
   type Stroke,
 } from "@/games/krakel/engine/types";
-import { maxScore } from "@/games/krakel/engine/scoring";
+import { isPerfectGame, maxScore } from "@/games/krakel/engine/scoring";
+import {
+  recordGameFinished,
+  recordGameStarted,
+  recordPlayTime,
+} from "@/lib/stats/stats-recorder";
+import { invalidateStats } from "@/lib/stats/stats-store";
 import {
   BOARD_ASPECT,
   krakelBoard,
@@ -77,6 +84,12 @@ const PUBLISH_INTERVAL = 0.09;
  * follows the printed board's shape, so the dot pattern is never stretched. */
 const CANVAS_W = 960;
 const CANVAS_H = Math.round(CANVAS_W / BOARD_ASPECT);
+
+/** How often the played time is written to the statistics, in milliseconds. */
+const STATS_FLUSH_MS = 4000;
+
+/** Longest frame counted as play time, so a backgrounded tab cannot skew it. */
+const MAX_FRAME_S = 0.1;
 
 /** Smallest move (normalised) that adds a new point, to thin dense input. */
 const MIN_POINT_DIST = 0.004;
@@ -137,6 +150,8 @@ export type KrakelView = {
   readonly phase: KrakelPhase;
   readonly round: number;
   readonly totalRounds: number;
+  /** Which word list this game is played with. */
+  readonly difficulty: Difficulty;
   /** Milliseconds since the epoch at which the current phase ends. */
   readonly deadline: number;
   /** My own secret term, from my private hand. */
@@ -208,8 +223,8 @@ export type KrakelOnline = {
   readonly exclude: (word: string) => void;
   /** Sends a chat line. */
   readonly sendMessage: (text: string) => void;
-  /** Host only: deal the first round and begin. */
-  readonly start: () => void;
+  /** Host only: deal the first round and begin, with the chosen word list. */
+  readonly start: (difficulty: Difficulty) => void;
   /** Host only: start a fresh game after the last round. */
   readonly newGame: () => void;
 };
@@ -268,6 +283,21 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
     dots: [],
   });
 
+  /**
+   * What this browser has already counted for the game on screen.
+   *
+   * @remarks
+   * Every client keeps its own statistics, so this is tracked from the shared
+   * snapshot rather than from the host's actions - a guest's numbers would
+   * otherwise stay empty.
+   */
+  const statsRef = useRef({
+    started: false,
+    finished: false,
+    playMs: 0,
+    unflushedMs: 0,
+  });
+
   const viewSigRef = useRef("");
   // The key of the newest published snapshot, so the host only writes on change.
   const publishedKeyRef = useRef("");
@@ -292,6 +322,16 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
       };
     }
     return cleanup;
+  }, []);
+
+  /** Writes the play time counted so far into the statistics. */
+  const flushPlayTime = useCallback(() => {
+    const pending = statsRef.current.unflushedMs;
+    if (pending > 0) {
+      statsRef.current.unflushedMs = 0;
+      recordPlayTime(KRAKEL_GAME_ID, pending, Date.now());
+      invalidateStats();
+    }
   }, []);
 
   const setColor = useCallback((next: string) => {
@@ -422,18 +462,21 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
     }
   }, []);
 
-  const start = useCallback(() => {
-    if (roleRef.current !== "host") {
-      return;
-    }
-    const order = seatsRef.current.map((seat) => seat.id);
-    gameRef.current = createGame(order, freshSeed(), Date.now());
-    runningRef.current = true;
-    myStrokesRef.current = [];
-    lastRoundRef.current = 1;
-    publishNow();
-    setStatus("playing");
-  }, [publishNow]);
+  const start = useCallback(
+    (difficulty: Difficulty) => {
+      if (roleRef.current !== "host") {
+        return;
+      }
+      const order = seatsRef.current.map((seat) => seat.id);
+      gameRef.current = createGame(order, freshSeed(), Date.now(), difficulty);
+      runningRef.current = true;
+      myStrokesRef.current = [];
+      lastRoundRef.current = 1;
+      publishNow();
+      setStatus("playing");
+    },
+    [publishNow],
+  );
 
   const newGame = useCallback(() => {
     const game = gameRef.current;
@@ -707,6 +750,54 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
       }
     };
 
+    /**
+     * Keeps this browser's statistics in step with the game on screen.
+     *
+     * @remarks
+     * Counts one game from the first frame it is on screen until it is over,
+     * and adds up the time in between. A rematch resets the bookkeeping, so a
+     * whole evening at one table is counted as the several games it was.
+     */
+    const trackStats = (snap: NetSnapshot, dt: number) => {
+      const stats = statsRef.current;
+      if (snap.phase === "over") {
+        if (stats.started && !stats.finished) {
+          stats.finished = true;
+          flushPlayTime();
+          recordGameFinished(KRAKEL_GAME_ID, {
+            won: isPerfectGame(snap.score),
+            durationMs: stats.playMs,
+            finishedAt: Date.now(),
+          });
+          invalidateStats();
+        }
+        return;
+      }
+      if (stats.finished) {
+        // A rematch is dealt on the same table: start counting a fresh game.
+        statsRef.current = {
+          started: false,
+          finished: false,
+          playMs: 0,
+          unflushedMs: 0,
+        };
+      }
+      const current = statsRef.current;
+      if (!current.started) {
+        current.started = true;
+        recordGameStarted(KRAKEL_GAME_ID, Date.now());
+        invalidateStats();
+      }
+      // A backgrounded tab hands back one huge frame; cap it, or an evening
+      // away from the keyboard would count as play time.
+      const playedMs = Math.min(dt, MAX_FRAME_S) * MS_PER_SECOND;
+      current.playMs += playedMs;
+      current.unflushedMs += playedMs;
+      if (current.unflushedMs >= STATS_FLUSH_MS) {
+        flushPlayTime();
+      }
+    };
+
     let sincePublish = 0;
     /**
      * Publishes the host's game, but only when a client would see a difference.
@@ -747,6 +838,7 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
           publishIfChanged(dt, snap);
         }
         resetOnNewRound(snap);
+        trackStats(snap, dt);
         renderMine(snap);
         renderBoards(snap);
         syncView(snap);
@@ -755,8 +847,12 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
     };
 
     raf = window.requestAnimationFrame(frame);
-    return () => window.cancelAnimationFrame(raf);
-  }, [playing, publishNow, dispatchDraw]);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      // Leaving mid-game still counted as time played, so bank it now.
+      flushPlayTime();
+    };
+  }, [playing, publishNow, dispatchDraw, flushPlayTime]);
 
   const tools: KrakelTools = {
     color,
@@ -854,6 +950,7 @@ function viewOf(
     phase: snap.phase,
     round: snap.round,
     totalRounds: snap.totalRounds,
+    difficulty: snap.difficulty,
     deadline: snap.deadline,
     // I always know my own word - I drew it - even while it is still secret
     // from the others.

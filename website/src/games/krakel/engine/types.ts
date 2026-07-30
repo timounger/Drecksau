@@ -25,6 +25,19 @@ export type Stroke = {
 };
 
 /**
+ * Which word list a game is played with.
+ *
+ * @remarks
+ * `easy` deals everyday, drawable things; `hard` deals ideas, places and
+ * activities that have no obvious picture. It is chosen once, before the game,
+ * and holds for the whole game.
+ */
+export type Difficulty = "easy" | "hard";
+
+/** Every difficulty on offer, easiest first. */
+export const DIFFICULTIES: readonly Difficulty[] = ["easy", "hard"];
+
+/**
  * How far a single round of Krakel Orakel has got.
  *
  * @remarks

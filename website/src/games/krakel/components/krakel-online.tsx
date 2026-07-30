@@ -44,6 +44,12 @@ import {
   loadPlayerCount,
   savePlayerCount,
 } from "@/games/krakel/settings/player-count";
+import {
+  DEFAULT_DIFFICULTY,
+  loadDifficulty,
+  saveDifficulty,
+} from "@/games/krakel/settings/difficulty";
+import { DIFFICULTIES, type Difficulty } from "@/games/krakel/engine/types";
 import { KRAKEL_GAME_ID } from "@/games/krakel/multiplayer/net";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/krakel/engine/types";
 import { KrakelBoard } from "@/games/krakel/components/krakel-board";
@@ -66,6 +72,13 @@ const T = {
   searching: "Suche Mitspieler …",
   tableSize: "Wie viele Spieler?",
   tableSizeHint: "Wird für das nächste Mal gemerkt.",
+  difficulty: "Wie schwer?",
+  difficultyHint:
+    "Leicht: Dinge, die man malen kann. Schwer: auch Ideen, Orte und Tätigkeiten.",
+  difficultyName: { easy: "Leicht", hard: "Schwer" } as Record<
+    Difficulty,
+    string
+  >,
   playersLabel: (n: number) => `${n} Spieler`,
   waitingFor: (have: number, want: number) => `${have} von ${want} da`,
   startsNow: "Vollzählig - los geht's!",
@@ -100,9 +113,18 @@ const T = {
 /** This game's id, for presence and matchmaking namespacing. */
 const GAME_ID = KRAKEL_GAME_ID;
 
-/** The wish advertised while searching; only the table size varies. */
-function matchWish(count: number): Wish {
-  return { count, expansion: false, defense: false };
+/**
+ * The wish advertised while searching.
+ *
+ * @param count - the wished table size
+ * @param difficulty - the wished word list
+ * @returns the wish two searchers must agree on to be put together
+ * @remarks
+ * The difficulty rides in the shared wish's `variant` slot, so a table only
+ * matches at once when both the size **and** the word list agree.
+ */
+function matchWish(count: number, difficulty: Difficulty): Wish {
+  return { count, expansion: false, defense: false, variant: difficulty };
 }
 
 /** How often the open room's matchmaking entry is kept alive, in ms. */
@@ -141,6 +163,8 @@ export function KrakelOnlineScreen(): ReactElement {
   const [auto, setAuto] = useState<Match | null>(null);
   // The table size the search is waiting for, kept while the lobby is open.
   const [wanted, setWanted] = useState(DEFAULT_PLAYER_COUNT);
+  // The word list the search waits for, and the one a started game is dealt.
+  const [level, setLevel] = useState<Difficulty>(DEFAULT_DIFFICULTY);
 
   const online = useKrakelOnline(session);
 
@@ -152,22 +176,30 @@ export function KrakelOnlineScreen(): ReactElement {
     setSession(null);
   }, [auto]);
 
-  const startAuto = useCallback(async (name: string, count: number) => {
-    setWanted(count);
-    const found = await findMatch(
-      database(),
-      GAME_ID,
-      matchWish(count),
-      Date.now(),
-    );
-    setAuto(found);
-    setSession({ mode: found.mode, code: found.code, name });
-  }, []);
+  const startAuto = useCallback(
+    async (name: string, count: number, difficulty: Difficulty) => {
+      setWanted(count);
+      setLevel(difficulty);
+      const found = await findMatch(
+        database(),
+        GAME_ID,
+        matchWish(count, difficulty),
+        Date.now(),
+      );
+      setAuto(found);
+      setSession({ mode: found.mode, code: found.code, name });
+    },
+    [],
+  );
 
-  const startPrivate = useCallback((next: OnlineSession) => {
-    setAuto(null);
-    setSession(next);
-  }, []);
+  const startPrivate = useCallback(
+    (next: OnlineSession, difficulty: Difficulty) => {
+      setLevel(difficulty);
+      setAuto(null);
+      setSession(next);
+    },
+    [],
+  );
 
   const hop = useCallback((targetCode: string) => {
     setAuto({ code: targetCode, mode: "guest" });
@@ -196,12 +228,18 @@ export function KrakelOnlineScreen(): ReactElement {
           online={online}
           match={auto}
           wanted={wanted}
+          level={level}
           onlineCount={onlineCount}
           onHop={hop}
           onCancel={leave}
         />
       ) : (
-        <OnlineLobby online={online} code={session.code} onLeave={leave} />
+        <OnlineLobby
+          online={online}
+          code={session.code}
+          level={level}
+          onLeave={leave}
+        />
       );
   } else {
     body = <PlayingArea online={online} onLeave={leave} />;
@@ -230,8 +268,12 @@ export function KrakelOnlineScreen(): ReactElement {
 
 /** Props of {@link OnlineEntry}. */
 type OnlineEntryProps = {
-  readonly onStart: (session: OnlineSession) => void;
-  readonly onAutoMatch: (name: string, count: number) => Promise<void>;
+  readonly onStart: (session: OnlineSession, difficulty: Difficulty) => void;
+  readonly onAutoMatch: (
+    name: string,
+    count: number,
+    difficulty: Difficulty,
+  ) => Promise<void>;
   readonly onlineCount: number | null;
 };
 
@@ -244,6 +286,7 @@ function OnlineEntry({
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [count, setCount] = useState(DEFAULT_PLAYER_COUNT);
+  const [level, setLevel] = useState<Difficulty>(DEFAULT_DIFFICULTY);
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
@@ -253,6 +296,7 @@ function OnlineEntry({
       setName(saved);
     }
     setCount(loadPlayerCount());
+    setLevel(loadDifficulty());
     const params = new URLSearchParams(window.location.search);
     const invited = params.get(ROOM_QUERY_PARAM);
     if (invited !== null) {
@@ -261,30 +305,35 @@ function OnlineEntry({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
-  // Both choices are kept for next time, whichever way the player goes in.
+  // Every choice is kept for next time, whichever way the player goes in.
   const remember = (chosen: string) => {
     savePlayerName(chosen);
     savePlayerCount(count);
+    saveDifficulty(level);
   };
   const chooseCount = (next: number) => {
     setCount(next);
     savePlayerCount(next);
   };
+  const chooseLevel = (next: Difficulty) => {
+    setLevel(next);
+    saveDifficulty(next);
+  };
   const host = () => {
     remember(name);
-    onStart({ mode: "host", code: generateRoomCode(), name });
+    onStart({ mode: "host", code: generateRoomCode(), name }, level);
   };
   const join = () => {
     const clean = normalizeRoomCode(code);
     if (isValidRoomCode(clean)) {
       remember(name);
-      onStart({ mode: "guest", code: clean, name });
+      onStart({ mode: "guest", code: clean, name }, level);
     }
   };
   const autoMatch = () => {
     remember(name);
     setSearching(true);
-    void onAutoMatch(name, count).catch(() => setSearching(false));
+    void onAutoMatch(name, count, level).catch(() => setSearching(false));
   };
 
   return (
@@ -303,6 +352,8 @@ function OnlineEntry({
       </label>
 
       <PlayerCountPicker count={count} onChoose={chooseCount} />
+
+      <DifficultyPicker level={level} onChoose={chooseLevel} />
 
       <div className="flex flex-col gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/20">
         <div>
@@ -407,10 +458,55 @@ function PlayerCountPicker({
   );
 }
 
+/** Picks the word list, and remembers the choice. */
+function DifficultyPicker({
+  level,
+  onChoose,
+}: {
+  readonly level: Difficulty;
+  readonly onChoose: (level: Difficulty) => void;
+}): ReactElement {
+  return (
+    <section className="flex flex-col gap-2">
+      <div>
+        <h2 className="text-sm font-medium">{T.difficulty}</h2>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          {T.difficultyHint}
+        </p>
+      </div>
+      <div
+        role="radiogroup"
+        aria-label={T.difficulty}
+        className="flex flex-wrap gap-1.5"
+      >
+        {DIFFICULTIES.map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={option === level}
+            data-testid={`difficulty-${option}`}
+            onClick={() => onChoose(option)}
+            className={`cursor-pointer rounded-lg border px-4 py-2 text-sm font-semibold ${
+              option === level
+                ? "border-indigo-500 bg-indigo-600 text-white"
+                : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            }`}
+          >
+            {T.difficultyName[option]}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /** Props of {@link OnlineLobby}. */
 type OnlineLobbyProps = {
   readonly online: KrakelOnline;
   readonly code: string;
+  /** The word list the host picked before opening the room. */
+  readonly level: Difficulty;
   readonly onLeave: () => void;
 };
 
@@ -418,6 +514,7 @@ type OnlineLobbyProps = {
 function OnlineLobby({
   online,
   code,
+  level,
   onLeave,
 }: OnlineLobbyProps): ReactElement {
   const enough = online.seats.length >= MIN_PLAYERS;
@@ -427,7 +524,7 @@ function OnlineLobby({
       <section className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
         <h2 className="text-sm font-semibold">{T.lobbyTitle}</h2>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {T.shareHint}
+          {T.shareHint} {T.difficulty} {T.difficultyName[level]}.
         </p>
         <div className="flex items-center gap-3">
           <span
@@ -448,7 +545,7 @@ function OnlineLobby({
           <button
             type="button"
             disabled={!enough}
-            onClick={online.start}
+            onClick={() => online.start(level)}
             className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {T.startGame}
@@ -499,6 +596,8 @@ type SearchingLobbyProps = {
   readonly match: Match;
   /** The table size the player asked for. */
   readonly wanted: number;
+  /** The word list the player asked for. */
+  readonly level: Difficulty;
   readonly onlineCount: number | null;
   readonly onHop: (code: string) => void;
   readonly onCancel: () => void;
@@ -516,6 +615,7 @@ function SearchingLobby({
   online,
   match,
   wanted,
+  level,
   onlineCount,
   onHop,
   onCancel,
@@ -539,8 +639,8 @@ function SearchingLobby({
     }
     startedRef.current = true;
     void clearMatch(database(), GAME_ID, match.code);
-    start();
-  }, [match.code, start]);
+    start(level);
+  }, [match.code, start, level]);
 
   useEffect(() => {
     if (!isHost) {
@@ -548,14 +648,20 @@ function SearchingLobby({
     }
     const db = database();
     const announce = () =>
-      void hostEntry(db, GAME_ID, match.code, matchWish(wanted), Date.now());
+      void hostEntry(
+        db,
+        GAME_ID,
+        match.code,
+        matchWish(wanted, level),
+        Date.now(),
+      );
     // Advertise at once, not only when the first beat comes round: leaving the
     // room unlisted for a heartbeat would hide it from everyone searching in
     // that window. It also puts the entry back should anything have dropped it.
     announce();
     const timer = setInterval(announce, HEARTBEAT_MS);
     return () => clearInterval(timer);
-  }, [isHost, match.code, wanted]);
+  }, [isHost, match.code, wanted, level]);
 
   useEffect(() => {
     if (!isHost) {
@@ -573,7 +679,7 @@ function SearchingLobby({
       const target = await relaxMatch(
         db,
         GAME_ID,
-        matchWish(wanted),
+        matchWish(wanted, level),
         match.code,
         Date.now(),
         relaxed,
@@ -589,7 +695,7 @@ function SearchingLobby({
     void tick();
     const timer = setInterval(() => void tick(), RELAX_TICK_MS);
     return () => clearInterval(timer);
-  }, [isHost, seats, match.code, onHop, wanted, relaxed]);
+  }, [isHost, seats, match.code, onHop, wanted, level, relaxed]);
 
   useEffect(() => {
     if (isHost && enough) {
@@ -607,7 +713,7 @@ function SearchingLobby({
         />
         <h2 className="text-lg font-semibold">{T.searching}</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
-          {T.playersHere(seats, wanted)}
+          {T.playersHere(seats, wanted)} - {T.difficultyName[level]}
         </p>
         <ul className="flex flex-wrap justify-center gap-1">
           {online.seats.map((seat) => (

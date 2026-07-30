@@ -14,6 +14,7 @@ import {
   PALETTE,
   PEN_WIDTHS,
   REVEAL_SECONDS,
+  type Difficulty,
   type KrakelPhase,
 } from "@/games/krakel/engine/types";
 import { teamRating } from "@/games/krakel/engine/scoring";
@@ -29,6 +30,7 @@ import type {
 /** German labels for the board. */
 const T = {
   round: (n: number, total: number) => `Runde ${n}/${total}`,
+  levelName: { easy: "Leicht", hard: "Schwer" } as Record<Difficulty, string>,
   loading: "Runde wird ausgeteilt …",
   yourWord: "Dein Begriff",
   drawHint: "Alle malen gleichzeitig - niemand sieht deine Tafel.",
@@ -373,6 +375,9 @@ function Status({ view }: { view: KrakelView }): ReactElement {
       <div className="flex items-center justify-between text-sm">
         <span className="font-semibold">
           {T.round(view.round, view.totalRounds)}
+          <span className="ml-2 font-normal text-zinc-500 dark:text-zinc-400">
+            {T.levelName[view.difficulty]}
+          </span>
         </span>
         {view.phase !== "over" && (
           <span className="tabular-nums text-zinc-500 dark:text-zinc-400">

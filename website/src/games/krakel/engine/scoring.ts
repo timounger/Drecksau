@@ -48,6 +48,22 @@ export function maxScore(): number {
 }
 
 /**
+ * Whether a finished game counts as won.
+ *
+ * @param score - the team's final score
+ * @returns true only for a flawless game
+ * @remarks
+ * Krakel Orakel is cooperative, so there is no opponent to beat - the team
+ * plays against the board. A game counts as won only when nothing at all went
+ * wrong: every decoy struck in every round, and not one drawn word mistaken for
+ * a decoy. Anything less is a loss, which keeps the statistics' "won" column
+ * meaning something.
+ */
+export function isPerfectGame(score: number): boolean {
+  return score >= maxScore();
+}
+
+/**
  * The team's title for a final score.
  *
  * @param score - the team's final score

@@ -26,6 +26,7 @@ import {
   MAX_STROKES,
   REVEAL_SECONDS,
   TOTAL_ROUNDS,
+  type Difficulty,
   type KrakelPhase,
   type Stroke,
 } from "./types";
@@ -53,6 +54,8 @@ export type KrakelGame = {
   readonly order: readonly PlayerId[];
   /** The base seed the per-round terms and squiggles are derived from. */
   readonly seed: number;
+  /** Which word list this game is played with, chosen before it started. */
+  readonly difficulty: Difficulty;
   /** Every player's own secret term this round. */
   readonly terms: Readonly<Record<PlayerId, string>>;
   /** Which printed board each player draws on, shared with every client. */
@@ -102,21 +105,24 @@ const GOLDEN_ODD_32 = 0x9e3779b1;
  * @param order - the players' ids (at least two)
  * @param seed - the base seed for the terms, decoys and squiggles
  * @param now - the current time in milliseconds
+ * @param difficulty - which word list to play with
  * @returns a game in its first drawing round, with the team on zero
  */
 export function createGame(
   order: readonly PlayerId[],
   seed: number,
   now: number,
+  difficulty: Difficulty,
 ): KrakelGame {
   const round = 1;
-  const deal = dealRound(seed, round, order, [], now);
+  const deal = dealRound(seed, round, order, [], now, difficulty);
   return {
     phase: "drawing",
     round,
     totalRounds: TOTAL_ROUNDS,
     order,
     seed,
+    difficulty,
     terms: deal.terms,
     boardIds: deal.boardIds,
     boards: emptyBoards(order),
@@ -311,14 +317,14 @@ export function tick(game: KrakelGame, now: number): KrakelGame {
  * @param game - the finished game
  * @param seed - the base seed for the new game
  * @param now - the current time in milliseconds
- * @returns a new game in its first round
+ * @returns a new game in its first round, at the same difficulty
  */
 export function restartGame(
   game: KrakelGame,
   seed: number,
   now: number,
 ): KrakelGame {
-  return createGame(game.order, seed, now);
+  return createGame(game.order, seed, now, game.difficulty);
 }
 
 /** Mixes the base seed with a round number into a fresh 32-bit seed. */
@@ -333,6 +339,7 @@ function dealRound(
   order: readonly PlayerId[],
   used: readonly string[],
   now: number,
+  difficulty: Difficulty,
 ): {
   readonly terms: Record<PlayerId, string>;
   readonly boardIds: Record<PlayerId, number>;
@@ -341,7 +348,7 @@ function dealRound(
 } {
   const random: Random = createRandom(roundSeed(seed, round));
   // One draw for everything, so no decoy can collide with somebody's term.
-  const words = pickWords(random, order.length + DECOY_COUNT, used);
+  const words = pickWords(random, order.length + DECOY_COUNT, used, difficulty);
   // Shuffled ids, so no two players share a board within the same round.
   const shuffled = shuffleBoardIds(random);
   const terms: Record<PlayerId, string> = {};
@@ -443,7 +450,14 @@ function endGame(game: KrakelGame): KrakelGame {
 function nextRound(game: KrakelGame, now: number): KrakelGame {
   const round = game.round + 1;
   // `used` already holds this round's candidates, so only the new ones join it.
-  const deal = dealRound(game.seed, round, game.order, game.used, now);
+  const deal = dealRound(
+    game.seed,
+    round,
+    game.order,
+    game.used,
+    now,
+    game.difficulty,
+  );
   return {
     ...game,
     phase: "drawing",

@@ -20,7 +20,6 @@ import {
 } from "./game";
 import {
   DECOY_COUNT,
-  DRAW_SECONDS,
   MAX_PLAYERS,
   MIN_PLAYERS,
   ELIMINATE_SECONDS,
@@ -40,7 +39,7 @@ const TABLE_SIZES = Array.from(
 
 /** A three-player game starting at t=0. */
 function threePlayers(): KrakelGame {
-  return createGame(["a", "b", "c"], 42, 0);
+  return createGame(["a", "b", "c"], 42, 0, "easy");
 }
 
 /** A stroke with a couple of points. */
@@ -53,9 +52,19 @@ const STROKE = {
   ],
 };
 
-/** Advances a game from its drawing phase into the elimination phase. */
+/**
+ * Advances a game from its drawing phase into the elimination phase.
+ *
+ * @remarks
+ * Goes by the game's own deadline, not by a fixed timestamp: from the second
+ * round on the clock has moved on, and a fixed `DRAW_SECONDS + 1` would quietly
+ * leave the game in its drawing phase - where every later step is ignored and a
+ * test passes without testing anything.
+ */
 function intoElimination(game: KrakelGame): KrakelGame {
-  return tick(game, DRAW_SECONDS * SECOND + 1);
+  const next = tick(game, game.deadline + 1);
+  expect(next.phase).toBe("eliminating");
+  return next;
 }
 
 /** The first decoy still on the list. */
@@ -228,7 +237,7 @@ describe("excludeWord", () => {
   });
 
   it("carries the rotation on into the next round", () => {
-    let game = intoElimination(createGame(["a", "b", "c"], 42, 0));
+    let game = intoElimination(createGame(["a", "b", "c"], 42, 0, "easy"));
     for (let i = 0; i < DECOY_COUNT; i++) {
       game = excludeWord(game, currentPickerId(game), someDecoy(game), 0).game;
     }
@@ -244,7 +253,7 @@ describe("excludeWord", () => {
     // rotation has to run on across rounds or the last ones never get to pick.
     for (const size of TABLE_SIZES) {
       const ids = Array.from({ length: size }, (_, i) => `p${i}`);
-      let game = createGame(ids, 42, 0);
+      let game = createGame(ids, 42, 0, "easy");
       const pickers = new Set<string>();
       for (let round = 0; round < TOTAL_ROUNDS; round++) {
         game = intoElimination(game);

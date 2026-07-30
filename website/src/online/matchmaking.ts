@@ -6,7 +6,7 @@
  * @remarks
  * Open public rooms waiting for players are listed under
  * `rooms/{gameId}-__match/open/{code}`, each tagged with its wished config
- * (player count, expansion, defence). A searcher first looks for an open room
+ * (player count, expansion, defence, and a game-specific variant). A searcher first looks for an open room
  * that exactly matches their wish and joins it; if none matches, they open one
  * with their own wish and wait. While waiting alone they relax over time: first
  * they still only merge into an exactly matching room, then - after a grace -
@@ -35,6 +35,16 @@ export type Wish = {
   readonly expansion: boolean;
   /** Whether the defence cards are wanted. */
   readonly defense: boolean;
+  /**
+   * A further game-specific setting the table must agree on, if the game has
+   * one - Krakel Orakel puts its difficulty here.
+   *
+   * @remarks
+   * Left out entirely by games without such a setting, so their stored entries
+   * are unchanged and two of them still match. Must never be set to
+   * `undefined` explicitly: the database rejects undefined values.
+   */
+  readonly variant?: string;
 };
 
 /** One open public room waiting for players, as stored. */
@@ -82,6 +92,7 @@ export function isOpenRoom(value: unknown): value is OpenRoom {
     typeof room.count === "number" &&
     typeof room.expansion === "boolean" &&
     typeof room.defense === "boolean" &&
+    (room.variant === undefined || typeof room.variant === "string") &&
     typeof room.ts === "number"
   );
 }
@@ -104,13 +115,14 @@ export function parseOpenRooms(value: unknown): OpenRoom[] {
  *
  * @param room - the open room
  * @param wish - the searcher's wish
- * @returns true if count, expansion and defence all match
+ * @returns true if count, expansion, defence and the game-specific variant all match
  */
 export function roomMatchesWish(room: OpenRoom, wish: Wish): boolean {
   return (
     room.count === wish.count &&
     room.expansion === wish.expansion &&
-    room.defense === wish.defense
+    room.defense === wish.defense &&
+    room.variant === wish.variant
   );
 }
 
