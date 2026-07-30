@@ -6,6 +6,18 @@
  * Presentational: it holds only the half-finished move (which pile the player
  * reached for), and reports finished moves through {@link SkyjoTableProps.onMove}.
  * The same component serves the game against the computer and the online game.
+ *
+ * A turn is played by touching the table, not by pressing buttons:
+ *
+ * - **Tap the discard pile** to pick its top card up, then tap one of your own
+ *   cards to put it there.
+ * - **Tap the draw pile** to turn a card over. It lands face up **on** the
+ *   discard pile and covers what was lying there. Tap one of your cards to take
+ *   it, or tap it once more to leave it lying and turn one of your own cards
+ *   over instead.
+ *
+ * Whatever the drawn card covers comes back into view as soon as it is used,
+ * with the card it replaced landing on top of it.
  */
 "use client";
 
@@ -20,8 +32,15 @@ import {
 import { SKYJO_TEXTS as T } from "@/games/skyjo/i18n/texts";
 import { LooseCard, SkyjoCard } from "./skyjo-card";
 
-/** What the player has half-decided, while picking the card to act on. */
-type Pending = "none" | "fromDiscard" | "swapDrawn" | "throwDrawn";
+/**
+ * What the player has half-decided.
+ *
+ * @remarks
+ * `holding` is not stored here - it is simply `game.drawn !== null`, which
+ * every client can see. Only the two choices the rules leave open need a state:
+ * having picked the discard pile up, and having put a drawn card back down.
+ */
+type Pending = "none" | "fromDiscard" | "throwDrawn";
 
 /** Props of {@link SkyjoTable}. */
 export type SkyjoTableProps = {
@@ -58,17 +77,21 @@ export function SkyjoTable({
     onMove(move);
   };
 
-  // Which of my own cards may be clicked right now.
+  const holding = game.phase === "turn" && game.drawn !== null;
+
+  // Which of my own cards may be touched right now.
   const selectable = (index: number): boolean => {
     let ok = false;
     if (myTurn && mySeat !== null) {
       const slot = game.players[mySeat].grid[index];
       if (game.phase === "flip") {
         ok = slot.state === "down";
-      } else if (pending === "fromDiscard" || pending === "swapDrawn") {
-        ok = slot.state !== "gone";
       } else if (pending === "throwDrawn") {
+        // The drawn card was put back down, so only a face-down card is left
+        // to turn over.
         ok = slot.state === "down";
+      } else if (pending === "fromDiscard" || holding) {
+        ok = slot.state !== "gone";
       }
     }
     return ok;
@@ -77,12 +100,38 @@ export function SkyjoTable({
   const selectSlot = (index: number) => {
     if (game.phase === "flip") {
       play({ kind: "flip", index });
-    } else if (pending === "fromDiscard") {
-      play({ kind: "takeDiscard", index });
-    } else if (pending === "swapDrawn") {
-      play({ kind: "swapDrawn", index });
     } else if (pending === "throwDrawn") {
       play({ kind: "discardDrawn", index });
+    } else if (pending === "fromDiscard") {
+      play({ kind: "takeDiscard", index });
+    } else if (holding) {
+      play({ kind: "swapDrawn", index });
+    }
+  };
+
+  /** Touching the draw pile turns a card over onto the discard pile. */
+  const tapDeck = () => {
+    if (myTurn && game.phase === "turn" && game.drawn === null) {
+      play({ kind: "draw" });
+    }
+  };
+
+  /**
+   * Touching the discard pile means different things by turn.
+   *
+   * @remarks
+   * With nothing in hand it picks the top card up (and picks it up again to
+   * put it back). While holding a drawn card it lays that card down, leaving
+   * only a face-down card of one's own to turn over.
+   */
+  const tapDiscard = () => {
+    if (!myTurn || game.phase !== "turn") {
+      return;
+    }
+    if (holding) {
+      setPending(pending === "throwDrawn" ? "none" : "throwDrawn");
+    } else if (topOf(game.discard) !== null) {
+      setPending(pending === "fromDiscard" ? "none" : "fromDiscard");
     }
   };
 
@@ -109,11 +158,8 @@ export function SkyjoTable({
         game={game}
         active={myTurn}
         pending={pending}
-        onTakeDiscard={() => setPending("fromDiscard")}
-        onDraw={() => play({ kind: "draw" })}
-        onSwapDrawn={() => setPending("swapDrawn")}
-        onThrowDrawn={() => setPending("throwDrawn")}
-        onCancel={() => setPending("none")}
+        onTapDeck={tapDeck}
+        onTapDiscard={tapDiscard}
       />
 
       {mySeat !== null && (
@@ -149,8 +195,10 @@ function TurnBanner({
     text = T.waitingFor(game.players[game.turn].name);
   } else if (game.phase === "flip") {
     text = T.openingHint;
-  } else if (pending !== "none") {
-    text = pending === "throwDrawn" ? T.flipHint : T.placeHint;
+  } else if (pending === "throwDrawn") {
+    text = T.flipHint;
+  } else if (pending === "fromDiscard") {
+    text = T.placeHint;
   } else if (game.drawn !== null) {
     text = T.drawnHint;
   } else {
@@ -174,115 +222,109 @@ function TurnBanner({
   );
 }
 
-/** The draw pile, the discard pile and the card in hand. */
+/**
+ * The two piles - the only controls a turn needs.
+ *
+ * @remarks
+ * A drawn card is drawn lying **on** the discard pile, covering it, which is
+ * where it physically ends up if the player leaves it there. What it covers is
+ * still shown as a thin edge behind it, so the pile does not look empty.
+ */
 function Piles({
   game,
   active,
   pending,
-  onTakeDiscard,
-  onDraw,
-  onSwapDrawn,
-  onThrowDrawn,
-  onCancel,
+  onTapDeck,
+  onTapDiscard,
 }: {
   readonly game: SkyjoGame;
   readonly active: boolean;
   readonly pending: Pending;
-  readonly onTakeDiscard: () => void;
-  readonly onDraw: () => void;
-  readonly onSwapDrawn: () => void;
-  readonly onThrowDrawn: () => void;
-  readonly onCancel: () => void;
+  readonly onTapDeck: () => void;
+  readonly onTapDiscard: () => void;
 }): ReactElement {
-  const canChoose = active && game.phase === "turn" && game.drawn === null;
+  const drawing = active && game.phase === "turn" && game.drawn === null;
   const holding = active && game.phase === "turn" && game.drawn !== null;
-  const hasDown = game.players[game.turn]?.grid.some(
-    (slot) => slot.state === "down",
-  );
+  const beneath = topOf(game.discard);
+  // What lies on top of the discard pile right now, drawn card included.
+  const onTop = game.drawn ?? beneath;
+  const picked = pending === "fromDiscard";
+  const laidDown = pending === "throwDrawn";
 
   return (
-    <section className="flex flex-wrap items-center justify-center gap-6 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <div className="flex flex-col items-center gap-1">
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-          {T.deck}
-        </span>
+    <section className="flex flex-wrap items-start justify-center gap-8 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <Pile
+        label={T.deck}
+        note={String(game.deck.length)}
+        clickable={drawing}
+        onClick={onTapDeck}
+      >
         <SkyjoCard slot={{ state: "down", value: 0 }} size="large" />
-        <span className="text-xs tabular-nums text-zinc-400">
-          {game.deck.length}
-        </span>
-      </div>
+      </Pile>
 
-      <div className="flex flex-col items-center gap-1">
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-          {T.discard}
-        </span>
-        <LooseCard value={topOf(game.discard)} />
-      </div>
-
-      {game.drawn !== null && (
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-xs font-medium text-indigo-600 dark:text-indigo-300">
-            {T.drawn}
+      <Pile
+        label={T.discard}
+        note={holding ? T.drawn : undefined}
+        clickable={drawing || holding}
+        highlighted={picked || laidDown}
+        onClick={onTapDiscard}
+      >
+        <span className="relative inline-block">
+          {/* The card underneath peeks out, so the pile reads as a stack. */}
+          {game.drawn !== null && beneath !== null && (
+            <span
+              aria-hidden
+              className="absolute -top-1 left-1 h-full w-full rounded-md border-2 border-zinc-300 bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-700"
+            />
+          )}
+          <span className="relative">
+            <LooseCard value={onTop} />
           </span>
-          <LooseCard value={game.drawn} />
-        </div>
-      )}
-
-      <div className="flex flex-col gap-2">
-        {canChoose && pending === "none" && (
-          <>
-            <Action
-              onClick={onTakeDiscard}
-              disabled={topOf(game.discard) === null}
-            >
-              {T.takeDiscard}
-            </Action>
-            <Action onClick={onDraw} primary>
-              {T.drawCard}
-            </Action>
-          </>
-        )}
-        {holding && pending === "none" && (
-          <>
-            <Action onClick={onSwapDrawn} primary>
-              {T.swapDrawn}
-            </Action>
-            <Action onClick={onThrowDrawn} disabled={hasDown !== true}>
-              {T.throwAway}
-            </Action>
-          </>
-        )}
-        {pending !== "none" && <Action onClick={onCancel}>{T.cancel}</Action>}
-      </div>
+        </span>
+      </Pile>
     </section>
   );
 }
 
-/** A button in the pile area. */
-function Action({
+/** One pile: a label, the card on top and an optional note underneath. */
+function Pile({
+  label,
+  note,
+  clickable,
+  highlighted = false,
   onClick,
-  disabled = false,
-  primary = false,
   children,
 }: {
+  readonly label: string;
+  readonly note?: string;
+  readonly clickable: boolean;
+  readonly highlighted?: boolean;
   readonly onClick: () => void;
-  readonly disabled?: boolean;
-  readonly primary?: boolean;
-  readonly children: string;
+  readonly children: ReactElement;
 }): ReactElement {
+  const ring = highlighted
+    ? " rounded-xl ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-zinc-950"
+    : "";
+  const hint = clickable
+    ? " cursor-pointer hover:scale-105 hover:brightness-105"
+    : " cursor-default";
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
-        primary
-          ? "bg-indigo-600 text-white hover:bg-indigo-700"
-          : "border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-      }`}
-    >
-      {children}
-    </button>
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">{label}</span>
+      <button
+        type="button"
+        aria-label={label}
+        disabled={!clickable}
+        onClick={onClick}
+        className={`transition${hint}${ring} disabled:pointer-events-none`}
+      >
+        {children}
+      </button>
+      <span className="h-4 text-xs tabular-nums text-zinc-400">
+        {note ?? ""}
+      </span>
+    </div>
   );
 }
 

@@ -26,12 +26,13 @@ describe("krakelBoard", () => {
     for (const id of ALL_IDS) {
       const dots = krakelBoard(id);
       expect(dots.length).toBeGreaterThan(MIN_DOTS);
-      for (const dot of dots) {
-        expect(dot.x).toBeGreaterThanOrEqual(0);
-        expect(dot.x).toBeLessThanOrEqual(1);
-        expect(dot.y).toBeGreaterThanOrEqual(0);
-        expect(dot.y).toBeLessThanOrEqual(1);
-      }
+      // Checked as one assertion per board, not one per dot: 26,000 dots times
+      // four separate expects is slow enough to trip the test timeout once the
+      // whole suite runs in parallel.
+      const outside = dots.filter(
+        (dot) => dot.x < 0 || dot.x > 1 || dot.y < 0 || dot.y > 1,
+      );
+      expect(outside, `board ${id} has dots off the canvas`).toEqual([]);
     }
   });
 

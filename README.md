@@ -6,11 +6,13 @@ jedes Spiel hat seine eigene Seite.
 
 ## Spiele
 
-| Spiel                                            | Beschreibung                                                                   |
-| ------------------------------------------------ | ------------------------------------------------------------------------------ |
-| [Drecksau](website/src/games/drecksau/README.md) | Kosmos-Kartenspiel gegen Computergegner oder online mit Freunden.              |
-| [Binokel](website/src/games/binokel/README.md)   | Schwaebisches Stichspiel (Reizen, Melden, Stechen) gegen Computer oder online. |
-| [Panzerkiste](website/src/games/panzerkiste/README.md) | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen). |
+| Spiel                                                  | Beschreibung                                                                                             | Modus             |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ----------------- |
+| [Drecksau](website/src/games/drecksau/README.md)       | Kosmos-Kartenspiel: wer zuerst nur noch Drecksaeue hat, gewinnt.                                         | Computer + Online |
+| [Binokel](website/src/games/binokel/README.md)         | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online |
+| [Panzerkiste](website/src/games/panzerkiste/README.md) | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Einzelspieler     |
+| [Krakel Orakel](website/src/games/krakel/README.md)    | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online        |
+| [Skyjo](website/src/games/skyjo/README.md)             | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online |
 
 Weitere Spiele docken ueber die Registry an (siehe
 [Ein weiteres Spiel hinzufuegen](#ein-weiteres-spiel-hinzufuegen)).
@@ -53,8 +55,13 @@ website/src/
   app/            Routen (Uebersicht /, je Spiel /<spiel> mit /einstellungen, /statistik, /online)
   games/
     registry.ts     Liste aller Spiele - hier docken weitere an
-    drecksau/       das Spiel Drecksau (eigene README im Ordner)
-    binokel/        das Spiel Binokel (eigene README im Ordner)
+    game-logos.ts   das Cover-Bild je Spiel
+    drecksau/       Kartenspiel gegen Computer oder online
+    binokel/        Stichspiel gegen Computer oder online
+    panzerkiste/    Panzer-Actionspiel (Einzelspieler)
+    krakel/         kooperatives Malspiel (nur online)
+    skyjo/          Kartenspiel gegen Computer oder online
+                    (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)
   lib/
@@ -92,6 +99,8 @@ Spiel reicht:
    Texte) samt einer `isGameState`-Pruefung fuer gespeicherte Staende.
 3. Eine Route `website/src/app/<spiel>/page.tsx` erstellen, die die
    Spielkomponente rendert.
+4. Ein Cover-Bild als `assets/logo.webp` ablegen und in
+   [game-logos.ts](website/src/games/game-logos.ts) eintragen.
 
 Uebersicht, Statistik-Seite, Zuruecksetzen und Versionierung funktionieren dann
 ohne weitere Aenderung - sie iterieren ueber die Registry.
@@ -134,5 +143,9 @@ $env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
 - Coding-Regeln: [docs/coding-rules.md](docs/coding-rules.md),
   TypeScript-Leitfaden: [docs/typescript-guide.md](docs/typescript-guide.md)
 - Pro Spiel: eigene README im Spielordner und Spezifikation unter
-  `docs/games/<spiel>/` (z. B.
-  [docs/games/drecksau/game-rules.md](docs/games/drecksau/game-rules.md)).
+  `docs/games/<spiel>/`:
+  [Drecksau](docs/games/drecksau/game-rules.md) ·
+  [Binokel](docs/games/binokel/game-rules.md) ·
+  [Panzerkiste](docs/games/panzerkiste/levels.md) ·
+  [Krakel Orakel](docs/games/krakel/game-rules.md) ·
+  [Skyjo](docs/games/skyjo/game-rules.md)

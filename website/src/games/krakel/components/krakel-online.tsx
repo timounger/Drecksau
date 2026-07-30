@@ -67,11 +67,12 @@ const T = {
   yourName: "Dein Name",
   yourNamePlaceholder: "z. B. Picasso",
   autoTitle: "Automatisch matchen",
-  autoHint: "Wir suchen dir Mitspieler für eine Runde.",
+  autoHint:
+    "Passt ein offener Tisch, geht es sofort los - sonst nach kurzer Wartezeit auch mit anderen Einstellungen.",
   autoMatch: "Mitspieler finden",
   searching: "Suche Mitspieler …",
-  tableSize: "Wie viele Spieler?",
-  difficulty: "Wie schwer?",
+  tableSize: "Spieler:",
+  difficulty: "Wörter:",
   difficultyHint:
     "Leicht: Dinge, die man malen kann. Schwer: auch Ideen, Orte und Tätigkeiten.",
   difficultyName: { easy: "Leicht", hard: "Schwer" } as Record<
@@ -350,22 +351,20 @@ function OnlineEntry({
         />
       </label>
 
-      <PlayerCountPicker count={count} onChoose={chooseCount} />
-
-      <DifficultyPicker level={level} onChoose={chooseLevel} />
-
-      <div className="flex flex-col gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/20">
+      <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
         <div>
           <h2 className="text-sm font-semibold">{T.autoTitle}</h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             {T.autoHint}
           </p>
         </div>
+        <PlayerCountPicker count={count} onChoose={chooseCount} />
+        <DifficultyPicker level={level} onChoose={chooseLevel} />
         <button
           type="button"
           onClick={autoMatch}
           disabled={searching}
-          className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {searching ? T.searching : T.autoMatch}
         </button>
@@ -423,32 +422,32 @@ function PlayerCountPicker({
   readonly onChoose: (count: number) => void;
 }): ReactElement {
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium">{T.tableSize}</h2>
-      <div
-        role="radiogroup"
-        aria-label={T.tableSize}
-        className="flex flex-wrap gap-1.5"
-      >
-        {PLAYER_COUNTS.map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={option === count}
-            data-testid={`player-count-${option}`}
-            onClick={() => onChoose(option)}
-            className={`h-10 w-10 cursor-pointer rounded-lg border text-sm font-semibold tabular-nums ${
-              option === count
-                ? "border-indigo-500 bg-indigo-600 text-white"
-                : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            }`}
-          >
-            {option}
-          </button>
-        ))}
-      </div>
-    </section>
+    <div
+      role="radiogroup"
+      aria-label={T.tableSize}
+      className="flex flex-wrap items-center gap-2"
+    >
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+        {T.tableSize}
+      </span>
+      {PLAYER_COUNTS.map((option) => (
+        <button
+          key={option}
+          type="button"
+          role="radio"
+          aria-checked={option === count}
+          data-testid={`player-count-${option}`}
+          onClick={() => onChoose(option)}
+          className={
+            option === count
+              ? "cursor-pointer rounded-lg border border-emerald-500 bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200"
+              : "cursor-pointer rounded-lg border border-zinc-300 bg-white px-3 py-1 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          }
+        >
+          {option}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -461,18 +460,15 @@ function DifficultyPicker({
   readonly onChoose: (level: Difficulty) => void;
 }): ReactElement {
   return (
-    <section className="flex flex-col gap-2">
-      <div>
-        <h2 className="text-sm font-medium">{T.difficulty}</h2>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {T.difficultyHint}
-        </p>
-      </div>
+    <div className="flex flex-col gap-1">
       <div
         role="radiogroup"
         aria-label={T.difficulty}
-        className="flex flex-wrap gap-1.5"
+        className="flex flex-wrap items-center gap-2"
       >
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          {T.difficulty}
+        </span>
         {DIFFICULTIES.map((option) => (
           <button
             key={option}
@@ -481,17 +477,20 @@ function DifficultyPicker({
             aria-checked={option === level}
             data-testid={`difficulty-${option}`}
             onClick={() => onChoose(option)}
-            className={`cursor-pointer rounded-lg border px-4 py-2 text-sm font-semibold ${
+            className={
               option === level
-                ? "border-indigo-500 bg-indigo-600 text-white"
-                : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            }`}
+                ? "cursor-pointer rounded-lg border border-emerald-500 bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200"
+                : "cursor-pointer rounded-lg border border-zinc-300 bg-white px-3 py-1 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            }
           >
             {T.difficultyName[option]}
           </button>
         ))}
       </div>
-    </section>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        {T.difficultyHint}
+      </p>
+    </div>
   );
 }
 
@@ -540,7 +539,7 @@ function OnlineLobby({
             type="button"
             disabled={!enough}
             onClick={() => online.start(level)}
-            className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {T.startGame}
           </button>
@@ -703,7 +702,7 @@ function SearchingLobby({
       <section className="flex flex-col items-center gap-3 rounded-2xl border border-zinc-200 p-6 text-center dark:border-zinc-800">
         <span
           aria-hidden
-          className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"
+          className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent"
         />
         <h2 className="text-lg font-semibold">{T.searching}</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
@@ -719,7 +718,7 @@ function SearchingLobby({
             </li>
           ))}
         </ul>
-        <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
           {enough ? T.startsNow : T.waitingFor(seats, wanted)}
         </p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">

@@ -155,7 +155,7 @@ function Entry({
         onClick={() =>
           onStart({ mode: "host", code: generateRoomCode(), name })
         }
-        className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+        className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
       >
         {L.createRoom}
       </button>
@@ -239,7 +239,7 @@ function Lobby({
             type="button"
             disabled={!enough}
             onClick={() => room.start({ autoPlayMs: AUTO_PLAY_MS })}
-            className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {L.startGame}
           </button>

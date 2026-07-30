@@ -53,6 +53,22 @@ Eine getauschte Karte liegt danach immer offen.
 Ist der Nachziehstapel leer, wird der Ablagestapel ohne seine oberste Karte neu
 gemischt und zum Nachziehstapel.
 
+### Bedienung
+
+Der Zug wird durch Antippen der Stapel gespielt, es gibt keine Knöpfe dafür:
+
+| Tippen auf …                          | Was passiert                                                   |
+| ------------------------------------- | -------------------------------------------------------------- |
+| **Ablagestapel** (nichts in der Hand) | Die offene Karte wird aufgenommen und markiert.                |
+| eine **eigene Karte** danach          | Sie wird gegen die aufgenommene getauscht.                     |
+| **Nachziehstapel**                    | Die gezogene Karte landet offen **auf** dem Ablagestapel.      |
+| eine **eigene Karte** danach          | Sie wird gegen die gezogene getauscht.                         |
+| **Ablagestapel** erneut               | Die gezogene Karte bleibt liegen; jetzt eine eigene aufdecken. |
+
+Die gezogene Karte verdeckt, was auf dem Ablagestapel lag. Wird sie ins eigene
+Feld genommen, kommt das Darunterliegende wieder zum Vorschein - und die
+ersetzte Karte landet darauf.
+
 ## Die Spalten-Regel
 
 Zeigt eine Spalte **drei gleiche offene Karten**, fliegt die ganze Spalte sofort
