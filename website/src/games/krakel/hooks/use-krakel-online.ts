@@ -7,13 +7,18 @@
  * rather than the turn-based online core:
  *
  * - The host owns the {@link KrakelGame}. Each animation frame it advances the
- *   clock ({@link tick}) and a few times a second publishes a {@link NetSnapshot}.
- *   It applies every client's move: drawing actions from the round's drawer, and
- *   guesses from the others (scoring them and announcing correct ones in chat).
- * - A guest is a thin client. It renders the newest snapshot; when it is the
- *   drawer it streams its strokes to the host, and it streams its guesses too.
- * - The secret term rides only in the drawer's private hand, so a guesser's
- *   client never receives it.
+ *   clock ({@link tick}) and a few times a second publishes a
+ *   {@link NetSnapshot}. It applies every client's move: strokes while the round
+ *   is drawn, and struck words from whoever is on turn afterwards.
+ * - A guest is a thin client. It renders the newest snapshot and streams its own
+ *   strokes and picks to the host.
+ * - Each player's term rides only in their own private hand, so no client ever
+ *   receives another player's word before the reveal.
+ *
+ * The one thing a client keeps for itself is its own drawing: while the round is
+ * being drawn the snapshot carries no strokes at all (they are still secret), so
+ * every client renders its own board from a local copy and only sees the others
+ * once the boards are laid open.
  */
 "use client";
 
@@ -22,15 +27,15 @@ import {
   addStroke,
   clearStrokes,
   createGame,
-  drawerId,
+  excludeWord,
+  readyUp,
   restartGame,
-  setLive,
-  submitGuess,
   tick,
   undoStroke,
   type KrakelGame,
 } from "@/games/krakel/engine/game";
 import {
+  DECOY_COUNT,
   PALETTE,
   PEN_WIDTHS,
   SNAP_MAX_JUMP,
@@ -39,17 +44,20 @@ import {
   type Point,
   type Stroke,
 } from "@/games/krakel/engine/types";
+import { maxScore } from "@/games/krakel/engine/scoring";
 import {
-  krakelTemplate,
-  snapToTemplate,
-  templatePoints,
-} from "@/games/krakel/engine/krakel-path";
+  BOARD_ASPECT,
+  krakelBoard,
+  snapToBoard,
+} from "@/games/krakel/engine/boards";
 import { drawBoard } from "@/games/krakel/components/krakel-canvas";
 import {
   KRAKEL_GAME_ID,
   KRAKEL_GUARDS,
   makeSeat,
+  toHands,
   toSnapshot,
+  type BoardLine,
   type KrakelHand,
   type KrakelMove,
   type NetSnapshot,
@@ -62,15 +70,13 @@ import type { ChatMessage, RoomTransport } from "@/online/transport";
 /** Milliseconds in a second, for turning frame timestamps into seconds. */
 const MS_PER_SECOND = 1000;
 
-/** How often the host publishes a snapshot, in seconds. */
+/** The shortest gap between two published snapshots, in seconds. */
 const PUBLISH_INTERVAL = 0.09;
 
-/** How often a drawer streams its in-progress stroke, in seconds. */
-const LIVE_INTERVAL = 0.05;
-
-/** Fixed drawing resolution; CSS scales it to the container. */
+/** Fixed drawing resolution; CSS scales it to the container. The height
+ * follows the printed board's shape, so the dot pattern is never stretched. */
 const CANVAS_W = 960;
-const CANVAS_H = 600;
+const CANVAS_H = Math.round(CANVAS_W / BOARD_ASPECT);
 
 /** Smallest move (normalised) that adds a new point, to thin dense input. */
 const MIN_POINT_DIST = 0.004;
@@ -82,6 +88,17 @@ const FALLBACK_NAME = "Spieler";
 const ORACLE_SEAT = "orakel";
 const ORACLE_NAME = "Orakel";
 
+/**
+ * The attribute an open board's canvas names its seat with.
+ *
+ * @remarks
+ * One stable ref callback serves every board; it reads the seat from the
+ * element instead of the hook having to build a callback per seat while
+ * rendering. {@link BOARD_SEAT_DATA} is the same name as `dataset` spells it.
+ */
+export const BOARD_SEAT_ATTR = "data-krakel-seat";
+const BOARD_SEAT_DATA = "krakelSeat";
+
 /** Where the online flow currently is. */
 export type OnlineStatus = "connecting" | "lobby" | "playing" | "error";
 
@@ -92,35 +109,69 @@ export type OnlineSession = {
   readonly name: string;
 };
 
-/** One player's line on the board's scoreboard. */
-export type KrakelPlayer = {
+/** One player's board, as the screen shows it. */
+export type KrakelBoardView = {
   readonly seatId: SeatId;
   readonly name: string;
-  readonly score: number;
-  readonly isDrawer: boolean;
-  readonly hasGuessed: boolean;
   readonly isMe: boolean;
+  /** Whether this player has declared their drawing finished. */
+  readonly ready: boolean;
+  /** The term this board pictured, once the round reveals; else null. */
+  readonly term: string | null;
 };
 
-/** Everything the board shows around the canvas. */
+/** One word on the round's list. */
+export type KrakelWordView = {
+  readonly word: string;
+  readonly struck: boolean;
+  /** Once struck: whether nobody had really drawn it. */
+  readonly wasDecoy: boolean | null;
+  /** Once struck: who struck it. */
+  readonly byName: string | null;
+  /** True for the word I drew myself - only ever set in my own view. */
+  readonly isMine: boolean;
+};
+
+/** Everything the board shows around the canvases. */
 export type KrakelView = {
   readonly phase: KrakelPhase;
   readonly round: number;
   readonly totalRounds: number;
-  readonly drawerName: string;
-  readonly iAmDrawer: boolean;
-  readonly canGuess: boolean;
-  /** The word to show me: my term while I draw, or the answer once revealed. */
-  readonly word: string | null;
-  readonly termLength: number;
   /** Milliseconds since the epoch at which the current phase ends. */
   readonly deadline: number;
-  readonly players: readonly KrakelPlayer[];
-  readonly guessedCount: number;
-  readonly guessersTotal: number;
+  /** My own secret term, from my private hand. */
+  readonly myWord: string | null;
+  readonly iAmReady: boolean;
+  readonly readyCount: number;
+  readonly boards: readonly KrakelBoardView[];
+  readonly words: readonly KrakelWordView[];
+  /** Whose turn it is to strike a word, or null outside that phase. */
+  readonly pickerName: string | null;
+  readonly iAmPicker: boolean;
+  /** The team's running score. */
+  readonly score: number;
+  /** What the team scored in the current round. */
+  readonly roundScore: number;
+  /** How many words are struck, and how many have to go in all. */
+  readonly struckCount: number;
+  readonly toStrike: number;
+  /** The best score the team could reach over the whole game. */
+  readonly bestPossible: number;
 };
 
-/** The drawer's pen tools. */
+/** The pointer handlers to spread onto my own drawing canvas. */
+export type KrakelPen = {
+  readonly onPointerDown: (
+    event: React.PointerEvent<HTMLCanvasElement>,
+  ) => void;
+  readonly onPointerMove: (
+    event: React.PointerEvent<HTMLCanvasElement>,
+  ) => void;
+  readonly onPointerUp: () => void;
+  readonly onPointerCancel: () => void;
+};
+
+/** A player's pen tools. */
 export type KrakelTools = {
   readonly color: string;
   readonly width: number;
@@ -128,6 +179,8 @@ export type KrakelTools = {
   readonly setWidth: (width: number) => void;
   readonly clear: () => void;
   readonly undo: () => void;
+  /** Declares my drawing finished, so the round can move on early. */
+  readonly ready: () => void;
 };
 
 /** What the online screen needs from the hook. */
@@ -138,11 +191,22 @@ export type KrakelOnline = {
   readonly seats: readonly Seat[];
   /** The board view while playing, or null before the game starts. */
   readonly view: KrakelView | null;
-  /** Attach to the board `<canvas>` while playing. */
-  readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  /** Attach to my own `<canvas>` while I draw. */
+  readonly drawCanvasRef: (element: HTMLCanvasElement | null) => () => void;
+  /**
+   * Attach to every open board's `<canvas>`, together with a
+   * {@link BOARD_SEAT_ATTR} attribute naming the seat it shows.
+   */
+  readonly boardCanvasRef: (
+    element: HTMLCanvasElement | null,
+  ) => (() => void) | undefined;
+  /** Spread onto my own `<canvas>` so the pen follows the pointer. */
+  readonly pen: KrakelPen;
   readonly tools: KrakelTools;
   readonly messages: readonly ChatMessage[];
-  /** Sends a guess (while guessing) or a chat line (otherwise). */
+  /** Strikes a word off the round's list, on my turn. */
+  readonly exclude: (word: string) => void;
+  /** Sends a chat line. */
   readonly sendMessage: (text: string) => void;
   /** Host only: deal the first round and begin. */
   readonly start: () => void;
@@ -154,11 +218,9 @@ export type KrakelOnline = {
  * Runs one online Krakel Orakel session.
  *
  * @param session - how to enter the room, or null before a room is chosen
- * @returns the room status, the board view, the canvas ref and the actions
+ * @returns the room status, the board view, the canvas refs and the actions
  */
 export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
   const [status, setStatus] = useState<OnlineStatus>("connecting");
   const [seatId, setSeatId] = useState<SeatId | null>(null);
   const [isHost, setIsHost] = useState(false);
@@ -186,26 +248,51 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
   // Host: the authoritative game. Guest: the newest snapshot.
   const gameRef = useRef<KrakelGame | null>(null);
   const snapRef = useRef<NetSnapshot | null>(null);
-  // A guest's own term (when it is the drawer), from its private hand.
+  // My own term this round, from my private hand.
   const myTermRef = useRef<string | null>(null);
-  // A guest-drawer's own strokes, rendered locally for a lag-free pen.
+  // My own strokes, kept locally: they are secret until the boards open, so the
+  // snapshot cannot carry them back to me while I draw.
   const myStrokesRef = useRef<Stroke[]>([]);
   const lastRoundRef = useRef(0);
 
   // Live drawing input.
+  const drawCanvasElRef = useRef<HTMLCanvasElement | null>(null);
+  const boardCanvasesRef = useRef(new Map<SeatId, HTMLCanvasElement>());
   const colorRef = useRef(color);
   const widthRef = useRef(width);
   const localStrokeRef = useRef<Stroke | null>(null);
   const drawingRef = useRef(false);
-  const lastLiveSentRef = useRef(0);
-  // The current round's template points, rebuilt when the krakel seed changes.
-  const templateRef = useRef<{ seed: number; points: readonly Point[] }>({
-    seed: Number.NaN,
-    points: [],
+  // My board's dots, looked up again when I am dealt a different board.
+  const dotsRef = useRef<{ boardId: number; dots: readonly Point[] }>({
+    boardId: Number.NaN,
+    dots: [],
   });
 
   const viewSigRef = useRef("");
+  // The key of the newest published snapshot, so the host only writes on change.
+  const publishedKeyRef = useRef("");
   const messageIdsRef = useRef(new Set<string>());
+
+  const drawCanvasRef = useCallback((element: HTMLCanvasElement | null) => {
+    drawCanvasElRef.current = element;
+    return () => {
+      drawCanvasElRef.current = null;
+    };
+  }, []);
+
+  // One stable callback for every open board; each canvas names its seat in a
+  // data attribute, so no per-seat callback has to be built while rendering.
+  const boardCanvasRef = useCallback((element: HTMLCanvasElement | null) => {
+    const id = element?.dataset[BOARD_SEAT_DATA];
+    let cleanup: (() => void) | undefined;
+    if (element !== null && id !== undefined) {
+      boardCanvasesRef.current.set(id, element);
+      cleanup = () => {
+        boardCanvasesRef.current.delete(id);
+      };
+    }
+    return cleanup;
+  }, []);
 
   const setColor = useCallback((next: string) => {
     colorRef.current = next;
@@ -223,20 +310,6 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
     }
   }, []);
 
-  /** Sends a plain chat line as this player. */
-  const sendChatLine = useCallback((text: string) => {
-    const transport = transportRef.current;
-    const id = seatIdRef.current;
-    const trimmed = text.trim();
-    if (transport !== null && id !== null && trimmed.length > 0) {
-      void transport.sendChat({
-        seatId: id,
-        name: nameRef.current,
-        text: trimmed,
-      });
-    }
-  }, []);
-
   /** Publishes the host's authoritative game as the newest room snapshot. */
   const publishNow = useCallback(() => {
     const game = gameRef.current;
@@ -245,43 +318,41 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
     if (game === null || transport === null || host === null) {
       return;
     }
+    const snapshot = toSnapshot(game);
+    // Remember what went out, so the loop does not send the same state twice.
+    publishedKeyRef.current = snapshotKey(snapshot);
     versionRef.current += 1;
     const room: RoomState<NetSnapshot> = {
       code: codeRef.current,
       hostId: host,
       seats: seatsRef.current,
       phase: "playing",
-      game: toSnapshot(game),
+      game: snapshot,
       version: versionRef.current,
     };
-    const hands = new Map<SeatId, KrakelHand>([
-      [drawerId(game), { term: game.term }],
-    ]);
-    void transport.publish(room, hands);
+    void transport.publish(room, toHands(game));
   }, []);
 
-  /** Host: resolves a guess, scoring correct ones and echoing the rest to chat. */
-  const resolveGuess = useCallback(
-    (from: SeatId, text: string) => {
+  /** Host: strikes a word for a player and announces how it went. */
+  const resolveExclude = useCallback(
+    (from: SeatId, word: string) => {
       const game = gameRef.current;
       if (game === null) {
         return;
       }
-      const outcome = submitGuess(game, from, text);
-      gameRef.current = outcome.game;
-      const name = nameFor(seatsRef.current, from);
-      if (outcome.result === "correct") {
+      const outcome = excludeWord(game, from, word, Date.now());
+      if (outcome.result === "excluded") {
+        gameRef.current = outcome.game;
         publishNow();
+        const entry = outcome.game.excluded[outcome.game.excluded.length - 1];
+        const name = nameFor(seatsRef.current, from);
+        const verdict = entry.wasDecoy
+          ? `${"✅"} ${name} streicht "${word}" - das hat niemand gemalt!`
+          : `${"❌"} ${name} streicht "${word}" - das war gemalt!`;
         void transportRef.current?.sendChat({
           seatId: ORACLE_SEAT,
           name: ORACLE_NAME,
-          text: `${"✅"} ${name} hat den Begriff erraten!`,
-        });
-      } else if (outcome.result === "wrong") {
-        void transportRef.current?.sendChat({
-          seatId: from,
-          name,
-          text: text.trim(),
+          text: verdict,
         });
       }
     },
@@ -295,54 +366,61 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
       if (game === null) {
         return;
       }
-      if (move.kind === "guess") {
-        resolveGuess(from, move.text);
-      } else if (from === drawerId(game) && game.phase === "drawing") {
-        gameRef.current = applyDrawing(game, move);
+      if (move.kind === "exclude") {
+        resolveExclude(from, move.word);
+      } else {
+        gameRef.current = applyDrawing(game, from, move);
       }
     },
-    [resolveGuess],
+    [resolveExclude],
   );
 
   /** Dispatches a local drawing action: apply it as host, or send it as guest. */
   const dispatchDraw = useCallback((move: KrakelMove) => {
+    const me = seatIdRef.current;
+    if (me === null) {
+      return;
+    }
     if (roleRef.current === "host") {
       const game = gameRef.current;
-      const me = seatIdRef.current;
-      if (game !== null && me !== null && me === drawerId(game)) {
-        gameRef.current = applyDrawing(game, move);
+      if (game !== null) {
+        gameRef.current = applyDrawing(game, me, move);
       }
     } else {
-      const me = seatIdRef.current;
-      if (me !== null) {
-        void transportRef.current?.sendIntent({ seatId: me, move });
-      }
+      void transportRef.current?.sendIntent({ seatId: me, move });
     }
   }, []);
 
-  const sendMessage = useCallback(
-    (text: string) => {
-      const trimmed = text.trim();
-      if (trimmed.length === 0) {
+  const exclude = useCallback(
+    (word: string) => {
+      const me = seatIdRef.current;
+      if (me === null) {
         return;
       }
-      const current = view;
-      const me = seatIdRef.current;
-      if (current !== null && current.canGuess && me !== null) {
-        if (roleRef.current === "host") {
-          resolveGuess(me, trimmed);
-        } else {
-          void transportRef.current?.sendIntent({
-            seatId: me,
-            move: { kind: "guess", text: trimmed },
-          });
-        }
+      if (roleRef.current === "host") {
+        resolveExclude(me, word);
       } else {
-        sendChatLine(trimmed);
+        void transportRef.current?.sendIntent({
+          seatId: me,
+          move: { kind: "exclude", word },
+        });
       }
     },
-    [view, resolveGuess, sendChatLine],
+    [resolveExclude],
   );
+
+  const sendMessage = useCallback((text: string) => {
+    const transport = transportRef.current;
+    const me = seatIdRef.current;
+    const trimmed = text.trim();
+    if (transport !== null && me !== null && trimmed.length > 0) {
+      void transport.sendChat({
+        seatId: me,
+        name: nameRef.current,
+        text: trimmed,
+      });
+    }
+  }, []);
 
   const start = useCallback(() => {
     if (roleRef.current !== "host") {
@@ -351,6 +429,8 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
     const order = seatsRef.current.map((seat) => seat.id);
     gameRef.current = createGame(order, freshSeed(), Date.now());
     runningRef.current = true;
+    myStrokesRef.current = [];
+    lastRoundRef.current = 1;
     publishNow();
     setStatus("playing");
   }, [publishNow]);
@@ -361,6 +441,8 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
       return;
     }
     gameRef.current = restartGame(game, freshSeed(), Date.now());
+    myStrokesRef.current = [];
+    lastRoundRef.current = 1;
     publishNow();
   }, [publishNow]);
 
@@ -453,83 +535,75 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
     };
   }, [session, addMessage, applyIntent]);
 
-  // The render/input loop, active only while a round is on screen.
-  const playing = status === "playing";
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d") ?? null;
-    if (!playing || canvas === null || ctx === null) {
-      return;
-    }
-    canvas.width = CANVAS_W;
-    canvas.height = CANVAS_H;
+  /** Whether I may still put ink on my board right now. */
+  const canDraw = useCallback((): boolean => {
+    const snap = currentSnapshot(roleRef.current, gameRef, snapRef);
+    const mine = myBoard(snap, seatIdRef.current);
+    return snap !== null && snap.phase === "drawing" && mine?.ready === false;
+  }, []);
 
-    const norm = (event: PointerEvent): Point => {
-      const rect = canvas.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / rect.width;
-      const y = (event.clientY - rect.top) / rect.height;
-      return { x: clamp01(x), y: clamp01(y) };
-    };
-    const iAmDrawer = (): boolean => {
-      const snap = currentSnapshot(roleRef.current, gameRef, snapRef);
-      return snap !== null && snap.drawerId === seatIdRef.current;
-    };
-    const canDraw = (): boolean => {
-      const snap = currentSnapshot(roleRef.current, gameRef, snapRef);
-      return snap !== null && snap.phase === "drawing" && iAmDrawer();
-    };
-    // Snaps a raw pointer point onto the round's template, or null if off the
-    // lines. The template is (re)built lazily when the krakel seed changes.
-    const snapPoint = (raw: Point): Point | null => {
-      const snapshot = currentSnapshot(roleRef.current, gameRef, snapRef);
-      if (snapshot === null) {
-        return null;
-      }
-      if (templateRef.current.seed !== snapshot.krakelSeed) {
-        templateRef.current = {
-          seed: snapshot.krakelSeed,
-          points: templatePoints(krakelTemplate(snapshot.krakelSeed)),
+  /**
+   * Snaps a raw pointer point onto my template, or null if it is off the lines.
+   * The template is (re)built lazily when my krakel seed changes.
+   */
+  const snapPoint = useCallback((raw: Point): Point | null => {
+    const snap = currentSnapshot(roleRef.current, gameRef, snapRef);
+    const mine = myBoard(snap, seatIdRef.current);
+    let point: Point | null = null;
+    if (mine !== null) {
+      if (dotsRef.current.boardId !== mine.boardId) {
+        dotsRef.current = {
+          boardId: mine.boardId,
+          dots: krakelBoard(mine.boardId),
         };
       }
-      return snapToTemplate(templateRef.current.points, raw, SNAP_TOLERANCE);
-    };
-    // Starts a fresh stroke at a snapped point.
-    const beginLocal = (point: Point) => {
-      localStrokeRef.current = {
-        color: colorRef.current,
-        width: widthRef.current,
-        points: [point],
-      };
-    };
-    // Commits the in-progress stroke (a pen lift), if it has anything on it.
-    const commitLocal = () => {
-      const stroke = localStrokeRef.current;
-      if (stroke !== null) {
-        localStrokeRef.current = null;
-        myStrokesRef.current = [...myStrokesRef.current, stroke];
-        dispatchDraw({ kind: "stroke", stroke });
-      }
-    };
+      point = snapToBoard(dotsRef.current.dots, raw, SNAP_TOLERANCE);
+    }
+    return point;
+  }, []);
 
-    const onDown = (event: PointerEvent) => {
+  /** Starts a fresh stroke at a snapped point. */
+  const beginLocal = useCallback((point: Point) => {
+    localStrokeRef.current = {
+      color: colorRef.current,
+      width: widthRef.current,
+      points: [point],
+    };
+  }, []);
+
+  /** Commits the in-progress stroke (a pen lift), if it has anything on it. */
+  const commitLocal = useCallback(() => {
+    const stroke = localStrokeRef.current;
+    if (stroke !== null) {
+      localStrokeRef.current = null;
+      myStrokesRef.current = [...myStrokesRef.current, stroke];
+      dispatchDraw({ kind: "stroke", stroke });
+    }
+  }, [dispatchDraw]);
+
+  const onPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (!canDraw()) {
         return;
       }
       event.preventDefault();
-      canvas.setPointerCapture(event.pointerId);
+      event.currentTarget.setPointerCapture(event.pointerId);
       drawingRef.current = true;
       localStrokeRef.current = null;
-      lastLiveSentRef.current = 0;
-      const point = snapPoint(norm(event));
+      const point = snapPoint(normalizePointer(event));
       if (point !== null) {
         beginLocal(point);
       }
-    };
-    const onMove = (event: PointerEvent) => {
+    },
+    [canDraw, snapPoint, beginLocal],
+  );
+
+  const onPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (!drawingRef.current) {
         return;
       }
-      const point = snapPoint(norm(event));
+      const point = snapPoint(normalizePointer(event));
       if (point === null) {
         // Off the lines: the pen lifts, ending any current stroke.
         commitLocal();
@@ -552,84 +626,78 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
           points: [...stroke.points, point],
         };
       }
-    };
-    const onUp = () => {
-      if (!drawingRef.current) {
-        return;
-      }
+    },
+    [snapPoint, beginLocal, commitLocal],
+  );
+
+  const onPointerUp = useCallback(() => {
+    if (drawingRef.current) {
       drawingRef.current = false;
       commitLocal();
-    };
+    }
+  }, [commitLocal]);
 
-    canvas.addEventListener("pointerdown", onDown);
-    canvas.addEventListener("pointermove", onMove);
-    canvas.addEventListener("pointerup", onUp);
-    canvas.addEventListener("pointercancel", onUp);
+  // The net/render loop, active while a round is on screen.
+  const playing = status === "playing";
+  useEffect(() => {
+    if (!playing) {
+      return;
+    }
 
-    /** Streams the guest-drawer's in-progress stroke, throttled. */
-    const streamLive = (dt: number) => {
-      if (!drawingRef.current || localStrokeRef.current === null) {
-        return;
-      }
-      lastLiveSentRef.current += dt;
-      if (roleRef.current === "host") {
-        const game = gameRef.current;
-        if (game !== null) {
-          gameRef.current = setLive(game, localStrokeRef.current);
-        }
-      } else if (lastLiveSentRef.current >= LIVE_INTERVAL) {
-        lastLiveSentRef.current = 0;
-        dispatchDraw({ kind: "live", stroke: localStrokeRef.current });
-      }
-    };
-
-    /** A guest clears its own drawing cache when a new round starts. */
-    const resetOnNewRound = () => {
-      const snap = snapRef.current;
-      if (
-        roleRef.current === "guest" &&
-        snap !== null &&
-        snap.round !== lastRoundRef.current
-      ) {
+    /** Drops my local drawing cache when a new round starts. */
+    const resetOnNewRound = (snap: NetSnapshot) => {
+      if (snap.round !== lastRoundRef.current) {
         lastRoundRef.current = snap.round;
         myStrokesRef.current = [];
         localStrokeRef.current = null;
         drawingRef.current = false;
-        myTermRef.current = null;
       }
     };
 
-    const renderScene = (context: CanvasRenderingContext2D) => {
-      const snap = currentSnapshot(roleRef.current, gameRef, snapRef);
-      if (snap === null) {
-        return;
+    /** Paints my own board, from my local strokes so the pen never lags. */
+    const renderMine = (snap: NetSnapshot) => {
+      const canvas = drawCanvasElRef.current;
+      const context = canvas?.getContext("2d") ?? null;
+      const mine = myBoard(snap, seatIdRef.current);
+      if (canvas !== null && context !== null && mine !== null) {
+        sizeCanvas(canvas);
+        drawBoard(context, {
+          boardId: mine.boardId,
+          strokes: myStrokesRef.current,
+          live: localStrokeRef.current,
+          width: CANVAS_W,
+          height: CANVAS_H,
+        });
       }
-      const mine = iAmDrawer();
-      const strokes =
-        roleRef.current === "guest" && mine
-          ? myStrokesRef.current
-          : snap.strokes;
-      const live =
-        mine && localStrokeRef.current !== null
-          ? localStrokeRef.current
-          : snap.live;
-      drawBoard(context, {
-        krakelSeed: snap.krakelSeed,
-        strokes,
-        live,
-        width: CANVAS_W,
-        height: CANVAS_H,
-      });
     };
 
-    const syncView = () => {
-      const snap = currentSnapshot(roleRef.current, gameRef, snapRef);
-      if (snap === null) {
-        return;
+    /** Paints every open board from the snapshot. */
+    const renderBoards = (snap: NetSnapshot) => {
+      for (const [id, canvas] of boardCanvasesRef.current) {
+        const line = snap.boards.find((board) => board.seatId === id);
+        const context = canvas.getContext("2d");
+        if (line !== undefined && context !== null) {
+          sizeCanvas(canvas);
+          // My own board is only authoritative once it has been published.
+          const own = id === seatIdRef.current && snap.phase === "drawing";
+          drawBoard(context, {
+            boardId: line.boardId,
+            strokes: own ? myStrokesRef.current : line.strokes,
+            live: own ? localStrokeRef.current : null,
+            width: CANVAS_W,
+            height: CANVAS_H,
+          });
+        }
       }
+    };
+
+    const syncView = (snap: NetSnapshot) => {
+      // The host deals the terms, so it reads its own straight off the game
+      // instead of waiting for the hand it just published to come back.
+      const me = seatIdRef.current;
       const myTerm =
-        roleRef.current === "host"
-          ? (gameRef.current?.term ?? null)
+        roleRef.current === "host" && me !== null
+          ? (gameRef.current?.terms[me] ?? null)
           : myTermRef.current;
       const next = viewOf(snap, seatsRef.current, seatIdRef.current, myTerm);
       const signature = viewSignature(next);
@@ -639,38 +707,55 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
       }
     };
 
+    let sincePublish = 0;
+    /**
+     * Publishes the host's game, but only when a client would see a difference.
+     *
+     * @remarks
+     * Nothing streams continuously any more: while the round is drawn every
+     * board goes out empty, and once they are open they never change again. So
+     * the snapshot only moves on a phase change, a finished drawing or a struck
+     * word - and republishing six full drawings every frame would be pure
+     * waste. The interval is only a floor on how fast two changes may follow
+     * each other.
+     */
+    const publishIfChanged = (dt: number, snap: NetSnapshot) => {
+      sincePublish += dt;
+      if (sincePublish >= PUBLISH_INTERVAL) {
+        sincePublish = 0;
+        if (snapshotKey(snap) !== publishedKeyRef.current) {
+          publishNow();
+        }
+      }
+    };
+
     let raf = 0;
     let last = performance.now();
-    let sincePublish = 0;
     const frame = (nowMs: number) => {
       const dt = (nowMs - last) / MS_PER_SECOND;
       last = nowMs;
       const now = Date.now();
 
-      if (roleRef.current === "host" && runningRef.current && gameRef.current) {
+      const host = roleRef.current === "host" && runningRef.current;
+      if (host && gameRef.current !== null) {
         gameRef.current = tick(gameRef.current, now);
-        sincePublish += dt;
-        if (sincePublish >= PUBLISH_INTERVAL) {
-          sincePublish = 0;
-          publishNow();
-        }
       }
 
-      streamLive(dt);
-      resetOnNewRound();
-      renderScene(ctx);
-      syncView();
+      const snap = currentSnapshot(roleRef.current, gameRef, snapRef);
+      if (snap !== null) {
+        if (host) {
+          publishIfChanged(dt, snap);
+        }
+        resetOnNewRound(snap);
+        renderMine(snap);
+        renderBoards(snap);
+        syncView(snap);
+      }
       raf = window.requestAnimationFrame(frame);
     };
 
     raf = window.requestAnimationFrame(frame);
-    return () => {
-      window.cancelAnimationFrame(raf);
-      canvas.removeEventListener("pointerdown", onDown);
-      canvas.removeEventListener("pointermove", onMove);
-      canvas.removeEventListener("pointerup", onUp);
-      canvas.removeEventListener("pointercancel", onUp);
-    };
+    return () => window.cancelAnimationFrame(raf);
   }, [playing, publishNow, dispatchDraw]);
 
   const tools: KrakelTools = {
@@ -686,6 +771,11 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
       myStrokesRef.current = myStrokesRef.current.slice(0, -1);
       dispatchDraw({ kind: "undo" });
     }, [dispatchDraw]),
+    ready: useCallback(() => {
+      localStrokeRef.current = null;
+      drawingRef.current = false;
+      dispatchDraw({ kind: "ready" });
+    }, [dispatchDraw]),
   };
 
   return {
@@ -694,26 +784,38 @@ export function useKrakelOnline(session: OnlineSession | null): KrakelOnline {
     isHost,
     seats,
     view,
-    canvasRef,
+    drawCanvasRef,
+    boardCanvasRef,
+    pen: {
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      onPointerCancel: onPointerUp,
+    },
     tools,
     messages,
+    exclude,
     sendMessage,
     start,
     newGame,
   };
 }
 
-/** Applies a drawing action (not a guess) to the game. */
-function applyDrawing(game: KrakelGame, move: KrakelMove): KrakelGame {
+/** Applies a drawing action (not an exclusion) to one player's board. */
+function applyDrawing(
+  game: KrakelGame,
+  id: string,
+  move: KrakelMove,
+): KrakelGame {
   let result = game;
   if (move.kind === "stroke") {
-    result = addStroke(setLive(game, null), move.stroke);
-  } else if (move.kind === "live") {
-    result = setLive(game, move.stroke);
+    result = addStroke(game, id, move.stroke);
   } else if (move.kind === "clear") {
-    result = clearStrokes(game);
+    result = clearStrokes(game, id);
   } else if (move.kind === "undo") {
-    result = undoStroke(game);
+    result = undoStroke(game, id);
+  } else if (move.kind === "ready") {
+    result = readyUp(game, id);
   }
   return result;
 }
@@ -731,6 +833,14 @@ function currentSnapshot(
     : snapRef.current;
 }
 
+/** My own board line in a snapshot, or null before I have one. */
+function myBoard(
+  snap: NetSnapshot | null,
+  mySeatId: SeatId | null,
+): BoardLine | null {
+  return snap?.boards.find((board) => board.seatId === mySeatId) ?? null;
+}
+
 /** Builds the board view from a snapshot. */
 function viewOf(
   snap: NetSnapshot,
@@ -738,32 +848,72 @@ function viewOf(
   mySeatId: SeatId | null,
   myTerm: string | null,
 ): KrakelView {
-  const iAmDrawer = snap.drawerId === mySeatId;
-  const iGuessed = mySeatId !== null && snap.guessed.includes(mySeatId);
-  const players = snap.scores
-    .map((line) => ({
-      seatId: line.seatId,
-      name: nameFor(seats, line.seatId),
-      score: line.score,
-      isDrawer: line.seatId === snap.drawerId,
-      hasGuessed: snap.guessed.includes(line.seatId),
-      isMe: line.seatId === mySeatId,
-    }))
-    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  const mine = myBoard(snap, mySeatId);
+  const struck = new Map(snap.excluded.map((entry) => [entry.word, entry]));
   return {
     phase: snap.phase,
     round: snap.round,
     totalRounds: snap.totalRounds,
-    drawerName: nameFor(seats, snap.drawerId),
-    iAmDrawer,
-    canGuess: snap.phase === "drawing" && !iAmDrawer && !iGuessed,
-    word: iAmDrawer ? myTerm : snap.revealTerm,
-    termLength: snap.termLength,
     deadline: snap.deadline,
-    players,
-    guessedCount: snap.guessed.length,
-    guessersTotal: Math.max(0, snap.scores.length - 1),
+    // I always know my own word - I drew it - even while it is still secret
+    // from the others.
+    myWord: myTerm ?? mine?.term ?? null,
+    iAmReady: mine?.ready ?? false,
+    readyCount: snap.boards.filter((board) => board.ready).length,
+    boards: snap.boards.map((board) => ({
+      seatId: board.seatId,
+      name: nameFor(seats, board.seatId),
+      isMe: board.seatId === mySeatId,
+      ready: board.ready,
+      term: board.term,
+    })),
+    words: snap.candidates.map((word) => {
+      const entry = struck.get(word);
+      return {
+        word,
+        struck: entry !== undefined,
+        wasDecoy: entry?.wasDecoy ?? null,
+        byName: entry === undefined ? null : nameFor(seats, entry.seatId),
+        isMine: myTerm !== null && word === myTerm,
+      };
+    }),
+    pickerName: snap.pickerId === null ? null : nameFor(seats, snap.pickerId),
+    iAmPicker: snap.pickerId !== null && snap.pickerId === mySeatId,
+    score: snap.score,
+    roundScore: snap.roundScore,
+    struckCount: snap.excluded.length,
+    toStrike: DECOY_COUNT,
+    bestPossible: maxScore(),
   };
+}
+
+/**
+ * A short key of everything a client renders from a snapshot.
+ *
+ * @param snap - the snapshot about to be published
+ * @returns a string that changes exactly when the snapshot's meaning does
+ * @remarks
+ * Covers each board by its stroke count rather than its strokes: a board only
+ * ever grows while its own player draws, and the moment it is published it is
+ * finished, so the count moves whenever the drawing does.
+ */
+function snapshotKey(snap: NetSnapshot): string {
+  return [
+    snap.phase,
+    snap.round,
+    snap.deadline,
+    snap.score,
+    snap.roundScore,
+    snap.pickerId ?? "",
+    snap.candidates.join(","),
+    snap.excluded.map((entry) => `${entry.word}:${entry.wasDecoy}`).join(","),
+    snap.boards
+      .map(
+        (board) =>
+          `${board.seatId}:${board.ready}:${board.strokes.length}:${board.term ?? ""}`,
+      )
+      .join(","),
+  ].join("|");
 }
 
 /** A short signature of the view, so it only re-renders on a real change. */
@@ -772,17 +922,36 @@ function viewSignature(view: KrakelView): string {
     view.phase,
     view.round,
     view.deadline,
-    view.word ?? "",
-    view.iAmDrawer,
-    view.canGuess,
-    view.guessedCount,
-    view.players.map((p) => `${p.seatId}:${p.score}:${p.hasGuessed}`).join(","),
+    view.myWord ?? "",
+    view.iAmReady,
+    view.readyCount,
+    view.iAmPicker,
+    view.score,
+    view.struckCount,
+    view.boards.map((board) => `${board.seatId}:${board.term ?? ""}`).join(","),
+    view.words.map((word) => `${word.word}:${word.wasDecoy ?? ""}`).join(","),
   ].join("|");
 }
 
 /** The name of a seat, or a fallback if it has left. */
 function nameFor(seats: readonly Seat[], seatId: SeatId): string {
   return seats.find((seat) => seat.id === seatId)?.name ?? FALLBACK_NAME;
+}
+
+/** Where a pointer event landed, on the normalised 0..1 canvas. */
+function normalizePointer(event: React.PointerEvent<HTMLCanvasElement>): Point {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const x = (event.clientX - rect.left) / rect.width;
+  const y = (event.clientY - rect.top) / rect.height;
+  return { x: clamp01(x), y: clamp01(y) };
+}
+
+/** Gives a canvas the fixed drawing resolution, once; CSS scales it from there. */
+function sizeCanvas(canvas: HTMLCanvasElement): void {
+  if (canvas.width !== CANVAS_W) {
+    canvas.width = CANVAS_W;
+    canvas.height = CANVAS_H;
+  }
 }
 
 /** Clamps a coordinate into [0, 1]. */

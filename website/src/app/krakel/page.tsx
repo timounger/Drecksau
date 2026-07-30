@@ -10,7 +10,7 @@ import { KrakelLanding } from "@/games/krakel/components/krakel-landing";
 export const metadata: Metadata = {
   title: "Krakel Orakel",
   description:
-    "Mach aus einer Kritzelei ein Bild - die anderen raten den Begriff.",
+    "Alle malen gleichzeitig - und streichen dann gemeinsam die Wörter, die niemand gemalt hat.",
 };
 
 /**

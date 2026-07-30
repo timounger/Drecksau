@@ -3,10 +3,11 @@
  *
  * @module
  * @remarks
- * Two to six players draw and guess together in real time. "Mitspieler finden"
- * pairs strangers automatically; "Raum erstellen" / "Raum beitreten" open or join
- * a private room by code. Once enough players are in, the host starts and the
- * turns rotate: one draws a secret term from the round's squiggle, the rest guess.
+ * Two to six players draw at the same time and then puzzle it out together.
+ * "Mitspieler finden" pairs strangers automatically; "Raum erstellen" /
+ * "Raum beitreten" open or join a private room by code. Once enough players are
+ * in, the host starts: everyone draws their own secret term along their own
+ * squiggle, then the team strikes the words nobody drew off the list.
  */
 "use client";
 
@@ -37,6 +38,12 @@ import {
   loadPlayerName,
   savePlayerName,
 } from "@/games/krakel/settings/player-name";
+import {
+  DEFAULT_PLAYER_COUNT,
+  PLAYER_COUNTS,
+  loadPlayerCount,
+  savePlayerCount,
+} from "@/games/krakel/settings/player-count";
 import { KRAKEL_GAME_ID } from "@/games/krakel/multiplayer/net";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/krakel/engine/types";
 import { KrakelBoard } from "@/games/krakel/components/krakel-board";
@@ -49,14 +56,22 @@ import {
 /** German labels for the whole online screen. */
 const T = {
   title: "Krakel Orakel online",
-  subtitle: "Zeichnen und raten - reihum, in Echtzeit",
+  subtitle: "Gemeinsam malen und ausschließen - in Echtzeit",
   backToGame: "Zurück",
   yourName: "Dein Name",
   yourNamePlaceholder: "z. B. Picasso",
   autoTitle: "Automatisch matchen",
-  autoHint: "Wir suchen dir einen Mitspieler für eine Runde.",
+  autoHint: "Wir suchen dir Mitspieler für eine Runde.",
   autoMatch: "Mitspieler finden",
   searching: "Suche Mitspieler …",
+  tableSize: "Wie viele Spieler?",
+  tableSizeHint: "Wird für das nächste Mal gemerkt.",
+  playersLabel: (n: number) => `${n} Spieler`,
+  waitingFor: (have: number, want: number) => `${have} von ${want} da`,
+  startsNow: "Vollzählig - los geht's!",
+  relaxHint: (s: number) =>
+    `Noch ${s}s - danach starten wir auch mit einer anderen Spielerzahl.`,
+  relaxedNow: "Wir starten jetzt auch mit weniger Spielern.",
   orDivider: "oder",
   createRoom: "Raum erstellen",
   roomCode: "Raumcode",
@@ -64,7 +79,7 @@ const T = {
   joinRoom: "Raum beitreten",
   connecting: "Verbinde …",
   lobbyTitle: "Privater Raum",
-  shareHint: "Teile den Code mit deinen Mitspielern (2 bis 6).",
+  shareHint: `Teile den Code mit deinen Mitspielern (${MIN_PLAYERS} bis ${MAX_PLAYERS}).`,
   copyCode: "Code kopieren",
   copyLink: "Link kopieren",
   copied: "Kopiert!",
@@ -74,12 +89,10 @@ const T = {
   startGame: "Spiel starten",
   needPlayers: "Warte auf mindestens einen Mitspieler …",
   waitingForHost: "Warte auf den Host …",
-  waitingForPartner: "Warte auf einen Mitspieler …",
-  almostReady: "Gleich geht's los …",
   cancelSearch: "Suche abbrechen",
   leaveRoom: "Raum verlassen",
   playersOnline: (n: number) => `${n} online`,
-  playersHere: (n: number) => `${n}/${MAX_PLAYERS} im Raum`,
+  playersHere: (n: number, want: number) => `${n}/${want} im Raum`,
   errorRoomNotFound: "Verbindung fehlgeschlagen oder Raum nicht gefunden.",
   hostLeftNotice: "Verlässt der Host, endet die Runde.",
 } as const;
@@ -87,21 +100,29 @@ const T = {
 /** This game's id, for presence and matchmaking namespacing. */
 const GAME_ID = KRAKEL_GAME_ID;
 
-/** Auto-match pairs two players; the other wish flags stay off. */
-const MATCH_WISH: Wish = {
-  count: MIN_PLAYERS,
-  expansion: false,
-  defense: false,
-};
+/** The wish advertised while searching; only the table size varies. */
+function matchWish(count: number): Wish {
+  return { count, expansion: false, defense: false };
+}
 
 /** How often the open room's matchmaking entry is kept alive, in ms. */
 const HEARTBEAT_MS = 10_000;
 
-/** How long the search only merges exactly-matching rooms before widening. */
-const RELAX_MS = 12_000;
+/**
+ * How long the search insists on the wished table size before widening.
+ *
+ * @remarks
+ * Reached the wished number of players and the round starts at once; otherwise
+ * this is the wait after which any table size will do, so a lone searcher is
+ * not left hanging.
+ */
+const RELAX_MS = 20_000;
 
 /** How often a lone waiting host looks for a room to merge into, in ms. */
 const RELAX_TICK_MS = 4_000;
+
+/** Milliseconds in a second, for showing the grace as seconds. */
+const MS_PER_SECOND = 1000;
 
 /** Query parameter that carries a room code in an invite link. */
 const ROOM_QUERY_PARAM = "raum";
@@ -118,6 +139,8 @@ export function KrakelOnlineScreen(): ReactElement {
   const onlineCount = useOnlineCount(GAME_ID);
   const [session, setSession] = useState<OnlineSession | null>(null);
   const [auto, setAuto] = useState<Match | null>(null);
+  // The table size the search is waiting for, kept while the lobby is open.
+  const [wanted, setWanted] = useState(DEFAULT_PLAYER_COUNT);
 
   const online = useKrakelOnline(session);
 
@@ -129,8 +152,14 @@ export function KrakelOnlineScreen(): ReactElement {
     setSession(null);
   }, [auto]);
 
-  const startAuto = useCallback(async (name: string) => {
-    const found = await findMatch(database(), GAME_ID, MATCH_WISH, Date.now());
+  const startAuto = useCallback(async (name: string, count: number) => {
+    setWanted(count);
+    const found = await findMatch(
+      database(),
+      GAME_ID,
+      matchWish(count),
+      Date.now(),
+    );
     setAuto(found);
     setSession({ mode: found.mode, code: found.code, name });
   }, []);
@@ -166,6 +195,7 @@ export function KrakelOnlineScreen(): ReactElement {
         <SearchingLobby
           online={online}
           match={auto}
+          wanted={wanted}
           onlineCount={onlineCount}
           onHop={hop}
           onCancel={leave}
@@ -201,7 +231,7 @@ export function KrakelOnlineScreen(): ReactElement {
 /** Props of {@link OnlineEntry}. */
 type OnlineEntryProps = {
   readonly onStart: (session: OnlineSession) => void;
-  readonly onAutoMatch: (name: string) => Promise<void>;
+  readonly onAutoMatch: (name: string, count: number) => Promise<void>;
   readonly onlineCount: number | null;
 };
 
@@ -213,6 +243,7 @@ function OnlineEntry({
 }: OnlineEntryProps): ReactElement {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [count, setCount] = useState(DEFAULT_PLAYER_COUNT);
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
@@ -221,6 +252,7 @@ function OnlineEntry({
     if (saved.length > 0) {
       setName(saved);
     }
+    setCount(loadPlayerCount());
     const params = new URLSearchParams(window.location.search);
     const invited = params.get(ROOM_QUERY_PARAM);
     if (invited !== null) {
@@ -229,8 +261,14 @@ function OnlineEntry({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
+  // Both choices are kept for next time, whichever way the player goes in.
   const remember = (chosen: string) => {
     savePlayerName(chosen);
+    savePlayerCount(count);
+  };
+  const chooseCount = (next: number) => {
+    setCount(next);
+    savePlayerCount(next);
   };
   const host = () => {
     remember(name);
@@ -246,7 +284,7 @@ function OnlineEntry({
   const autoMatch = () => {
     remember(name);
     setSearching(true);
-    void onAutoMatch(name).catch(() => setSearching(false));
+    void onAutoMatch(name, count).catch(() => setSearching(false));
   };
 
   return (
@@ -263,6 +301,8 @@ function OnlineEntry({
           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />
       </label>
+
+      <PlayerCountPicker count={count} onChoose={chooseCount} />
 
       <div className="flex flex-col gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/20">
         <div>
@@ -321,6 +361,49 @@ function OnlineEntry({
         {T.hostLeftNotice}
       </p>
     </div>
+  );
+}
+
+/** Picks how many players the round should have, and remembers the choice. */
+function PlayerCountPicker({
+  count,
+  onChoose,
+}: {
+  readonly count: number;
+  readonly onChoose: (count: number) => void;
+}): ReactElement {
+  return (
+    <section className="flex flex-col gap-2">
+      <div>
+        <h2 className="text-sm font-medium">{T.tableSize}</h2>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          {T.tableSizeHint}
+        </p>
+      </div>
+      <div
+        role="radiogroup"
+        aria-label={T.tableSize}
+        className="flex flex-wrap gap-1.5"
+      >
+        {PLAYER_COUNTS.map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={option === count}
+            data-testid={`player-count-${option}`}
+            onClick={() => onChoose(option)}
+            className={`h-10 w-10 cursor-pointer rounded-lg border text-sm font-semibold tabular-nums ${
+              option === count
+                ? "border-indigo-500 bg-indigo-600 text-white"
+                : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            }`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -414,23 +497,40 @@ function SeatList({ online }: { online: KrakelOnline }): ReactElement {
 type SearchingLobbyProps = {
   readonly online: KrakelOnline;
   readonly match: Match;
+  /** The table size the player asked for. */
+  readonly wanted: number;
   readonly onlineCount: number | null;
   readonly onHop: (code: string) => void;
   readonly onCancel: () => void;
 };
 
-/** The auto-match waiting screen: pairs two players and starts on its own. */
+/**
+ * The auto-match waiting screen: gathers players and starts on its own.
+ *
+ * @remarks
+ * Reaching the wished table size starts the round at once. Waiting longer than
+ * {@link RELAX_MS} without getting there settles for whoever did turn up, so a
+ * player asking for a big table is never stuck for good.
+ */
 function SearchingLobby({
   online,
   match,
+  wanted,
   onlineCount,
   onHop,
   onCancel,
 }: SearchingLobbyProps): ReactElement {
   const isHost = online.isHost;
   const seats = online.seats.length;
-  const enough = seats >= MIN_PLAYERS;
+  const [relaxed, setRelaxed] = useState(false);
+  const enough = seats >= wanted || (relaxed && seats >= MIN_PLAYERS);
   const startedRef = useRef(false);
+
+  // After the grace, any table size will do.
+  useEffect(() => {
+    const timer = setTimeout(() => setRelaxed(true), RELAX_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   const start = online.start;
   const startNow = useCallback(() => {
@@ -447,12 +547,15 @@ function SearchingLobby({
       return;
     }
     const db = database();
-    const timer = setInterval(
-      () => void hostEntry(db, GAME_ID, match.code, MATCH_WISH, Date.now()),
-      HEARTBEAT_MS,
-    );
+    const announce = () =>
+      void hostEntry(db, GAME_ID, match.code, matchWish(wanted), Date.now());
+    // Advertise at once, not only when the first beat comes round: leaving the
+    // room unlisted for a heartbeat would hide it from everyone searching in
+    // that window. It also puts the entry back should anything have dropped it.
+    announce();
+    const timer = setInterval(announce, HEARTBEAT_MS);
     return () => clearInterval(timer);
-  }, [isHost, match.code]);
+  }, [isHost, match.code, wanted]);
 
   useEffect(() => {
     if (!isHost) {
@@ -466,25 +569,27 @@ function SearchingLobby({
       return;
     }
     const db = database();
-    const started = Date.now();
     const tick = async () => {
-      const allowAny = Date.now() - started > RELAX_MS;
       const target = await relaxMatch(
         db,
         GAME_ID,
-        MATCH_WISH,
+        matchWish(wanted),
         match.code,
         Date.now(),
-        allowAny,
+        relaxed,
       );
       if (target !== null && !startedRef.current) {
         await clearMatch(db, GAME_ID, match.code);
         onHop(target);
       }
     };
+    // Look straight away, not only when the first interval elapses: two players
+    // searching at the same moment both open a room, and waiting a full tick
+    // before merging is the difference between "starts at once" and a pause.
+    void tick();
     const timer = setInterval(() => void tick(), RELAX_TICK_MS);
     return () => clearInterval(timer);
-  }, [isHost, seats, match.code, onHop]);
+  }, [isHost, seats, match.code, onHop, wanted, relaxed]);
 
   useEffect(() => {
     if (isHost && enough) {
@@ -502,7 +607,7 @@ function SearchingLobby({
         />
         <h2 className="text-lg font-semibold">{T.searching}</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
-          {T.playersHere(seats)}
+          {T.playersHere(seats, wanted)}
         </p>
         <ul className="flex flex-wrap justify-center gap-1">
           {online.seats.map((seat) => (
@@ -515,7 +620,10 @@ function SearchingLobby({
           ))}
         </ul>
         <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-          {enough ? T.almostReady : T.waitingForPartner}
+          {enough ? T.startsNow : T.waitingFor(seats, wanted)}
+        </p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          {relaxed ? T.relaxedNow : T.relaxHint(RELAX_MS / MS_PER_SECOND)}
         </p>
       </section>
       <button
