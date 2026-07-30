@@ -11,7 +11,8 @@
  */
 
 /** Identifies a game for storage and statistics. Never reuse an old id. */
-export type GameId = "drecksau" | "binokel" | "panzerkiste" | "krakel";
+export type GameId =
+  "drecksau" | "binokel" | "panzerkiste" | "krakel" | "skyjo";
 
 /** One game of the collection. */
 export type GameDefinition = {
@@ -53,9 +54,16 @@ export const GAMES: readonly GameDefinition[] = [
     id: "krakel",
     name: "Krakel Orakel",
     tagline:
-      "Mach aus einer Kritzelei ein Bild - die anderen raten den Begriff.",
+      "Alle malen gleichzeitig - streicht die Wörter, die keiner gemalt hat.",
     emoji: "\u{1F52E}",
     href: "/krakel",
+  },
+  {
+    id: "skyjo",
+    name: "Skyjo",
+    tagline: "Tausche deine Karten - die wenigsten Punkte gewinnen.",
+    emoji: "\u{1F3B4}",
+    href: "/skyjo",
   },
 ];
 

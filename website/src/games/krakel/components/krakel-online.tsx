@@ -71,7 +71,6 @@ const T = {
   autoMatch: "Mitspieler finden",
   searching: "Suche Mitspieler …",
   tableSize: "Wie viele Spieler?",
-  tableSizeHint: "Wird für das nächste Mal gemerkt.",
   difficulty: "Wie schwer?",
   difficultyHint:
     "Leicht: Dinge, die man malen kann. Schwer: auch Ideen, Orte und Tätigkeiten.",
@@ -425,12 +424,7 @@ function PlayerCountPicker({
 }): ReactElement {
   return (
     <section className="flex flex-col gap-2">
-      <div>
-        <h2 className="text-sm font-medium">{T.tableSize}</h2>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {T.tableSizeHint}
-        </p>
-      </div>
+      <h2 className="text-sm font-medium">{T.tableSize}</h2>
       <div
         role="radiogroup"
         aria-label={T.tableSize}
@@ -771,8 +765,8 @@ function OnlineCountBadge({
     return null;
   }
   return (
-    <div className="flex items-center gap-2 self-start rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
-      <span className="h-2 w-2 rounded-full bg-indigo-500" />
+    <div className="flex items-center gap-2 self-start rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+      <span className="h-2 w-2 rounded-full bg-emerald-500" />
       {T.playersOnline(count)}
     </div>
   );

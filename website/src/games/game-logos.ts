@@ -15,6 +15,7 @@ import drecksau from "./drecksau/assets/logo.webp";
 import binokel from "./binokel/assets/logo.webp";
 import panzerkiste from "./panzerkiste/assets/logo.webp";
 import krakel from "./krakel/assets/logo.webp";
+import skyjo from "./skyjo/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -22,4 +23,5 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   binokel,
   panzerkiste,
   krakel,
+  skyjo,
 };
