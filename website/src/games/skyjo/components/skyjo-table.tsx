@@ -9,15 +9,17 @@
  *
  * A turn is played by touching the table, not by pressing buttons:
  *
+ * - **Tap the draw pile** to turn a card over. It simply lands on the discard
+ *   pile - there is nothing to tell it apart from a card already lying there.
  * - **Tap the discard pile** to pick its top card up, then tap one of your own
  *   cards to put it there.
- * - **Tap the draw pile** to turn a card over. It lands face up **on** the
- *   discard pile and covers what was lying there. Tap one of your cards to take
- *   it, or tap it once more to leave it lying and turn one of your own cards
- *   over instead.
+ * - Not interested in the card you drew? **Tap one of your own face-down
+ *   cards** straight away to turn it over instead and leave the drawn card
+ *   lying.
  *
- * Whatever the drawn card covers comes back into view as soon as it is used,
- * with the card it replaced landing on top of it.
+ * The pile therefore behaves the same whether the card on it was just drawn or
+ * had been lying there all along, which is the whole point: a drawn card is not
+ * held in the hand, it goes on the pile.
  */
 "use client";
 
@@ -33,14 +35,15 @@ import { SKYJO_TEXTS as T } from "@/games/skyjo/i18n/texts";
 import { LooseCard, SkyjoCard } from "./skyjo-card";
 
 /**
- * What the player has half-decided.
+/**
+ * Whether the top card of the discard pile has been picked up.
  *
  * @remarks
- * `holding` is not stored here - it is simply `game.drawn !== null`, which
- * every client can see. Only the two choices the rules leave open need a state:
- * having picked the discard pile up, and having put a drawn card back down.
+ * One state covers both cases: it makes no difference to the player whether
+ * that card was just drawn or had been lying there. Which move it turns into is
+ * decided by `game.drawn`, which every client can see anyway.
  */
-type Pending = "none" | "fromDiscard" | "throwDrawn";
+type Pending = "none" | "picked";
 
 /** Props of {@link SkyjoTable}. */
 export type SkyjoTableProps = {
@@ -79,6 +82,8 @@ export function SkyjoTable({
 
   const holding = game.phase === "turn" && game.drawn !== null;
 
+  const picked = pending === "picked";
+
   // Which of my own cards may be touched right now.
   const selectable = (index: number): boolean => {
     let ok = false;
@@ -86,12 +91,13 @@ export function SkyjoTable({
       const slot = game.players[mySeat].grid[index];
       if (game.phase === "flip") {
         ok = slot.state === "down";
-      } else if (pending === "throwDrawn") {
-        // The drawn card was put back down, so only a face-down card is left
-        // to turn over.
-        ok = slot.state === "down";
-      } else if (pending === "fromDiscard" || holding) {
+      } else if (picked) {
+        // A card in hand can go anywhere that is still in play.
         ok = slot.state !== "gone";
+      } else if (holding) {
+        // Nothing picked up, but a card was drawn: turning one of my own over
+        // is the way to leave that card lying.
+        ok = slot.state === "down";
       }
     }
     return ok;
@@ -100,12 +106,14 @@ export function SkyjoTable({
   const selectSlot = (index: number) => {
     if (game.phase === "flip") {
       play({ kind: "flip", index });
-    } else if (pending === "throwDrawn") {
-      play({ kind: "discardDrawn", index });
-    } else if (pending === "fromDiscard") {
-      play({ kind: "takeDiscard", index });
+    } else if (picked) {
+      // The picked-up card goes into the layout - it makes no difference
+      // whether it was drawn a moment ago or had been lying there.
+      play(
+        holding ? { kind: "swapDrawn", index } : { kind: "takeDiscard", index },
+      );
     } else if (holding) {
-      play({ kind: "swapDrawn", index });
+      play({ kind: "discardDrawn", index });
     }
   };
 
@@ -117,21 +125,16 @@ export function SkyjoTable({
   };
 
   /**
-   * Touching the discard pile means different things by turn.
+   * Touching the discard pile picks its top card up, or puts it back.
    *
    * @remarks
-   * With nothing in hand it picks the top card up (and picks it up again to
-   * put it back). While holding a drawn card it lays that card down, leaving
-   * only a face-down card of one's own to turn over.
+   * The same either way, whether that card was just drawn or had been lying
+   * there - which is exactly how it works on a real table.
    */
   const tapDiscard = () => {
-    if (!myTurn || game.phase !== "turn") {
-      return;
-    }
-    if (holding) {
-      setPending(pending === "throwDrawn" ? "none" : "throwDrawn");
-    } else if (topOf(game.discard) !== null) {
-      setPending(pending === "fromDiscard" ? "none" : "fromDiscard");
+    const something = holding || topOf(game.discard) !== null;
+    if (myTurn && game.phase === "turn" && something) {
+      setPending(picked ? "none" : "picked");
     }
   };
 
@@ -195,9 +198,7 @@ function TurnBanner({
     text = T.waitingFor(game.players[game.turn].name);
   } else if (game.phase === "flip") {
     text = T.openingHint;
-  } else if (pending === "throwDrawn") {
-    text = T.flipHint;
-  } else if (pending === "fromDiscard") {
+  } else if (pending === "picked") {
     text = T.placeHint;
   } else if (game.drawn !== null) {
     text = T.drawnHint;
@@ -243,13 +244,11 @@ function Piles({
   readonly onTapDeck: () => void;
   readonly onTapDiscard: () => void;
 }): ReactElement {
-  const drawing = active && game.phase === "turn" && game.drawn === null;
-  const holding = active && game.phase === "turn" && game.drawn !== null;
-  const beneath = topOf(game.discard);
-  // What lies on top of the discard pile right now, drawn card included.
-  const onTop = game.drawn ?? beneath;
-  const picked = pending === "fromDiscard";
-  const laidDown = pending === "throwDrawn";
+  const playable = active && game.phase === "turn";
+  const drawing = playable && game.drawn === null;
+  // What lies on top of the discard pile right now. A drawn card is simply the
+  // new top - nothing marks it out, because on a real table nothing would.
+  const onTop = game.drawn ?? topOf(game.discard);
 
   return (
     <section className="flex flex-wrap items-start justify-center gap-8 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
@@ -264,23 +263,11 @@ function Piles({
 
       <Pile
         label={T.discard}
-        note={holding ? T.drawn : undefined}
-        clickable={drawing || holding}
-        highlighted={picked || laidDown}
+        clickable={playable && onTop !== null}
+        highlighted={pending === "picked"}
         onClick={onTapDiscard}
       >
-        <span className="relative inline-block">
-          {/* The card underneath peeks out, so the pile reads as a stack. */}
-          {game.drawn !== null && beneath !== null && (
-            <span
-              aria-hidden
-              className="absolute -top-1 left-1 h-full w-full rounded-md border-2 border-zinc-300 bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-700"
-            />
-          )}
-          <span className="relative">
-            <LooseCard value={onTop} />
-          </span>
-        </span>
+        <LooseCard value={onTop} />
       </Pile>
     </section>
   );

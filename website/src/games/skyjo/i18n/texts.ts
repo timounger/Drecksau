@@ -42,11 +42,10 @@ export const SKYJO_TEXTS = {
     "Tippe auf den Ablagestapel, um die offene Karte zu nehmen - oder auf den Nachziehstapel.",
   placeHint: "Tippe auf die Karte, die du ersetzen willst.",
   drawnHint:
-    "Tippe auf eine deiner Karten, um zu tauschen - oder nochmal auf den Stapel, um die Karte liegen zu lassen.",
+    "Tippe auf die Karte auf dem Ablagestapel, um sie zu nehmen - oder decke direkt eine eigene Karte auf.",
   flipHint: "Tippe auf eine verdeckte Karte, um sie aufzudecken.",
   deck: "Nachziehstapel",
   discard: "Ablagestapel",
-  drawn: "Gezogen",
   empty: "leer",
   round: (n: number) => `Runde ${n}`,
   points: "Punkte",

@@ -55,19 +55,22 @@ gemischt und zum Nachziehstapel.
 
 ### Bedienung
 
-Der Zug wird durch Antippen der Stapel gespielt, es gibt keine Knöpfe dafür:
+Der Zug wird durch Antippen der Stapel gespielt, es gibt keine Knöpfe dafür.
+Eine gezogene Karte landet dabei einfach auf dem Ablagestapel - sie ist **nicht
+als gezogen gekennzeichnet**, genau wie am echten Tisch.
 
-| Tippen auf …                          | Was passiert                                                   |
-| ------------------------------------- | -------------------------------------------------------------- |
-| **Ablagestapel** (nichts in der Hand) | Die offene Karte wird aufgenommen und markiert.                |
-| eine **eigene Karte** danach          | Sie wird gegen die aufgenommene getauscht.                     |
-| **Nachziehstapel**                    | Die gezogene Karte landet offen **auf** dem Ablagestapel.      |
-| eine **eigene Karte** danach          | Sie wird gegen die gezogene getauscht.                         |
-| **Ablagestapel** erneut               | Die gezogene Karte bleibt liegen; jetzt eine eigene aufdecken. |
+| Tippen auf …                 | Was passiert                                                 |
+| ---------------------------- | ------------------------------------------------------------ |
+| **Nachziehstapel**           | Die gezogene Karte kommt offen auf den Ablagestapel.         |
+| **Ablagestapel**             | Die oberste Karte wird aufgenommen und markiert.             |
+| eine **eigene Karte** danach | Sie wird gegen die aufgenommene getauscht.                   |
+| **Ablagestapel** erneut      | Die Karte wird wieder hingelegt, die Auswahl ist aufgehoben. |
 
-Die gezogene Karte verdeckt, was auf dem Ablagestapel lag. Wird sie ins eigene
-Feld genommen, kommt das Darunterliegende wieder zum Vorschein - und die
-ersetzte Karte landet darauf.
+Der Ablagestapel verhält sich also **immer gleich**, egal ob die oberste Karte
+gerade gezogen wurde oder schon lag.
+
+Um eine gezogene Karte **nicht** zu nehmen, tippt man ohne Umweg direkt auf eine
+eigene verdeckte Karte: sie wird aufgedeckt, die gezogene bleibt liegen.
 
 ## Die Spalten-Regel
 
