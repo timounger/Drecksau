@@ -48,6 +48,7 @@ import { BinokelNamingProvider, useBinokelNaming } from "./naming-context";
 import {
   CardView,
   DeclarerChoice,
+  DabbView,
   DiscardHand,
   FannedHand,
   MeldsGrid,
@@ -286,12 +287,16 @@ function ExchangePanel({ game, canAct, act, me }: PanelProps): ReactElement {
   const iAmDeclarer = game.declarerIndex !== null && canAct;
   if (!iAmDeclarer) {
     const declarer = game.declarerIndex;
+    // Watching the declarer sort out their hand - but the Dabb is open to all.
     return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        {BINOKEL_TEXTS.declarerWorking(
-          declarer === null ? "" : game.players[declarer].name,
-        )}
-      </p>
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          {BINOKEL_TEXTS.declarerWorking(
+            declarer === null ? "" : game.players[declarer].name,
+          )}
+        </p>
+        <DabbView cards={game.takenDabb} />
+      </div>
     );
   }
   // The discard happens in the hand area; here we only prompt or offer trump.

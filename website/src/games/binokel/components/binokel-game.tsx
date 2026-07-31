@@ -31,6 +31,7 @@ import { BinokelNamingProvider, useBinokelNaming } from "./naming-context";
 import {
   CardView,
   DeclarerChoice,
+  DabbView,
   DiscardHand,
   FannedHand,
   MeldsGrid,
@@ -284,12 +285,16 @@ function ExchangePanel({
   let content: ReactElement;
 
   if (declarer !== 0) {
+    // Watching the declarer sort out their hand - but the Dabb is open to all.
     content = (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        {BINOKEL_TEXTS.declarerWorking(
-          declarer === null ? "" : state.players[declarer].name,
-        )}
-      </p>
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          {BINOKEL_TEXTS.declarerWorking(
+            declarer === null ? "" : state.players[declarer].name,
+          )}
+        </p>
+        <DabbView cards={state.takenDabb} />
+      </div>
     );
   } else if (state.trump === null) {
     // The hand size tells discard from trump-choice.

@@ -6,13 +6,13 @@ jedes Spiel hat seine eigene Seite.
 
 ## Spiele
 
-| Spiel                                                  | Beschreibung                                                                                             | Modus             |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ----------------- |
-| [Drecksau](website/src/games/drecksau/README.md)       | Kosmos-Kartenspiel: wer zuerst nur noch Drecksaeue hat, gewinnt.                                         | Computer + Online |
-| [Binokel](website/src/games/binokel/README.md)         | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online |
-| [Panzerkiste](website/src/games/panzerkiste/README.md) | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Einzelspieler     |
-| [Krakel Orakel](website/src/games/krakel/README.md)    | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online        |
-| [Skyjo](website/src/games/skyjo/README.md)             | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online |
+| Spiel                                                  | Beschreibung                                                                                             | Modus                |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------- |
+| [Drecksau](website/src/games/drecksau/README.md)       | Kosmos-Kartenspiel: wer zuerst nur noch Drecksaeue hat, gewinnt.                                         | Computer + Online    |
+| [Binokel](website/src/games/binokel/README.md)         | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online    |
+| [Panzerkiste](website/src/games/panzerkiste/README.md) | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Allein + Koop-Online |
+| [Krakel Orakel](website/src/games/krakel/README.md)    | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online           |
+| [Skyjo](website/src/games/skyjo/README.md)             | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online    |
 
 Weitere Spiele docken ueber die Registry an (siehe
 [Ein weiteres Spiel hinzufuegen](#ein-weiteres-spiel-hinzufuegen)).
@@ -58,7 +58,7 @@ website/src/
     game-logos.ts   das Cover-Bild je Spiel
     drecksau/       Kartenspiel gegen Computer oder online
     binokel/        Stichspiel gegen Computer oder online
-    panzerkiste/    Panzer-Actionspiel (Einzelspieler)
+    panzerkiste/    Panzer-Actionspiel, allein oder zu zweit im Koop
     krakel/         kooperatives Malspiel (nur online)
     skyjo/          Kartenspiel gegen Computer oder online
                     (jedes Spiel mit eigener README im Ordner)

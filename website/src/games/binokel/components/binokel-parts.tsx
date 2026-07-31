@@ -102,7 +102,6 @@ export function signed(value: number): string {
 
 /** The cumulative scores and the round's key facts. */
 export function Scoreboard({ state }: { state: GameState }): ReactElement {
-  const naming = useBinokelNaming();
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-zinc-200 bg-white/60 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900/40">
       {state.players.map((player, index) => (
@@ -116,15 +115,78 @@ export function Scoreboard({ state }: { state: GameState }): ReactElement {
             )}
         </span>
       ))}
-      <span className="ml-auto text-zinc-500 dark:text-zinc-400">
+      <span className="ml-auto flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
         {BINOKEL_TEXTS.target(state.targetScore)}
         {state.trump !== null && (
           <>
             {" · "}
-            {BINOKEL_TEXTS.trump}: {suitName(state.trump, naming)}
+            {BINOKEL_TEXTS.trump}:
+            <TrumpSymbol suit={state.trump} />
           </>
         )}
       </span>
+    </div>
+  );
+}
+
+/**
+ * The trump suit as its symbol rather than its name.
+ *
+ * @remarks
+ * The same artwork the trump-choice buttons use, so what was picked and what is
+ * shown are plainly the same thing. The name stays as the accessible label and
+ * as the tooltip - it is not lost, only off the line, which matters because the
+ * names are renameable in the settings.
+ */
+function TrumpSymbol({ suit }: { readonly suit: Suit }): ReactElement {
+  const naming = useBinokelNaming();
+  const name = suitName(suit, naming);
+  return (
+    <span
+      title={name}
+      aria-label={name}
+      role="img"
+      className="relative block h-5 w-5 shrink-0"
+    >
+      <Image
+        src={SUIT_IMAGES[suit]}
+        alt=""
+        fill
+        sizes="20px"
+        className="object-contain"
+      />
+    </span>
+  );
+}
+
+/**
+ * The Dabb, face up for everyone to see.
+ *
+ * @param cards - the cards the declarer just took, or an empty list
+ * @returns the panel, or nothing while no Dabb is on the table
+ * @remarks
+ * At a real table the Dabb is turned over in front of everybody before the
+ * declarer picks it up - so this is not a peek at a hidden hand, it is what all
+ * the players saw. The list is only filled between the winning bid and the
+ * declarer's discard, which is exactly how long the cards lie open, so nothing
+ * here has to decide when to stop showing them.
+ */
+export function DabbView({
+  cards,
+}: {
+  readonly cards: readonly Card[];
+}): ReactElement | null {
+  if (cards.length === 0) {
+    return null;
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <h3 className="text-sm font-semibold">{BINOKEL_TEXTS.dabb}</h3>
+      <div className="flex flex-wrap gap-2" data-testid="dabb-view">
+        {cards.map((card) => (
+          <CardView key={card.id} card={card} />
+        ))}
+      </div>
     </div>
   );
 }

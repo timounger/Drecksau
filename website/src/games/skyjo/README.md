@@ -25,11 +25,27 @@ Startseite davor. Alles Weitere hängt in der Kopfzeile:
 | ---------------------- | --------------------------------------- |
 | `/skyjo`               | Spiel gegen den Computer                |
 | `/skyjo/einstellungen` | Spielerzahl (2 bis 8) und Schwierigkeit |
-| `/skyjo/online`        | privater Raum mit Code, 2 bis 8 Spieler |
+| `/skyjo/online`        | automatische Suche oder privater Raum   |
 | `/skyjo/statistik`     | gespielte Partien und Erfolge           |
 
 Einstellungen gelten ab dem **nächsten** Spiel - Tisch und Gegner stehen beim
 Austeilen fest.
+
+## Online
+
+Zwei Wege an einen Tisch: **automatische Suche** gegen Fremde oder ein
+**privater Raum**, dessen vierstelligen Code man weitergibt.
+
+Bei der Suche trägt man vorher seinen **Wunschtisch** ein (2 bis 8 Spieler).
+Findet sich ein offener Tisch mit derselben Spielerzahl, geht es sofort los;
+sonst wird nach 20 Sekunden auch eine andere Spielerzahl genommen, damit
+niemand ewig wartet. Die Schwierigkeit spielt dabei keine Rolle - sie
+beschreibt nur die Computergegner, und die gibt es online nicht.
+
+Der Tisch bleibt nie an einer Person hängen: Wer **30 Sekunden** nichts tut, für
+den zieht der Computer. Verlässt jemand das Spiel, übernimmt der Computer
+seinen Platz ganz - neben dem Namen steht dann **🤖 Computer**. Geht der Host,
+wird ein anderer Spieler zum Host und das Spiel läuft weiter.
 
 ## Aufbau des Spielmoduls
 

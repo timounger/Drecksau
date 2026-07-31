@@ -53,6 +53,8 @@ export const SKYJO_TEXTS = {
   lastRound: "Letzte Runde!",
   you: "Du",
   computer: "Computer",
+  /** Marks a seat the computer took over after the player left. */
+  computerBadge: "Computer",
 
   // Results
   roundOverTitle: "Runde vorbei",

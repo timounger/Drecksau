@@ -144,6 +144,20 @@ export function teamOf(state: GameState, index: number): number {
 }
 
 /**
+ * The forehand: the seat left of the dealer.
+ *
+ * @param dealerIndex - the seat that dealt
+ * @param playerCount - how many seats are at the table
+ * @returns the forehand's seat index
+ * @remarks
+ * The forehand holds the deal in the bidding and leads to the first trick. As
+ * the deal moves on each round, so does the forehand.
+ */
+export function forehandOf(dealerIndex: number, playerCount: number): number {
+  return (dealerIndex + 1) % playerCount;
+}
+
+/**
  * How many teams are at the table.
  *
  * @param state - the game state

@@ -102,8 +102,11 @@ export const skyjoAdapter: OnlineAdapter<
    * Hides every card nobody may see yet.
    *
    * @remarks
-   * Face-down cards, the draw pile and a card in somebody's hand all go out
-   * blanked. What stays is exactly what a player at the table can see.
+   * Blanked go the face-down cards and the draw pile. What stays is exactly
+   * what somebody sitting at the table can see - and that **includes the drawn
+   * card**: drawing puts it face up on the discard pile, in plain view of
+   * everyone, so blanking it would leave every client but the host staring at a
+   * zero.
    */
   redact(game): SkyjoGame {
     return {
@@ -115,7 +118,6 @@ export const skyjoAdapter: OnlineAdapter<
         ),
       })),
       deck: game.deck.map(() => HIDDEN),
-      drawn: game.drawn === null ? null : HIDDEN,
     };
   },
 

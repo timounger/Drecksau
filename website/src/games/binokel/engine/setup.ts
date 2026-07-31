@@ -9,6 +9,7 @@
  */
 import { createDeck, type Card } from "./cards";
 import { createRandom, nextRandom, shuffle } from "./random";
+import { forehandOf } from "./state";
 import type { BinokelPlayer, GameState } from "./state";
 
 /** Description of one seat at the table. */
@@ -146,7 +147,7 @@ export function createGame(
     options.dealerIndex ?? Math.floor(dealerRoll.value * setups.length);
   const random =
     options.dealerIndex === undefined ? dealerRoll.state : shuffled.state;
-  const forehand = (dealerIndex + 1) % setups.length;
+  const forehand = forehandOf(dealerIndex, setups.length);
 
   return {
     players,

@@ -134,7 +134,7 @@ Weitere hängt in der Kopfzeile.
 | ---------------------- | ---------------------------------------------------------- |
 | `/skyjo`               | Das Spiel gegen den Computer. Spielstand wird gespeichert. |
 | `/skyjo/einstellungen` | Spielerzahl (2 bis 8) und Schwierigkeit.                   |
-| `/skyjo/online`        | Privater Raum mit Code, 2 bis 8 Spieler.                   |
+| `/skyjo/online`        | Automatische Suche oder privater Raum mit Code.            |
 | `/skyjo/statistik`     | Gespielte Partien und Erfolge.                             |
 
 Einstellungen werden im Browser gemerkt und gelten **ab dem nächsten Spiel** -
@@ -181,6 +181,49 @@ Ein Test hält diese Reihenfolge fest: Mittel muss besser abschneiden als Leicht
 und Schwer mindestens so gut wie Mittel. Eine Stufe, die nichts ändert, fällt
 damit auf.
 
+### Online an einen Tisch kommen
+
+Zwei Wege, wie bei den anderen Spielen:
+
+- **Automatische Suche** gegen Fremde. Vorher trägt man seinen **Wunschtisch**
+  ein (2 bis 8 Spieler). Findet sich ein offener Tisch mit derselben
+  Spielerzahl, geht es sofort los; sonst wird nach 20 Sekunden auch eine andere
+  Spielerzahl genommen, damit ein Wunsch nach einem großen Tisch niemanden auf
+  Dauer hängen lässt. Der Wunsch wird im Browser gemerkt.
+- **Privater Raum** mit vierstelligem Code, den man selbst weitergibt. Hier
+  startet der Host von Hand, sobald genug Leute da sind.
+
+Die Schwierigkeit geht in die Suche **nicht** ein: Sie beschreibt allein die
+Computergegner, und online spielt man gegen Menschen.
+
+Gemessen gegen den fertigen Export, zwei Spieler, ab dem letzten Klick:
+
+| Fall                                     | Bis das Spiel läuft |
+| ---------------------------------------- | ------------------: |
+| Beide wünschen sich dieselbe Spielerzahl |              0,35 s |
+| Unterschiedliche Spielerzahl (2 gegen 5) |              20,4 s |
+
+### Wenn jemand nicht mehr mitspielt
+
+Ein Tisch soll nie an einer einzelnen Person hängen bleiben. Zwei Fälle:
+
+- **Untätig:** Wer **30 Sekunden** nichts tut, für den zieht der Computer.
+  Danach geht es normal weiter - die Person ist ja noch da und kann sofort
+  wieder selbst ziehen. Der Wert gilt in privaten Räumen wie an Tischen mit
+  Fremden.
+- **Weggegangen:** Verlässt jemand mitten im Spiel den Raum, übernimmt der
+  Computer seinen Platz dauerhaft. Neben dem Namen steht dann ein
+  **🤖 Computer**, damit klar ist, dass dort niemand mehr sitzt. Die Sitzplätze
+  werden dabei **nicht** neu vergeben - das Spiel läuft ohne Bruch weiter.
+
+Das gilt in beide Richtungen: Geht der **Host**, wird der erste noch anwesende
+Spieler zum neuen Host und spielt das Spiel aus dem letzten Stand plus dem
+Host-Tresor weiter - der Platz des alten Hosts bekommt dasselbe Abzeichen.
+
+Gemessen gegen den fertigen Export, zwei Spieler: die Automatik greift nach
+30,3 s; ein weggegangener Spieler ist in beiden Richtungen sofort als Computer
+markiert und wird weitergespielt.
+
 ### Was online geheim bleibt
 
 Skyjo versteckt anders als übliche Kartenspiele: Die verdeckten Werte sind
@@ -188,13 +231,24 @@ Skyjo versteckt anders als übliche Kartenspiele: Die verdeckten Werte sind
 verteilt würde - die Werte werden für **jeden** Client geschwärzt und liegen nur
 beim Host.
 
-Damit ein Host-Wechsel das Geheimnis nicht mitnimmt, reisen die Werte, der
-Nachziehstapel und eine gerade gezogene Karte im **Host-Vault** mit - demselben
-Kanal, den Binokel für seinen Talon nutzt.
+Damit ein Host-Wechsel das Geheimnis nicht mitnimmt, reisen die Werte und der
+Nachziehstapel im **Host-Vault** mit - demselben Kanal, den Binokel für seinen
+Talon nutzt.
+
+Geschwärzt wird genau zweierlei: die **verdeckten Karten** und der
+**Nachziehstapel**. Die **gezogene Karte gehört ausdrücklich nicht dazu** -
+Nachziehen legt sie offen auf den Ablagestapel, wo sie für alle sichtbar ist.
+Sie mitzuschwärzen wäre nicht etwa besonders vorsichtig, sondern schlicht
+falsch: Jeder außer dem Host sähe dort eine 0 und könnte nicht beurteilen, ob
+sich die Karte lohnt. Weil die Schwärzung ausgerechnet mit einer 0 arbeitet und
+0 auch ein echter Kartenwert ist, prüfen die Tests in
+[multiplayer/adapter.test.ts](../../../website/src/games/skyjo/multiplayer/adapter.test.ts)
+vorher, dass die betrachtete Karte keine echte 0 ist - sonst könnte eine fehlende
+Schwärzung wie eine vorhandene aussehen.
 
 Nachgeprüft am laufenden Spiel: Im veröffentlichten Spielstand steht bei jeder
-verdeckten Karte und bei jeder Karte des Nachziehstapels eine 0. Offen sind nur
-die aufgedeckten Karten und der Ablagestapel.
+verdeckten Karte und bei jeder Karte des Nachziehstapels eine 0. Offen sind die
+aufgedeckten Karten, der Ablagestapel und die gezogene Karte.
 
 ## Umsetzung
 

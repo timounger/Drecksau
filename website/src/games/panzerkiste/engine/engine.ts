@@ -560,6 +560,10 @@ function advanceBullets(
         (tank) =>
           tank.alive &&
           (bullet.armed || tank.id !== bullet.ownerId) &&
+          // The guided missile knows friend from foe: it flies straight over
+          // player tanks, so in co-op it cannot take the partner - or its own
+          // firer - out on the way to its target.
+          !(bullet.homing && tank.kind === "player") &&
           within(bullet, tank, hitReach),
       );
       if (target !== undefined) {
@@ -788,7 +792,7 @@ function clearedOrWon(draft: GameState): GameState {
 }
 
 /**
- * Turns a homing missile a little towards the nearest enemy before it moves.
+ * Turns a homing missile a little towards its target before it moves.
  *
  * @param state - the game, for its walls
  * @param bullet - the shell this step
@@ -798,9 +802,9 @@ function clearedOrWon(draft: GameState): GameState {
  * @remarks
  * A plain shell is returned untouched. A homing missile keeps its speed but
  * rotates its heading by at most {@link HOMING_TURN_RATE} times `dt` towards a
- * steering angle picked by {@link chooseHomingHeading}: straight at the nearest
- * enemy when the way is clear, or around a wall in its path otherwise, so it
- * threads corridors instead of ramming a wall. With no enemy it flies straight.
+ * steering angle picked by {@link chooseHomingHeading}: straight at its target
+ * when the way is clear, or around a wall in its path otherwise, so it threads
+ * corridors instead of ramming a wall. With no enemy left it flies straight.
  */
 function steerHoming(
   state: GameState,
@@ -810,7 +814,7 @@ function steerHoming(
 ): Bullet {
   let result = bullet;
   if (bullet.homing) {
-    const target = nearestEnemy(bullet, tanks);
+    const target = chooseHomingTarget(state, bullet, tanks);
     if (target !== null) {
       const speed = Math.hypot(bullet.vx, bullet.vy);
       const heading = Math.atan2(bullet.vy, bullet.vx);
@@ -926,20 +930,52 @@ function signedGap(a: number, b: number): number {
   return diff;
 }
 
-/** The nearest alive enemy tank to a bullet (an enemy of the bullet's owner). */
-function nearestEnemy(bullet: Bullet, tanks: readonly Tank[]): Tank | null {
-  let best: Tank | null = null;
-  let bestDist = Infinity;
+/**
+ * The enemy a homing missile should chase.
+ *
+ * @param state - the game, for its walls
+ * @param bullet - the missile
+ * @param tanks - every tank on the field
+ * @returns the tank to steer at, or null once no enemy is left
+ * @remarks
+ * Enemies only - a player tank is never a target, so in co-op the missile does
+ * not turn on the partner.
+ *
+ * Among the enemies, one that can be reached in a **straight line** always wins
+ * over a nearer one the missile would have to thread around corners to reach:
+ * the shot that lands now is worth more than the shorter route. With nothing in
+ * plain sight it falls back to the nearest enemy, so the missile still sets off
+ * in a sensible direction.
+ *
+ * Same shape as {@link chooseTarget}, which picks an enemy tank's victim - the
+ * two just look in opposite directions.
+ */
+function chooseHomingTarget(
+  state: GameState,
+  bullet: Bullet,
+  tanks: readonly Tank[],
+): Tank | null {
+  let inSight: Tank | null = null;
+  let inSightDist = Infinity;
+  let nearest: Tank | null = null;
+  let nearestDist = Infinity;
   for (const tank of tanks) {
     if (tank.alive && tank.kind !== "player" && tank.id !== bullet.ownerId) {
-      const dist = (tank.x - bullet.x) ** 2 + (tank.y - bullet.y) ** 2;
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = tank;
+      const dist = Math.hypot(tank.x - bullet.x, tank.y - bullet.y);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = tank;
+      }
+      if (
+        dist < inSightDist &&
+        hasLineOfSight(state, bullet.x, bullet.y, tank.x, tank.y)
+      ) {
+        inSightDist = dist;
+        inSight = tank;
       }
     }
   }
-  return best;
+  return inSight ?? nearest;
 }
 
 /** Rotates `from` towards `to` by at most `maxDelta` radians, the short way. */

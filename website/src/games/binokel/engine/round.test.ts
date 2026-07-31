@@ -18,6 +18,7 @@ import {
   playCard,
 } from "./moves";
 import { createGame, type PlayerSetup } from "./setup";
+import { forehandOf } from "./state";
 import type { GameState } from "./state";
 
 const SETUPS: readonly PlayerSetup[] = [
@@ -163,6 +164,65 @@ describe("conceding and Durch", () => {
       // Flat outcome: won every trick (+1000) or not (-1000).
       expect([1000, -1000]).toContain(state.players[declarer].score);
     }
+  });
+});
+
+describe("who leads to the first trick", () => {
+  /** A melding state from one seed, for the checks below. */
+  function melding(seed: number): GameState {
+    return driveToMelding(
+      createGame(SETUPS, { seed, withSevens: true, targetScore: 1000000 }),
+    );
+  }
+
+  it("is the forehand, not the declarer", () => {
+    // Several seeds, so a seed where the two happen to coincide cannot carry
+    // the test on its own.
+    let sawThemDiffer = false;
+    for (let seed = 0; seed < 8; seed++) {
+      const state = declareGame(melding(seed), "normal");
+      const forehand = forehandOf(state.dealerIndex, state.players.length);
+      expect(state.leaderIndex).toBe(forehand);
+      expect(state.currentPlayerIndex).toBe(forehand);
+      if (state.declarerIndex !== forehand) {
+        sawThemDiffer = true;
+      }
+    }
+    expect(sawThemDiffer, "declarer was always the forehand anyway").toBe(true);
+  });
+
+  it("is the declarer when they play a Durch", () => {
+    let sawThemDiffer = false;
+    for (let seed = 0; seed < 8; seed++) {
+      const state = declareGame(melding(seed), "durch");
+      expect(state.leaderIndex).toBe(state.declarerIndex);
+      expect(state.currentPlayerIndex).toBe(state.declarerIndex);
+      if (
+        state.declarerIndex !==
+        forehandOf(state.dealerIndex, state.players.length)
+      ) {
+        sawThemDiffer = true;
+      }
+    }
+    expect(sawThemDiffer, "declarer was always the forehand anyway").toBe(true);
+  });
+
+  it("moves round the table from round to round", () => {
+    let state = createGame(SETUPS, {
+      seed: 11,
+      withSevens: true,
+      targetScore: 1000000,
+    });
+    const openers: number[] = [];
+    for (let round = 0; round < SETUPS.length; round++) {
+      // Read the opener off the engine itself, not off a repeat of its own
+      // arithmetic - otherwise the test would agree with any answer.
+      const trickStart = declareGame(driveToMelding(state), "normal");
+      openers.push(trickStart.leaderIndex);
+      state = nextRound(playTricks(trickStart));
+    }
+    // One round each: everybody opens once before anyone opens twice.
+    expect(new Set(openers).size).toBe(SETUPS.length);
   });
 });
 

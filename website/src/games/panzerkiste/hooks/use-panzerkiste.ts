@@ -399,7 +399,10 @@ export function usePanzerkiste(): PanzerkisteGame {
       }
       soundPrev = stateRef.current;
       // Show the blue aim cursor only while actually playing with the mouse in.
-      const pointer = playing && mouseInside.current ? mouse.current : null;
+      const pointer =
+        playing && mouseInside.current
+          ? { ...mouse.current, ownId: "player" }
+          : null;
       stepSmoke(smoke, stateRef.current.bullets, dt);
       stepMuzzleFlashes(flashes, stateRef.current.bullets, dt);
       stepTankExplosions(explosions, dt);

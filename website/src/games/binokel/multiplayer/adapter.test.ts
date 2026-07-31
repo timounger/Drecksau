@@ -15,6 +15,7 @@ import {
   seatOnTurn,
   startGame,
 } from "@/online/room";
+import { applyBid } from "@/games/binokel/engine/moves";
 import { binokelAdapter, isHand, isMove } from "./adapter";
 
 const SEATS: readonly Seat[] = [
@@ -110,6 +111,29 @@ describe("redaction and the Dabb vault", () => {
     );
     expect(faces.size).toBe(1);
     expect(redacted.dabb).toHaveLength(game.dabb.length);
+  });
+
+  it("shows the taken Dabb to everyone, face up", () => {
+    // Everybody passes, which forces the forehand and opens the exchange - the
+    // moment the Dabb goes face up on the table.
+    let inExchange = game;
+    while (inExchange.phase === "bidding") {
+      inExchange = applyBid(inExchange, { kind: "pass" });
+    }
+    expect(inExchange.phase).toBe("exchange");
+    expect(inExchange.takenDabb.length).toBeGreaterThan(0);
+
+    const redacted = binokelAdapter.redact(inExchange);
+    // Card for card, not just the count: this is what the others watched go
+    // over to the declarer, so a decoy here would be wrong.
+    expect(redacted.takenDabb).toEqual(inExchange.takenDabb);
+    // And the hands stay hidden all the same.
+    const handFaces = new Set(
+      redacted.players
+        .flatMap((player) => player.hand)
+        .map((card) => `${card.suit}-${card.rank}`),
+    );
+    expect(handFaces.size).toBe(1);
   });
 
   it("carries the real Dabb in the vault while bidding", () => {

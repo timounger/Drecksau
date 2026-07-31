@@ -42,9 +42,10 @@ Die eigentliche Raum-Logik - Verbindung, Sitze, Schiedsrichter, Übernahme beim
 Weggehen des Gastgebers - ist spielunabhängig und in der geteilten Schicht
 `src/online/` untergebracht; Binokel dockt nur mit einem Adapter an
 ([multiplayer/adapter.ts](multiplayer/adapter.ts)). Er sorgt dafür, dass jeder
-Spieler nur seine eigenen Karten sieht (die anderen Hände und der verdeckte Dabb
-sind aus dem geteilten Zustand herausgerechnet) und dass der Gastgeber jeden Zug
-prüft, bevor er ihn ausführt.
+Spieler nur seine eigenen Karten sieht (die anderen Hände und der **verdeckte**
+Dabb sind aus dem geteilten Zustand herausgerechnet) und dass der Gastgeber jeden
+Zug prüft, bevor er ihn ausführt. Sobald der Spielmacher den Dabb aufnimmt, liegt
+er offen und geht unverändert an alle - am Tisch sehen ihn ja auch alle.
 
 Zum Starten sind **mindestens drei Spieler** nötig (bis zu sechs). Reagiert ein
 Spieler nicht, kann der Computer seinen Zug nach einer einstellbaren Zeit

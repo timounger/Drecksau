@@ -13,6 +13,7 @@ import { findMelds } from "./melds";
 import { shuffle } from "./random";
 import { roundResult } from "./scoring";
 import { dealSizes } from "./setup";
+import { forehandOf } from "./state";
 import type { BinokelPlayer, GameState, GameType } from "./state";
 import { legalPlays, trickWinnerIndex } from "./tricks";
 
@@ -208,20 +209,31 @@ export function chooseTrump(state: GameState, trump: Suit): GameState {
  *
  * @param state - a state in the melding phase
  * @param gameType - "normal" or "durch"
- * @returns the state in the trick phase, the declarer to lead
+ * @returns the state in the trick phase, with the first lead assigned
  * @throws if it is not the melding phase
+ * @remarks
+ * The **forehand** leads to the first trick, not the declarer. Because the deal
+ * moves on every round, so does the forehand - a different player opens each
+ * time rather than whoever happened to win the bidding.
+ *
+ * A **Durch** is the exception: there the declarer has to take every trick, so
+ * they come out themselves.
  */
 export function declareGame(state: GameState, gameType: GameType): GameState {
   const index = state.declarerIndex;
   if (state.phase !== "melding" || index === null) {
     throw new Error("not ready to declare the game");
   }
+  const leader =
+    gameType === "durch"
+      ? index
+      : forehandOf(state.dealerIndex, state.players.length);
   return {
     ...state,
     gameType,
     phase: "trick",
-    leaderIndex: index,
-    currentPlayerIndex: index,
+    leaderIndex: leader,
+    currentPlayerIndex: leader,
     currentTrick: [],
   };
 }
@@ -371,7 +383,7 @@ export function nextRound(state: GameState): GameState {
     bidding: true,
   }));
   const dabb = cards.splice(0, dabbSize);
-  const forehand = (dealerIndex + 1) % state.players.length;
+  const forehand = forehandOf(dealerIndex, state.players.length);
 
   return {
     ...state,

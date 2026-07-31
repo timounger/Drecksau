@@ -15,14 +15,14 @@ Doppeltes deutsches Blatt (jede Karte zweimal). Vier Farben: **Eichel**,
 
 Raenge und Werte (hoch nach niedrig):
 
-| Rang   | Wert | Engine-Rang |
-| ------ | ---- | ----------- |
-| Daus (Ass) | 11 | `daus`   |
-| Zehner | 10   | `zehn`      |
-| Koenig | 4    | `koenig`    |
-| Ober   | 3    | `ober`      |
-| Unter  | 2    | `unter`     |
-| Sieben | 0    | `sieben`    |
+| Rang       | Wert | Engine-Rang |
+| ---------- | ---- | ----------- |
+| Daus (Ass) | 11   | `daus`      |
+| Zehner     | 10   | `zehn`      |
+| Koenig     | 4    | `koenig`    |
+| Ober       | 3    | `ober`      |
+| Unter      | 2    | `unter`     |
+| Sieben     | 0    | `sieben`    |
 
 Wichtig: Der **Zehner ist die zweithoechste Karte** (direkt unter dem Daus), nicht
 zwischen Koenig und Neun. Das ist die Pinochle-/Binokel-Ordnung.
@@ -42,6 +42,13 @@ mit oder ohne Siebener bleibt die Augensumme gleich.
 Der Dabb liegt verdeckt. Wer das Reizen gewinnt (Spielmacher), nimmt den Dabb
 auf und **drueckt** danach genau so viele Karten wieder ab, dass er wieder seine
 Grund-Handzahl haelt.
+
+Beim Aufnehmen wird der Dabb **offen** hingelegt: Alle am Tisch sehen, welche
+Karten der Spielmacher bekommt. Das ist keine Nebensaechlichkeit, sondern
+Information, mit der die Gegenpartei spielt. Die Umsetzung zeigt ihn deshalb
+jedem an, solange er offen liegt - also vom Zuschlag bis zum Druecken -, und
+schwaerzt ihn online in dieser Zeit ausdruecklich **nicht**. Verdeckt bleibt er
+nur davor, waehrend des Reizens.
 
 ## Reizen (Bieten)
 
@@ -67,20 +74,20 @@ Meldepunkte zaehlen nur, wenn der meldende Spieler **mindestens einen Stich**
 macht. In der 3-Spieler-Runde meldet zuerst der Spielmacher, dann die Gegner;
 jeder wertet seine eigenen Meldungen.
 
-| Meldung                                          | Punkte | Trumpf |
-| ------------------------------------------------ | ------ | ------ |
-| **Dix** (Trumpf-Sieben; nur mit Siebenern)       | 10     | -      |
-| **Paar** Koenig + Ober einer Farbe               | 20     | 40     |
-| **Binokel** (Blatt-Ober + Schellen-Unter)        | 40     | -      |
-| **Vier Unter** (je einer pro Farbe)              | 40     | -      |
-| **Vier Ober**                                    | 60     | -      |
-| **Vier Koenige**                                 | 80     | -      |
-| **Vier Dausen**                                  | 100    | -      |
-| **Familie** Daus-Zehn-Koenig-Ober-Unter 1 Farbe  | 100    | 150    |
-| **Rundgang** (in jeder Farbe ein Koenig+Ober-Paar)| 240   | -      |
-| **Doppelbinokel** (Binokel doppelt)              | 300    | -      |
-| **Acht Gleiche** (ein Rang, alle 8 Karten)       | 1000   | -      |
-| **Doppelte Familie** (alle 10 Karten einer Farbe)| 1500   | -      |
+| Meldung                                            | Punkte | Trumpf |
+| -------------------------------------------------- | ------ | ------ |
+| **Dix** (Trumpf-Sieben; nur mit Siebenern)         | 10     | -      |
+| **Paar** Koenig + Ober einer Farbe                 | 20     | 40     |
+| **Binokel** (Blatt-Ober + Schellen-Unter)          | 40     | -      |
+| **Vier Unter** (je einer pro Farbe)                | 40     | -      |
+| **Vier Ober**                                      | 60     | -      |
+| **Vier Koenige**                                   | 80     | -      |
+| **Vier Dausen**                                    | 100    | -      |
+| **Familie** Daus-Zehn-Koenig-Ober-Unter 1 Farbe    | 100    | 150    |
+| **Rundgang** (in jeder Farbe ein Koenig+Ober-Paar) | 240    | -      |
+| **Doppelbinokel** (Binokel doppelt)                | 300    | -      |
+| **Acht Gleiche** (ein Rang, alle 8 Karten)         | 1000   | -      |
+| **Doppelte Familie** (alle 10 Karten einer Farbe)  | 1500   | -      |
 
 Karten-Mehrfachnutzung (bewusste Festlegung, an der gaengigen Regel orientiert):
 
@@ -96,8 +103,12 @@ Karten-Mehrfachnutzung (bewusste Festlegung, an der gaengigen Regel orientiert):
 
 ## Stechen
 
-Vorhand ist der Spieler links vom Spielmacher (bzw. der Spielmacher beginnt -
-Engine-Festlegung: **Spielmacher spielt zum ersten Stich aus**). Dann reihum.
+Zum ersten Stich spielt die **Vorhand** aus - der Spieler links vom Geber -,
+**nicht** der Spielmacher. Da der Geber jede Runde weiterrueckt, kommt reihum
+jedes Mal ein anderer heraus.
+
+Einzige Ausnahme: Beim **Durch** spielt der Spielmacher aus. Er muss ohnehin
+jeden Stich machen, also kommt er selbst heraus.
 
 Zwaenge, in dieser Reihenfolge:
 

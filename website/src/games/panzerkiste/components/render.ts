@@ -171,8 +171,19 @@ type Item = {
   readonly draw: () => void;
 };
 
-/** A world-space aim point (the mouse projected onto the floor), or none. */
-type Pointer = { readonly x: number; readonly y: number } | null;
+/**
+ * A world-space aim point (the mouse projected onto the floor), or none.
+ *
+ * @remarks
+ * `ownId` says whose aim it is, because the line has to start at the tank this
+ * client actually steers - in co-op the guest drives "player2", and anchoring
+ * the line at "player" would draw it from the host's tank.
+ */
+type Pointer = {
+  readonly x: number;
+  readonly y: number;
+  readonly ownId: string;
+} | null;
 
 /**
  * Paints the whole scene.
@@ -253,13 +264,15 @@ export function draw(
   }
 }
 
-/** The aim helper: a dotted line from the player to a blue X cursor. */
+/** The aim helper: a dotted line from your own tank to a blue X cursor. */
 function drawAim(
   ctx: CanvasRenderingContext2D,
   state: GameState,
-  pointer: { readonly x: number; readonly y: number },
+  pointer: NonNullable<Pointer>,
 ): void {
-  const player = state.tanks.find((tank) => tank.id === "player" && tank.alive);
+  const player = state.tanks.find(
+    (tank) => tank.id === pointer.ownId && tank.alive,
+  );
   const cursor = project(pointer.x, pointer.y, 0);
 
   if (player !== undefined) {

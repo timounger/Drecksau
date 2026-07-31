@@ -524,7 +524,10 @@ export function usePanzerkisteOnline(
     const frame = (now: number) => {
       const dt = (now - last) / MS_PER_SECOND;
       last = now;
-      const pointer = mouseInside.current ? mouse.current : null;
+      // The aim line has to start at the tank this client steers: the host
+      // drives "player", the guest "player2".
+      const ownId = roleRef.current === "host" ? "player" : "player2";
+      const pointer = mouseInside.current ? { ...mouse.current, ownId } : null;
 
       if (roleRef.current === "host") {
         stepHost(dt);

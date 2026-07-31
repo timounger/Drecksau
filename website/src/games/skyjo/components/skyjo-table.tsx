@@ -54,6 +54,14 @@ export type SkyjoTableProps = {
   readonly onMove: (move: SkyjoMove) => void;
   /** Blocks input, e.g. while a computer opponent is thinking. */
   readonly busy?: boolean;
+  /**
+   * Seats the computer plays because the player left, by seat index.
+   *
+   * @remarks
+   * Only online: in the game against the computer every opponent is one
+   * anyway, and labelling them all would say nothing.
+   */
+  readonly botSeats?: readonly number[];
 };
 
 /**
@@ -67,6 +75,7 @@ export function SkyjoTable({
   mySeat,
   onMove,
   busy = false,
+  botSeats = [],
 }: SkyjoTableProps): ReactElement {
   const [pending, setPending] = useState<Pending>("none");
   const myTurn =
@@ -153,6 +162,7 @@ export function SkyjoTable({
             player={entry.player}
             onTurn={game.turn === entry.index && game.phase !== "gameOver"}
             endedRound={game.endedBy === entry.index}
+            isBot={botSeats.includes(entry.index)}
           />
         ))}
       </div>
@@ -170,6 +180,7 @@ export function SkyjoTable({
           player={game.players[mySeat]}
           onTurn={myTurn}
           endedRound={game.endedBy === mySeat}
+          isBot={botSeats.includes(mySeat)}
           isSelectable={selectable}
           onSelect={selectSlot}
         />
@@ -322,12 +333,14 @@ function OwnLayout({
   endedRound,
   isSelectable,
   onSelect,
+  isBot,
 }: {
   readonly player: Player;
   readonly onTurn: boolean;
   readonly endedRound: boolean;
   readonly isSelectable: (index: number) => boolean;
   readonly onSelect: (index: number) => void;
+  readonly isBot: boolean;
 }): ReactElement {
   return (
     <section
@@ -336,7 +349,7 @@ function OwnLayout({
         onTurn ? "border-indigo-500" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
-      <PlayerLine player={player} endedRound={endedRound} />
+      <PlayerLine player={player} endedRound={endedRound} isBot={isBot} />
       <Grid
         player={player}
         size="large"
@@ -352,10 +365,12 @@ function OpponentLayout({
   player,
   onTurn,
   endedRound,
+  isBot,
 }: {
   readonly player: Player;
   readonly onTurn: boolean;
   readonly endedRound: boolean;
+  readonly isBot: boolean;
 }): ReactElement {
   return (
     <section
@@ -364,7 +379,7 @@ function OpponentLayout({
         onTurn ? "border-indigo-500" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
-      <PlayerLine player={player} endedRound={endedRound} />
+      <PlayerLine player={player} endedRound={endedRound} isBot={isBot} />
       <Grid player={player} size="small" />
     </section>
   );
@@ -374,18 +389,33 @@ function OpponentLayout({
 function PlayerLine({
   player,
   endedRound,
+  isBot,
 }: {
   readonly player: Player;
   readonly endedRound: boolean;
+  readonly isBot: boolean;
 }): ReactElement {
   return (
     <div className="flex items-center gap-2 text-xs">
       <span className="font-semibold">{player.name}</span>
+      {isBot && <ComputerBadge />}
       {endedRound && <span aria-label={T.lastRound}>🏁</span>}
       <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
         {player.total} {T.points}
       </span>
     </div>
+  );
+}
+
+/** A pill marking a seat the computer took over after the player left. */
+function ComputerBadge(): ReactElement {
+  return (
+    <span
+      data-testid="skyjo-bot-badge"
+      className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
+    >
+      🤖 {T.computerBadge}
+    </span>
   );
 }
 

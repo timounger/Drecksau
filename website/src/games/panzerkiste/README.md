@@ -9,6 +9,11 @@ alle Gegner, um das Level zu schaffen.
 - **Bewegen:** W A S D (oder Pfeiltasten)
 - **Schießen:** Linksklick - das Rohr zielt auf den Mauszeiger; Schüsse prallen
   einmal an einer Mauer ab
+- **Lenkrakete:** Linke Maustaste **gedrückt halten** - sie sucht sich selbst
+  einen Gegner. Kann einer **in gerader Linie** getroffen werden, nimmt sie den,
+  auch wenn ein näherer erst umständlich um Ecken anzufliegen wäre. Eigene
+  Panzer sind für sie tabu: Sie zielt nie auf den Koop-Partner und fliegt auch
+  unterwegs einfach über ihn hinweg.
 - **Mine legen:** Leertaste - die **gelbe** Mine explodiert nach **3 Sekunden**
   (in der letzten Sekunde blinkt sie schnell rot/gelb) und reißt alles im Umkreis
   mit (auch dich). Ein **Treffer durch einen Schuss zündet sie sofort**. Der
@@ -16,6 +21,12 @@ alle Gegner, um das Level zu schaffen.
 
 Drei Leben zum Start, mit stärker werdenden Gegnern über viele Level. Alle fünf
 Level (5, 10, 15, ...) gibt es ein Bonusleben dazu.
+
+## Koop online
+
+Unter `/panzerkiste/online` geht es **zu zweit im Koop** durch dieselben
+Missionen. Entweder über „Mitspieler finden" (automatische Suche) oder über
+einen privaten Raumcode.
 
 ## Aufbau des Spielmoduls
 

@@ -312,8 +312,13 @@ export const binokelAdapter: OnlineAdapter<
         ...player,
         hand: player.hand.map(decoy),
       })),
+      // Face down on the table until somebody wins the bidding: still secret.
       dabb: game.dabb.map(decoy),
-      takenDabb: game.takenDabb.map(decoy),
+      // Turned face up the moment the declarer takes it, so it is **not**
+      // hidden - at a real table everybody watches those cards go over. It goes
+      // out truthfully even though the same cards now sit in the declarer's
+      // otherwise hidden hand: that is precisely what the others get to know.
+      takenDabb: [...game.takenDabb],
     };
   },
 
