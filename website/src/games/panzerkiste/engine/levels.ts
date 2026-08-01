@@ -8,8 +8,8 @@
  * a map never draws its own border and every field is the same fixed size. `#`
  * is a wall, `x` a destructible wall, `o` a hole (stops tanks, not shells), `.`
  * empty floor, `P` the player's start, and the enemy tanks `B` brown, `G` grey,
- * `T`/`U` teal (the turquoise "blue" tank), `N` green, `Y` yellow, `L` purple
- * and `I` invisible.
+ * `T`/`U` teal (the turquoise "blue" tank), `N` green, `Y` yellow, `L` purple,
+ * `I` invisible, `S` black and `O` the boss.
  *
  * The full map format (characters, size, rules, a blank template) is documented
  * in `docs/games/panzerkiste/levels.md`.
@@ -17,10 +17,53 @@
 
 /** The character each cell can hold in a level map. */
 export type Cell =
-  "#" | "x" | "o" | "." | "P" | "B" | "G" | "T" | "U" | "N" | "Y" | "L" | "I";
+  | "#"
+  | "x"
+  | "o"
+  | "."
+  | "P"
+  | "B"
+  | "G"
+  | "T"
+  | "U"
+  | "N"
+  | "Y"
+  | "L"
+  | "I"
+  | "S"
+  | "O";
 
 /** One level: rows of equal length, the interior only (no border). */
 export type LevelMap = readonly string[];
+
+/**
+ * The endless arena: the last level, which is never cleared.
+ *
+ * @remarks
+ * It holds **no** enemies of its own - they arrive in waves, and the engine
+ * sends the next one whenever the field falls empty. Symmetrical cover with
+ * open lanes between: you need something to break line of sight behind, but
+ * boxing yourself in with eight tanks about is worse than standing in the open.
+ */
+export const ENDLESS_MAP: LevelMap = [
+  "......................",
+  "..####..........####..",
+  "..####..........####..",
+  "......................",
+  "......................",
+  "....##..........##....",
+  "....##..........##....",
+  "..........P...........",
+  "....##..........##....",
+  "....##..........##....",
+  "......................",
+  "......................",
+  "..####..........####..",
+  "..####..........####..",
+  "......................",
+  "......................",
+  "......................",
+];
 
 /** All levels, in the order they are played. */
 export const LEVELS: readonly LevelMap[] = [
@@ -497,4 +540,84 @@ export const LEVELS: readonly LevelMap[] = [
     ".P................L...",
     "......................",
   ],
+  // Level 24 - the black tank arrives. A field of pillars is the only answer to
+  // it: it is quicker than anything so far and its rockets ricochet, so open
+  // ground is no place to be. Two brown turrets and a purple keep the player
+  // from simply hiding behind one pillar and waiting.
+  [
+    "......................",
+    "..........S...........",
+    "......................",
+    "..##....##....##....##",
+    "..##....##....##....##",
+    "...........L..........",
+    "......................",
+    "..##....##....##....##",
+    "..##....##....##....##",
+    ".....B..........B.....",
+    "......................",
+    "..##....##....##....##",
+    "..##....##....##....##",
+    "......................",
+    "......................",
+    "..P...................",
+    "......................",
+  ],
+  // Level 25 - the last of the campaign: the boss. It sits at the top with two
+  // purple runners and two green sharpshooters between you and it, and it takes
+  // many hits, so you have to keep moving while you work on it.
+  [
+    "......................",
+    "..........O...........",
+    "......................",
+    "...##..........##.....",
+    "...##..........##.....",
+    "......................",
+    "......L........L......",
+    "......................",
+    "..##..............##..",
+    "..##..............##..",
+    "......................",
+    "......N........N......",
+    "......................",
+    "...##..........##.....",
+    "...##..........##.....",
+    "..P...................",
+    "......................",
+  ],
 ];
+
+/** The first level index past the campaign - where the endless arenas begin. */
+export const ENDLESS_LEVEL = LEVELS.length;
+
+/**
+ * Whether a level index is an endless arena.
+ *
+ * @param level - the level index
+ * @returns true past the campaign, false for every campaign level
+ * @remarks
+ * There is no last one. Every index from {@link ENDLESS_LEVEL} upwards is an
+ * arena, so the level buttons can keep going for as long as anybody cares to
+ * press them.
+ */
+export function isEndless(level: number): boolean {
+  return level >= ENDLESS_LEVEL;
+}
+
+/**
+ * Which endless arena a level index is, counting from 1.
+ *
+ * @param level - the level index, past the campaign
+ * @returns the arena's number
+ * @remarks
+ * The number is also the difficulty: arena `n` opens at wave `n`, so pressing
+ * on through them is a way of skipping straight to the hard part.
+ */
+export function endlessNumber(level: number): number {
+  return level - ENDLESS_LEVEL + 1;
+}
+
+/** The map every endless arena is played on. */
+export function endlessMap(): LevelMap {
+  return ENDLESS_MAP;
+}

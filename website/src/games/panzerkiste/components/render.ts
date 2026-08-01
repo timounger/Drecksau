@@ -8,15 +8,19 @@
  * drawn back to front (painter's order) so nearer things overlap farther ones.
  */
 import {
+  BOSS_HITS,
   BULLET_SPEED,
   MINE_RADIUS,
   MUZZLE_OFFSET,
+  SHIELD_BLINK_LEAD,
   TANK_RADIUS,
   TILE,
   type Bullet,
   type Explosion,
   type GameState,
   type Mine,
+  type Pickup,
+  type PickupKind,
   type Tank,
   type TankKind,
   type Trail,
@@ -54,6 +58,8 @@ const TANK_TOP: Readonly<Record<TankKind, string>> = {
   yellow: "#facc15",
   purple: "#a855f7",
   invisible: "#ffffff",
+  black: "#33333c",
+  boss: "#b91c1c",
 };
 
 /** The shaded front face colour of each tank kind. */
@@ -66,6 +72,8 @@ const TANK_SIDE: Readonly<Record<TankKind, string>> = {
   yellow: "#a16207",
   purple: "#6b21a8",
   invisible: "#cbd5e1",
+  black: "#15151b",
+  boss: "#7f1d1d",
 };
 
 /** The co-op partner ("player2") is drawn indigo, to tell it from player one. */
@@ -155,7 +163,39 @@ const RENDER = {
   markEdgeWidth: 5,
   trail: "rgba(30, 41, 59, 0.30)",
   trailWidth: 3,
+
+  pickupRadius: 11,
+  pickupRise: 7,
+  pickupEdge: "#0f172a",
+  pickupEdgeWidth: 1.5,
+  pickupGlyph: "#f8fafc",
+  pickupGlyphWidth: 2,
+  /** How far the kink of the lightning bolt sits from the middle. */
+  boltKink: 4,
+  pickupBobHeight: 3,
+  pickupBobHz: 1.2,
+
+  bossScale: 1.45,
+  bossBarWidth: 34,
+  bossBarHeight: 5,
+  bossBarRise: 26,
+  bossBarBack: "rgba(15, 23, 42, 0.7)",
+  bossBarFill: "#ef4444",
+  bossBarEdge: "#fecaca",
+
+  shieldRise: 4,
+  shieldWidth: 2.5,
+  shieldPad: 5,
+  shieldBlinkHz: 6,
 } as const;
+
+/** The colour of each kind of dropped item. */
+const PICKUP_COLOUR: Readonly<Record<PickupKind, string>> = {
+  shield: "#38bdf8",
+  rapid: "#f97316",
+  revive: "#22c55e",
+  scatter: "#a855f7",
+};
 
 /** Dash pattern of a tread trail: pixels drawn, then pixels skipped. */
 const TRAIL_DASH_ON = 3;
@@ -227,6 +267,12 @@ export function draw(
   for (const mine of state.mines) {
     items.push({ depth: mine.y, draw: () => drawMine(ctx, mine, state.time) });
   }
+  for (const pickup of state.pickups) {
+    items.push({
+      depth: pickup.y,
+      draw: () => drawPickup(ctx, pickup, state.time),
+    });
+  }
   for (const blast of state.explosions) {
     items.push({
       depth: blast.y,
@@ -241,7 +287,7 @@ export function draw(
     if (tank.alive && alpha > 0) {
       items.push({
         depth: tank.y + TANK_RADIUS,
-        draw: () => drawTankAt(ctx, tank, alpha),
+        draw: () => drawTankAt(ctx, tank, alpha, state.time),
       });
     }
   }
@@ -559,15 +605,171 @@ function drawTankAt(
   ctx: CanvasRenderingContext2D,
   tank: Tank,
   alpha: number,
+  time: number,
 ): void {
-  if (alpha >= 1) {
-    drawTank(ctx, tank);
-  } else {
-    ctx.save();
+  ctx.save();
+  if (alpha < 1) {
     ctx.globalAlpha = alpha;
-    drawTank(ctx, tank);
-    ctx.restore();
   }
+  if (tank.kind === "boss") {
+    // Drawn about half again as large, around its own middle, so it reads as
+    // the heavy thing it is without a second set of shapes to keep in step.
+    const at = project(tank.x, tank.y, 0);
+    ctx.translate(at.x, at.y);
+    ctx.scale(RENDER.bossScale, RENDER.bossScale);
+    ctx.translate(-at.x, -at.y);
+  }
+  drawTank(ctx, tank);
+  ctx.restore();
+  if (tank.kind === "boss") {
+    drawBossHealth(ctx, tank);
+  }
+  drawShield(ctx, tank, time);
+}
+
+/**
+ * The boss's remaining hits, as a bar over its turret.
+ *
+ * @param ctx - the canvas context
+ * @param tank - the boss
+ * @remarks
+ * Without it the boss is just a tank that shrugs off shells for no visible
+ * reason - you would have no way of telling progress from futility.
+ */
+function drawBossHealth(ctx: CanvasRenderingContext2D, tank: Tank): void {
+  const at = project(tank.x, tank.y, BODY_HEIGHT + RENDER.bossBarRise);
+  const left = Math.max(0, Math.min(1, tank.hitsLeft / BOSS_HITS));
+  const x = at.x - RENDER.bossBarWidth / 2;
+  const y = at.y - RENDER.bossBarHeight / 2;
+
+  ctx.fillStyle = RENDER.bossBarBack;
+  ctx.fillRect(x, y, RENDER.bossBarWidth, RENDER.bossBarHeight);
+  ctx.fillStyle = RENDER.bossBarFill;
+  ctx.fillRect(x, y, RENDER.bossBarWidth * left, RENDER.bossBarHeight);
+  ctx.strokeStyle = RENDER.bossBarEdge;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, RENDER.bossBarWidth, RENDER.bossBarHeight);
+}
+
+/**
+ * The ring round a shielded tank, blinking out its last seconds.
+ *
+ * @param ctx - the canvas context
+ * @param tank - the tank to check
+ * @param time - the current simulation time
+ * @remarks
+ * The blink is the point of the whole thing: a shield that simply stopped would
+ * only announce itself by the hit that follows, and by then it is too late to
+ * take cover.
+ */
+function drawShield(
+  ctx: CanvasRenderingContext2D,
+  tank: Tank,
+  time: number,
+): void {
+  const left = tank.shieldUntil - time;
+  if (left <= 0) {
+    return;
+  }
+  // Solid while there is time, then blinking once it is nearly gone.
+  const blinking = left <= SHIELD_BLINK_LEAD;
+  const on = !blinking || Math.floor(left * RENDER.shieldBlinkHz) % 2 === 0;
+  if (!on) {
+    return;
+  }
+  const at = project(tank.x, tank.y, BODY_HEIGHT + RENDER.shieldRise);
+  ctx.save();
+  ctx.strokeStyle = PICKUP_COLOUR.shield;
+  ctx.lineWidth = RENDER.shieldWidth;
+  ctx.beginPath();
+  ctx.ellipse(
+    at.x,
+    at.y,
+    TANK_RADIUS + RENDER.shieldPad,
+    (TANK_RADIUS + RENDER.shieldPad) * DEPTH,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * One dropped item: a coloured disc with a mark saying what it is.
+ *
+ * @param ctx - the canvas context
+ * @param pickup - the item
+ * @param time - the current simulation time, for the gentle bobbing
+ */
+function drawPickup(
+  ctx: CanvasRenderingContext2D,
+  pickup: Pickup,
+  time: number,
+): void {
+  drawShadow(ctx, pickup.x, pickup.y, RENDER.pickupRadius);
+  const bob =
+    Math.sin(time * RENDER.pickupBobHz * Math.PI * 2) * RENDER.pickupBobHeight;
+  const at = project(pickup.x, pickup.y, RENDER.pickupRise + bob);
+
+  ctx.save();
+  ctx.fillStyle = PICKUP_COLOUR[pickup.kind];
+  ctx.strokeStyle = RENDER.pickupEdge;
+  ctx.lineWidth = RENDER.pickupEdgeWidth;
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, RENDER.pickupRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.strokeStyle = RENDER.pickupGlyph;
+  ctx.lineWidth = RENDER.pickupGlyphWidth;
+  ctx.lineCap = "round";
+  drawPickupGlyph(ctx, pickup.kind, at.x, at.y);
+  ctx.restore();
+}
+
+/** The mark on an item's disc: what each power does, in one stroke or three. */
+function drawPickupGlyph(
+  ctx: CanvasRenderingContext2D,
+  kind: PickupKind,
+  x: number,
+  y: number,
+): void {
+  const r = RENDER.pickupRadius / 2;
+  ctx.beginPath();
+  switch (kind) {
+    // Shield: a little shield outline.
+    case "shield":
+      ctx.moveTo(x - r, y - r);
+      ctx.lineTo(x + r, y - r);
+      ctx.lineTo(x + r, y);
+      ctx.lineTo(x, y + r);
+      ctx.lineTo(x - r, y);
+      ctx.closePath();
+      break;
+    // Rapid fire: a lightning bolt.
+    case "rapid":
+      ctx.moveTo(x + r / 2, y - r);
+      ctx.lineTo(x - r / 2, y);
+      ctx.lineTo(x + r / RENDER.boltKink, y);
+      ctx.lineTo(x - r / 2, y + r);
+      break;
+    // Revive: a cross.
+    case "revive":
+      ctx.moveTo(x - r, y);
+      ctx.lineTo(x + r, y);
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x, y + r);
+      break;
+    // Scatter: three shells fanning out.
+    default:
+      for (const lean of [-1, 0, 1]) {
+        ctx.moveTo(x, y + r);
+        ctx.lineTo(x + lean * r, y - r);
+      }
+      break;
+  }
+  ctx.stroke();
 }
 
 /**

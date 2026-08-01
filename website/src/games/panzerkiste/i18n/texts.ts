@@ -6,6 +6,19 @@
 
 /** Static texts of the Panzerkiste screen. */
 export const PANZERKISTE_TEXTS = {
+  // Die eigene Statistik dieses Spiels
+  missionStats: "Missionen",
+  arena: (n: number) => `Endlos ${n}`,
+  wave: (n: number) => `Welle ${n}`,
+  toEndless: "Endlosmodus",
+  bestWave: "Weiteste Welle",
+  bestLevel: "Weitestes Level",
+  levelsCleared: "Level geschafft",
+  accuracy: "Treffer je Schuss",
+  shots: "Treffer / Schüsse",
+  averageLevel: "Schnitt pro Level",
+  fastestLevel: "Schnellstes Level",
+
   title: "Panzerkiste",
   subtitle: "Zerstöre alle feindlichen Panzer, um zu gewinnen.",
   // Heads-up display

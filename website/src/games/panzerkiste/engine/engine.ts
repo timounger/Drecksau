@@ -8,13 +8,15 @@
  * player's {@link Input}; the same inputs and seed always play out identically,
  * which is what makes the enemy behaviour testable without a browser.
  */
-import { LEVELS } from "./levels";
+import { isEndless, LEVELS } from "./levels";
 import { LEVELS_PER_BONUS, loadLevel, LIVES_START } from "./setup";
 import { nextRandom, type RandomState } from "./random";
 import {
+  BOSS_HITS,
   BULLET_BOUNCES,
   BULLET_RADIUS,
   BULLET_SPEED,
+  DROP_CHANCE,
   ENEMY_MAX_MINES,
   ENEMY_MINE_RATE,
   ENEMY_TRAITS,
@@ -29,17 +31,65 @@ import {
   MUZZLE_OFFSET,
   PLAYER_MAX_BULLETS,
   PLAYER_MAX_MINES,
+  PICKUP_RADIUS,
   PLAYER_RELOAD,
+  SPAWN_CLEARANCE,
+  SPAWN_TRIES,
   PLAYER_SPEED,
+  RAPID_FACTOR,
+  RAPID_SECONDS,
+  REVIVE_SHIELD_SECONDS,
+  SCATTER_SECONDS,
+  SCATTER_SHOTS,
+  SCATTER_SPREAD,
+  SHIELD_SECONDS,
   TANK_RADIUS,
   TILE,
+  WAVE_BASE_ENEMIES,
+  WAVE_GROWTH,
+  WAVE_MAX_ENEMIES,
+  WAVE_PAUSE,
+  WAVE_UNLOCKS,
   type Bullet,
   type GameState,
   type Input,
   type Mine,
+  type Pickup,
+  type PickupKind,
   type Tank,
   type Trail,
 } from "./types";
+
+/** What a destroyed enemy may leave behind, outside co-op. */
+const SOLO_DROPS: readonly PickupKind[] = ["shield", "rapid", "scatter"];
+
+/** The same, plus the one only a co-op player with a downed partner can use. */
+const COOP_DROPS: readonly PickupKind[] = [...SOLO_DROPS, "revive"];
+
+/**
+ * Whether something can hurt this tank right now.
+ *
+ * @param tank - the tank being shot at or caught in a blast
+ * @param time - the current simulation time
+ * @returns false while a shield holds
+ */
+function canDie(tank: Tank, time: number): boolean {
+  return time >= tank.shieldUntil;
+}
+
+/**
+ * One hit on a tank.
+ *
+ * @param tank - the tank that was struck
+ * @returns the tank one hit worse off, destroyed once nothing is left
+ * @remarks
+ * Everything on the field has a single hit in it, so for all but the boss this
+ * is the old "and it is gone" written another way.
+ */
+function damage(tank: Tank): Tank {
+  const left = tank.hitsLeft - 1;
+  return { ...tank, hitsLeft: Math.max(0, left), alive: left > 0 };
+}
 
 /** Shortest time an enemy keeps a roaming heading, in seconds. */
 const HEADING_MIN = 1;
@@ -95,7 +145,13 @@ export function step(
   } else {
     const time = state.time + Math.min(dt, MAX_STEP);
     const acted = actTanks(state, input, input2, time, dt);
-    const shots = advanceBullets(state, acted.tanks, acted.newBullets, dt);
+    const shots = advanceBullets(
+      state,
+      acted.tanks,
+      acted.newBullets,
+      dt,
+      time,
+    );
     // A shell that reaches a mine sets it off at once; the mines then detonate.
     const armed = triggerMinesByBullets(
       shots.bullets,
@@ -114,22 +170,32 @@ export function step(
       (tank) => tank.kind === "player" || tank.alive,
     );
     // Each enemy that just died leaves a white X on the floor for the round.
-    const newMarks = blasts.tanks
-      .filter((tank) => tank.kind !== "player" && !tank.alive)
-      .map((tank) => ({ x: tank.x, y: tank.y }));
+    const fallen = blasts.tanks.filter(
+      (tank) => tank.kind !== "player" && !tank.alive,
+    );
+    const newMarks = fallen.map((tank) => ({ x: tank.x, y: tank.y }));
+    const dropped = rollDrops(fallen, blasts.tanks, acted.random, acted.nextId);
+    const taken = collectPickups(
+      tanks,
+      [...state.pickups, ...dropped.pickups],
+      time,
+    );
     result = resolve({
       ...state,
-      tanks,
+      tanks: taken.tanks,
+      pickups: taken.pickups,
       bullets: blasts.bullets,
       mines: blasts.mines,
       explosions: blasts.explosions,
       marks: [...state.marks, ...newMarks],
-      trails: extendTrails(state.trails, tanks),
+      trails: extendTrails(state.trails, taken.tanks),
       walls: blasts.walls,
       breakable: blasts.breakable,
       time,
-      random: acted.random,
-      nextId: acted.nextId,
+      random: dropped.random,
+      nextId: dropped.nextId,
+      shotsFired: state.shotsFired + acted.fired,
+      shotsHit: state.shotsHit + shots.hits,
     });
   }
   return result;
@@ -150,11 +216,9 @@ export function advance(state: GameState): GameState {
   }
   const nextLevel = state.level + 1;
   const bonus = (nextLevel + 1) % LEVELS_PER_BONUS === 0 ? 1 : 0;
-  return loadLevel(
-    nextLevel,
-    state.lives + bonus,
-    state.random,
-    playerCount(state),
+  return carryTally(
+    state,
+    loadLevel(nextLevel, state.lives + bonus, state.random, playerCount(state)),
   );
 }
 
@@ -184,8 +248,10 @@ export const LEVEL_COUNT = LEVELS.length;
  * @returns a fresh "playing" state for that level
  */
 export function setLevel(state: GameState, level: number): GameState {
-  const clamped = Math.max(0, Math.min(LEVEL_COUNT - 1, level));
-  return loadLevel(clamped, LIVES_START, state.random);
+  // Only the bottom is a wall: above the campaign lie the endless arenas, and
+  // there is no last one of those to stop at.
+  const target = Math.max(0, level);
+  return loadLevel(target, LIVES_START, state.random);
 }
 
 /** The human tank, or null if it has been destroyed. */
@@ -212,6 +278,8 @@ type TankStep = {
   readonly newMines: Mine[];
   readonly random: RandomState;
   readonly nextId: number;
+  /** How many ordinary shells the players fired this step. */
+  readonly fired: number;
 };
 
 /**
@@ -236,6 +304,7 @@ function actTanks(
   const newMines: Mine[] = [];
   let random = state.random;
   let nextId = state.nextId;
+  let fired = 0;
 
   const tanks = state.tanks.map((tank) => {
     let updated: Tank;
@@ -246,12 +315,16 @@ function actTanks(
       const own = tank.id === "player2" ? input2 : input;
       const moved = movePlayer(state, tank, own, dt);
       const owned = countOwned(state.bullets, newBullets, tank.id);
-      const canFire =
-        own.fire && time >= tank.reloadUntil && owned < PLAYER_MAX_BULLETS;
+      // A scatter volley counts as one shot, not three, or the pickup would
+      // quietly cut the rate of fire it is supposed to improve.
+      const fanning = time < moved.scatterUntil;
+      const room = PLAYER_MAX_BULLETS * (fanning ? SCATTER_SHOTS : 1);
+      const canFire = own.fire && time >= tank.reloadUntil && owned < room;
       if (canFire) {
-        newBullets.push(
-          makeBullet(nextId++, moved, moved.turret, BULLET_BOUNCES),
-        );
+        for (const angle of shotAngles(moved, time)) {
+          newBullets.push(makeBullet(nextId++, moved, angle, BULLET_BOUNCES));
+          fired++;
+        }
       }
       // The secret homing missile ignores the reload and the shell cap, so the
       // held-fire trigger always launches it; it steers itself from here on.
@@ -276,9 +349,11 @@ function actTanks(
           explodeAt: time + MINE_FUSE,
         });
       }
+      const reload =
+        time < moved.rapidUntil ? PLAYER_RELOAD / RAPID_FACTOR : PLAYER_RELOAD;
       updated = {
         ...moved,
-        reloadUntil: canFire ? time + PLAYER_RELOAD : moved.reloadUntil,
+        reloadUntil: canFire ? time + reload : moved.reloadUntil,
       };
     } else {
       const target = chooseTarget(state, players, tank);
@@ -310,7 +385,7 @@ function actTanks(
     return updated;
   });
 
-  return { tanks, newBullets, newMines, random, nextId };
+  return { tanks, newBullets, newMines, random, nextId, fired };
 }
 
 /** Moves the player tank and points its turret at the aim spot. */
@@ -521,6 +596,8 @@ function driveEnemy(
 type BulletStep = {
   readonly bullets: Bullet[];
   readonly tanks: Tank[];
+  /** How many player shells destroyed an enemy this step. */
+  readonly hits: number;
 };
 
 /** Moves every shell, bounces it off walls and resolves what it hits. */
@@ -529,6 +606,7 @@ function advanceBullets(
   tanks: Tank[],
   fresh: Bullet[],
   dt: number,
+  time: number,
 ): BulletStep {
   const moved = [...state.bullets, ...fresh]
     .map((bullet) =>
@@ -538,12 +616,16 @@ function advanceBullets(
 
   const dead = new Set<number>();
   // Two shells that meet cancel each other out - but a homing missile shrugs
-  // off any shell it meets and cannot be shot down.
+  // off any shell it meets and cannot be shot down. Shells from the **same**
+  // barrel never cancel either: a scatter volley leaves the muzzle as three
+  // shells almost on top of one another, and that rule would wipe the whole
+  // salvo out on the step it was fired.
   for (let i = 0; i < moved.length; i++) {
     for (let j = i + 1; j < moved.length; j++) {
       if (
         !moved[i].homing &&
         !moved[j].homing &&
+        moved[i].ownerId !== moved[j].ownerId &&
         within(moved[i], moved[j], BULLET_RADIUS * 2)
       ) {
         dead.add(i);
@@ -552,7 +634,8 @@ function advanceBullets(
     }
   }
 
-  const killed = new Set<string>();
+  const struck = new Set<string>();
+  let hits = 0;
   const hitReach = TANK_RADIUS + BULLET_RADIUS;
   moved.forEach((bullet, index) => {
     if (!dead.has(index)) {
@@ -567,7 +650,15 @@ function advanceBullets(
           within(bullet, tank, hitReach),
       );
       if (target !== undefined) {
-        killed.add(target.id);
+        // A shielded tank still stops the shell - it just walks away from it.
+        if (canDie(target, time)) {
+          struck.add(target.id);
+          // A hit is a hit, whether or not it was the one that finished the
+          // job: against a boss most of them are not.
+          if (target.kind !== "player" && isPlayerId(bullet.ownerId)) {
+            hits++;
+          }
+        }
         dead.add(index);
       }
     }
@@ -575,10 +666,14 @@ function advanceBullets(
 
   return {
     bullets: moved.filter((_, index) => !dead.has(index)),
-    tanks: tanks.map((tank) =>
-      killed.has(tank.id) ? { ...tank, alive: false } : tank,
-    ),
+    tanks: tanks.map((tank) => (struck.has(tank.id) ? damage(tank) : tank)),
+    hits,
   };
+}
+
+/** Whether an id belongs to one of the human seats. */
+function isPlayerId(id: string): boolean {
+  return id === "player" || id === "player2";
 }
 
 /**
@@ -646,8 +741,8 @@ function advanceMines(
   for (const mine of blown) {
     explosions.push({ x: mine.x, y: mine.y, until: time + EXPLOSION_TIME });
     liveTanks = liveTanks.map((tank) =>
-      tank.alive && within(mine, tank, MINE_RADIUS)
-        ? { ...tank, alive: false }
+      tank.alive && within(mine, tank, MINE_RADIUS) && canDie(tank, time)
+        ? damage(tank)
         : tank,
     );
     liveBullets = liveBullets.filter(
@@ -700,7 +795,9 @@ function resolve(draft: GameState): GameState {
   ).length;
 
   let result: GameState;
-  if (players.length >= 2) {
+  if (isEndless(draft.level)) {
+    result = resolveEndless(draft, players, enemies);
+  } else if (players.length >= 2) {
     result = resolveCoop(draft, players, enemies);
   } else {
     const dead = players.length === 0 || !players[0].alive;
@@ -746,6 +843,132 @@ function resolveCoop(
 }
 
 /**
+ * The endless arena: it is never cleared, it only ever sends the next wave.
+ *
+ * @param draft - the state after this step
+ * @param players - the human tanks (some may be down)
+ * @param enemies - how many enemies are still alive
+ * @returns the next state
+ * @remarks
+ * An empty field is not a win here, it is a breather: once
+ * {@link WAVE_PAUSE} has passed the next wave arrives, bigger and worse. The
+ * only way out is running out of lives.
+ */
+function resolveEndless(
+  draft: GameState,
+  players: readonly Tank[],
+  enemies: number,
+): GameState {
+  if (!players.some((tank) => tank.alive)) {
+    return reloadOrLose(draft, Math.max(1, players.length));
+  }
+  if (enemies > 0) {
+    // A wave is out; nothing to do but fight it.
+    return draft.nextWaveAt === null ? draft : { ...draft, nextWaveAt: null };
+  }
+  if (draft.nextWaveAt === null) {
+    // The field just fell empty: take a breath before the next lot.
+    return { ...draft, nextWaveAt: draft.time + WAVE_PAUSE };
+  }
+  return draft.time < draft.nextWaveAt ? draft : spawnWave(draft);
+}
+
+/**
+ * Sends the next wave into the arena.
+ *
+ * @param draft - the state with an empty field
+ * @returns the state with the next wave standing on it
+ */
+function spawnWave(draft: GameState): GameState {
+  const wave = draft.wave + 1;
+  const count = Math.min(
+    WAVE_MAX_ENEMIES,
+    Math.floor(WAVE_BASE_ENEMIES + (wave - 1) * WAVE_GROWTH),
+  );
+  const kinds = WAVE_UNLOCKS.filter((entry) => entry.from <= wave);
+
+  const tanks = [...draft.tanks];
+  let random = draft.random;
+  let nextId = draft.nextId;
+  for (let i = 0; i < count; i++) {
+    const pick = nextRandom(random);
+    random = pick.state;
+    const kind = kinds[Math.floor(pick.value * kinds.length)].kind;
+    const spot = findSpawn(draft, tanks, random);
+    random = spot.random;
+    tanks.push({
+      id: `w${nextId++}`,
+      kind,
+      x: spot.x,
+      y: spot.y,
+      turret: 0,
+      alive: true,
+      reloadUntil: draft.time + WAVE_PAUSE,
+      heading: 0,
+      headingUntil: 0,
+      shieldUntil: 0,
+      rapidUntil: 0,
+      scatterUntil: 0,
+      hitsLeft: kind === "boss" ? BOSS_HITS : 1,
+    });
+  }
+  return { ...draft, tanks, wave, nextWaveAt: null, random, nextId };
+}
+
+/**
+ * A spot for a fresh enemy: open floor, well clear of every player.
+ *
+ * @param state - the arena, for its walls and holes
+ * @param tanks - everything already standing, so two do not share a cell
+ * @param random - the random stream
+ * @returns the spot and the stream afterwards
+ * @remarks
+ * Falls back to any free cell after {@link SPAWN_TRIES} attempts. A tank
+ * appearing a little too close is a poor deal; a wave that never arrives
+ * because no cell was far enough would end the game.
+ */
+function findSpawn(
+  state: GameState,
+  tanks: readonly Tank[],
+  random: RandomState,
+): { x: number; y: number; random: RandomState } {
+  const players = tanks.filter((tank) => tank.kind === "player" && tank.alive);
+  let stream = random;
+  let fallback: { x: number; y: number } | null = null;
+
+  for (let attempt = 0; attempt < SPAWN_TRIES; attempt++) {
+    const drawCol = nextRandom(stream);
+    stream = drawCol.state;
+    const drawRow = nextRandom(stream);
+    stream = drawRow.state;
+    const col = Math.floor(drawCol.value * state.cols);
+    const row = Math.floor(drawRow.value * state.rows);
+    const index = row * state.cols + col;
+    if (state.walls[index] || state.holes[index]) {
+      continue;
+    }
+    const spot = { x: col * TILE + TILE / 2, y: row * TILE + TILE / 2 };
+    if (
+      tanks.some((tank) => tank.alive && within(spot, tank, TANK_RADIUS * 2))
+    ) {
+      continue;
+    }
+    fallback ??= spot;
+    const clear = players.every(
+      (player) =>
+        Math.hypot(player.x - spot.x, player.y - spot.y) >=
+        SPAWN_CLEARANCE * TILE,
+    );
+    if (clear) {
+      return { ...spot, random: stream };
+    }
+  }
+  // Nothing far enough turned up; anywhere free beats nowhere at all.
+  const spot = fallback ?? { x: TILE + TILE / 2, y: TILE + TILE / 2 };
+  return { ...spot, random: stream };
+}
+
+/**
  * Spends one life and repeats the level, or ends the mission if that was the
  * last life.
  *
@@ -774,14 +997,36 @@ function reloadOrLose(draft: GameState, playerCount: number): GameState {
         .filter((tank) => tank.kind !== "player" && tank.alive)
         .map((tank) => tank.id),
     );
-    result = {
+    result = carryTally(draft, {
       ...fresh,
       tanks: fresh.tanks.filter(
         (tank) => tank.kind === "player" || survivors.has(tank.id),
       ),
-    };
+    });
   }
   return result;
+}
+
+/**
+ * Carries a mission's shot tally into a freshly dealt level.
+ *
+ * @param from - the state the mission has reached so far
+ * @param into - the level just dealt
+ * @returns the new level with the tally kept
+ * @remarks
+ * {@link loadLevel} deals a level, not a mission, so it starts the counters at
+ * zero. Accuracy over one level would be a coin toss; over a run it says
+ * something.
+ */
+function carryTally(from: GameState, into: GameState): GameState {
+  return {
+    ...into,
+    shotsFired: from.shotsFired,
+    shotsHit: from.shotsHit,
+    // Dying in the arena costs a life, not your progress: the waves carry on
+    // where they were, which is the whole point of an endless mode.
+    wave: from.wave,
+  };
 }
 
 /** "cleared" if more levels remain, else "won". */
@@ -789,6 +1034,154 @@ function clearedOrWon(draft: GameState): GameState {
   return draft.level + 1 < LEVELS.length
     ? { ...draft, phase: "cleared" }
     : { ...draft, phase: "won" };
+}
+
+/**
+ * The angles one shot goes out at: one, or a fan while scatter shot holds.
+ *
+ * @param tank - the tank firing
+ * @param time - the current simulation time
+ * @returns the angles, in radians, centred on where the turret points
+ */
+function shotAngles(tank: Tank, time: number): number[] {
+  if (time >= tank.scatterUntil) {
+    return [tank.turret];
+  }
+  const middle = (SCATTER_SHOTS - 1) / 2;
+  return Array.from(
+    { length: SCATTER_SHOTS },
+    (unused, index) => tank.turret + (index - middle) * SCATTER_SPREAD,
+  );
+}
+
+/**
+ * Decides what the enemies that just died left behind.
+ *
+ * @param fallen - the enemies destroyed this step
+ * @param tanks - every tank, so a downed partner can be spotted
+ * @param random - the random stream
+ * @param nextId - the counter for unique ids
+ * @returns the new items, and the stream and counter afterwards
+ * @remarks
+ * The reviving item is only ever dropped while a partner really is down.
+ * Anything else would leave the field littered with something that cannot be
+ * used, and in a single-player game it could never be used at all.
+ */
+function rollDrops(
+  fallen: readonly Tank[],
+  tanks: readonly Tank[],
+  random: RandomState,
+  nextId: number,
+): { pickups: Pickup[]; random: RandomState; nextId: number } {
+  const players = tanks.filter((tank) => tank.kind === "player");
+  const partnerDown =
+    players.length >= 2 && players.some((tank) => !tank.alive);
+  const kinds = partnerDown ? COOP_DROPS : SOLO_DROPS;
+
+  const pickups: Pickup[] = [];
+  let stream = random;
+  let id = nextId;
+  for (const tank of fallen) {
+    const roll = nextRandom(stream);
+    stream = roll.state;
+    if (roll.value < DROP_CHANCE) {
+      const pick = nextRandom(stream);
+      stream = pick.state;
+      pickups.push({
+        id: `k${id++}`,
+        kind: kinds[Math.floor(pick.value * kinds.length)],
+        x: tank.x,
+        y: tank.y,
+      });
+    }
+  }
+  return { pickups, random: stream, nextId: id };
+}
+
+/**
+ * Hands out every item a player has driven onto.
+ *
+ * @param tanks - every tank after this step's movement
+ * @param pickups - the items lying about
+ * @param time - the current simulation time
+ * @returns the tanks with their new powers, and the items still lying about
+ */
+function collectPickups(
+  tanks: readonly Tank[],
+  pickups: readonly Pickup[],
+  time: number,
+): { tanks: Tank[]; pickups: Pickup[] } {
+  let live = [...tanks];
+  const left: Pickup[] = [];
+  for (const pickup of pickups) {
+    const taker = live.find(
+      (tank) =>
+        tank.kind === "player" &&
+        tank.alive &&
+        within(pickup, tank, PICKUP_RADIUS),
+    );
+    const applied =
+      taker === undefined ? null : apply(live, taker, pickup, time);
+    if (applied === null) {
+      left.push(pickup);
+    } else {
+      live = applied;
+    }
+  }
+  return { tanks: live, pickups: left };
+}
+
+/**
+ * Applies one item to the tank that drove onto it.
+ *
+ * @param tanks - every tank
+ * @param taker - the tank collecting
+ * @param pickup - what it drove onto
+ * @param time - the current simulation time
+ * @returns the tanks afterwards, or null if the item cannot be used yet
+ * @remarks
+ * Returning null leaves the item lying: a reviving item picked up while nobody
+ * is down would otherwise be spent on nothing.
+ */
+function apply(
+  tanks: readonly Tank[],
+  taker: Tank,
+  pickup: Pickup,
+  time: number,
+): Tank[] | null {
+  if (pickup.kind === "revive") {
+    const down = tanks.find((tank) => tank.kind === "player" && !tank.alive);
+    if (down === undefined) {
+      return null;
+    }
+    // Back on their feet beside the one who picked it up, and briefly
+    // protected - reappearing in front of a loaded turret is no rescue.
+    return tanks.map((tank) =>
+      tank.id === down.id
+        ? {
+            ...tank,
+            alive: true,
+            x: taker.x,
+            y: taker.y,
+            shieldUntil: time + REVIVE_SHIELD_SECONDS,
+          }
+        : tank,
+    );
+  }
+  return tanks.map((tank) => {
+    if (tank.id !== taker.id) {
+      return tank;
+    }
+    switch (pickup.kind) {
+      case "shield":
+        return { ...tank, shieldUntil: time + SHIELD_SECONDS };
+      case "rapid":
+        return { ...tank, rapidUntil: time + RAPID_SECONDS };
+      // Scatter shot runs on the same clock as rapid fire.
+      default:
+        return { ...tank, scatterUntil: time + SCATTER_SECONDS };
+    }
+  });
 }
 
 /**

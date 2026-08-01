@@ -27,6 +27,7 @@ import {
   totalEnemiesThroughLevel,
 } from "@/games/panzerkiste/engine/setup";
 import { PANZERKISTE_TEXTS } from "@/games/panzerkiste/i18n/texts";
+import { endlessNumber, isEndless } from "@/games/panzerkiste/engine/levels";
 import { BannerView } from "@/games/panzerkiste/components/round-banner";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 
@@ -49,7 +50,6 @@ export function PanzerkisteGame(): ReactElement {
     newMission,
     levelBack,
     levelForward,
-    levelCount,
   } = usePanzerkiste();
 
   const fieldRef = useRef<HTMLDivElement>(null);
@@ -99,7 +99,12 @@ export function PanzerkisteGame(): ReactElement {
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <Stat>{PANZERKISTE_TEXTS.level(hud.level + 1)}</Stat>
+          <Stat>
+            {isEndless(hud.level)
+              ? PANZERKISTE_TEXTS.arena(endlessNumber(hud.level))
+              : PANZERKISTE_TEXTS.level(hud.level + 1)}
+          </Stat>
+          {hud.wave > 0 && <Stat>{PANZERKISTE_TEXTS.wave(hud.wave)}</Stat>}
           <Stat>{PANZERKISTE_TEXTS.enemiesLeft(hud.enemies)}</Stat>
           <Stat>{PANZERKISTE_TEXTS.lives(hud.lives)}</Stat>
           <Stat>{PANZERKISTE_TEXTS.minesLeft(hud.mines)}</Stat>
@@ -114,7 +119,7 @@ export function PanzerkisteGame(): ReactElement {
           </LevelJump>
           <LevelJump
             onClick={levelForward}
-            disabled={hud.level >= levelCount - 1}
+            disabled={false}
             title={PANZERKISTE_TEXTS.levelForwardTitle}
           >
             {PANZERKISTE_TEXTS.levelForward}
@@ -135,6 +140,7 @@ export function PanzerkisteGame(): ReactElement {
           onStart={start}
           onNext={next}
           onRestart={newMission}
+          onEndless={levelForward}
         />
         <BannerView banner={banner} />
         {fullscreen.active && (
@@ -204,6 +210,8 @@ type OverlayProps = {
   readonly onStart: () => void;
   readonly onNext: () => void;
   readonly onRestart: () => void;
+  /** Steps past the campaign into the first endless arena. */
+  readonly onEndless: () => void;
 };
 
 /** The screen shown over the canvas before starting or after a round ends. */
@@ -212,6 +220,7 @@ function Overlay({
   onStart,
   onNext,
   onRestart,
+  onEndless,
 }: OverlayProps): ReactElement | null {
   let content: ReactElement | null = null;
 
@@ -264,9 +273,14 @@ function Overlay({
             totalEnemiesThroughLevel(hud.level),
           )}
         </p>
-        <OverlayButton onClick={onRestart}>
-          {PANZERKISTE_TEXTS.playAgain}
-        </OverlayButton>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <OverlayButton onClick={onRestart}>
+            {PANZERKISTE_TEXTS.playAgain}
+          </OverlayButton>
+          <OverlayButton onClick={onEndless}>
+            {PANZERKISTE_TEXTS.toEndless}
+          </OverlayButton>
+        </div>
       </Panel>
     );
   } else if (hud.phase === "lost") {

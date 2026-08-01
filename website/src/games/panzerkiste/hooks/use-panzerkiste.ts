@@ -63,6 +63,13 @@ import {
   recordPlayTime,
 } from "@/lib/stats/stats-recorder";
 import { invalidateStats } from "@/lib/stats/stats-store";
+import {
+  recordLevelCleared,
+  recordLevelReached,
+  recordShots,
+  recordWaveReached,
+} from "@/games/panzerkiste/stats/mission-store";
+import { isEndless } from "@/games/panzerkiste/engine/levels";
 import type { GameId } from "@/games/registry";
 
 /** Seed of the first mission - fixed so the prerender is stable. */
@@ -91,6 +98,8 @@ export type Hud = {
   readonly lives: number;
   readonly enemies: number;
   readonly mines: number;
+  /** Which wave is out in the endless arena; zero on every other level. */
+  readonly wave: number;
   /** True once the player has started (not on the "click to start" screen). */
   readonly running: boolean;
 };
@@ -181,7 +190,36 @@ export function usePanzerkiste(): PanzerkisteGame {
     playMs: 0,
     unflushedMs: 0,
     outcomeRecorded: false,
+    /** Which level the tally below belongs to, or -1 before the first. */
+    level: -1,
+    /** The mission's play time when the current level began. */
+    levelStartedAtMs: 0,
+    /** How much of the engine's shot tally has already been written away. */
+    bookedFired: 0,
+    bookedHit: 0,
+    /** The arena wave already noted, so each is booked once. */
+    wave: 0,
   });
+
+  /**
+   * Writes the shots not yet booked into the mission statistics.
+   *
+   * @remarks
+   * Booked as it goes, like the play time, rather than only when a mission
+   * ends: most runs are abandoned rather than finished, and everything shot in
+   * them would otherwise never be counted at all.
+   */
+  const flushShots = useCallback(() => {
+    const state = stateRef.current;
+    const booked = missionStats.current;
+    const fired = state.shotsFired - booked.bookedFired;
+    const hit = state.shotsHit - booked.bookedHit;
+    if (fired > 0) {
+      recordShots(fired, Math.max(0, hit));
+      booked.bookedFired = state.shotsFired;
+      booked.bookedHit = state.shotsHit;
+    }
+  }, []);
 
   /** Writes the play time gathered but not yet stored to the statistics. */
   const flushStatsTime = useCallback(() => {
@@ -200,6 +238,11 @@ export function usePanzerkiste(): PanzerkisteGame {
       playMs: 0,
       unflushedMs: 0,
       outcomeRecorded: false,
+      level: -1,
+      levelStartedAtMs: 0,
+      bookedFired: 0,
+      bookedHit: 0,
+      wave: 0,
     };
   }, [flushStatsTime]);
 
@@ -346,6 +389,20 @@ export function usePanzerkiste(): PanzerkisteGame {
           recordGameStarted(GAME_ID, Date.now());
           invalidateStats();
         }
+        if (missionStats.current.level !== stateRef.current.level) {
+          missionStats.current.level = stateRef.current.level;
+          missionStats.current.levelStartedAtMs = missionStats.current.playMs;
+          // Counting from 1: "Level 3" on screen is level index 2.
+          // Only campaign levels have a number worth recording; the arenas
+          // keep their own count in the wave below.
+          if (!isEndless(stateRef.current.level)) {
+            recordLevelReached(stateRef.current.level + 1);
+          }
+        }
+        if (missionStats.current.wave !== stateRef.current.wave) {
+          missionStats.current.wave = stateRef.current.wave;
+          recordWaveReached(stateRef.current.wave);
+        }
         const input = readInput();
         stateRef.current = step(stateRef.current, input, dt);
         sound.setMoving(input.move.x !== 0 || input.move.y !== 0);
@@ -355,6 +412,7 @@ export function usePanzerkiste(): PanzerkisteGame {
         missionStats.current.unflushedMs += playedMs;
         if (missionStats.current.unflushedMs >= STATS_FLUSH_MS) {
           flushStatsTime();
+          flushShots();
         }
         syncHud();
       } else {
@@ -380,6 +438,11 @@ export function usePanzerkiste(): PanzerkisteGame {
           (cur.phase === "cleared" || cur.phase === "won")
         ) {
           showComplete(totalEnemiesThroughLevel(cur.level));
+          // Measured in play time, not wall clock: a pause is not part of how
+          // long the level took you.
+          recordLevelCleared(
+            missionStats.current.playMs - missionStats.current.levelStartedAtMs,
+          );
         }
         // The mission just ended (all levels won, or out of lives): count it once.
         if (
@@ -394,6 +457,7 @@ export function usePanzerkiste(): PanzerkisteGame {
             durationMs: missionStats.current.playMs,
             finishedAt: Date.now(),
           });
+          flushShots();
           invalidateStats();
         }
       }
@@ -427,7 +491,7 @@ export function usePanzerkiste(): PanzerkisteGame {
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [syncHud, showStart, showComplete, flushStatsTime]);
+  }, [syncHud, showStart, showComplete, flushStatsTime, flushShots]);
 
   const start = () => {
     runningRef.current = true;
@@ -446,6 +510,7 @@ export function usePanzerkiste(): PanzerkisteGame {
     syncHud();
   };
   const jumpBy = (delta: number) => {
+    // No ceiling: past the campaign every step forward is the next arena.
     stateRef.current = setLevel(
       stateRef.current,
       stateRef.current.level + delta,
@@ -475,6 +540,7 @@ function hudOf(state: GameState, running: boolean): Hud {
     lives: state.lives,
     enemies: enemiesLeft(state),
     mines: minesLeft(state),
+    wave: state.wave,
     running,
   };
 }
@@ -487,6 +553,7 @@ function sameHud(a: Hud, b: Hud): boolean {
     a.lives === b.lives &&
     a.enemies === b.enemies &&
     a.mines === b.mines &&
+    a.wave === b.wave &&
     a.running === b.running
   );
 }

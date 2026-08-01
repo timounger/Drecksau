@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { advance, enemiesLeft, playerTank, restart, step } from "./engine";
-import { LEVELS } from "./levels";
+import { ENDLESS_LEVEL, LEVELS } from "./levels";
 import { createRandom } from "./random";
 import {
   createGame,
@@ -48,6 +48,10 @@ function humanTank(x: number, y: number): Tank {
     reloadUntil: 0,
     heading: 0,
     headingUntil: 0,
+    shieldUntil: 0,
+    rapidUntil: 0,
+    scatterUntil: 0,
+    hitsLeft: 1,
   };
 }
 
@@ -63,6 +67,10 @@ function idleEnemy(id: string, x: number, y: number): Tank {
     reloadUntil: Number.MAX_SAFE_INTEGER,
     heading: 0,
     headingUntil: Number.MAX_SAFE_INTEGER,
+    shieldUntil: 0,
+    rapidUntil: 0,
+    scatterUntil: 0,
+    hitsLeft: 1,
   };
 }
 
@@ -87,8 +95,13 @@ function openState(over: Partial<GameState> = {}): GameState {
     tanks: [],
     bullets: [],
     mines: [],
+    pickups: [],
     explosions: [],
     marks: [],
+    shotsFired: 0,
+    shotsHit: 0,
+    wave: 0,
+    nextWaveAt: null,
     trails: [],
     level: 0,
     lives: LIVES_START,
@@ -291,6 +304,10 @@ describe("player movement", () => {
           reloadUntil: 0,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -336,6 +353,10 @@ describe("shells", () => {
           reloadUntil: 0,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -361,7 +382,8 @@ describe("shells", () => {
 
   it("destroy an enemy they reach", () => {
     const game = openState({
-      level: LEVELS.length - 1, // on the last level, so clearing it wins
+      // The last campaign level - the boss level; clearing it wins the game.
+      level: ENDLESS_LEVEL - 1,
 
       bullets: [
         {
@@ -388,12 +410,16 @@ describe("shells", () => {
           reloadUntil: 0,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
     const after = step(game, IDLE, 0.016);
     expect(enemiesLeft(after)).toBe(0);
-    // The last (and only) enemy is gone -> the mission is won.
+    // The last (and only) enemy is gone -> the campaign is won.
     expect(after.phase).toBe("won");
     // A white-X mark is left where the enemy stood.
     expect(after.marks).toHaveLength(1);
@@ -416,6 +442,10 @@ describe("mines", () => {
           reloadUntil: 0,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
       mines: [
@@ -468,6 +498,10 @@ describe("mines", () => {
           reloadUntil: 0,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -494,6 +528,10 @@ describe("yellow tank", () => {
           reloadUntil: Number.MAX_SAFE_INTEGER, // never shoots, so it just roams
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
         {
           id: "player",
@@ -505,6 +543,10 @@ describe("yellow tank", () => {
           reloadUntil: Number.MAX_SAFE_INTEGER,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -541,6 +583,10 @@ describe("green tank", () => {
           reloadUntil: 0,
           heading: 0,
           headingUntil: Number.MAX_SAFE_INTEGER,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
         {
           id: "player",
@@ -552,6 +598,10 @@ describe("green tank", () => {
           reloadUntil: Number.MAX_SAFE_INTEGER,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -610,6 +660,10 @@ describe("destructible walls", () => {
           reloadUntil: 0,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -651,6 +705,10 @@ describe("holes", () => {
           reloadUntil: 0,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -695,6 +753,10 @@ describe("holes", () => {
           reloadUntil: Number.MAX_SAFE_INTEGER,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -736,6 +798,10 @@ describe("lives", () => {
           reloadUntil: 0,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -771,6 +837,10 @@ describe("lives", () => {
           reloadUntil: 0,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -946,6 +1016,10 @@ describe("enemy aiming", () => {
           reloadUntil: 0,
           heading: Math.PI / 2, // driving straight down
           headingUntil: Number.MAX_SAFE_INTEGER, // keep that heading
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
         {
           id: "player",
@@ -957,6 +1031,10 @@ describe("enemy aiming", () => {
           reloadUntil: Number.MAX_SAFE_INTEGER,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -978,6 +1056,10 @@ describe("enemy aiming", () => {
           reloadUntil: Number.MAX_SAFE_INTEGER, // just aim
           heading: 0,
           headingUntil: Number.MAX_SAFE_INTEGER,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
         {
           id: "player",
@@ -989,6 +1071,10 @@ describe("enemy aiming", () => {
           reloadUntil: Number.MAX_SAFE_INTEGER,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
         {
           id: "player2",
@@ -1000,6 +1086,10 @@ describe("enemy aiming", () => {
           reloadUntil: Number.MAX_SAFE_INTEGER,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });
@@ -1021,6 +1111,10 @@ describe("enemy aiming", () => {
           reloadUntil: Number.MAX_SAFE_INTEGER, // just aim, do not shoot
           heading: Math.PI / 2, // had been driving down
           headingUntil: Number.MAX_SAFE_INTEGER,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
         {
           id: "player",
@@ -1032,6 +1126,10 @@ describe("enemy aiming", () => {
           reloadUntil: Number.MAX_SAFE_INTEGER,
           heading: 0,
           headingUntil: 0,
+          shieldUntil: 0,
+          rapidUntil: 0,
+          scatterUntil: 0,
+          hitsLeft: 1,
         },
       ],
     });

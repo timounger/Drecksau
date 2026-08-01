@@ -24,6 +24,7 @@ import type {
   Input,
   Mine,
   Phase,
+  Pickup,
   Tank,
   Vec,
 } from "@/games/panzerkiste/engine/types";
@@ -62,6 +63,8 @@ export type NetSnapshot = {
   readonly mines: readonly Mine[];
   readonly explosions: readonly Explosion[];
   readonly marks: readonly Vec[];
+  /** Items lying about - the guest has to see what it can drive onto. */
+  readonly pickups: readonly Pickup[];
 };
 
 /**
@@ -95,6 +98,7 @@ export function toSnapshot(state: GameState): NetSnapshot {
     mines: state.mines,
     explosions: state.explosions,
     marks: state.marks,
+    pickups: state.pickups,
   };
 }
 
@@ -121,6 +125,7 @@ export function fromSnapshot(snap: NetSnapshot): GameState {
     mines: snap.mines,
     explosions: snap.explosions,
     marks: snap.marks,
+    pickups: snap.pickups,
     trails: [],
     level: snap.level,
     lives: snap.lives,
@@ -165,7 +170,8 @@ function isNetSnapshot(value: unknown): value is NetSnapshot {
     Array.isArray(snap.bullets) &&
     Array.isArray(snap.mines) &&
     Array.isArray(snap.explosions) &&
-    Array.isArray(snap.marks)
+    Array.isArray(snap.marks) &&
+    Array.isArray(snap.pickups)
   );
 }
 

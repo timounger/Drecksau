@@ -3,9 +3,21 @@
  *
  * @module
  */
-import { LEVELS, type LevelMap } from "./levels";
+import {
+  endlessMap,
+  endlessNumber,
+  isEndless,
+  LEVELS,
+  type LevelMap,
+} from "./levels";
 import { createRandom, type RandomState } from "./random";
-import { TILE, type GameState, type Tank, type TankKind } from "./types";
+import {
+  BOSS_HITS,
+  TILE,
+  type GameState,
+  type Tank,
+  type TankKind,
+} from "./types";
 
 /** Lives the player starts a mission with. */
 export const LIVES_START = 3;
@@ -40,6 +52,8 @@ const SPAWN_KIND: Readonly<Record<string, TankKind>> = {
   Y: "yellow",
   L: "purple",
   I: "invisible",
+  S: "black",
+  O: "boss",
 };
 
 /**
@@ -99,7 +113,8 @@ export function loadLevel(
   random: RandomState,
   players = 1,
 ): GameState {
-  const parsed = parseLevel(LEVELS[level]);
+  // Past the campaign every index is an arena, all on the same map.
+  const parsed = parseLevel(isEndless(level) ? endlessMap() : LEVELS[level]);
   const tanks = [...parsed.tanks];
   const state: GameState = {
     cols: parsed.cols,
@@ -111,7 +126,14 @@ export function loadLevel(
     bullets: [],
     mines: [],
     explosions: [],
+    pickups: [],
     marks: [],
+    shotsFired: 0,
+    shotsHit: 0,
+    // Arena n opens at wave n: the wave counter starts one short, and the first
+    // one sent is the one the arena is named after.
+    wave: isEndless(level) ? endlessNumber(level) - 1 : 0,
+    nextWaveAt: null,
     trails: [],
     level,
     lives,
@@ -242,5 +264,9 @@ function makeTank(id: string, kind: TankKind, col: number, row: number): Tank {
     reloadUntil: 0,
     heading: 0,
     headingUntil: 0,
+    shieldUntil: 0,
+    rapidUntil: 0,
+    scatterUntil: 0,
+    hitsLeft: kind === "boss" ? BOSS_HITS : 1,
   };
 }
