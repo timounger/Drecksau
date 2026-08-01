@@ -78,6 +78,15 @@ export function SkyjoTable({
   botSeats = [],
 }: SkyjoTableProps): ReactElement {
   const [pending, setPending] = useState<Pending>("none");
+  // A half-made choice must not outlive the turn it was made in: online the
+  // computer may play a seat that dithers, and the stale "picked" would
+  // otherwise make the next tap take a card nobody asked for. Adjusting state
+  // during render is React's own answer to "reset when a prop changes".
+  const [seenTurn, setSeenTurn] = useState(game.turn);
+  if (seenTurn !== game.turn) {
+    setSeenTurn(game.turn);
+    setPending("none");
+  }
   const myTurn =
     mySeat !== null &&
     game.turn === mySeat &&
@@ -126,7 +135,15 @@ export function SkyjoTable({
     }
   };
 
-  /** Touching the draw pile turns a card over onto the discard pile. */
+  /**
+   * Touching the draw pile turns a card over onto the discard pile.
+   *
+   * @remarks
+   * One thing, once a turn. It goes dead the moment a card is out, because a
+   * second tap there would have nothing left to do: whether you then take that
+   * card or leave it is decided by what you touch next, not by tapping the pile
+   * it came from again.
+   */
   const tapDeck = () => {
     if (myTurn && game.phase === "turn" && game.drawn === null) {
       play({ kind: "draw" });
@@ -134,16 +151,18 @@ export function SkyjoTable({
   };
 
   /**
-   * Touching the discard pile picks its top card up, or puts it back.
+   * Touching the discard pile takes its top card into your hand.
    *
    * @remarks
-   * The same either way, whether that card was just drawn or had been lying
-   * there - which is exactly how it works on a real table.
+   * Always takes, never puts back. Tapping the card you want reads as "I'll
+   * have that one" and nothing else, whether it was just drawn or had been
+   * lying there - so tapping twice must not quietly undo the first tap. To
+   * leave a drawn card, tap the draw pile.
    */
   const tapDiscard = () => {
     const something = holding || topOf(game.discard) !== null;
     if (myTurn && game.phase === "turn" && something) {
-      setPending(picked ? "none" : "picked");
+      setPending("picked");
     }
   };
 
@@ -301,7 +320,7 @@ function Pile({
   readonly children: ReactElement;
 }): ReactElement {
   const ring = highlighted
-    ? " rounded-xl ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-zinc-950"
+    ? " rounded-xl ring-4 ring-emerald-500 ring-offset-2 drop-shadow-lg dark:ring-offset-zinc-950"
     : "";
   const hint = clickable
     ? " cursor-pointer hover:scale-105 hover:brightness-105"
@@ -319,8 +338,14 @@ function Pile({
       >
         {children}
       </button>
-      <span className="h-4 text-xs tabular-nums text-zinc-400">
-        {note ?? ""}
+      <span
+        className={`h-4 text-xs tabular-nums ${
+          highlighted
+            ? "font-semibold text-emerald-600 dark:text-emerald-400"
+            : "text-zinc-400"
+        }`}
+      >
+        {highlighted ? T.inHand : (note ?? "")}
       </span>
     </div>
   );

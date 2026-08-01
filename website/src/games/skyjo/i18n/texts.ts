@@ -40,9 +40,11 @@ export const SKYJO_TEXTS = {
   openingHint: "Decke zwei deiner Karten auf.",
   chooseSource:
     "Tippe auf den Ablagestapel, um die offene Karte zu nehmen - oder auf den Nachziehstapel.",
-  placeHint: "Tippe auf die Karte, die du ersetzen willst.",
+  /** Sits under the pile whose top card you are holding. */
+  inHand: "in der Hand",
+  placeHint: "Du hast die Karte in der Hand - tippe auf die, die weg soll.",
   drawnHint:
-    "Tippe auf die Karte auf dem Ablagestapel, um sie zu nehmen - oder decke direkt eine eigene Karte auf.",
+    "Tippe die Karte auf dem Ablagestapel an, um sie zu nehmen - oder decke eine eigene verdeckte Karte auf, dann bleibt sie liegen.",
   flipHint: "Tippe auf eine verdeckte Karte, um sie aufzudecken.",
   deck: "Nachziehstapel",
   discard: "Ablagestapel",

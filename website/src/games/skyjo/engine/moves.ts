@@ -279,7 +279,7 @@ function swapDrawn(
       index,
       card,
       replaced,
-      `${game.players[seat].name} legt die ${card} ab.`,
+      `${game.players[seat].name} tauscht die ${card} ein.`,
     );
   }
   return next;

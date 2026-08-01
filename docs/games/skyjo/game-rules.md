@@ -59,18 +59,28 @@ Der Zug wird durch Antippen der Stapel gespielt, es gibt keine Knöpfe dafür.
 Eine gezogene Karte landet dabei einfach auf dem Ablagestapel - sie ist **nicht
 als gezogen gekennzeichnet**, genau wie am echten Tisch.
 
-| Tippen auf …                 | Was passiert                                                 |
-| ---------------------------- | ------------------------------------------------------------ |
-| **Nachziehstapel**           | Die gezogene Karte kommt offen auf den Ablagestapel.         |
-| **Ablagestapel**             | Die oberste Karte wird aufgenommen und markiert.             |
-| eine **eigene Karte** danach | Sie wird gegen die aufgenommene getauscht.                   |
-| **Ablagestapel** erneut      | Die Karte wird wieder hingelegt, die Auswahl ist aufgehoben. |
+| Tippen auf …                                           | Was passiert                                                                 |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| **Nachziehstapel**                                     | Die Karte kommt offen auf den Ablagestapel. Danach ist der Stapel tot.       |
+| **Ablagestapel**                                       | Die oberste Karte kommt in die Hand (mehrfaches Tippen ändert daran nichts). |
+| eine **eigene Karte** mit Karte in der Hand            | Sie wird gegen die Karte in der Hand getauscht.                              |
+| eine eigene **verdeckte** Karte ohne Karte in der Hand | Sie wird aufgedeckt; eine gezogene Karte bleibt damit liegen.                |
 
-Der Ablagestapel verhält sich also **immer gleich**, egal ob die oberste Karte
-gerade gezogen wurde oder schon lag.
+Drei Festlegungen stecken darin, jede aus einem echten Fehlgriff entstanden:
 
-Um eine gezogene Karte **nicht** zu nehmen, tippt man ohne Umweg direkt auf eine
-eigene verdeckte Karte: sie wird aufgedeckt, die gezogene bleibt liegen.
+**Der Nachziehstapel geht genau einmal.** Danach ist er aus. Ein zweites Tippen
+hatte kurzzeitig eine unsichtbare Bedeutung („Karte doch liegen lassen") - man
+sah davon nichts, weil die Karte so oder so offen auf dem Ablagestapel liegt.
+
+**Der Ablagestapel nimmt nur auf, er legt nie hin.** Auf die Karte zu tippen, die
+man haben will, heißt „die nehme ich" - und sonst nichts. Ein zweites Tippen darf
+das erste deshalb nicht wieder aufheben; genau das hat vorher Karten still
+verschwinden lassen.
+
+**Was man in der Hand hat, ist zu sehen.** Die aufgenommene Karte bekommt einen
+kräftigen Rahmen und darunter steht **in der Hand**. Ohne dieses Zeichen tippt
+man ein zweites Mal, weil scheinbar nichts passiert ist - und das war der Weg in
+den Fehler.
 
 ## Die Spalten-Regel
 
