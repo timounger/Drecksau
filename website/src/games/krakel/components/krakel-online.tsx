@@ -242,7 +242,7 @@ export function KrakelOnlineScreen(): ReactElement {
         />
       );
   } else {
-    body = <PlayingArea online={online} onLeave={leave} />;
+    body = <PlayingArea online={online} code={session.code} onLeave={leave} />;
   }
 
   return (
@@ -739,17 +739,23 @@ function SearchingLobby({
 /** Props of {@link PlayingArea}. */
 type PlayingAreaProps = {
   readonly online: KrakelOnline;
+  /** The room code, for the voice chat's own corner of the room. */
+  readonly code: string;
   readonly onLeave: () => void;
 };
 
 /** The running game: the board plus a leave button. */
-function PlayingArea({ online, onLeave }: PlayingAreaProps): ReactElement {
+function PlayingArea({
+  online,
+  code,
+  onLeave,
+}: PlayingAreaProps): ReactElement {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-end">
         <LeaveButton onLeave={onLeave} />
       </div>
-      <KrakelBoard online={online} />
+      <KrakelBoard online={online} code={code} />
     </div>
   );
 }

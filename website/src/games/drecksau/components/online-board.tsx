@@ -46,6 +46,8 @@ import {
 import { GameLog } from "./game-log";
 import { GameResultOverlay, type GameOutcome } from "./game-result-overlay";
 import { HandCardView } from "./hand-card-view";
+import { VoiceChat } from "@/online/voice-chat";
+import { drecksauAdapter } from "@/games/drecksau/multiplayer/adapter";
 import { OnlineChat } from "@/online/online-chat";
 import { PlayerBoard } from "./player-board";
 
@@ -307,6 +309,12 @@ export function OnlineBoard({
           </section>
 
           {/* Chat sits right under the hand, newest line on top. */}
+          <VoiceChat
+            gameId={drecksauAdapter.gameId}
+            code={room.code}
+            seatId={seatId}
+            seats={room.seats}
+          />
           <OnlineChat
             messages={messages}
             ownSeatId={seatId}

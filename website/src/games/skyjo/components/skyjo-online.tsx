@@ -49,6 +49,7 @@ import {
   type Wish,
 } from "@/online/matchmaking";
 import { OnlineChat, type OnlineChatTexts } from "@/online/online-chat";
+import { VoiceChat } from "@/online/voice-chat";
 import {
   generateRoomCode,
   isValidRoomCode,
@@ -688,6 +689,12 @@ function Playing({
 
       <aside className="flex w-full flex-col gap-3 lg:w-72">
         <LeaveButton onLeave={onLeave} />
+        <VoiceChat
+          gameId={GAME_ID}
+          code={room.room?.code ?? ""}
+          seatId={room.seatId}
+          seats={seats}
+        />
         <OnlineChat
           messages={room.messages}
           ownSeatId={room.seatId}

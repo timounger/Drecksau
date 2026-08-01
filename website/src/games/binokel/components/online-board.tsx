@@ -34,6 +34,8 @@ import {
 } from "@/games/binokel/multiplayer/adapter";
 import type { RoomState, SeatId } from "@/online/adapter";
 import type { ChatMessage } from "@/online/transport";
+import { VoiceChat } from "@/online/voice-chat";
+import { binokelAdapter } from "@/games/binokel/multiplayer/adapter";
 import { OnlineChat } from "@/online/online-chat";
 import {
   getBinokelSettingsSnapshot,
@@ -179,6 +181,12 @@ export function OnlineBoard({
           discardMode={settings.discardMode}
         />
 
+        <VoiceChat
+          gameId={binokelAdapter.gameId}
+          code={room.code}
+          seatId={seatId}
+          seats={room.seats}
+        />
         <OnlineChat
           messages={messages}
           ownSeatId={seatId}

@@ -7,6 +7,8 @@
 "use client";
 
 import { useEffect, useState, type ReactElement } from "react";
+import { VoiceChat } from "@/online/voice-chat";
+import { KRAKEL_GAME_ID } from "@/games/krakel/multiplayer/net";
 import { OnlineChat, type OnlineChatTexts } from "@/online/online-chat";
 import {
   DRAW_SECONDS,
@@ -89,8 +91,11 @@ const DOT_STEP_PX = 4;
  */
 export function KrakelBoard({
   online,
+  code,
 }: {
   online: KrakelOnline;
+  /** The room code, for the voice chat's own corner of the room. */
+  readonly code: string;
 }): ReactElement {
   const {
     view,
@@ -137,6 +142,12 @@ export function KrakelBoard({
       <aside className="flex w-full flex-col gap-3 lg:w-80">
         {view !== null && <Status view={view} />}
         {view !== null && <TeamScore view={view} />}
+        <VoiceChat
+          gameId={KRAKEL_GAME_ID}
+          code={code}
+          seatId={online.seatId}
+          seats={online.seats}
+        />
         <OnlineChat
           messages={messages}
           ownSeatId={seatId}

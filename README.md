@@ -73,6 +73,33 @@ website/src/
 Die Spiellogik eines Spiels ist von der Oberflaeche getrennt und rein
 funktional: jeder Zug erzeugt einen neuen Zustand, testbar ohne Browser.
 
+## Sprachchat
+
+Alle Online-Spiele haben einen **Sprachchat**. Der Ton geht **direkt von
+Gerät zu Gerät** (WebRTC) und nicht über einen Server - was auch der einzige
+Weg ist, denn hinter dieser Seite steht keiner. Der Raum, den ihr ohnehin
+teilt, dient nur dazu, dass sich die Browser finden.
+
+**Stumm ist der Anfangszustand**, und das Mikrofon wird gar nicht erst
+angefragt, bis jemand zum ersten Mal auf „Mikro an" drückt. Wer nie sprechen
+will, bekommt nie einen Berechtigungsdialog. Zuhören läuft von selbst.
+
+Neben jedem Mitspieler steht, ob die Leitung steht. Das ist kein Schmuck: Bei
+manchen Netzen kommen zwei Geräte nicht direkt zueinander, und dann braucht es
+einen **Relais-Server (TURN)** - das einzige Stück, das eine statisch gehostete
+Seite nicht selbst mitbringen kann. Ohne einen solchen Server bleibt es für
+diese wenigen still, und dann soll wenigstens dastehen, warum.
+
+Ein Relais wird über Umgebungsvariablen eingehängt, falls du eins hast:
+
+```bash
+NEXT_PUBLIC_TURN_URL=turns:beispiel.de:5349
+NEXT_PUBLIC_TURN_USER=benutzer
+NEXT_PUBLIC_TURN_PASSWORD=geheim
+```
+
+Ohne diese Angaben läuft alles Übrige unverändert weiter.
+
 ## Speicherung und Statistik
 
 Spielstaende und Statistik liegen im **localStorage**, nicht in Cookies: Ein

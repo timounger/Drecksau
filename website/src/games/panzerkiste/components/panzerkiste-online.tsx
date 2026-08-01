@@ -34,6 +34,7 @@ import {
 } from "@/online/room-code";
 import { useOnlineCount } from "@/online/use-online-presence";
 import { OnlineChat, type OnlineChatTexts } from "@/online/online-chat";
+import { VoiceChat } from "@/online/voice-chat";
 import {
   loadPlayerName,
   savePlayerName,
@@ -197,7 +198,7 @@ export function PanzerkisteOnline(): ReactElement {
         <OnlineLobby online={online} code={session.code} onLeave={leave} />
       );
   } else {
-    body = <PlayingArea online={online} onLeave={leave} />;
+    body = <PlayingArea online={online} code={session.code} onLeave={leave} />;
   }
 
   return (
@@ -562,12 +563,18 @@ function SearchingLobby({
 /** Props of {@link PlayingArea}. */
 type PlayingAreaProps = {
   readonly online: PanzerkisteOnline;
+  /** The room code, for the voice chat's own corner of the room. */
+  readonly code: string;
   readonly onLeave: () => void;
 };
 
 /** The running game: the canvas board, the HUD, chat and a leave button. */
-function PlayingArea({ online, onLeave }: PlayingAreaProps): ReactElement {
-  const { hud, banner, canvasRef, messages, seatId, sendChat } = online;
+function PlayingArea({
+  online,
+  code,
+  onLeave,
+}: PlayingAreaProps): ReactElement {
+  const { hud, banner, canvasRef, messages, seatId, seats, sendChat } = online;
   const fieldRef = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreen(fieldRef);
 
@@ -621,6 +628,12 @@ function PlayingArea({ online, onLeave }: PlayingAreaProps): ReactElement {
         {T.controlsHint}
       </p>
 
+      <VoiceChat
+        gameId={PANZERKISTE_GAME_ID}
+        code={code}
+        seatId={seatId}
+        seats={seats}
+      />
       <OnlineChat
         messages={messages}
         ownSeatId={seatId}
