@@ -202,7 +202,14 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
   /** One open call. */
   type Call = {
     readonly pc: RTCPeerConnection;
-    readonly sender: RTCRtpSender;
+    /**
+     * Where our microphone goes, once the audio line exists.
+     *
+     * @remarks
+     * Null until then. The caller sets its line up itself; the side that picks
+     * up only gets one when the offer arrives - see {@link receive}.
+     */
+    sender: RTCRtpSender | null;
     readonly audio: HTMLAudioElement;
     link: VoiceLink;
   };
@@ -225,25 +232,23 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
     await push(ref(database, `${mailPath}/${to}`), JSON.stringify(signal));
   };
 
+  /** Hands the microphone to a call, if there is one and it has a line yet. */
+  const attachMic = (call: Call): void => {
+    if (call.sender !== null) {
+      void call.sender.replaceTrack(mic?.getAudioTracks()[0] ?? null);
+    }
+  };
+
   /** Opens a call to a peer, offering first if this side is the caller. */
   const open = (peerId: SeatId): Call => {
     const pc = new RTCPeerConnection({ iceServers: iceServers() });
-    // Set up as send-and-receive from the start, with nothing to send yet.
-    // Handing the microphone to this sender later needs no new negotiation,
-    // which is what keeps unmuting from renegotiating the whole call.
-    const transceiver = pc.addTransceiver("audio", { direction: "sendrecv" });
 
     const audio = document.createElement("audio");
     audio.autoplay = true;
     audio.style.display = "none";
     document.body.append(audio);
 
-    const call: Call = {
-      pc,
-      sender: transceiver.sender,
-      audio,
-      link: "connecting",
-    };
+    const call: Call = { pc, sender: null, audio, link: "connecting" };
     calls.set(peerId, call);
 
     pc.addEventListener("icecandidate", (event) => {
@@ -268,6 +273,14 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
     });
 
     if (callsFirst(selfId, peerId)) {
+      // Only the caller opens the audio line. Set up as send-and-receive from
+      // the start with nothing to send yet: handing the microphone to this
+      // sender later needs no new negotiation, which is what keeps unmuting
+      // from renegotiating the whole call.
+      call.sender = pc.addTransceiver("audio", {
+        direction: "sendrecv",
+      }).sender;
+      attachMic(call);
       void (async () => {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -277,9 +290,6 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
           data: JSON.stringify(pc.localDescription),
         });
       })();
-    }
-    if (mic !== null) {
-      void call.sender.replaceTrack(mic.getAudioTracks()[0] ?? null);
     }
     return call;
   };
@@ -306,6 +316,22 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
       await call.pc.setRemoteDescription(
         JSON.parse(signal.data) as RTCSessionDescriptionInit,
       );
+      // The offer brought the audio line with it. Two things matter here, and
+      // getting either wrong leaves half the room mute:
+      //
+      // - The line must **not** be added before this point. A transceiver of
+      //   our own would negotiate a second, one-way line beside the offered
+      //   one.
+      // - It arrives as receive-only, because at that moment we have nothing
+      //   to send. Left that way, this side can hear but is never heard.
+      const line = call.pc
+        .getTransceivers()
+        .find((each) => each.receiver.track.kind === "audio");
+      if (line !== undefined) {
+        line.direction = "sendrecv";
+        call.sender = line.sender;
+        attachMic(call);
+      }
       const answer = await call.pc.createAnswer();
       await call.pc.setLocalDescription(answer);
       await post(signal.from, {
@@ -367,18 +393,14 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
   const setMicOn = async (on: boolean): Promise<void> => {
     if (on) {
       mic ??= await navigator.mediaDevices.getUserMedia(MIC_WANTED);
-      const track = mic.getAudioTracks()[0] ?? null;
-      await Promise.all(
-        [...calls.values()].map((call) => call.sender.replaceTrack(track)),
-      );
     } else {
-      await Promise.all(
-        [...calls.values()].map((call) => call.sender.replaceTrack(null)),
-      );
       for (const track of mic?.getTracks() ?? []) {
         track.stop();
       }
       mic = null;
+    }
+    for (const call of calls.values()) {
+      attachMic(call);
     }
   };
 
