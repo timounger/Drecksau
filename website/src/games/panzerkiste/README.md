@@ -69,6 +69,18 @@ andere auf dem Feld, und er feuert schnelle Raketen im kurzen Takt, die einmal
 abprallen. Deckung kauft gegen ihn deutlich weniger Zeit als gegen alle
 anderen.
 
+## Lautstärke
+
+Über dem Feld sitzt ein Regler für die **Spielgeräusche**. Beim ersten Besuch
+steht er auf **halber** Lautstärke, und wo du ihn hinschiebst, steht er beim
+nächsten Aufruf wieder - solo wie online.
+
+Der **Sprachchat hängt nicht daran**. Er läuft über eigene Audio-Elemente und
+hat online seinen **eigenen Regler** unter dem Mikrofonknopf. Man kann die
+Panzer stumm schalten und sich trotzdem weiter unterhalten - oder umgekehrt.
+Beide Regler gelten nur für den eigenen Rechner: Jeder stellt sich selbst ein,
+was er hören will.
+
 ## Koop online
 
 Unter `/panzerkiste/online` geht es **zu zweit im Koop** durch dieselben

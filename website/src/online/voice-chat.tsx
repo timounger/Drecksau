@@ -13,13 +13,20 @@
  */
 "use client";
 
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactElement,
+} from "react";
 import { database } from "@/online/firebase-app";
 import {
   createVoiceRoom,
   type VoicePeer,
   type VoiceRoom,
 } from "@/online/voice";
+import { voiceVolume } from "@/online/voice-volume";
 import type { Seat, SeatId } from "@/online/adapter";
 
 /** German labels of the voice control. */
@@ -30,6 +37,10 @@ const T = {
   muted: "Du bist stumm",
   live: "Du bist zu hören",
   denied: "Kein Zugriff aufs Mikrofon.",
+  volumeLabel: "Lautstärke der anderen",
+  volumeTitle: "Wie laut du die anderen hörst (nicht die Geräusche des Spiels)",
+  volumePercent: (n: number) => `${n} %`,
+  volumeMuted: "Stumm",
   connecting: "verbindet …",
   connected: "verbunden",
   lost: "kein Ton",
@@ -64,6 +75,11 @@ export function VoiceChat({
   const [peers, setPeers] = useState<readonly VoicePeer[]>([]);
   const [micOn, setMicOn] = useState(false);
   const [denied, setDenied] = useState(false);
+  const volume = useSyncExternalStore(
+    voiceVolume.subscribe,
+    voiceVolume.getSnapshot,
+    voiceVolume.getServerSnapshot,
+  );
 
   useEffect(() => {
     if (seatId === null) {
@@ -75,6 +91,9 @@ export function VoiceChat({
       code,
       selfId: seatId,
       onPeers: setPeers,
+      // Read here rather than passed in: a room opened after the slider was
+      // moved has to start where it was left, not at full.
+      volume: voiceVolume.load(),
     });
     roomRef.current = room;
     return () => {
@@ -82,6 +101,12 @@ export function VoiceChat({
       room.close();
     };
   }, [gameId, code, seatId]);
+
+  // Follow the slider while the room is open. Runs after the effect above, so
+  // the room is already there on the first pass.
+  useEffect(() => {
+    roomRef.current?.setVolume(volume);
+  }, [volume]);
 
   if (seatId === null) {
     return null;
@@ -117,8 +142,10 @@ export function VoiceChat({
           onClick={toggle}
           aria-pressed={micOn}
           className={
+            // Red while live, nothing while muted: the button must not say
+            // green where the state above says red.
             micOn
-              ? "cursor-pointer rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
+              ? "cursor-pointer rounded-lg border border-red-500 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60"
               : "cursor-pointer rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
           }
         >
@@ -128,10 +155,17 @@ export function VoiceChat({
 
       <p
         data-testid="voice-own-state"
-        className="text-xs text-zinc-500 dark:text-zinc-400"
+        className={
+          micOn
+            ? "flex items-center gap-2 font-semibold text-red-600 dark:text-red-400"
+            : "flex items-center gap-2 text-zinc-400 dark:text-zinc-500"
+        }
       >
+        <MicIcon live={micOn} />
         {micOn ? T.live : T.muted}
       </p>
+
+      <VoiceVolume volume={volume} />
       {denied && (
         <p className="text-xs text-red-600 dark:text-red-400">{T.denied}</p>
       )}
@@ -154,6 +188,80 @@ export function VoiceChat({
 
       <p className="text-xs text-zinc-400 dark:text-zinc-500">{T.hint}</p>
     </section>
+  );
+}
+
+/**
+ * A microphone, red when it is live and greyed out with a stroke when it is not.
+ *
+ * @param props - whether the microphone is currently sending
+ * @returns the icon
+ * @remarks
+ * Drawn rather than taken from the emoji font: an emoji cannot be recoloured,
+ * and the colour is the whole point here. Red is what a recording light looks
+ * like everywhere else, and the stroke says "off" even to somebody who cannot
+ * tell the two colours apart.
+ */
+function MicIcon({ live }: { live: boolean }): ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      data-testid="voice-mic-icon"
+      data-state={live ? "live" : "muted"}
+      className="h-5 w-5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="9" y="2" width="6" height="11" rx="3" />
+      <path d="M5 10v2a7 7 0 0 0 14 0v-2" />
+      <path d="M12 19v3" />
+      {!live && <path d="m3 3 18 18" />}
+    </svg>
+  );
+}
+
+/** Steps the slider offers between silence and full, so it lands on round numbers. */
+const STEPS = 20;
+
+/** Turning 0..1 into whole percent for the label. */
+const PERCENT = 100;
+
+/**
+ * The slider for how loud everybody else is.
+ *
+ * @param props - the current volume, from the shared store
+ * @returns the slider row
+ */
+function VoiceVolume({ volume }: { volume: number }): ReactElement {
+  return (
+    <label
+      title={T.volumeTitle}
+      className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
+    >
+      <span aria-hidden="true">{volume === 0 ? "\u{1F507}" : "\u{1F50A}"}</span>
+      <span className="sr-only">{T.volumeLabel}</span>
+      <input
+        type="range"
+        min={0}
+        max={STEPS}
+        step={1}
+        value={Math.round(volume * STEPS)}
+        data-testid="voice-volume"
+        onChange={(event) =>
+          voiceVolume.save(Number(event.target.value) / STEPS)
+        }
+        className="h-1 w-28 cursor-pointer accent-emerald-600"
+      />
+      <span className="w-10 text-right tabular-nums">
+        {volume === 0
+          ? T.volumeMuted
+          : T.volumePercent(Math.round(volume * PERCENT))}
+      </span>
+    </label>
   );
 }
 

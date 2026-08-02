@@ -47,6 +47,11 @@ export const PANZERKISTE_TEXTS = {
   lost: "Dein Panzer wurde getroffen.",
   playAgain: "Nochmal",
   restart: "Neustart",
+  // Sound volume slider (game sounds only, never the voice chat)
+  volumeLabel: "Lautstärke",
+  volumeTitle: "Lautstärke der Spielgeräusche (nicht des Sprachchats)",
+  volumePercent: (n: number) => `${n} %`,
+  volumeMuted: "Stumm",
   // Navigation
   online: "Online spielen",
   fullscreen: "Vollbild",

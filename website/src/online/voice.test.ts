@@ -9,7 +9,7 @@
  * and a broken line dressed up as a working one.
  */
 import { describe, expect, it } from "vitest";
-import { callsFirst, linkOf, peerChanges } from "./voice";
+import { callsFirst, clampVolume, linkOf, peerChanges } from "./voice";
 
 describe("who calls whom", () => {
   it("makes exactly one side of a pair the caller", () => {
@@ -77,5 +77,25 @@ describe("keeping up with who is there", () => {
     const changes = peerChanges(["b"], ["me", "c", "d"], "me");
     expect(new Set(changes.call)).toEqual(new Set(["c", "d"]));
     expect(changes.drop).toEqual(["b"]);
+  });
+});
+
+describe("how loud the others are", () => {
+  it("passes a wanted volume through untouched", () => {
+    expect(clampVolume(0.4)).toBe(0.4);
+    expect(clampVolume(0)).toBe(0);
+  });
+
+  it("holds a value inside what an audio element accepts", () => {
+    // An element throws on anything outside 0..1, which would take the whole
+    // room down over a slider.
+    expect(clampVolume(4)).toBe(1);
+    expect(clampVolume(-2)).toBe(0);
+  });
+
+  it("stays audible when handed something unusable", () => {
+    // Silence is the wrong guess here: a broken value must not quietly cut
+    // everybody off with no way to tell why.
+    expect(clampVolume(Number.NaN)).toBe(1);
   });
 });

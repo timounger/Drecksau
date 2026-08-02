@@ -45,6 +45,7 @@ import {
 import { createSmoke, stepSmoke } from "@/games/panzerkiste/components/smoke";
 import { detectSounds } from "@/games/panzerkiste/audio/events";
 import { createSoundPlayer } from "@/games/panzerkiste/audio/sounds";
+import { gameVolume } from "@/games/panzerkiste/settings/sound-volume";
 import {
   ROUND_BANNER_MS,
   type Banner,
@@ -477,7 +478,11 @@ export function usePanzerkisteOnline(
     // View-only dust/smoke trailing the shells.
     const smoke = createSmoke();
     // Sound effects, driven by comparing successive states this client sees.
-    const sound = createSoundPlayer();
+    const sound = createSoundPlayer(gameVolume.load());
+    // The slider lives outside this loop, so follow it while the game runs.
+    const stopVolume = gameVolume.subscribe(() =>
+      sound.setVolume(gameVolume.load()),
+    );
     let soundPrev: GameState | null = null;
     let announcedStart = false;
     const emitSounds = (cur: GameState, isPlaying: boolean): void => {
@@ -594,6 +599,7 @@ export function usePanzerkisteOnline(
     return () => {
       window.cancelAnimationFrame(raf);
       clearTimeout(bannerTimer.current);
+      stopVolume();
       sound.dispose();
       touch.dispose();
       canvas.removeEventListener("mousemove", aimAt);

@@ -43,6 +43,14 @@ export type SoundPlayer = {
   play(sound: OneShot): void;
   /** Turns the looping "own tank moving" hum on or off. */
   setMoving(on: boolean): void;
+  /**
+   * Sets how loud the game's own sounds are, from 0 to 1.
+   *
+   * @remarks
+   * The voice chat is untouched by this: it plays through its own elements, so
+   * turning the tanks down never turns a partner down with them.
+   */
+  setVolume(volume: number): void;
   /** Stops everything and releases the looping element. */
   dispose(): void;
 };
@@ -51,15 +59,17 @@ export type SoundPlayer = {
 const SILENT: SoundPlayer = {
   play(): void {},
   setMoving(): void {},
+  setVolume(): void {},
   dispose(): void {},
 };
 
 /**
  * Creates a sound player bound to the browser's audio.
  *
+ * @param volume - how loud to start, 0 to 1
  * @returns a player, or a silent stand-in when there is no Audio (server-side)
  */
-export function createSoundPlayer(): SoundPlayer {
+export function createSoundPlayer(volume = 1): SoundPlayer {
   if (typeof Audio === "undefined") {
     return SILENT;
   }
@@ -67,10 +77,15 @@ export function createSoundPlayer(): SoundPlayer {
   const move = new Audio(urlOf(FILES.move));
   move.loop = true;
   let moving = false;
+  // Held here rather than read from storage on every shot: a one-shot builds a
+  // fresh element each time, and each one has to be turned down as it is made.
+  let level = clamp(volume);
+  move.volume = level;
 
   return {
     play(sound: OneShot): void {
       const element = new Audio(urlOf(FILES[sound]));
+      element.volume = level;
       void element.play().catch(() => {
         // A missing or still-empty placeholder file: stay silent.
       });
@@ -85,9 +100,18 @@ export function createSoundPlayer(): SoundPlayer {
         }
       }
     },
+    setVolume(next: number): void {
+      level = clamp(next);
+      move.volume = level;
+    },
     dispose(): void {
       move.pause();
       moving = false;
     },
   };
+}
+
+/** Holds a volume inside what an audio element accepts. */
+function clamp(volume: number): number {
+  return Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 1;
 }

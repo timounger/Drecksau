@@ -29,6 +29,7 @@ import {
 import { PANZERKISTE_TEXTS } from "@/games/panzerkiste/i18n/texts";
 import { endlessNumber, isEndless } from "@/games/panzerkiste/engine/levels";
 import { BannerView } from "@/games/panzerkiste/components/round-banner";
+import { VolumeSlider } from "@/games/panzerkiste/components/volume-slider";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 
 /** Intrinsic canvas size of the tilted field (fixed, so it prerenders stable). */
@@ -110,6 +111,7 @@ export function PanzerkisteGame(): ReactElement {
           <Stat>{PANZERKISTE_TEXTS.minesLeft(hud.mines)}</Stat>
         </div>
         <div className="flex items-center gap-2">
+          <VolumeSlider />
           <LevelJump
             onClick={levelBack}
             disabled={hud.level === 0}

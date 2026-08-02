@@ -167,6 +167,15 @@ export type VoiceRoom = {
    * does not ask again.
    */
   readonly setMicOn: (on: boolean) => Promise<void>;
+  /**
+   * Sets how loud the other players are, from 0 to 1.
+   *
+   * @remarks
+   * Only what arrives is turned down, never what is sent: the others keep
+   * hearing you at full strength however quiet you have made them. It applies
+   * to every call at once, since it is one knob for the room.
+   */
+  readonly setVolume: (volume: number) => void;
   /** Leaves the voice room and hangs up every call. */
   readonly close: () => void;
 };
@@ -180,6 +189,8 @@ export type VoiceOptions = {
   readonly selfId: SeatId;
   /** Called whenever the list of peers or their connection states change. */
   readonly onPeers: (peers: readonly VoicePeer[]) => void;
+  /** How loud the others start out, 0 to 1; full when left out. */
+  readonly volume?: number;
 };
 
 /**
@@ -218,6 +229,9 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
   const unsubscribes: Array<() => void> = [];
   let mic: MediaStream | null = null;
   let closed = false;
+  // Held here rather than read per call: a peer joining later has to arrive at
+  // the volume already set, not at full blast.
+  let level = clampVolume(options.volume ?? 1);
 
   const report = () => {
     onPeers(
@@ -245,6 +259,7 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
 
     const audio = document.createElement("audio");
     audio.autoplay = true;
+    audio.volume = level;
     audio.style.display = "none";
     document.body.append(audio);
 
@@ -404,6 +419,13 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
     }
   };
 
+  const setVolume = (volume: number): void => {
+    level = clampVolume(volume);
+    for (const call of calls.values()) {
+      call.audio.volume = level;
+    }
+  };
+
   const close = () => {
     closed = true;
     for (const off of unsubscribes) {
@@ -420,5 +442,18 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
     void remove(ref(database, `${mailPath}/${selfId}`));
   };
 
-  return { setMicOn, close };
+  return { setMicOn, setVolume, close };
+}
+
+/**
+ * Holds a volume inside what an audio element accepts.
+ *
+ * @param volume - the wanted volume
+ * @returns a number between 0 and 1; full for anything unusable
+ * @remarks
+ * A pure function, and exported, because "a broken value must not silence the
+ * room" is a rule worth a test rather than a comment.
+ */
+export function clampVolume(volume: number): number {
+  return Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 1;
 }

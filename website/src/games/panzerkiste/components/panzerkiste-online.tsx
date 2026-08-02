@@ -41,6 +41,7 @@ import {
 } from "@/games/panzerkiste/settings/player-name";
 import { PANZERKISTE_GAME_ID } from "@/games/panzerkiste/multiplayer/net";
 import { BannerView } from "@/games/panzerkiste/components/round-banner";
+import { VolumeSlider } from "@/games/panzerkiste/components/volume-slider";
 import { useFullscreen } from "@/games/panzerkiste/hooks/use-fullscreen";
 import {
   usePanzerkisteOnline,
@@ -593,6 +594,7 @@ function PlayingArea({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <VolumeSlider />
           {fullscreen.supported && (
             <button
               type="button"

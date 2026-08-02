@@ -48,6 +48,7 @@ import {
 } from "@/games/panzerkiste/components/touch-controls";
 import { detectSounds } from "@/games/panzerkiste/audio/events";
 import { createSoundPlayer } from "@/games/panzerkiste/audio/sounds";
+import { gameVolume } from "@/games/panzerkiste/settings/sound-volume";
 import {
   ROUND_BANNER_MS,
   type Banner,
@@ -359,7 +360,11 @@ export function usePanzerkiste(): PanzerkisteGame {
     };
 
     // Sound effects, driven by comparing the state before and after each step.
-    const sound = createSoundPlayer();
+    const sound = createSoundPlayer(gameVolume.load());
+    // The slider lives outside this loop, so follow it while the game runs.
+    const stopVolume = gameVolume.subscribe(() =>
+      sound.setVolume(gameVolume.load()),
+    );
     let soundPrev: GameState | null = null;
     let announcedStart = false;
     // View-only dust/smoke trailing the shells.
@@ -481,6 +486,7 @@ export function usePanzerkiste(): PanzerkisteGame {
       // Book the play time gathered so far before leaving the page.
       flushStatsTime();
       clearTimeout(bannerTimer.current);
+      stopVolume();
       sound.dispose();
       touch.dispose();
       canvas.removeEventListener("mousemove", aimAt);

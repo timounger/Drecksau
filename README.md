@@ -84,6 +84,22 @@ teilt, dient nur dazu, dass sich die Browser finden.
 angefragt, bis jemand zum ersten Mal auf „Mikro an" drückt. Wer nie sprechen
 will, bekommt nie einen Berechtigungsdialog. Zuhören läuft von selbst.
 
+Ob dein Mikrofon offen ist, zeigt ein **Mikrofonsymbol**: **rot**, solange du zu
+hören bist, und **grau durchgestrichen**, solange nicht. Nicht nur die Farbe
+entscheidet - der Strich sagt dasselbe noch einmal, für alle, die Rot und Grau
+schlecht auseinanderhalten. Rot ist bewusst der laute Zustand: Es ist die Farbe,
+die überall sonst „nimmt gerade auf" bedeutet.
+
+Wie **laut** die anderen sind, stellt ein Regler unter dem Mikrofonknopf ein -
+von voll bis stumm. Die Einstellung gilt für alle Online-Spiele und hält bis zum
+nächsten Mal. Sie betrifft nur, was bei dir ankommt: Wer dich hört, hört dich
+unverändert, egal wie leise du ihn gedreht hast.
+
+Der Regler ist von der Lautstärke der **Spielgeräusche** getrennt (die hat
+Panzerkiste über dem Feld). Man kann also stumm gestellte Panzer mit lautem
+Gespräch haben oder umgekehrt - genau deshalb sind es zwei Regler und nicht
+einer.
+
 Neben jedem Mitspieler steht, ob die Leitung steht. Das ist kein Schmuck: Bei
 manchen Netzen kommen zwei Geräte nicht direkt zueinander, und dann braucht es
 einen **Relais-Server (TURN)** - das einzige Stück, das eine statisch gehostete
