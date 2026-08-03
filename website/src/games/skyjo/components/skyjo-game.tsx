@@ -10,6 +10,7 @@
 "use client";
 
 import Link from "next/link";
+import { GameHeader } from "@/components/game-header";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { useSkyjoGame } from "@/games/skyjo/hooks/use-skyjo-game";
 import {
@@ -18,7 +19,6 @@ import {
   subscribeSettings,
 } from "@/games/skyjo/settings/settings-store";
 import { DIFFICULTY_LABELS, SKYJO_TEXTS as T } from "@/games/skyjo/i18n/texts";
-import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 import { SkyjoScores } from "./skyjo-scores";
 import { SkyjoTable } from "./skyjo-table";
 
@@ -40,27 +40,21 @@ export function SkyjoGame(): ReactElement {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{T.title}</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {T.round(game.round)} · {DIFFICULTY_LABELS[settings.difficulty]}
-          </p>
-        </div>
-        <nav className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={newGame}
-            className="cursor-pointer rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
-          >
-            {T.newGame}
-          </button>
-          <NavLink href="/skyjo/online">{T.playOnline}</NavLink>
-          <NavLink href="/skyjo/einstellungen">{T.settings}</NavLink>
-          <NavLink href="/skyjo/statistik">{T.statistics}</NavLink>
-          <NavLink href="/">{COLLECTION_TEXTS.title}</NavLink>
-        </nav>
-      </header>
+      <GameHeader
+        title={T.title}
+        subtitle={`${T.round(game.round)} · ${DIFFICULTY_LABELS[settings.difficulty]}`}
+      >
+        <button
+          type="button"
+          onClick={newGame}
+          className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        >
+          {T.newGame}
+        </button>
+        <NavLink href="/skyjo/online">{T.playOnline}</NavLink>
+        <NavLink href="/skyjo/einstellungen">{T.settings}</NavLink>
+        <NavLink href="/skyjo/statistik">{T.statistics}</NavLink>
+      </GameHeader>
 
       {(game.phase === "roundOver" || game.phase === "gameOver") && (
         <SkyjoScores

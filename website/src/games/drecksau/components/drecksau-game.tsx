@@ -6,6 +6,7 @@
 "use client";
 
 import Link from "next/link";
+import { GameHeader } from "@/components/game-header";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { isCardPlayable, isCardUsableNow } from "@/games/drecksau/engine/moves";
 import { currentPlayer, playerById } from "@/games/drecksau/engine/state";
@@ -21,7 +22,6 @@ import {
   ONLINE_TEXTS,
   UI_TEXTS,
 } from "@/games/drecksau/i18n/translations";
-import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 import { ActionEffectOverlay } from "./action-effect-overlay";
 import { GameLog } from "./game-log";
 import { GameResultOverlay, type GameOutcome } from "./game-result-overlay";
@@ -69,52 +69,41 @@ export function DrecksauGame(): ReactElement {
       <ActionEffectOverlay effect={game.effect} />
       <GameResultOverlay outcome={overlayOutcome} />
 
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{UI_TEXTS.appTitle}</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {/* The expansion adds a second way to win, so the goal changes. */}
-            {state.hasExpansion ? UI_TEXTS.taglineExpansion : UI_TEXTS.tagline}
-          </p>
-        </div>
-
-        {/* Unlike the card rows, these controls may wrap - otherwise they push
-            the page wider than a phone screen. The table size lives in the
-            settings now, so a new game starts at the size chosen there. */}
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => handleNewGame(settings.playerCount)}
-            className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-          >
-            {UI_TEXTS.newGame}
-          </button>
-          <Link
-            href="/drecksau/online"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {ONLINE_TEXTS.title}
-          </Link>
-          <Link
-            href="/drecksau/statistik"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {UI_TEXTS.statistics}
-          </Link>
-          <Link
-            href="/drecksau/einstellungen"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {UI_TEXTS.settings}
-          </Link>
-          <Link
-            href="/"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {COLLECTION_TEXTS.title}
-          </Link>
-        </div>
-      </header>
+      {/* The expansion adds a second way to win, so the goal changes. The
+          table size lives in the settings now, so a new game starts at the
+          size chosen there. */}
+      <GameHeader
+        title={UI_TEXTS.appTitle}
+        subtitle={
+          state.hasExpansion ? UI_TEXTS.taglineExpansion : UI_TEXTS.tagline
+        }
+      >
+        <button
+          type="button"
+          onClick={() => handleNewGame(settings.playerCount)}
+          className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        >
+          {UI_TEXTS.newGame}
+        </button>
+        <Link
+          href="/drecksau/online"
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          {ONLINE_TEXTS.title}
+        </Link>
+        <Link
+          href="/drecksau/statistik"
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          {UI_TEXTS.statistics}
+        </Link>
+        <Link
+          href="/drecksau/einstellungen"
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          {UI_TEXTS.settings}
+        </Link>
+      </GameHeader>
 
       <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
         <div className="flex flex-col gap-3">

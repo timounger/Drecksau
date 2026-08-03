@@ -10,6 +10,8 @@
 /** Texts of the start page - the game collection overview. */
 export const COLLECTION_TEXTS = {
   title: "Spielesammlung",
+  /** The way out of a game, in the header of every game screen. */
+  backToCollection: "Zurück zur Spielesammlung",
   subtitle: "Wähle ein Spiel.",
   play: "Spielen",
   statistics: "Statistik",

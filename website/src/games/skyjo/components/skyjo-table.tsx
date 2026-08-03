@@ -172,8 +172,6 @@ export function SkyjoTable({
 
   return (
     <div className="flex flex-col gap-4">
-      <TurnBanner game={game} mySeat={mySeat} pending={pending} />
-
       <div className="flex flex-wrap items-start justify-center gap-4">
         {others.map((entry) => (
           <OpponentLayout
@@ -204,11 +202,22 @@ export function SkyjoTable({
           onSelect={selectSlot}
         />
       )}
+
+      <TurnBanner game={game} mySeat={mySeat} pending={pending} />
     </div>
   );
 }
 
-/** Says whose turn it is and what to do next. */
+/**
+ * Says whose turn it is and what to do next.
+ *
+ * @remarks
+ * Sits **below** the own hand, and deliberately so. Its text is a sentence
+ * whose length changes with every phase, so above the table it would wrap to a
+ * second line now and then and shove everything under it down a notch - your
+ * own cards would never sit still. As the last thing on the table it can grow
+ * and shrink without moving a single card.
+ */
 function TurnBanner({
   game,
   mySeat,

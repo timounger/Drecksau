@@ -10,6 +10,7 @@
 "use client";
 
 import Link from "next/link";
+import { GameHeader } from "@/components/game-header";
 import { useRef, type ReactElement } from "react";
 import { useFullscreen } from "@/games/panzerkiste/hooks/use-fullscreen";
 import {
@@ -30,7 +31,6 @@ import { PANZERKISTE_TEXTS } from "@/games/panzerkiste/i18n/texts";
 import { endlessNumber, isEndless } from "@/games/panzerkiste/engine/levels";
 import { BannerView } from "@/games/panzerkiste/components/round-banner";
 import { VolumeSlider } from "@/games/panzerkiste/components/volume-slider";
-import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 
 /** Intrinsic canvas size of the tilted field (fixed, so it prerenders stable). */
 const CANVAS_W = Math.round(canvasWidth(FIELD_COLS + 2));
@@ -58,45 +58,34 @@ export function PanzerkisteGame(): ReactElement {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{PANZERKISTE_TEXTS.title}</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {PANZERKISTE_TEXTS.subtitle}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {fullscreen.supported && (
-            <button
-              type="button"
-              onClick={fullscreen.toggle}
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              {fullscreen.active
-                ? PANZERKISTE_TEXTS.fullscreenExit
-                : PANZERKISTE_TEXTS.fullscreen}
-            </button>
-          )}
-          <Link
-            href="/panzerkiste/online"
+      <GameHeader
+        title={PANZERKISTE_TEXTS.title}
+        subtitle={PANZERKISTE_TEXTS.subtitle}
+      >
+        {fullscreen.supported && (
+          <button
+            type="button"
+            onClick={fullscreen.toggle}
             className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
           >
-            {PANZERKISTE_TEXTS.online}
-          </Link>
-          <Link
-            href="/panzerkiste/statistik"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {PANZERKISTE_TEXTS.statistics}
-          </Link>
-          <Link
-            href="/"
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {COLLECTION_TEXTS.title}
-          </Link>
-        </div>
-      </header>
+            {fullscreen.active
+              ? PANZERKISTE_TEXTS.fullscreenExit
+              : PANZERKISTE_TEXTS.fullscreen}
+          </button>
+        )}
+        <Link
+          href="/panzerkiste/online"
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          {PANZERKISTE_TEXTS.online}
+        </Link>
+        <Link
+          href="/panzerkiste/statistik"
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          {PANZERKISTE_TEXTS.statistics}
+        </Link>
+      </GameHeader>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <div className="flex flex-wrap items-center gap-2">
@@ -110,7 +99,9 @@ export function PanzerkisteGame(): ReactElement {
           <Stat>{PANZERKISTE_TEXTS.lives(hud.lives)}</Stat>
           <Stat>{PANZERKISTE_TEXTS.minesLeft(hud.mines)}</Stat>
         </div>
-        <div className="flex items-center gap-2">
+        {/* Wraps: with the volume slider beside them these three no longer fit
+            on one line on the narrowest phones. */}
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <VolumeSlider />
           <LevelJump
             onClick={levelBack}

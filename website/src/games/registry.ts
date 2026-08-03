@@ -12,7 +12,7 @@
 
 /** Identifies a game for storage and statistics. Never reuse an old id. */
 export type GameId =
-  "drecksau" | "binokel" | "panzerkiste" | "krakel" | "skyjo";
+  "drecksau" | "binokel" | "panzerkiste" | "krakel" | "skyjo" | "rv-there-yet";
 
 /** One game of the collection. */
 export type GameDefinition = {
@@ -57,6 +57,13 @@ export const GAMES: readonly GameDefinition[] = [
       "Alle malen gleichzeitig - streicht die Wörter, die keiner gemalt hat.",
     emoji: "\u{1F52E}",
     href: "/krakel",
+  },
+  {
+    id: "rv-there-yet",
+    name: "RV There Yet?",
+    tagline: "Bring das Wohnmobil über den Berg - notfalls mit der Seilwinde.",
+    emoji: "\u{1F69A}",
+    href: "/rv-there-yet",
   },
   {
     id: "skyjo",

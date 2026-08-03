@@ -11,6 +11,7 @@
 "use client";
 
 import Link from "next/link";
+import { GameHeader } from "@/components/game-header";
 import { useSyncExternalStore, type ReactElement } from "react";
 import type { Suit } from "@/games/binokel/engine/cards";
 import type {
@@ -26,7 +27,6 @@ import {
   subscribeBinokelSettings,
 } from "@/games/binokel/settings/binokel-settings-store";
 import { BINOKEL_TEXTS } from "@/games/binokel/i18n/binokel-texts";
-import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 import { BinokelNamingProvider, useBinokelNaming } from "./naming-context";
 import {
   CardView,
@@ -77,47 +77,36 @@ export function BinokelGame(): ReactElement {
   return (
     <BinokelNamingProvider value={naming}>
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">{BINOKEL_TEXTS.title}</h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {BINOKEL_TEXTS.subtitle}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => game.newMatch()}
-              className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-            >
-              {BINOKEL_TEXTS.newMatch}
-            </button>
-            <Link
-              href="/binokel/online"
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              {BINOKEL_TEXTS.online}
-            </Link>
-            <Link
-              href="/binokel/statistik"
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              {BINOKEL_TEXTS.statistics}
-            </Link>
-            <Link
-              href="/binokel/einstellungen"
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              {BINOKEL_TEXTS.settings}
-            </Link>
-            <Link
-              href="/"
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              {COLLECTION_TEXTS.title}
-            </Link>
-          </div>
-        </header>
+        <GameHeader
+          title={BINOKEL_TEXTS.title}
+          subtitle={BINOKEL_TEXTS.subtitle}
+        >
+          <button
+            type="button"
+            onClick={() => game.newMatch()}
+            className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          >
+            {BINOKEL_TEXTS.newMatch}
+          </button>
+          <Link
+            href="/binokel/online"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {BINOKEL_TEXTS.online}
+          </Link>
+          <Link
+            href="/binokel/statistik"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {BINOKEL_TEXTS.statistics}
+          </Link>
+          <Link
+            href="/binokel/einstellungen"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {BINOKEL_TEXTS.settings}
+          </Link>
+        </GameHeader>
 
         <Scoreboard state={state} />
 
