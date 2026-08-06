@@ -9,18 +9,18 @@
  * does: give it throttle, and when the wheels give up, get out, walk the rope
  * to the tree, hook it, walk back, get in and wind.
  *
- * And not only from the start. Every checkpoint is a place somebody will begin
- * their evening at, so every section between two checkpoints is driven on its
+ * And not only from the start. Every section is a place somebody will begin
+ * their evening at, so every section between two sections is driven on its
  * own. A section that only works with the run-up from the one before it would
  * strand whoever saved there.
  */
 import { describe, expect, it } from "vitest";
 import { reachableAnchor, ropeCandidate, step } from "./engine";
 import {
-  CHECKPOINTS,
-  CHECKPOINT_COUNT,
-  checkpointAt,
-  checkpointStep,
+  SECTIONS,
+  SECTION_COUNT,
+  sectionAt,
+  sectionStep,
   MAP,
   parseMap,
 } from "./map";
@@ -31,9 +31,11 @@ import {
   ENTER_REACH,
   IDLE_INPUT,
   NO_GRIP_SLOPE,
+  PICKUP_REACH,
   TOP_GEAR,
   WINCH_RANGE,
   ROUTE_STEP,
+  SPRAY_REACH,
   type GameState,
   type Input,
   type Route,
@@ -65,9 +67,12 @@ function plan(state: GameState): Input {
   if (state.damaged) {
     return errand(state, route, "hammer");
   }
-  // A bear does not care how much throttle there is.
+  // A bear does not care how much throttle there is - and it does not care
+  // that the can is in your pocket either. Fetch it, then use it.
   if (blockedByBear(state, route)) {
-    return errand(state, route, "spray");
+    return one(state).carrying.includes("spray")
+      ? scareTheBear(state)
+      : errand(state, route, "spray");
   }
   // Stuck on a wall with nothing to tie a rope to: that wall wants the other
   // tyres. The check is the **slope**, not merely standing still - every
@@ -135,7 +140,7 @@ function ditchField(): number {
  * @returns true while the way is barred
  */
 function blockedByBear(state: GameState, route: Route): boolean {
-  if (route.bear === null || one(state).carrying.includes("spray")) {
+  if (route.bear === null || state.bear === null || state.bear.gone) {
     return false;
   }
   return state.rv.x > route.bear - BEAR_REACH - ROUTE_STEP;
@@ -165,14 +170,38 @@ function errand(state: GameState, route: Route, kind: string): Input {
   }
   const item = route.items.find((each) => each.kind === kind);
   if (!one(state).carrying.includes(kind as never) && item !== undefined) {
-    return { ...IDLE_INPUT, drive: towards(one(state).at, item.at) };
+    // Standing at it is not enough: things are picked up with the key, the
+    // same way a player picks them up.
+    return Math.abs(one(state).at - item.at) <= PICKUP_REACH
+      ? { ...IDLE_INPUT, take: true }
+      : { ...IDLE_INPUT, drive: towards(one(state).at, item.at) };
   }
   if (Math.abs(one(state).at - state.rv.x) > ENTER_REACH) {
     return { ...IDLE_INPUT, drive: towards(one(state).at, state.rv.x) };
   }
-  return kind === "spray"
-    ? { ...IDLE_INPUT, door: true }
-    : { ...IDLE_INPUT, work: true };
+  return { ...IDLE_INPUT, work: true };
+}
+
+/**
+ * Walking up to the bear and holding the can on it.
+ *
+ * @param state - the world as it is
+ * @returns the input for this frame
+ * @remarks
+ * Carrying the spray does nothing at all now: the bear has to be driven off,
+ * and that means standing close enough and holding the key while it comes at
+ * you. Exactly the nerve test a player faces, which is why the autopilot faces
+ * it too.
+ */
+function scareTheBear(state: GameState): Input {
+  const bear = state.bear;
+  if (bear === null || one(state).inside) {
+    return { ...IDLE_INPUT, door: true };
+  }
+  const gap = Math.abs(one(state).at - bear.at);
+  return gap <= SPRAY_REACH - 1
+    ? { ...IDLE_INPUT, work: true }
+    : { ...IDLE_INPUT, drive: towards(one(state).at, bear.at) };
 }
 
 /** Which way to walk to get to a place. */
@@ -180,24 +209,24 @@ function towards(from: number, to: number): number {
   return to > from ? 1 : -1;
 }
 
-/** Drives from a checkpoint until the given place is behind it, or time runs out. */
-function driveFrom(checkpoint: number, until: number) {
-  let state = startAt(checkpoint);
+/** Drives from a section until the given place is behind it, or time runs out. */
+function driveFrom(section: number, until: number) {
+  let state = startAt(section);
   const route = theMap();
   let hooks = 0;
-  let lowestBattery = 1;
+  let lowestFuel = 1;
   for (let frame = 0; frame < PATIENCE_S / FRAME; frame++) {
     const before = state.hooked;
     state = step(state, route, [plan(state)], FRAME);
     if (before === -1 && state.hooked !== -1) {
       hooks++;
     }
-    lowestBattery = Math.min(lowestBattery, state.battery);
+    lowestFuel = Math.min(lowestFuel, state.fuel);
     if (state.rv.x >= until || state.phase === "arrived") {
       break;
     }
   }
-  return { state, hooks, lowestBattery };
+  return { state, hooks, lowestFuel };
 }
 
 describe("the map", () => {
@@ -206,11 +235,43 @@ describe("the map", () => {
   });
 
   it("teaches the gearbox on the first climb", () => {
-    // Down off the plateau, then up again: in a high gear the motorhome does
-    // not make it, in a low one it does. That is the whole lesson of the
-    // opening stretch, and it has to be true or the lesson is a lie.
+    // The lesson of the opening stretch, and the honest version of it: with a
+    // run-up from the plateau a high gear crawls over the pass, but the moment
+    // the motorhome stands still on the slope, only a low gear moves it again.
+    // A player who stops - to look, to think, to get out - learns it there.
+    const fromRest = (gear: number) => {
+      const uphill = SECTIONS[1] - ROUTE_STEP * 12;
+      let state = seated(startAt(0));
+      state = {
+        ...state,
+        rv: { x: uphill, v: 0 },
+        people: [{ ...state.people[0], at: uphill, inside: true }],
+        driver: 0,
+      };
+      for (let frame = 0; frame < 40 / FRAME; frame++) {
+        state = step(
+          state,
+          theMap(),
+          [{ ...IDLE_INPUT, drive: 1, shift: gear }],
+          FRAME,
+        );
+      }
+      return state.rv.x - uphill;
+    };
+    // The top gear does not pull its own weight up the slope: it inches
+    // forwards to the next steep bit and stops there.
+    expect(fromRest(TOP_GEAR)).toBeLessThan(ROUTE_STEP);
+    // First gear climbs the rest of the section in the same time.
+    expect(fromRest(1)).toBeGreaterThan(ROUTE_STEP * 12);
+  });
+
+  it("lets a run-up over the first pass, slowly", () => {
+    // Holding the throttle from the plateau, even the top gear crawls over -
+    // the flat valley lets it reach the gear's own top speed, and that buys
+    // more climb than this pass is long. Worth knowing before somebody moves
+    // the pass and wonders why the section changed character.
     const climb = (gear: number) => {
-      let state = seated(startAt(1));
+      let state = seated(startAt(0));
       for (let frame = 0; frame < 90 / FRAME; frame++) {
         state = step(
           state,
@@ -221,15 +282,14 @@ describe("the map", () => {
       }
       return state.rv.x;
     };
-    const top = CHECKPOINTS[2];
-    expect(climb(TOP_GEAR)).toBeLessThan(top);
-    expect(climb(1)).toBeGreaterThan(top);
+    expect(climb(TOP_GEAR)).toBeGreaterThan(SECTIONS[1]);
   });
 
   it("cannot be won on throttle alone", () => {
     // Without the winch the drive must end at a wall - otherwise the trees are
-    // decoration and the game has no subject.
-    let state = startAt(0);
+    // decoration and the game has no subject. Behind the wheel, because on
+    // foot the thing that stops you is the bear, and that is another lesson.
+    let state = seated(startAt(0));
     for (let frame = 0; frame < PATIENCE_S / FRAME; frame++) {
       // First gear pulls hardest - if even that cannot do it, none can.
       state = step(
@@ -239,64 +299,77 @@ describe("the map", () => {
         FRAME,
       );
     }
-    expect(state.phase).toBe("driving");
+    expect(state.phase).not.toBe("arrived");
   });
 
   it("leans on the rope more than once", () => {
     expect(driveFrom(0, Number.POSITIVE_INFINITY).hooks).toBeGreaterThan(1);
   });
 
-  it.each(
-    CHECKPOINTS.map((_at, index) => [index + 1, index] as const).slice(0, -1),
-  )("section %i can be driven on its own", (_number, index) => {
-    // Every checkpoint is somewhere a player will start their evening.
-    const { state } = driveFrom(index, CHECKPOINTS[index + 1]);
-    expect(state.rv.x).toBeGreaterThanOrEqual(CHECKPOINTS[index + 1]);
+  it.each(SECTIONS.map((_at, index) => [index + 1, index] as const))(
+    "section %i can be driven on its own",
+    (_number, index) => {
+      // Every section is somewhere a player will start their evening - the
+      // last one included: it ends at the flag rather than at another mark,
+      // and a player who saved there must still be able to finish the map.
+      const target = SECTIONS[index + 1] ?? routeLength(theMap());
+      const { state } = driveFrom(index, target);
+      expect(state.rv.x).toBeGreaterThanOrEqual(target);
+    },
+  );
+
+  it("can be driven from end to end on one tank", () => {
+    // The tank is sized against this drive rather than guessed. If a change to
+    // the map, the gearing or the burn rate ever makes the route longer than
+    // the fuel, that is a stranded player - and this is where it shows up.
+    const { state } = driveFrom(0, Number.POSITIVE_INFINITY);
+    expect(state.phase).toBe("arrived");
+    expect(state.fuel).toBeGreaterThan(0.3);
   });
 
-  it("has battery to spare in every section", () => {
-    // A section that only just works on a full battery is one a player who
-    // wound a little too eagerly can no longer finish.
-    for (const [index] of CHECKPOINTS.entries()) {
-      if (index < CHECKPOINT_COUNT - 1) {
+  it("has fuel to spare in every section", () => {
+    // A section that only just works on a full tank is one a player who wound
+    // a little too eagerly can no longer finish.
+    for (const [index] of SECTIONS.entries()) {
+      if (index < SECTION_COUNT - 1) {
         expect(
-          driveFrom(index, CHECKPOINTS[index + 1]).lowestBattery,
+          driveFrom(index, SECTIONS[index + 1]).lowestFuel,
         ).toBeGreaterThan(0.15);
       }
     }
   });
 
-  it("stands every checkpoint on level ground", () => {
+  it("stands every section on level ground", () => {
     // Start on a slope and the drive begins by sliding backwards.
-    for (const at of CHECKPOINTS) {
+    for (const at of SECTIONS) {
       expect(Math.abs(slopeAt(MAP, at))).toBeLessThan(0.05);
       expect(at % ROUTE_STEP).toBe(0);
       expect(at).toBeLessThan(routeLength(MAP));
     }
   });
 
-  it("starts near the start and keeps the checkpoints in order", () => {
+  it("starts near the start and keeps the sections in order", () => {
     // Not at metre zero: the drive begins on a plateau with a little ground
     // behind the motorhome, so there is somewhere to step out to.
-    expect(CHECKPOINTS[0]).toBeGreaterThan(0);
-    expect(CHECKPOINTS[0]).toBeLessThan(ROUTE_STEP * 5);
-    for (let index = 1; index < CHECKPOINT_COUNT; index++) {
-      expect(CHECKPOINTS[index]).toBeGreaterThan(CHECKPOINTS[index - 1]);
+    expect(SECTIONS[0]).toBeGreaterThan(0);
+    expect(SECTIONS[0]).toBeLessThan(ROUTE_STEP * 5);
+    for (let index = 1; index < SECTION_COUNT; index++) {
+      expect(SECTIONS[index]).toBeGreaterThan(SECTIONS[index - 1]);
     }
   });
 
   it("begins high up, under snow", () => {
     // The drive starts on a plateau: high enough to be white, and level enough
     // to stand on.
-    const start = heightAt(MAP, CHECKPOINTS[0]);
+    const start = heightAt(MAP, SECTIONS[0]);
     expect(snowShare(start)).toBe(1);
-    expect(Math.abs(slopeAt(MAP, CHECKPOINTS[0]))).toBeLessThan(0.05);
+    expect(Math.abs(slopeAt(MAP, SECTIONS[0]))).toBeLessThan(0.05);
   });
 
   it("comes down out of the snow into bare ground", () => {
     // Otherwise it is a snow game rather than a drive that begins in the snow.
-    const bare = CHECKPOINTS.filter((at) => snowShare(heightAt(MAP, at)) === 0);
-    expect(bare.length).toBeGreaterThan(CHECKPOINTS.length / 2);
+    const bare = SECTIONS.filter((at) => snowShare(heightAt(MAP, at)) === 0);
+    expect(bare.length).toBeGreaterThan(SECTIONS.length / 2);
   });
 
   it("digs a ditch nobody drives out of, with a tree in reach of it", () => {
@@ -375,16 +448,16 @@ describe("the map", () => {
   });
 });
 
-describe("starting at a checkpoint", () => {
+describe("starting at a section", () => {
   it("puts the motorhome there and the driver beside it", () => {
     // Beside, not in: that there is a person here who gets in and out is the
     // first thing the game has to teach.
     const at = startAt(3);
-    expect(at.rv.x).toBe(CHECKPOINTS[3]);
+    expect(at.rv.x).toBe(SECTIONS[3]);
     expect(one(at).inside).toBe(false);
     expect(one(at).at).not.toBe(at.rv.x);
     expect(Math.abs(one(at).at - at.rv.x)).toBeLessThanOrEqual(ENTER_REACH);
-    expect(at.checkpoint).toBe(3);
+    expect(at.section).toBe(3);
     expect(at.rv.v).toBe(0);
   });
 
@@ -398,17 +471,17 @@ describe("starting at a checkpoint", () => {
     );
   });
 
-  it("holds a checkpoint that does not exist inside the map", () => {
+  it("holds a section that does not exist inside the map", () => {
     // A number out of an older save, or one typed in by hand, must never put
     // the motorhome somewhere the map does not go.
-    expect(startAt(-5).rv.x).toBe(CHECKPOINTS[0]);
-    expect(startAt(999).rv.x).toBe(CHECKPOINTS[CHECKPOINT_COUNT - 1]);
-    expect(startAt(999).checkpoint).toBe(CHECKPOINT_COUNT - 1);
+    expect(startAt(-5).rv.x).toBe(SECTIONS[0]);
+    expect(startAt(999).rv.x).toBe(SECTIONS[SECTION_COUNT - 1]);
+    expect(startAt(999).section).toBe(SECTION_COUNT - 1);
   });
 
-  it("notes the next checkpoint as it is driven past", () => {
+  it("notes the next section as it is driven past", () => {
     let state = seated(startAt(0));
-    expect(state.checkpoint).toBe(0);
+    expect(state.section).toBe(0);
     for (let frame = 0; frame < PATIENCE_S / FRAME; frame++) {
       state = step(
         state,
@@ -416,38 +489,38 @@ describe("starting at a checkpoint", () => {
         [{ ...IDLE_INPUT, drive: 1, shift: 1 }],
         FRAME,
       );
-      if (state.rv.x > CHECKPOINTS[1]) {
+      if (state.rv.x > SECTIONS[1]) {
         break;
       }
     }
-    expect(state.checkpoint).toBe(1);
+    expect(state.section).toBe(1);
   });
 
-  it("does not give a checkpoint back when rolling away from it", () => {
+  it("does not give a section back when rolling away from it", () => {
     // "Where I was", not "where I am" - sliding back down a slope must not
     // undo an evening's progress.
     let state = seated(startAt(1));
     for (let frame = 0; frame < 5 / FRAME; frame++) {
       state = step(state, theMap(), [{ ...IDLE_INPUT, drive: -1 }], FRAME);
     }
-    expect(state.rv.x).toBeLessThan(CHECKPOINTS[1]);
-    expect(state.checkpoint).toBe(1);
+    expect(state.rv.x).toBeLessThan(SECTIONS[1]);
+    expect(state.section).toBe(1);
   });
 });
 
-describe("finding a checkpoint", () => {
+describe("finding a section", () => {
   it("names the one you last passed", () => {
-    expect(checkpointAt(0)).toBe(0);
-    expect(checkpointAt(CHECKPOINTS[1] - 1)).toBe(0);
-    expect(checkpointAt(CHECKPOINTS[1])).toBe(1);
-    expect(checkpointAt(CHECKPOINTS[1] + 1)).toBe(1);
-    expect(checkpointAt(Number.POSITIVE_INFINITY)).toBe(CHECKPOINT_COUNT - 1);
+    expect(sectionAt(0)).toBe(0);
+    expect(sectionAt(SECTIONS[1] - 1)).toBe(0);
+    expect(sectionAt(SECTIONS[1])).toBe(1);
+    expect(sectionAt(SECTIONS[1] + 1)).toBe(1);
+    expect(sectionAt(Number.POSITIVE_INFINITY)).toBe(SECTION_COUNT - 1);
   });
 
   it("steps on and back, and wraps around at both ends", () => {
     // From the first, "back" is the shortest way to the far end of the map.
-    expect(checkpointStep(0, 1)).toBe(1);
-    expect(checkpointStep(0, -1)).toBe(CHECKPOINT_COUNT - 1);
-    expect(checkpointStep(CHECKPOINT_COUNT - 1, 1)).toBe(0);
+    expect(sectionStep(0, 1)).toBe(1);
+    expect(sectionStep(0, -1)).toBe(SECTION_COUNT - 1);
+    expect(sectionStep(SECTION_COUNT - 1, 1)).toBe(0);
   });
 });

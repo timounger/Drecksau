@@ -93,6 +93,28 @@ describe("a press rather than a hold", () => {
     expect(controls.read(true).shift).toBe(0);
   });
 
+  it("picks a thing up once per press of F", () => {
+    // Its own key, so the rope key never has to decide what was meant.
+    const controls = createControls();
+    const win = fakeWindow();
+    controls.listen(win);
+    win.down("f");
+    const first = controls.read(false);
+    expect(first.take).toBe(true);
+    expect(first.hook).toBe(false);
+    expect(controls.read(false).take).toBe(false);
+  });
+
+  it("keeps the rope key and the pick-up key apart", () => {
+    const controls = createControls();
+    const win = fakeWindow();
+    controls.listen(win);
+    win.down(" ");
+    const roped = controls.read(false);
+    expect(roped.hook).toBe(true);
+    expect(roped.take).toBe(false);
+  });
+
   it("opens the door once per press of E", () => {
     const controls = createControls();
     const win = fakeWindow();
@@ -155,6 +177,16 @@ describe("the on-screen buttons", () => {
     expect(controls.read(false).work).toBe(true);
     controls.press("hook", false);
     expect(controls.read(false).work).toBe(false);
+  });
+
+  it("picks up from its own on-screen button", () => {
+    const controls = createControls();
+    controls.press("take", true);
+    const first = controls.read(false);
+    expect(first.take).toBe(true);
+    expect(first.hook).toBe(false);
+    // A tap, not a hold: keeping it pressed must not sweep up everything.
+    expect(controls.read(false).take).toBe(false);
   });
 
   it("shifts from the gear buttons", () => {

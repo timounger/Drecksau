@@ -47,6 +47,8 @@ export const PANZERKISTE_TEXTS = {
   lost: "Dein Panzer wurde getroffen.",
   playAgain: "Nochmal",
   restart: "Neustart",
+  newGame: "Neues Spiel",
+  newGameTitle: "Von vorne anfangen: Level 1 mit vollen Leben",
   // Sound volume slider (game sounds only, never the voice chat)
   volumeLabel: "Lautstärke",
   volumeTitle: "Lautstärke der Spielgeräusche (nicht des Sprachchats)",

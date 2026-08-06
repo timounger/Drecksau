@@ -13,15 +13,23 @@ import {
   atVehicle,
   canMend,
   jobAt,
+  withinReach,
   type Job,
 } from "@/games/rv-there-yet/engine/engine";
-import { CHECKPOINT_COUNT } from "@/games/rv-there-yet/engine/map";
+import { SECTION_COUNT } from "@/games/rv-there-yet/engine/map";
 import { theMap } from "@/games/rv-there-yet/engine/setup";
-import { routeLength, slopeAt } from "@/games/rv-there-yet/engine/terrain";
+import { slopeAt } from "@/games/rv-there-yet/engine/terrain";
 import {
+  BEAR_NOTICE,
   gearAt,
+  KMH_PER_MS,
+  MAUL_SECONDS,
   REPAIR_SECONDS,
+  SPRAY_REACH,
+  SPRAY_SECONDS,
   type GameState,
+  type ItemKind,
+  type Person,
   type Phase,
 } from "@/games/rv-there-yet/engine/types";
 
@@ -31,16 +39,12 @@ const PERCENT = 100;
 /** The facts the screen shows around the canvas. */
 export type Hud = {
   readonly phase: Phase;
-  /** Which checkpoint was last reached, counted from zero. */
-  readonly checkpoint: number;
-  /** How many checkpoints the map has. */
-  readonly checkpoints: number;
-  /** How far along, in whole metres. */
-  readonly done: number;
-  /** How long the route is, in whole metres. */
-  readonly total: number;
-  /** What is left of the battery, from 0 to 1. */
-  readonly battery: number;
+  /** Which section was last reached, counted from zero. */
+  readonly section: number;
+  /** How many sections the map has. */
+  readonly sections: number;
+  /** What is left in the tank, from 0 to 1. */
+  readonly fuel: number;
   /** How long this drive has taken, in seconds. */
   readonly time: number;
   /** The slope under the wheels, in metres per metre. */
@@ -61,6 +65,10 @@ export type Hud = {
   readonly damaged: boolean;
   /** What this player is carrying. */
   readonly carrying: readonly string[];
+  /** What lies within reach and could be picked up, or null. */
+  readonly pickUp: ItemKind | null;
+  /** How the bear stands to this player, or null while none is about. */
+  readonly bear: BearView | null;
   /** True once the off-road tyres are on. */
   readonly tyres: boolean;
   /** What holding the key at the motorhome would do, if anything. */
@@ -75,10 +83,26 @@ export type Hud = {
   readonly gear: number;
   /** How fast it is going, in metres per second; negative rolls backwards. */
   readonly speed: number;
+  /** How fast it is going in whole km/h, whichever way it rolls. */
+  readonly speedKmh: number;
   /** What that gear is called on the lever: "R", "N", "1" to "5". */
   readonly gearLabel: string;
   /** True once the player has started. */
   readonly running: boolean;
+};
+
+/** How the bear stands to one player. */
+export type BearView = {
+  /** True while it has noticed somebody and is on its way. */
+  readonly coming: boolean;
+  /** True while this player is close enough for the spray to reach it. */
+  readonly canSpray: boolean;
+  /** True while this player is carrying the can. */
+  readonly armed: boolean;
+  /** How far the spraying has got, from 0 to 1. */
+  readonly sprayed: number;
+  /** How far it has got with whoever it has hold of, from 0 to 1. */
+  readonly danger: number;
 };
 
 /** What {@link hudOf} needs to know beyond the world itself. */
@@ -105,11 +129,9 @@ export function hudOf(state: GameState, view: HudView): Hud {
   const person = state.people[view.me] ?? state.people[0];
   return {
     phase: state.phase,
-    checkpoint: state.checkpoint,
-    checkpoints: CHECKPOINT_COUNT,
-    done: Math.round(state.rv.x),
-    total: Math.round(routeLength(route)),
-    battery: state.battery,
+    section: state.section,
+    sections: SECTION_COUNT,
+    fuel: state.fuel,
     time: state.time,
     slope: slopeAt(route, state.rv.x),
     hooked: state.hooked >= 0,
@@ -123,12 +145,37 @@ export function hudOf(state: GameState, view: HudView): Hud {
     gearLabel: gearAt(state.gear).label,
     damaged: state.damaged,
     carrying: person.carrying,
+    pickUp: withinReach(person, route),
+    bear: bearView(state, person),
     tyres: state.tyres,
     job: jobAt(person, state, person.inside),
     repair: Math.min(1, state.repair / REPAIR_SECONDS),
     canMend: canMend(person, state, person.inside),
     speed: state.rv.v,
+    speedKmh: Math.round(Math.abs(state.rv.v) * KMH_PER_MS),
     running: view.running,
+  };
+}
+
+/**
+ * How the bear stands to one player, or null when none is about any more.
+ *
+ * @param state - the world as it is
+ * @param person - whose screen this is
+ * @returns what the screen needs to say about the bear
+ */
+function bearView(state: GameState, person: Person): BearView | null {
+  const bear = state.bear;
+  if (bear === null || bear.gone) {
+    return null;
+  }
+  const gap = Math.abs(person.at - bear.at);
+  return {
+    coming: !person.inside && gap <= BEAR_NOTICE,
+    canSpray: !person.inside && gap <= SPRAY_REACH,
+    armed: person.carrying.includes("spray"),
+    sprayed: Math.min(1, bear.sprayed / SPRAY_SECONDS),
+    danger: Math.min(1, bear.hold / MAUL_SECONDS),
   };
 }
 
@@ -147,8 +194,8 @@ export function hudOf(state: GameState, view: HudView): Hud {
 export function sameHud(a: Hud, b: Hud): boolean {
   return (
     a.phase === b.phase &&
-    a.checkpoint === b.checkpoint &&
-    a.done === b.done &&
+    a.section === b.section &&
+    a.speedKmh === b.speedKmh &&
     a.hooked === b.hooked &&
     a.ready === b.ready &&
     a.candidate === b.candidate &&
@@ -161,11 +208,18 @@ export function sameHud(a: Hud, b: Hud): boolean {
     a.tyres === b.tyres &&
     a.job === b.job &&
     a.carrying.length === b.carrying.length &&
+    a.pickUp === b.pickUp &&
+    a.bear?.coming === b.bear?.coming &&
+    a.bear?.canSpray === b.bear?.canSpray &&
+    Math.round((a.bear?.sprayed ?? 0) * PERCENT) ===
+      Math.round((b.bear?.sprayed ?? 0) * PERCENT) &&
+    Math.round((a.bear?.danger ?? 0) * PERCENT) ===
+      Math.round((b.bear?.danger ?? 0) * PERCENT) &&
     a.canMend === b.canMend &&
     Math.round(a.repair * PERCENT) === Math.round(b.repair * PERCENT) &&
     a.running === b.running &&
     Math.round(a.time) === Math.round(b.time) &&
-    Math.round(a.battery * PERCENT) === Math.round(b.battery * PERCENT) &&
+    Math.round(a.fuel * PERCENT) === Math.round(b.fuel * PERCENT) &&
     Math.round(a.slope * PERCENT) === Math.round(b.slope * PERCENT)
   );
 }

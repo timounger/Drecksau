@@ -36,8 +36,8 @@ import {
 } from "@/games/rv-there-yet/hooks/controls";
 import { hudOf, sameHud, type Hud } from "@/games/rv-there-yet/hooks/hud";
 import {
-  loadCheckpoint,
-  saveCheckpoint,
+  loadSection,
+  saveSection,
 } from "@/games/rv-there-yet/settings/progress";
 import {
   COOP_PLAYERS,
@@ -66,6 +66,9 @@ const PUBLISH_INTERVAL = 0.05;
 /** How often the guest streams its input, in seconds (about 20 per second). */
 const INPUT_INTERVAL = 0.05;
 
+/** Where a brand-new drive begins. */
+const FIRST_SECTION = 0;
+
 /** The name used when a player left theirs blank. */
 const FALLBACK_NAME = "Spieler";
 
@@ -92,10 +95,12 @@ export type RvThereYetOnline = {
   readonly hud: Hud;
   /** Attach to the game `<canvas>` while playing. */
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  /** Host only: begin the drive at the host's own last checkpoint. */
+  /** Host only: begin the drive at the host's own last section. */
   readonly start: () => void;
-  /** Host only: start the current checkpoint over. */
+  /** Host only: start the current section over. */
   readonly again: () => void;
+  /** Host only: start the whole map over at the first section. */
+  readonly newGame: () => void;
   /** Presses or releases one of the on-screen buttons. */
   readonly touch: (button: TouchButton, down: boolean) => void;
   /** Puts a gear in, as the gear buttons do. */
@@ -207,13 +212,13 @@ export function useRvThereYetOnline(
     void transport.publish(room, EMPTY_HANDS);
   }, []);
 
-  /** Host only: deals a fresh world at a checkpoint and starts the drive. */
+  /** Host only: deals a fresh world at a section and starts the drive. */
   const dealAt = useCallback(
-    (checkpoint: number) => {
+    (section: number) => {
       if (roleRef.current !== "host") {
         return;
       }
-      authRef.current = startAt(checkpoint, COOP_PLAYERS);
+      authRef.current = startAt(section, COOP_PLAYERS);
       runningRef.current = true;
       roomPhaseRef.current = "playing";
       publishNow();
@@ -225,11 +230,15 @@ export function useRvThereYetOnline(
   const start = useCallback(() => {
     // The host's own saved progress decides where the two of them set off -
     // somebody has to choose, and it is their room.
-    dealAt(loadCheckpoint());
+    dealAt(loadSection());
   }, [dealAt]);
 
   const again = useCallback(() => {
-    dealAt(authRef.current?.checkpoint ?? loadCheckpoint());
+    dealAt(authRef.current?.section ?? loadSection());
+  }, [dealAt]);
+
+  const newGame = useCallback(() => {
+    dealAt(FIRST_SECTION);
   }, [dealAt]);
 
   const sendChat = useCallback((text: string) => {
@@ -344,8 +353,8 @@ export function useRvThereYetOnline(
     const stopListening = controls.listen(window);
     // Person zero is the host's, person one the guest's - for the whole drive.
     const me = roleRef.current === "host" ? 0 : 1;
-    /** The checkpoint already written to storage, so it is saved on change. */
-    let savedCheckpoint = loadCheckpoint();
+    /** The section already written to storage, so it is saved on change. */
+    let savedSection = loadSection();
 
     let raf = 0;
     let last = performance.now();
@@ -413,9 +422,9 @@ export function useRvThereYetOnline(
           Math.min(me, world.people.length - 1),
         );
         // Both of them get to keep the progress they drove to together.
-        if (world.checkpoint !== savedCheckpoint) {
-          savedCheckpoint = world.checkpoint;
-          saveCheckpoint(savedCheckpoint);
+        if (world.section !== savedSection) {
+          savedSection = world.section;
+          saveSection(savedSection);
         }
       }
       raf = window.requestAnimationFrame(frame);
@@ -437,6 +446,7 @@ export function useRvThereYetOnline(
     canvasRef,
     start,
     again,
+    newGame,
     shift: (gear: number) => controlsRef.current.shift(gear),
     touch: (button, down) => controlsRef.current.press(button, down),
     messages,

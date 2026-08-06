@@ -6,7 +6,7 @@
  * Two players bring one motorhome over the mountain together. "Mitspieler
  * finden" pairs two strangers automatically; "Raum erstellen" / "Raum
  * beitreten" open or join a private room by code. Once both are in, the host
- * deals the drive at its own last checkpoint and the two of them share one
+ * deals the drive at its own last section and the two of them share one
  * vehicle: whoever climbs in first steers, the other rides along - and, more
  * to the point, gets out to work the rope while the driver stays at the wheel.
  */
@@ -43,7 +43,7 @@ import {
 } from "@/games/panzerkiste/settings/player-name";
 import { CANVAS_H, CANVAS_W } from "@/games/rv-there-yet/components/render";
 import {
-  Battery,
+  Fuel,
   CLOCK_DIGITS,
   ControlsHint,
   Doing,
@@ -100,7 +100,10 @@ const T = {
   driving: "Du lenkst",
   ridingAlong: "Beifahrer",
   onFootBadge: "Zu Fuß",
-  again: "Nochmal von diesem Checkpoint",
+  again: "Nochmal von diesem Abschnitt",
+  againFromStart: "Nochmal von vorne",
+  newGame: "Neues Spiel",
+  newGameTitle: "Von vorne anfangen: beide zurück zum ersten Abschnitt",
   waitingForRestart: "Warte auf den Host …",
 } as const;
 
@@ -595,16 +598,25 @@ function DrivingArea({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <Pill>
-            {RV_TEXTS.checkpoint(hud.checkpoint + 1, hud.checkpoints)}
-          </Pill>
-          <Pill>{RV_TEXTS.distance(hud.done, hud.total)}</Pill>
+          <Pill>{RV_TEXTS.section(hud.section + 1, hud.sections)}</Pill>
           <Pill>{RV_TEXTS.time(hud.time.toFixed(CLOCK_DIGITS))}</Pill>
-          <Battery share={hud.battery} />
+          <Pill>{RV_TEXTS.speedKmh(hud.speedKmh)}</Pill>
+          <Fuel share={hud.fuel} />
           <Doing hud={hud} />
         </div>
         <div className="flex items-center gap-2">
           <SeatBadge hud={hud} />
+          {online.isHost && (
+            <button
+              type="button"
+              data-testid="rv-new-game"
+              onClick={online.newGame}
+              title={T.newGameTitle}
+              className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            >
+              {T.newGame}
+            </button>
+          )}
           <LeaveButton onLeave={onLeave} />
         </div>
       </div>
@@ -668,12 +680,33 @@ function SeatBadge({
   );
 }
 
-/** The screen over the canvas once the two of them have arrived. */
+/** The screen over the canvas once the drive has ended, one way or another. */
 function ArrivedOverlay({
   online,
 }: {
   readonly online: RvThereYetOnline;
 }): ReactElement | null {
+  if (online.hud.phase === "mauled") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-red-950/80 p-4 text-center text-white">
+        <p className="text-2xl font-bold">
+          {"\u{1F43B}"} {RV_TEXTS.mauled}
+        </p>
+        <p className="text-sm text-red-100">{RV_TEXTS.mauledHint}</p>
+        {online.isHost ? (
+          <button
+            type="button"
+            onClick={online.again}
+            className="cursor-pointer rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            {T.again}
+          </button>
+        ) : (
+          <p className="text-sm">{T.waitingForRestart}</p>
+        )}
+      </div>
+    );
+  }
   if (online.hud.phase !== "arrived") {
     return null;
   }
@@ -691,10 +724,10 @@ function ArrivedOverlay({
       {online.isHost ? (
         <button
           type="button"
-          onClick={online.again}
+          onClick={online.newGame}
           className="cursor-pointer rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
         >
-          {T.again}
+          {T.againFromStart}
         </button>
       ) : (
         <p className="text-sm">{T.waitingForRestart}</p>

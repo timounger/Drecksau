@@ -62,6 +62,15 @@ export function PanzerkisteGame(): ReactElement {
         title={PANZERKISTE_TEXTS.title}
         subtitle={PANZERKISTE_TEXTS.subtitle}
       >
+        <button
+          type="button"
+          data-testid="pk-new-game"
+          onClick={newMission}
+          title={PANZERKISTE_TEXTS.newGameTitle}
+          className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        >
+          {PANZERKISTE_TEXTS.newGame}
+        </button>
         {fullscreen.supported && (
           <button
             type="button"

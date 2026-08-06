@@ -23,19 +23,25 @@
  *
  * The winch is modelled as a **rope, not a force**. Winding shortens the rope,
  * and the motorhome simply cannot be further from the anchor than the rope is
- * long. That is why the winch always works while the battery lasts: it does not
+ * long. That is why the winch always works while there is fuel: it does not
  * fight gravity for grip, it takes grip out of the question.
  */
-import { checkpointAt } from "./map";
+import { sectionAt } from "./map";
 import { heightAt, routeLength, slopeAt } from "./terrain";
 import {
   ANCHOR_REACH,
-  BATTERY_CHARGE,
+  FUEL_BURN,
+  BEAR_LEASH,
+  BEAR_NOTICE,
   BEAR_REACH,
+  BEAR_SPEED,
+  MAUL_SECONDS,
+  SPRAY_REACH,
+  SPRAY_SECONDS,
   PICKUP_REACH,
   REPAIR_SECONDS,
   TYRE_FACTOR,
-  BATTERY_DRAIN,
+  WINCH_BURN,
   DRAG,
   BRAKE_ACCEL,
   gearAt,
@@ -57,10 +63,12 @@ import {
   WINCH_RANGE,
   WINCH_SPEED,
   IDLE_INPUT,
+  type Bear,
   type GameState,
   type Input,
   type ItemKind,
   type Person,
+  type Phase,
   type Pit,
   type Route,
 } from "./types";
@@ -101,11 +109,15 @@ export function step(
   // on a standing vehicle.
   const gear = nextGear(state, wheel, driver >= 0);
 
-  // The rope and the hammer answer to whoever is standing in the right place.
-  // The same key does both, and the two never mean the same thing in the same
-  // spot: one happens at the vehicle, the other at a tree. Mending wins where
-  // both would be possible - somebody standing at their broken motorhome with
-  // a hammer is not reaching for a rope.
+  // Picking up has a key of its own, so it never competes with the rope. What
+  // is left on the rope key is the rope and the hammer, and those two never
+  // mean the same thing in the same spot: one happens at a tree, the other at
+  // the motorhome. Mending wins where both would be possible - somebody
+  // standing at their broken motorhome with a hammer is not reaching for a
+  // rope.
+  const taking = state.people.map((person, index) =>
+    !aboard[index] && said(index).take ? withinReach(person, route) : null,
+  );
   const tying = state.people.findIndex(
     (person, index) =>
       !aboard[index] &&
@@ -130,7 +142,7 @@ export function step(
             aboard[index] || said(index).wind === 0 ? most : said(index).wind,
           0,
         );
-  const winding = reeling > 0 && state.battery > 0;
+  const winding = reeling > 0 && state.fuel > 0;
   const rope = ropeAfter(out, winding, reeling < 0, span);
 
   const rv = whereTheVehicleGoes(
@@ -160,22 +172,36 @@ export function step(
   const repair = job === null ? 0 : state.repair + span;
   const done = repair >= REPAIR_SECONDS;
 
+  const people = state.people.map((person, index) =>
+    moved(
+      person,
+      state,
+      route,
+      said(index),
+      aboard[index],
+      span,
+      x,
+      taking[index],
+    ),
+  );
+  const bear = nextBear(state, route, people, aboard, said, span);
+  const mauled = bear !== null && bear.hold >= MAUL_SECONDS;
+
   return {
     ...state,
     rv: { x, v: x === held.x ? held.v : 0 },
-    people: state.people.map((person, index) =>
-      moved(person, state, route, said(index), aboard[index], span, x),
-    ),
+    people,
+    bear,
     driver,
     gear,
     damaged: wrecked && !(done && job === "mend"),
     tyres: state.tyres || (done && job === "fit"),
     repair: done ? 0 : repair,
-    checkpoint: Math.max(state.checkpoint, checkpointAt(x)),
+    section: Math.max(state.section, sectionAt(x)),
     hooked: releaseIf(hooked, rope, x, route),
     rope,
-    battery: nextBattery(state.battery, winding, wheel, driver >= 0, span),
-    phase: x >= goal && driver >= 0 ? "arrived" : state.phase,
+    fuel: nextFuel(state.fuel, winding, wheel, driver >= 0, span),
+    phase: nextPhase(state.phase, x >= goal && driver >= 0, mauled),
     time: state.time + span,
     reached: Math.max(state.reached, x),
   };
@@ -210,6 +236,7 @@ function nextDriver(state: GameState, aboard: readonly boolean[]): number {
  * @param inside - whether they are in the cab now
  * @param span - how long the frame lasted
  * @param rvX - where the motorhome is now, in metres
+ * @param taken - what they just picked up, or null
  * @returns them, one frame later
  */
 function moved(
@@ -220,6 +247,7 @@ function moved(
   inside: boolean,
   span: number,
   rvX: number,
+  taken: ItemKind | null,
 ): Person {
   const at = whereTheyStand(person, route, input, span, inside, rvX);
   return {
@@ -228,7 +256,7 @@ function moved(
     stride: person.stride + (inside ? 0 : Math.abs(at - person.at)),
     facing: facingOf(person, input, inside),
     walking: !inside && input.drive !== 0,
-    carrying: carriedAfter(person, route, at, inside),
+    carrying: taken === null ? person.carrying : [...person.carrying, taken],
   };
 }
 
@@ -587,34 +615,31 @@ export function canMend(
 }
 
 /**
- * What the driver is carrying after this frame.
+ * What a person standing here could pick up, if anything.
  *
- * @param state - the world as it is
+ * @param person - them, as they were
  * @param route - the route being driven
- * @param walker - where they stand now, in metres
- * @param inside - whether they are in the cab
- * @returns the list of things carried
+ * @returns the kind of thing in reach, or null
  * @remarks
- * Picked up by walking over them, and never put down again. Reaching out of a
- * cab window for a set of tyres is not a thing that happens.
+ * Picking up is a **decision**, not something that happens to you: you stand at
+ * the thing and press the key. Sweeping items up by walking over them meant
+ * arriving at a wrecked motorhome with a hammer nobody remembered collecting -
+ * and worse, walking past one without noticing that you now had it.
+ *
+ * Once picked up, a thing is never put down again. Reaching out of a cab window
+ * for a set of tyres is not a thing that happens either, so this only answers
+ * for somebody on foot.
  */
-function carriedAfter(
-  person: Person,
-  route: Route,
-  at: number,
-  inside: boolean,
-): readonly ItemKind[] {
-  if (inside) {
-    return person.carrying;
+export function withinReach(person: Person, route: Route): ItemKind | null {
+  if (person.inside) {
+    return null;
   }
-  const found = route.items.filter(
+  const found = route.items.find(
     (item) =>
-      Math.abs(at - item.at) <= PICKUP_REACH &&
+      Math.abs(person.at - item.at) <= PICKUP_REACH &&
       !person.carrying.includes(item.kind),
   );
-  return found.length === 0
-    ? person.carrying
-    : [...person.carrying, ...found.map((item) => item.kind)];
+  return found === undefined ? null : found.kind;
 }
 
 /**
@@ -638,14 +663,152 @@ export function jobAt(person: Person, state: GameState, inside: boolean): Job {
   return !state.tyres && person.carrying.includes("tyres") ? "fit" : null;
 }
 
-/** Whether a bear is standing in the way of somebody without the spray. */
+/**
+ * How far the motorhome may go before the bear stops it.
+ *
+ * @param state - the world as it is
+ * @returns the metre it may not pass, or infinity when nothing bars the way
+ * @remarks
+ * Carrying the spray is not enough - the can has to be **used**. Only a bear
+ * that has actually been driven off opens the road.
+ *
+ * The line only counts while the bear is still **ahead**. A bear that has
+ * walked past the motorhome chasing somebody must not drag it backwards, and
+ * the driver who got past it while it was busy has earned that.
+ */
 function barrier(state: GameState, route: Route): number {
-  // One can of spray is enough for the party: whoever is holding it is the one
-  // walking up to the bear.
-  const clear =
-    route.bear === null ||
-    state.people.some((person) => person.carrying.includes("spray"));
-  return clear ? Number.POSITIVE_INFINITY : route.bear - BEAR_REACH;
+  const bear = state.bear;
+  if (bear === null || bear.gone || route.bear === null) {
+    return Number.POSITIVE_INFINITY;
+  }
+  // The line sits at the bear's **post**, not at the animal. It guards that
+  // stretch of road, and walking a few metres aside after somebody does not
+  // open it - otherwise luring it past the bumper would be a way through, and
+  // the can of spray would be decoration.
+  //
+  // Never behind where the motorhome already is, so a bear can under no
+  // circumstances drag one backwards.
+  return Math.max(state.rv.x, route.bear - BEAR_REACH);
+}
+
+/**
+ * The bear after this frame: resting, coming, sprayed or gone.
+ *
+ * @param state - the world as it was
+ * @param people - where everybody is now
+ * @param aboard - who is in the cab
+ * @param said - what each of them is doing
+ * @param span - how long the frame lasted
+ * @returns the bear, one frame on
+ * @remarks
+ * It only ever wants somebody **on foot**. Whoever is in the cab is not there
+ * as far as a bear is concerned, which is also the cheapest way out of a bad
+ * situation: get in and shut the door.
+ */
+function nextBear(
+  state: GameState,
+  route: Route,
+  people: readonly Person[],
+  aboard: readonly boolean[],
+  said: (index: number) => Input,
+  span: number,
+): Bear | null {
+  const bear = state.bear;
+  if (bear === null || bear.gone || route.bear === null) {
+    return bear;
+  }
+  const post = route.bear;
+  // The spray only works in a hand, held, and from close enough.
+  const spraying = people.some(
+    (person, index) =>
+      !aboard[index] &&
+      said(index).work &&
+      person.carrying.includes("spray") &&
+      Math.abs(person.at - bear.at) <= SPRAY_REACH,
+  );
+  const sprayed = spraying ? bear.sprayed + span : 0;
+  if (sprayed >= SPRAY_SECONDS) {
+    return { ...bear, sprayed: 0, hold: 0, gone: true };
+  }
+
+  // It follows whoever is on foot, but only to the end of its leash - and once
+  // nobody is out any more it walks back to the spot it was guarding.
+  const prey = nearestOnFoot(people, aboard, bear.at);
+  const chasing = prey !== null && Math.abs(prey - bear.at) <= BEAR_NOTICE;
+  const target = chasing && prey !== null ? prey : post;
+  const at = leashed(towards(bear.at, target, BEAR_SPEED * span), post);
+  const over = prey !== null && Math.abs(prey - at) <= BEAR_REACH;
+  return { at, hold: over ? bear.hold + span : 0, sprayed, gone: false };
+}
+
+/**
+ * Holds a place inside the bear's leash.
+ *
+ * @param at - where it would go
+ * @param post - the spot it is guarding
+ * @returns the place, pulled back to the end of the leash if need be
+ */
+function leashed(at: number, post: number): number {
+  return Math.min(post + BEAR_LEASH, Math.max(post - BEAR_LEASH, at));
+}
+
+/**
+ * Where the nearest person on foot stands, or null if everybody is aboard.
+ *
+ * @param people - everybody on the drive
+ * @param aboard - who is in the cab
+ * @param at - where the bear is
+ * @returns the metre the nearest of them stands at, or null
+ */
+function nearestOnFoot(
+  people: readonly Person[],
+  aboard: readonly boolean[],
+  at: number,
+): number | null {
+  let found: number | null = null;
+  people.forEach((person, index) => {
+    if (aboard[index]) {
+      return;
+    }
+    if (found === null || Math.abs(person.at - at) < Math.abs(found - at)) {
+      found = person.at;
+    }
+  });
+  return found;
+}
+
+/**
+ * Moves a number towards another, by at most one step.
+ *
+ * @param from - where it is
+ * @param to - where it is heading
+ * @param step - how far it may go this frame
+ * @returns the new place, never overshooting the target
+ */
+function towards(from: number, to: number, step: number): number {
+  const gap = to - from;
+  return Math.abs(gap) <= step ? to : from + Math.sign(gap) * step;
+}
+
+/**
+ * The phase after this frame.
+ *
+ * @param phase - the phase as it was
+ * @param home - whether the motorhome has reached the flag
+ * @param mauled - whether the bear has had somebody long enough
+ * @returns the phase now
+ * @remarks
+ * The bear wins over the flag: arriving with somebody under a bear is not
+ * arriving.
+ */
+function nextPhase(phase: Phase, home: boolean, mauled: boolean): Phase {
+  if (phase !== "driving") {
+    return phase;
+  }
+  if (mauled) {
+    return "mauled";
+  }
+  return home ? "arrived" : phase;
 }
 
 /**
@@ -728,15 +891,28 @@ function releaseIf(
   return rope <= WINCH_MIN || gap <= WINCH_MIN ? UNHOOKED : hooked;
 }
 
-/** Drains the battery while winding, and fills it while the engine runs. */
-function nextBattery(
-  battery: number,
+/**
+ * What is left in the tank after this frame.
+ *
+ * @param fuel - what was in it
+ * @param winding - true while the winch is pulling
+ * @param wheel - what the driver is doing
+ * @param driving - true while somebody is at the wheel
+ * @param span - how long the frame lasted
+ * @returns the level now, never below empty
+ * @remarks
+ * Only work costs fuel: a motorhome standing with the engine idling burns
+ * nothing here, because a gauge that falls while you think about a hill would
+ * punish exactly the thinking this game is about.
+ */
+function nextFuel(
+  fuel: number,
   winding: boolean,
   wheel: Input,
   driving: boolean,
   span: number,
 ): number {
-  const used = winding ? BATTERY_DRAIN * span : 0;
-  const made = driving && wheel.drive !== 0 ? BATTERY_CHARGE * span : 0;
-  return Math.min(1, Math.max(0, battery - used + made));
+  const engine = driving && wheel.drive !== 0 ? FUEL_BURN * span : 0;
+  const winch = winding ? WINCH_BURN * span : 0;
+  return Math.max(0, fuel - engine - winch);
 }

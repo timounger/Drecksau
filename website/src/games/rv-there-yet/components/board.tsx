@@ -11,13 +11,21 @@
 "use client";
 
 import { type ReactElement } from "react";
-import { GEARS, NEUTRAL, REVERSE } from "@/games/rv-there-yet/engine/types";
+import {
+  GEARS,
+  NEUTRAL,
+  REVERSE,
+  type ItemKind,
+} from "@/games/rv-there-yet/engine/types";
 import type { Hud } from "@/games/rv-there-yet/hooks/hud";
 import type { TouchButton } from "@/games/rv-there-yet/hooks/controls";
 import { RV_TEXTS } from "@/games/rv-there-yet/i18n/texts";
 
 /** Turning a share into whole percent. */
 const PERCENT = 100;
+
+/** Below this share of a tank the gauge turns red. */
+const LOW_FUEL = 0.2;
 
 /** How many decimals the clock shows. */
 export const CLOCK_DIGITS = 1;
@@ -37,27 +45,29 @@ export function Pill({ children }: { children: string }): ReactElement {
 }
 
 /**
- * The winch battery as a little bar.
+ * The fuel tank as a little bar.
  *
  * @param props - how full it is, from 0 to 1
- * @returns the battery element
+ * @returns the gauge element
+ * @remarks
+ * Red below a fifth, the way a real one lights up: a bar that only ever shrinks
+ * quietly is a bar nobody looks at until the engine stops.
  */
-export function Battery({ share }: { share: number }): ReactElement {
+export function Fuel({ share }: { share: number }): ReactElement {
   const percent = Math.round(share * PERCENT);
+  const low = share <= LOW_FUEL;
   return (
     <span
-      data-testid="rv-battery"
+      data-testid="rv-fuel"
       className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white/60 px-3 py-1 dark:border-zinc-800 dark:bg-zinc-900/40"
     >
-      <span className="text-zinc-500 dark:text-zinc-400">
-        {RV_TEXTS.battery}
-      </span>
+      <span className="text-zinc-500 dark:text-zinc-400">{RV_TEXTS.fuel}</span>
       <span className="h-2 w-16 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
         <span
           className={
-            percent > 0
-              ? "block h-full rounded-full bg-emerald-500"
-              : "block h-full rounded-full bg-red-500"
+            low
+              ? "block h-full rounded-full bg-red-500"
+              : "block h-full rounded-full bg-emerald-500"
           }
           style={{ width: `${Math.max(percent, percent > 0 ? 1 : 0)}%` }}
         />
@@ -153,6 +163,9 @@ export function TouchPad({
       <Pedal onPress={onPress} button="door">
         {RV_TEXTS.door}
       </Pedal>
+      <Pedal onPress={onPress} button="take" lit={hud.pickUp !== null}>
+        {RV_TEXTS.take}
+      </Pedal>
       <Pedal onPress={onPress} button="hook" lit={hud.ready || hud.hooked}>
         {RV_TEXTS.hook}
       </Pedal>
@@ -176,21 +189,62 @@ export function TouchPad({
  * a little man instead of driving. In co-op it says one more thing: that you
  * are in the passenger seat and the pedals are not yours.
  */
-export function Doing({ hud }: { readonly hud: Hud }): ReactElement {
+/**
+ * What that line says, as a plain string.
+ *
+ * @param hud - the heads-up facts
+ * @returns the sentence to show
+ * @remarks
+ * Pulled out of the component so the **order** can be tested. The order is the
+ * whole substance here, and it has been wrong before: the line went on saying
+ * "go and find the hammer" one frame after the hammer had been picked up, so a
+ * player who read it went looking for a thing already in their hand.
+ */
+export function doingText(hud: Hud): string {
   // Order matters: what you can do **right now** beats what you are carrying.
   // A rope on the tree must not hide the fact that you are standing at the
   // open door and one key away from driving on.
   let text: string;
-  if (hud.repair > 0) {
+  const bear = hud.bear;
+  // A bear beats everything else on the screen. It is the only thing here that
+  // kills, and it is coming whether or not you were reading the line.
+  if (bear !== null && bear.sprayed > 0) {
+    // Ahead of the danger on purpose. The bear reaches you **while** you are
+    // spraying - that is the nerve of the thing - and at that moment the one
+    // number worth reading is the one that says "keep holding". That it has
+    // hold of you needs no caption; the line is already red.
+    text = RV_TEXTS.bearSpraying(Math.round(bear.sprayed * PERCENT));
+  } else if (bear !== null && bear.danger > 0) {
+    text = RV_TEXTS.bearHolding(Math.round(bear.danger * PERCENT));
+  } else if (bear !== null && bear.canSpray && bear.armed) {
+    text = RV_TEXTS.bearSpray;
+  } else if (bear !== null && bear.canSpray) {
+    text = RV_TEXTS.bearRun;
+  } else if (bear !== null && bear.coming && bear.armed) {
+    text = RV_TEXTS.bearComingArmed;
+  } else if (bear !== null && bear.coming) {
+    text = RV_TEXTS.bearComing;
+  } else if (hud.repair > 0) {
     const share = Math.round(hud.repair * PERCENT);
     text =
       hud.job === "fit" ? RV_TEXTS.fitting(share) : RV_TEXTS.mending(share);
   } else if (hud.job === "fit") {
     text = RV_TEXTS.fitTyres;
+  } else if (hud.pickUp !== null) {
+    // Standing at a thing beats everything else the key could do there: it is
+    // the one action that vanishes if you walk on without noticing it.
+    text = PICK_UP[hud.pickUp];
   } else if (hud.canMend) {
     text = RV_TEXTS.wreckedWithHammer;
+  } else if (hud.damaged && !hud.inside && hud.carrying.includes("hammer")) {
+    // Without this the line said "go and find the hammer" one frame after
+    // picking the hammer up, and a player who reads that goes looking for a
+    // thing already in their hand.
+    text = RV_TEXTS.wreckedGotHammer;
   } else if (hud.damaged && !hud.inside) {
     text = RV_TEXTS.wrecked;
+  } else if (!hud.inside && !hud.tyres && hud.carrying.includes("tyres")) {
+    text = RV_TEXTS.gotTyres;
   } else if (hud.passenger) {
     text = RV_TEXTS.passenger;
   } else if (hud.atDoor) {
@@ -204,16 +258,29 @@ export function Doing({ hud }: { readonly hud: Hud }): ReactElement {
   } else {
     text = hud.inside ? RV_TEXTS.atWheel : RV_TEXTS.onFoot;
   }
+  return text;
+}
 
+export function Doing({ hud }: { readonly hud: Hud }): ReactElement {
   return (
     <span data-testid="rv-doing" className={doingClass(hud)}>
-      {text}
+      {doingText(hud)}
     </span>
   );
 }
 
+/** What the line says for each thing lying about. */
+const PICK_UP: Readonly<Record<ItemKind, string>> = {
+  hammer: RV_TEXTS.pickUpHammer,
+  tyres: RV_TEXTS.pickUpTyres,
+  spray: RV_TEXTS.pickUpSpray,
+};
+
 /** How the line looks: plain at the wheel, green on foot, red when wrecked. */
 function doingClass(hud: Hud): string {
+  if (hud.bear !== null && (hud.bear.coming || hud.bear.danger > 0)) {
+    return "rounded-lg border border-red-500 bg-red-100 px-3 py-1 font-semibold text-red-900 dark:bg-red-950/60 dark:text-red-100";
+  }
   if (hud.damaged) {
     return "rounded-lg border border-red-400 bg-red-50 px-3 py-1 font-medium text-red-800 dark:bg-red-950/40 dark:text-red-200";
   }
@@ -298,6 +365,7 @@ export function ControlsHint(): ReactElement {
       <span>{RV_TEXTS.gearKeys}</span>
       <span>{RV_TEXTS.walkKeys}</span>
       <span>{RV_TEXTS.doorKeys}</span>
+      <span>{RV_TEXTS.takeKeys}</span>
       <span>{RV_TEXTS.hookKeys}</span>
       <span>{RV_TEXTS.windKeys}</span>
       <span className="w-full">{RV_TEXTS.hint}</span>

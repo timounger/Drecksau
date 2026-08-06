@@ -23,6 +23,7 @@ import {
 import { blend } from "@/games/rv-there-yet/components/palette";
 import {
   GOAL_MARGIN,
+  PICKUP_REACH,
   type GameState,
   type Person,
   type Route,
@@ -54,7 +55,7 @@ const LOOK = {
   flagPole: 5,
   flagWidth: 2.6,
   flagHeight: 1.6,
-  /** A checkpoint marker, in metres - smaller than the goal, and blue. */
+  /** A section marker, in metres - smaller than the goal, and blue. */
   markPole: 3.6,
   markWidth: 1.8,
   markHeight: 1.1,
@@ -73,6 +74,9 @@ const LOOK = {
   glowRadius: 13,
   /** The things lying about, in metres. */
   tyreR: 0.55,
+  /** The ring around a thing within reach: how wide, and how high off the ground. */
+  glowWide: 1.6,
+  glowUp: 0.7,
   sprayWide: 0.34,
   sprayTall: 0.6,
   sprayCap: 0.16,
@@ -111,6 +115,20 @@ const RV = {
   frontAxle: 2.0,
   wheel: 0.62,
   hub: 0.34,
+  /**
+   * The off-road tyres, once they are fitted.
+   *
+   * @remarks
+   * Bigger than the road tyres, and that is the whole point: they have to be
+   * recognisable across the width of the screen. The vehicle rides the
+   * difference higher, exactly as a real one on oversized rubber does - which
+   * is a second, quieter way of saying "these are on".
+   */
+  offRoad: 0.86,
+  offRoadHub: 0.4,
+  /** How far the tread blocks stand out, and how many go round. */
+  tread: 0.11,
+  treadCount: 14,
   /** Floor and roof of the living box. */
   floor: 0.72,
   roof: 3.35,
@@ -255,6 +273,7 @@ const PAINT = {
   windowDark: "#8fa9b4",
   wheel: "#2b2b2b",
   rim: "#e8dcc2",
+  takeGlow: "#ffd75e88",
   flagPole: "#555555",
   flag: "#d94f3d",
   markPole: "#4a5a6b",
@@ -298,7 +317,9 @@ export function draw(
   // what matters is the road ahead; on foot it is where you and the motorhome
   // stand in relation to each other, and no windscreen shows you that.
   if (mine.inside) {
-    drawCockpit(ctx, state, route, candidate);
+    // Only one of the two seats has a wheel in front of it, and which one you
+    // are in is not a detail: it decides whether the pedals answer to you.
+    drawCockpit(ctx, state, route, candidate, state.driver === me);
     return;
   }
   const camera = cameraOf(mine, state, route);
@@ -306,7 +327,7 @@ export function draw(
   drawRidge(ctx, camera);
   drawGround(ctx, route, camera);
   drawItems(ctx, state, route, camera);
-  drawCheckpoints(ctx, state, route, camera);
+  drawSectionFlags(ctx, state, route, camera);
   drawAnchors(ctx, route, camera, candidate, ready);
   drawGoal(ctx, route, camera);
   drawRope(ctx, state, route, camera);
@@ -477,12 +498,26 @@ function crownColour(index: number, candidate: number, ready: number): string {
 }
 
 /**
+ * Whether anybody on foot is close enough to pick a thing up.
+ *
+ * @param state - the world as it is
+ * @param at - where the thing lies, in metres
+ * @returns true while somebody could take it
+ */
+function reachable(state: GameState, at: number): boolean {
+  return state.people.some(
+    (person) => !person.inside && Math.abs(person.at - at) <= PICKUP_REACH,
+  );
+}
+
+/**
  * The things lying about on the route, and the bear standing in the way.
  *
  * @remarks
  * Each is drawn only while nobody has picked it up, which is the whole feedback
- * for having done so - the thing is gone from the ground and in the driver's
- * hand instead.
+ * for having done so - the thing is gone from the ground and in somebody's hand
+ * instead. One within reach gets a ring, so that it is plain **before** the key
+ * is pressed rather than only in the line of text.
  */
 function drawItems(
   ctx: CanvasRenderingContext2D,
@@ -500,6 +535,15 @@ function drawItems(
     }
     ctx.save();
     ctx.translate(foot.px, foot.py);
+    // A ring the moment somebody is close enough to take it. Without it the
+    // only sign is a line of text, and a player looking at the road walks
+    // straight past a thing they are standing on.
+    if (reachable(state, item.at)) {
+      ctx.fillStyle = PAINT.takeGlow;
+      ctx.beginPath();
+      ctx.arc(0, -m(LOOK.glowUp), m(LOOK.glowWide), 0, Math.PI * 2);
+      ctx.fill();
+    }
     if (item.kind === "hammer") {
       hammerShape(ctx, 0);
     } else if (item.kind === "tyres") {
@@ -561,13 +605,13 @@ function drawBear(
   route: Route,
   camera: Camera,
 ): void {
-  const armed = state.people.some((person) =>
-    person.carrying.includes("spray"),
-  );
-  if (route.bear === null || armed) {
+  const bear = state.bear;
+  // Carrying the can does nothing any more - only a bear that has been driven
+  // off is off the map.
+  if (bear === null || bear.gone) {
     return;
   }
-  const foot = toScreen(camera, route.bear, heightAt(route, route.bear));
+  const foot = toScreen(camera, bear.at, heightAt(route, bear.at));
   if (foot.px < 0 || foot.px > CANVAS_W) {
     return;
   }
@@ -640,20 +684,20 @@ function hammerShape(ctx: CanvasRenderingContext2D, lift: number): void {
 }
 
 /**
- * A small blue flag on every checkpoint.
+ * A small blue flag on every section.
  *
  * @remarks
  * The ones already behind you are faded, so a glance says both "this is a
- * checkpoint" and "you have had this one". Blue and small, so the red goal
+ * section" and "you have had this one". Blue and small, so the red goal
  * flag stays the one that means the end.
  */
-function drawCheckpoints(
+function drawSectionFlags(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   route: Route,
   camera: Camera,
 ): void {
-  route.checkpoints.forEach((at, index) => {
+  route.sections.forEach((at, index) => {
     const foot = toScreen(camera, at, heightAt(route, at));
     if (foot.px < -LOOK.glowRadius || foot.px > CANVAS_W + LOOK.glowRadius) {
       return;
@@ -666,7 +710,7 @@ function drawCheckpoints(
     ctx.lineTo(foot.px, top);
     ctx.stroke();
     ctx.fillStyle =
-      index <= state.checkpoint ? PAINT.markFlagPassed : PAINT.markFlag;
+      index <= state.section ? PAINT.markFlagPassed : PAINT.markFlag;
     ctx.fillRect(
       foot.px,
       top,
@@ -746,10 +790,14 @@ function drawRv(
   ctx.save();
   ctx.translate(foot.px, foot.py);
   ctx.rotate(-angle);
+  // Bigger tyres lift the whole vehicle: the body is drawn from the ground up,
+  // so raising it by the difference is what keeps the wheels on the ground.
+  const lift = state.tyres ? RV.offRoad - RV.wheel : 0;
+  ctx.translate(0, -m(lift));
   ctx.lineWidth = LOOK.outline;
   ctx.strokeStyle = PAINT.outline;
 
-  drawWheels(ctx);
+  drawWheels(ctx, state.tyres);
   drawShell(ctx);
   drawTrim(ctx);
   drawGlass(ctx);
@@ -806,18 +854,65 @@ function boxPath(
   ctx.roundRect(m(from), -m(high), m(to - from), m(high - low), m(radius));
 }
 
-/** Both wheels, with the pale rims of the photograph. */
-function drawWheels(ctx: CanvasRenderingContext2D): void {
+/**
+ * Both wheels, with the pale rims of the photograph.
+ *
+ * @param ctx - the canvas to draw on, already at the vehicle
+ * @param offRoad - whether the off-road tyres are fitted
+ * @remarks
+ * The two are meant to be told apart at a glance: the road tyre is a plain
+ * black disc, the off-road one is bigger and has tread blocks standing out all
+ * the way round. Size alone would be too quiet - on a small screen a wheel a
+ * third bigger is just a wheel - so the knobbly silhouette does the talking.
+ */
+function drawWheels(ctx: CanvasRenderingContext2D, offRoad: boolean): void {
+  const radius = offRoad ? RV.offRoad : RV.wheel;
+  const hub = offRoad ? RV.offRoadHub : RV.hub;
   for (const axle of [RV.rearAxle, RV.frontAxle]) {
     ctx.fillStyle = PAINT.wheel;
+    if (offRoad) {
+      drawTread(ctx, m(axle), -m(radius), m(radius));
+    }
     ctx.beginPath();
-    ctx.arc(m(axle), -m(RV.wheel), m(RV.wheel), 0, Math.PI * 2);
+    ctx.arc(m(axle), -m(radius), m(radius), 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = PAINT.rim;
     ctx.beginPath();
-    ctx.arc(m(axle), -m(RV.wheel), m(RV.hub), 0, Math.PI * 2);
+    ctx.arc(m(axle), -m(radius), m(hub), 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+/**
+ * The tread blocks standing out around a tyre.
+ *
+ * @param ctx - the canvas to draw on
+ * @param cx - the centre of the wheel, in pixels
+ * @param cy - the centre of the wheel, in pixels
+ * @param radius - the tyre's radius, in pixels
+ * @remarks
+ * Drawn **under** the tyre itself, so only the part that sticks out past the
+ * rubber shows. That way the blocks cannot smear across the face of the wheel
+ * however many of them there are.
+ */
+function drawTread(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+): void {
+  const block = m(RV.tread);
+  ctx.save();
+  ctx.translate(cx, cy);
+  for (let n = 0; n < RV.treadCount; n++) {
+    ctx.save();
+    ctx.rotate((n / RV.treadCount) * Math.PI * 2);
+    ctx.beginPath();
+    ctx.roundRect(-block, -radius - block, block * 2, block * 2, block / 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 /**

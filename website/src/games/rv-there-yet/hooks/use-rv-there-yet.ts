@@ -20,11 +20,11 @@ import {
   ropeCandidate,
   step,
 } from "@/games/rv-there-yet/engine/engine";
-import { checkpointStep } from "@/games/rv-there-yet/engine/map";
+import { sectionStep } from "@/games/rv-there-yet/engine/map";
 import { startAt, theMap } from "@/games/rv-there-yet/engine/setup";
 import {
-  loadCheckpoint,
-  saveCheckpoint,
+  loadSection,
+  saveSection,
 } from "@/games/rv-there-yet/settings/progress";
 import {
   CANVAS_H,
@@ -54,7 +54,7 @@ const MS_PER_SECOND = 1000;
 /** How often gathered play time is written to the statistics, in ms. */
 const STATS_FLUSH_MS = 4000;
 
-/** How long the note about a reached checkpoint stays up, in ms. */
+/** How long the note about a reached section stays up, in ms. */
 const NOTE_MS = 2600;
 
 /** Longest single frame that still counts as play time, in seconds. */
@@ -63,12 +63,15 @@ const MAX_FRAME_S = 0.1;
 /** Alone on the map, the one person is the first one. */
 const ME = 0;
 
+/** Where a brand-new game begins. */
+const FIRST_SECTION = 0;
+
 export type { Hud, TouchButton };
 
 /** A short note shown over the canvas, or null. */
 export type Note = {
-  /** Which checkpoint was just driven past, counted from one. */
-  readonly checkpoint: number;
+  /** Which section was just driven past, counted from one. */
+  readonly section: number;
   /** Changes with every note, so the same one can be shown twice. */
   readonly id: number;
 };
@@ -77,15 +80,23 @@ export type Note = {
 export type RvThereYetGame = {
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
   readonly hud: Hud;
-  /** The note about a checkpoint just reached, or null. */
+  /** The note about a section just reached, or null. */
   readonly note: Note | null;
   /** Begins or resumes the drive. */
   readonly start: () => void;
-  /** Starts the current checkpoint over. */
+  /** Starts the current section over. */
   readonly again: () => void;
-  /** Jumps to the next checkpoint, wrapping around at the end. */
+  /**
+   * Starts the whole map over at the first section.
+   *
+   * @remarks
+   * This also forgets the remembered progress - a new game means the next
+   * visit begins at the beginning too, not back where the old run had got to.
+   */
+  readonly newGame: () => void;
+  /** Jumps to the next section, wrapping around at the end. */
   readonly next: () => void;
-  /** Jumps to the checkpoint before, wrapping around at the start. */
+  /** Jumps to the section before, wrapping around at the start. */
   readonly back: () => void;
   /** Presses or releases one of the on-screen buttons. */
   readonly touch: (button: TouchButton, down: boolean) => void;
@@ -108,15 +119,15 @@ export function useRvThereYet(): RvThereYetGame {
     hudOf(startAt(0), { ready: -1, candidate: -1, running: false, me: ME }),
   );
 
-  // A short note when a checkpoint is driven past; cleared on its own timer.
+  // A short note when a section is driven past; cleared on its own timer.
   const [note, setNote] = useState<Note | null>(null);
   const noteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
   const noteId = useRef(0);
-  const showNote = useCallback((checkpoint: number) => {
+  const showNote = useCallback((section: number) => {
     noteId.current += 1;
-    setNote({ checkpoint, id: noteId.current });
+    setNote({ section, id: noteId.current });
     clearTimeout(noteTimer.current);
     noteTimer.current = setTimeout(() => setNote(null), NOTE_MS);
   }, []);
@@ -140,8 +151,8 @@ export function useRvThereYet(): RvThereYetGame {
   // Statistics of the current drive: whether its start and its outcome were
   // counted, and the play time not yet written away.
   const tally = useRef({ recorded: false, ended: false, unflushedMs: 0 });
-  /** The checkpoint already written to storage, so it is saved only on change. */
-  const savedCheckpoint = useRef(0);
+  /** The section already written to storage, so it is saved only on change. */
+  const savedSection = useRef(0);
 
   const flushTime = useCallback(() => {
     const spent = tally.current.unflushedMs;
@@ -184,17 +195,21 @@ export function useRvThereYet(): RvThereYetGame {
           sinceFlush = 0;
           flushTime();
         }
-        if (stateRef.current.checkpoint !== savedCheckpoint.current) {
+        if (stateRef.current.section !== savedSection.current) {
           // Reached by driving, not by jumping - the jump sets this itself.
-          showNote(stateRef.current.checkpoint + 1);
-          savedCheckpoint.current = stateRef.current.checkpoint;
-          saveCheckpoint(savedCheckpoint.current);
+          // Passing the mark that begins section n means section n is **done**,
+          // so that is the number worth saying out loud.
+          showNote(stateRef.current.section);
+          savedSection.current = stateRef.current.section;
+          saveSection(savedSection.current);
         }
-        if (stateRef.current.phase === "arrived" && !tally.current.ended) {
+        const over = stateRef.current.phase !== "driving";
+        if (over && !tally.current.ended) {
           tally.current.ended = true;
           flushTime();
           recordGameFinished(GAME_ID, {
-            won: true,
+            // The bear is the one way this drive is lost.
+            won: stateRef.current.phase === "arrived",
             durationMs: stateRef.current.time * MS_PER_SECOND,
             finishedAt: Date.now(),
           });
@@ -225,10 +240,10 @@ export function useRvThereYet(): RvThereYetGame {
   }, [syncHud, flushTime, showNote]);
 
   const beginDrive = useCallback(
-    (checkpoint: number) => {
-      stateRef.current = startAt(checkpoint);
-      savedCheckpoint.current = stateRef.current.checkpoint;
-      saveCheckpoint(savedCheckpoint.current);
+    (section: number) => {
+      stateRef.current = startAt(section);
+      savedSection.current = stateRef.current.section;
+      saveSection(savedSection.current);
       setNote(null);
       tally.current = { recorded: true, ended: false, unflushedMs: 0 };
       runningRef.current = true;
@@ -241,16 +256,16 @@ export function useRvThereYet(): RvThereYetGame {
 
   const start = useCallback(() => {
     if (!runningRef.current) {
-      beginDrive(stateRef.current.checkpoint);
+      beginDrive(stateRef.current.section);
     }
   }, [beginDrive]);
 
   // Pick up where the last visit left off. Storage only exists in the browser,
   // so this cannot happen while the page is being prerendered.
   useEffect(() => {
-    const stored = loadCheckpoint();
-    savedCheckpoint.current = stored;
-    if (stored !== stateRef.current.checkpoint && !runningRef.current) {
+    const stored = loadSection();
+    savedSection.current = stored;
+    if (stored !== stateRef.current.section && !runningRef.current) {
       stateRef.current = startAt(stored);
       syncHud(stateRef.current, -1, -1);
     }
@@ -261,9 +276,10 @@ export function useRvThereYet(): RvThereYetGame {
     hud,
     note,
     start,
-    again: () => beginDrive(stateRef.current.checkpoint),
-    next: () => beginDrive(checkpointStep(stateRef.current.checkpoint, 1)),
-    back: () => beginDrive(checkpointStep(stateRef.current.checkpoint, -1)),
+    again: () => beginDrive(stateRef.current.section),
+    newGame: () => beginDrive(FIRST_SECTION),
+    next: () => beginDrive(sectionStep(stateRef.current.section, 1)),
+    back: () => beginDrive(sectionStep(stateRef.current.section, -1)),
     shift: (gear: number) => controlsRef.current.shift(gear),
     touch: (button, down) => controlsRef.current.press(button, down),
   };

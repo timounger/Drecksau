@@ -13,7 +13,7 @@ jedes Spiel hat seine eigene Seite.
 | [Panzerkiste](website/src/games/panzerkiste/README.md)    | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Allein + Koop-Online |
 | [Krakel Orakel](website/src/games/krakel/README.md)       | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online           |
 | [Skyjo](website/src/games/skyjo/README.md)                | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online    |
-| [RV There Yet?](website/src/games/rv-there-yet/README.md) | Seitenansicht: das Wohnmobil ueber den Berg bringen - notfalls mit der Seilwinde.                        | Allein (offline)     |
+| [RV There Yet?](website/src/games/rv-there-yet/README.md) | Seitenansicht: das Wohnmobil ueber den Berg bringen - notfalls mit der Seilwinde.                        | Allein + Koop-Online |
 
 Weitere Spiele docken ueber die Registry an (siehe
 [Ein weiteres Spiel hinzufuegen](#ein-weiteres-spiel-hinzufuegen)).
@@ -193,4 +193,5 @@ $env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
   [Binokel](docs/games/binokel/game-rules.md) ·
   [Panzerkiste](docs/games/panzerkiste/levels.md) ·
   [Krakel Orakel](docs/games/krakel/game-rules.md) ·
-  [Skyjo](docs/games/skyjo/game-rules.md)
+  [Skyjo](docs/games/skyjo/game-rules.md) ·
+  [RV There Yet?](docs/games/rv-there-yet/route-map.md)

@@ -97,6 +97,8 @@ const T = {
   missionWon: "Alle Level geschafft!",
   gameOver: "Game Over",
   newMission: "Neue Mission",
+  newGame: "Neues Spiel",
+  newGameTitle: "Von vorne anfangen: Level 1 mit vollen Leben",
   waitingForRematch: "Warte auf den Host …",
 } as const;
 
@@ -594,6 +596,17 @@ function PlayingArea({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {online.isHost && (
+            <button
+              type="button"
+              data-testid="pk-new-game"
+              onClick={online.newMission}
+              title={T.newGameTitle}
+              className="cursor-pointer rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            >
+              {T.newGame}
+            </button>
+          )}
           <VolumeSlider />
           {fullscreen.supported && (
             <button

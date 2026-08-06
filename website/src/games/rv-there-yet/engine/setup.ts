@@ -1,10 +1,10 @@
 /**
- * Starting a drive: the state the map begins in, at a checkpoint.
+ * Starting a drive: the state the map begins in, at a section.
  *
  * @module
  */
 import { besideTheVehicle } from "./engine";
-import { CHECKPOINTS, CHECKPOINT_COUNT, MAP } from "./map";
+import { SECTIONS, SECTION_COUNT, MAP } from "./map";
 import { type GameState, type Route } from "./types";
 
 /** The rope is off the hook. */
@@ -14,25 +14,26 @@ const UNHOOKED = -1;
 const SIDE_BY_SIDE = 2.5;
 
 /**
- * Begins a drive at a checkpoint.
+ * Begins a drive at a section.
  *
- * @param checkpoint - which one, counted from zero
+ * @param section - which one, counted from zero
  * @param people - how many are playing: one alone, two in co-op
- * @returns the world at that checkpoint, ready to go
+ * @returns the world at that section, ready to go
  * @remarks
  * You start **beside** the motorhome, not in it. It is the first thing the game
  * has to teach - that there is a person here who gets in and out - and a
  * player who begins already behind the wheel never finds that out until the
  * first wall stops them.
  */
-export function startAt(checkpoint: number, people = 1): GameState {
-  const index = Math.min(CHECKPOINT_COUNT - 1, Math.max(0, checkpoint));
-  const x = CHECKPOINTS[index];
+export function startAt(section: number, people = 1): GameState {
+  const index = Math.min(SECTION_COUNT - 1, Math.max(0, section));
+  const x = SECTIONS[index];
   return {
     rv: { x, v: 0 },
     hooked: UNHOOKED,
     rope: 0,
-    battery: 1,
+    // Every section begins with a full tank: a fresh start is a fresh tank.
+    fuel: 1,
     phase: "driving",
     time: 0,
     reached: x,
@@ -46,12 +47,17 @@ export function startAt(checkpoint: number, people = 1): GameState {
       walking: false,
       carrying: [],
     })),
+    // The map says where it sleeps; the drive is what wakes it.
+    bear:
+      MAP.bear === null
+        ? null
+        : { at: MAP.bear, hold: 0, sprayed: 0, gone: false },
     driver: -1,
     gear: 1,
     damaged: false,
     tyres: false,
     repair: 0,
-    checkpoint: index,
+    section: index,
   };
 }
 

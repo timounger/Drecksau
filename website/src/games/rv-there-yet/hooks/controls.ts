@@ -31,6 +31,15 @@ const WALK_LEFT_KEYS = new Set(["a", "arrowleft"]);
 const SPRINT_KEYS = new Set(["shift"]);
 const HOOK_KEYS = new Set([" ", "space"]);
 const DOOR_KEYS = new Set(["e"]);
+/**
+ * Picking a thing up.
+ *
+ * @remarks
+ * `F` because that is where a hand already is and where players already look
+ * for it: in most games `E` uses a thing and `F` picks one up. Here `E` opens
+ * the door, so `F` is the one left - and the one nobody has to be told.
+ */
+const TAKE_KEYS = new Set(["f"]);
 
 /**
  * Which gear each key puts in.
@@ -45,7 +54,7 @@ const GEAR_KEYS: ReadonlyMap<string, number> = new Map(
 
 /** The buttons a phone gets instead of a keyboard. */
 export type TouchButton =
-  "forward" | "back" | "wind" | "windOut" | "sprint" | "hook" | "door";
+  "forward" | "back" | "wind" | "windOut" | "sprint" | "hook" | "take" | "door";
 
 /** What a key listener needs from the window it listens on. */
 export type KeyTarget = {
@@ -88,6 +97,7 @@ export function createControls(): Controls {
     sprint: false,
   };
   let hookPending = false;
+  let takePending = false;
   let doorPending = false;
   let shiftPending: number | null = null;
 
@@ -103,6 +113,7 @@ export function createControls(): Controls {
 
   const forget = () => {
     hookPending = false;
+    takePending = false;
     doorPending = false;
     shiftPending = null;
   };
@@ -118,6 +129,7 @@ export function createControls(): Controls {
         // The remote only works in a hand, and hands are not on the wheel.
         wind: inside ? 0 : windOf(anyHeld, touch),
         hook: hookPending,
+        take: takePending,
         work: touch.hook || anyHeld(HOOK_KEYS),
         door: doorPending,
         sprint: touch.sprint || anyHeld(SPRINT_KEYS),
@@ -132,6 +144,10 @@ export function createControls(): Controls {
         touch.hook = down;
         if (down) {
           hookPending = true;
+        }
+      } else if (button === "take") {
+        if (down) {
+          takePending = true;
         }
       } else if (button === "door") {
         if (down) {
@@ -152,6 +168,9 @@ export function createControls(): Controls {
           // Space scrolls the page otherwise, which on a canvas game is fatal.
           event.preventDefault();
           hookPending = true;
+        }
+        if (TAKE_KEYS.has(key)) {
+          takePending = true;
         }
         if (DOOR_KEYS.has(key)) {
           doorPending = true;

@@ -42,7 +42,7 @@ describe("a state over the wire", () => {
     const back = fromSnapshot(there);
     expect(back.rv).toEqual(state.rv);
     expect(back.people).toEqual(state.people);
-    expect(back.checkpoint).toBe(state.checkpoint);
+    expect(back.section).toBe(state.section);
     expect(back.driver).toBe(state.driver);
   });
 });
@@ -107,15 +107,30 @@ describe("what the guards let in", () => {
 
 describe("a press that crossed the wire", () => {
   it("is still there the first time it is looked at", () => {
-    const pressed = { ...IDLE_INPUT, door: true, hook: true, shift: 3 };
+    const pressed = {
+      ...IDLE_INPUT,
+      door: true,
+      hook: true,
+      take: true,
+      shift: 3,
+    };
     expect(hasPress(pressed)).toBe(true);
+    expect(hasPress({ ...IDLE_INPUT, take: true })).toBe(true);
   });
 
   it("is gone once it has been used up", () => {
-    const pressed = { ...IDLE_INPUT, door: true, hook: true, shift: 3 };
+    const pressed = {
+      ...IDLE_INPUT,
+      door: true,
+      hook: true,
+      take: true,
+      shift: 3,
+    };
     const spent = withoutPresses(pressed);
     expect(spent.door).toBe(false);
     expect(spent.hook).toBe(false);
+    // Left in, one tap on F would pick a thing up two or three frames running.
+    expect(spent.take).toBe(false);
     expect(spent.shift).toBe(null);
     expect(hasPress(spent)).toBe(false);
   });

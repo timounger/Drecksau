@@ -22,6 +22,7 @@ import {
 import { blend } from "@/games/rv-there-yet/components/palette";
 import {
   gearAt,
+  KMH_PER_MS,
   GOAL_MARGIN,
   type GameState,
   type Route,
@@ -65,7 +66,7 @@ const VIEW = {
   itemSize: 1.2,
   bearSize: 2.2,
   bearHead: 0.28,
-  /** A checkpoint marker, in metres, standing on the left verge. */
+  /** A section marker, in metres, standing on the left verge. */
   markPole: 3.6,
   markWide: 1.8,
   markTall: 1.1,
@@ -90,7 +91,7 @@ const VIEW = {
    */
   dialR: 0.075,
   dialAt: 0.84,
-  dialTicks: 8,
+  dialTicks: 6,
   dialTickIn: 0.72,
   dialLine: 2,
   needleLine: 3,
@@ -116,7 +117,28 @@ const VIEW = {
   knobR: 0.011,
   knobLine: 2,
   /** The fastest the speedometer reads, in metres per second. */
-  dialTop: 18,
+  /**
+   * What the dial reads at the end of its sweep, in km/h.
+   *
+   * @remarks
+   * A round number so the labels come out round: six ticks of ten. Top gear
+   * runs to about 59 km/h, so the needle nearly fills the dial and still has
+   * somewhere to go downhill.
+   */
+  dialTop: 60,
+  /** How far in the tick numbers sit, as a share of the radius. */
+  dialLabelIn: 0.62,
+  /** How big the tick numbers and the digital reading are, in canvas shares. */
+  dialLabel: 0.028,
+  dialRead: 0.034,
+  /**
+   * How far **above** the middle of the dial the digital reading sits.
+   *
+   * @remarks
+   * Above, because the sweep starts and ends at the bottom: the 0 and the 60
+   * live down there, and a reading placed between them sat on top of both.
+   */
+  dialReadUp: 0.62,
   /**
    * The sweep of the dial, as shares of a half turn.
    *
@@ -128,6 +150,16 @@ const VIEW = {
   dialSweep: 1.5,
   /** How far the wheel's centre sits below the bottom edge, as a share of it. */
   wheelDrop: 0.35,
+  /** The passenger's side of the dashboard: a glove box and a grab handle. */
+  boxWide: 0.26,
+  boxTall: 0.11,
+  boxAt: 0.06,
+  /** How round the corners of the glove box are, as a share of its height. */
+  boxRound: 0.25,
+  handleWide: 0.2,
+  handleTall: 0.022,
+  handleAt: 0.02,
+  handleRound: 0.011,
   /** The distant ridge, in pixels. */
   ridgeHeight: 26,
   ridgeWave: 220,
@@ -173,6 +205,9 @@ const PAINT = {
   dash: "#241f1c",
   dashLip: "#3c352f",
   wheel: "#5b524a",
+  gloveBox: "#332c26",
+  gloveEdge: "#4b433b",
+  grabHandle: "#6b6058",
 } as const;
 
 /**
@@ -182,12 +217,14 @@ const PAINT = {
  * @param state - the world as it is
  * @param route - the map being driven
  * @param candidate - the tree the rope would reach, or -1
+ * @param driving - whether this seat is the one with the wheel in front of it
  */
 export function drawCockpit(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   route: Route,
   candidate: number,
+  driving: boolean,
 ): void {
   const width = ctx.canvas.width;
   const height = ctx.canvas.height;
@@ -198,11 +235,16 @@ export function drawCockpit(
   drawRidge(ctx, width, horizon, state.rv.x);
   drawRoad(ctx, state, route, { width, height, horizon, eye });
   drawTrees(ctx, state, route, candidate, { width, height, horizon, eye });
-  drawCheckpoints(ctx, state, route, { width, height, horizon, eye });
+  drawSectionFlags(ctx, state, route, { width, height, horizon, eye });
   drawThings(ctx, state, route, { width, height, horizon, eye });
   drawFlag(ctx, state, route, { width, height, horizon, eye });
   drawDashboard(ctx, width, height);
-  drawInstruments(ctx, width, height, state);
+  if (driving) {
+    drawSteeringWheel(ctx, width, height);
+    drawInstruments(ctx, width, height, state);
+  } else {
+    drawPassengerSide(ctx, width, height);
+  }
 }
 
 /** What every projection needs to know. */
@@ -384,20 +426,20 @@ function drawTrees(
 }
 
 /**
- * The checkpoint flags standing along the way, on the other verge.
+ * The section flags standing along the way, on the other verge.
  *
  * @remarks
  * Opposite the trees on purpose: one side of the road is what you hook a rope
  * to, the other is what tells you where you are.
  */
-function drawCheckpoints(
+function drawSectionFlags(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   route: Route,
   screen: Screen,
 ): void {
   const middle = screen.width / 2;
-  const seen = route.checkpoints
+  const seen = route.sections
     .map((at) => ({ at, gap: at - state.rv.x }))
     .filter((each) => each.gap > VIEW.bonnet && each.gap < VIEW.sight)
     .sort((a, b) => b.gap - a.gap);
@@ -439,11 +481,10 @@ function drawThings(
         !state.people.some((person) => person.carrying.includes(item.kind)),
     )
     .map((item) => ({ at: item.at, kind: String(item.kind) }));
-  const armed = state.people.some((person) =>
-    person.carrying.includes("spray"),
-  );
-  if (route.bear !== null && !armed) {
-    ahead.push({ at: route.bear, kind: "bear" });
+  // Where it **is**, not where the map put it: from the seat you want to see
+  // the thing coming, and by then it has left its spot.
+  if (state.bear !== null && !state.bear.gone) {
+    ahead.push({ at: state.bear.at, kind: "bear" });
   }
 
   for (const thing of ahead
@@ -515,12 +556,14 @@ function drawFlag(
 }
 
 /**
- * The dashboard and the wheel, so the view has somewhere to sit.
+ * The dashboard, so the view has somewhere to sit.
  *
+ * @param ctx - the canvas to paint on
+ * @param width - the canvas width
+ * @param height - the canvas height
  * @remarks
- * Only a quarter of the screen, and the wheel is half cut off by the bottom
- * edge - both because the road is what the player is here for. A cockpit that
- * takes up half the windscreen is a cockpit you resent.
+ * Only a quarter of the screen, because the road is what the player is here
+ * for. A cockpit that takes up half the windscreen is a cockpit you resent.
  */
 function drawDashboard(
   ctx: CanvasRenderingContext2D,
@@ -532,7 +575,22 @@ function drawDashboard(
   ctx.fillRect(0, top, width, height - top);
   ctx.fillStyle = PAINT.dashLip;
   ctx.fillRect(0, top, width, VIEW.dashLip);
+}
 
+/**
+ * The steering wheel, for the seat that has one.
+ *
+ * @param ctx - the canvas to paint on
+ * @param width - the canvas width
+ * @param height - the canvas height
+ * @remarks
+ * Half cut off by the bottom edge, the way a wheel looks from behind it.
+ */
+function drawSteeringWheel(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): void {
   const middle = width / 2;
   const centre = height + height * VIEW.wheelTall * VIEW.wheelDrop;
   const across = width * VIEW.wheelWide;
@@ -552,6 +610,63 @@ function drawDashboard(
   ctx.fillStyle = PAINT.wheel;
   ctx.beginPath();
   ctx.arc(middle, centre, width * VIEW.wheelHub, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/**
+ * The passenger's side of the cab: no wheel, no dials, nothing to hold.
+ *
+ * @param ctx - the canvas to paint on
+ * @param width - the canvas width
+ * @param height - the canvas height
+ * @remarks
+ * The whole point is what is **missing**. A passenger who still saw a wheel
+ * and a speedometer would keep pressing the pedals and wondering why nothing
+ * happens; an empty dashboard says "not yours" before any label does. A glove
+ * box and a grab handle keep it from reading as a drawing that failed to
+ * finish - and the handle is the honest furniture of the seat: the thing a
+ * passenger actually holds on a mountain track.
+ */
+function drawPassengerSide(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): void {
+  const top = height * (1 - VIEW.dash);
+  const middle = width / 2;
+
+  // The glove box, low and in front of the seat.
+  const boxWide = width * VIEW.boxWide;
+  const boxTall = height * VIEW.boxTall;
+  const boxTop = top + height * VIEW.boxAt;
+  ctx.fillStyle = PAINT.gloveBox;
+  ctx.beginPath();
+  ctx.roundRect(
+    middle - boxWide / 2,
+    boxTop,
+    boxWide,
+    boxTall,
+    boxTall * VIEW.boxRound,
+  );
+  ctx.fill();
+  ctx.strokeStyle = PAINT.gloveEdge;
+  ctx.lineWidth = VIEW.dialLine;
+  ctx.stroke();
+
+  // The grab handle on the dashboard, just under its lip - where a passenger
+  // reaches for it, not floating in the windscreen.
+  const handleWide = width * VIEW.handleWide;
+  const handleTall = height * VIEW.handleTall;
+  const handleTop = top + height * VIEW.handleAt;
+  ctx.fillStyle = PAINT.grabHandle;
+  ctx.beginPath();
+  ctx.roundRect(
+    middle - handleWide / 2,
+    handleTop,
+    handleWide,
+    handleTall,
+    height * VIEW.handleRound,
+  );
   ctx.fill();
 }
 
@@ -587,11 +702,13 @@ function drawInstruments(
   ctx.arc(middle, centre, radius - VIEW.dialLine * 2, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = PAINT.dialTick;
-  ctx.lineWidth = VIEW.dialLine;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   for (let tick = 0; tick <= VIEW.dialTicks; tick++) {
     const at =
       Math.PI * (VIEW.dialFrom + (VIEW.dialSweep * tick) / VIEW.dialTicks);
+    ctx.strokeStyle = PAINT.dialTick;
+    ctx.lineWidth = VIEW.dialLine;
     ctx.beginPath();
     ctx.moveTo(
       middle + Math.cos(at) * radius * VIEW.dialTickIn,
@@ -599,10 +716,23 @@ function drawInstruments(
     );
     ctx.lineTo(middle + Math.cos(at) * radius, centre + Math.sin(at) * radius);
     ctx.stroke();
+    // Every second tick carries its number, so the needle says how fast and
+    // not merely how far round it has swung. All of them would be a wall of
+    // digits on a dial this size.
+    if (tick % 2 === 0) {
+      ctx.fillStyle = PAINT.dialTick;
+      ctx.font = `${Math.round(height * VIEW.dialLabel)}px sans-serif`;
+      ctx.fillText(
+        String(Math.round((VIEW.dialTop * tick) / VIEW.dialTicks)),
+        middle + Math.cos(at) * radius * VIEW.dialLabelIn,
+        centre + Math.sin(at) * radius * VIEW.dialLabelIn,
+      );
+    }
   }
 
   // The needle reads how fast, not which way - reversing is still speed.
-  const share = Math.min(1, Math.abs(state.rv.v) / VIEW.dialTop);
+  const kmh = Math.abs(state.rv.v) * KMH_PER_MS;
+  const share = Math.min(1, kmh / VIEW.dialTop);
   const at = Math.PI * (VIEW.dialFrom + VIEW.dialSweep * share);
   ctx.strokeStyle = PAINT.needle;
   ctx.lineWidth = VIEW.needleLine;
@@ -616,6 +746,16 @@ function drawInstruments(
     centre + Math.sin(at) * radius * VIEW.dialTickIn,
   );
   ctx.stroke();
+
+  // And the same number in figures, for the moments when "about two thirds
+  // round" is not what you want to know.
+  ctx.fillStyle = PAINT.dialTick;
+  ctx.font = `${Math.round(height * VIEW.dialRead)}px sans-serif`;
+  ctx.fillText(
+    `${Math.round(kmh)} km/h`,
+    middle,
+    centre - radius * VIEW.dialReadUp,
+  );
 
   drawShiftGate(ctx, width, height, gearAt(state.gear).label);
 }

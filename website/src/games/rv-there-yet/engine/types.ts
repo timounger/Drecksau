@@ -109,11 +109,31 @@ export const WINCH_MIN = 5;
 /** How fast the rope winds in, in metres per second. */
 export const WINCH_SPEED = 4;
 
-/** Share of the battery the winch eats per second while winding. */
-export const BATTERY_DRAIN = 0.07;
+/**
+ * Share of a full tank the engine burns per second while it pulls.
+ *
+ * @remarks
+ * Sized against the map rather than guessed: driving the whole route takes
+ * about 143 seconds of engine and 16 of winch, so a full tank is a little over
+ * twice what the drive needs. The gauge visibly falls - roughly half a tank
+ * from the plateau to the flag - without anybody being stranded for taking the
+ * scenic route.
+ *
+ * Idling costs nothing. It is the pulling that drinks.
+ */
+export const FUEL_BURN = 0.003;
 
-/** Share of the battery the running engine puts back per second. */
-export const BATTERY_CHARGE = 0.045;
+/**
+ * Share of a full tank the winch eats per second while winding.
+ *
+ * @remarks
+ * Twice what driving costs: hauling three tonnes up a wall on a steel rope is
+ * the hardest thing this engine ever does.
+ */
+export const WINCH_BURN = 0.006;
+
+/** Kilometres per hour in one metre per second. */
+export const KMH_PER_MS = 3.6;
 
 /** Longest span a single step may cover, in seconds.
  * A tab that was in the background comes back with one huge frame; without
@@ -151,8 +171,16 @@ export const ENTER_REACH = 6;
 /** How close to a tree you have to stand to put the rope on it, in metres. */
 export const ANCHOR_REACH = 3;
 
-/** How close to a thing you have to walk to pick it up, in metres. */
-export const PICKUP_REACH = 3;
+/**
+ * How close to a thing you have to walk to pick it up, in metres.
+ *
+ * @remarks
+ * Wider than a tree's reach on purpose. A rope goes on a **particular** tree,
+ * so being exact there is the point; a hammer lying in the road is not a
+ * precision task, and three metres on a screen this wide is about thirty
+ * pixels - close enough to walk straight past something you are standing on.
+ */
+export const PICKUP_REACH = 5;
 
 /**
  * How much more slope the off-road tyres hold.
@@ -168,10 +196,68 @@ export const TYRE_FACTOR = 2;
  * How close a bear lets anybody come, in metres.
  *
  * @remarks
- * It blocks the driver as surely as the motorhome. Nobody edges past a bear on
- * foot either.
+ * It blocks the way as surely as a wall - nobody edges past a bear - and it is
+ * also the distance at which it has you: closer than this and
+ * {@link MAUL_SECONDS} starts counting.
  */
 export const BEAR_REACH = 6;
+
+/**
+ * How far off a resting bear notices somebody on foot, in metres.
+ *
+ * @remarks
+ * Generous, because a bear you can creep up on is scenery. From here on it is
+ * coming, and the only two answers are the spray or the door of the cab.
+ */
+export const BEAR_NOTICE = 30;
+
+/**
+ * How fast a bear comes at you, in metres per second.
+ *
+ * @remarks
+ * A little slower than a walk ({@link WALK_SPEED}), so backing off works - but
+ * only just, and only for as long as there is somewhere to back off to. Faster
+ * than that and the spray would not be a choice but the only move.
+ */
+export const BEAR_SPEED = 3.2;
+
+/**
+ * How far a bear will follow somebody from its own spot, in metres.
+ *
+ * @remarks
+ * It is guarding a place, not hunting across the map. The leash keeps the
+ * animal near the stretch of road it closes, so what you see and what blocks
+ * the way are never far apart - and so that luring it aside is not a way past.
+ */
+export const BEAR_LEASH = 24;
+
+/**
+ * How long a bear needs at arm's length before it has you, in seconds.
+ *
+ * @remarks
+ * The one thing on this map that kills. Long enough to notice and run, short
+ * enough that standing there thinking about it is the wrong answer.
+ */
+export const MAUL_SECONDS = 4;
+
+/**
+ * How far the spray carries, in metres.
+ *
+ * @remarks
+ * Further than the bear's own reach, which is the whole point: you can start
+ * spraying before it is on you. It still closes while you spray, so the can is
+ * a nerve test rather than a button.
+ */
+export const SPRAY_REACH = 10;
+
+/**
+ * How long the spray has to be held on a bear before it turns and goes.
+ *
+ * @remarks
+ * Held, not tapped - the same bargain as mending. Let go and it starts over,
+ * which is what makes the closing distance matter.
+ */
+export const SPRAY_SECONDS = 2;
 
 /**
  * How long a job at the motorhome takes, in seconds - mending or fitting.
@@ -200,7 +286,7 @@ export const SNOW_FULL = 18;
 export const GOAL_MARGIN = 4;
 
 /** Where a drive currently is. */
-export type Phase = "driving" | "arrived";
+export type Phase = "driving" | "arrived" | "mauled";
 
 /**
  * A stretch of ground that wrecks a motorhome driven into it.
@@ -246,16 +332,16 @@ export type Route = {
   readonly pits: readonly Pit[];
   /** What lies about on the route, left to right. */
   readonly items: readonly Item[];
-  /** Where the bear stands, in metres, or null if the map has none. */
+  /** Where the bear starts out, in metres, or null if the map has none. */
   readonly bear: number | null;
   /**
-   * Where the checkpoints stand, in metres, left to right.
+   * Where the sections stand, in metres, left to right.
    *
    * @remarks
    * Part of the map rather than a list kept beside it, so whoever draws the
    * world can put a flag on each one without having to be told where they are.
    */
-  readonly checkpoints: readonly number[];
+  readonly sections: readonly number[];
 };
 
 /** The motorhome itself. */
@@ -275,6 +361,26 @@ export type Rv = {
  * are carrying. What belongs to the vehicle - the gear, the rope, the damage -
  * stays in the state around them, because there is only one of it.
  */
+/**
+ * A bear, as the drive finds it.
+ *
+ * @remarks
+ * It rests where the map put it until somebody on foot comes inside
+ * {@link BEAR_NOTICE}, then it comes for them at {@link BEAR_SPEED}. Holding
+ * the spray on it for {@link SPRAY_SECONDS} sends it off for good; letting it
+ * stand over you for {@link MAUL_SECONDS} ends the drive.
+ */
+export type Bear = {
+  /** Where it is now, in metres. */
+  readonly at: number;
+  /** How long it has had somebody within {@link BEAR_REACH}, in seconds. */
+  readonly hold: number;
+  /** How much spray it has taken without a break, in seconds. */
+  readonly sprayed: number;
+  /** True once it has been driven off for good. */
+  readonly gone: boolean;
+};
+
 export type Person = {
   /** Where they are, in metres; the same as the motorhome while aboard. */
   readonly at: number;
@@ -297,8 +403,8 @@ export type GameState = {
   readonly hooked: number;
   /** How much rope is out, in metres; meaningless while unhooked. */
   readonly rope: number;
-  /** What is left of the winch battery, from 0 to 1. */
-  readonly battery: number;
+  /** What is left in the tank, from 0 to 1. */
+  readonly fuel: number;
   readonly phase: Phase;
   /** How long this drive has been going, in seconds. */
   readonly time: number;
@@ -312,6 +418,14 @@ export type GameState = {
    * one the guest's - so an index is a stable way to say "you".
    */
   readonly people: readonly Person[];
+  /**
+   * The bear, as it is right now - or null on a map that has none.
+   *
+   * @remarks
+   * Where it **starts** is a property of the map; where it is, whether it has
+   * somebody, and how much spray it has taken belong to the drive.
+   */
+  readonly bear: Bear | null;
   /**
    * Which of them is at the wheel, or -1 while nobody is.
    *
@@ -330,14 +444,14 @@ export type GameState = {
   /** How many seconds of hammering are done, from 0 to {@link REPAIR_SECONDS}. */
   readonly repair: number;
   /**
-   * The last checkpoint the motorhome was at.
+   * The last section the motorhome was at.
    *
    * @remarks
    * Set by driving past one **and** by jumping to one with the buttons - it is
    * "where I was", not "how far I got", because that is what a player expects
    * to find when they come back tomorrow.
    */
-  readonly checkpoint: number;
+  readonly section: number;
 };
 
 /** What the player is doing right now. */
@@ -363,6 +477,15 @@ export type Input = {
   readonly wind: number;
   /** True in the frame the hook key was pressed. */
   readonly hook: boolean;
+  /**
+   * True in the frame the pick-up key was pressed.
+   *
+   * @remarks
+   * Its own key rather than a second meaning for the rope: two jobs on one
+   * button need a rule for which one wins, and a rule like that is something
+   * the player has to learn instead of simply pressing.
+   */
+  readonly take: boolean;
   /** True in the frame the door key was pressed. */
   readonly door: boolean;
   /** True while the driver is running rather than walking; only on foot. */
@@ -383,6 +506,7 @@ export const IDLE_INPUT: Input = {
   drive: 0,
   wind: 0,
   hook: false,
+  take: false,
   work: false,
   door: false,
   sprint: false,
