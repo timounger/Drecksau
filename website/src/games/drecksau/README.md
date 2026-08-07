@@ -44,6 +44,11 @@ Unter **Einstellungen** eintragbar. Er erscheint im Spielverlauf neben den
 Mitspielern („Timo: Matsch! …“). Bleibt das Feld leer, heisst der Spieler
 schlicht **„Du"**.
 
+Online zaehlt dagegen der **gemeinsame Spielername** der ganzen Sammlung: Was
+im Online-Startfenster steht, gilt in jedem Spiel und wird beim Tippen
+gespeichert (siehe [Wurzel-README](../../../../README.md)). Das Feld in den
+Einstellungen fuellt es nur vor, solange dort noch nichts steht.
+
 Direkte Anreden bleiben immer beim „Du" („Du bist dran", „Deine Schweine",
 „Du hast gewonnen!") - der Name ersetzt nur die dritte Person. Waehlt man den
 Namen eines Gegners, weicht dieser auf einen anderen aus; zwei Bertas im

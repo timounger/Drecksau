@@ -76,12 +76,29 @@ export function fromSnapshot(snap: NetSnapshot): GameState {
  * to put the input back without it.
  */
 export function withoutPresses(move: RvMove): RvMove {
-  return { ...move, hook: false, take: false, door: false, shift: null };
+  return {
+    ...move,
+    hook: false,
+    take: false,
+    jump: false,
+    door: false,
+    pick: null,
+    cycle: false,
+    shift: null,
+  };
 }
 
 /** Whether an input carries a press rather than only held controls. */
 export function hasPress(move: RvMove): boolean {
-  return move.hook || move.take || move.door || move.shift !== null;
+  return (
+    move.hook ||
+    move.take ||
+    move.jump ||
+    move.door ||
+    move.cycle ||
+    move.pick !== null ||
+    move.shift !== null
+  );
 }
 
 /** The guards the Firebase transport uses to filter this game's wire data. */
@@ -149,6 +166,8 @@ function isRvMove(value: unknown): value is RvMove {
     typeof move.wind === "number" &&
     typeof move.hook === "boolean" &&
     typeof move.take === "boolean" &&
+    typeof move.cycle === "boolean" &&
+    (move.pick === null || typeof move.pick === "number") &&
     typeof move.door === "boolean" &&
     typeof move.sprint === "boolean" &&
     typeof move.work === "boolean" &&

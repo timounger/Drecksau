@@ -34,10 +34,7 @@ import {
   normalizeRoomCode,
 } from "@/online/room-code";
 import { useOnlineCount } from "@/online/use-online-presence";
-import {
-  loadPlayerName,
-  savePlayerName,
-} from "@/games/krakel/settings/player-name";
+import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import {
   DEFAULT_PLAYER_COUNT,
   PLAYER_COUNTS,
@@ -305,6 +302,13 @@ function OnlineEntry({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
+  // Kept as it is typed, so the field is filled in next time even for
+  // somebody who looked at the screen and went away again.
+  const changeName = (value: string) => {
+    setName(value);
+    savePlayerName(value);
+  };
+
   // Every choice is kept for next time, whichever way the player goes in.
   const remember = (chosen: string) => {
     savePlayerName(chosen);
@@ -345,7 +349,7 @@ function OnlineEntry({
         <input
           type="text"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => changeName(event.target.value)}
           placeholder={T.yourNamePlaceholder}
           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />

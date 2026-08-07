@@ -29,17 +29,42 @@ const PEDAL_DOWN_KEYS = new Set(["s", "arrowdown"]);
 const WALK_RIGHT_KEYS = new Set(["d", "arrowright"]);
 const WALK_LEFT_KEYS = new Set(["a", "arrowleft"]);
 const SPRINT_KEYS = new Set(["shift"]);
-const HOOK_KEYS = new Set([" ", "space"]);
 const DOOR_KEYS = new Set(["e"]);
 /**
- * Picking a thing up.
+ * Picking a thing up, putting the rope on, and working at the motorhome.
  *
  * @remarks
  * `F` because that is where a hand already is and where players already look
  * for it: in most games `E` uses a thing and `F` picks one up. Here `E` opens
  * the door, so `F` is the one left - and the one nobody has to be told.
+ *
+ * **Everything** you do to the world is on it. It used to be split with the
+ * space bar, which meant remembering which of two keys a job was on while
+ * standing in front of the job. One key never has to be remembered: press it
+ * where you are and the only thing that can happen there happens. Tapped it
+ * picks up or ties the rope; held it works.
  */
 const TAKE_KEYS = new Set(["f"]);
+
+/**
+ * Jumping.
+ *
+ * @remarks
+ * The space bar, which is where jumping has lived in every game since anybody
+ * can remember, and which came free the moment the working keys moved onto
+ * `F`. Pressed twice in quick succession it jumps twice as high.
+ */
+const JUMP_KEYS = new Set([" ", "space"]);
+
+/**
+ * Taking the next thing out of the bag.
+ *
+ * @remarks
+ * `Q` because the number keys are the gearbox and because "next weapon" has
+ * lived on `Q` for twenty years. The list on screen can be clicked as well -
+ * this is for the hand that is already on the keys.
+ */
+const CYCLE_KEYS = new Set(["q"]);
 
 /**
  * Which gear each key puts in.
@@ -54,7 +79,15 @@ const GEAR_KEYS: ReadonlyMap<string, number> = new Map(
 
 /** The buttons a phone gets instead of a keyboard. */
 export type TouchButton =
-  "forward" | "back" | "wind" | "windOut" | "sprint" | "hook" | "take" | "door";
+  | "forward"
+  | "back"
+  | "wind"
+  | "windOut"
+  | "sprint"
+  | "use"
+  | "take"
+  | "jump"
+  | "door";
 
 /** What a key listener needs from the window it listens on. */
 export type KeyTarget = {
@@ -75,6 +108,8 @@ export type Controls = {
   readonly press: (button: TouchButton, down: boolean) => void;
   /** Puts a gear in, as the gear buttons on screen do. */
   readonly shift: (gear: number) => void;
+  /** Takes the thing in that bag slot into the hand, as clicking the list does. */
+  readonly pick: (slot: number) => void;
   /** Drops any pending press, for a loop that is not running. */
   readonly forget: () => void;
   /** Starts listening for keys, and returns the way to stop again. */
@@ -91,13 +126,17 @@ export function createControls(): Controls {
   const touch = {
     forward: false,
     back: false,
-    hook: false,
+    use: false,
+    jump: false,
     wind: false,
     windOut: false,
     sprint: false,
   };
   let hookPending = false;
   let takePending = false;
+  let jumpPending = false;
+  let cyclePending = false;
+  let pickPending: number | null = null;
   let doorPending = false;
   let shiftPending: number | null = null;
 
@@ -114,6 +153,9 @@ export function createControls(): Controls {
   const forget = () => {
     hookPending = false;
     takePending = false;
+    jumpPending = false;
+    cyclePending = false;
+    pickPending = null;
     doorPending = false;
     shiftPending = null;
   };
@@ -130,7 +172,15 @@ export function createControls(): Controls {
         wind: inside ? 0 : windOf(anyHeld, touch),
         hook: hookPending,
         take: takePending,
-        work: touch.hook || anyHeld(HOOK_KEYS),
+        pick: pickPending,
+        cycle: cyclePending,
+        work: touch.use || anyHeld(TAKE_KEYS),
+        // One key, two seats: on foot it is a jump, at the wheel it is the
+        // handbrake. The same split W and S have always had - and each seat
+        // reads it its own way, a jump off the press and the brake off the
+        // hold, because a jump is a moment and braking is a while.
+        jump: !inside && jumpPending,
+        brake: inside && (touch.jump || anyHeld(JUMP_KEYS)),
         door: doorPending,
         sprint: touch.sprint || anyHeld(SPRINT_KEYS),
         shift: shiftPending,
@@ -139,15 +189,21 @@ export function createControls(): Controls {
       return input;
     },
     press: (button, down) => {
-      if (button === "hook") {
+      if (button === "use") {
         // Both at once: a tap ties the rope, a long press hammers.
-        touch.hook = down;
+        touch.use = down;
         if (down) {
           hookPending = true;
         }
       } else if (button === "take") {
         if (down) {
           takePending = true;
+        }
+      } else if (button === "jump") {
+        // Both at once: a tap jumps, holding it pulls the handbrake.
+        touch.jump = down;
+        if (down) {
+          jumpPending = true;
         }
       } else if (button === "door") {
         if (down) {
@@ -160,17 +216,28 @@ export function createControls(): Controls {
     shift: (gear) => {
       shiftPending = gear;
     },
+    pick: (slot) => {
+      pickPending = slot;
+    },
     forget,
     listen: (target) => {
       const onKeyDown = (event: Event) => {
         const key = (event as KeyboardEvent).key.toLowerCase();
-        if (HOOK_KEYS.has(key)) {
+        if (JUMP_KEYS.has(key)) {
           // Space scrolls the page otherwise, which on a canvas game is fatal.
           event.preventDefault();
-          hookPending = true;
+          // Held down it is one jump, not sixty: only the first frame counts,
+          // and the second jump has to be a second press.
+          if (!held.has(key)) {
+            jumpPending = true;
+          }
         }
         if (TAKE_KEYS.has(key)) {
           takePending = true;
+          hookPending = true;
+        }
+        if (CYCLE_KEYS.has(key)) {
+          cyclePending = true;
         }
         if (DOOR_KEYS.has(key)) {
           doorPending = true;

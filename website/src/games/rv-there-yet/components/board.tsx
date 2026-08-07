@@ -137,6 +137,56 @@ function gearTitle(gear: number): string {
 }
 
 /**
+ * The bag: everything picked up, with the one in hand marked.
+ *
+ * @param props - what is in the bag, what is held, and what a click means
+ * @returns the list element
+ * @remarks
+ * A list rather than a line of text, because choosing is the point: only what
+ * is **in the hand** can be used, so the list has to say which one that is and
+ * let you change it in one click.
+ */
+export function Inventory({
+  carrying,
+  holding,
+  onPick,
+}: {
+  readonly carrying: readonly ItemKind[];
+  readonly holding: ItemKind | null;
+  readonly onPick: (slot: number) => void;
+}): ReactElement {
+  return (
+    <div
+      data-testid="rv-inventory"
+      className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white/60 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40"
+    >
+      <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+        {RV_TEXTS.inventory}
+      </span>
+      {carrying.length === 0 && (
+        <span className="text-xs text-zinc-400">{RV_TEXTS.inventoryEmpty}</span>
+      )}
+      {carrying.map((kind, slot) => (
+        <button
+          key={kind}
+          type="button"
+          data-testid={`rv-slot-${kind}`}
+          onClick={() => onPick(slot)}
+          title={kind === holding ? RV_TEXTS.inHand : ITEM_NAME[kind]}
+          className={
+            kind === holding
+              ? "cursor-pointer rounded-lg bg-emerald-600 px-3 py-1 text-sm font-semibold text-white"
+              : "cursor-pointer rounded-lg border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          }
+        >
+          {ITEM_NAME[kind]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
  * The buttons a phone gets instead of a keyboard.
  *
  * @param props - what to do on a press, and the facts that light a button up
@@ -166,8 +216,15 @@ export function TouchPad({
       <Pedal onPress={onPress} button="take" lit={hud.pickUp !== null}>
         {RV_TEXTS.take}
       </Pedal>
-      <Pedal onPress={onPress} button="hook" lit={hud.ready || hud.hooked}>
-        {RV_TEXTS.hook}
+      <Pedal onPress={onPress} button="use" lit={hud.ready || hud.hooked}>
+        {RV_TEXTS.use}
+      </Pedal>
+      <Pedal
+        onPress={onPress}
+        button="jump"
+        lit={hud.inside ? hud.brake : true}
+      >
+        {hud.inside ? RV_TEXTS.handbrake : RV_TEXTS.jump}
       </Pedal>
       <Pedal onPress={onPress} button="wind" lit={hud.hooked && !hud.inside}>
         {RV_TEXTS.wind}
@@ -206,6 +263,47 @@ export function doingText(hud: Hud): string {
   // open door and one key away from driving on.
   let text: string;
   const bear = hud.bear;
+  // Standing in the fog beats even the bear: the bear you can see coming.
+  if (hud.still > 0) {
+    return RV_TEXTS.standingStill(Math.round(hud.still * PERCENT));
+  }
+  // While it is held there is nothing else the driver could be doing, and the
+  // line saying so is what tells them the vehicle is being braked rather than
+  // failing to pull away.
+  if (hud.inside && hud.brake) {
+    return RV_TEXTS.parked;
+  }
+  // The chasm before the bridge: it is the one that kills, and everything in
+  // that section is about getting past it.
+  if (hud.chasm && hud.felled) {
+    return RV_TEXTS.felled;
+  }
+  if (hud.chasm) {
+    if (hud.job === "fell" || hud.repair > 0) {
+      return hud.repair > 0
+        ? RV_TEXTS.felling(Math.round(hud.repair * PERCENT))
+        : RV_TEXTS.fellHere;
+    }
+    if (hud.carrying.includes("axe")) {
+      return RV_TEXTS.chasmAxe;
+    }
+    if (hud.pickUp === "axe") {
+      return RV_TEXTS.pickUpAxe;
+    }
+    if (hud.roof) {
+      return RV_TEXTS.chasmRoof;
+    }
+    if (hud.ladder) {
+      return RV_TEXTS.chasmLadder;
+    }
+    return hud.inside ? RV_TEXTS.chasm : RV_TEXTS.chasmNeedAxe;
+  }
+  // The bridge before anything else about driving: by the time it matters the
+  // wheels are already on it, and the one thing worth saying is who has to get
+  // out. The second line only appears when there is somebody to get out.
+  if (hud.bridge) {
+    return hud.aboard > 1 ? RV_TEXTS.bridgeAlone : RV_TEXTS.bridgeSign;
+  }
   // A bear beats everything else on the screen. It is the only thing here that
   // kills, and it is coming whether or not you were reading the line.
   if (bear !== null && bear.sprayed > 0) {
@@ -226,10 +324,11 @@ export function doingText(hud: Hud): string {
     text = RV_TEXTS.bearComing;
   } else if (hud.repair > 0) {
     const share = Math.round(hud.repair * PERCENT);
-    text =
-      hud.job === "fit" ? RV_TEXTS.fitting(share) : RV_TEXTS.mending(share);
+    text = WORKING[hud.job ?? "mend"](share);
   } else if (hud.job === "fit") {
     text = RV_TEXTS.fitTyres;
+  } else if (hud.job === "fuel") {
+    text = RV_TEXTS.fuelUp;
   } else if (hud.pickUp !== null) {
     // Standing at a thing beats everything else the key could do there: it is
     // the one action that vanishes if you walk on without noticing it.
@@ -237,12 +336,14 @@ export function doingText(hud: Hud): string {
   } else if (hud.canMend) {
     text = RV_TEXTS.wreckedWithHammer;
   } else if (hud.damaged && !hud.inside && hud.carrying.includes("hammer")) {
-    // Without this the line said "go and find the hammer" one frame after
-    // picking the hammer up, and a player who reads that goes looking for a
-    // thing already in their hand.
+    // Carried is enough. Without this the line said "go and find the hammer"
+    // one frame after picking the hammer up, and a player who reads that goes
+    // looking for a thing already in their bag.
     text = RV_TEXTS.wreckedGotHammer;
   } else if (hud.damaged && !hud.inside) {
     text = RV_TEXTS.wrecked;
+  } else if (!hud.inside && hud.carrying.includes("can") && hud.fuel < 1) {
+    text = RV_TEXTS.gotCan;
   } else if (!hud.inside && !hud.tyres && hud.carrying.includes("tyres")) {
     text = RV_TEXTS.gotTyres;
   } else if (hud.passenger) {
@@ -271,13 +372,40 @@ export function Doing({ hud }: { readonly hud: Hud }): ReactElement {
 
 /** What the line says for each thing lying about. */
 const PICK_UP: Readonly<Record<ItemKind, string>> = {
+  // The remote never lies on the route, so it never needs picking up.
+  remote: "",
+  can: RV_TEXTS.pickUpCan,
   hammer: RV_TEXTS.pickUpHammer,
   tyres: RV_TEXTS.pickUpTyres,
   spray: RV_TEXTS.pickUpSpray,
+  axe: RV_TEXTS.pickUpAxe,
+};
+
+/** What the line counts up while each job is being done. */
+const WORKING: Readonly<
+  Record<"mend" | "fit" | "fuel" | "fell", (share: number) => string>
+> = {
+  mend: RV_TEXTS.mending,
+  fit: RV_TEXTS.fitting,
+  fuel: RV_TEXTS.fuelling,
+  fell: RV_TEXTS.felling,
+};
+
+/** What each thing is called in the bag. */
+export const ITEM_NAME: Readonly<Record<ItemKind, string>> = {
+  remote: RV_TEXTS.itemRemote,
+  can: RV_TEXTS.itemCan,
+  hammer: RV_TEXTS.itemHammer,
+  tyres: RV_TEXTS.itemTyres,
+  spray: RV_TEXTS.itemSpray,
+  axe: RV_TEXTS.itemAxe,
 };
 
 /** How the line looks: plain at the wheel, green on foot, red when wrecked. */
 function doingClass(hud: Hud): string {
+  if (hud.still > 0) {
+    return "rounded-lg border border-red-500 bg-red-100 px-3 py-1 font-semibold text-red-900 dark:bg-red-950/60 dark:text-red-100";
+  }
   if (hud.bear !== null && (hud.bear.coming || hud.bear.danger > 0)) {
     return "rounded-lg border border-red-500 bg-red-100 px-3 py-1 font-semibold text-red-900 dark:bg-red-950/60 dark:text-red-100";
   }
@@ -366,7 +494,9 @@ export function ControlsHint(): ReactElement {
       <span>{RV_TEXTS.walkKeys}</span>
       <span>{RV_TEXTS.doorKeys}</span>
       <span>{RV_TEXTS.takeKeys}</span>
+      <span>{RV_TEXTS.cycleKeys}</span>
       <span>{RV_TEXTS.hookKeys}</span>
+      <span>{RV_TEXTS.jumpKeys}</span>
       <span>{RV_TEXTS.windKeys}</span>
       <span className="w-full">{RV_TEXTS.hint}</span>
     </div>

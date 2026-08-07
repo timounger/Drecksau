@@ -75,6 +75,22 @@ website/src/
 Die Spiellogik eines Spiels ist von der Oberflaeche getrennt und rein
 funktional: jeder Zug erzeugt einen neuen Zustand, testbar ohne Browser.
 
+## Online-Spielername
+
+Der Name, unter dem du online spielst, gilt **fuer alle Spiele der Sammlung**.
+Er wird beim Tippen gespeichert, und jedes Online-Startfenster fuellt sein Feld
+damit vor - egal, in welchem Spiel du ihn zuletzt eingegeben hast.
+
+Frueher hatte jedes Spiel seinen eigenen: Der Name fuer Binokel war fuer Skyjo
+unbekannt, und der bei Drecksau eingetippte wurde gar nicht erst gespeichert.
+Niemand haelt sich pro Spiel fuer jemand anderen - der Name gehoert zum
+Spieler, nicht zum Tisch, an dem er gerade sitzt
+([online/player-name.ts](website/src/online/player-name.ts)).
+
+Wer vorher schon einen Namen in einem Spiel hinterlegt hatte, verliert ihn
+nicht: Beim ersten Mal wird der aelteste noch vorhandene uebernommen, danach
+gibt es nur noch den einen Schluessel.
+
 ## Sprachchat
 
 Alle Online-Spiele haben einen **Sprachchat**. Der Ton geht **direkt von

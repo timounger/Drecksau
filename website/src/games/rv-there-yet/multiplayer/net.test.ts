@@ -160,3 +160,31 @@ describe("a press that crossed the wire", () => {
     expect(hasPress({ ...IDLE_INPUT, shift: 0 })).toBe(true);
   });
 });
+
+describe("the jump on the wire", () => {
+  /** A move with everything pressed at once. */
+  const ALL = {
+    drive: 1,
+    wind: 0,
+    hook: true,
+    take: true,
+    jump: true,
+    brake: true,
+    pick: 0,
+    cycle: true,
+    work: true,
+    door: true,
+    sprint: false,
+    shift: 1,
+  };
+
+  it("counts as a press worth sending", () => {
+    expect(hasPress({ ...IDLE_INPUT, jump: true })).toBe(true);
+  });
+
+  it("is spent once, like every other press", () => {
+    // Held for two frames the guest would jump twice off one tap of the bar.
+    expect(withoutPresses(ALL).jump).toBe(false);
+    expect(hasPress(withoutPresses(ALL))).toBe(false);
+  });
+});

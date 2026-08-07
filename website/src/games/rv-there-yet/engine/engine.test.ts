@@ -5,9 +5,11 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  atVehicle,
   canMend,
   grip,
   isGear,
+  jobAt,
   reachableAnchor,
   ropeCandidate,
   step,
@@ -22,14 +24,26 @@ import {
   REVERSE,
   TOP_GEAR,
   FULL_GRIP_SLOPE,
+  FUEL_SECONDS,
   GOAL_MARGIN,
+  BRAKE_ACCEL,
+  CHASM_STOP,
+  FELL_SECONDS,
+  ROOF_HALF,
+  ROOF_HIGH,
   IDLE_INPUT,
+  STOP_SPEED,
   NO_GRIP_SLOPE,
   PICKUP_REACH,
+  REMOTE,
   REPAIR_SECONDS,
   BEAR_LEASH,
   BEAR_REACH,
   SPRAY_SECONDS,
+  JUMP_AGAIN,
+  JUMP_HIGH,
+  MAX_STEP,
+  STILL_SECONDS,
   SPRAY_REACH,
   MAUL_SECONDS,
   BEAR_SPEED,
@@ -40,11 +54,13 @@ import {
   WINCH_MIN,
   WINCH_RANGE,
   type GameState,
+  type ItemKind,
   type Input,
   type Person,
   type Route,
 } from "./types";
 import { routeLength } from "./terrain";
+import { startAt } from "./setup";
 
 /** The only person in these tests - a state carries a list of them now. */
 function one(state: GameState): Person {
@@ -54,6 +70,12 @@ function one(state: GameState): Person {
 /** One simulated frame, in seconds. */
 const FRAME = 0.02;
 
+/** How long a jump may hang in the air before it reads as floating, in seconds. */
+const SNAPPY = 0.6;
+
+/** Long enough for the handbrake to have stopped anything, in seconds. */
+const STOPPING = 3;
+
 /** Flat ground with a single anchor a good rope's length ahead. */
 const FLAT: Route = {
   name: "eben",
@@ -62,6 +84,10 @@ const FLAT: Route = {
   pits: [],
   items: [],
   bear: null,
+  fog: null,
+  bridges: [],
+  chasms: [],
+  fellTree: null,
   sections: [],
 };
 
@@ -73,6 +99,10 @@ const LONG: Route = {
   pits: [],
   items: [],
   bear: null,
+  fog: null,
+  bridges: [],
+  chasms: [],
+  fellTree: null,
   sections: [],
 };
 
@@ -84,6 +114,10 @@ const WALL: Route = {
   pits: [],
   items: [],
   bear: null,
+  fog: null,
+  bridges: [],
+  chasms: [],
+  fellTree: null,
   sections: [],
 };
 
@@ -93,6 +127,7 @@ function begin(route: Route, x = 0): GameState {
     rv: { x, v: 0 },
     hooked: -1,
     rope: 0,
+    winch: 0,
     fuel: 1,
     phase: "driving",
     time: 0,
@@ -108,7 +143,13 @@ function begin(route: Route, x = 0): GameState {
         stride: 0,
         facing: 1,
         walking: false,
-        carrying: [],
+        lift: 0,
+        rise: 0,
+        pop: -1,
+        carrying: [REMOTE],
+        // Empty hands, exactly as a fresh drive starts: the remote is in the
+        // bag and only comes out once the rope is on something.
+        holding: null,
       },
     ],
     driver: 0,
@@ -116,6 +157,9 @@ function begin(route: Route, x = 0): GameState {
     damaged: false,
     tyres: false,
     repair: 0,
+    still: 0,
+    brake: false,
+    felled: false,
     section: 0,
   };
 }
@@ -134,11 +178,34 @@ function hold(
   return now;
 }
 
+/**
+ * Brings the motorhome to a stand and steps out.
+ *
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @returns the world with the driver on the road beside it
+ * @remarks
+ * The handbrake first, because the door only opens on a vehicle that stands.
+ * Every test that used to press the key while still rolling now has to do
+ * what a player does.
+ */
+function steppedOut(state: GameState, route: Route): GameState {
+  let now = state;
+  // Until it actually stands, not for a fixed while: dropped into the ditch
+  // it rocks about for the best part of ten seconds before it settles, and
+  // the tyres have no grip down there for the handbrake to work on.
+  for (let frame = 0; frame < 30 / FRAME; frame++) {
+    if (!one(now).inside || Math.abs(now.rv.v) <= STOP_SPEED) {
+      break;
+    }
+    now = step(now, route, [{ ...IDLE_INPUT, brake: true }], FRAME);
+  }
+  return step(now, route, [{ ...IDLE_INPUT, door: true }], FRAME);
+}
+
 /** Gets the driver out and walked over to a place, ready to work. */
 function standingAt(state: GameState, route: Route, where: number): GameState {
-  let now = one(state).inside
-    ? step(state, route, [{ ...IDLE_INPUT, door: true }], FRAME)
-    : state;
+  let now = one(state).inside ? steppedOut(state, route) : state;
   const way = where > one(now).at ? 1 : -1;
   for (let frame = 0; frame < 60 / FRAME; frame++) {
     if (Math.abs(one(now).at - where) < WALK_SPEED * FRAME) {
@@ -152,7 +219,11 @@ function standingAt(state: GameState, route: Route, where: number): GameState {
 /** Walks to a thing lying about and picks it up with the key. */
 function fetch(state: GameState, route: Route, where: number): GameState {
   const there = standingAt(state, route, where);
-  return step(there, route, [{ ...IDLE_INPUT, take: true }], FRAME);
+  const taken = step(there, route, [{ ...IDLE_INPUT, take: true }], FRAME);
+  // Into the bag is not into the hand, so take the newest thing out of it -
+  // the same two moves a player makes.
+  const slot = one(taken).carrying.length - 1;
+  return step(taken, route, [{ ...IDLE_INPUT, pick: slot }], FRAME);
 }
 
 /** Puts the rope on the tree the driver is standing at. */
@@ -267,6 +338,10 @@ describe("the gearbox", () => {
       pits: [],
       items: [],
       bear: null,
+      fog: null,
+      bridges: [],
+      chasms: [],
+      fellTree: null,
       sections: [],
     };
     const inFirst = hold(begin(hill), hill, { drive: 1, shift: 1 }, 12);
@@ -418,7 +493,7 @@ describe("the walk", () => {
     const driving = hold(begin(LONG), LONG, { drive: 1 }, 5);
     expect(one(driving).stride).toBe(0);
 
-    const out = step(driving, LONG, [{ ...IDLE_INPUT, door: true }], FRAME);
+    const out = steppedOut(driving, LONG);
     const walked = hold(out, LONG, { drive: 1 }, 3);
     expect(one(walked).stride).toBeGreaterThan(0);
     expect(one(hold(walked, LONG, {}, 3)).stride).toBe(one(walked).stride);
@@ -512,6 +587,10 @@ describe("driving into a ditch", () => {
     pits: [{ from: ROUTE_STEP * 2.5, to: ROUTE_STEP * 3.5 }],
     items: [{ at: ROUTE_STEP * 7, kind: "hammer" }],
     bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
     sections: [],
   };
 
@@ -561,8 +640,8 @@ describe("driving into a ditch", () => {
 
   it("is never mendable from behind the wheel", () => {
     const ready = mendable();
-    expect(canMend(one(ready), ready, false)).toBe(true);
-    expect(canMend(one(ready), ready, true)).toBe(false);
+    expect(canMend(one(ready), ready, false, DITCH)).toBe(true);
+    expect(canMend(one(ready), ready, true, DITCH)).toBe(false);
   });
 
   it("can still be winched, wrecked or not", () => {
@@ -576,26 +655,26 @@ describe("driving into a ditch", () => {
 
   it("picks the hammer up when the key is pressed at it", () => {
     const wrecked = driveInto(begin(DITCH), 8);
-    expect(one(wrecked).carrying).toEqual([]);
+    expect(one(wrecked).carrying).not.toContain("hammer");
     // Standing on it is not enough - walking past a thing must not sweep it up.
     const there = standingAt(wrecked, DITCH, hammerAt());
-    expect(one(there).carrying).toEqual([]);
+    expect(one(there).carrying).not.toContain("hammer");
     const fetched = step(there, DITCH, [{ ...IDLE_INPUT, take: true }], FRAME);
-    expect(one(fetched).carrying).toEqual(["hammer"]);
+    expect(one(fetched).carrying).toContain("hammer");
   });
 
   it("does not pick anything up from too far away", () => {
     const wrecked = driveInto(begin(DITCH), 8);
     const near = standingAt(wrecked, DITCH, hammerAt() + PICKUP_REACH * 2);
     const pressed = step(near, DITCH, [{ ...IDLE_INPUT, take: true }], FRAME);
-    expect(one(pressed).carrying).toEqual([]);
+    expect(one(pressed).carrying).not.toContain("hammer");
   });
 
   it("does not pick it up by driving past it", () => {
     const passing = { ...begin(DITCH, ROUTE_STEP * 7), pits: undefined };
     void passing;
     const driven = hold(begin(DITCH, ROUTE_STEP * 6), DITCH, { drive: 1 }, 4);
-    expect(one(driven).carrying).toEqual([]);
+    expect(one(driven).carrying).not.toContain("hammer");
   });
 
   it("mends after enough hammering, and not before", () => {
@@ -620,9 +699,21 @@ describe("driving into a ditch", () => {
   it("does nothing without the hammer", () => {
     const wrecked = driveInto(begin(DITCH), 8);
     const beside = standingAt(wrecked, DITCH, wrecked.rv.x);
-    expect(one(beside).carrying).toEqual([]);
+    expect(one(beside).carrying).not.toContain("tyres");
     const tried = hold(beside, DITCH, { work: true }, REPAIR_SECONDS * 2);
     expect(tried.damaged).toBe(true);
+  });
+
+  it("keeps the hammer after mending - the next ditch is still out there", () => {
+    // Deliberate: one hammer, and the ditch does not go away after one visit.
+    const mended = hold(
+      mendable(),
+      DITCH,
+      { work: true },
+      REPAIR_SECONDS + 0.2,
+    );
+    expect(mended.damaged).toBe(false);
+    expect(one(mended).carrying).toContain("hammer");
   });
 
   it("does nothing from the driver's seat", () => {
@@ -666,6 +757,10 @@ describe("the off-road tyres and the bear", () => {
       { at: ROUTE_STEP * 9, kind: "spray" },
     ],
     bear: ROUTE_STEP * 11,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
     sections: [],
   };
 
@@ -706,6 +801,26 @@ describe("the off-road tyres and the bear", () => {
     expect(up.rv.x).toBeGreaterThan(ROUTE_STEP * 7);
   });
 
+  it("takes the tyres out of the bag once they are on the vehicle", () => {
+    // They are bolted to the motorhome now. A set of tyres that stayed in the
+    // bag for ever would be a list that only grows and never tells the truth.
+    const carrying = fetched("tyres");
+    expect(one(carrying).carrying).toContain("tyres");
+    const beside = standingAt(carrying, WALL_AND_BEAR, carrying.rv.x);
+    const fitted = hold(
+      beside,
+      WALL_AND_BEAR,
+      { work: true },
+      REPAIR_SECONDS + 0.2,
+    );
+    expect(fitted.tyres).toBe(true);
+    expect(one(fitted).carrying).not.toContain("tyres");
+    // The hand had them and is empty afterwards. Falling back to whatever was
+    // left in the bag meant carrying the winch remote about for hours in case
+    // it might be needed, which is not how anybody carries anything.
+    expect(one(fitted).holding).toBe(null);
+  });
+
   it("holds more slope with them on", () => {
     const steep = NO_GRIP_SLOPE + 0.1;
     expect(grip(steep)).toBe(0);
@@ -722,6 +837,38 @@ describe("the off-road tyres and the bear", () => {
     expect(rolling.rv.x).toBeLessThanOrEqual(
       (WALL_AND_BEAR.bear ?? 0) - BEAR_REACH + 0.001,
     );
+  });
+
+  it("comes out of the bag by itself when the bear is there", () => {
+    // It used to be on the player to find it in the list first. In front of a
+    // bear that is not a decision, it is a fumble - and the bear does not
+    // wait while you have it.
+    const armed = fetched("spray", ROUTE_STEP * 8);
+    const stowed: GameState = {
+      ...armed,
+      people: [{ ...armed.people[0], holding: REMOTE }],
+    };
+    expect(one(stowed).carrying).toContain("spray");
+    const used = hold(stowed, WALL_AND_BEAR, { work: true }, SPRAY_SECONDS * 2);
+    expect(one(used).holding).toBe("spray");
+    expect(used.bear?.gone).toBe(true);
+  });
+
+  it("takes the tyres out at the vehicle without being asked", () => {
+    const carrying = fetched("tyres");
+    const stowed: GameState = {
+      ...carrying,
+      people: [{ ...carrying.people[0], holding: REMOTE }],
+    };
+    const beside = standingAt(stowed, WALL_AND_BEAR, stowed.rv.x);
+    expect(one(beside).holding).toBe("tyres");
+    const fitted = hold(
+      beside,
+      WALL_AND_BEAR,
+      { work: true },
+      REPAIR_SECONDS * 2,
+    );
+    expect(fitted.tyres).toBe(true);
   });
 
   it("does not budge for a can that is only carried", () => {
@@ -814,6 +961,27 @@ describe("the off-road tyres and the bear", () => {
       FRAME,
     );
     expect(counted.bear?.sprayed).toBeGreaterThan(0);
+  });
+
+  it("turns round and goes home once you are away", () => {
+    // Follow a few metres, give up, walk back. Not a chase across the valley.
+    const post = WALL_AND_BEAR.bear ?? 0;
+    const out = standingAt(
+      begin(WALL_AND_BEAR, ROUTE_STEP * 8),
+      WALL_AND_BEAR,
+      post - BEAR_NOTICE / 2,
+    );
+    // It comes for them.
+    const chasing = hold(out, WALL_AND_BEAR, {}, 2);
+    expect(chasing.bear?.at).toBeLessThan(post);
+
+    // They back off out of its world; it walks home again.
+    const far: GameState = {
+      ...chasing,
+      people: [{ ...chasing.people[0], at: post - BEAR_NOTICE * 3 }],
+    };
+    const home = hold(far, WALL_AND_BEAR, {}, 10);
+    expect(home.bear?.at).toBeCloseTo(post, 1);
   });
 
   it("never follows further than its leash", () => {
@@ -1086,6 +1254,18 @@ describe("the rope", () => {
     expect(idle.fuel).toBe(1);
   });
 
+  it("says which way the winch is running", () => {
+    // The screen needs this and cannot work it out: the rope moves over there
+    // while the hand does nothing visible. So does the guest in co-op, who
+    // only ever sees what crosses the wire.
+    const atTree = standingAt(begin(FLAT), FLAT, FLAT.anchors[0].x);
+    const on = ropeOn(atTree, FLAT);
+    expect(on.winch).toBe(0);
+    expect(hold(on, FLAT, { wind: 1 }, 1).winch).toBe(1);
+    expect(hold(on, FLAT, { wind: -1 }, 1).winch).toBe(-1);
+    expect(hold(on, FLAT, {}, 1).winch).toBe(0);
+  });
+
   it("stops reeling in on an empty tank", () => {
     const atTree = standingAt(
       { ...begin(FLAT), fuel: 0 },
@@ -1228,6 +1408,55 @@ describe("two of them in one motorhome", () => {
     expect(pulled.rope).toBeLessThan(on.rope);
   });
 
+  it("lets only one of them carry the one hammer", () => {
+    // There is one hammer on this map. Two people each holding it would be two
+    // hammers, and the second would be a hammer that does not exist.
+    const route: Route = {
+      ...LONG,
+      // Right where the first of them is put down, so it is in reach at once.
+      items: [{ at: ROUTE_STEP * 3 - EXIT_GAP, kind: "hammer" }],
+    };
+    const start = pair(route, ROUTE_STEP * 3);
+    const first = step(start, route, [{ ...IDLE_INPUT, take: true }], FRAME);
+    expect(first.people[0].carrying).toContain("hammer");
+
+    const second = step(
+      first,
+      route,
+      [IDLE_INPUT, { ...IDLE_INPUT, take: true }],
+      FRAME,
+    );
+    expect(second.people[1].carrying).not.toContain("hammer");
+  });
+
+  it("takes the tyres off only the one who fitted them", () => {
+    // Built by hand: with one set on the map this cannot arise in play any
+    // more, but the rule is "whoever did the work", and that is worth saying.
+    const route: Route = { ...LONG, items: [] };
+    const start = pair(route, ROUTE_STEP * 3);
+    const armed: GameState = {
+      ...start,
+      people: [
+        { ...start.people[0], carrying: ["tyres"], holding: "tyres" },
+        { ...start.people[1], carrying: ["tyres"], holding: "tyres" },
+      ],
+    };
+    const beside = {
+      ...armed,
+      people: armed.people.map((person) => ({ ...person, at: armed.rv.x })),
+    };
+    const fitted = both(
+      beside,
+      route,
+      { work: true },
+      {},
+      REPAIR_SECONDS + 0.2,
+    );
+    expect(fitted.tyres).toBe(true);
+    expect(fitted.people[0].carrying).not.toContain("tyres");
+    expect(fitted.people[1].carrying).toContain("tyres");
+  });
+
   it("only needs one can of bear spray between them", () => {
     // One of them sprays, and the road is open for both - the bear does not
     // have to be driven off twice.
@@ -1241,6 +1470,7 @@ describe("two of them in one motorhome", () => {
         {
           ...start.people[1],
           carrying: ["spray"],
+          holding: "spray",
           at: (guarded.bear ?? 0) - 5,
         },
       ],
@@ -1276,6 +1506,10 @@ describe("picking things up", () => {
     pits: [],
     items: [{ at: ROUTE_STEP * 4, kind: "hammer" }],
     bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
     sections: [],
   };
 
@@ -1295,7 +1529,7 @@ describe("picking things up", () => {
       FRAME,
     );
     expect(roped.hooked).toBe(0);
-    expect(one(roped).carrying).toEqual([]);
+    expect(one(roped).carrying).not.toContain("hammer");
 
     const taken = step(
       atTree,
@@ -1304,7 +1538,7 @@ describe("picking things up", () => {
       FRAME,
     );
     expect(taken.hooked).toBe(-1);
-    expect(one(taken).carrying).toEqual(["hammer"]);
+    expect(one(taken).carrying).toContain("hammer");
   });
 
   it("does both at once when both keys are pressed", () => {
@@ -1320,7 +1554,7 @@ describe("picking things up", () => {
       FRAME,
     );
     expect(done.hooked).toBe(0);
-    expect(one(done).carrying).toEqual(["hammer"]);
+    expect(one(done).carrying).toContain("hammer");
   });
 
   it("offers nothing to somebody sitting in the cab", () => {
@@ -1328,14 +1562,14 @@ describe("picking things up", () => {
     // of a cab window for a set of tyres is not a thing that happens.
     const parked = begin(TREE_AND_HAMMER, TREE_AND_HAMMER.items[0].at);
     expect(one(parked).inside).toBe(true);
-    expect(withinReach(one(parked), TREE_AND_HAMMER)).toBe(null);
+    expect(withinReach(one(parked), parked, TREE_AND_HAMMER)).toBe(null);
     const pressed = step(
       parked,
       TREE_AND_HAMMER,
       [{ ...IDLE_INPUT, take: true }],
       FRAME,
     );
-    expect(one(pressed).carrying).toEqual([]);
+    expect(one(pressed).carrying).not.toContain("hammer");
   });
 
   it("says what lies within reach, and nothing once it is carried", () => {
@@ -1344,13 +1578,1302 @@ describe("picking things up", () => {
       TREE_AND_HAMMER,
       TREE_AND_HAMMER.items[0].at,
     );
-    expect(withinReach(one(atIt), TREE_AND_HAMMER)).toBe("hammer");
+    expect(withinReach(one(atIt), atIt, TREE_AND_HAMMER)).toBe("hammer");
     const taken = step(
       atIt,
       TREE_AND_HAMMER,
       [{ ...IDLE_INPUT, take: true }],
       FRAME,
     );
-    expect(withinReach(one(taken), TREE_AND_HAMMER)).toBe(null);
+    expect(withinReach(one(taken), taken, TREE_AND_HAMMER)).toBe(null);
+  });
+});
+
+describe("the bag and the hand", () => {
+  /** Flat ground with a hammer and a tree, and a wrecked motorhome. */
+  const BAG: Route = {
+    name: "Beutel",
+    heights: [0, 0, 0, 0, 0, 0, 0, 0],
+    anchors: [{ x: ROUTE_STEP * 4, y: 0 }],
+    pits: [],
+    items: [{ at: ROUTE_STEP * 2, kind: "hammer" }],
+    bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  /** Standing at the hammer, having pressed the pick-up key once. */
+  function picked(): GameState {
+    const out = standingAt(begin(BAG), BAG, BAG.items[0].at);
+    return step(out, BAG, [{ ...IDLE_INPUT, take: true }], FRAME);
+  }
+
+  it("starts with the winch remote in the bag and hands empty", () => {
+    // It belongs to the motorhome, not to the mountain - so it is always
+    // there. In the hand it is not: a tool carried the whole way in case it
+    // might be wanted is clutter, not equipment.
+    const start = begin(BAG);
+    expect(one(start).carrying).toEqual([REMOTE]);
+    expect(one(start).holding).toBe(null);
+  });
+
+  it("puts a picked-up thing in the bag, not in the hand", () => {
+    const now = picked();
+    expect(one(now).carrying).toEqual([REMOTE, "hammer"]);
+    // The whole point of a bag: it waits there until the spot asks for it or
+    // somebody takes it out.
+    expect(one(now).holding).toBe(null);
+  });
+
+  it("takes a thing into the hand by its slot", () => {
+    const chosen = step(picked(), BAG, [{ ...IDLE_INPUT, pick: 1 }], FRAME);
+    expect(one(chosen).holding).toBe("hammer");
+  });
+
+  it("ignores a slot that is not in the bag", () => {
+    const held = step(picked(), BAG, [{ ...IDLE_INPUT, pick: 1 }], FRAME);
+    expect(one(held).holding).toBe("hammer");
+    const tried = step(held, BAG, [{ ...IDLE_INPUT, pick: 7 }], FRAME);
+    expect(one(tried).holding).toBe("hammer");
+  });
+
+  it("steps through the bag and around again", () => {
+    // From empty hands the first step takes the first thing that will stay in
+    // the hand - the remote goes straight back while the rope is off, so what
+    // arrives is the hammer, and stepping on comes round to it again.
+    const first = step(picked(), BAG, [{ ...IDLE_INPUT, cycle: true }], FRAME);
+    expect(one(first).holding).toBe(null);
+    const second = step(first, BAG, [{ ...IDLE_INPUT, cycle: true }], FRAME);
+    expect(one(second).holding).toBe(null);
+    const chosen = step(second, BAG, [{ ...IDLE_INPUT, pick: 1 }], FRAME);
+    expect(one(chosen).holding).toBe("hammer");
+  });
+
+  it("puts the hammer in the hand at a wrecked motorhome", () => {
+    // Walking back with the hammer and then having to find it in the list was
+    // the step nobody ever wanted: the wreck is right there and there is only
+    // one thing to do with a hammer at it.
+    const wrecked = { ...picked(), damaged: true };
+    expect(one(wrecked).holding).toBe(null);
+
+    const beside = standingAt(wrecked, BAG, wrecked.rv.x);
+    expect(one(beside).holding).toBe("hammer");
+    expect(canMend(one(beside), beside, false, BAG)).toBe(true);
+  });
+
+  it("puts the remote in the hand once the rope is on the tree", () => {
+    const atTree = standingAt(picked(), BAG, BAG.anchors[0].x);
+    // Not while merely standing there: the remote does nothing until the
+    // rope is on something.
+    expect(one(atTree).holding).toBe(null);
+    const on = ropeOn(atTree, BAG);
+    expect(on.hooked).toBe(0);
+    expect(one(on).holding).toBe(REMOTE);
+    // And the rope comes in without anybody having chosen anything.
+    expect(hold(on, BAG, { wind: 1 }, 3).rope).toBeLessThan(on.rope);
+  });
+
+  it("keeps the remote in hand for as long as the rope is on", () => {
+    // Winding happens from wherever you can see the rope, which is not always
+    // within touching distance of the tree it is tied to.
+    const atTree = standingAt(picked(), BAG, BAG.anchors[0].x);
+    const on = ropeOn(atTree, BAG);
+    const backedOff = standingAt(on, BAG, BAG.anchors[0].x - 12);
+    expect(one(backedOff).holding).toBe(REMOTE);
+    expect(hold(backedOff, BAG, { wind: 1 }, 3).rope).toBeLessThan(on.rope);
+  });
+});
+
+describe("the jerrycan", () => {
+  /** Flat ground with a jerrycan lying beside the motorhome. */
+  const WITH_CAN: Route = {
+    name: "Kanister",
+    heights: [0, 0, 0, 0, 0, 0, 0, 0],
+    anchors: [],
+    pits: [],
+    items: [{ at: ROUTE_STEP * 2, kind: "can" }],
+    bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  /** A half-empty tank, with the can fetched and in hand at the motorhome. */
+  function ready(): GameState {
+    const thirsty = { ...begin(WITH_CAN), fuel: 0.4 };
+    const carrying = fetch(thirsty, WITH_CAN, WITH_CAN.items[0].at);
+    return standingAt(carrying, WITH_CAN, carrying.rv.x);
+  }
+
+  it("fills the tank right up once it has been held long enough", () => {
+    const before = ready();
+    expect(before.fuel).toBeLessThan(1);
+    expect(one(before).holding).toBe("can");
+
+    // Not a splash: twenty litres take longer than a repair, so holding it for
+    // as long as mending takes is still not enough.
+    const halfway = hold(
+      before,
+      WITH_CAN,
+      { work: true },
+      REPAIR_SECONDS + 0.2,
+    );
+    expect(halfway.fuel).toBeLessThan(1);
+
+    const full = hold(before, WITH_CAN, { work: true }, FUEL_SECONDS + 0.2);
+    expect(full.fuel).toBe(1);
+  });
+
+  it("is empty afterwards and gone from the bag", () => {
+    const full = hold(ready(), WITH_CAN, { work: true }, FUEL_SECONDS + 0.2);
+    expect(one(full).carrying).not.toContain("can");
+    expect(one(full).holding).toBe(null);
+  });
+
+  it("comes out of the bag at a vehicle that needs it", () => {
+    const stowed = ready();
+    const wrongHand: GameState = {
+      ...stowed,
+      people: [{ ...stowed.people[0], holding: REMOTE }],
+    };
+    const filled = hold(wrongHand, WITH_CAN, { work: true }, FUEL_SECONDS * 2);
+    expect(filled.fuel).toBe(1);
+    expect(one(filled).carrying).not.toContain("can");
+  });
+
+  it("is not offered when the tank is already full", () => {
+    // Standing there holding a key for nothing is the one thing worse than
+    // running dry.
+    const carrying = fetch(begin(WITH_CAN), WITH_CAN, WITH_CAN.items[0].at);
+    const beside = standingAt(carrying, WITH_CAN, carrying.rv.x);
+    expect(beside.fuel).toBe(1);
+    expect(jobAt(one(beside), beside, false, WITH_CAN)).toBe(null);
+  });
+
+  it("cannot be poured from the driver's seat", () => {
+    const inCab = ridingAgain(ready(), WITH_CAN);
+    const tried = hold(inCab, WITH_CAN, { work: true }, FUEL_SECONDS * 2);
+    expect(tried.fuel).toBeLessThan(1);
+  });
+});
+
+describe("standing still in the fog", () => {
+  /** Flat ground whose second half is closed in. */
+  const FOGGY: Route = {
+    name: "Nebel",
+    heights: Array.from({ length: 40 }, () => 0),
+    anchors: [],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: { from: ROUTE_STEP * 10, to: ROUTE_STEP * 100 },
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  /** A world standing at a given metre, in the cab or out of it. */
+  function at(x: number, inside = true): GameState {
+    const base = begin(FOGGY, x);
+    return inside
+      ? base
+      : {
+          ...base,
+          people: [{ ...base.people[0], inside: false, at: x }],
+          driver: -1,
+        };
+  }
+
+  it("counts nothing at all outside the fog", () => {
+    const clear = hold(at(0), FOGGY, {}, STILL_SECONDS * 2);
+    expect(clear.still).toBe(0);
+    expect(clear.phase).toBe("driving");
+  });
+
+  it("takes whoever stands still in it long enough", () => {
+    const parked = at(ROUTE_STEP * 20);
+    expect(hold(parked, FOGGY, {}, STILL_SECONDS / 2).phase).toBe("driving");
+    expect(hold(parked, FOGGY, {}, STILL_SECONDS + 0.2).phase).toBe("taken");
+  });
+
+  it("takes somebody standing about on foot just the same", () => {
+    // The rule is about the fog, not about the vehicle: the motorhome is
+    // parked well short of it here, and only the walker is in the grey.
+    const parked = at(ROUTE_STEP * 4);
+    const out: GameState = {
+      ...parked,
+      people: [
+        { ...parked.people[0], inside: false, at: FOGGY.fog?.from as number },
+      ],
+      driver: -1,
+    };
+    expect(hold(out, FOGGY, {}, STILL_SECONDS + 0.2).phase).toBe("taken");
+  });
+
+  it("forgets the count again once you are out of the fog", () => {
+    // Otherwise a second spent standing in the grey would still be waiting
+    // for you a kilometre later.
+    const before: GameState = { ...at(0), still: STILL_SECONDS - 0.5 };
+    const on = hold(before, FOGGY, {}, 1);
+    expect(on.still).toBe(0);
+    expect(on.phase).toBe("driving");
+  });
+
+  it("leaves anybody who keeps moving alone", () => {
+    const rolling = hold(
+      at(ROUTE_STEP * 12),
+      FOGGY,
+      { drive: 1, shift: 2 },
+      STILL_SECONDS * 2,
+    );
+    expect(rolling.phase).toBe("driving");
+    expect(rolling.still).toBe(0);
+  });
+
+  it("starts the count over the moment something moves", () => {
+    const waited = hold(at(ROUTE_STEP * 20), FOGGY, {}, STILL_SECONDS - 1);
+    expect(waited.still).toBeGreaterThan(0);
+    const moved = hold(waited, FOGGY, { drive: 1, shift: 2 }, 1);
+    expect(moved.still).toBe(0);
+    // And the reprieve is real: standing again buys the full five seconds.
+    expect(hold(moved, FOGGY, {}, STILL_SECONDS - 1).phase).toBe("driving");
+  });
+
+  it("counts the pair of them as moving while one of them walks", () => {
+    // Two in the fog are not two chances to stand about, but one of them
+    // walking is the party moving - and the party is what the fog watches.
+    const alone = at(ROUTE_STEP * 20, false);
+    const two: GameState = {
+      ...alone,
+      people: [alone.people[0], { ...alone.people[0] }],
+    };
+    let now = two;
+    for (let frame = 0; frame < (STILL_SECONDS + 0.5) / FRAME; frame++) {
+      now = step(now, FOGGY, [IDLE_INPUT, { ...IDLE_INPUT, drive: 1 }], FRAME);
+    }
+    expect(now.phase).toBe("driving");
+    // The one who stood about the whole time is spared with them.
+    expect(now.people[0].at).toBe(ROUTE_STEP * 20);
+  });
+});
+
+describe("jumping", () => {
+  /** Flat ground, nothing on it. */
+  const YARD: Route = {
+    name: "Hof",
+    heights: Array.from({ length: 20 }, () => 0),
+    anchors: [],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  /** Standing beside the motorhome with both feet down. */
+  function outside(): GameState {
+    const alone = begin(YARD, ROUTE_STEP * 4);
+    return {
+      ...alone,
+      people: [{ ...one(alone), inside: false }],
+      driver: -1,
+    };
+  }
+
+  /** One frame with that input. */
+  function tick(state: GameState, input: Partial<Input>): GameState {
+    return step(state, YARD, [{ ...IDLE_INPUT, ...input }], FRAME);
+  }
+
+  /** The highest they get, and how long they are off the ground. */
+  function flight(state: GameState, again = -1): { high: number; air: number } {
+    let now = tick(state, { jump: true });
+    let high = 0;
+    let air = 0;
+    for (let frame = 0; frame < 4 / FRAME; frame++) {
+      const twice = again >= 0 && Math.abs(air - again) < FRAME / 2;
+      now = tick(now, twice ? { jump: true } : {});
+      high = Math.max(high, one(now).lift);
+      if (one(now).lift <= 0) {
+        break;
+      }
+      air += FRAME;
+    }
+    return { high, air };
+  }
+
+  it("leaves the ground on a press and comes back down", () => {
+    const jumped = tick(outside(), { jump: true });
+    expect(jumped.people[0].rise).toBeGreaterThan(0);
+    const { high, air } = flight(outside());
+    expect(high).toBeCloseTo(JUMP_HIGH, 1);
+    expect(air).toBeGreaterThan(0);
+    // And lands: a jump that never ended would be a flight.
+    expect(flight(outside()).high).toBeGreaterThan(0);
+  });
+
+  it("does nothing at all without the key", () => {
+    const still = tick(outside(), {});
+    expect(still.people[0].lift).toBe(0);
+    expect(still.people[0].rise).toBe(0);
+  });
+
+  it("goes twice as high on a second press straight after", () => {
+    const plain = flight(outside()).high;
+    const double = flight(outside(), FRAME * 2).high;
+    // Against the plain jump rather than against the metre in the rules: both
+    // are integrated frame by frame, and it is the ratio that was promised.
+    expect(double).toBeCloseTo(plain * 2, 1);
+    expect(plain).toBeCloseTo(JUMP_HIGH, 1);
+  });
+
+  it("still goes twice as high when the second press comes late", () => {
+    // Aimed, not added: whenever inside the window it lands, the peak is the
+    // same. Adding a fixed push would make an early tap the better one and
+    // turn a plain double tap into a knack.
+    const early = flight(outside(), FRAME * 2).high;
+    const late = flight(outside(), JUMP_AGAIN - FRAME).high;
+    expect(late).toBeCloseTo(early, 1);
+  });
+
+  it("ignores a second press that comes too late", () => {
+    const plain = flight(outside()).high;
+    const late = flight(outside(), JUMP_AGAIN + FRAME * 4).high;
+    expect(late).toBeCloseTo(plain, 2);
+  });
+
+  it("gives only one extra push per jump", () => {
+    let now = tick(outside(), { jump: true });
+    now = tick(now, { jump: true });
+    const boosted = one(now).rise;
+    now = tick(now, { jump: true });
+    // The third press finds nothing left to give: gravity has had its frame
+    // and nothing else has.
+    expect(one(now).rise).toBeLessThan(boosted);
+  });
+
+  it("cannot be jumped again in mid-air", () => {
+    let now = tick(outside(), { jump: true });
+    for (let frame = 0; frame < JUMP_AGAIN / FRAME + 2; frame++) {
+      now = tick(now, {});
+    }
+    const rising = one(now).rise;
+    expect(one(now).lift).toBeGreaterThan(0);
+    expect(tick(now, { jump: true }).people[0].rise).toBeLessThan(rising);
+  });
+
+  it("keeps both feet in the cab", () => {
+    const seated = tick(begin(YARD, ROUTE_STEP * 4), { jump: true });
+    expect(seated.people[0].lift).toBe(0);
+    expect(seated.people[0].rise).toBe(0);
+  });
+
+  it("puts a jumper's feet down when they climb in", () => {
+    // Otherwise the motorhome would drive off with somebody hanging in the
+    // air beside it.
+    const air = tick(outside(), { jump: true });
+    expect(one(air).rise).toBeGreaterThan(0);
+    const aboard = tick(air, { door: true });
+    expect(one(aboard).inside).toBe(true);
+    expect(one(aboard).lift).toBe(0);
+    expect(one(aboard).rise).toBe(0);
+  });
+});
+
+describe("jumping in the fog", () => {
+  /** Flat ground, closed in from the start. */
+  const GREY: Route = {
+    name: "Nebel",
+    heights: Array.from({ length: 40 }, () => 0),
+    anchors: [],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: { from: 0, to: ROUTE_STEP * 100 },
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  /** Standing in it on foot, having stood there a while already. */
+  function waiting(seconds: number): GameState {
+    const alone = begin(GREY, ROUTE_STEP * 4);
+    return {
+      ...alone,
+      still: seconds,
+      people: [{ ...one(alone), inside: false }],
+      driver: -1,
+    };
+  }
+
+  it("counts as moving", () => {
+    // Somebody who has just jumped has plainly moved, whatever the metre
+    // count says, and being taken anyway would read as the rule cheating.
+    let now = step(
+      waiting(STILL_SECONDS - 1),
+      GREY,
+      [{ ...IDLE_INPUT, jump: true }],
+      FRAME,
+    );
+    expect(now.still).toBe(0);
+    // And it goes on counting as moving for as long as the feet are up.
+    for (let frame = 0; frame < 5; frame++) {
+      now = step(now, GREY, [IDLE_INPUT], FRAME);
+    }
+    expect(one(now).lift).toBeGreaterThan(0);
+    expect(now.still).toBe(0);
+  });
+
+  it("does not save anybody who lands and then stands there", () => {
+    // One press, then wait: the count starts afresh on landing and runs out
+    // as usual. A jump buys five more seconds, not a way out of the section.
+    const pressed = step(
+      waiting(0),
+      GREY,
+      [{ ...IDLE_INPUT, jump: true }],
+      FRAME,
+    );
+    const landed = hold(pressed, GREY, {}, 1);
+    expect(one(landed).lift).toBe(0);
+    expect(landed.still).toBeGreaterThan(0);
+    expect(hold(landed, GREY, {}, STILL_SECONDS).phase).toBe("taken");
+  });
+});
+
+describe("how a jump is timed", () => {
+  /** Flat ground, nothing on it. */
+  const YARD: Route = {
+    name: "Hof",
+    heights: Array.from({ length: 20 }, () => 0),
+    anchors: [],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  /** Standing beside the motorhome with both feet down. */
+  function outside(): GameState {
+    const alone = begin(YARD, ROUTE_STEP * 4);
+    return { ...alone, people: [{ ...one(alone), inside: false }], driver: -1 };
+  }
+
+  /** How long the feet are off the ground, at that frame length. */
+  function airtime(frame: number): number {
+    let now = step(outside(), YARD, [{ ...IDLE_INPUT, jump: true }], frame);
+    let air = 0;
+    for (let tick = 0; tick < 4 / frame; tick++) {
+      now = step(now, YARD, [IDLE_INPUT], frame);
+      if (one(now).lift <= 0) {
+        break;
+      }
+      air += frame;
+    }
+    return air;
+  }
+
+  /** How high they get, at that frame length. */
+  function highest(frame: number): number {
+    let now = step(outside(), YARD, [{ ...IDLE_INPUT, jump: true }], frame);
+    let high = 0;
+    for (let tick = 0; tick < 4 / frame; tick++) {
+      now = step(now, YARD, [IDLE_INPUT], frame);
+      high = Math.max(high, one(now).lift);
+      if (one(now).lift <= 0) {
+        break;
+      }
+    }
+    return high;
+  }
+
+  it("is over quickly", () => {
+    // Under real gravity the same ninety centimetres take the best part of a
+    // second and the figure hangs there as if the picture were under water.
+    expect(airtime(FRAME)).toBeLessThan(SNAPPY);
+    expect(airtime(FRAME)).toBeGreaterThan(0);
+  });
+
+  it("comes out the same height however fast the machine runs", () => {
+    // Sixty frames a second, thirty, and the longest step the engine allows.
+    expect(highest(FRAME)).toBeCloseTo(JUMP_HIGH, 1);
+    expect(highest(1 / 60)).toBeCloseTo(JUMP_HIGH, 1);
+    expect(highest(MAX_STEP)).toBeCloseTo(JUMP_HIGH, 1);
+  });
+});
+
+describe("the handbrake", () => {
+  /**
+   * A hill, with the motorhome on the steepest part of it.
+   *
+   * @remarks
+   * Between two height points on purpose. The ground is smoothed through the
+   * points, so the points themselves are the flat spots and the middle of a
+   * segment is where the hill is a hill.
+   */
+  const HILL: Route = {
+    name: "Hang",
+    heights: [0, 1, 2, 3, 4, 5, 6, 7],
+    anchors: [],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+  const STEEP = ROUTE_STEP * 3.5;
+
+  /** At the wheel on the flat, with room to get up to speed. */
+  function onTheFlat(): GameState {
+    return begin(LONG, ROUTE_STEP * 2);
+  }
+
+  /** Up to a proper speed in third, which is where a brake has work to do. */
+  function movingAlong(): GameState {
+    return hold(onTheFlat(), LONG, { drive: 1, shift: 3 }, 6);
+  }
+
+  it("brings it to a stand quickly, but not on the spot", () => {
+    const away = movingAlong();
+    expect(away.rv.v).toBeGreaterThan(1);
+
+    const moment = hold(away, LONG, { brake: true }, 0.1);
+    // Still rolling a tenth of a second in: it brakes, it does not hit a wall.
+    expect(moment.rv.v).toBeGreaterThan(0);
+    expect(moment.rv.v).toBeLessThan(away.rv.v);
+    expect(moment.rv.x).toBeGreaterThan(away.rv.x);
+
+    expect(hold(away, LONG, { brake: true }, STOPPING).rv.v).toBe(0);
+  });
+
+  it("stops it in about a second and a half from speed", () => {
+    // Long enough to feel like braking, short enough to be a handbrake.
+    const away = movingAlong();
+    let now = away;
+    let taken = 0;
+    while (now.rv.v > 0 && taken < STOPPING * 2) {
+      now = hold(now, LONG, { brake: true }, FRAME);
+      taken += FRAME;
+    }
+    expect(taken).toBeGreaterThan(0.5);
+    expect(taken).toBeLessThan(STOPPING);
+  });
+
+  it("bites clearly harder than the brake pedal", () => {
+    // The two are not the same control. The pedal is for slowing down, the
+    // lever is for stopping, and one that only matched the pedal would be a
+    // second pedal in a worse place.
+    const away = movingAlong();
+    const half = 0.5;
+    const lost = away.rv.v - hold(away, LONG, { brake: true }, half).rv.v;
+    expect(lost / half).toBeGreaterThan(BRAKE_ACCEL * 1.7);
+  });
+
+  it("takes the drive away with it", () => {
+    // The one that was actually reported: braking with the accelerator still
+    // down, the engine went on pulling and the vehicle only sagged to a walk
+    // instead of stopping - which from the seat looks like a handbrake that
+    // does nothing at all. Pulled, it cuts the drive.
+    const away = movingAlong();
+    const braked = hold(away, LONG, { brake: true }, 1);
+    const both = hold(away, LONG, { drive: 1, shift: 3, brake: true }, 1);
+    expect(both.rv.v).toBe(braked.rv.v);
+  });
+
+  it("stops it on a hill with the accelerator down", () => {
+    // On the flat the engine gives up on its own; on a slope it does not, and
+    // this is where a brake that argues with the engine loses.
+    const uphill = hold(begin(HILL, STEEP), HILL, { drive: 1, shift: 2 }, 4);
+    expect(uphill.rv.v).not.toBe(0);
+    const stopped = hold(
+      uphill,
+      HILL,
+      { drive: 1, shift: 2, brake: true },
+      STOPPING,
+    );
+    expect(stopped.rv.v).toBe(0);
+  });
+
+  it("is stronger than the engine", () => {
+    // Held with the accelerator down it still stops the vehicle - otherwise
+    // it would be advice rather than a brake.
+    const away = movingAlong();
+    const stopped = hold(
+      away,
+      LONG,
+      { drive: 1, shift: 3, brake: true },
+      STOPPING,
+    );
+    expect(stopped.rv.v).toBe(0);
+    // And keeps it there: the engine cannot pull away against it either.
+    const revved = hold(stopped, LONG, { drive: 1, shift: 3, brake: true }, 2);
+    expect(revved.rv.x).toBe(stopped.rv.x);
+  });
+
+  it("holds a standing vehicle on a slope", () => {
+    // Not only for stopping: this is how you stand still on a hill at all.
+    const onTheHill = begin(HILL, STEEP);
+    const rolled = hold(onTheHill, HILL, {}, 4);
+    expect(rolled.rv.x).toBeLessThan(STEEP);
+
+    const held = hold(onTheHill, HILL, { brake: true }, 4);
+    expect(held.rv.x).toBe(STEEP);
+    expect(held.rv.v).toBe(0);
+  });
+
+  it("lets go the moment the key does", () => {
+    // A lever, not a latch: nothing is left pulled behind you.
+    const held = hold(begin(HILL, STEEP), HILL, { brake: true }, 1);
+    expect(held.brake).toBe(true);
+    const freed = hold(held, HILL, {}, 2);
+    expect(freed.brake).toBe(false);
+    expect(freed.rv.x).toBeLessThan(held.rv.x);
+  });
+
+  it("holds no better than the tyres do", () => {
+    // It brakes the wheels, and wheels on a wall this steep hold nothing.
+    // Otherwise the handbrake would be a way of parking anywhere, and the
+    // rope - which is the whole point of the wall - would be optional.
+    const wall = begin(WALL, ROUTE_STEP * 2.5);
+    const held = hold(wall, WALL, { brake: true }, 2);
+    expect(held.rv.x).toBeLessThan(wall.rv.x);
+  });
+
+  it("is the driver's alone", () => {
+    // From outside the space bar is a jump, and a jump is not a handbrake.
+    const out = step(
+      begin(HILL, STEEP),
+      HILL,
+      [{ ...IDLE_INPUT, door: true }],
+      FRAME,
+    );
+    expect(one(out).inside).toBe(false);
+    const jumped = step(out, HILL, [{ ...IDLE_INPUT, brake: true }], FRAME);
+    expect(jumped.brake).toBe(false);
+  });
+
+  it("is not touched by anything but its own key", () => {
+    const busy = hold(
+      onTheFlat(),
+      LONG,
+      { drive: 1, take: true, hook: true },
+      1,
+    );
+    expect(busy.brake).toBe(false);
+  });
+});
+
+describe("the hand that fills itself", () => {
+  /** Flat ground with a tree, a bear and the motorhome in the middle. */
+  const YARD: Route = {
+    name: "Hof",
+    heights: Array.from({ length: 40 }, () => 0),
+    anchors: [{ x: ROUTE_STEP * 12, y: 0 }],
+    pits: [],
+    items: [],
+    bear: ROUTE_STEP * 20,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  /** Standing at a metre with a full bag, out of the cab. */
+  function carrying(at: number, bag: readonly ItemKind[]): GameState {
+    const base = begin(YARD, ROUTE_STEP * 4);
+    return {
+      ...base,
+      driver: -1,
+      people: [
+        { ...one(base), inside: false, at, carrying: bag, holding: bag[0] },
+      ],
+    };
+  }
+
+  /** What ends up in the hand after a frame of standing there. */
+  function inHand(state: GameState): ItemKind | null {
+    return one(step(state, YARD, [IDLE_INPUT], FRAME)).holding;
+  }
+
+  const ALL: readonly ItemKind[] = [REMOTE, "hammer", "tyres", "can", "spray"];
+
+  it("reaches for the spray in front of the bear", () => {
+    expect(inHand(carrying(ROUTE_STEP * 19, ALL))).toBe("spray");
+  });
+
+  it("reaches for the hammer at a wrecked motorhome", () => {
+    const wrecked = { ...carrying(ROUTE_STEP * 4, ALL), damaged: true };
+    expect(inHand(wrecked)).toBe("hammer");
+  });
+
+  it("reaches for the remote once the rope is on", () => {
+    // Not at the tree: the remote does nothing until there is a rope on
+    // something for it to wind.
+    const atTree = carrying(YARD.anchors[0].x, ALL);
+    expect(inHand(atTree)).toBe(null);
+    expect(inHand({ ...atTree, hooked: 0, rope: ROUTE_STEP })).toBe(REMOTE);
+  });
+
+  it("leaves the hand alone where nothing is wanted", () => {
+    // Halfway between everything, with the hammer chosen by hand: it stays.
+    const wandering = carrying(ROUTE_STEP * 8, ALL);
+    const chosen: GameState = {
+      ...wandering,
+      people: [{ ...one(wandering), holding: "hammer" }],
+    };
+    expect(inHand(chosen)).toBe("hammer");
+  });
+
+  it("never conjures what is not in the bag", () => {
+    // Standing in front of the bear with no spray is still standing in front
+    // of the bear, and the hand stays as empty as the bag is useless.
+    const empty = carrying(ROUTE_STEP * 19, [REMOTE]);
+    expect(inHand(empty)).toBe(null);
+  });
+
+  it("takes the bear over the motorhome parked beside you", () => {
+    // Both jobs are within reach at once here. The bear is the one that
+    // arrives on its own.
+    const cornered: GameState = {
+      ...carrying(ROUTE_STEP * 19, ALL),
+      rv: { x: ROUTE_STEP * 19, v: 0 },
+      damaged: true,
+    };
+    expect(inHand(cornered)).toBe("spray");
+  });
+
+  it("reaches for nothing from inside the cab", () => {
+    // Sitting in a wrecked motorhome with the hammer in the bag: none of it
+    // can be used from the seat, so the hand has no business changing. The
+    // list on screen would otherwise show a tool nobody could swing.
+    const seated: GameState = {
+      ...carrying(ROUTE_STEP * 4, ALL),
+      damaged: true,
+      driver: 0,
+      people: [
+        {
+          ...one(carrying(ROUTE_STEP * 4, ALL)),
+          inside: true,
+          holding: "can",
+        },
+      ],
+    };
+    expect(inHand(seated)).toBe("can");
+  });
+});
+
+describe("the bridge", () => {
+  /** Level ground with a stretch of old timber in the middle of it. */
+  const GORGE: Route = {
+    name: "Brücke",
+    heights: Array.from({ length: 40 }, () => 0),
+    anchors: [],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: null,
+    bridges: [{ from: ROUTE_STEP * 10, to: ROUTE_STEP * 16 }],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  /** The middle of the timber, and firm ground well short of it. */
+  const ON_IT = ROUTE_STEP * 13;
+  const SHORT_OF_IT = ROUTE_STEP * 4;
+
+  /** A world with that many people sitting in the motorhome. */
+  function riding(at: number, aboard: number): GameState {
+    const base = begin(GORGE, at);
+    const seat = { ...one(base), at, inside: true };
+    const foot = { ...one(base), at, inside: false };
+    return {
+      ...base,
+      rv: { x: at, v: 0 },
+      people: aboard > 1 ? [seat, seat] : [seat, foot],
+      driver: 0,
+    };
+  }
+
+  /** One frame of standing there. */
+  function tick(state: GameState): GameState {
+    return step(state, GORGE, [IDLE_INPUT, IDLE_INPUT], FRAME);
+  }
+
+  it("carries the motorhome with one of them in it", () => {
+    // Alone the question never comes up at all, which is the point: this is
+    // the one thing on the map that asks something of the pair.
+    expect(tick(riding(ON_IT, 1)).phase).toBe("driving");
+    const across = hold(
+      riding(SHORT_OF_IT, 1),
+      GORGE,
+      { drive: 1, shift: 3 },
+      12,
+    );
+    expect(across.rv.x).toBeGreaterThan(GORGE.bridges[0].to);
+    expect(across.phase).toBe("driving");
+  });
+
+  it("gives way under the two of them", () => {
+    expect(tick(riding(ON_IT, 2)).phase).toBe("fallen");
+  });
+
+  it("holds firm ground however many are aboard", () => {
+    // It is the timber that is old, not the road.
+    expect(tick(riding(SHORT_OF_IT, 2)).phase).toBe("driving");
+  });
+
+  it("gives way the moment the wheels are on it", () => {
+    const rolling = hold(
+      riding(SHORT_OF_IT, 2),
+      GORGE,
+      { drive: 1, shift: 3 },
+      12,
+    );
+    expect(rolling.phase).toBe("fallen");
+    // Where it went through, not where it would have got to: a drive that is
+    // over stops, so the vehicle is standing on the first planks it touched.
+    expect(rolling.rv.x).toBeGreaterThanOrEqual(GORGE.bridges[0].from);
+    expect(rolling.rv.x).toBeLessThan(GORGE.bridges[0].from + ROUTE_STEP);
+  });
+
+  it("stops the world with it", () => {
+    // The same as arriving: nothing moves afterwards, so nobody drives out of
+    // a bridge that has just gone from under them.
+    const gone = tick(riding(ON_IT, 2));
+    const later = hold(gone, GORGE, { drive: 1, shift: 3 }, 3);
+    expect(later.rv.x).toBe(gone.rv.x);
+    expect(later.time).toBe(gone.time);
+  });
+
+  it("counts who is aboard, not who is on it", () => {
+    // Somebody walking over beside the motorhome is on their own two feet, and
+    // the plank under a pair of boots is not the plank under three tonnes.
+    const walking = riding(ON_IT, 1);
+    expect(walking.people[1].inside).toBe(false);
+    expect(walking.people[1].at).toBe(ON_IT);
+    expect(tick(walking).phase).toBe("driving");
+  });
+
+  it("is the end of the drive, not a dent in it", () => {
+    // Like the bear and the fog: the section starts again, it does not carry
+    // on with a broken motorhome.
+    const gone = tick(riding(ON_IT, 2));
+    expect(hold(gone, GORGE, { drive: 1, shift: 3 }, 3).phase).toBe("fallen");
+  });
+});
+
+describe("the chasm and the tree over it", () => {
+  /** Level ground with a gap in it, a tree past it and an axe beside that. */
+  const CHASM: Route = {
+    name: "Abgrund",
+    heights: Array.from({ length: 40 }, () => 0),
+    anchors: [],
+    pits: [],
+    items: [{ at: ROUTE_STEP * 14, kind: "axe" }],
+    bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [{ from: ROUTE_STEP * 12 - 1.95, to: ROUTE_STEP * 12 + 1.95 }],
+    fellTree: ROUTE_STEP * 13,
+    sections: [],
+  };
+  const GAP = CHASM.chasms[0];
+
+  /** Parked with the front of the roof at the near lip, everybody outside. */
+  function parked(): GameState {
+    const at = GAP.from - ROOF_HALF;
+    const base = begin(CHASM, at);
+    return {
+      ...base,
+      rv: { x: at, v: 0 },
+      driver: -1,
+      people: [{ ...one(base), inside: false, at }],
+    };
+  }
+
+  /** Walks to a metre on the ground, then runs the input for a while. */
+  function walkTo(state: GameState, where: number): GameState {
+    let now = state;
+    for (let frame = 0; frame < 30 / FRAME; frame++) {
+      if (Math.abs(one(now).at - where) < WALK_SPEED * FRAME) {
+        break;
+      }
+      const way = where > one(now).at ? 1 : -1;
+      now = step(now, CHASM, [{ ...IDLE_INPUT, drive: way }], FRAME);
+    }
+    return now;
+  }
+
+  /** A leap: hold the direction, press jump twice, then ride it out. */
+  function leap(state: GameState): GameState {
+    let now = step(
+      state,
+      CHASM,
+      [{ ...IDLE_INPUT, drive: 1, jump: true }],
+      FRAME,
+    );
+    now = step(now, CHASM, [{ ...IDLE_INPUT, drive: 1, jump: true }], FRAME);
+    for (let frame = 0; frame < 3 / FRAME; frame++) {
+      now = step(now, CHASM, [{ ...IDLE_INPUT, drive: 1 }], FRAME);
+      if (one(now).lift <= 0) {
+        break;
+      }
+    }
+    return now;
+  }
+
+  it("swallows a motorhome driven into it", () => {
+    const rolling = hold(
+      { ...parked(), driver: 0, people: [{ ...one(parked()), inside: true }] },
+      CHASM,
+      { drive: 1, shift: 3 },
+      6,
+    );
+    expect(rolling.phase).toBe("plunged");
+  });
+
+  it("stops anybody on foot at the lip rather than letting them walk in", () => {
+    // Stepping off a cliff is not a decision anybody makes on purpose, so the
+    // game does not offer it.
+    const walked = hold(parked(), CHASM, { drive: 1 }, 10);
+    expect(one(walked).at).toBeLessThan(GAP.from);
+    expect(walked.phase).toBe("driving");
+  });
+
+  it("cannot be leapt from the ground, however hard anybody runs", () => {
+    // The whole reason the roof is standable. Running makes no difference:
+    // in the air nobody runs.
+    const atTheLip = walkTo(parked(), GAP.from - CHASM_STOP);
+    expect(one(leap(atTheLip)).at).toBeLessThan(GAP.to);
+    const sprinting = step(
+      atTheLip,
+      CHASM,
+      [{ ...IDLE_INPUT, drive: 1, sprint: true, jump: true }],
+      FRAME,
+    );
+    expect(one(leap(sprinting)).at).toBeLessThan(GAP.to);
+  });
+
+  it("is cleared by a leap off the roof", () => {
+    const climbed = climbUp(parked());
+    expect(one(climbed).lift).toBe(ROOF_HIGH);
+    const over = leap(walkOnRoof(climbed));
+    expect(one(over).at).toBeGreaterThan(GAP.to);
+    expect(over.phase).toBe("driving");
+  });
+
+  /** Standing at the ladder and going up it. */
+  function climbUp(state: GameState): GameState {
+    const ladder = walkTo(state, state.rv.x - ROOF_HALF);
+    return step(ladder, CHASM, [{ ...IDLE_INPUT, jump: true }], FRAME);
+  }
+
+  /** Along the roof to its front edge. */
+  function walkOnRoof(state: GameState): GameState {
+    let now = state;
+    for (let frame = 0; frame < 5 / FRAME; frame++) {
+      if (one(now).at >= state.rv.x + ROOF_HALF - 0.2) {
+        break;
+      }
+      now = step(now, CHASM, [{ ...IDLE_INPUT, drive: 1 }], FRAME);
+    }
+    return now;
+  }
+
+  it("takes anybody who lands in it", () => {
+    // Walking in is not offered; jumping in is a decision, and the gap does
+    // not care which of the two it was. A leap begun too far back is exactly
+    // that decision: off the ladder without walking to the front edge first.
+    const short = leap(climbUp(parked()));
+    expect(one(short).at).toBeGreaterThan(GAP.from);
+    expect(one(short).at).toBeLessThan(GAP.to);
+    expect(short.phase).toBe("plunged");
+  });
+
+  it("is closed for good by felling the tree", () => {
+    const over = leap(walkOnRoof(climbUp(parked())));
+    const withAxe = fetch(over, CHASM, CHASM.items[0].at);
+    expect(one(withAxe).carrying).toContain("axe");
+
+    const atTree = walkTo(withAxe, CHASM.fellTree as number);
+    expect(one(atTree).holding).toBe("axe");
+    const chopped = hold(atTree, CHASM, { work: true }, FELL_SECONDS + 0.5);
+    expect(chopped.felled).toBe(true);
+
+    // And then it is road: the motorhome drives over where the gap was.
+    const aboard = {
+      ...chopped,
+      driver: 0,
+      people: [{ ...one(chopped), inside: true, at: chopped.rv.x }],
+    };
+    const across = hold(aboard, CHASM, { drive: 1, shift: 3 }, 8);
+    expect(across.phase).toBe("driving");
+    expect(across.rv.x).toBeGreaterThan(GAP.to);
+  });
+
+  it("needs the axe: bare hands do nothing to it", () => {
+    const over = leap(walkOnRoof(climbUp(parked())));
+    const atTree = walkTo(over, CHASM.fellTree as number);
+    expect(one(atTree).carrying).not.toContain("axe");
+    const tried = hold(atTree, CHASM, { work: true }, FELL_SECONDS * 2);
+    expect(tried.felled).toBe(false);
+  });
+});
+
+describe("the roof of the motorhome", () => {
+  /** Level ground, nothing on it, the motorhome in the middle. */
+  const YARD: Route = {
+    name: "Hof",
+    heights: Array.from({ length: 40 }, () => 0),
+    anchors: [],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+  const PARKED = ROUTE_STEP * 8;
+
+  /** Standing on the ground at a metre, out of the cab. */
+  function afoot(at: number): GameState {
+    const base = begin(YARD, PARKED);
+    return {
+      ...base,
+      driver: -1,
+      people: [{ ...one(base), inside: false, at }],
+    };
+  }
+
+  /** One frame with that input. */
+  function tick(state: GameState, input: Partial<Input>): GameState {
+    return step(state, YARD, [{ ...IDLE_INPUT, ...input }], FRAME);
+  }
+
+  it("is climbed from the ladder at the back", () => {
+    const ladder = afoot(PARKED - ROOF_HALF);
+    expect(tick(ladder, { jump: true }).people[0].lift).toBe(ROOF_HIGH);
+  });
+
+  it("is not reached by jumping anywhere else", () => {
+    // Nobody jumps three and a half metres, and a roof that caught every jump
+    // taken near the vehicle would put people up there by accident.
+    const beside = afoot(PARKED);
+    const jumped = tick(beside, { jump: true });
+    expect(jumped.people[0].lift).toBeLessThan(ROOF_HIGH);
+    let now = jumped;
+    for (let frame = 0; frame < 2 / FRAME; frame++) {
+      now = tick(now, {});
+    }
+    expect(one(now).lift).toBe(0);
+  });
+
+  it("carries somebody along it", () => {
+    const up = tick(afoot(PARKED - ROOF_HALF), { jump: true });
+    const along = hold(up, YARD, { drive: 1 }, 1);
+    expect(one(along).lift).toBe(ROOF_HIGH);
+    expect(one(along).at).toBeGreaterThan(PARKED - ROOF_HALF);
+  });
+
+  it("drops whoever walks off the end of it", () => {
+    const up = tick(afoot(PARKED - ROOF_HALF), { jump: true });
+    const off = hold(up, YARD, { drive: 1 }, 4);
+    expect(one(off).at).toBeGreaterThan(PARKED + ROOF_HALF);
+    expect(one(off).lift).toBe(0);
+  });
+
+  it("moves out from under anybody when it drives away", () => {
+    // The roof is the vehicle's, not a platform bolted to the map.
+    const up = tick(afoot(PARKED - ROOF_HALF), { jump: true });
+    const aboard: GameState = {
+      ...up,
+      driver: 0,
+      people: [{ ...one(up), inside: true }, one(up)],
+    };
+    const driven = hold(aboard, YARD, { drive: 1, shift: 3 }, 4);
+    expect(driven.rv.x).toBeGreaterThan(PARKED);
+    expect(driven.people[1].lift).toBe(0);
+  });
+});
+
+describe("the door", () => {
+  /** Flat ground with room to get up to speed. */
+  const ROAD: Route = {
+    name: "Strasse",
+    heights: Array.from({ length: 60 }, () => 0),
+    anchors: [],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  /** Barely more than a crawl, in metres per second. */
+  const CRAWLING = 2;
+
+  /** At the wheel and rolling along. */
+  function rolling(): GameState {
+    return hold(begin(ROAD, ROUTE_STEP * 2), ROAD, { drive: 1, shift: 3 }, 6);
+  }
+
+  /** One press of the door key. */
+  function press(state: GameState): GameState {
+    return step(state, ROAD, [{ ...IDLE_INPUT, door: true }], FRAME);
+  }
+
+  it("stays shut while the motorhome is moving", () => {
+    // Nobody steps out of a moving vehicle, and a door that worked at speed
+    // made the handbrake optional.
+    const away = rolling();
+    expect(Math.abs(away.rv.v)).toBeGreaterThan(STOP_SPEED);
+    expect(one(press(away)).inside).toBe(true);
+  });
+
+  it("stays shut at a walking pace too", () => {
+    // Not only at speed: "it stands" means it stands, and a door that opened
+    // at anything under a dash would be a door that opened while rolling
+    // backwards down a hill.
+    let creeping = rolling();
+    for (let frame = 0; frame < 30 / FRAME; frame++) {
+      if (Math.abs(creeping.rv.v) < CRAWLING) {
+        break;
+      }
+      creeping = step(creeping, ROAD, [{ ...IDLE_INPUT, brake: true }], FRAME);
+    }
+    expect(Math.abs(creeping.rv.v)).toBeGreaterThan(STOP_SPEED);
+    expect(Math.abs(creeping.rv.v)).toBeLessThan(CRAWLING);
+    expect(one(press(creeping)).inside).toBe(true);
+  });
+
+  it("stays shut while it rolls backwards", () => {
+    const back = hold(begin(ROAD, ROUTE_STEP * 4), ROAD, { drive: -1 }, 4);
+    expect(back.rv.v).toBeLessThan(-STOP_SPEED);
+    expect(one(press(back)).inside).toBe(true);
+  });
+
+  it("opens the moment it stands", () => {
+    const stopped = hold(rolling(), ROAD, { brake: true }, 3);
+    expect(Math.abs(stopped.rv.v)).toBeLessThanOrEqual(STOP_SPEED);
+    expect(one(press(stopped)).inside).toBe(false);
+  });
+
+  it("counts a crawl as standing", () => {
+    // "Standing" is the same barely-moving the pedals already use, so there
+    // is one idea of it in the game rather than two.
+    const away = rolling();
+    let creeping = away;
+    for (let frame = 0; frame < 30 / FRAME; frame++) {
+      if (Math.abs(creeping.rv.v) <= STOP_SPEED) {
+        break;
+      }
+      creeping = step(creeping, ROAD, [{ ...IDLE_INPUT, brake: true }], FRAME);
+    }
+    expect(one(press(creeping)).inside).toBe(false);
+  });
+
+  it("shuts anybody out of a motorhome that is rolling past", () => {
+    // The same rule the other way about: no hopping aboard at speed.
+    const away = rolling();
+    const beside: GameState = {
+      ...away,
+      driver: -1,
+      people: [{ ...one(away), inside: false, at: away.rv.x }],
+    };
+    expect(one(press(beside)).inside).toBe(false);
+  });
+
+  it("stops offering the way in while it rolls", () => {
+    // The screen says "get in (E)" off this, and offering a key that does
+    // nothing is worse than saying nothing at all.
+    const away = rolling();
+    const beside: GameState = {
+      ...away,
+      driver: -1,
+      people: [{ ...one(away), inside: false, at: away.rv.x }],
+    };
+    expect(atVehicle(one(beside), beside)).toBe(false);
+    const stopped = hold(beside, ROAD, {}, 3);
+    expect(atVehicle(one(stopped), stopped)).toBe(true);
+  });
+});
+
+describe("the winch remote", () => {
+  /** Flat ground with a tree the rope reaches. */
+  const TREE: Route = {
+    name: "Baum",
+    heights: Array.from({ length: 20 }, () => 0),
+    anchors: [{ x: ROUTE_STEP * 5, y: 0 }],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  it("starts in the bag and not in the hand", () => {
+    // It belongs to the motorhome, so it is always there - but a tool held
+    // for the whole drive in case it might be needed is not carrying, it is
+    // clutter.
+    const fresh = startAt(0);
+    expect(fresh.people[0].carrying).toContain(REMOTE);
+    expect(fresh.people[0].holding).toBe(null);
+  });
+
+  it("stays in the bag while you walk up to the tree", () => {
+    const atTree = standingAt(begin(TREE), TREE, TREE.anchors[0].x);
+    expect(atTree.hooked).toBe(-1);
+    expect(one(atTree).holding).toBe(null);
+  });
+
+  it("comes to hand the moment the rope is on", () => {
+    const atTree = standingAt(begin(TREE), TREE, TREE.anchors[0].x);
+    const roped = step(atTree, TREE, [{ ...IDLE_INPUT, hook: true }], FRAME);
+    expect(roped.hooked).toBe(0);
+    expect(one(roped).holding).toBe(REMOTE);
+    // And it works from there, which is the whole point of holding it.
+    expect(hold(roped, TREE, { wind: 1 }, 2).rope).toBeLessThan(roped.rope);
+  });
+
+  it("goes back in the bag when the rope comes off", () => {
+    const atTree = standingAt(begin(TREE), TREE, TREE.anchors[0].x);
+    const roped = step(atTree, TREE, [{ ...IDLE_INPUT, hook: true }], FRAME);
+    const loose = step(roped, TREE, [{ ...IDLE_INPUT, hook: true }], FRAME);
+    expect(loose.hooked).toBe(-1);
+    expect(one(loose).holding).toBe(null);
+  });
+
+  it("will not be carried about even if it is asked for", () => {
+    // Taking it out by hand where it does nothing is not a choice worth
+    // honouring - it is the clutter this rule exists to prevent.
+    const out = steppedOut(begin(TREE), TREE);
+    const picked = step(out, TREE, [{ ...IDLE_INPUT, pick: 0 }], FRAME);
+    expect(one(picked).holding).toBe(null);
   });
 });

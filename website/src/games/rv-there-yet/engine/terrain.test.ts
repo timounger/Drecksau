@@ -15,6 +15,10 @@ const HILL: Route = {
   pits: [],
   items: [],
   bear: null,
+  fog: null,
+  bridges: [],
+  chasms: [],
+  fellTree: null,
   sections: [],
 };
 
@@ -68,6 +72,10 @@ describe("the slope", () => {
       pits: [],
       items: [],
       bear: null,
+      fog: null,
+      bridges: [],
+      chasms: [],
+      fellTree: null,
       sections: [],
     };
     expect(slopeAt(down, ROUTE_STEP / 2)).toBeLessThan(0);

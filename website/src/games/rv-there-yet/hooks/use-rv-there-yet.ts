@@ -102,6 +102,8 @@ export type RvThereYetGame = {
   readonly touch: (button: TouchButton, down: boolean) => void;
   /** Puts a gear in, as the gear buttons do. */
   readonly shift: (gear: number) => void;
+  /** Takes the thing in that bag slot into the hand. */
+  readonly pick: (slot: number) => void;
 };
 
 /**
@@ -281,6 +283,7 @@ export function useRvThereYet(): RvThereYetGame {
     next: () => beginDrive(sectionStep(stateRef.current.section, 1)),
     back: () => beginDrive(sectionStep(stateRef.current.section, -1)),
     shift: (gear: number) => controlsRef.current.shift(gear),
+    pick: (slot: number) => controlsRef.current.pick(slot),
     touch: (button, down) => controlsRef.current.press(button, down),
   };
 }

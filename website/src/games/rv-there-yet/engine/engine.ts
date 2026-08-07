@@ -31,25 +31,40 @@ import { heightAt, routeLength, slopeAt } from "./terrain";
 import {
   ANCHOR_REACH,
   FUEL_BURN,
+  FUEL_SECONDS,
   BEAR_LEASH,
   BEAR_NOTICE,
   BEAR_REACH,
   BEAR_SPEED,
+  JUMP_AGAIN,
+  JUMP_FALL,
+  JUMP_HIGH,
+  BRIDGE_LOAD,
+  CHASM_STOP,
+  FELL_SECONDS,
+  LADDER_REACH,
+  LEAP_SPEED,
+  ROOF_HALF,
+  ROOF_HIGH,
   MAUL_SECONDS,
   SPRAY_REACH,
   SPRAY_SECONDS,
+  STILL_SECONDS,
+  STILL_SPEED,
   PICKUP_REACH,
   REPAIR_SECONDS,
   TYRE_FACTOR,
   WINCH_BURN,
   DRAG,
   BRAKE_ACCEL,
+  HANDBRAKE,
   gearAt,
   FULL_GRIP_SLOPE,
   GOAL_MARGIN,
   GRAVITY,
   MAX_STEP,
   NO_GRIP_SLOPE,
+  REMOTE,
   ENTER_REACH,
   EXIT_GAP,
   NEUTRAL,
@@ -76,6 +91,55 @@ import {
 /** Nothing is hooked. */
 const UNHOOKED = -1;
 
+/** How far onto the roof a climb steps, in metres past its back edge. */
+const ROOF_STEP = 0.3;
+
+/** How long each job takes, in seconds. */
+const WORK_SECONDS: Readonly<Record<NonNullable<Job> | "mend", number>> = {
+  mend: REPAIR_SECONDS,
+  fit: REPAIR_SECONDS,
+  fuel: FUEL_SECONDS,
+  fell: FELL_SECONDS,
+};
+
+/**
+ * What somebody is standing **on**, in metres above the ground.
+ *
+ * @param at - where they are along the route, in metres
+ * @param lift - how high they were off the ground, in metres
+ * @param rvX - where the motorhome stands, in metres
+ * @returns 0 for the road, the height of the roof for the roof
+ * @remarks
+ * The roof of the motorhome is ground like any other: you walk along it, you
+ * fall off the end of it, and a jump from up there carries further than one
+ * from the road - which is the whole reason it is standable, because it is the
+ * only way over the chasm.
+ *
+ * Being **over** the vehicle is not enough: you have to be up there already.
+ * Otherwise standing beside it would count as standing on it, and the roof
+ * would catch every jump taken anywhere near the thing.
+ */
+export function floorUnder(at: number, lift: number, rvX: number): number {
+  const over = Math.abs(at - rvX) <= ROOF_HALF;
+  return over && lift >= ROOF_HIGH ? ROOF_HIGH : 0;
+}
+
+/** Whether somebody is standing at the ladder on the back of the motorhome. */
+export function atTheLadder(at: number, rvX: number): boolean {
+  return Math.abs(at - (rvX - ROOF_HALF)) <= LADDER_REACH;
+}
+
+/**
+ * Whether a place lies on a stretch of the route.
+ *
+ * @param span - the stretch, in metres
+ * @param x - the place, in metres
+ * @returns true while it is on it, ends included
+ */
+export function within(span: Pit, x: number): boolean {
+  return x >= span.from && x <= span.to;
+}
+
 /**
  * Moves the world on by one frame.
  *
@@ -91,7 +155,11 @@ export function step(
   inputs: readonly Input[],
   dt: number,
 ): GameState {
-  if (state.phase === "arrived") {
+  // A drive that is over is over. The loop stops calling this the moment the
+  // phase leaves "driving", so this only ever catches a caller that carries on
+  // - and a motorhome that went on rolling out of a collapsed bridge would be
+  // a strange thing to have left possible.
+  if (state.phase !== "driving") {
     return state;
   }
   const span = Math.min(MAX_STEP, Math.max(0, dt));
@@ -108,6 +176,9 @@ export function step(
   // except for reverse, which puts itself in when the backwards pedal is held
   // on a standing vehicle.
   const gear = nextGear(state, wheel, driver >= 0);
+  // The handbrake is the driver's alone, and it is on only while it is held -
+  // `wheel` is already an idle input when nobody is at the wheel.
+  const brake = wheel.brake;
 
   // Picking up has a key of its own, so it never competes with the rope. What
   // is left on the rope key is the rope and the hammer, and those two never
@@ -116,13 +187,15 @@ export function step(
   // standing at their broken motorhome with a hammer is not reaching for a
   // rope.
   const taking = state.people.map((person, index) =>
-    !aboard[index] && said(index).take ? withinReach(person, route) : null,
+    !aboard[index] && said(index).take
+      ? withinReach(person, state, route)
+      : null,
   );
   const tying = state.people.findIndex(
     (person, index) =>
       !aboard[index] &&
       said(index).hook &&
-      jobAt(person, state, aboard[index]) === null,
+      jobAt(person, state, aboard[index], route) === null,
   );
   const hooked =
     tying < 0 ? state.hooked : toggleHook(state.people[tying], state, route);
@@ -138,12 +211,16 @@ export function step(
     hooked === UNHOOKED
       ? 0
       : state.people.reduce(
-          (most, _person, index) =>
-            aboard[index] || said(index).wind === 0 ? most : said(index).wind,
+          // The remote only works in a hand, and hands are not in the cab.
+          (most, person, index) =>
+            aboard[index] || person.holding !== REMOTE || said(index).wind === 0
+              ? most
+              : said(index).wind,
           0,
         );
   const winding = reeling > 0 && state.fuel > 0;
   const rope = ropeAfter(out, winding, reeling < 0, span);
+  const winch = winding ? 1 : reeling < 0 ? -1 : 0;
 
   const rv = whereTheVehicleGoes(
     state,
@@ -152,6 +229,7 @@ export function step(
     gear,
     hooked,
     driver,
+    brake,
     span,
   );
   const held = holdOnRope(rv.x, rv.v, hooked, rope, route);
@@ -166,12 +244,25 @@ export function step(
     (person, index) =>
       !aboard[index] &&
       said(index).work &&
-      jobAt(person, state, false) !== null,
+      jobAt(person, state, false, route) !== null,
   );
-  const job = working < 0 ? null : jobAt(state.people[working], state, false);
+  const job =
+    working < 0 ? null : jobAt(state.people[working], state, false, route);
   const repair = job === null ? 0 : state.repair + span;
-  const done = repair >= REPAIR_SECONDS;
+  const done = repair >= WORK_SECONDS[job ?? "mend"];
 
+  // Fitted tyres are on the motorhome, not in a bag. Whoever bolted them on
+  // is the one who no longer has them.
+  const spent = (index: number): ItemKind | null => {
+    if (!done || index !== working) {
+      return null;
+    }
+    // Used up: fitted tyres are on the motorhome, an emptied can is empty.
+    if (job === "fit") {
+      return "tyres";
+    }
+    return job === "fuel" ? "can" : null;
+  };
   const people = state.people.map((person, index) =>
     moved(
       person,
@@ -181,11 +272,17 @@ export function step(
       aboard[index],
       span,
       x,
+      hooked,
       taking[index],
+      spent(index),
     ),
   );
   const bear = nextBear(state, route, people, aboard, said, span);
   const mauled = bear !== null && bear.hold >= MAUL_SECONDS;
+  const still = nextStill(state, route, people, x, span);
+  const taken = still >= STILL_SECONDS;
+  const fell = tooHeavyForTheBridge(route, x, people);
+  const plunged = intoTheChasm(route, state.felled, x, people);
 
   return {
     ...state,
@@ -195,13 +292,27 @@ export function step(
     driver,
     gear,
     damaged: wrecked && !(done && job === "mend"),
+    felled: state.felled || (done && job === "fell"),
     tyres: state.tyres || (done && job === "fit"),
     repair: done ? 0 : repair,
     section: Math.max(state.section, sectionAt(x)),
     hooked: releaseIf(hooked, rope, x, route),
     rope,
-    fuel: nextFuel(state.fuel, winding, wheel, driver >= 0, span),
-    phase: nextPhase(state.phase, x >= goal && driver >= 0, mauled),
+    winch,
+    fuel:
+      done && job === "fuel"
+        ? 1
+        : nextFuel(state.fuel, winding, wheel, driver >= 0, span),
+    still,
+    brake,
+    phase: nextPhase(
+      state.phase,
+      x >= goal && driver >= 0,
+      mauled,
+      taken,
+      fell,
+      plunged,
+    ),
     time: state.time + span,
     reached: Math.max(state.reached, x),
   };
@@ -236,7 +347,9 @@ function nextDriver(state: GameState, aboard: readonly boolean[]): number {
  * @param inside - whether they are in the cab now
  * @param span - how long the frame lasted
  * @param rvX - where the motorhome is now, in metres
+ * @param hooked - the anchor the rope is on now, or -1
  * @param taken - what they just picked up, or null
+ * @param spent - what they just used up, or null
  * @returns them, one frame later
  */
 function moved(
@@ -247,17 +360,274 @@ function moved(
   inside: boolean,
   span: number,
   rvX: number,
+  hooked: number,
   taken: ItemKind | null,
+  spent: ItemKind | null,
 ): Person {
-  const at = whereTheyStand(person, route, input, span, inside, rvX);
+  const walked = whereTheyStand(
+    person,
+    route,
+    input,
+    span,
+    inside,
+    rvX,
+    state.felled,
+  );
+  // Climbing the ladder is a step **onto** the roof, not only upwards: the
+  // ladder can be reached from further back than the roof reaches, and
+  // somebody put up there behind its back edge would drop straight off again.
+  const climbing =
+    !inside &&
+    input.jump &&
+    !offTheGround(person, floorUnder(walked, person.lift, rvX)) &&
+    atTheLadder(walked, rvX);
+  const at = climbing ? rvX - ROOF_HALF + ROOF_STEP : walked;
+  const got = taken === null ? person.carrying : [...person.carrying, taken];
+  const carrying = spent === null ? got : got.filter((kind) => kind !== spent);
   return {
     at,
     inside,
     stride: person.stride + (inside ? 0 : Math.abs(at - person.at)),
     facing: facingOf(person, input, inside),
     walking: !inside && input.drive !== 0,
-    carrying: taken === null ? person.carrying : [...person.carrying, taken],
+    carrying,
+    holding: stillHeld(
+      // What the spot calls for beats what was last chosen off the list.
+      neededAt(at, inside, carrying, state, route, hooked) ??
+        heldAfter(person, input, carrying),
+      carrying,
+      hooked,
+    ),
+    ...jumped(
+      person,
+      input,
+      inside,
+      span,
+      floorUnder(at, person.lift, rvX),
+      climbing,
+    ),
   };
+}
+
+/**
+ * Whether somebody's feet have left the ground.
+ *
+ * @param person - them
+ * @param floor - what they would be standing on, in metres above the ground
+ * @returns true while they are in the air
+ * @remarks
+ * Both halves are needed. In the frame a jump starts they are still at the
+ * height of whatever they are standing on and only carry the speed, and
+ * counting that frame as standing would make the first frame of a jump look
+ * like standing still.
+ */
+function offTheGround(person: Person, floor: number): boolean {
+  return person.lift > floor || person.rise > 0;
+}
+
+/**
+ * How high one person is off the ground after this frame.
+ *
+ * @param person - them, as they were
+ * @param input - what they are doing
+ * @param inside - whether they are in the cab now
+ * @param span - how long the frame lasted
+ * @returns their height, their upward speed and the time since take-off
+ * @remarks
+ * A plain throw: up at whatever speed reaches {@link JUMP_HIGH}, then gravity.
+ * The **second** press is not a second jump - nobody leaves the ground twice -
+ * but a push on the one already under way, and it is aimed rather than added:
+ * the speed is set to whatever it now takes to peak at twice the height, so a
+ * double tap comes out at twice the height whether the second press landed at
+ * once or a moment later.
+ *
+ * Climbing into the cab puts the feet down wherever they were. A motorhome
+ * driving off with somebody hanging in the air beside it is a stranger sight
+ * than a jump cut short.
+ */
+function jumped(
+  person: Person,
+  input: Input,
+  inside: boolean,
+  span: number,
+  floor: number,
+  ladder: boolean,
+): { readonly lift: number; readonly rise: number; readonly pop: number } {
+  if (inside) {
+    return { lift: 0, rise: 0, pop: -1 };
+  }
+  const standing = { lift: floor, rise: 0, pop: -1 };
+  if (!offTheGround(person, floor)) {
+    // At the ladder the key climbs instead of jumping. Nobody jumps three and
+    // a half metres, and every motorhome has a ladder on its back door.
+    if (input.jump && ladder) {
+      return { lift: ROOF_HIGH, rise: 0, pop: -1 };
+    }
+    return input.jump
+      ? { lift: floor, rise: Math.sqrt(2 * JUMP_FALL * JUMP_HIGH), pop: 0 }
+      : standing;
+  }
+  // In the air: either the second press lands, or gravity has its way.
+  if (input.jump && person.pop >= 0 && person.pop <= JUMP_AGAIN) {
+    // One more jump's worth of push, added to whatever is left of the first.
+    // Aiming at a **height** instead was wrong the moment the ground under
+    // the jumper could change: leap off the roof and the floor drops away
+    // mid-flight, and the second press came out weaker than no press at all.
+    // Energy does not care where the ground went - and it comes out at
+    // exactly twice the height either way, whenever the press lands.
+    return {
+      lift: person.lift,
+      rise: Math.sqrt(person.rise ** 2 + 2 * JUMP_FALL * JUMP_HIGH),
+      pop: -1,
+    };
+  }
+  const rise = person.rise - JUMP_FALL * span;
+  // The average of the two speeds, not the new one: over a frame the speed
+  // changes steadily, so the middle of it is the distance actually covered.
+  // Taking the end speed loses a little height every frame, and how much
+  // depends on the frame rate - the same jump would come out lower on a
+  // slower machine, which is a strange thing to let a browser decide.
+  const lift = person.lift + ((person.rise + rise) / 2) * span;
+  return lift <= floor
+    ? standing
+    : { lift, rise, pop: person.pop < 0 ? -1 : person.pop + span };
+}
+
+/**
+ * The hand, once whatever was in it may have been used up.
+ *
+ * @param wanted - what they would be holding
+ * @param carrying - the bag as it is now
+ * @param hooked - the anchor the rope is on now, or -1
+ * @returns the thing in hand, or null when the bag is empty
+ * @remarks
+ * Fitting the tyres takes them out of the bag, and a hand still holding them
+ * would be holding something that no longer exists. What is left is empty
+ * hands: the next thing worth holding comes to hand where it is wanted.
+ */
+function stillHeld(
+  wanted: ItemKind | null,
+  carrying: readonly ItemKind[],
+  hooked: number,
+): ItemKind | null {
+  // The remote is the one tool whose use is a **state** of the world rather
+  // than something done in a place: it works while the rope is on and at no
+  // other time. So it is in the hand then and back in the bag the moment the
+  // rope comes off, rather than staying there for the rest of the drive.
+  if (wanted === REMOTE && hooked === UNHOOKED) {
+    return null;
+  }
+  if (wanted !== null && carrying.includes(wanted)) {
+    return wanted;
+  }
+  // Nothing wanted means empty hands. Falling back to the first thing in the
+  // bag put the remote there for the whole drive - a tool held for hours in
+  // case it might be needed, which is not how anybody carries anything.
+  return null;
+}
+
+/**
+ * What the place somebody is standing in calls for out of their bag.
+ *
+ * @param at - where they are now, in metres
+ * @param inside - whether they are in the cab
+ * @param carrying - their bag as it is now
+ * @param state - the world as it was
+ * @param route - the route being driven
+ * @param hooked - the anchor the rope is on **now**, or -1
+ * @returns the thing to put in their hand, or null to leave the hand alone
+ * @remarks
+ * The list on screen used to be a step of its own: pick the thing up, then
+ * find it in the bag, then use it. Standing in front of a bear with the can
+ * one keypress away is not an interesting decision, it is a fumble - and the
+ * bear does not wait while you have it.
+ *
+ * So the hand follows the spot. At a tree or on the rope it is the remote, in
+ * front of a bear the spray, at the motorhome whatever the motorhome needs.
+ * The order is {@link jobAt}'s own, so the automatic choice can never be a job
+ * the game would then refuse to do: a wreck with a set of tyres beside it is
+ * still a wreck.
+ *
+ * Nothing is forced when the spot asks for nothing, so the list can still be
+ * used by hand - and nothing is ever conjured out of thin air: only what is
+ * already in the bag can be reached for.
+ */
+function neededAt(
+  at: number,
+  inside: boolean,
+  carrying: readonly ItemKind[],
+  state: GameState,
+  route: Route,
+  hooked: number,
+): ItemKind | null {
+  if (inside) {
+    return null;
+  }
+  const has = (kind: ItemKind) => carrying.includes(kind);
+  const bear = state.bear;
+  // The bear first: it is the only thing here that comes to **you**, and the
+  // one job where a moment spent in a menu is the difference.
+  if (
+    bear !== null &&
+    !bear.gone &&
+    Math.abs(at - bear.at) <= BEAR_NOTICE &&
+    has("spray")
+  ) {
+    return "spray";
+  }
+  // The axe at the tree, before anything the motorhome might want: whoever is
+  // standing at that tree with an axe in the bag is not there about tyres.
+  const tree = route.fellTree;
+  if (
+    tree !== null &&
+    !state.felled &&
+    Math.abs(at - tree) <= ANCHOR_REACH &&
+    has("axe")
+  ) {
+    return "axe";
+  }
+  if (Math.abs(at - state.rv.x) <= ENTER_REACH) {
+    if (state.damaged && has("hammer")) {
+      return "hammer";
+    }
+    if (!state.tyres && has("tyres")) {
+      return "tyres";
+    }
+    if (state.fuel < 1 && has("can")) {
+      return "can";
+    }
+  }
+  // Only once the rope is actually **on**: that is the moment the remote does
+  // anything. Standing at a tree with one in your hand is a picture of
+  // somebody about to press a button that is not connected to a winch yet.
+  return hooked !== UNHOOKED && has(REMOTE) ? REMOTE : null;
+}
+
+/**
+ * What is in a person's hand after this frame.
+ *
+ * @param person - them, as they were
+ * @param input - what they are doing
+ * @param carrying - the bag as it is now
+ * @returns the thing in hand, or null
+ * @remarks
+ * Picking a thing up does **not** put it in the hand: it goes into the bag and
+ * waits to be chosen. Choosing is either a slot straight off the list on screen
+ * or the "next one" key, which is what a hand on the keyboard reaches for.
+ */
+function heldAfter(
+  person: Person,
+  input: Input,
+  carrying: readonly ItemKind[],
+): ItemKind | null {
+  if (input.pick !== null) {
+    return carrying[input.pick] ?? person.holding;
+  }
+  if (input.cycle && carrying.length > 0) {
+    const now = person.holding === null ? -1 : carrying.indexOf(person.holding);
+    return carrying[(now + 1) % carrying.length];
+  }
+  return person.holding;
 }
 
 /**
@@ -301,13 +671,16 @@ function whereTheVehicleGoes(
   gear: number,
   hooked: number,
   driver: number,
+  brake: boolean,
   span: number,
 ) {
   if (driver >= 0) {
-    return driven(state, route, input, gear, span);
+    return driven(state, route, input, gear, brake, span);
   }
   if (hooked !== UNHOOKED) {
-    return driven(state, route, { ...input, drive: 0 }, NEUTRAL, span);
+    // On the rope the handbrake is off - that is what lets the winch lower it
+    // as well as raise it, and nobody is in the cab to be holding a lever.
+    return driven(state, route, { ...input, drive: 0 }, NEUTRAL, false, span);
   }
   return { x: state.rv.x, v: 0 };
 }
@@ -326,6 +699,7 @@ function driven(
   route: Route,
   input: Input,
   gear: number,
+  handbrake: boolean,
   span: number,
 ) {
   const slope = slopeAt(route, state.rv.x);
@@ -341,16 +715,28 @@ function driven(
   // gears are the driver's to choose, and guessing one for them would be the
   // gearbox driving the vehicle.
   const wrongWay = input.drive > 0 && box.way < 0;
+  // A pulled handbrake takes the drive away with it. Braking while the engine
+  // is still pulling would leave the two arguing, and on a slope the engine
+  // wins the argument at a walking pace - which reads as a handbrake that
+  // does nothing, because that is very nearly what it would be.
   const push =
-    pedal > 0 && revving && !wrongWay ? box.way * box.pull * hold : 0;
-  const brake = pedal < 0 ? -Math.sign(state.rv.v) * BRAKE_ACCEL * hold : 0;
+    pedal > 0 && revving && !wrongWay && !handbrake
+      ? box.way * box.pull * hold
+      : 0;
+  const pedalBrake =
+    pedal < 0 ? -Math.sign(state.rv.v) * BRAKE_ACCEL * hold : 0;
   const pull = -GRAVITY * Math.sin(angle);
-  const v =
-    state.rv.v +
-    (push + brake + pull + resistance(state.rv.v, push, span)) * span;
+  const otherwise =
+    push + pedalBrake + pull + resistance(state.rv.v, push, span);
+  const held = handbrakeAt(handbrake, state.rv.v, otherwise, hold);
+  const v = state.rv.v + (otherwise + held) * span;
 
-  // A brake stops a vehicle; it does not throw it into reverse.
-  const stopped = pedal < 0 && Math.sign(v) !== Math.sign(state.rv.v);
+  // A brake stops a vehicle; it does not throw it into reverse. Only while it
+  // was already rolling, though: from a standstill the handbrake is holding
+  // rather than braking, and it has already said how much of that it can do.
+  const braking = pedal < 0 || handbrake;
+  const stopped =
+    braking && state.rv.v !== 0 && Math.sign(v) !== Math.sign(state.rv.v);
   const speed = stopped ? 0 : v;
   return { x: state.rv.x + speed * Math.cos(angle) * span, v: speed };
 }
@@ -387,14 +773,64 @@ function whereTheyStand(
   span: number,
   inside: boolean,
   rvX: number,
+  felled: boolean,
 ): number {
   if (inside) {
     return rvX;
   }
   const from = person.inside ? besideTheVehicle(rvX) : person.at;
-  const pace = WALK_SPEED * (input.sprint ? SPRINT_FACTOR : 1);
+  // In the air nobody runs: there is nothing to push against, and the one
+  // jump that has to be measured stays a fixed distance rather than something
+  // that depends on whether a key happened to be held.
+  const flying = offTheGround(person, floorUnder(person.at, person.lift, rvX));
+  const pace = flying
+    ? LEAP_SPEED
+    : WALK_SPEED * (input.sprint ? SPRINT_FACTOR : 1);
   const walked = person.inside ? from : from + input.drive * pace * span;
-  return Math.min(routeLength(route) + GOAL_MARGIN, Math.max(0, walked));
+  const held = Math.min(routeLength(route) + GOAL_MARGIN, Math.max(0, walked));
+  // Only at ground level. Up on the roof the gap is under the vehicle, not
+  // under your boots, and being stopped by it up there would make the one
+  // place you are meant to leap from the one place you cannot walk to.
+  return flying || person.lift > 0
+    ? held
+    : shortOfTheChasm(route, felled, person.at, held);
+}
+
+/**
+ * The same step, stopped at the lip of a chasm.
+ *
+ * @param route - the route being walked
+ * @param felled - whether the tree has been dropped across it
+ * @param was - where they were, in metres
+ * @param wanted - where the step would take them
+ * @returns where they actually get to
+ * @remarks
+ * On foot you stop at the edge rather than walking off it. Stepping off a
+ * cliff is not a thing anybody does on purpose, and a game that let you would
+ * spend its time killing people who were looking at the scenery.
+ *
+ * Only on the ground - in the air the gap is the whole point, and that is
+ * what the leap off the roof is for.
+ */
+function shortOfTheChasm(
+  route: Route,
+  felled: boolean,
+  was: number,
+  wanted: number,
+): number {
+  if (felled) {
+    return wanted;
+  }
+  let stopped = wanted;
+  for (const chasm of route.chasms) {
+    if (was <= chasm.from && stopped > chasm.from - CHASM_STOP) {
+      stopped = chasm.from - CHASM_STOP;
+    }
+    if (was >= chasm.to && stopped < chasm.to + CHASM_STOP) {
+      stopped = chasm.to + CHASM_STOP;
+    }
+  }
+  return stopped;
 }
 
 /**
@@ -414,15 +850,29 @@ function facingOf(person: Person, input: Input, inside: boolean): number {
 /**
  * Steps out of the cab, or back into it.
  *
+ * @param person - them, as they were
+ * @param state - the world as it is
+ * @returns whether they are inside afterwards
  * @remarks
- * Getting in needs the driver to be standing at the motorhome; getting out
- * always works and puts them down just behind it.
+ * Only while it **stands**. Nobody steps out of a moving vehicle, and nobody
+ * hops into one going past either - a door that worked at speed made the
+ * handbrake optional and turned every hill into a place to bail out of.
+ *
+ * Standing is {@link STOP_SPEED}, the same barely-moving the pedals already
+ * use to decide which way they are pushing: one idea of "it stands" for the
+ * whole game rather than a second one nobody could keep in step.
+ *
+ * Getting in also needs them to be at the motorhome; getting out puts them
+ * down just behind it.
  */
 function throughTheDoor(person: Person, state: GameState): boolean {
+  if (Math.abs(state.rv.v) > STOP_SPEED) {
+    return person.inside;
+  }
   if (person.inside) {
     return false;
   }
-  return Math.abs(person.at - state.rv.x) <= ENTER_REACH;
+  return atVehicle(person, state);
 }
 
 /**
@@ -450,7 +900,7 @@ export function grip(slope: number, tyres = false): number {
 }
 
 /** What somebody standing at the motorhome with the right thing can do to it. */
-export type Job = "mend" | "fit" | null;
+export type Job = "mend" | "fit" | "fuel" | "fell" | null;
 
 /**
  * The anchor the rope would reach right now.
@@ -503,13 +953,22 @@ export function ropeCandidate(state: GameState, route: Route): number {
 }
 
 /**
- * Whether the driver stands close enough to the motorhome to get back in.
+ * Whether the driver could get back in from where they stand.
  *
+ * @param person - them
  * @param state - the world as it is
- * @returns true while the door is within reach
+ * @returns true while the door is within reach and the motorhome stands still
+ * @remarks
+ * The speed matters as much as the distance: the screen offers "get in (E)"
+ * off this, and offering it beside a rolling motorhome would be offering a
+ * key that does nothing.
  */
 export function atVehicle(person: Person, state: GameState): boolean {
-  return !person.inside && Math.abs(person.at - state.rv.x) <= ENTER_REACH;
+  return (
+    !person.inside &&
+    Math.abs(state.rv.v) <= STOP_SPEED &&
+    Math.abs(person.at - state.rv.x) <= ENTER_REACH
+  );
 }
 
 /**
@@ -570,6 +1029,42 @@ function resistance(v: number, push: number, span: number): number {
 }
 
 /**
+ * What the handbrake does this frame, in metres per second squared.
+ *
+ * @param pulled - whether the driver has it pulled
+ * @param v - how fast the motorhome is going, in metres per second
+ * @param otherwise - everything else pushing on it this frame
+ * @param hold - how much grip the tyres have here, from 0 to 1
+ * @returns the acceleration it adds, against whatever is happening
+ * @remarks
+ * Two jobs in one lever, and they are the two halves of friction. **Rolling**,
+ * it works against the direction of travel and always at full bite: that is
+ * the braking. **Standing**, it works against whatever is trying to move the
+ * vehicle - the hill, the engine, anything - up to what it can manage: that is
+ * the holding, and it is why the thing can be parked on a slope at all.
+ *
+ * Both go through the grip, so it holds no better than the tyres do. On a wall
+ * steep enough to have no grip left it holds nothing, and the rope stays the
+ * only way up - a handbrake that parked anywhere would quietly make the rope
+ * optional.
+ */
+function handbrakeAt(
+  pulled: boolean,
+  v: number,
+  otherwise: number,
+  hold: number,
+): number {
+  if (!pulled) {
+    return 0;
+  }
+  const bite = HANDBRAKE * hold;
+  if (v !== 0) {
+    return -Math.sign(v) * bite;
+  }
+  return -Math.sign(otherwise) * Math.min(bite, Math.abs(otherwise));
+}
+
+/**
  * Whether the motorhome has just been driven into a ditch.
  *
  * @param state - the world as it is
@@ -610,8 +1105,9 @@ export function canMend(
   person: Person,
   state: GameState,
   inside: boolean,
+  route: Route,
 ): boolean {
-  return jobAt(person, state, inside) !== null;
+  return jobAt(person, state, inside, route) !== null;
 }
 
 /**
@@ -630,14 +1126,20 @@ export function canMend(
  * for a set of tyres is not a thing that happens either, so this only answers
  * for somebody on foot.
  */
-export function withinReach(person: Person, route: Route): ItemKind | null {
+export function withinReach(
+  person: Person,
+  state: GameState,
+  route: Route,
+): ItemKind | null {
   if (person.inside) {
     return null;
   }
   const found = route.items.find(
     (item) =>
       Math.abs(person.at - item.at) <= PICKUP_REACH &&
-      !person.carrying.includes(item.kind),
+      // Nobody's, not merely not-mine: there is **one** hammer on this map,
+      // and two people each holding it would be two hammers.
+      !state.people.some((each) => each.carrying.includes(item.kind)),
   );
   return found === undefined ? null : found.kind;
 }
@@ -652,15 +1154,63 @@ export function withinReach(person: Person, route: Route): ItemKind | null {
  * Mending first: a wreck with a set of tyres beside it is still a wreck, and
  * fitting wheels to something that will not drive helps nobody.
  */
-export function jobAt(person: Person, state: GameState, inside: boolean): Job {
-  const atIt = !inside && Math.abs(person.at - state.rv.x) <= ENTER_REACH;
+export function jobAt(
+  person: Person,
+  state: GameState,
+  inside: boolean,
+  route: Route,
+): Job {
+  if (inside) {
+    return null;
+  }
+  // The tree first: it is the only job that is not done at the motorhome, and
+  // whoever is standing at it with an axe is not there about the motorhome.
+  if (fellingHere(person, state, route)) {
+    return "fell";
+  }
+  const atIt = Math.abs(person.at - state.rv.x) <= ENTER_REACH;
   if (!atIt) {
     return null;
   }
-  if (state.damaged) {
-    return person.carrying.includes("hammer") ? "mend" : null;
+  // In the bag is not in the hand. A hammer you have not taken out mends
+  // nothing, which is the whole point of having a bag at all.
+  if (state.damaged && person.holding === "hammer") {
+    return "mend";
   }
-  return !state.tyres && person.carrying.includes("tyres") ? "fit" : null;
+  if (person.holding === "tyres" && !state.tyres) {
+    return "fit";
+  }
+  // A full tank takes no more, and offering the job anyway would have somebody
+  // stand there holding a key for nothing.
+  if (person.holding === "can" && state.fuel < 1) {
+    return "fuel";
+  }
+  return null;
+}
+
+/**
+ * Whether somebody is standing at the tree with the axe, ready to fell it.
+ *
+ * @param person - them
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @returns true while swinging the axe would do something
+ * @remarks
+ * Once it is down there is nothing left to do there: a tree lying across a
+ * chasm is a road, and chopping at a road achieves nothing.
+ */
+export function fellingHere(
+  person: Person,
+  state: GameState,
+  route: Route,
+): boolean {
+  const tree = route.fellTree;
+  return (
+    tree !== null &&
+    !state.felled &&
+    person.holding === "axe" &&
+    Math.abs(person.at - tree) <= ANCHOR_REACH
+  );
 }
 
 /**
@@ -679,6 +1229,12 @@ export function jobAt(person: Person, state: GameState, inside: boolean): Job {
 function barrier(state: GameState, route: Route): number {
   const bear = state.bear;
   if (bear === null || bear.gone || route.bear === null) {
+    return Number.POSITIVE_INFINITY;
+  }
+  if (state.rv.x >= route.bear) {
+    // Already beyond the post - which only happens by starting a later section
+    // there. A bear behind the bumper is somebody else's problem, and pinning
+    // the motorhome in place would leave that section unplayable.
     return Number.POSITIVE_INFINITY;
   }
   // The line sits at the bear's **post**, not at the animal. It guards that
@@ -723,7 +1279,7 @@ function nextBear(
     (person, index) =>
       !aboard[index] &&
       said(index).work &&
-      person.carrying.includes("spray") &&
+      person.holding === "spray" &&
       Math.abs(person.at - bear.at) <= SPRAY_REACH,
   );
   const sprayed = spraying ? bear.sprayed + span : 0;
@@ -796,19 +1352,148 @@ function towards(from: number, to: number, step: number): number {
  * @param phase - the phase as it was
  * @param home - whether the motorhome has reached the flag
  * @param mauled - whether the bear has had somebody long enough
+ * @param taken - whether the fog has had somebody standing still long enough
+ * @param fell - whether the bridge has just given way
+ * @param plunged - whether the motorhome has just driven into the chasm
  * @returns the phase now
  * @remarks
  * The bear wins over the flag: arriving with somebody under a bear is not
- * arriving.
+ * arriving. The fog is the same the other way about - it only ever takes
+ * anybody while the drive is still running.
  */
-function nextPhase(phase: Phase, home: boolean, mauled: boolean): Phase {
+function nextPhase(
+  phase: Phase,
+  home: boolean,
+  mauled: boolean,
+  taken: boolean,
+  fell: boolean,
+  plunged: boolean,
+): Phase {
   if (phase !== "driving") {
     return phase;
   }
   if (mauled) {
     return "mauled";
   }
+  if (taken) {
+    return "taken";
+  }
+  if (fell) {
+    return "fallen";
+  }
+  if (plunged) {
+    return "plunged";
+  }
   return home ? "arrived" : phase;
+}
+
+/**
+ * Whether anything has just gone into the chasm.
+ *
+ * @param route - the route being driven
+ * @param felled - whether the tree lies across it
+ * @param x - where the motorhome is now, in metres
+ * @param people - everybody, as they are now
+ * @returns true if the drive ended down there this frame
+ * @remarks
+ * The motorhome for driving in, and anybody who **lands** in it on foot -
+ * which can only happen by jumping, because walking into it is not offered.
+ * The game protects nobody from a bad jump: that one is a decision.
+ *
+ * Once the tree is down the gap is road, and none of it applies any more.
+ */
+function intoTheChasm(
+  route: Route,
+  felled: boolean,
+  x: number,
+  people: readonly Person[],
+): boolean {
+  if (felled) {
+    return false;
+  }
+  const over = (at: number) => route.chasms.some((chasm) => within(chasm, at));
+  return (
+    over(x) ||
+    people.some(
+      (person) => !person.inside && person.lift <= 0 && over(person.at),
+    )
+  );
+}
+
+/**
+ * Whether the bridge has just gone through under the motorhome.
+ *
+ * @param route - the route being driven
+ * @param x - where the motorhome is now, in metres
+ * @param people - everybody, as they are now
+ * @returns true if the timber gave way this frame
+ * @remarks
+ * The sign at the near end says it: old timber, and not much weight. It
+ * carries the motorhome with **one** person in it and no more, so the pair
+ * cannot both take the easy way across - one drives, one walks.
+ *
+ * Counted by who is **aboard**, not by who is on the bridge: somebody walking
+ * over beside the motorhome is on their own two feet, and the plank under a
+ * pair of boots is not the plank under three tonnes. Alone the question never
+ * arises, which is why this asks something of co-op that solo is never asked.
+ */
+function tooHeavyForTheBridge(
+  route: Route,
+  x: number,
+  people: readonly Person[],
+): boolean {
+  const aboard = people.filter((person) => person.inside).length;
+  return (
+    aboard > BRIDGE_LOAD && route.bridges.some((bridge) => within(bridge, x))
+  );
+}
+
+/**
+ * How long nothing has moved inside the fog, after this frame.
+ *
+ * @param state - the world as it was
+ * @param route - the route being driven
+ * @param people - where everybody is now
+ * @param rvX - where the motorhome is now, in metres
+ * @param span - how long the frame lasted
+ * @returns the count in seconds, back to zero the moment anything moves
+ * @remarks
+ * **Anything**: the motorhome or anybody on foot. Two people in the fog are
+ * not two chances to stand about - if one of them is walking, the pair of them
+ * are moving, and that is the honest reading of "keep going".
+ *
+ * Outside the fog it stays at zero, so the count never carries over from the
+ * clear stretch behind.
+ */
+function nextStill(
+  state: GameState,
+  route: Route,
+  people: readonly Person[],
+  rvX: number,
+  span: number,
+): number {
+  const fog = route.fog;
+  if (fog === null) {
+    return 0;
+  }
+  const inFog =
+    within(fog, rvX) ||
+    people.some((person) => !person.inside && within(fog, person.at));
+  if (!inFog) {
+    return 0;
+  }
+  const crept = STILL_SPEED * span;
+  const rolled = Math.abs(rvX - state.rv.x) > crept;
+  // Being off the ground counts as moving. Somebody who has just jumped has
+  // plainly moved, whatever the metre count says, and being taken anyway
+  // would read as the rule cheating rather than as the rule biting.
+  const walked = people.some(
+    (person, index) =>
+      !person.inside &&
+      (offTheGround(person, floorUnder(person.at, person.lift, rvX)) ||
+        Math.abs(person.at - state.people[index].at) > crept),
+  );
+  return rolled || walked ? 0 : state.still + span;
 }
 
 /**

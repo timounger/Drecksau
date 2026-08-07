@@ -8,12 +8,7 @@
  * cheaper and more predictable than pulling a whole DOM in for two keys.
  */
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import {
-  loadMatchCount,
-  loadPlayerName,
-  saveMatchCount,
-  savePlayerName,
-} from "./online-settings";
+import { loadMatchCount, saveMatchCount } from "./online-settings";
 import { DEFAULT_PLAYER_COUNT, saveSettings } from "./app-settings";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/skyjo/engine/state";
 import { DEFAULT_DIFFICULTY } from "@/games/skyjo/engine/difficulty";
@@ -72,21 +67,5 @@ describe("the wished table size", () => {
     saveMatchCount(8);
     saveSettings({ playerCount: 2, difficulty: DEFAULT_DIFFICULTY });
     expect(loadMatchCount()).toBe(8);
-  });
-});
-
-describe("the online name", () => {
-  it("is empty until one is stored", () => {
-    expect(loadPlayerName()).toBe("");
-  });
-
-  it("gives back what was stored", () => {
-    savePlayerName("Alex");
-    expect(loadPlayerName()).toBe("Alex");
-  });
-
-  it("falls back when the entry is junk", () => {
-    entries.set("drecksau-app/skyjo/online-player-name", "not json");
-    expect(loadPlayerName()).toBe("");
   });
 });

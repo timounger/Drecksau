@@ -20,6 +20,7 @@ import {
   ControlsHint,
   Doing,
   GearStick,
+  Inventory,
   Pill,
   TouchPad,
 } from "@/games/rv-there-yet/components/board";
@@ -47,6 +48,7 @@ export function RvThereYetGame(): ReactElement {
     back,
     touch,
     shift,
+    pick,
   } = useRvThereYet();
 
   return (
@@ -77,9 +79,9 @@ export function RvThereYetGame(): ReactElement {
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <Pill>{RV_TEXTS.section(hud.section + 1, hud.sections)}</Pill>
-          <Pill>{RV_TEXTS.time(hud.time.toFixed(CLOCK_DIGITS))}</Pill>
-          <Pill>{RV_TEXTS.speedKmh(hud.speedKmh)}</Pill>
+          <Pill>
+            {RV_TEXTS.section(hud.section + 1, hud.sections, hud.sectionName)}
+          </Pill>
           <Fuel share={hud.fuel} />
           <Doing hud={hud} />
         </div>
@@ -113,6 +115,8 @@ export function RvThereYetGame(): ReactElement {
       <div className="flex flex-wrap items-center justify-center gap-2">
         <GearStick gear={hud.gear} onShift={shift} />
       </div>
+
+      <Inventory carrying={hud.carrying} holding={hud.holding} onPick={pick} />
 
       <TouchPad onPress={touch} hud={hud} />
 
@@ -210,6 +214,45 @@ function Overlay({
           {RV_TEXTS.start}
         </span>
       </button>
+    );
+  }
+  if (hud.phase === "plunged") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
+        <p className="text-2xl font-bold">
+          {"\u{1F573}"} {RV_TEXTS.plunged}
+        </p>
+        <p className="text-sm text-zinc-300">{RV_TEXTS.plungedHint}</p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Action onClick={onAgain}>{RV_TEXTS.again}</Action>
+        </div>
+      </div>
+    );
+  }
+  if (hud.phase === "fallen") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
+        <p className="text-2xl font-bold">
+          {"\u{1F6A7}"} {RV_TEXTS.fallen}
+        </p>
+        <p className="text-sm text-zinc-300">{RV_TEXTS.fallenHint}</p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Action onClick={onAgain}>{RV_TEXTS.again}</Action>
+        </div>
+      </div>
+    );
+  }
+  if (hud.phase === "taken") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
+        <p className="text-2xl font-bold">
+          {"\u{1F5A4}"} {RV_TEXTS.taken}
+        </p>
+        <p className="text-sm text-zinc-300">{RV_TEXTS.takenHint}</p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Action onClick={onAgain}>{RV_TEXTS.again}</Action>
+        </div>
+      </div>
     );
   }
   if (hud.phase === "mauled") {

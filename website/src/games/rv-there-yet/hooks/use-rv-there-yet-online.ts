@@ -105,6 +105,8 @@ export type RvThereYetOnline = {
   readonly touch: (button: TouchButton, down: boolean) => void;
   /** Puts a gear in, as the gear buttons do. */
   readonly shift: (gear: number) => void;
+  /** Takes the thing in that bag slot into the hand. */
+  readonly pick: (slot: number) => void;
   readonly messages: readonly ChatMessage[];
   readonly sendChat: (text: string) => void;
 };
@@ -448,6 +450,7 @@ export function useRvThereYetOnline(
     again,
     newGame,
     shift: (gear: number) => controlsRef.current.shift(gear),
+    pick: (slot: number) => controlsRef.current.pick(slot),
     touch: (button, down) => controlsRef.current.press(button, down),
     messages,
     sendChat,

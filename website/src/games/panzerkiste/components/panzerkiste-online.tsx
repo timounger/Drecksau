@@ -35,10 +35,7 @@ import {
 import { useOnlineCount } from "@/online/use-online-presence";
 import { OnlineChat, type OnlineChatTexts } from "@/online/online-chat";
 import { VoiceChat } from "@/online/voice-chat";
-import {
-  loadPlayerName,
-  savePlayerName,
-} from "@/games/panzerkiste/settings/player-name";
+import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import { PANZERKISTE_GAME_ID } from "@/games/panzerkiste/multiplayer/net";
 import { BannerView } from "@/games/panzerkiste/components/round-banner";
 import { VolumeSlider } from "@/games/panzerkiste/components/volume-slider";
@@ -258,6 +255,13 @@ function OnlineEntry({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
+  // Kept as it is typed, so the field is filled in next time even for
+  // somebody who looked at the screen and went away again.
+  const changeName = (value: string) => {
+    setName(value);
+    savePlayerName(value);
+  };
+
   const remember = (chosen: string) => {
     savePlayerName(chosen);
   };
@@ -287,7 +291,7 @@ function OnlineEntry({
         <input
           type="text"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => changeName(event.target.value)}
           placeholder={T.yourNamePlaceholder}
           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />

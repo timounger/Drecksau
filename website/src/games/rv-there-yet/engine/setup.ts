@@ -5,7 +5,7 @@
  */
 import { besideTheVehicle } from "./engine";
 import { SECTIONS, SECTION_COUNT, MAP } from "./map";
-import { type GameState, type Route } from "./types";
+import { REMOTE, type GameState, type Route } from "./types";
 
 /** The rope is off the hook. */
 const UNHOOKED = -1;
@@ -32,10 +32,14 @@ export function startAt(section: number, people = 1): GameState {
     rv: { x, v: 0 },
     hooked: UNHOOKED,
     rope: 0,
+    winch: 0,
     // Every section begins with a full tank: a fresh start is a fresh tank.
     fuel: 1,
     phase: "driving",
     time: 0,
+    still: 0,
+    brake: false,
+    felled: false,
     reached: x,
     people: Array.from({ length: Math.max(1, people) }, (_each, who) => ({
       // Side by side rather than on top of each other, so two players can
@@ -45,7 +49,16 @@ export function startAt(section: number, people = 1): GameState {
       stride: 0,
       facing: 1,
       walking: false,
-      carrying: [],
+      lift: 0,
+      rise: 0,
+      pop: -1,
+      // The remote is the motorhome's own, so it is in the bag - and in hand,
+      // because starting with empty hands would only mean one press before
+      // anybody could do anything at all.
+      carrying: [REMOTE],
+      // Empty hands. The remote is in the bag from the start, but it only
+      // comes out once the rope is on something.
+      holding: null,
     })),
     // The map says where it sleeps; the drive is what wakes it.
     bear:

@@ -37,10 +37,7 @@ import {
 import { useOnlineCount } from "@/online/use-online-presence";
 import { OnlineChat, type OnlineChatTexts } from "@/online/online-chat";
 import { VoiceChat } from "@/online/voice-chat";
-import {
-  loadPlayerName,
-  savePlayerName,
-} from "@/games/panzerkiste/settings/player-name";
+import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import { CANVAS_H, CANVAS_W } from "@/games/rv-there-yet/components/render";
 import {
   Fuel,
@@ -48,6 +45,7 @@ import {
   ControlsHint,
   Doing,
   GearStick,
+  Inventory,
   Pill,
   TouchPad,
 } from "@/games/rv-there-yet/components/board";
@@ -269,6 +267,13 @@ function OnlineEntry({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
+  // Kept as it is typed, so the field is filled in next time even for
+  // somebody who looked at the screen and went away again.
+  const changeName = (value: string) => {
+    setName(value);
+    savePlayerName(value);
+  };
+
   const remember = (chosen: string) => {
     savePlayerName(chosen);
   };
@@ -302,7 +307,7 @@ function OnlineEntry({
         <input
           type="text"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => changeName(event.target.value)}
           placeholder={T.yourNamePlaceholder}
           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />
@@ -598,9 +603,9 @@ function DrivingArea({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <Pill>{RV_TEXTS.section(hud.section + 1, hud.sections)}</Pill>
-          <Pill>{RV_TEXTS.time(hud.time.toFixed(CLOCK_DIGITS))}</Pill>
-          <Pill>{RV_TEXTS.speedKmh(hud.speedKmh)}</Pill>
+          <Pill>
+            {RV_TEXTS.section(hud.section + 1, hud.sections, hud.sectionName)}
+          </Pill>
           <Fuel share={hud.fuel} />
           <Doing hud={hud} />
         </div>
@@ -635,6 +640,12 @@ function DrivingArea({
       <div className="flex flex-wrap items-center justify-center gap-2">
         <GearStick gear={hud.gear} onShift={online.shift} />
       </div>
+
+      <Inventory
+        carrying={hud.carrying}
+        holding={hud.holding}
+        onPick={online.pick}
+      />
 
       <TouchPad onPress={online.touch} hud={hud} />
 
@@ -686,6 +697,69 @@ function ArrivedOverlay({
 }: {
   readonly online: RvThereYetOnline;
 }): ReactElement | null {
+  if (online.hud.phase === "plunged") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
+        <p className="text-2xl font-bold">
+          {"\u{1F573}"} {RV_TEXTS.plunged}
+        </p>
+        <p className="text-sm text-zinc-300">{RV_TEXTS.plungedHint}</p>
+        {online.isHost ? (
+          <button
+            type="button"
+            onClick={online.again}
+            className="cursor-pointer rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            {T.again}
+          </button>
+        ) : (
+          <p className="text-sm">{T.waitingForRestart}</p>
+        )}
+      </div>
+    );
+  }
+  if (online.hud.phase === "fallen") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
+        <p className="text-2xl font-bold">
+          {"\u{1F6A7}"} {RV_TEXTS.fallen}
+        </p>
+        <p className="text-sm text-zinc-300">{RV_TEXTS.fallenHint}</p>
+        {online.isHost ? (
+          <button
+            type="button"
+            onClick={online.again}
+            className="cursor-pointer rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            {T.again}
+          </button>
+        ) : (
+          <p className="text-sm">{T.waitingForRestart}</p>
+        )}
+      </div>
+    );
+  }
+  if (online.hud.phase === "taken") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
+        <p className="text-2xl font-bold">
+          {"\u{1F5A4}"} {RV_TEXTS.taken}
+        </p>
+        <p className="text-sm text-zinc-300">{RV_TEXTS.takenHint}</p>
+        {online.isHost ? (
+          <button
+            type="button"
+            onClick={online.again}
+            className="cursor-pointer rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            {T.again}
+          </button>
+        ) : (
+          <p className="text-sm">{T.waitingForRestart}</p>
+        )}
+      </div>
+    );
+  }
   if (online.hud.phase === "mauled") {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-red-950/80 p-4 text-center text-white">

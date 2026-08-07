@@ -62,6 +62,17 @@ describe("keeping up with who is there", () => {
     expect(changes.drop).toEqual(["c"]);
   });
 
+  it("calls everybody in the room, not merely one of them", () => {
+    // The voice room is a **mesh**: each browser holds one connection per
+    // other player, so eight at a table hear all seven of the others. Nothing
+    // here caps it at a pair - the two-player limit some games have is theirs,
+    // not the microphone's.
+    const table = ["me", "b", "c", "d", "e", "f", "g", "h"];
+    const changes = peerChanges([], table, "me");
+    expect(new Set(changes.call)).toEqual(new Set(table.slice(1)));
+    expect(changes.call).toHaveLength(table.length - 1);
+  });
+
   it("never calls itself", () => {
     const changes = peerChanges([], ["me"], "me");
     expect(changes.call).toEqual([]);

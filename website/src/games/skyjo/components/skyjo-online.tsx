@@ -33,10 +33,9 @@ import {
 } from "@/games/skyjo/settings/app-settings";
 import {
   loadMatchCount,
-  loadPlayerName,
   saveMatchCount,
-  savePlayerName,
 } from "@/games/skyjo/settings/online-settings";
+import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import { SkyjoScores } from "./skyjo-scores";
 import { SkyjoTable } from "./skyjo-table";
 import { database } from "@/online/firebase-app";
@@ -288,6 +287,13 @@ function Entry({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
+  // Kept as it is typed, so the field is filled in next time even for
+  // somebody who looked at the screen and went away again.
+  const changeName = (value: string) => {
+    setName(value);
+    savePlayerName(value);
+  };
+
   // Every choice is kept for next time, whichever way the player goes in.
   const remember = () => {
     savePlayerName(name);
@@ -325,7 +331,7 @@ function Entry({
         <input
           type="text"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => changeName(event.target.value)}
           placeholder={L.namePlaceholder}
           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />

@@ -10,6 +10,7 @@
  * an answer once you say who "I" is.
  */
 import {
+  atTheLadder,
   atVehicle,
   canMend,
   jobAt,
@@ -17,21 +18,27 @@ import {
   type Job,
 } from "@/games/rv-there-yet/engine/engine";
 import { SECTION_COUNT } from "@/games/rv-there-yet/engine/map";
+import { RV_TEXTS } from "@/games/rv-there-yet/i18n/texts";
 import { theMap } from "@/games/rv-there-yet/engine/setup";
 import { slopeAt } from "@/games/rv-there-yet/engine/terrain";
 import {
   BEAR_NOTICE,
+  ROOF_HIGH,
   gearAt,
-  KMH_PER_MS,
   MAUL_SECONDS,
   REPAIR_SECONDS,
+  STILL_SECONDS,
   SPRAY_REACH,
   SPRAY_SECONDS,
   type GameState,
   type ItemKind,
   type Person,
   type Phase,
+  type Route,
 } from "@/games/rv-there-yet/engine/types";
+
+/** How far before a bridge its warning goes up, in metres. */
+const BRIDGE_WARN = 40;
 
 /** Turning a share into whole percent, for comparing and showing. */
 const PERCENT = 100;
@@ -43,6 +50,8 @@ export type Hud = {
   readonly section: number;
   /** How many sections the map has. */
   readonly sections: number;
+  /** What the section being driven is called. */
+  readonly sectionName: string;
   /** What is left in the tank, from 0 to 1. */
   readonly fuel: number;
   /** How long this drive has taken, in seconds. */
@@ -63,8 +72,10 @@ export type Hud = {
   readonly passenger: boolean;
   /** True while the motorhome is wrecked and will not drive. */
   readonly damaged: boolean;
-  /** What this player is carrying. */
-  readonly carrying: readonly string[];
+  /** Everything in this player's bag, in the order they picked it up. */
+  readonly carrying: readonly ItemKind[];
+  /** What is in their hand out of the bag, or null. */
+  readonly holding: ItemKind | null;
   /** What lies within reach and could be picked up, or null. */
   readonly pickUp: ItemKind | null;
   /** How the bear stands to this player, or null while none is about. */
@@ -83,12 +94,26 @@ export type Hud = {
   readonly gear: number;
   /** How fast it is going, in metres per second; negative rolls backwards. */
   readonly speed: number;
-  /** How fast it is going in whole km/h, whichever way it rolls. */
-  readonly speedKmh: number;
   /** What that gear is called on the lever: "R", "N", "1" to "5". */
   readonly gearLabel: string;
   /** True once the player has started. */
   readonly running: boolean;
+  /** True while the handbrake is pulled. */
+  readonly brake: boolean;
+  /** True while the motorhome is on or coming up to a bridge. */
+  readonly bridge: boolean;
+  /** True while a chasm is close ahead and still open. */
+  readonly chasm: boolean;
+  /** True while this player stands at the ladder and could climb it. */
+  readonly ladder: boolean;
+  /** True while this player is up on the roof. */
+  readonly roof: boolean;
+  /** True once the tree lies across the chasm. */
+  readonly felled: boolean;
+  /** How many people are sitting in the motorhome. */
+  readonly aboard: number;
+  /** How far the standing-still count in the fog has got, from 0 to 1. */
+  readonly still: number;
 };
 
 /** How the bear stands to one player. */
@@ -97,8 +122,10 @@ export type BearView = {
   readonly coming: boolean;
   /** True while this player is close enough for the spray to reach it. */
   readonly canSpray: boolean;
-  /** True while this player is carrying the can. */
+  /** True while this player has the can **in hand**. */
   readonly armed: boolean;
+  /** True while the can is in their bag, held or not. */
+  readonly inBag: boolean;
   /** How far the spraying has got, from 0 to 1. */
   readonly sprayed: number;
   /** How far it has got with whoever it has hold of, from 0 to 1. */
@@ -131,6 +158,7 @@ export function hudOf(state: GameState, view: HudView): Hud {
     phase: state.phase,
     section: state.section,
     sections: SECTION_COUNT,
+    sectionName: RV_TEXTS.sectionNames[state.section] ?? "",
     fuel: state.fuel,
     time: state.time,
     slope: slopeAt(route, state.rv.x),
@@ -145,16 +173,63 @@ export function hudOf(state: GameState, view: HudView): Hud {
     gearLabel: gearAt(state.gear).label,
     damaged: state.damaged,
     carrying: person.carrying,
-    pickUp: withinReach(person, route),
+    holding: person.holding,
+    pickUp: withinReach(person, state, route),
     bear: bearView(state, person),
     tyres: state.tyres,
-    job: jobAt(person, state, person.inside),
+    job: jobAt(person, state, person.inside, route),
     repair: Math.min(1, state.repair / REPAIR_SECONDS),
-    canMend: canMend(person, state, person.inside),
+    canMend: canMend(person, state, person.inside, route),
     speed: state.rv.v,
-    speedKmh: Math.round(Math.abs(state.rv.v) * KMH_PER_MS),
     running: view.running,
+    brake: state.brake,
+    bridge: nearBridge(state, route),
+    chasm: nearChasm(state, route, person),
+    ladder:
+      !person.inside && person.lift <= 0 && atTheLadder(person.at, state.rv.x),
+    roof: !person.inside && person.lift >= ROOF_HIGH,
+    felled: state.felled,
+    aboard: state.people.filter((each) => each.inside).length,
+    still: Math.min(1, state.still / STILL_SECONDS),
   };
+}
+
+/**
+ * Whether a bridge is close enough ahead to be worth warning about.
+ *
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @returns true while the sign would be in sight, and while on the bridge
+ * @remarks
+ * From about the sign onwards, so the warning and the sign arrive together -
+ * a line that only appeared once the wheels were on the timber would be a
+ * report rather than a warning.
+ */
+function nearBridge(state: GameState, route: Route): boolean {
+  return route.bridges.some(
+    (bridge) =>
+      state.rv.x >= bridge.from - BRIDGE_WARN && state.rv.x <= bridge.to,
+  );
+}
+
+/**
+ * Whether the chasm is close enough to be the thing on the screen.
+ *
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param person - whose screen this is
+ * @returns true while the gap still has to be dealt with
+ * @remarks
+ * From either the vehicle or the player: whoever is over there fetching the
+ * axe is a long way from the motorhome, and the line has to keep talking to
+ * them.
+ */
+function nearChasm(state: GameState, route: Route, person: Person): boolean {
+  const near = (at: number) =>
+    route.chasms.some(
+      (chasm) => at > chasm.from - BRIDGE_WARN && at < chasm.to + BRIDGE_WARN,
+    );
+  return near(state.rv.x) || (!person.inside && near(person.at));
 }
 
 /**
@@ -173,7 +248,10 @@ function bearView(state: GameState, person: Person): BearView | null {
   return {
     coming: !person.inside && gap <= BEAR_NOTICE,
     canSpray: !person.inside && gap <= SPRAY_REACH,
-    armed: person.carrying.includes("spray"),
+    // In the bag is not in the hand: a can you have not taken out sprays
+    // nothing, and the line on screen has to be able to say so.
+    armed: person.holding === "spray",
+    inBag: person.carrying.includes("spray"),
     sprayed: Math.min(1, bear.sprayed / SPRAY_SECONDS),
     danger: Math.min(1, bear.hold / MAUL_SECONDS),
   };
@@ -195,7 +273,8 @@ export function sameHud(a: Hud, b: Hud): boolean {
   return (
     a.phase === b.phase &&
     a.section === b.section &&
-    a.speedKmh === b.speedKmh &&
+    a.sectionName === b.sectionName &&
+    Math.round(a.speed) === Math.round(b.speed) &&
     a.hooked === b.hooked &&
     a.ready === b.ready &&
     a.candidate === b.candidate &&
@@ -208,6 +287,7 @@ export function sameHud(a: Hud, b: Hud): boolean {
     a.tyres === b.tyres &&
     a.job === b.job &&
     a.carrying.length === b.carrying.length &&
+    a.holding === b.holding &&
     a.pickUp === b.pickUp &&
     a.bear?.coming === b.bear?.coming &&
     a.bear?.canSpray === b.bear?.canSpray &&
@@ -218,6 +298,14 @@ export function sameHud(a: Hud, b: Hud): boolean {
     a.canMend === b.canMend &&
     Math.round(a.repair * PERCENT) === Math.round(b.repair * PERCENT) &&
     a.running === b.running &&
+    a.brake === b.brake &&
+    a.bridge === b.bridge &&
+    a.chasm === b.chasm &&
+    a.ladder === b.ladder &&
+    a.roof === b.roof &&
+    a.felled === b.felled &&
+    a.aboard === b.aboard &&
+    Math.round(a.still * PERCENT) === Math.round(b.still * PERCENT) &&
     Math.round(a.time) === Math.round(b.time) &&
     Math.round(a.fuel * PERCENT) === Math.round(b.fuel * PERCENT) &&
     Math.round(a.slope * PERCENT) === Math.round(b.slope * PERCENT)

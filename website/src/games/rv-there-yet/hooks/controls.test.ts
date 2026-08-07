@@ -94,25 +94,62 @@ describe("a press rather than a hold", () => {
   });
 
   it("picks a thing up once per press of F", () => {
-    // Its own key, so the rope key never has to decide what was meant.
+    const controls = createControls();
+    const win = fakeWindow();
+    controls.listen(win);
+    win.down("f");
+    expect(controls.read(false).take).toBe(true);
+    // One press is one pick-up, however long the key stays down.
+    expect(controls.read(false).take).toBe(false);
+  });
+
+  it("puts everything you do to the world on that one key", () => {
+    // Tapped it picks up and ties the rope, held it works. Which of the three
+    // actually happens is the engine's business - it is the one that knows
+    // whether there is a tree, a thing on the ground or a job to be done.
     const controls = createControls();
     const win = fakeWindow();
     controls.listen(win);
     win.down("f");
     const first = controls.read(false);
     expect(first.take).toBe(true);
-    expect(first.hook).toBe(false);
-    expect(controls.read(false).take).toBe(false);
+    expect(first.hook).toBe(true);
+    expect(first.work).toBe(true);
+    const second = controls.read(false);
+    expect(second.take).toBe(false);
+    expect(second.hook).toBe(false);
+    // Still held: the working goes on while the presses do not repeat.
+    expect(second.work).toBe(true);
+    win.up("f");
+    expect(controls.read(false).work).toBe(false);
   });
 
-  it("keeps the rope key and the pick-up key apart", () => {
+  it("leaves the space bar to jumping alone", () => {
     const controls = createControls();
     const win = fakeWindow();
     controls.listen(win);
     win.down(" ");
-    const roped = controls.read(false);
-    expect(roped.hook).toBe(true);
-    expect(roped.take).toBe(false);
+    const jumped = controls.read(false);
+    expect(jumped.jump).toBe(true);
+    // Nothing else rides on it any more.
+    expect(jumped.hook).toBe(false);
+    expect(jumped.take).toBe(false);
+    expect(jumped.work).toBe(false);
+  });
+
+  it("jumps once per press, however long the bar is held", () => {
+    // Otherwise holding it would be sixty jumps a second, and the second one
+    // of those would count as the double jump.
+    const controls = createControls();
+    const win = fakeWindow();
+    controls.listen(win);
+    win.down(" ");
+    expect(controls.read(false).jump).toBe(true);
+    win.down(" ");
+    expect(controls.read(false).jump).toBe(false);
+    win.up(" ");
+    win.down(" ");
+    expect(controls.read(false).jump).toBe(true);
   });
 
   it("opens the door once per press of E", () => {
@@ -122,19 +159,6 @@ describe("a press rather than a hold", () => {
     win.down("e");
     expect(controls.read(false).door).toBe(true);
     expect(controls.read(false).door).toBe(false);
-  });
-
-  it("ties the rope once but keeps hammering while space is held", () => {
-    const controls = createControls();
-    const win = fakeWindow();
-    controls.listen(win);
-    win.down(" ");
-    const first = controls.read(false);
-    expect(first.hook).toBe(true);
-    expect(first.work).toBe(true);
-    const second = controls.read(false);
-    expect(second.hook).toBe(false);
-    expect(second.work).toBe(true);
   });
 
   it("keeps space from scrolling the page away", () => {
@@ -169,13 +193,13 @@ describe("the on-screen buttons", () => {
 
   it("ties the rope on a tap and hammers on a hold", () => {
     const controls = createControls();
-    controls.press("hook", true);
+    controls.press("use", true);
     const first = controls.read(false);
     expect(first.hook).toBe(true);
     expect(first.work).toBe(true);
     expect(controls.read(false).hook).toBe(false);
     expect(controls.read(false).work).toBe(true);
-    controls.press("hook", false);
+    controls.press("use", false);
     expect(controls.read(false).work).toBe(false);
   });
 
@@ -222,5 +246,51 @@ describe("letting go of everything", () => {
     stop();
     win.down("w");
     expect(controls.read(true).drive).toBe(0);
+  });
+});
+
+describe("the space bar in the two seats", () => {
+  it("is a jump on foot and nothing else", () => {
+    const controls = createControls();
+    const win = fakeWindow();
+    controls.listen(win);
+    win.down(" ");
+    const out = controls.read(false);
+    expect(out.jump).toBe(true);
+    expect(out.brake).toBe(false);
+  });
+
+  it("is the handbrake at the wheel and nothing else", () => {
+    // The same split W and S have always had: the key means what the seat
+    // makes of it, so no key ever does two things at once.
+    const controls = createControls();
+    const win = fakeWindow();
+    controls.listen(win);
+    win.down(" ");
+    const seated = controls.read(true);
+    expect(seated.brake).toBe(true);
+    expect(seated.jump).toBe(false);
+  });
+
+  it("jumps once per press but brakes for as long as it is held", () => {
+    // A jump is a moment and braking is a while, so the same key is read as a
+    // press in one seat and as a hold in the other.
+    const controls = createControls();
+    const win = fakeWindow();
+    controls.listen(win);
+    win.down(" ");
+    expect(controls.read(true).brake).toBe(true);
+    expect(controls.read(true).brake).toBe(true);
+    win.up(" ");
+    expect(controls.read(true).brake).toBe(false);
+  });
+
+  it("brakes from the on-screen button as well", () => {
+    const controls = createControls();
+    controls.press("jump", true);
+    expect(controls.read(true).brake).toBe(true);
+    expect(controls.read(true).brake).toBe(true);
+    controls.press("jump", false);
+    expect(controls.read(true).brake).toBe(false);
   });
 });

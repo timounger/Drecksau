@@ -10,6 +10,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { RV_TEXTS } from "./texts";
+import { SECTION_COUNT } from "@/games/rv-there-yet/engine/map";
 
 /** English words that have no business in a German label. */
 const ENGLISH = [
@@ -24,11 +25,16 @@ const ENGLISH = [
 
 /** Every label the game can show, with the functions filled in. */
 function labels(): readonly string[] {
-  return Object.values(RV_TEXTS).map((value) =>
-    typeof value === "function"
-      ? String((value as (...args: never[]) => string)(1 as never, 2 as never))
-      : String(value),
-  );
+  return Object.values(RV_TEXTS).flatMap((value) => {
+    if (typeof value === "function") {
+      // Three arguments, because the longest of them takes three. Too few and
+      // the label comes out with an "undefined" in it, which the checks below
+      // would then be reading instead of the real text.
+      const filled = value as (...args: never[]) => string;
+      return [String(filled(1 as never, 2 as never, "x" as never))];
+    }
+    return Array.isArray(value) ? value.map(String) : [String(value)];
+  });
 }
 
 describe("the German labels", () => {
@@ -41,6 +47,18 @@ describe("the German labels", () => {
 
   it("are all non-empty", () => {
     expect(labels().filter((text) => text.trim().length === 0)).toEqual([]);
+  });
+
+  it("have no gaps where a value was left out", () => {
+    // "undefined" in a label is the sign of a text that grew an argument and
+    // a caller that did not.
+    expect(labels().filter((text) => text.includes("undefined"))).toEqual([]);
+  });
+
+  it("name every section on the map, and no more", () => {
+    // A name too few leaves a stretch of road nameless; one too many is a
+    // section somebody deleted without saying so.
+    expect(RV_TEXTS.sectionNames).toHaveLength(SECTION_COUNT);
   });
 
   it("say what the buttons after a finished drive do", () => {

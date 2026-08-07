@@ -35,6 +35,7 @@ import {
   normalizeRoomCode,
 } from "@/online/room-code";
 import { useOnlineCount } from "@/online/use-online-presence";
+import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import type { RoomState } from "@/games/drecksau/multiplayer/room";
 import {
   useOnlineRoom,
@@ -241,7 +242,9 @@ function OnlineEntry({
   // mount is exactly the sync this effect is for.
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- mount-time prefill from storage/URL */
-    const savedName = loadSettings().playerName.trim();
+    // The shared name first; the one from this game's settings screen only
+    // seeds it, for anybody who set a name there before there was a shared one.
+    const savedName = loadPlayerName() || loadSettings().playerName.trim();
     const host = loadOnlineHostSettings();
     const params = new URLSearchParams(window.location.search);
     const invited = params.get(ROOM_QUERY_PARAM);
@@ -273,6 +276,12 @@ function OnlineEntry({
     });
   };
 
+  // Keep the entered name for next time, in every game.
+  const changeName = (value: string) => {
+    setName(value);
+    savePlayerName(value);
+  };
+
   const host = () => onStart({ mode: "host", code: generateRoomCode(), name });
   const join = () => {
     const clean = normalizeRoomCode(code);
@@ -296,7 +305,7 @@ function OnlineEntry({
         <input
           type="text"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => changeName(event.target.value)}
           placeholder={ONLINE_TEXTS.yourNamePlaceholder}
           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />

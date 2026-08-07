@@ -23,10 +23,7 @@ import {
   loadBinokelHostSettings,
   saveBinokelHostSettings,
 } from "@/games/binokel/settings/online-host-settings";
-import {
-  loadPlayerName,
-  savePlayerName,
-} from "@/games/binokel/settings/player-name";
+import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import { database } from "@/online/firebase-app";
 import {
   clearMatch,

@@ -29,6 +29,11 @@ import { heightAt, routeLength, slopeAt, snowShare } from "./terrain";
 import {
   BEAR_REACH,
   ENTER_REACH,
+  ROOF_HALF,
+  ROOF_HIGH,
+  LADDER_REACH,
+  ANCHOR_REACH,
+  CHASM_STOP,
   IDLE_INPUT,
   NO_GRIP_SLOPE,
   PICKUP_REACH,
@@ -38,6 +43,7 @@ import {
   SPRAY_REACH,
   type GameState,
   type Input,
+  type Pit,
   type Route,
   type Person,
 } from "./types";
@@ -73,6 +79,13 @@ function plan(state: GameState): Input {
     return one(state).carrying.includes("spray")
       ? scareTheBear(state)
       : errand(state, route, "spray");
+  }
+  // A chasm ahead is the one thing on this map that has to be **prepared**:
+  // the tree beside it is felled with an axe that lies on the far side, and
+  // the only way over there is off the roof of the motorhome.
+  const chasm = chasmAhead(state, route);
+  if (chasm !== null) {
+    return crossTheChasm(state, route, chasm);
   }
   // Stuck on a wall with nothing to tie a rope to: that wall wants the other
   // tyres. The check is the **slope**, not merely standing still - every
@@ -115,7 +128,9 @@ function plan(state: GameState): Input {
       drive: towards(one(state).at, route.anchors[target].x),
     };
   }
-  // Rope on: stand at the tree and reel it in with the remote.
+  // Rope on: wind. Nothing is chosen off the list first - standing at a tree
+  // puts the remote in the hand by itself, and the autopilot leans on that
+  // exactly as a player does.
   return { ...IDLE_INPUT, wind: 1 };
 }
 
@@ -143,13 +158,100 @@ function blockedByBear(state: GameState, route: Route): boolean {
   if (route.bear === null || state.bear === null || state.bear.gone) {
     return false;
   }
-  return state.rv.x > route.bear - BEAR_REACH - ROUTE_STEP;
+  // Only while the post is still ahead. A section that **starts** past the
+  // bear has it behind the bumper, and the engine lets that motorhome drive on
+  // - an autopilot that turned round and walked back to spray it would be
+  // walking into the one thing on this map that kills.
+  return (
+    state.rv.x < route.bear && state.rv.x > route.bear - BEAR_REACH - ROUTE_STEP
+  );
 }
 
 /** Whether the map has such a thing lying about at all. */
 function has(route: Route, kind: string): boolean {
   return route.items.some((item) => item.kind === kind);
 }
+
+/**
+ * The chasm this drive still has to get past, if any.
+ *
+ * @param state - the world as it is
+ * @param route - the map
+ * @returns the chasm, or null when there is none left to worry about
+ */
+function chasmAhead(state: GameState, route: Route): Pit | null {
+  if (state.felled) {
+    return null;
+  }
+  return (
+    route.chasms.find(
+      (each) => state.rv.x > each.from - LOOK_AHEAD && state.rv.x < each.from,
+    ) ?? null
+  );
+}
+
+/** How far ahead a chasm starts being the thing to deal with, in metres. */
+const LOOK_AHEAD = 40;
+
+/**
+ * Getting past the chasm: park, climb, leap, fetch the axe, fell the tree.
+ *
+ * @param state - the world as it is
+ * @param route - the map
+ * @param chasm - the gap in the way
+ * @returns the input for this frame
+ * @remarks
+ * The whole of the last section in one function, because the whole of the last
+ * section is one errand. If any part of it stops working - the ladder, the
+ * roof, the leap, the axe, the felling - this stops finishing, which is the
+ * point of making the autopilot do it rather than asserting the pieces.
+ *
+ * The parking is what everything else hangs off: the leap starts at the front
+ * edge of the roof, so the motorhome has to stand with that edge at the lip.
+ */
+function crossTheChasm(state: GameState, route: Route, chasm: Pit): Input {
+  const me = one(state);
+  const park = chasm.from - ROOF_HALF;
+  const lip = state.rv.x + ROOF_HALF;
+  const tree = route.fellTree ?? chasm.to;
+  const axe = route.items.find((item) => item.kind === "axe");
+
+  // Still driving: get it to the parking spot and stop it there.
+  if (me.inside) {
+    if (state.rv.x < park - 1) {
+      return { ...IDLE_INPUT, drive: 1, shift: 1 };
+    }
+    return state.rv.v > 0
+      ? { ...IDLE_INPUT, brake: true }
+      : { ...IDLE_INPUT, door: true };
+  }
+  // Over there already: axe first, then the tree.
+  if (me.at > chasm.to) {
+    if (!me.carrying.includes("axe") && axe !== undefined) {
+      return Math.abs(me.at - axe.at) <= PICKUP_REACH
+        ? { ...IDLE_INPUT, take: true }
+        : { ...IDLE_INPUT, drive: towards(me.at, axe.at) };
+    }
+    return Math.abs(me.at - tree) <= ANCHOR_REACH
+      ? { ...IDLE_INPUT, work: true }
+      : { ...IDLE_INPUT, drive: towards(me.at, tree) };
+  }
+  // On the ground on this side: to the ladder and up it.
+  if (me.lift <= 0) {
+    const ladder = state.rv.x - ROOF_HALF;
+    return Math.abs(me.at - ladder) <= LADDER_REACH
+      ? { ...IDLE_INPUT, jump: true }
+      : { ...IDLE_INPUT, drive: towards(me.at, ladder) };
+  }
+  // On the roof: forward to its front edge, then a running double jump.
+  if (me.at < lip - LEAP_FROM) {
+    return { ...IDLE_INPUT, drive: 1 };
+  }
+  return { ...IDLE_INPUT, drive: 1, jump: true };
+}
+
+/** How far back from the edge of the roof the leap starts, in metres. */
+const LEAP_FROM = 0.2;
 
 /**
  * The errand of fetching one thing and doing something with it.
@@ -159,10 +261,10 @@ function has(route: Route, kind: string): boolean {
  * @param kind - what to go and get
  * @returns the input for this frame
  * @remarks
- * Out of the cab, walk to the thing, walk back, and then either hold the key
- * (hammer, tyres) or simply get back in (spray - carrying it is enough).
- * Exactly the errand a player runs, which is the point of making the autopilot
- * run it too.
+ * Out of the cab, walk to the thing, walk back, hold the key. Nothing is ever
+ * chosen off the list: standing where the thing is wanted puts it in the hand,
+ * and the autopilot leans on that exactly as a player does - which is what
+ * makes these runs a test of the automatic hand and not only of the map.
  */
 function errand(state: GameState, route: Route, kind: string): Input {
   if (one(state).inside) {
@@ -228,6 +330,57 @@ function driveFrom(section: number, until: number) {
   }
   return { state, hooks, lowestFuel };
 }
+
+/** Which section the bridge is in, and which one the fog lies over. */
+const BRIDGE_SECTION = SECTION_COUNT - 2;
+const FOG_SECTION = SECTION_COUNT - 3;
+
+/**
+ * How far a leap carries from a given height, in metres.
+ *
+ * @param from - what the jumper is standing on, in metres above the ground
+ * @returns how far along the route they get before they land
+ * @remarks
+ * Measured by jumping rather than worked out on paper: the numbers that
+ * decide whether the last section can be solved are the ones the engine
+ * actually produces.
+ */
+function leapReach(from: number): number {
+  const flat: Route = {
+    ...theMap(),
+    heights: Array.from({ length: 40 }, () => 0),
+    anchors: [],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: null,
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+  const base = startAt(0);
+  const at = ROUTE_STEP * 10;
+  let now: GameState = {
+    ...base,
+    rv: { x: at, v: 0 },
+    driver: -1,
+    people: [{ ...base.people[0], inside: false, at, lift: from }],
+  };
+  const jump = { ...IDLE_INPUT, drive: 1, jump: true };
+  now = step(now, flat, [jump], FRAME);
+  now = step(now, flat, [jump], FRAME);
+  for (let frame = 0; frame < 4 / FRAME; frame++) {
+    now = step(now, flat, [{ ...IDLE_INPUT, drive: 1 }], FRAME);
+    if (now.people[0].lift <= 0) {
+      break;
+    }
+  }
+  return now.people[0].at - at;
+}
+
+/** How far a felled trunk reaches back from where the tree stood, in metres. */
+const TRUNK_REACH = 12;
 
 describe("the map", () => {
   it("can be driven from the start to the flag", () => {
@@ -325,6 +478,132 @@ describe("the map", () => {
     const { state } = driveFrom(0, Number.POSITIVE_INFINITY);
     expect(state.phase).toBe("arrived");
     expect(state.fuel).toBeGreaterThan(0.3);
+  });
+
+  it("lets a section past the bear be driven at all", () => {
+    // Found by playing the foggy section: it starts beyond the bear's post, so
+    // the barrier stood exactly where the motorhome did and it could not move
+    // a metre. A bear behind the bumper must not close the road ahead.
+    const past = SECTION_COUNT - 1;
+    expect(SECTIONS[past]).toBeGreaterThan(MAP.bear ?? 0);
+    let state = seated(startAt(past));
+    for (let frame = 0; frame < 20 / FRAME; frame++) {
+      state = step(
+        state,
+        theMap(),
+        [{ ...IDLE_INPUT, drive: 1, shift: 2 }],
+        FRAME,
+      );
+    }
+    expect(state.rv.x).toBeGreaterThan(SECTIONS[past] + ROUTE_STEP);
+  });
+
+  it("closes its own section in, and only that one", () => {
+    // The point of it: the ground still climbs and falls, you simply cannot
+    // see which. So the fog has to be closed in over the whole of that
+    // section - fog that stopped halfway would hand the answer back.
+    expect(MAP.fog?.from).not.toBe(null);
+    const fog = MAP.fog?.from ?? 0;
+    // At or before the section's own start, so it is closed in from the first
+    // second: a section that began in the clear would give the profile away
+    // before the fog ever arrived.
+    expect(fog).toBeLessThanOrEqual(SECTIONS[FOG_SECTION]);
+    expect(fog).toBeGreaterThan(SECTIONS[FOG_SECTION - 1]);
+    expect(fog).toBeLessThan(routeLength(MAP));
+    // And it lifts again before the section after it: the bridge there is a
+    // test of nerve, and a bridge nobody can see would be a coin toss.
+    const clears = MAP.fog?.to ?? 0;
+    expect(clears).toBeGreaterThan(fog as number);
+    expect(clears).toBeLessThan(SECTIONS[FOG_SECTION + 1]);
+  });
+
+  it("puts one bridge on the map, in its own section", () => {
+    expect(MAP.bridges.length).toBe(1);
+    const bridge = MAP.bridges[0];
+    const last = SECTIONS[BRIDGE_SECTION];
+    expect(bridge.from).toBeGreaterThan(last);
+    expect(bridge.to).toBeLessThan(routeLength(MAP));
+  });
+
+  it("leaves room before the bridge to read the sign and stop", () => {
+    // The sign stands a few metres before the timber. Coming out of the
+    // section straight onto it would be a trap rather than a warning.
+    const bridge = MAP.bridges[0];
+    const last = SECTIONS[BRIDGE_SECTION];
+    expect(bridge.from - last).toBeGreaterThan(ROUTE_STEP * 5);
+  });
+
+  it("lays the bridge level, and level either side of it", () => {
+    // A bridge on a slope would be crossed by a motorhome that is already
+    // sliding, and the section is about who rides across, not about grip.
+    const bridge = MAP.bridges[0];
+    for (
+      let at = bridge.from - ROUTE_STEP;
+      at <= bridge.to + ROUTE_STEP;
+      at += ROUTE_STEP / 2
+    ) {
+      expect(Math.abs(slopeAt(MAP, at))).toBeLessThan(0.05);
+    }
+  });
+
+  it("keeps the fog off the bridge", () => {
+    // Crossing a bridge you cannot see is a coin toss, not a test of nerve.
+    const bridge = MAP.bridges[0];
+    expect(MAP.fog?.to ?? 0).toBeLessThan(bridge.from);
+  });
+
+  it("digs a chasm nobody jumps from the road, and anybody clears from the roof", () => {
+    // The one measurement the whole last section hangs on. Too narrow and the
+    // roof is decoration; too wide and there is no way over at all. Both
+    // reaches are measured here rather than written down, so tuning the jump
+    // can never quietly break the map.
+    expect(MAP.chasms.length).toBe(1);
+    const gap = MAP.chasms[0].to - MAP.chasms[0].from;
+    // From the road the leap has to start a stride back from the lip, and
+    // that stride is most of why the roof is worth climbing.
+    expect(gap + CHASM_STOP).toBeGreaterThan(leapReach(0));
+    expect(gap).toBeLessThan(leapReach(ROOF_HIGH));
+  });
+
+  it("stands the tree and the axe on the far side of it", () => {
+    // The point of the puzzle: what closes the gap is over there, and the
+    // only way over there is off the roof.
+    const chasm = MAP.chasms[0];
+    const axe = MAP.items.find((item) => item.kind === "axe");
+    expect(MAP.fellTree).toBeGreaterThan(chasm.to);
+    expect(axe?.at).toBeGreaterThan(chasm.to);
+    // Close enough that the trunk reaches back across it when it comes down.
+    expect((MAP.fellTree ?? 0) - chasm.from).toBeLessThan(TRUNK_REACH);
+  });
+
+  it("leaves room to park and climb before the chasm", () => {
+    const chasm = MAP.chasms[0];
+    const last = SECTIONS[SECTION_COUNT - 1];
+    expect(chasm.from).toBeGreaterThan(last + ROOF_HALF * 2);
+    expect(chasm.to).toBeLessThan(routeLength(MAP));
+  });
+
+  it("makes the foggy section hilly, and none of it too steep to drive", () => {
+    // Driving it by the speedometer only works if it **can** be driven: a wall
+    // in the fog is not a test of feel, it is a dead end you cannot see.
+    const from = Math.floor((MAP.fog?.from ?? 0) / ROUTE_STEP);
+    const to = Math.floor((MAP.fog?.to ?? 0) / ROUTE_STEP);
+    let rises = 0;
+    let falls = 0;
+    for (let field = from; field < to; field++) {
+      const middle = field * ROUTE_STEP + ROUTE_STEP / 2;
+      expect(Math.abs(slopeAt(MAP, middle))).toBeLessThan(NO_GRIP_SLOPE);
+      const step = MAP.heights[field + 1] - MAP.heights[field];
+      if (step > 0) {
+        rises += 1;
+      }
+      if (step < 0) {
+        falls += 1;
+      }
+    }
+    // Hilly means both, over and over - not one long climb.
+    expect(rises).toBeGreaterThan(8);
+    expect(falls).toBeGreaterThan(8);
   });
 
   it("has fuel to spare in every section", () => {
