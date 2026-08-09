@@ -111,14 +111,30 @@ function wobble(index: number, seed: number): number {
   return (mixed + 1) / 2;
 }
 
+/** A stretch of the route where no tree may stand. */
+export type Clearing = { readonly from: number; readonly to: number };
+
+/** How far back from a gap in the ground the trees keep, in metres. */
+const CLEAR_OF = 6;
+
 /**
  * Every tree of the roadside wood between two points of the route.
  *
  * @param from - the nearer end, in metres
  * @param to - the further end, in metres
+ * @param clearings - stretches with nothing under them, kept free of trees
  * @returns the trees, in the order they stand
+ * @remarks
+ * Nothing grows over a gorge. Where the ground is missing - a bridge, a chasm -
+ * the wood stands back from the edge, and that gap in the trees is half of what
+ * says "bridge" from a distance: the forest opens, and something is crossing
+ * something.
  */
-export function conifersBetween(from: number, to: number): Conifer[] {
+export function conifersBetween(
+  from: number,
+  to: number,
+  clearings: readonly Clearing[] = [],
+): Conifer[] {
   const trees: Conifer[] = [];
   const first = Math.floor(from / WOOD.every) - 1;
   const last = Math.ceil(to / WOOD.every) + 1;
@@ -127,7 +143,7 @@ export function conifersBetween(from: number, to: number): Conifer[] {
       for (const side of [-1, 1]) {
         const seed = which * 2 + (side < 0 ? 0 : 1);
         const at = (slot + wobble(slot, seed) - HALF) * WOOD.every;
-        if (at < from || at > to) {
+        if (at < from || at > to || overAGap(at, clearings)) {
           continue;
         }
         trees.push({
@@ -144,8 +160,24 @@ export function conifersBetween(from: number, to: number): Conifer[] {
   return trees;
 }
 
+/**
+ * Whether a spot is over a gap in the ground, or close enough to its edge.
+ *
+ * @param at - the spot, in metres along the route
+ * @param clearings - the gaps
+ * @returns true if nothing may stand there
+ */
+function overAGap(at: number, clearings: readonly Clearing[]): boolean {
+  return clearings.some(
+    (gap) => at > gap.from - CLEAR_OF && at < gap.to + CLEAR_OF,
+  );
+}
+
 /** How tall the tallest tree of the wood is, in metres. */
 export const CONIFER_TALL = WOOD.tall;
+
+/** How far out the nearest row of it stands, in metres. */
+export const CONIFER_NEAR = WOOD.rows[0].out;
 
 /**
  * Draws one conifer.

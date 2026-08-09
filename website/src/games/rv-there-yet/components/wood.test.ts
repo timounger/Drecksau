@@ -76,4 +76,34 @@ describe("the wood along the road", () => {
       expect(tree.at).toBeLessThanOrEqual(TO);
     }
   });
+
+  it("keeps out of a gap in the ground", () => {
+    // Nothing grows over a gorge, and the gap in the trees is half of what
+    // says "bridge" from a distance: the wood opens and something crosses.
+    const gap = { from: 1250, to: 1300 };
+    for (const tree of conifersBetween(FROM, TO, [gap])) {
+      expect(tree.at < gap.from || tree.at > gap.to).toBe(true);
+    }
+  });
+
+  it("stands back from the edge of one", () => {
+    // Right at the lip is a tree about to fall in.
+    const gap = { from: 1250, to: 1300 };
+    const near = conifersBetween(FROM, TO, [gap]).filter(
+      (tree) => tree.at > gap.from - 5 && tree.at < gap.to + 5,
+    );
+    expect(near).toEqual([]);
+  });
+
+  it("grows the rest of the wood as before", () => {
+    // A clearing takes trees away and moves none: the wood on either side of
+    // it is the same wood.
+    const gap = { from: 1250, to: 1300 };
+    const cleared = conifersBetween(FROM, TO, [gap]);
+    const all = conifersBetween(FROM, TO);
+    expect(cleared.length).toBeLessThan(all.length);
+    for (const tree of cleared) {
+      expect(all).toContainEqual(tree);
+    }
+  });
 });

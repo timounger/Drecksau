@@ -65,4 +65,21 @@ export const PANZERKISTE_TEXTS = {
   levelForward: "Level vor ▶",
   levelBackTitle: "Ein Level zurück und direkt starten",
   levelForwardTitle: "Ein Level vor und direkt starten",
+  // Bestenliste
+  boardTitle: "Bestenliste",
+  boardSubtitle: "Weiteste Wellen in der Endlos-Arena",
+  boardEmpty: "Noch niemand eingetragen - deine Welle könnte die erste sein.",
+  boardLoading: "Bestenliste wird geladen …",
+  boardFailed: "Bestenliste nicht erreichbar.",
+  boardYours: "Deine Arena",
+  boardMadeIt: (place: number) =>
+    `Platz ${place} - trag deinen Namen ein und du stehst auf der Liste.`,
+  boardMissed: "Diesmal nicht unter den besten zehn. Die aktuelle Liste:",
+  boardPartial:
+    "Nur Läufe ohne Levelsprung kommen in die Liste - hier wurde vorgespult.",
+  boardEnter: "Eintragen",
+  boardEntering: "Wird eingetragen …",
+  boardEntered: "Eingetragen!",
+  boardNamePlaceholder: "Dein Name",
+  boardWave: (wave: number) => `Welle ${wave}`,
 } as const;

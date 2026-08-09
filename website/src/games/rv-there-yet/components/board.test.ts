@@ -15,7 +15,14 @@
  * once, which is exactly what a canvas test cannot see.
  */
 import { describe, expect, it } from "vitest";
-import { Doing, GearStick, Pedal, doingText, pedalNow } from "./board";
+import {
+  ControlsHint,
+  Doing,
+  GearStick,
+  Pedal,
+  doingText,
+  pedalNow,
+} from "./board";
 import type { ReactElement } from "react";
 import { hudOf } from "@/games/rv-there-yet/hooks/hud";
 import { startAt } from "@/games/rv-there-yet/engine/setup";
@@ -101,11 +108,25 @@ describe("the line beside the fuel gauge", () => {
 });
 
 describe("the line while a job is being done", () => {
+  it("names the job the world is doing, not the one you could start", () => {
+    // The bug: standing at the tree with the axe, the count read "Repariert".
+    // The line asked where **this** player stood instead of asking what was
+    // going on, and where they stood said nothing about a tree.
+    expect(doingText(hud({ inside: false, doing: "fell", repair: HALF }))).toBe(
+      RV_TEXTS.felling(FIFTY),
+    );
+    expect(
+      doingText(
+        hud({ inside: false, job: "mend", doing: "fell", repair: HALF }),
+      ),
+    ).toBe(RV_TEXTS.felling(FIFTY));
+  });
+
   it("counts out the hammering, the fitting, the fuelling and the felling", () => {
     // A job is a key held down, and letting go loses what has been done: the
     // count is the reason anybody keeps holding it.
-    const at = (job: Hud["job"]): string =>
-      doingText(hud({ inside: false, job, repair: HALF }));
+    const at = (job: Hud["doing"]): string =>
+      doingText(hud({ inside: false, doing: job, repair: HALF }));
     expect(at("mend")).toBe(RV_TEXTS.mending(FIFTY));
     expect(at("fit")).toBe(RV_TEXTS.fitting(FIFTY));
     expect(at("fuel")).toBe(RV_TEXTS.fuelling(FIFTY));
@@ -114,12 +135,19 @@ describe("the line while a job is being done", () => {
 
   it("moves as the job does", () => {
     // A number that never moves reads as scenery.
-    const early = doingText(hud({ inside: false, job: "mend", repair: 0.2 }));
-    expect(early).not.toBe(doingText(hud({ job: "mend", repair: HALF })));
+    const early = doingText(hud({ inside: false, doing: "mend", repair: 0.2 }));
+    expect(early).not.toBe(doingText(hud({ doing: "mend", repair: HALF })));
   });
 
   it("keeps quiet before the job is started", () => {
-    expect(doingText(hud({ inside: false, job: "mend", repair: 0 }))).toBe("");
+    expect(doingText(hud({ inside: false, doing: "mend", repair: 0 }))).toBe(
+      "",
+    );
+    // And a count with nothing behind it says nothing either: in co-op the
+    // one who is **not** working sees the same count as the one who is.
+    expect(doingText(hud({ inside: false, doing: null, repair: HALF }))).toBe(
+      "",
+    );
   });
 });
 
@@ -155,7 +183,12 @@ describe("the line while you stand about in the fog", () => {
   });
 
   it("gets on with the job that is being done instead", () => {
-    const busy = hud({ still: HALF, inside: false, job: "mend", repair: 0.9 });
+    const busy = hud({
+      still: HALF,
+      inside: false,
+      doing: "mend",
+      repair: 0.9,
+    });
     expect(doingText(busy)).toBe(RV_TEXTS.mending(90));
   });
 });
@@ -346,5 +379,39 @@ describe("the buttons as they come out on the screen", () => {
     expect(off.length).toBeGreaterThan(2);
     expect(off.every((each) => each.props.disabled === true)).toBe(true);
     expect(on.every((each) => each.props.disabled === false)).toBe(true);
+  });
+});
+
+describe("the row of keys under the picture", () => {
+  /** Everything that row says, as one string. */
+  function said(inside: boolean): string {
+    return JSON.stringify(ControlsHint({ inside }));
+  }
+
+  it("says only what the seat one is in is about", () => {
+    // Ten lines of which half belonged to the other seat is a wall of text
+    // under the picture, and a wall of text is not read by anybody - least of
+    // all by the person driving.
+    expect(said(true)).toContain("Gänge");
+    expect(said(true)).not.toContain("Rennen");
+    expect(said(false)).toContain("Rennen");
+    expect(said(false)).not.toContain("Gänge");
+  });
+
+  it("keeps it short in both seats", () => {
+    for (const inside of [true, false]) {
+      const keys = inside ? RV_TEXTS.drivingKeys : RV_TEXTS.walkingKeys;
+      expect(keys.length).toBeLessThan(7);
+      for (const line of keys) {
+        expect(line.length).toBeLessThan(35);
+      }
+    }
+  });
+
+  it("names the keys that do the work in that seat", () => {
+    // Whatever else it leaves out, the way out of the seat has to be on it.
+    expect(said(true)).toContain("Aussteigen");
+    expect(said(false)).toContain("Einsteigen");
+    expect(said(false)).toContain("F");
   });
 });

@@ -26,7 +26,7 @@ import {
   ROOF_HIGH,
   gearAt,
   MAUL_SECONDS,
-  REPAIR_SECONDS,
+  WORK_SECONDS,
   STILL_SECONDS,
   SPRAY_REACH,
   SPRAY_SECONDS,
@@ -84,7 +84,17 @@ export type Hud = {
   readonly tyres: boolean;
   /** What holding the key at the motorhome would do, if anything. */
   readonly job: Job;
-  /** How far the mending has got, from 0 to 1. */
+  /**
+   * The job that is being done right now, by anybody, or null while none is.
+   *
+   * @remarks
+   * Told apart from {@link job} on purpose. That one is **this** player's
+   * opportunity - what their key would start here - and it is what lights the
+   * working button up. This one is the world's: what is actually going on, who
+   * ever is doing it. In co-op the two are rarely the same thing.
+   */
+  readonly doing: Job;
+  /** How far the job in hand has got, from 0 to 1. */
   readonly repair: number;
   /** True while standing at the motorhome with the hammer, ready to mend. */
   readonly canMend: boolean;
@@ -180,7 +190,14 @@ export function hudOf(state: GameState, view: HudView): Hud {
     bear: bearView(state, person),
     tyres: state.tyres,
     job: jobAt(person, state, person.inside, route),
-    repair: Math.min(1, state.repair / REPAIR_SECONDS),
+    doing: state.doing ?? null,
+    // Against the length of **that** job: fuelling takes four seconds where
+    // the rest take three, and one divisor for all of them is a bar that fills
+    // at the wrong rate.
+    repair:
+      state.doing == null
+        ? 0
+        : Math.min(1, state.repair / WORK_SECONDS[state.doing]),
     canMend: canMend(person, state, person.inside, route),
     speed: state.rv.v,
     running: view.running,

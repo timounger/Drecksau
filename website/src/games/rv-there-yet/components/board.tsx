@@ -303,9 +303,12 @@ export function doingText(hud: Hud): string {
     return RV_TEXTS.bearSpraying(Math.round(bear.sprayed * PERCENT));
   }
   // Hammering, fitting, fuelling, felling: a job with a key held down and a
-  // count that has to be watched, because letting go loses it.
-  if (hud.repair > 0) {
-    return WORKING[hud.job ?? "mend"](Math.round(hud.repair * PERCENT));
+  // count that has to be watched, because letting go loses it. Named by what
+  // the **world** says is being done, not by what this player could start
+  // where they stand - those are two different questions, and answering the
+  // second one had the axe at the tree counting up as "mending".
+  if (hud.doing !== null && hud.repair > 0) {
+    return WORKING[hud.doing](Math.round(hud.repair * PERCENT));
   }
   // Not a hint but a fact about the controls: a passenger pressing the pedals
   // and seeing nothing happen has no other way of finding out why.
@@ -518,24 +521,28 @@ export function Action({
 /**
  * The row of keyboard hints under the canvas.
  *
+ * @param props - whether the player is in the cab
  * @returns the hint element
+ * @remarks
+ * Only what is worth pressing where the player is. All of it at once was ten
+ * lines of which half belonged to the other seat, and a wall of text under the
+ * picture is a wall of text nobody reads - least of all the person it was
+ * written for, who is busy driving.
  */
-export function ControlsHint(): ReactElement {
+export function ControlsHint({
+  inside,
+}: {
+  readonly inside: boolean;
+}): ReactElement {
+  const keys = inside ? RV_TEXTS.drivingKeys : RV_TEXTS.walkingKeys;
   return (
-    <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-2xl border border-zinc-200 bg-white/60 px-4 py-3 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
+    <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-2xl border border-zinc-200 bg-white/60 px-4 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
       <span className="font-semibold text-zinc-600 dark:text-zinc-300">
         {RV_TEXTS.controlsTitle}:
       </span>
-      <span>{RV_TEXTS.gasKeys}</span>
-      <span>{RV_TEXTS.gearKeys}</span>
-      <span>{RV_TEXTS.walkKeys}</span>
-      <span>{RV_TEXTS.doorKeys}</span>
-      <span>{RV_TEXTS.takeKeys}</span>
-      <span>{RV_TEXTS.cycleKeys}</span>
-      <span>{RV_TEXTS.hookKeys}</span>
-      <span>{RV_TEXTS.jumpKeys}</span>
-      <span>{RV_TEXTS.windKeys}</span>
-      <span className="w-full">{RV_TEXTS.hint}</span>
+      {keys.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
     </div>
   );
 }

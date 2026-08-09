@@ -81,6 +81,21 @@ Panzer stumm schalten und sich trotzdem weiter unterhalten - oder umgekehrt.
 Beide Regler gelten nur für den eigenen Rechner: Jeder stellt sich selbst ein,
 was er hören will.
 
+## Vollbild
+
+Neben dem Titel liegt ein **Vollbild**-Knopf: Das Feld füllt dann den ganzen
+Bildschirm, ein zweiter Knopf oben rechts führt wieder heraus. Praktisch am
+Telefon, wo sonst die halbe Anzeige aus Browserleiste besteht.
+
+Das Bild wird dabei **so groß wie möglich, aber nie verzerrt**. Es wächst, bis
+es an einer Kante anstößt, und die andere Seite ergibt sich aus seinen eigenen
+Maßen; der Rest bleibt schwarz. Wichtig ist dabei, dass das Element weiterhin
+genau so groß ist wie das Bild darin - sonst würde das Zielen mit Maus oder
+Finger daneben liegen, denn beides rechnet vom Rahmen des Feldes aus. Die
+Maßverhältnisse holt sich das Stylesheet über eine Variable direkt von der
+Zeichenfläche (`use-shot-ratio.ts`), damit auch die online wechselnden
+Arenagrößen stimmen.
+
 ## Koop online
 
 Unter `/panzerkiste/online` geht es **zu zweit im Koop** durch dieselben
@@ -110,6 +125,28 @@ bewusst von keinem einzelnen Spiel etwas.
 
 Gebucht wird **während** des Spielens, nicht erst am Missionsende - die meisten
 Runden bricht man ab, und alles Verschossene wäre sonst nie gezählt worden.
+
+## Bestenliste
+
+Unter `/panzerkiste/statistik` steht eine **globale Top 10** - dieselbe Liste
+für alle, die das Spiel spielen, wie bei RV There Yet. Gewertet wird die
+**weiteste Welle in der Endlos-Arena**: Die Kampagne ist irgendwann geschafft
+oder eben nicht, die Arena hört nie auf, und wie weit jemand gekommen ist, ist
+eine Zahl, die man schlagen kann.
+
+Ist der Panzer in der Arena hin, erscheint die Liste gleich über dem
+Wiederholen-Knopf. Reicht die Welle unter die besten zehn, kann man dort seinen
+Namen eintragen; sonst steht einfach die aktuelle Liste da. Die ersten drei
+Plätze tragen Gold, Silber und Bronze.
+
+Läufe, in denen mit den Level-Knöpfen **vorgespult** wurde, kommen nicht auf die
+Liste - Arena `n` startet bei Welle `n`, wer also durchklickt, hätte sonst die
+Liste für sich. Der Weg über „Weiter in die Arena" nach gewonnener Kampagne
+zählt dagegen ganz normal: Das ist kein Sprung, sondern das nächste Level.
+
+Jeder Name bekommt **einen** Platz, seinen besten. Die Liste liegt in derselben
+Datenbank wie die Online-Räume (`rooms/panzerkiste-__best`), also zählen Runden
+vom Sofa genauso wie Runden aus dem Koop.
 
 ## Aufbau des Spielmoduls
 

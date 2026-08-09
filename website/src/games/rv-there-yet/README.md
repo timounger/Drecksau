@@ -29,6 +29,15 @@ Schritt vorgesehen.
 - **Seilwinde:** W zieht ein, S gibt aus (nur zu Fuß)
 - **Handy:** die Knöpfe unter dem Bild
 
+**Die Tastenzeile unter dem Bild zeigt nur, was hier gilt**: im Fahrerhaus
+Fahren, Gänge, Handbremse, Aussteigen - draußen Laufen, Rennen, Springen,
+Nehmen und Arbeiten, Seilwinde, Einsteigen. Vorher standen alle zehn Zeilen
+immer da, die halbe Steuerung also für den anderen Sitzplatz, und eine Textwand
+unter dem Bild liest niemand - am wenigsten der, für den sie geschrieben ist,
+weil der gerade fährt. Der lange Strategie-Satz („Zu steil? Aussteigen, zum
+Baum laufen …") ist aus demselben Grund weg wie die Hinweise neben der
+Tankanzeige: Das sagt die Hinweistafel am Abschnittsanfang.
+
 **Auf jedem Knopf steht seine Taste** - „Aufheben (F)", „Springen (Leertaste)",
 „▶ (W)". Wer die Knöpfe einmal gefunden hat, soll die Tastatur nicht noch
 einmal suchen müssen, und `W`/`S` beziehungsweise `A`/`D` stehen dort je
@@ -166,8 +175,16 @@ nichts gibt, was das Licht schräg treffen könnte. Das Licht kommt von einer
 Seite, also ist ein Rücken auf der einen Flanke hell und auf der anderen
 dunkel - und ein Tal, dessen Wände andersherum stehen, genau umgekehrt. Ohne
 diesen Unterschied sähen beide Seiten gleich aus und der Hang wie ein
-ausgeschnittenes Stück Papier. Auch der Schnee bekommt seine zwei Töne, sonst wird ein Gipfel zu
-einer weißen Fläche, in der nichts mehr zu erkennen ist.
+ausgeschnittenes Stück Papier.
+
+**Schnee wird härter schattiert - und auch dann, wenn der Boden eben ist.** Auf
+Gras darf ebenes Land einfarbig bleiben: Straße, Bankett und die Bänder geben
+ihm Form. Schnee hat davon nichts, keine Maserung und keine eigene Farbe, und
+kam deshalb als weißes Blatt mit einer Straße darauf heraus. Die Hälfte der
+Schattierung liegt jetzt schon ohne jedes Relief auf ihm, das Relief legt den
+Rest dazu, und der Schattenton ist ein deutliches Blaugrau statt eines Hauchs
+davon. Die Seite, von der das Licht kommt, gilt im Schnee genauso - sonst wären
+die beiden Wände eines verschneiten Tals zwei gleiche weiße Flächen.
 
 **Unter dem Horizont ist immer Boden.** Die Straße besteht aus Bändern
 zwischen Messpunkten, und ein Band deckt nur den Boden ab, auf dem es steht -
@@ -278,6 +295,15 @@ Zu sehen ist die Zeile nur noch, **solange gerade etwas läuft**:
 
 Läuft nichts davon, steht dort auch **kein leerer Rahmen**, sondern gar nichts.
 
+**Welche** Arbeit läuft, sagt die **Welt** und nicht der Standort des Lesers:
+Der Weltzustand merkt sich, wozu die Sekunden gehören. Vorher wurde das aus der
+Umgebung des jeweiligen Spielers neu erraten, und das ging zweimal daneben - am
+Abgrund stand beim Baumfällen „Repariert", weil dort, wo der Spieler steht, ein
+Wohnmobil in Reichweite ist, und im Koop las der Zuschauer seine eigene Umgebung
+statt der Arbeit des anderen. Aus demselben Grund wird die Prozentzahl gegen die
+Dauer **dieser** Arbeit gerechnet: Tanken dauert vier Sekunden, alles andere
+drei, und ein Nenner für alle füllt den Balken mit der falschen Geschwindigkeit.
+
 Was einem **zustößt**, steht dort ebenfalls nicht. Wie lange der Bär schon
 zupackt und wie lange man im Nebel schon steht, stand eine Zeit lang als
 Prozentzahl daneben - das macht aus einem Schrecken einen Fortschrittsbalken.
@@ -347,6 +373,48 @@ Krone mit 2,4 m Radius - die hing also praktisch im Gras. Jetzt läuft der Stamm
 darüber hinaus weiter und die Krone sitzt oben darauf, sodass das Seil um den
 sichtbaren Stamm geht. Drei Kronenformen wechseln sich nach der Nummer des
 Baums ab, damit eine Reihe Bäume nicht wie eine Tapete aussieht.
+
+## Bestenliste
+
+**Wer es bis ans Ziel schafft, kommt auf eine Liste, die alle sehen.** Sie
+steht auf dem Zielbildschirm und noch einmal auf der
+[Statistikseite](../../app/rv-there-yet/statistik/page.tsx) - dort zum
+Nachschauen, hier zum Eintragen. Die ersten drei Plätze tragen Gold, Silber und
+Bronze.
+
+Gewertet wird die **Gesamtzeit einer durchgehenden Fahrt**: Die Uhr der Welt
+fängt bei jedem Abschnitt neu an - was der Abschnittsanzeige recht ist -, und
+eine Bestenliste auf dieser Uhr hielte, wer direkt zum letzten Abschnitt
+springt. Also läuft daneben eine zweite Uhr über die ganze Fahrt
+([stats/run-clock.ts](stats/run-clock.ts)). Sie beginnt bei null, wenn jemand
+bei **Abschnitt 1** losfährt, und läuft durch alle Abschnitte weiter.
+
+Ein Abschnitt, den man nach einem Absturz neu beginnt, **setzt sie nicht
+zurück**: Zweimal gefahren hat zweimal gedauert, und eine Liste, die das
+verzeiht, belohnt absichtliches Verunglücken - dann wäre Anlauf-gegen-die-Wand
+der schnelle Weg durch die schwere Stelle. Wer dagegen bei einem gespeicherten
+Abschnitt weitermacht oder mit den Pfeiltasten springt, fährt keine ganze Fahrt
+mehr: Er sieht die Liste, steht aber nicht darauf.
+
+**Eintragen** darf sich, wer unter die besten zehn fährt. Das Namensfeld ist
+mit dem [Online-Spielernamen](../../online/player-name.ts) vorbelegt, und ein
+eingetragener Name überschreibt ihn - es ist derselbe Name. Wer es nicht unter
+die zehn schafft, sieht einfach die Liste.
+
+Auf der Liste steht **je Name nur die beste Fahrt** (Groß- und Kleinschreibung
+egal), sonst belegt ein schneller Spieler alle zehn Plätze und es gibt nichts
+mehr zu holen. Bei gleicher Zeit steht vorn, wer zuerst da war.
+
+Gespeichert wird das in derselben Datenbank wie die Online-Räume, unter
+`rooms/rv-there-yet-__best` - aus demselben Grund wie die
+[Zufallssuche](../../online/matchmaking.ts): Die Sicherheitsregeln decken
+`rooms/` ab und sonst nichts, und ein Schlüssel mit doppeltem Unterstrich
+kollidiert nie mit einem echten vierstelligen Raumcode. **Offline und online
+gefahrene Ziele zählen gleich** - es ist dieselbe Karte und dieselbe Strecke.
+
+Kaputte Einträge in der Datenbank werden beim Lesen einfach übersprungen. Eine
+Liste, die wegen einer halb geschriebenen Zeile gar nichts zeigt, wäre der
+schlechtere Tausch.
 
 ## Zu Fuß
 
@@ -795,6 +863,38 @@ Hinweistafel am Anfang des Abschnitts - „Manchmal ist man alleine besser dran.
 -, denn ein ganzer Satz, in der Größe des Dreiecks gemalt, wäre ein grauer
 Fleck.
 
+**Sie sieht auch aus wie eine Brücke.** Vorher war sie ein Brett über einem
+Loch: Deck, Geländer, fertig - und ein Loch ist nichts, worüber man eine Brücke
+vermutet. Dazugekommen sind die drei Dinge, die eine Brücke ausmachen, und
+keines davon ist das Deck:
+
+- ein **Bogen** unter dem Deck, von Ufer zu Ufer, mit Streben darauf,
+- **Pfeiler**, die im Wasser stehen und das Deck tragen,
+- und der **Fluss** unten durch, mit einem Lichtstreifen darauf.
+
+Dafür ist die Schlucht von 26 auf **13 Meter** flacher geworden: Unter der
+Straße sind in der Seitenansicht nur rund sechzehn Meter Leinwand, und eine
+tiefere Schlucht ist eine Brücke über einem schwarzen Rechteck, das unten aus
+dem Bild läuft - das Wasser hätte nie jemand gesehen.
+
+**Aus dem Fahrerhaus** waren es bisher nur Geländerpfosten, was wie eine
+abgesperrte Straße aussah. Jetzt ist neben der Fahrbahn **der Boden weg**: An
+der Deckkante fällt die Felswand ab, und weit unten läuft das Wasser. Gemalt
+wird das je Seite und nicht als ein Band quer darüber - sonst läge der Fluss auf
+der Fahrbahn, über die man gerade fährt.
+
+Und die Schlucht wird an der **vorderen Kante abgeschnitten**: Wer noch davor
+steht, sieht nicht in sie hinein, weil der Boden davor im Weg ist. Ohne diesen
+Schnitt zogen Wand und Wasser bis vor die Motorhaube, und es sah aus, als
+schaue man durch die Brücke hindurch, auf die man gerade zufährt. Auf dem Deck
+liegt diese Kante dann bei der Motorhaube und der Schnitt fällt unten aus dem
+Bild - dort sieht man hinunter, und das soll man auch.
+
+Dazu hört der **Wald an der Strecke** über der Schlucht auf: Auf einer Brücke
+wächst nichts, und die Lücke in den Bäumen ist die halbe Miete - der Wald öffnet
+sich, und irgendetwas quert dort etwas. Dasselbe gilt für den Abgrund im letzten
+Abschnitt.
+
 Es trägt das Wohnmobil mit **einem** Insassen. Sitzen **beide** drin, bricht es
 ein, sobald die Räder auf den Planken sind: Die Fahrt ist zu Ende, und der
 Abschnitt fängt von vorn an. Vorgewarnt wird zweifach: von der Hinweistafel am
@@ -918,11 +1018,199 @@ Ein Abschnitt ist zugleich die Aufgabe und der Speicherpunkt.
 Abschnitte beginnen immer auf **ebenem** Boden. Auf einer Schräge zu starten
 hieße, die Fahrt mit dem Zurückrutschen zu beginnen.
 
+## Ziegen
+
+**Auf dem ersten Abschnitt stehen Ziegen am Weg**, ein knappes Dutzend, verteilt
+über die ganze Strecke und in allen Größen vom Kitz bis zum alten Bock - jede
+mit eigener Fellfarbe, eigenem Abstand zur Fahrbahn und in eine der beiden
+Richtungen schauend.
+
+Sie tun **nichts**. Keine Regel des Spiels berührt sie, man kann sie nicht
+anfahren, sie laufen nicht weg. Genau das ist der Punkt: Der erste Abschnitt ist
+der, auf dem jemand herausfindet, welches Pedal welches ist, und eine Straße,
+an der etwas Lebendiges steht, ist eine Straße, die man befahren möchte.
+
+Wo sie stehen, wird wie beim Wald aus ihrer Nummer gerechnet und nirgends
+gemerkt - eine Ziege, die zwischen zwei Blicken weiterwandert, wäre ein Fehler
+und keine Ziege. Zwei Regeln halten sie aus dem Weg: mindestens sieben Meter
+neben der Fahrbahnmitte, und keine auf der linken Seite dort, wo die
+Hinweistafel steht.
+
+Gezeichnet wird in beiden Ansichten **dasselbe Tier von der Seite**: Eine Ziege
+am Straßenrand steht quer dazu und käut, aus welcher Richtung man auch schaut.
+Hörner und Kinnbart sind dabei das, was sie in dieser Größe von einem Schaf
+unterscheidet - ohne sie wäre es ein grauer Laib auf vier Stöckchen.
+
+## Das Mädchen am Anstieg
+
+**Kurz hinter dem Matschfeld, dort wo die Straße sich aufstellt**, steht ein
+Mädchen im roten Trägerkleid mit einem weißen Zicklein neben sich und schaut
+der Strecke entgegen - das Letzte, was einem freundlich zusieht, bevor die Wand
+kommt. Ein Gruß an jeden Zeichentrickfilm, der je in den Bergen gespielt hat.
+
+Sie tut ebenfalls nichts: keine Regel kennt sie, anfahren geht nicht, sie läuft
+nicht weg. Ihr Platz hängt am **Matsch** und nicht an einer Meterzahl - die
+hintere Kante des Matschfelds _ist_ die Stelle, und wenn das Feld je verschoben
+wird, geht sie mit. Auf einer Strecke ohne Matsch steht sie nirgends.
+
+Gezeichnet wird sie von vorn, weil man am Straßenrand dem entgegensieht, was
+kommt: rotes Kleid, gelbe Puffärmel, dunkler Bubikopf, zwei rote Wangen. In
+dieser Größe ist ein Gesicht zwei Punkte, alles darüber hinaus wäre ein Fleck.
+Das Zicklein ist eine der Ziegen aus [goat.ts](components/goat.ts), nur klein
+und weiß - eine zweite Ziegenzeichnung wären zwei Ziegen, die sich mit der Zeit
+auseinanderentwickeln.
+
+## Die sieben Zwerge am Anstieg
+
+**In Abschnitt 4, dort wo es den Berg hoch geht**, wandern sieben kleine Männer
+mit Bärten, Zipfelmützen und Spitzhacken im Gänsemarsch den Hang hinauf - jeder
+mit eigener Mützenfarbe, eigenem Kittel und ein wenig anders groß, damit sieben
+Zwerge sieben sind und nicht ein Zwerg siebenmal.
+
+Reine Kulisse wie die anderen auch: keine Regel kennt sie, anfahren geht nicht,
+sie bewegen sich nicht. Ihr Platz hängt am **Hang** und nicht an einer
+Meterzahl: Das Modul sucht sich im vierten Abschnitt das längste ansteigende
+Stück Boden und verteilt die sieben darauf. Wird die Karte je neu gezeichnet,
+steigt die Reihe eben den Hang hinauf, der dann dort ist - und wo es in dem
+Abschnitt gar nicht mehr bergauf geht, wandert niemand.
+
+Sie gehen mit Abstand, weil eine Reihe mit Lücken als Kolonne zu lesen ist und
+sieben Zwerge Schulter an Schulter als Hecke. Im Fahrerhaus werden die hinteren
+zuerst gezeichnet, damit sich die Kolonne so überlappt, wie eine Kolonne das tut.
+
+**Oben, wo die Steigung ausläuft, wartet Schneewittchen** und winkt den sieben
+den Hang hinunter zu - blaues Mieder, rote Puffärmel, gelber Rock, schwarzer
+Bubikopf mit roter Schleife. Ihr Platz hängt an derselben Steigung wie die
+Kolonne: ein paar Meter hinter deren oberem Ende. Eine Reihe, die nach Hause
+läuft, läuft zu jemandem nach Hause.
+
+## Die Bremer Stadtmusikanten
+
+**Zu Beginn von Abschnitt 5 stehen vier Tiere übereinander** am Wegrand: ein
+Esel, darauf ein Hund, darauf eine Katze und ganz oben der Hahn - das Bild, das
+in diesem Land jeder aus dem Kopf zeichnen kann. Sie stehen ausgerechnet dort,
+wo der Abschnitt mit einem Bären auf der Fahrbahn anfängt, also auf der einzigen
+Strecke, auf der schon jemand anderes im Geschäft des Verjagens tätig ist.
+
+Kulisse wie alle anderen: keine Regel kennt sie, anfahren geht nicht, sie
+bewegen sich nicht. Ihr Platz hängt am **Abschnitt** und nicht an einer
+Meterzahl - sechzehn Meter hinter dessen Anfang, damit Fahne und Hinweistafel
+frei bleiben.
+
+Gezeichnet wird von unten nach oben, damit jeder auf dem Rücken des darunter
+steht und nicht davor: Der Rücken jedes Tieres ist genau die Linie, auf der das
+nächste seine Füße hat. Alle vier schauen die Strecke hinunter, dorthin, wo das
+Wohnmobil herkommt - wer vorbeifährt, bekommt die Gesichter zu sehen und nicht
+vier Hinterteile.
+
+## Der fliegende Junge über dem Graben
+
+**Über dem Loch im dritten Abschnitt schwebt ein Junge in Grün** mit spitzer
+Mütze, roter Feder und spitzem Ohr, und neben ihm fliegt eine Elfe mit einem
+Schweif aus Funken. Der Witz erklärt sich von selbst: Unten steht ein
+Wohnmobil vor einem Graben, den es nicht überqueren kann, und darüber hängt
+der Einzige, der dieses Problem nie hatte.
+
+Auch die beiden tun nichts - keine Regel kennt sie, anfahren geht nicht, und
+sie bewegen sich **nicht**. Eine schwebende Gestalt über einem Loch liest sich
+von allein als schwebend; etwas, das auf einer Uhr auf und ab wippt, wäre das
+einzige in dieser Welt, das sich ohne Zutun bewegt.
+
+Beide sind mit Absicht **größer als lebensgroß** - gut doppelt so lang, wie ein
+Junge es wäre. In echter Größe war er ein grüner Punkt über einem Loch dreißig
+Meter weiter, und ein Punkt, den niemand erkennt, ist kein Gag, sondern ein
+Fleck. Figuren aus einem Märchenbuch dürfen so groß sein, wie die Geschichte
+sie braucht.
+
+Ihr Platz hängt am **Graben** und nicht an einer Meterzahl: die Mitte des Lochs
+_ist_ die Stelle. Die Höhe zählt dabei ab der **Kante**, nicht ab dem Grund des
+Lochs - vom Boden aus gemessen hinge er unten im Graben, auf einer Höhe mit
+genau dem Hindernis, an dem alle anderen scheitern. Auf einer Strecke ohne
+Graben schwebt niemand. Gezeichnet
+wird von der Seite und flach ausgestreckt, wie jeder Fliegende auf jedem Bild:
+Mütze voran, ein Arm nach vorn, die Beine hinterher. Für die Sichtlinien zählt
+er ab **seiner Flughöhe** - wer über einem Loch in der Luft hängt, verschwindet
+zwar hinter einer Kuppe, überragt aber alles, was am Boden steht.
+
+## Das Krokodil unter der Brücke
+
+**Im Fluss unter der Brücke in Abschnitt 7 steht ein Krokodil** mit aufgerissenem
+Maul, und auf seiner Schnauze balanciert ein Mann im roten Rock mit Federhut,
+erhobenem Säbel und einem Haken statt der Hand. Zwei Abschnitte vorher schwebt
+der fliegende Junge über dem Graben - das hier ist die andere Hälfte derselben
+Geschichte.
+
+Auch die beiden sind reine Kulisse: keine Regel kennt sie, anfahren geht nicht,
+sie bewegen sich nicht. Ihr Platz hängt an der **Brücke**: die Mitte der
+Spannweite, die einzige Stelle dort unten, an der kein Pfeiler steht - die
+beiden tragen das Deck bei einem und bei zwei Dritteln. Auf einer Strecke ohne
+Brücke wartet niemand.
+
+Gezeichnet werden sie zwischen Fluss und Deck, also **hinter** Bogen und
+Pfeilern - was unter einer Brücke steht, steht hinter dem, was sie trägt. Größe
+wie beim fliegenden Jungen: gut doppelt so groß wie lebensgroß, weil das Wasser
+zehn Meter unter der Fahrbahn liegt, aber klein genug, dass der Hut unter dem
+Bogen durchpasst.
+
+Zu sehen sind sie in der **Seitenansicht** - wer im Fahrerhaus sitzt, kann nicht
+unter seine eigene Brücke schauen, und genau das soll auch so bleiben. In diesem
+Abschnitt geht ohnehin immer nur einer zur Zeit über das Deck, der andere steht
+daneben und schaut zu.
+
+## Der Zauberlehrling und die Spinne
+
+**In der Mitte von Abschnitt 6, mitten im Nebel**, steht ein Junge im schwarzen
+Umhang mit runder Brille und rot-goldenem Schal und hält den erhobenen Zauberstab
+gegen eine Spinne von der Größe eines Kleinwagens. Der Abschnitt mit dem Nebel
+ist der einzige, der aussieht wie ein Wald, in dem man nichts verloren hat -
+also genau der richtige Ort dafür.
+
+Kulisse wie alles andere: keine Regel kennt die beiden, anfahren geht nicht, sie
+bewegen sich nicht. Ihr Platz hängt am **Abschnitt** und nicht an einer
+Meterzahl: genau auf halber Strecke, wie lang der Abschnitt auch geschnitten
+ist.
+
+**Genau dort reißt der Nebel kurz auf.** Rund um die beiden bleibt nur ein
+Fünftel der üblichen Suppe stehen, und über gut ein Dutzend Meter blendet das
+weich ein und wieder aus - Nebel, der von einem Bild zum nächsten umspringt,
+liest sich als Fehler. Ohne dieses Loch im Wetter fände der ganze Kampf hinter
+einer grauen Wand statt: Der Nebel dieses Abschnitts ist dick genug, dass alles
+neben der Fahrbahn ein Gerücht ist. Am Ablauf ändert das nichts, die Regel
+"nicht stehen bleiben" gilt dort genauso.
+
+Gezeichnet wird zuerst die Spinne, dann der Junge - so steht er vor ihr und
+nicht in ihr. Sie hat acht Beine, vier nach vorn und vier nach hinten, die der
+abgewandten Seite dunkler, damit acht Beine auch als acht zu lesen sind. Er
+steht der Fahrbahn näher, sie weiter draußen zwischen den Bäumen, und beide
+schauen einander an. Das leuchtende Ende des Zauberstabs ist das, was aus zwei
+Figuren einen Kampf macht - und im Nebel sieht man es zuerst.
+
+## Rotkäppchen und der Wolf
+
+**Auf der letzten Geraden in Abschnitt 8, zwischen dem Abschnittsanfang und dem
+Abgrund**, steht ein Mädchen mit roter Kapuze und Korb am Wegrand und winkt -
+und neun Meter weiter, den Kopf tief, schaut ein grauer Wolf zu ihr zurück. Es
+passiert nichts, und das ist der Witz: so stehen die beiden in jedem Bilderbuch,
+das je gedruckt wurde.
+
+Wieder reine Kulisse: keine Regel kennt sie, anfahren geht nicht, sie bewegen
+sich nicht. Ihr Platz hängt an den **beiden Enden dieser Geraden** - der Start
+des letzten Abschnitts hier, die Kante des Abgrunds dort - und liegt vier
+Zehntel dazwischen. Damit stehen sie weit genug vom Hinweisschild am Anfang und
+von der Kante am Ende weg, und wenn eines von beiden verschoben wird, wandern
+sie mit. Auf einer Strecke ohne Abgrund steht dort niemand.
+
+Gezeichnet werden sie in beiden Ansichten: sie von vorn mit erhobener Hand, weil
+man am Straßenrand dem entgegensieht, was kommt; er von der Seite und schleichend,
+weil ein Wolf von vorn ein graues Kissen ist. Helle Schnauze, schwarze Nase, rotes
+Auge und der buschige Schwanz sind das, was ihn vom Hund unterscheidet.
+
 ## Berge und Wald im Hintergrund
 
 Die Fahrt geht durch **zwei Landschaften**: Die ersten vier Abschnitte klettern
-im Fels und im Schnee herum, ab dem Bären läuft die Strecke in den **Wald**.
-Hinten steht dann statt der Gipfel eine Baumreihe.
+im Fels und im Schnee herum, ab dem Bären läuft die Strecke in den **Wald**. Den
+Wald machen die Bäume **an der Strecke** aus, nicht der Horizont - dort draußen
+steht in der zweiten Hälfte nichts mehr.
 
 Hinter der Strecke stehen im ersten Teil **zwei Bergketten**, jede mit eigenen
 Gipfeln und die hintere mit Schnee auf den höchsten. Sie ziehen unterschiedlich
@@ -943,18 +1231,17 @@ Im Fahrerhaus steht dieselbe Kette am Horizont, nur flacher: Aus dieser Sitzhöh
 drückt die Entfernung alles zusammen. Es ist aber dieselbe Skyline, damit beide
 Ansichten von einer Welt erzählen.
 
-**Der Wald** ist genauso gebaut, nur eng und klein statt weit und groß: zwei
-Reihen Nadelbäume in denselben zwei Geschwindigkeiten, damit sich das Gefühl
-für das eigene Tempo mit der Landschaft nicht ändert - nur das, was da draußen
-steht. Zwischen den Bäumen bleibt flacher Boden stehen, sonst wäre es ein grünes
-Sägeblatt statt einzelner Stämme, und die Höhen kommen aus derselben Welle wie
-die Gipfelhöhen, wiederholen sich also ebenso wenig.
+Am Horizont der Waldhälfte stand zwischenzeitlich eine **Baumreihe** aus lauter
+Dreiecken. Sie ist wieder weg: Sie stand hinter den Bäumen an der Strecke,
+bewegte sich mit ihrem Bruchteil-Tempo kaum und sah deshalb fest aus - und
+gesagt hat sie nichts, was die Bäume am Fenster nicht schon sagen. Den Wald
+machen die Bäume an der Strecke.
 
-**Und im Wald stehen Bäume an der Strecke**, nicht nur am Horizont: zwei Reihen
-Nadelbäume je Seite, alle sieben Meter einer, an denen man beim Fahren
-vorbeizieht. Ein Horizont voller Bäume sagt „irgendwo da draußen ist ein Wald";
-Bäume, die am Fenster vorbeiziehen, sagen „du bist **drin**", und das ist der
-Unterschied zwischen Kulisse und Ort.
+**Der Wald steht an der Strecke**: zwei Reihen Nadelbäume je Seite, alle sieben
+Meter einer, an denen man beim Fahren vorbeizieht. Ein Horizont voller Bäume
+sagt „irgendwo da draußen ist ein Wald"; Bäume, die am Fenster vorbeiziehen,
+sagen „du bist **drin**", und das ist der Unterschied zwischen Kulisse und
+Ort.
 
 Wo sie stehen, wird aus ihrer Nummer gerechnet und nirgends gemerkt - derselbe
 Streckenabschnitt hat also immer denselben Wald; ein Wald, der sich hinter
@@ -966,9 +1253,12 @@ allem, was eine Aufgabe hat: Die Fahrbahn ist 6,4 m breit, die Abschnittsfahnen
 stehen bei 5,5 m und die Hinweistafeln reichen bis 12,5 m hinaus. Kein Baum
 verdeckt je ein Schild. Aus dem Fahrerhaus laufen sie durch dieselben Regeln
 wie alles am Straßenrand: hinter einer Kuppe weg, jenseits der Sichtweite weg.
-Von der Seite stehen sie hinter der Straße, aber vor dem Boden - die hintere
-Reihe etwas höher im Bild und etwas kleiner, denn das sind die zwei Mittel, mit
-denen ein flaches Bild „weiter hinten" sagt.
+Von der Seite stehen sie hinter der Straße, aber vor dem Boden - und **alle mit
+den Stämmen auf der Fahrbahnlinie**, wie alles andere in dieser Ansicht. „Weiter
+hinten" sagt allein die **Größe**: Die zweite Reihe wird etwas kleiner
+gezeichnet. Das andere Mittel, das ein flaches Bild dafür hätte - die Bäume
+etwas höher ins Bild setzen -, sah schlicht nach Bäumen in der Luft aus, erst
+beim ganzen Wald und dann bei der hinteren Reihe.
 
 Gewechselt wird nicht umgeschaltet, sondern **übergeblendet**: Über sechzig
 Meter vor der Grenze verschwinden die Berge und die Bäume kommen. Bei Tempo
@@ -1053,9 +1343,54 @@ Gelaufen wird **mit den Schritten, nicht mit der Uhr**: Der Beinschwung hängt
 an den zurückgelegten Metern, nicht an der Zeit. Deshalb passen Schritt und
 Strecke immer zusammen, egal wie schnell der Rechner die Bilder liefert. Wer
 stehen bleibt, stellt die Füße zusammen - eingefroren mitten im Schritt stünde
-der Fahrer am Baum minutenlang auf einem Bein. Der Arm schwingt gegen die
-Beine, und die Figur wird gespiegelt, sobald sie nach links läuft, damit
-Mützenschirm und Ärmel immer nach vorn zeigen.
+der Fahrer am Baum minutenlang auf einem Bein. Die Figur wird gespiegelt,
+sobald sie nach links läuft, damit Mützenschirm und Ärmel immer nach vorn
+zeigen.
+
+Das Bein hat ein **Knie**: Oberschenkel schwingt aus der Hüfte, Unterschenkel
+klappt dahinter weg, während der Fuß durchschwingt, und der Schuh bleibt die
+ganze Zeit waagerecht zum Boden. Vorher waren es zwei Kästen, die hin und her
+rutschten - in dieser Größe ist das der Unterschied zwischen Gehen und
+Geschobenwerden. Das Knie knickt dabei nur nach hinten; alles andere wäre ein
+Anblick fürs Ärztehaus.
+
+Dazu **zwei Arme** statt eines Ärmels: Der abgewandte ist in der Farbe der
+Weste hinter dem Körper gezeichnet, der nähere im Hemdweiß davor, beide gegen
+die Beine schwingend. Keiner hängt in der Mitte - ein Arm auf der Mittellinie
+liest sich als Streifen auf der Weste. Beim Gehen lehnt sich der Fahrer leicht
+nach vorn, im Stehen steht er gerade.
+
+## Vollbild
+
+Neben dem Titel liegt ein **Vollbild**-Knopf, wie in Panzerkiste: Die Strecke
+füllt dann den ganzen Bildschirm, ein zweiter Knopf oben rechts führt wieder
+heraus.
+
+**Die Bedienknöpfe gehen mit ins Vollbild** - Gangschaltung, Inventar und die
+Tastenleiste stehen unter dem Bild. Ohne sie wäre der Vollbildmodus auf dem
+Telefon ein Bild zum Zusehen: Dort gibt es keine Tastatur, und was man nicht
+antippen kann, kann man nicht fahren.
+
+Das Bild wird dabei **so groß wie möglich, aber nie verzerrt**: Die Knöpfe
+behalten die Höhe, die ein Daumen braucht, und das Bild bekommt den Rest - wie
+viel das ist, misst `use-shot-space.ts` und schreibt es dem Stylesheet auf. Auf
+einem sehr flachen Bildschirm behält das Bild trotzdem einen Mindestanteil, und
+was dann nicht mehr passt, lässt sich scrollen; ein Bild ohne Höhe wäre die
+schlechtere Lösung.
+
+**Scharf statt hochskaliert:** Gezeichnet wird weiter im festen Raster von
+960 x 420 Punkten - das hält den Zeichencode lesbar und liefert überall
+dasselbe Bild -, aber die Zeichenfläche bekommt so viele **echte Pixel**, wie
+der Bildschirm hergibt (bis zum Dreifachen; `fit-canvas.ts`). Eine
+Transformation zieht das ganze Bild auf dieses feinere Raster, der Zeichencode
+merkt davon nichts. Vorher wurde ein 960 Punkte breites Bild im Vollbild auf
+1170 oder mehr aufgeblasen und alles wurde weich; jetzt sind es dort 2340 echte
+Pixel. Gemessen: unverändert 60 Bilder je Sekunde.
+
+Der Rahmen um die Zeichenfläche ist dabei genau so groß wie das Bild darin,
+damit die Einblendungen darüber - Hinweis, Abschnittsmeldung, Endstand - weiter
+dort sitzen, wo sie hingehören, und nicht in der Mitte des Bildschirms
+schweben.
 
 ## Koop online
 

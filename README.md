@@ -149,6 +149,13 @@ Gespeicherte Daten tragen eine Schema-Version. Passt sie nicht, oder ist ein
 Eintrag beschaedigt, wird er verworfen und das Spiel startet frisch, statt mit
 einem kaputten Zustand abzustuerzen.
 
+Eine Ausnahme gibt es: Die **Bestenliste von RV There Yet?** ist global und
+liegt deshalb in der Firebase-Datenbank, die auch die Online-Raeume traegt
+(unter `rooms/rv-there-yet-__best`, weil die Sicherheitsregeln nur `rooms/`
+abdecken). Wer eine Fahrt von Abschnitt 1 bis ans Ziel schafft, darf sich mit
+Namen und Zeit eintragen - offline gefahren genauso wie online. Alles Weitere
+steht im [Spiel-README](website/src/games/rv-there-yet/README.md#bestenliste).
+
 ### Ein weiteres Spiel hinzufuegen
 
 Die Speicher- und Statistik-Schicht ist bewusst spielunabhaengig. Fuer ein neues

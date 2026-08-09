@@ -1862,6 +1862,21 @@ describe("the bridge", () => {
   const GORGE = "#20262d";
   const RAIL = "#7d6142";
   const SIGN_EDGE = "#c0392b";
+  const TIMBER = "#6b5236";
+  const RIVER = "#3d6d8c";
+  const RIVER_LIT = "#5f9cbd";
+
+  /** How tall the side view is, and how wide, for the checks below. */
+  const CANVAS_TALL = 420;
+  const CANVAS_WIDE = 960;
+
+  /** How far down a post reaches to count as a pier and not a strut, in pixels. */
+  const FAR_DOWN = 65;
+
+  /** The lens the driver's view is built with: horizon, eye height, focal. */
+  const HORIZON = 0.44;
+  const EYE = 2.3;
+  const FOCAL = 300;
 
   /** Flat road with a stretch of bridge just ahead of the motorhome. */
   const CROSSING: Route = {
@@ -1903,6 +1918,124 @@ describe("the bridge", () => {
   function firstNamed(calls: readonly Call[], colour: string): number {
     return calls.findIndex((call) => call.args.includes(colour));
   }
+
+  it("runs a river through the gap under it", () => {
+    // The one thing that turns a hole with a plank over it into a bridge:
+    // water down there, with a light running along it.
+    const calls = fromTheSide();
+    expect(usedColour(calls, RIVER)).toBe(true);
+    expect(usedColour(calls, RIVER_LIT)).toBe(true);
+  });
+
+  it("keeps the water in the picture", () => {
+    // A gorge deeper than the canvas is a bridge over a black rectangle that
+    // runs off the bottom of the screen, and the river is never seen.
+    let tone = "";
+    const water: number[] = [];
+    for (const call of fromTheSide()) {
+      if (call.name === "set:fillStyle") {
+        tone = String(call.args[0]);
+      } else if (call.name === "fillRect" && tone === RIVER) {
+        water.push(Number(call.args[1]));
+      }
+    }
+    expect(water.length).toBeGreaterThan(0);
+    for (const top of water) {
+      expect(top).toBeLessThan(CANVAS_TALL);
+    }
+  });
+
+  it("slings an arch under the deck and stands piers in the water", () => {
+    // An arch and piers are what a bridge is; a deck alone is a plank.
+    let tone = "";
+    let arches = 0;
+    const deep: number[] = [];
+    for (const call of fromTheSide()) {
+      if (call.name === "set:fillStyle") {
+        tone = String(call.args[0]);
+      } else if (tone === TIMBER && call.name === "quadraticCurveTo") {
+        arches += 1;
+      } else if (tone === TIMBER && call.name === "fillRect") {
+        deep.push(Number(call.args[3]));
+      }
+    }
+    expect(arches).toBeGreaterThan(0);
+    // Told from the little struts of the arch by how far down they reach: an
+    // abutment or a pier goes most of the way to the water, a strut does not.
+    expect(deep.filter((tall) => tall > FAR_DOWN).length).toBeGreaterThan(2);
+  });
+
+  it("shows the drop and the water from the seat as well", () => {
+    // Rails alone made it look like a fenced-off stretch of road. What says
+    // bridge is that the ground beside it is gone and there is water below.
+    const { ctx, calls } = recordingContext();
+    draw(ctx, driving(), CROSSING, -1, -1);
+    expect(usedColour(calls, RIVER)).toBe(true);
+    // Never across the road: the water is painted per side, or it would run
+    // over the very road being driven on.
+    let tone = "";
+    let patch: number[] = [];
+    let patches = 0;
+    for (const call of calls) {
+      if (call.name === "set:fillStyle") {
+        tone = String(call.args[0]);
+      } else if (
+        tone === RIVER &&
+        (call.name === "moveTo" || call.name === "lineTo")
+      ) {
+        patch.push(Number(call.args[0]) - CANVAS_WIDE / 2);
+      } else if (call.name === "fill" && patch.length > 0) {
+        patches += 1;
+        const left = patch.every((across) => across <= 0);
+        const right = patch.every((across) => across >= 0);
+        expect(left || right).toBe(true);
+        patch = [];
+      }
+    }
+    // One patch of water per side, and neither of them crossing over.
+    expect(patches).toBe(2);
+  });
+
+  it("does not let anybody see through the deck on the way up to it", () => {
+    // Standing short of the bridge, the ground in front of the near lip is in
+    // the way: without cutting the gorge off at that line, the wall and the
+    // water swept up towards the bonnet and one appeared to be looking
+    // **through** the bridge one was driving onto.
+    const { ctx, calls } = recordingContext();
+    draw(ctx, driving(), CROSSING, -1, -1);
+    // Where the near lip of it comes out on the canvas, from the projection
+    // this view is built on: the horizon plus the eye over the distance.
+    const near = (CROSSING.bridges[0]?.from ?? 0) - driving().rv.x;
+    const lip = CANVAS_TALL * HORIZON + (EYE * FOCAL) / near;
+    const cut = calls
+      .filter((call) => call.name === "rect")
+      .map((call) => Number(call.args[3]));
+    expect(cut.some((tall) => Math.abs(tall - lip) < 1)).toBe(true);
+    // And the cut is a clip, not a box drawn on the picture.
+    const at = calls.findIndex(
+      (call) =>
+        call.name === "rect" && Math.abs(Number(call.args[3]) - lip) < 1,
+    );
+    expect(calls[at + 1].name).toBe("clip");
+  });
+
+  it("gives the canvas back the way it found it", () => {
+    // The gorge is drawn inside a clip. A clip left standing would go on
+    // cutting everything drawn after it - the signs, the dashboard, the
+    // speedometer - and the fault would show up anywhere but here.
+    const { ctx, calls } = recordingContext();
+    draw(ctx, driving(), CROSSING, -1, -1);
+    const saved = calls.filter((call) => call.name === "save").length;
+    const back = calls.filter((call) => call.name === "restore").length;
+    expect(saved).toBeGreaterThan(0);
+    expect(back).toBe(saved);
+  });
+
+  it("leaves the seat's view of it alone where there is no bridge", () => {
+    const { ctx, calls } = recordingContext();
+    draw(ctx, driving(), { ...CROSSING, bridges: [] }, -1, -1);
+    expect(usedColour(calls, RIVER)).toBe(false);
+  });
 
   it("paints the timber and the gap under it", () => {
     const calls = fromTheSide();
@@ -2459,11 +2592,200 @@ describe("the trees", () => {
   });
 });
 
+describe("the girl at the foot of the climb", () => {
+  /** Her red pinafore, which nothing else in the picture wears. */
+  const DRESS = "#d13a2b";
+
+  /** A road with a patch of mud on it, as the second section has. */
+  const CLIMB: Route = {
+    ...TWO_TREES,
+    anchors: [],
+    mud: [{ from: ROUTE_STEP * 4, to: ROUTE_STEP * 5 }],
+  };
+
+  /** Everything one of the views drew, from a place along that road. */
+  function seen(at: number, inside: boolean): readonly Call[] {
+    const base = inside ? seated() : standing();
+    const { ctx, calls } = recordingContext();
+    draw(
+      ctx,
+      { ...base, rv: { x: at, v: 0 }, people: [{ ...base.people[0], at }] },
+      CLIMB,
+      -1,
+      -1,
+    );
+    return calls;
+  }
+
+  it("stands where the mud ends, in both views", () => {
+    expect(usedColour(seen(ROUTE_STEP * 4, true), DRESS)).toBe(true);
+    expect(usedColour(seen(ROUTE_STEP * 5, false), DRESS)).toBe(true);
+  });
+
+  it("is not on a road without mud", () => {
+    const { ctx, calls } = recordingContext();
+    draw(ctx, seated(), { ...CLIMB, mud: [] }, -1, -1);
+    expect(usedColour(calls, DRESS)).toBe(false);
+  });
+
+  it("has her kid with her, in both views", () => {
+    // The white one: the same goat as on the pasture, only small and pale.
+    // Found by its horn, which on this road nothing else has - the pasture
+    // and its herd are a section away.
+    const HORN = "#6f6455";
+    expect(usedColour(seen(ROUTE_STEP * 4, true), HORN)).toBe(true);
+    expect(usedColour(seen(ROUTE_STEP * 5, false), HORN)).toBe(true);
+  });
+});
+
+describe("the boy flying over the ditch", () => {
+  /** His lincoln green, which nothing else in the picture is painted in. */
+  const TUNIC = "#3c8b4a";
+
+  /** The red of the feather in his cap. */
+  const FEATHER = "#c0392b";
+
+  /** A road with a hole in it, as the third section has. */
+  const HOLE: Route = {
+    ...TWO_TREES,
+    anchors: [],
+    pits: [{ from: ROUTE_STEP * 4, to: ROUTE_STEP * 5 }],
+  };
+
+  /** Everything one of the views drew, from a place along that road. */
+  function seen(at: number, inside: boolean): readonly Call[] {
+    const base = inside ? seated() : standing();
+    const { ctx, calls } = recordingContext();
+    draw(
+      ctx,
+      { ...base, rv: { x: at, v: 0 }, people: [{ ...base.people[0], at }] },
+      HOLE,
+      -1,
+      -1,
+    );
+    return calls;
+  }
+
+  it("hangs over the hole, in both views", () => {
+    expect(usedColour(seen(ROUTE_STEP * 3, true), TUNIC)).toBe(true);
+    expect(usedColour(seen(ROUTE_STEP * 4, false), TUNIC)).toBe(true);
+  });
+
+  it("wears the feather in both views, which is who he is", () => {
+    expect(usedColour(seen(ROUTE_STEP * 3, true), FEATHER)).toBe(true);
+    expect(usedColour(seen(ROUTE_STEP * 4, false), FEATHER)).toBe(true);
+  });
+
+  it("is not on a road without a hole in it", () => {
+    const { ctx, calls } = recordingContext();
+    draw(ctx, seated(), { ...HOLE, pits: [] }, -1, -1);
+    expect(usedColour(calls, TUNIC)).toBe(false);
+  });
+
+  it("has his fairy with him, in both views", () => {
+    // What makes her a fairy and not a fly is the glow around her.
+    const GLOW = "#f7e79a";
+    expect(usedColour(seen(ROUTE_STEP * 3, true), GLOW)).toBe(true);
+    expect(usedColour(seen(ROUTE_STEP * 4, false), GLOW)).toBe(true);
+  });
+
+  it("is up in the sky from the driver's seat, not down on the road", () => {
+    // Hanging higher than the driver sits, he belongs **above** the horizon.
+    // Anything painted on the ground out there lands below it.
+    const HORIZON = 420 * 0.44;
+    const calls = seen(ROUTE_STEP * 3, true);
+    let green = false;
+    const painted: number[] = [];
+    for (const call of calls) {
+      if (call.name === "set:fillStyle") {
+        green = call.args[0] === TUNIC;
+      } else if (green && (call.name === "moveTo" || call.name === "lineTo")) {
+        painted.push(Number(call.args[1]));
+      }
+    }
+    expect(painted.length).toBeGreaterThan(0);
+    expect(Math.max(...painted)).toBeLessThan(HORIZON);
+  });
+
+  it("flies above the ground rather than standing in the hole", () => {
+    // On a level road the side view keeps the ground down the middle of the
+    // canvas. Everything he is painted in has to sit higher up than that, or
+    // he is a boy standing in a ditch.
+    const road = 420 / 2;
+    const calls = seen(ROUTE_STEP * 4, false);
+    let green = false;
+    const painted: number[] = [];
+    for (const call of calls) {
+      if (call.name === "set:fillStyle") {
+        green = call.args[0] === TUNIC;
+      } else if (green && (call.name === "moveTo" || call.name === "lineTo")) {
+        painted.push(Number(call.args[1]));
+      }
+    }
+    expect(painted.length).toBeGreaterThan(0);
+    expect(Math.max(...painted)).toBeLessThan(road);
+  });
+});
+
+describe("the goats on the first section", () => {
+  /** A goat's horn, which nothing else in the picture is painted in. */
+  const HORN = "#6f6455";
+
+  /** The road of the first section, with a second section to end it. */
+  const PASTURE: Route = {
+    ...TWO_TREES,
+    anchors: [],
+    sections: [ROUTE_STEP * 2, ROUTE_STEP * 30],
+  };
+
+  it("puts them out where the drive begins", () => {
+    // Scenery, and that is the point: the first section is where somebody is
+    // learning which pedal is which, and a road with something living beside
+    // it is a road somebody wants to drive down.
+    const { ctx, calls } = recordingContext();
+    draw(
+      ctx,
+      { ...seated(), rv: { x: ROUTE_STEP * 4, v: 0 } },
+      PASTURE,
+      -1,
+      -1,
+    );
+    expect(usedColour(calls, HORN)).toBe(true);
+  });
+
+  it("shows them from the roadside as well", () => {
+    const out = standing();
+    const at = ROUTE_STEP * 4;
+    const { ctx, calls } = recordingContext();
+    draw(
+      ctx,
+      { ...out, rv: { x: at, v: 0 }, people: [{ ...out.people[0], at }] },
+      PASTURE,
+      -1,
+      -1,
+    );
+    expect(usedColour(calls, HORN)).toBe(true);
+  });
+
+  it("keeps them off the rest of the map", () => {
+    // Further along there is a bear, and no goat would stand about there.
+    const { ctx, calls } = recordingContext();
+    draw(
+      ctx,
+      { ...seated(), rv: { x: ROUTE_STEP * 34, v: 0 } },
+      PASTURE,
+      -1,
+      -1,
+    );
+    expect(usedColour(calls, HORN)).toBe(false);
+  });
+});
+
 describe("the country the drive goes through", () => {
-  /** The far range, the near range, and the near wall of forest. */
+  /** The far range, the near range, and the trees along the road. */
   const RANGE = "#a9c2d8";
   const NEARER = "#93ae9b";
-  const WOOD = "#4c6a48";
+  const WOOD = "#3f6b46";
 
   /** The two views, from a place along the route. */
   function seen(at: number): {
@@ -2502,12 +2824,14 @@ describe("the country the drive goes through", () => {
     expect(usedColour(late.cab, WOOD)).toBe(true);
   });
 
-  it("mixes the one into the other rather than switching", () => {
+  it("fades the mountains out rather than switching them off", () => {
     // At speed a skyline that changed between one frame and the next would
-    // read as a fault, so for a stretch both are there and both are faint.
+    // read as a fault, so for a stretch they are still there and faint. What
+    // arrives instead is the wood along the road, not a second skyline: a row
+    // of trees on the horizon only stood behind the near ones and hardly
+    // moved with them.
     const between = seen(WOOD_FROM - ROUTE_STEP * 4);
     expect(usedColour(between.side, RANGE)).toBe(true);
-    expect(usedColour(between.side, WOOD)).toBe(true);
     const fading = between.side
       .filter((call) => call.name === "set:globalAlpha")
       .map((call) => Number(call.args[0]));
@@ -2524,6 +2848,28 @@ describe("the country the drive goes through", () => {
     // On trunks, not hanging in the air: a conifer without one is a green
     // arrowhead lying on the grass.
     expect(usedColour(late.cab, "#43301f")).toBe(true);
+  });
+
+  it("stands every one of them on the ground", () => {
+    // They floated: the wood was lifted a little to fake depth, so the trees
+    // hung a hand's breadth over the road. Further back is said with size
+    // alone now, and a tree with its feet off the ground is a tree in a tree.
+    const BARK = "#43301f";
+    // On the level the ground runs across the middle of the side view.
+    const GROUND = 210;
+    let tone = "";
+    const feet: number[] = [];
+    for (const call of seen(WOOD_FROM + ROUTE_STEP).side) {
+      if (call.name === "set:fillStyle") {
+        tone = String(call.args[0]);
+      } else if (call.name === "fillRect" && tone === BARK) {
+        feet.push(Number(call.args[1]) + Number(call.args[3]));
+      }
+    }
+    expect(feet.length).toBeGreaterThan(4);
+    for (const foot of feet) {
+      expect(foot).toBeCloseTo(GROUND, 5);
+    }
   });
 
   it("leaves the mountain half without them", () => {
@@ -3029,6 +3375,32 @@ describe("the hillside beside the road", () => {
     for (let index = 1; index < tones.length; index++) {
       expect(tones[index] - tones[index - 1]).toBeLessThan(0.12);
     }
+  });
+
+  it("shades snow even where the ground is flat", () => {
+    // On grass, level country is left one colour on purpose - nothing is
+    // invented where the map says nothing. Snow cannot afford that: it has no
+    // grain and no colour of its own, so a flat snowfield came out as a blank
+    // white sheet with a road drawn on it.
+    const flat: Route = {
+      ...TWO_TREES,
+      heights: TWO_TREES.heights.map((height) => height + SNOW_FULL),
+    };
+    const tones = strips(flat).map((strip) => brightness(strip.tone));
+    expect(Math.max(...tones)).toBeGreaterThan(Math.min(...tones) + 0.05);
+  });
+
+  it("lights the two sides of a snowy hillside differently too", () => {
+    // The light does not stop at the snow line. Without the side it comes
+    // from, a snowy valley is two identical white walls.
+    const deep = shaped(false);
+    const snowy: Route = {
+      ...deep,
+      heights: deep.heights.map((height) => height + SNOW_FULL),
+    };
+    const left = brightness(side(snowy, true)[0].tone);
+    const right = brightness(side(snowy, false)[0].tone);
+    expect(Math.abs(left - right)).toBeGreaterThan(0.03);
   });
 
   it("shades snow as well, so a summit is not one white sheet", () => {

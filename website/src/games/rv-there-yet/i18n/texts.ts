@@ -58,17 +58,28 @@ export const RV_TEXTS = {
   slopeDown: "Gefälle",
   // Controls
   controlsTitle: "Steuerung",
-  gasKeys: "Fahren: W vorwärts · S rückwärts (bremst erst, dann rückwärts)",
-  walkKeys: "Zu Fuß: A D oder ← → · Rennen: Umschalt",
-  gearKeys:
-    "Gänge 1-5 selbst einlegen · N Leerlauf · R kommt beim Rückwärts von allein",
-  doorKeys: "Aus- und einsteigen: E (nur wenn das Wohnmobil steht)",
-  takeKeys: "Aufheben und benutzen: F (halten zum Arbeiten)",
-  hookKeys: "F: am Baum Seil an-/abmachen · am Wohnmobil halten zum Arbeiten",
-  jumpKeys:
-    "Leertaste: zu Fuß springen (zweimal kurz = doppelt so hoch) · im Fahrerhaus Handbremse (halten)",
-  windKeys: "Seilwinde: W oder ↑ einziehen · S oder ↓ ausgeben (nur zu Fuß)",
-  hint: "Zu steil zum Fahren? Aussteigen, zum leuchtenden Baum laufen, Seil dranmachen und mit der Seilwinde hochziehen - dann Seil ab und weiterfahren.",
+  /**
+   * Die Tastenzeile unter dem Bild - je Sitzplatz nur das, was dort gilt.
+   *
+   * @remarks
+   * Vorher standen alle zehn Zeilen immer da, die halbe Steuerung also für den
+   * anderen Sitzplatz. Wer im Fahrerhaus sitzt, braucht nichts über das
+   * Aufheben zu lesen, und wer draußen steht, nichts über die Gänge.
+   */
+  drivingKeys: [
+    "Fahren: W · S",
+    "Gänge: 1-5 · N · R",
+    "Handbremse: Leertaste halten",
+    "Aussteigen: E (im Stand)",
+  ] as readonly string[],
+  walkingKeys: [
+    "Laufen: A · D",
+    "Rennen: Umschalt",
+    "Springen: Leertaste",
+    "Nehmen und arbeiten: F halten",
+    "Seilwinde: W ein · S aus",
+    "Einsteigen: E",
+  ] as readonly string[],
   // Touch buttons
   /** What the keys are called where a letter will not do. */
   keySpace: "Leertaste",
@@ -131,13 +142,30 @@ export const RV_TEXTS = {
   itemTyres: "Geländereifen",
   itemSpray: "Bärenspray",
   itemAxe: "Axt",
-  cycleKeys:
-    "Das Passende kommt von selbst in die Hand · von Hand wechseln: Q (oder anklicken)",
   mended: "Wohnmobil wieder fahrtüchtig",
   wrongWay: "Rückwärtsgang - für vorwärts Gang 1-5 einlegen",
   noGear: "Leerlauf - Gang 1-5 einlegen",
   passenger: "Beifahrer - lenken darf, wer zuerst eingestiegen ist",
   parked: "Handbremse - bremst bis zum Stillstand",
+  // Bestenliste
+  boardTitle: "Bestenliste",
+  boardSubtitle: "Schnellste Fahrten von Abschnitt 1 bis ans Ziel",
+  boardEmpty: "Noch keine Fahrt eingetragen - deine könnte die erste sein.",
+  boardLoading: "Bestenliste wird geladen …",
+  boardFailed: "Bestenliste nicht erreichbar.",
+  boardPlace: "Platz",
+  boardName: "Name",
+  boardTime: "Zeit",
+  boardYours: "Deine Fahrt",
+  boardMadeIt: (place: number) =>
+    `Platz ${place} - trag deinen Namen ein und du stehst auf der Liste.`,
+  boardMissed: "Diesmal nicht unter den besten zehn. Die aktuelle Liste:",
+  boardPartial:
+    "Nur durchgehende Fahrten ab Abschnitt 1 kommen in die Liste - diese hier fing später an.",
+  boardEnter: "Eintragen",
+  boardEntering: "Wird eingetragen …",
+  boardEntered: "Eingetragen!",
+  boardNamePlaceholder: "Dein Name",
   // Overlays
   start: "Los geht's",
   startHint: "Klick auf die Strecke, um zu starten.",
@@ -157,4 +185,6 @@ export const RV_TEXTS = {
     "Zum nächsten Abschnitt - vom letzten aus zurück zum ersten",
   statistics: "Statistik",
   online: "Online spielen",
+  fullscreen: "Vollbild",
+  fullscreenExit: "Vollbild verlassen",
 } as const;

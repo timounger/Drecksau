@@ -21,6 +21,7 @@ import {
   step,
 } from "@/games/rv-there-yet/engine/engine";
 import { sectionStep } from "@/games/rv-there-yet/engine/map";
+import { fitCanvas } from "@/lib/screen/fit-canvas";
 import { startAt, theMap } from "@/games/rv-there-yet/engine/setup";
 import {
   loadSection,
@@ -37,6 +38,13 @@ import {
 } from "@/games/rv-there-yet/hooks/controls";
 import { hudOf, sameHud, type Hud } from "@/games/rv-there-yet/hooks/hud";
 import type { GameState } from "@/games/rv-there-yet/engine/types";
+import {
+  NO_RUN,
+  runAgain,
+  runFrom,
+  runOn,
+  type Run,
+} from "@/games/rv-there-yet/stats/run-clock";
 import {
   recordGameFinished,
   recordGameStarted,
@@ -80,6 +88,15 @@ export type Note = {
 export type RvThereYetGame = {
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
   readonly hud: Hud;
+  /**
+   * The drive as a whole, as it stood when it ended.
+   *
+   * @remarks
+   * The world's clock begins again at every section; this one runs over all of
+   * them, which is what a board of best times has to be measured on. Only
+   * updated when a drive ends, because that is the only moment it is read.
+   */
+  readonly run: Run;
   /** The note about a section just reached, or null. */
   readonly note: Note | null;
   /** Begins or resumes the drive. */
@@ -153,6 +170,15 @@ export function useRvThereYet(): RvThereYetGame {
   // Statistics of the current drive: whether its start and its outcome were
   // counted, and the play time not yet written away.
   const tally = useRef({ recorded: false, ended: false, unflushedMs: 0 });
+  /**
+   * The clock of the whole drive, for the board of best times.
+   *
+   * @remarks
+   * A ref and not state: it changes sixty times a second and is only ever read
+   * when the flag comes up. What the screen gets is a copy, taken then.
+   */
+  const runRef = useRef<Run>(NO_RUN);
+  const [run, setRun] = useState<Run>(NO_RUN);
   /** The section already written to storage, so it is saved only on change. */
   const savedSection = useRef(0);
 
@@ -192,6 +218,7 @@ export function useRvThereYet(): RvThereYetGame {
           dt,
         );
         tally.current.unflushedMs += Math.min(dt, MAX_FRAME_S) * MS_PER_SECOND;
+        runRef.current = runOn(runRef.current, Math.min(dt, MAX_FRAME_S));
         sinceFlush += dt * MS_PER_SECOND;
         if (sinceFlush >= STATS_FLUSH_MS) {
           sinceFlush = 0;
@@ -208,6 +235,9 @@ export function useRvThereYet(): RvThereYetGame {
         const over = stateRef.current.phase !== "driving";
         if (over && !tally.current.ended) {
           tally.current.ended = true;
+          // Handed to the screen only now: this is the one moment anybody
+          // wants to know how long the whole thing took.
+          setRun(runRef.current);
           flushTime();
           recordGameFinished(GAME_ID, {
             // The bear is the one way this drive is lost.
@@ -228,6 +258,10 @@ export function useRvThereYet(): RvThereYetGame {
       );
       const candidate = ropeCandidate(stateRef.current, route);
       syncHud(stateRef.current, ready, candidate);
+      // As many pixels as the screen really gives it, so the picture is sharp
+      // full screen as well; the drawing below stays in the logical grid.
+      const dots = fitCanvas(canvas, CANVAS_W, CANVAS_H);
+      ctx.setTransform(dots, 0, 0, dots, 0, 0);
       draw(ctx, stateRef.current, route, candidate, ready, ME);
       raf = window.requestAnimationFrame(frame);
     };
@@ -242,7 +276,8 @@ export function useRvThereYet(): RvThereYetGame {
   }, [syncHud, flushTime, showNote]);
 
   const beginDrive = useCallback(
-    (section: number) => {
+    (section: number, again = false) => {
+      runRef.current = again ? runAgain(runRef.current) : runFrom(section);
       stateRef.current = startAt(section);
       savedSection.current = stateRef.current.section;
       saveSection(savedSection.current);
@@ -276,9 +311,13 @@ export function useRvThereYet(): RvThereYetGame {
   return {
     canvasRef,
     hud,
+    run,
     note,
     start,
-    again: () => beginDrive(stateRef.current.section),
+    // Beginning a section again after a crash is the same drive carrying on:
+    // the clock is not put back, because a section driven twice took twice as
+    // long and a board that forgave that would reward crashing on purpose.
+    again: () => beginDrive(stateRef.current.section, true),
     newGame: () => beginDrive(FIRST_SECTION),
     next: () => beginDrive(sectionStep(stateRef.current.section, 1)),
     back: () => beginDrive(sectionStep(stateRef.current.section, -1)),

@@ -37,6 +37,7 @@ export function startAt(section: number, people = 1): GameState {
     fuel: 1,
     phase: "driving",
     time: 0,
+    doing: null,
     still: 0,
     brake: false,
     felled: false,

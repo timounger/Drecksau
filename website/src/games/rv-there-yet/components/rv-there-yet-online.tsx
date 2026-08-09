@@ -21,6 +21,8 @@ import {
   type ReactElement,
 } from "react";
 import { database } from "@/online/firebase-app";
+import { useFullscreen } from "@/lib/screen/use-fullscreen";
+import { useShotRatio } from "@/lib/screen/use-shot-ratio";
 import {
   clearMatch,
   findMatch,
@@ -51,6 +53,10 @@ import {
 } from "@/games/rv-there-yet/components/board";
 import { COOP_PLAYERS, RV_GAME_ID } from "@/games/rv-there-yet/multiplayer/net";
 import { RV_TEXTS } from "@/games/rv-there-yet/i18n/texts";
+import { Leaderboard } from "@/games/rv-there-yet/components/leaderboard";
+
+/** Milliseconds in a second, for handing the drive's clock to the board. */
+const MS_PER_SECOND = 1000;
 import {
   useRvThereYetOnline,
   type OnlineSession,
@@ -598,6 +604,9 @@ function DrivingArea({
   onLeave,
 }: DrivingAreaProps): ReactElement {
   const { hud, canvasRef, messages, seatId, seats, sendChat } = online;
+  const stageRef = useRef<HTMLDivElement>(null);
+  const fullscreen = useFullscreen(stageRef);
+  useShotRatio(canvasRef, stageRef);
 
   return (
     <div className="flex flex-col gap-3">
@@ -611,6 +620,18 @@ function DrivingArea({
         </div>
         <div className="flex items-center gap-2">
           <SeatBadge hud={hud} />
+          {fullscreen.supported && (
+            <button
+              type="button"
+              data-testid="rv-fullscreen"
+              onClick={fullscreen.toggle}
+              className="cursor-pointer rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              {fullscreen.active
+                ? RV_TEXTS.fullscreenExit
+                : RV_TEXTS.fullscreen}
+            </button>
+          )}
           {online.isHost && (
             <button
               type="button"
@@ -626,7 +647,7 @@ function DrivingArea({
         </div>
       </div>
 
-      <div className="relative">
+      <div ref={stageRef} className="game-fullscreen relative">
         <canvas
           ref={canvasRef}
           data-testid="rv-canvas"
@@ -635,6 +656,15 @@ function DrivingArea({
           className="block w-full touch-none rounded-2xl border border-zinc-300 shadow-sm dark:border-zinc-700"
         />
         <ArrivedOverlay online={online} />
+        {fullscreen.active && (
+          <button
+            type="button"
+            onClick={fullscreen.toggle}
+            className="absolute top-3 right-3 z-50 cursor-pointer rounded-lg bg-black/60 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
+          >
+            {RV_TEXTS.fullscreenExit}
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2">
@@ -653,7 +683,7 @@ function DrivingArea({
 
       <TouchPad onPress={online.touch} hud={hud} />
 
-      <ControlsHint />
+      <ControlsHint inside={hud.inside} />
 
       <VoiceChat
         gameId={RV_GAME_ID}
@@ -788,7 +818,7 @@ function ArrivedOverlay({
     return null;
   }
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-900/70 p-4 text-center text-white">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 overflow-y-auto rounded-2xl bg-zinc-900/85 p-4 text-center text-white">
       <p className="text-2xl font-bold">
         {"\u{1F3C1}"} {RV_TEXTS.arrived}
       </p>
@@ -798,6 +828,14 @@ function ArrivedOverlay({
       <p className="text-base font-semibold text-emerald-300">
         {RV_TEXTS.allDone}
       </p>
+      {/* Both of them may put their own name to the drive they drove together:
+          the board is about times, and they both drove that time. */}
+      <Leaderboard
+        run={{
+          ms: online.run.seconds * MS_PER_SECOND,
+          whole: online.run.whole,
+        }}
+      />
       {online.isHost ? (
         <button
           type="button"

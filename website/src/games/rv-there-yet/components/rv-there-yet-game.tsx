@@ -10,8 +10,11 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactElement } from "react";
+import { useRef, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
+import { useFullscreen } from "@/lib/screen/use-fullscreen";
+import { useShotRatio } from "@/lib/screen/use-shot-ratio";
+import { useShotSpace } from "@/lib/screen/use-shot-space";
 import { CANVAS_H, CANVAS_W } from "@/games/rv-there-yet/components/render";
 import {
   Action,
@@ -30,6 +33,12 @@ import {
   type Note,
 } from "@/games/rv-there-yet/hooks/use-rv-there-yet";
 import { RV_TEXTS } from "@/games/rv-there-yet/i18n/texts";
+import { Leaderboard } from "@/games/rv-there-yet/components/leaderboard";
+
+import type { Run } from "@/games/rv-there-yet/stats/run-clock";
+
+/** Milliseconds in a second, for handing the drive's clock to the board. */
+const MS_PER_SECOND = 1000;
 
 /**
  * Renders the "RV There Yet?" game screen.
@@ -40,6 +49,7 @@ export function RvThereYetGame(): ReactElement {
   const {
     canvasRef,
     hud,
+    run,
     note,
     start,
     again,
@@ -50,6 +60,13 @@ export function RvThereYetGame(): ReactElement {
     shift,
     pick,
   } = useRvThereYet();
+
+  const stageRef = useRef<HTMLDivElement>(null);
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const fullscreen = useFullscreen(stageRef);
+  useShotRatio(canvasRef, stageRef);
+  // The buttons go fullscreen with the picture, so it only gets the rest.
+  useShotSpace(stageRef, controlsRef);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
@@ -63,6 +80,16 @@ export function RvThereYetGame(): ReactElement {
         >
           {RV_TEXTS.newGame}
         </button>
+        {fullscreen.supported && (
+          <button
+            type="button"
+            data-testid="rv-fullscreen"
+            onClick={fullscreen.toggle}
+            className="cursor-pointer rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {fullscreen.active ? RV_TEXTS.fullscreenExit : RV_TEXTS.fullscreen}
+          </button>
+        )}
         <Link
           href="/rv-there-yet/online"
           className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
@@ -95,32 +122,53 @@ export function RvThereYetGame(): ReactElement {
         </div>
       </div>
 
-      <div className="relative">
-        <canvas
-          ref={canvasRef}
-          data-testid="rv-canvas"
-          width={CANVAS_W}
-          height={CANVAS_H}
-          className="block w-full touch-none rounded-2xl border border-zinc-300 shadow-sm dark:border-zinc-700"
-        />
-        <NoteView note={note} />
-        <Overlay
-          hud={hud}
-          onStart={start}
-          onAgain={again}
-          onFromStart={newGame}
-        />
+      <div ref={stageRef} className="game-fullscreen flex flex-col gap-4">
+        <div className="game-shot relative">
+          <canvas
+            ref={canvasRef}
+            data-testid="rv-canvas"
+            width={CANVAS_W}
+            height={CANVAS_H}
+            className="block w-full touch-none rounded-2xl border border-zinc-300 shadow-sm dark:border-zinc-700"
+          />
+          <NoteView note={note} />
+          <Overlay
+            hud={hud}
+            run={run}
+            onStart={start}
+            onAgain={again}
+            onFromStart={newGame}
+          />
+          {fullscreen.active && (
+            <button
+              type="button"
+              onClick={fullscreen.toggle}
+              className="absolute top-3 right-3 z-50 cursor-pointer rounded-lg bg-black/60 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
+            >
+              {RV_TEXTS.fullscreenExit}
+            </button>
+          )}
+        </div>
+
+        {/* Inside the part that goes fullscreen, so the game can still be
+            played with a thumb up there: the picture gives up the height
+            these need rather than the other way round. */}
+        <div ref={controlsRef} className="flex w-full flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <GearStick gear={hud.gear} onShift={shift} driving={hud.driving} />
+          </div>
+
+          <Inventory
+            carrying={hud.carrying}
+            holding={hud.holding}
+            onPick={pick}
+          />
+
+          <TouchPad onPress={touch} hud={hud} />
+
+          <ControlsHint inside={hud.inside} />
+        </div>
       </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <GearStick gear={hud.gear} onShift={shift} driving={hud.driving} />
-      </div>
-
-      <Inventory carrying={hud.carrying} holding={hud.holding} onPick={pick} />
-
-      <TouchPad onPress={touch} hud={hud} />
-
-      <ControlsHint />
     </div>
   );
 }
@@ -187,6 +235,8 @@ function Jump({ onClick, title, children }: JumpProps): ReactElement {
 /** Props of {@link Overlay}. */
 type OverlayProps = {
   readonly hud: Hud;
+  /** The drive as a whole, for the board of best times. */
+  readonly run: Run;
   readonly onStart: () => void;
   /** Starts the section that is being played over. */
   readonly onAgain: () => void;
@@ -194,9 +244,18 @@ type OverlayProps = {
   readonly onFromStart: () => void;
 };
 
-/** The screen over the canvas before the start and after the drive ends. */
-function Overlay({
+/**
+ * The screen over the canvas before the start and after the drive ends.
+ *
+ * @param props - the world, the drive as a whole, and what the buttons do
+ * @returns the overlay, or nothing while the drive is running
+ * @remarks
+ * Exported for the tests: which screen comes up when, and what is on it, is
+ * worth pinning and is nothing a canvas test can see.
+ */
+export function Overlay({
   hud,
+  run,
   onStart,
   onAgain,
   onFromStart,
@@ -274,7 +333,7 @@ function Overlay({
   // and no going back to the last section either. Playing again means playing
   // the map, from the plateau.
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-900/70 p-4 text-center text-white">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 overflow-y-auto rounded-2xl bg-zinc-900/85 p-4 text-center text-white">
       <p className="text-2xl font-bold">
         {"\u{1F3C1}"} {RV_TEXTS.arrived}
       </p>
@@ -284,6 +343,9 @@ function Overlay({
       <p className="text-base font-semibold text-emerald-300">
         {RV_TEXTS.allDone}
       </p>
+      <Leaderboard
+        run={{ ms: run.seconds * MS_PER_SECOND, whole: run.whole }}
+      />
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Action onClick={onFromStart}>{RV_TEXTS.againFromStart}</Action>
       </div>

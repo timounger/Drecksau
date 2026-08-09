@@ -9,11 +9,36 @@
  */
 import { describe, expect, it } from "vitest";
 import { hudOf, sameHud } from "./hud";
+import { doingText } from "@/games/rv-there-yet/components/board";
+import { step } from "@/games/rv-there-yet/engine/engine";
+import type { GameState, Input } from "@/games/rv-there-yet/engine/types";
 import { startAt, theMap } from "@/games/rv-there-yet/engine/setup";
 import { SECTION_COUNT } from "@/games/rv-there-yet/engine/map";
 import { routeLength } from "@/games/rv-there-yet/engine/terrain";
-import { STILL_SECONDS } from "@/games/rv-there-yet/engine/types";
+import {
+  FELL_SECONDS,
+  FUEL_SECONDS,
+  REPAIR_SECONDS,
+  STILL_SECONDS,
+} from "@/games/rv-there-yet/engine/types";
 import { RV_TEXTS } from "@/games/rv-there-yet/i18n/texts";
+
+/** One frame, and a set of controls with nothing pressed. */
+const FRAME = 1 / 60;
+const IDLE: Input = {
+  drive: 0,
+  wind: 0,
+  hook: false,
+  take: false,
+  pick: null,
+  cycle: false,
+  work: false,
+  jump: false,
+  brake: false,
+  door: false,
+  sprint: false,
+  shift: null,
+};
 
 /** How far before the bridge the warning is up, and a distance well past it. */
 const WARNING_FROM = 30;
@@ -175,5 +200,79 @@ describe("the bridge on the screen", () => {
     const view = { ready: -1, candidate: -1, running: true, me: 0 };
     expect(hudOf(alone, view).aboard).toBe(0);
     expect(hudOf(both, view).aboard).toBe(2);
+  });
+});
+
+describe("the job the screen says is being done", () => {
+  /** A world with a job of a given kind part done. */
+  function working(doing: "mend" | "fuel" | "fell", seconds: number) {
+    return hudOf(
+      { ...startAt(0), doing, repair: seconds },
+      { ready: -1, candidate: -1, running: true, me: 0 },
+    );
+  }
+
+  it("passes on what the world says is going on", () => {
+    // Not what this player could start where they stand: in co-op the one
+    // watching stands nowhere near the work, and at the chasm the one at the
+    // tree was reported as mending the motorhome behind them.
+    expect(working("fell", 1).doing).toBe("fell");
+    expect(at(0).doing).toBe(null);
+  });
+
+  it("counts each job against its own length", () => {
+    // Fuelling takes four seconds where the rest take three. One divisor for
+    // all of them is a bar that fills at the wrong rate.
+    expect(working("mend", REPAIR_SECONDS).repair).toBe(1);
+    expect(working("fell", FELL_SECONDS).repair).toBe(1);
+    expect(working("fuel", FUEL_SECONDS).repair).toBe(1);
+    expect(working("fuel", REPAIR_SECONDS).repair).toBeCloseTo(
+      REPAIR_SECONDS / FUEL_SECONDS,
+      5,
+    );
+  });
+
+  it("reads out as felling when the axe is going, all the way to the screen", () => {
+    // The whole chain, because the bug lived between the links of it: the
+    // engine knew it was a tree, the screen asked the player's surroundings
+    // instead and printed "Repariert" while the axe was swinging.
+    const route = theMap();
+    const tree = route.fellTree ?? 0;
+    let state: GameState = {
+      ...startAt(SECTION_COUNT - 1),
+      driver: -1,
+    };
+    state = {
+      ...state,
+      people: [
+        {
+          ...state.people[0],
+          at: tree,
+          inside: false,
+          carrying: ["remote", "axe"],
+          holding: "axe",
+        },
+      ],
+    };
+    for (let frame = 0; frame < FELL_SECONDS / 2 / FRAME; frame++) {
+      state = step(state, route, [{ ...IDLE, work: true }], FRAME);
+    }
+    const hud = hudOf(state, {
+      ready: -1,
+      candidate: -1,
+      running: true,
+      me: 0,
+    });
+    expect(hud.doing).toBe("fell");
+    expect(doingText(hud)).toContain("Fällt");
+    expect(doingText(hud)).not.toContain("Repariert");
+  });
+
+  it("counts nothing while nothing is being done", () => {
+    const idle = hudOf(
+      { ...startAt(0), doing: null, repair: 2 },
+      { ready: -1, candidate: -1, running: true, me: 0 },
+    );
+    expect(idle.repair).toBe(0);
   });
 });

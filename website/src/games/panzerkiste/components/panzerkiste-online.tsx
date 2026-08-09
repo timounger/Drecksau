@@ -39,7 +39,8 @@ import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import { PANZERKISTE_GAME_ID } from "@/games/panzerkiste/multiplayer/net";
 import { BannerView } from "@/games/panzerkiste/components/round-banner";
 import { VolumeSlider } from "@/games/panzerkiste/components/volume-slider";
-import { useFullscreen } from "@/games/panzerkiste/hooks/use-fullscreen";
+import { useFullscreen } from "@/lib/screen/use-fullscreen";
+import { useShotRatio } from "@/lib/screen/use-shot-ratio";
 import {
   usePanzerkisteOnline,
   type OnlineSession,
@@ -584,6 +585,7 @@ function PlayingArea({
   const { hud, banner, canvasRef, messages, seatId, seats, sendChat } = online;
   const fieldRef = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreen(fieldRef);
+  useShotRatio(canvasRef, fieldRef);
 
   return (
     <div className="flex flex-col gap-3">
@@ -625,7 +627,7 @@ function PlayingArea({
         </div>
       </div>
 
-      <div ref={fieldRef} className="pk-fullscreen relative w-full">
+      <div ref={fieldRef} className="game-fullscreen relative w-full">
         <canvas
           ref={canvasRef}
           className="w-full touch-none rounded-xl border border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900"

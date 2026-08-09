@@ -38,9 +38,36 @@ import {
 } from "@/games/rv-there-yet/engine/types";
 import { woodShare } from "@/games/rv-there-yet/engine/map";
 import {
+  CONIFER_NEAR,
   conifersBetween,
   drawConifer,
 } from "@/games/rv-there-yet/components/wood";
+import { drawGoat, goatsBetween } from "@/games/rv-there-yet/components/goat";
+import { drawHeidi, heidiPlaces } from "@/games/rv-there-yet/components/heidi";
+import {
+  drawPeter,
+  hoverOver,
+  peterPlaces,
+} from "@/games/rv-there-yet/components/peter";
+import { drawHook, hookPlaces } from "@/games/rv-there-yet/components/hook";
+import {
+  drawRed,
+  drawWolf,
+  redPlaces,
+} from "@/games/rv-there-yet/components/red";
+import {
+  drawDwarf,
+  drawSnow,
+  dwarfPlaces,
+  snowPlaces,
+} from "@/games/rv-there-yet/components/dwarfs";
+import { bandPlaces, drawBand } from "@/games/rv-there-yet/components/band";
+import {
+  drawSpider,
+  drawWizard,
+  duelPlaces,
+  fogLeft,
+} from "@/games/rv-there-yet/components/duel";
 import { within } from "@/games/rv-there-yet/engine/engine";
 import { drawCockpit } from "@/games/rv-there-yet/components/cockpit";
 
@@ -75,15 +102,44 @@ const LOOK = {
    * The sign stands a little before the near end, where a sign belongs - far
    * enough back to be read while there is still time to stop.
    */
-  deckThick: 0.45,
+  deckThick: 0.55,
   railHigh: 1.1,
   railThick: 0.12,
   postEvery: 4,
   postThick: 0.22,
   pierThick: 0.5,
-  pierDeep: 26,
-  gorgeDeep: 26,
-  gorgeLean: 5,
+  pierDeep: 13,
+  /**
+   * How deep the gorge is, in metres.
+   *
+   * @remarks
+   * Shallow enough that the **water** is still in the picture: from the side
+   * there are only some sixteen metres of canvas below the road, and a gorge
+   * deeper than that is a bridge over a black rectangle running off the bottom
+   * of the screen. Thirteen metres leaves room for the walls, the water and
+   * the piers standing in it.
+   */
+  gorgeDeep: 13,
+  gorgeLean: 3,
+  /**
+   * What makes it read as a bridge rather than as a plank over a hole.
+   *
+   * @remarks
+   * Three things, and none of them is the deck: an **arch** slung under it
+   * from bank to bank, **piers** standing in the water and holding the deck
+   * up, and the **river** itself down at the bottom. A gap with a board over
+   * it is a gap with a board over it; add water under it and it is a bridge.
+   */
+  archDeep: 3.6,
+  archThick: 0.7,
+  archStruts: 4,
+  strutThick: 0.3,
+  piers: 2,
+  /** The river: how far down the gorge it runs and how deep it looks. */
+  riverAt: 0.78,
+  riverDeep: 2.6,
+  /** The banks either side of it, of the gorge's width down there. */
+  riverBank: 0.12,
   /** And never more than this share of the width per side. */
   gorgeLeanMost: 0.33,
   signBefore: 9,
@@ -157,34 +213,18 @@ const LOOK = {
     { parallax: 0.38, spacing: 150, foot: 22, height: 74, snow: false },
   ],
   /**
-   * The two walls of forest behind the second half of the drive, in pixels.
-   *
-   * @remarks
-   * The same two layers at the same two speeds as the ranges, so the sense of
-   * how fast one is going does not change with the scenery - only what is
-   * standing out there does. Trees are close together and much smaller than
-   * summits, and that alone is what tells a treeline from a mountain range at
-   * this size: a hundred small spikes rather than a handful of big ones.
-   */
-  woods: [
-    { parallax: 0.12, spacing: 16, foot: 10, height: 68, girth: 0.66 },
-    { parallax: 0.38, spacing: 21, foot: 22, height: 104, girth: 0.72 },
-  ],
-  /** How short the shortest tree in a wood is, of the tallest. */
-  treeLow: 0.45,
-  /**
    * The roadside wood from the flank: how far past the edges to look for
    * trees, and how "further out" is said in a picture with no depth.
    *
    * @remarks
-   * A tree twenty metres off the road is drawn a little higher up the canvas
-   * and a little smaller than one at the verge - the two tricks a flat picture
-   * has for saying "behind". Both are small: overdo either and the wood climbs
-   * into the sky.
+   * A tree twenty metres off the road is drawn a little smaller than one at
+   * the verge, counted from the near row - and that is the only thing that
+   * says "further back". Its feet stay on the ground: raising them up the
+   * canvas is the other trick a flat picture has, and here it only ever looked
+   * like a wood hanging in the air.
    */
   woodOver: 30,
-  woodBack: 0.9,
-  woodSmall: 0.012,
+  woodSmall: 0.02,
   /**
    * The three waves the skyline is mixed from: how fast each turns and how
    * much of the height it contributes.
@@ -452,10 +492,22 @@ const WALKER = {
    * the feet stop mid-air-free, on the ground, where they belong.
    */
   strideLength: 1.5,
-  stepReach: 0.3,
-  stepLift: 0.09,
+  /** How far the hip swings the whole leg, and how far the knee folds. */
+  hipSwing: 0.55,
+  kneeBend: 0.75,
+  /** Where the knee sits: the share of the leg above it. */
+  thighShare: 0.52,
+  /** How far the walker leans into the walk. */
+  lean: 0.06,
   bob: 0.045,
-  armSwing: 0.16,
+  armSwing: 0.5,
+  /** Where the shoulder is, how long the arm is, and how thick. */
+  shoulderAt: 1.3,
+  armLong: 0.42,
+  armWide: 0.2,
+  /** How far in front of the middle each arm hangs: the near one, the far one. */
+  armNear: 0.17,
+  armFar: -0.08,
   /** Where a carried thing sits in the hand, in metres. */
   handAt: 0.34,
   handHigh: 1.12,
@@ -582,6 +634,10 @@ const BRIDGE_PAINT = {
   rail: "#7d6142",
   rim: "#6b6257",
   gorge: "#20262d",
+  /** The water down there, and the light running along it. */
+  river: "#3d6d8c",
+  riverLit: "#5f9cbd",
+  bank: "#4a463f",
   signPost: "#6e6a64",
   signFace: "#f5efe2",
   signEdge: "#c0392b",
@@ -596,9 +652,6 @@ const PAINT = {
   rangeFar: "#a9c2d8",
   rangeNear: "#93ae9b",
   rangeSnow: "#eef4fa",
-  /** The far wall of forest, and the nearer one. */
-  woodFar: "#7f9c86",
-  woodNear: "#4c6a48",
   ground: "#7ba05b",
   groundDeep: "#5c7a42",
   track: "#a68a5b",
@@ -691,6 +744,13 @@ export function draw(
   drawMountains(ctx, camera, mine.inside ? state.rv.x : mine.at);
   drawGround(ctx, route, camera);
   drawWoodside(ctx, route, camera);
+  drawHerd(ctx, route, camera);
+  drawHeidiThere(ctx, route, camera);
+  drawPeterThere(ctx, route, camera);
+  drawRedThere(ctx, route, camera);
+  drawDwarfsThere(ctx, route, camera);
+  drawBandThere(ctx, route, camera);
+  drawDuelThere(ctx, route, camera);
   drawMud(ctx, route, camera);
   drawBridges(ctx, route, camera);
   drawChasms(ctx, route, camera);
@@ -741,6 +801,7 @@ function drawWoodside(
   const trees = conifersBetween(
     from,
     from + CANVAS_W / LOOK.scale + LOOK.woodOver * 2,
+    [...route.bridges, ...route.chasms],
   );
   for (const tree of trees) {
     const share = woodShare(tree.at);
@@ -748,15 +809,209 @@ function drawWoodside(
       continue;
     }
     const foot = toScreen(camera, tree.at, heightAt(route, tree.at));
-    const back = tree.out * LOOK.woodBack;
+    // Every one of them stands **on** the ground, near row and far row alike.
+    // The row further out is drawn smaller and that is all: lifting it up the
+    // canvas as well, which is the other way a flat picture can say "behind",
+    // simply looked like trees hanging in the air.
+    const behind = Math.max(0, tree.out - CONIFER_NEAR);
     ctx.globalAlpha = share;
     drawConifer(ctx, {
       x: foot.px,
-      y: foot.py - back,
-      scale: LOOK.scale * (1 - tree.out * LOOK.woodSmall),
+      y: foot.py,
+      scale: LOOK.scale * (1 - behind * LOOK.woodSmall),
       tall: tree.tall,
     });
     ctx.globalAlpha = 1;
+  }
+}
+
+/**
+ * The goats grazing along the first section, seen from the flank.
+ *
+ * @param ctx - the canvas to paint on
+ * @param route - the route being driven
+ * @param camera - where the view sits
+ * @remarks
+ * Behind the road and in front of the ground, like the wood: they stand on the
+ * verge, and the motorhome passes in front of them. The one further out is a
+ * little smaller, which is all a flat picture needs to say "further off".
+ */
+function drawHerd(
+  ctx: CanvasRenderingContext2D,
+  route: Route,
+  camera: Camera,
+): void {
+  const from = camera.x - LOOK.woodOver;
+  const herd = goatsBetween(
+    from,
+    from + CANVAS_W / LOOK.scale + LOOK.woodOver,
+    route.sections,
+  );
+  for (const goat of herd) {
+    const foot = toScreen(camera, goat.at, heightAt(route, goat.at));
+    drawGoat(ctx, {
+      x: foot.px,
+      y: foot.py,
+      scale: LOOK.scale * (1 - goat.out * LOOK.woodSmall),
+      goat,
+    });
+  }
+}
+
+/**
+ * The girl with the kid, seen from the flank.
+ *
+ * @param ctx - the canvas to paint on
+ * @param route - the route being driven
+ * @param camera - where the view sits
+ */
+function drawHeidiThere(
+  ctx: CanvasRenderingContext2D,
+  route: Route,
+  camera: Camera,
+): void {
+  for (const heidi of heidiPlaces(route.mud)) {
+    const foot = toScreen(camera, heidi.at, heightAt(route, heidi.at));
+    if (foot.px < -CANVAS_W || foot.px > CANVAS_W * 2) {
+      continue;
+    }
+    const kid = toScreen(camera, heidi.kid.at, heightAt(route, heidi.kid.at));
+    drawGoat(ctx, {
+      x: kid.px,
+      y: kid.py,
+      scale: LOOK.scale,
+      goat: heidi.kid,
+    });
+    drawHeidi(ctx, { x: foot.px, y: foot.py, scale: LOOK.scale });
+  }
+}
+
+/**
+ * The boy with the wand and the spider, seen from the flank.
+ *
+ * @param ctx - the canvas to paint on
+ * @param route - the route being driven
+ * @param camera - where the view sits
+ */
+function drawDuelThere(
+  ctx: CanvasRenderingContext2D,
+  route: Route,
+  camera: Camera,
+): void {
+  for (const duel of duelPlaces(route.sections)) {
+    const spider = toScreen(
+      camera,
+      duel.spider.at,
+      heightAt(route, duel.spider.at),
+    );
+    const boy = toScreen(camera, duel.boy.at, heightAt(route, duel.boy.at));
+    if (spider.px < -CANVAS_W || boy.px > CANVAS_W * 2) {
+      continue;
+    }
+    // The spider first, so the boy stands in front of it and not inside it.
+    drawSpider(ctx, { x: spider.px, y: spider.py, scale: LOOK.scale }, -1);
+    drawWizard(ctx, { x: boy.px, y: boy.py, scale: LOOK.scale }, 1);
+  }
+}
+
+/**
+ * The four town musicians, seen from the flank.
+ *
+ * @param ctx - the canvas to paint on
+ * @param route - the route being driven
+ * @param camera - where the view sits
+ */
+function drawBandThere(
+  ctx: CanvasRenderingContext2D,
+  route: Route,
+  camera: Camera,
+): void {
+  for (const band of bandPlaces(route.sections)) {
+    const foot = toScreen(camera, band.at, heightAt(route, band.at));
+    if (foot.px < -CANVAS_W || foot.px > CANVAS_W * 2) {
+      continue;
+    }
+    // Looking back down the road, which is where the motorhome comes from.
+    drawBand(ctx, { x: foot.px, y: foot.py, scale: LOOK.scale }, -1);
+  }
+}
+
+/**
+ * The seven dwarfs on their climb, seen from the flank.
+ *
+ * @param ctx - the canvas to paint on
+ * @param route - the route being driven
+ * @param camera - where the view sits
+ */
+function drawDwarfsThere(
+  ctx: CanvasRenderingContext2D,
+  route: Route,
+  camera: Camera,
+): void {
+  for (const dwarf of dwarfPlaces(route.sections, route.heights)) {
+    const foot = toScreen(camera, dwarf.at, heightAt(route, dwarf.at));
+    if (foot.px < -CANVAS_W || foot.px > CANVAS_W * 2) {
+      continue;
+    }
+    drawDwarf(ctx, { x: foot.px, y: foot.py, scale: LOOK.scale }, dwarf);
+  }
+  for (const waiting of snowPlaces(route.sections, route.heights)) {
+    const foot = toScreen(camera, waiting.at, heightAt(route, waiting.at));
+    if (foot.px < -CANVAS_W || foot.px > CANVAS_W * 2) {
+      continue;
+    }
+    // Waving back down the hill, which is where the seven of them are.
+    drawSnow(ctx, { x: foot.px, y: foot.py, scale: LOOK.scale }, -1);
+  }
+}
+
+/**
+ * The girl in the red hood and the wolf, seen from the flank.
+ *
+ * @param ctx - the canvas to paint on
+ * @param route - the route being driven
+ * @param camera - where the view sits
+ */
+function drawRedThere(
+  ctx: CanvasRenderingContext2D,
+  route: Route,
+  camera: Camera,
+): void {
+  for (const meeting of redPlaces(route.sections, route.chasms)) {
+    for (const stands of [meeting.girl, meeting.wolf]) {
+      const foot = toScreen(camera, stands.at, heightAt(route, stands.at));
+      if (foot.px < -CANVAS_W || foot.px > CANVAS_W * 2) {
+        continue;
+      }
+      const at = { x: foot.px, y: foot.py, scale: LOOK.scale };
+      if (stands === meeting.wolf) {
+        drawWolf(ctx, at, -1);
+      } else {
+        drawRed(ctx, at);
+      }
+    }
+  }
+}
+
+/**
+ * The flying boy and his fairy, seen from the flank.
+ *
+ * @param ctx - the canvas to paint on
+ * @param route - the route being driven
+ * @param camera - where the view sits
+ */
+function drawPeterThere(
+  ctx: CanvasRenderingContext2D,
+  route: Route,
+  camera: Camera,
+): void {
+  for (const flying of peterPlaces(route.pits)) {
+    const up = hoverOver(flying, [
+      heightAt(route, flying.rim[0]),
+      heightAt(route, flying.rim[1]),
+    ]);
+    const spot = toScreen(camera, flying.at, up);
+    drawPeter(ctx, { x: spot.px, y: spot.py, scale: LOOK.scale });
   }
 }
 
@@ -819,8 +1074,38 @@ function drawBridges(
       continue;
     }
     drawGorge(ctx, left, right);
+    drawLurkers(ctx, bridge, left, right);
     drawDeck(ctx, left, right);
     drawSign(ctx, route, camera, bridge.from - LOOK.signBefore);
+  }
+}
+
+/**
+ * The crocodile in the river with the captain on its snout.
+ *
+ * @param ctx - the canvas to paint on
+ * @param bridge - the crossing they wait under
+ * @param left - the near end of the deck, on screen
+ * @param right - the far end of it
+ * @remarks
+ * Between the river and the deck, so the arch and the piers stand in front of
+ * them: they are **under** the bridge, and something under a bridge is behind
+ * whatever holds it up.
+ */
+function drawLurkers(
+  ctx: CanvasRenderingContext2D,
+  bridge: { readonly from: number; readonly to: number },
+  left: { px: number; py: number },
+  right: { px: number; py: number },
+): void {
+  const across = right.px - left.px;
+  for (const lurking of hookPlaces([bridge])) {
+    const share = (lurking.at - bridge.from) / (bridge.to - bridge.from);
+    drawHook(ctx, {
+      x: left.px + across * share,
+      y: left.py + m(LOOK.gorgeDeep) * LOOK.riverAt,
+      scale: LOOK.scale,
+    });
   }
 }
 
@@ -859,6 +1144,49 @@ function drawGorge(
   ctx.lineTo(left.px + lean, left.py + deep);
   ctx.closePath();
   ctx.fill();
+  drawRiver(ctx, left, right, lean);
+}
+
+/**
+ * The river at the bottom of the gorge, with its banks.
+ *
+ * @param ctx - the canvas to paint on
+ * @param left - the near lip of the gorge on the canvas
+ * @param right - the far lip
+ * @param lean - how far the walls lean in over the depth of it
+ * @remarks
+ * This is the thing that turns a hole into a valley and a plank into a bridge.
+ * A band of water with a lighter line running along it, a strip of bank either
+ * side of it, and both of them narrowing with the walls, so the eye reads
+ * **down there** rather than **behind**.
+ */
+function drawRiver(
+  ctx: CanvasRenderingContext2D,
+  left: { px: number; py: number },
+  right: { px: number; py: number },
+  lean: number,
+): void {
+  const down = m(LOOK.gorgeDeep) * LOOK.riverAt;
+  const near = left.px + lean * LOOK.riverAt;
+  const far = right.px - lean * LOOK.riverAt;
+  const wide = far - near;
+  if (wide <= 0) {
+    return;
+  }
+  const bank = wide * LOOK.riverBank;
+  ctx.fillStyle = BRIDGE_PAINT.bank;
+  ctx.fillRect(near, left.py + down, wide, m(LOOK.riverDeep));
+  ctx.fillStyle = BRIDGE_PAINT.river;
+  ctx.fillRect(near + bank, left.py + down, wide - bank * 2, m(LOOK.riverDeep));
+  // One light along the water: still water is a blue rectangle, and a
+  // rectangle at the bottom of a hole is a floor.
+  ctx.fillStyle = BRIDGE_PAINT.riverLit;
+  ctx.fillRect(
+    near + bank * RIVER.lightIn,
+    left.py + down + m(LOOK.riverDeep) * RIVER.lightDown,
+    (wide - bank * RIVER.lightIn * 2) * LOOK.riverAt,
+    m(LOOK.riverDeep) * RIVER.lightThick,
+  );
 }
 
 /** The deck, its two piers and the rail along both sides. */
@@ -867,7 +1195,9 @@ function drawDeck(
   left: { px: number; py: number },
   right: { px: number; py: number },
 ): void {
-  // The piers first, so the deck lies on top of them.
+  const across = right.px - left.px;
+  // The abutments at the two ends, then the piers standing in the water, then
+  // the arch slung between them - all before the deck, which lies on the lot.
   ctx.fillStyle = BRIDGE_PAINT.timber;
   for (const foot of [left, right]) {
     ctx.fillRect(
@@ -877,13 +1207,23 @@ function drawDeck(
       m(LOOK.pierDeep),
     );
   }
+  for (let pier = 1; pier <= LOOK.piers; pier++) {
+    const at = left.px + (across * pier) / (LOOK.piers + 1);
+    ctx.fillRect(
+      at - m(LOOK.pierThick) / 2,
+      left.py,
+      m(LOOK.pierThick),
+      m(LOOK.gorgeDeep) * LOOK.riverAt,
+    );
+  }
+  drawArch(ctx, left, right);
   ctx.fillStyle = BRIDGE_PAINT.deck;
   ctx.fillRect(left.px, left.py, right.px - left.px, m(LOOK.deckThick));
 
   // Rail posts along it, and a rail across their tops.
   ctx.fillStyle = BRIDGE_PAINT.rail;
-  const span = (right.px - left.px) / m(LOOK.postEvery);
-  for (let post = 0; post <= span; post++) {
+  const bays = (right.px - left.px) / m(LOOK.postEvery);
+  for (let post = 0; post <= bays; post++) {
     const at = left.px + post * m(LOOK.postEvery);
     ctx.fillRect(
       at - m(LOOK.postThick) / 2,
@@ -898,6 +1238,63 @@ function drawDeck(
     right.px - left.px,
     m(LOOK.railThick),
   );
+}
+
+/** The factor a parabola's middle sags by, against its ends. */
+const ARCH_CURVE = 4;
+
+/** Where the light on the water sits, in shares of the bank and the depth. */
+const RIVER = { lightIn: 2, lightDown: 0.33, lightThick: 0.2 } as const;
+
+/**
+ * The arch under the deck, with the struts that stand on it.
+ *
+ * @param ctx - the canvas to paint on
+ * @param left - the near end of the deck on the canvas
+ * @param right - the far end
+ * @remarks
+ * The one line that says "bridge" from a hundred metres away: a curve slung
+ * between the two banks with the deck resting on it. Drawn as the band between
+ * two curves rather than as a stroke, so the ends of it sit **on** the banks
+ * instead of poking out over the gap.
+ */
+function drawArch(
+  ctx: CanvasRenderingContext2D,
+  left: { px: number; py: number },
+  right: { px: number; py: number },
+): void {
+  const across = right.px - left.px;
+  const sag = m(LOOK.archDeep);
+  const thick = m(LOOK.archThick);
+  const middle = left.px + across / 2;
+  ctx.fillStyle = BRIDGE_PAINT.timber;
+  ctx.beginPath();
+  ctx.moveTo(left.px, left.py);
+  // A quadratic hangs half as deep as its control point, so the point goes
+  // twice as far down as the sag that is wanted.
+  ctx.quadraticCurveTo(middle, left.py + sag * 2, right.px, right.py);
+  ctx.quadraticCurveTo(
+    middle,
+    left.py + sag * 2 - thick * 2,
+    left.px,
+    left.py - thick,
+  );
+  ctx.closePath();
+  ctx.fill();
+  // Uprights from the arch to the deck, which is what an arch is for.
+  for (let strut = 1; strut < LOOK.archStruts; strut++) {
+    const share = strut / LOOK.archStruts;
+    const at = left.px + across * share;
+    // How far the arch hangs at that share of the span: a parabola through the
+    // two banks, which is the curve the two control points describe.
+    const drop = sag * ARCH_CURVE * share * (1 - share);
+    ctx.fillRect(
+      at - m(LOOK.strutThick) / 2,
+      left.py,
+      m(LOOK.strutThick),
+      drop,
+    );
+  }
 }
 
 /**
@@ -1151,6 +1548,10 @@ function drawSky(ctx: CanvasRenderingContext2D): void {
  * Drawn far range first, so the near one stands in front of it. Both are built
  * from the same deterministic skyline, so the same stretch of road always shows
  * the same mountains - a landmark that moved about would be worse than none.
+ *
+ * They fade out as the wood comes on, and nothing takes their place out there:
+ * a second row of trees on the horizon only stood behind the ones along the
+ * road, hardly moved, and told nobody anything they could not already see.
  */
 function drawMountains(
   ctx: CanvasRenderingContext2D,
@@ -1161,81 +1562,19 @@ function drawMountains(
   // happens to fall: the camera sits some twenty metres behind them, which is
   // twenty metres of mountains still standing behind a wood.
   const wood = woodShare(at);
-  if (wood < 1) {
-    ctx.globalAlpha = 1 - wood;
-    LOOK.ranges.forEach((range, index) => {
-      drawRange(
-        ctx,
-        camera,
-        range,
-        index === 0 ? PAINT.rangeFar : PAINT.rangeNear,
-      );
-    });
+  if (wood >= 1) {
+    return;
   }
-  if (wood > 0) {
-    ctx.globalAlpha = wood;
-    LOOK.woods.forEach((trees, index) => {
-      drawWood(
-        ctx,
-        camera,
-        trees,
-        index === 0 ? PAINT.woodFar : PAINT.woodNear,
-      );
-    });
-  }
+  ctx.globalAlpha = 1 - wood;
+  LOOK.ranges.forEach((range, index) => {
+    drawRange(
+      ctx,
+      camera,
+      range,
+      index === 0 ? PAINT.rangeFar : PAINT.rangeNear,
+    );
+  });
   ctx.globalAlpha = 1;
-}
-
-/** One wall of forest along the horizon: how fast, how close, how tall. */
-type Wood = {
-  readonly parallax: number;
-  readonly spacing: number;
-  readonly foot: number;
-  readonly height: number;
-  readonly girth: number;
-};
-
-/**
- * One wall of forest, as a row of conifers along the skyline.
- *
- * @param ctx - the canvas to paint on
- * @param camera - where the view sits
- * @param wood - which wall of it
- * @param colour - what to paint it in
- * @remarks
- * One path for the whole row, the same way the ranges are drawn: flat ground
- * between the trees and a narrow triangle at each of them, so the eye reads
- * separate trees rather than a green saw blade. The heights come out of the
- * same wave as the summits do, which is what keeps the line from repeating.
- */
-function drawWood(
-  ctx: CanvasRenderingContext2D,
-  camera: Camera,
-  wood: Wood,
-  colour: string,
-): void {
-  const shift = camera.x * LOOK.scale * wood.parallax;
-  const first = Math.floor(shift / wood.spacing) - 1;
-  const base = LOOK.driverY + wood.foot;
-  const last = first + Math.ceil(CANVAS_W / wood.spacing) + 2;
-  const girth = (wood.spacing * wood.girth) / 2;
-
-  ctx.fillStyle = colour;
-  ctx.beginPath();
-  ctx.moveTo(-wood.spacing, CANVAS_H);
-  ctx.lineTo(-wood.spacing, base);
-  for (let tree = first; tree <= last; tree++) {
-    const x = tree * wood.spacing - shift;
-    const tall =
-      wood.height * (LOOK.treeLow + (1 - LOOK.treeLow) * summitShare(tree));
-    ctx.lineTo(x - girth, base);
-    ctx.lineTo(x, base - tall);
-    ctx.lineTo(x + girth, base);
-  }
-  ctx.lineTo(CANVAS_W + wood.spacing, base);
-  ctx.lineTo(CANVAS_W + wood.spacing, CANVAS_H);
-  ctx.closePath();
-  ctx.fill();
 }
 
 /** One range of the skyline. */
@@ -1614,6 +1953,8 @@ function drawFog(
   if (!within(fog, here)) {
     return;
   }
+  // Thinner where the boy and the spider are, or nobody ever sees them.
+  const left = fogLeft(route.sections, here);
   for (let px = 0; px < CANVAS_W; px += LOOK.fogStep) {
     const away = Math.abs(px + LOOK.fogStep / 2 - LOOK.driverX) / LOOK.scale;
     const share = Math.min(
@@ -1623,7 +1964,7 @@ function drawFog(
     if (share <= 0) {
       continue;
     }
-    ctx.globalAlpha = share * LOOK.fogThick;
+    ctx.globalAlpha = share * LOOK.fogThick * left;
     ctx.fillStyle = PAINT.fog;
     ctx.fillRect(px, 0, LOOK.fogStep + 1, CANVAS_H);
   }
@@ -2405,15 +2746,20 @@ function drawWalker(
   // In the air the legs stop walking and stretch out: a figure pedalling
   // along a metre above the road would look like a mistake, not a jump.
   const airborne = person.lift > 0;
-  const swing = person.walking && !airborne ? Math.sin(cycle) : 0;
-  const bob = person.walking && !airborne ? Math.abs(Math.cos(cycle)) : 0;
+  const moving = person.walking && !airborne;
+  const bob = moving ? Math.abs(Math.cos(cycle)) : 0;
   // Bent over the wheel while fitting: standing bolt upright with a tyre
   // spinning in mid-air would read as juggling rather than as work.
   const fitting = state.repair > 0 && person.holding === "tyres";
   ctx.translate(0, m(bob * WALKER.bob) + (fitting ? m(WALKER.crouch) : 0));
+  // Leaning into it while walking, upright while standing: nobody stands about
+  // at an angle, and nobody walks bolt upright either.
+  if (moving) {
+    ctx.rotate(WALKER.lean);
+  }
 
-  drawLegs(ctx, swing);
-  drawTorso(ctx, swing);
+  drawLegs(ctx, cycle, moving);
+  drawTorso(ctx, cycle, moving);
   drawHead(ctx);
   // What is **in the hand**, not what is in the bag: a hammer nobody has taken
   // out is not being swung at anything.
@@ -2667,34 +3013,50 @@ function drawCarriedTyre(
  * Trousers and shoes, swinging with the walk.
  *
  * @param ctx - the canvas to paint on
- * @param swing - -1 to 1, where in the step cycle the legs are
+ * @param cycle - where in the step cycle the legs are, in radians
+ * @param moving - whether the driver is walking at all
+ * @remarks
+ * A leg with a **knee** in it, not a box that slides back and forth: at this
+ * size the difference between the two is the difference between walking and
+ * being dragged along the road. The thigh swings from the hip, the shin folds
+ * behind it as the foot comes through, and the shoe stays level with the
+ * ground the whole way round - which is what a foot does.
+ *
+ * Standing still means standing still: both legs straight down, feet together.
  */
-function drawLegs(ctx: CanvasRenderingContext2D, swing: number): void {
-  ctx.fillStyle = PAINT.trousers;
-  // One leg forward while the other is back, and the forward one lifted a
-  // little - two boxes are enough to read as walking at this size.
+function drawLegs(
+  ctx: CanvasRenderingContext2D,
+  cycle: number,
+  moving: boolean,
+): void {
+  const thigh = (WALKER.legHigh - WALKER.shoeHigh) * WALKER.thighShare;
+  const shin = WALKER.legHigh - WALKER.shoeHigh - thigh;
   for (const side of [-1, 1]) {
-    const step = swing * side * WALKER.stepReach;
-    const lift = Math.max(0, swing * side) * WALKER.stepLift;
-    const at = (side * WALKER.legApart) / 2 + step;
-    boxPath(
-      ctx,
-      at - WALKER.legWide / 2,
-      at + WALKER.legWide / 2,
-      WALKER.legLow + lift,
-      WALKER.legHigh,
-    );
-    ctx.fill();
-    ctx.fillStyle = PAINT.shoe;
-    boxPath(
-      ctx,
-      at - WALKER.shoeWide / 2,
-      at + WALKER.shoeWide / 2,
-      WALKER.legLow + lift,
-      WALKER.shoeHigh + lift,
-    );
-    ctx.fill();
+    // The two legs are half a cycle apart, which is what makes it a walk.
+    const phase = cycle + (side > 0 ? 0 : Math.PI);
+    const hip = moving ? Math.sin(phase) * WALKER.hipSwing : 0;
+    // The knee only ever folds backwards, and most while the foot swings
+    // through under the body - a knee bending the other way is a horror.
+    const knee = moving ? Math.max(0, -Math.cos(phase)) * WALKER.kneeBend : 0;
+    ctx.save();
+    ctx.translate((side * m(WALKER.legApart)) / 2, -m(WALKER.legHigh));
+    ctx.rotate(hip);
     ctx.fillStyle = PAINT.trousers;
+    ctx.fillRect(-m(WALKER.legWide) / 2, 0, m(WALKER.legWide), m(thigh));
+    ctx.translate(0, m(thigh));
+    ctx.rotate(-knee);
+    ctx.fillRect(-m(WALKER.legWide) / 2, 0, m(WALKER.legWide), m(shin));
+    // The shoe: turned back level, and reaching forward of the ankle.
+    ctx.translate(0, m(shin));
+    ctx.rotate(knee - hip);
+    ctx.fillStyle = PAINT.shoe;
+    ctx.fillRect(
+      -m(WALKER.shoeWide) / 2,
+      0,
+      m(WALKER.shoeWide),
+      m(WALKER.shoeHigh),
+    );
+    ctx.restore();
   }
 }
 
@@ -2706,7 +3068,13 @@ function drawLegs(ctx: CanvasRenderingContext2D, swing: number): void {
  * of what you see, and the white shirt is only the sleeve. That is what makes
  * the silhouette read as this particular fellow rather than as any old figure.
  */
-function drawTorso(ctx: CanvasRenderingContext2D, swing: number): void {
+function drawTorso(
+  ctx: CanvasRenderingContext2D,
+  cycle: number,
+  moving: boolean,
+): void {
+  // The far arm first, behind the body, so the near one lies over the front.
+  drawArm(ctx, cycle + Math.PI, moving, PAINT.vest, WALKER.armFar);
   ctx.fillStyle = PAINT.vest;
   boxPath(
     ctx,
@@ -2718,19 +3086,39 @@ function drawTorso(ctx: CanvasRenderingContext2D, swing: number): void {
   );
   ctx.fill();
   ctx.stroke();
+  drawArm(ctx, cycle, moving, PAINT.shirt, WALKER.armNear);
+}
 
-  // The arm swings against the legs, as arms do.
-  const arm = -swing * WALKER.armSwing;
-  ctx.fillStyle = PAINT.shirt;
-  boxPath(
-    ctx,
-    arm - WALKER.sleeveWide / 2,
-    arm + WALKER.sleeveWide / 2,
-    WALKER.sleeveLow,
-    WALKER.sleeveHigh,
-    WALKER.bodyRound,
-  );
-  ctx.fill();
+/**
+ * One arm, hanging from the shoulder and swinging against the legs.
+ *
+ * @param ctx - the canvas to paint on
+ * @param phase - where in the step cycle this arm is, in radians
+ * @param moving - whether the driver is walking at all
+ * @param paint - the sleeve's colour, which says which arm it is
+ * @param at - how far in front of the middle it hangs, in metres
+ * @remarks
+ * Two arms rather than one sleeve: a figure with a single arm sliding across
+ * its chest reads as a mistake. The far one is painted in the waistcoat's
+ * colour and drawn behind the body, which is all the depth this size takes.
+ * Neither hangs down the middle: an arm on the centre line reads as a stripe
+ * down the waistcoat rather than as an arm.
+ */
+function drawArm(
+  ctx: CanvasRenderingContext2D,
+  phase: number,
+  moving: boolean,
+  paint: string,
+  at: number,
+): void {
+  // Against the legs: the arm goes back as the leg on that side comes forward.
+  const swing = moving ? -Math.sin(phase) * WALKER.armSwing : 0;
+  ctx.save();
+  ctx.translate(m(at), -m(WALKER.shoulderAt));
+  ctx.rotate(swing);
+  ctx.fillStyle = paint;
+  ctx.fillRect(-m(WALKER.armWide) / 2, 0, m(WALKER.armWide), m(WALKER.armLong));
+  ctx.restore();
 }
 
 /** Head, flat cap and the round dark glasses. */

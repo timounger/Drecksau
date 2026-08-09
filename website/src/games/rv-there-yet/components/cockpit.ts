@@ -30,8 +30,55 @@ import {
   conifersBetween,
   drawConifer,
 } from "@/games/rv-there-yet/components/wood";
+import {
+  GOAT_TALL,
+  drawGoat,
+  goatsBetween,
+} from "@/games/rv-there-yet/components/goat";
+import {
+  HEIDI_REACH,
+  drawHeidi,
+  heidiPlaces,
+} from "@/games/rv-there-yet/components/heidi";
+import {
+  PETER_LONG,
+  PETER_OUT,
+  drawPeter,
+  hoverOver,
+  peterPlaces,
+} from "@/games/rv-there-yet/components/peter";
+import {
+  RED_TALL,
+  WOLF_TALL,
+  drawRed,
+  drawWolf,
+  redPlaces,
+} from "@/games/rv-there-yet/components/red";
+import {
+  DWARF_TALL,
+  SNOW_TALL,
+  drawDwarf,
+  drawSnow,
+  dwarfPlaces,
+  snowPlaces,
+} from "@/games/rv-there-yet/components/dwarfs";
+import {
+  BAND_REACH,
+  bandPlaces,
+  drawBand,
+} from "@/games/rv-there-yet/components/band";
+import {
+  SPIDER_TALL,
+  WIZARD_TALL,
+  drawSpider,
+  drawWizard,
+  duelPlaces,
+  fogLeft,
+} from "@/games/rv-there-yet/components/duel";
 import { RV_TEXTS } from "@/games/rv-there-yet/i18n/texts";
 import {
+  CANVAS_H,
+  CANVAS_W,
   SLENDER,
   SLENDER_INK,
   slenderShowing,
@@ -102,6 +149,15 @@ const VIEW = {
   /** How much relief counts as a hillside in full, in metres. */
   flankFull: 7,
   /**
+   * How much a snowy flank is shaded before any relief is counted at all.
+   *
+   * @remarks
+   * Snow has no grain, no verge and no colour of its own: the light is the
+   * only thing that gives it shape. Half the shading is therefore there on
+   * the flattest of snowfields, and the relief adds the rest.
+   */
+  snowShade: 0.5,
+  /**
    * How far to either side the ground is measured to decide ridge or valley.
    *
    * @remarks
@@ -143,6 +199,19 @@ const VIEW = {
    */
   railSide: 4,
   railHigh: 1.1,
+  /**
+   * The gap the bridge stands over: how far out it reaches and how deep it is.
+   *
+   * @remarks
+   * Deeper than it is wide, so that looking along the deck the two walls of it
+   * run away and meet the water rather than the horizon. Anything shallower
+   * reads as a ditch beside the road.
+   */
+  gapOut: 26,
+  gapDeep: 13,
+  /** Where in that gap the rock stops and the water starts. */
+  gapWet: 10,
+  gapWetAt: 0.78,
   railThick: 0.14,
   postEvery: 4,
   signBefore: 9,
@@ -309,23 +378,6 @@ const VIEW = {
    * for them.
    */
   ridgeSpacing: 130,
-  /**
-   * The treeline of the second half of the drive, in pixels.
-   *
-   * @remarks
-   * Two rows at two speeds where the mountains are one range, because a wood
-   * has depth in a way a distant summit has not: the near row is bigger,
-   * darker and slides past faster, and between them the road looks like it is
-   * running **into** something.
-   */
-  woodSpacing: 13,
-  woodHeight: 26,
-  woodGirth: 0.7,
-  woodLow: 0.45,
-  /** The near row: how much bigger, how much faster, how far below the far one. */
-  woodNearer: 1.5,
-  woodFaster: 2.2,
-  woodDown: 5,
   ridgeHeight: 34,
   ridgeDrift: 0.25,
   /**
@@ -352,12 +404,11 @@ const PAINT = {
   flankLit: "#86ad63",
   flankDeep: "#3d5a33",
   ridgeSnow: "#eef4fa",
-  /** The far wall of forest, and the nearer one. */
-  woodFar: "#7f9c86",
-  woodNear: "#4c6a48",
   fog: "#d8dee3",
   snow: "#eef4fa",
   snowDark: "#cddbe8",
+  /** The shadow side of snow: blue, and a good deal deeper than snowDark. */
+  snowDeep: "#a4bcd6",
   snowRoad: "#c6d5e4",
   snowRoadDark: "#adbfd2",
   verge: "#759c58",
@@ -372,6 +423,8 @@ const PAINT = {
   markPole: "#4a5a6b",
   markFlag: "#3f7fd0",
   rail: "#7d6142",
+  /** The water at the bottom of the gap the bridge stands over. */
+  river: "#3d6d8c",
   chasm: "#20262d",
   mud: "#5a4630",
   signPost: "#6e6a64",
@@ -427,8 +480,11 @@ export function drawCockpit(
   candidate: number,
   driving: boolean,
 ): void {
-  const width = ctx.canvas.width;
-  const height = ctx.canvas.height;
+  // The logical grid, not what the canvas happens to have: on a large screen
+  // it is drawn on rather more pixels than that (see fit-canvas.ts), and a
+  // view laid out in those would put the horizon somewhere else entirely.
+  const width = CANVAS_W;
+  const height = CANVAS_H;
   const eye = heightAt(route, state.rv.x) + VIEW.eye;
   const horizon = height * VIEW.horizon;
 
@@ -438,6 +494,13 @@ export function drawCockpit(
   drawRoad(ctx, state, route, { width, height, horizon, eye });
   drawTrees(ctx, state, route, candidate, { width, height, horizon, eye });
   drawWoodside(ctx, state, route, { width, height, horizon, eye });
+  drawHerd(ctx, state, route, { width, height, horizon, eye });
+  drawHeidiAhead(ctx, state, route, { width, height, horizon, eye });
+  drawPeterAhead(ctx, state, route, { width, height, horizon, eye });
+  drawRedAhead(ctx, state, route, { width, height, horizon, eye });
+  drawDwarfsAhead(ctx, state, route, { width, height, horizon, eye });
+  drawBandAhead(ctx, state, route, { width, height, horizon, eye });
+  drawDuelAhead(ctx, state, route, { width, height, horizon, eye });
   drawSectionFlags(ctx, state, route, { width, height, horizon, eye });
   drawBridges(ctx, state, route, { width, height, horizon, eye });
   drawMud(ctx, state, route, { width, height, horizon, eye });
@@ -526,12 +589,6 @@ function drawRidge(
   travelled: number,
 ): void {
   const wood = woodShare(travelled);
-  if (wood > 0) {
-    ctx.globalAlpha = wood;
-    drawWood(ctx, width, horizon + VIEW.woodDown, travelled, false);
-    drawWood(ctx, width, horizon, travelled, true);
-    ctx.globalAlpha = 1;
-  }
   if (wood >= 1) {
     return;
   }
@@ -541,53 +598,12 @@ function drawRidge(
 }
 
 /**
- * One row of the treeline that fills the far view in the second half.
- *
- * @param ctx - the canvas to paint on
- * @param width - how wide the canvas is
- * @param horizon - where the trees stand
- * @param travelled - how far along the route the motorhome is, in metres
- * @param near - whether this is the near row: bigger, darker and faster
- * @remarks
- * Flat ground between the trees and a narrow triangle at each of them, so that
- * the eye reads separate conifers rather than one green saw blade. The heights
- * come out of the same wave the summits do, which is what keeps the line from
- * repeating however far anybody drives.
- */
-function drawWood(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  horizon: number,
-  travelled: number,
-  near: boolean,
-): void {
-  const grown = near ? VIEW.woodNearer : 1;
-  const spacing = VIEW.woodSpacing * grown;
-  const shift = travelled * VIEW.ridgeDrift * (near ? VIEW.woodFaster : 1);
-  const first = Math.floor(shift / spacing) - 1;
-  const last = first + Math.ceil(width / spacing) + 2;
-  const girth = (spacing * VIEW.woodGirth) / 2;
-
-  ctx.fillStyle = near ? PAINT.woodNear : PAINT.woodFar;
-  ctx.beginPath();
-  ctx.moveTo(-spacing, horizon);
-  for (let tree = first; tree <= last; tree++) {
-    const px = tree * spacing - shift;
-    const tall =
-      VIEW.woodHeight *
-      grown *
-      (VIEW.woodLow + (1 - VIEW.woodLow) * summitShare(tree));
-    ctx.lineTo(px - girth, horizon);
-    ctx.lineTo(px, horizon - tall);
-    ctx.lineTo(px + girth, horizon);
-  }
-  ctx.lineTo(width + spacing, horizon);
-  ctx.closePath();
-  ctx.fill();
-}
-
-/**
  * The range of summits that fills the far view in the first half.
+ *
+ * @remarks
+ * In the second half nothing takes its place: a row of trees out there stood
+ * behind the wood along the road, barely moved with it and said nothing the
+ * trees going past the window had not already said.
  *
  * @param ctx - the canvas to paint on
  * @param width - how wide the canvas is
@@ -830,11 +846,15 @@ function shadeOf(out: Face, lift: number, side: number, snow: number): string {
   // other way about.
   const across = side * Math.sign(lift) * VIEW.flankLight;
   const lit = Math.max(0, Math.min(1, 1 - depth * strength * (1 - across)));
-  // Snow has to be shaded as well, or a summit turns into one white sheet in
-  // which nothing can be made out at all - so the snow gets a lit and a shaded
-  // tone of its own and the green underneath is blended into them.
+  // Snow is shaded harder, and shaded **even where the ground is flat**. On
+  // grass the road, the verge and the grain of the bands give a level field
+  // its shape; snow has none of that. Everything is one white, and without a
+  // little modelling of its own the whole picture is a blank sheet with a
+  // road drawn on it - which is exactly what it looked like.
+  const always = VIEW.snowShade + strength * (1 - VIEW.snowShade);
+  const cold = Math.max(0, Math.min(1, 1 - depth * always * (1 - across)));
   const green = blend(PAINT.flankDeep, PAINT.flankLit, lit);
-  const white = blend(PAINT.snowDark, PAINT.snow, lit);
+  const white = blend(PAINT.snowDeep, PAINT.snow, cold);
   return blend(green, white, snow);
 }
 
@@ -1131,7 +1151,10 @@ function drawWoodside(
 ): void {
   const middle = screen.width / 2;
   const from = state.rv.x + VIEW.bonnet;
-  const trees = conifersBetween(from, state.rv.x + VIEW.thingSight);
+  const trees = conifersBetween(from, state.rv.x + VIEW.thingSight, [
+    ...route.bridges,
+    ...route.chasms,
+  ]);
   for (const tree of trees.reverse()) {
     const share = woodShare(tree.at);
     if (share <= 0) {
@@ -1148,6 +1171,299 @@ function drawWoodside(
         y: foot.y,
         scale,
         tall: tree.tall,
+      });
+    });
+  }
+}
+
+/**
+ * The goats grazing along the first section, seen from the seat.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @remarks
+ * Through the same rules as everything else standing beside the road: behind a
+ * rise they are gone, past the far limit they are gone, and the furthest is
+ * drawn first so the nearest stands in front.
+ */
+function drawHerd(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  const middle = screen.width / 2;
+  const herd = goatsBetween(
+    state.rv.x + VIEW.bonnet,
+    state.rv.x + VIEW.thingSight,
+    route.sections,
+  );
+  for (const goat of herd.reverse()) {
+    const gap = goat.at - state.rv.x;
+    const ground = heightAt(route, goat.at);
+    const foot = project(screen, ground, gap);
+    const scale = VIEW.focal / gap;
+    const stands = { gap, foot: ground, tall: GOAT_TALL * goat.size };
+    drawStanding(ctx, state, route, screen, stands, () => {
+      drawGoat(ctx, {
+        x: middle + goat.side * goat.out * scale,
+        y: foot.y,
+        scale,
+        goat,
+      });
+    });
+  }
+}
+
+/**
+ * The girl with the kid, standing where the climb begins.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ */
+function drawHeidiAhead(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  const middle = screen.width / 2;
+  for (const heidi of heidiPlaces(route.mud)) {
+    for (const stands of [
+      { at: heidi.at, out: heidi.out, tall: HEIDI_REACH, kid: null },
+      {
+        at: heidi.kid.at,
+        out: heidi.kid.out,
+        tall: GOAT_TALL * heidi.kid.size,
+        kid: heidi.kid,
+      },
+    ]) {
+      const gap = stands.at - state.rv.x;
+      if (gap <= VIEW.bonnet || gap >= VIEW.thingSight) {
+        continue;
+      }
+      const ground = heightAt(route, stands.at);
+      const foot = project(screen, ground, gap);
+      const scale = VIEW.focal / gap;
+      const there = { gap, foot: ground, tall: stands.tall };
+      drawStanding(ctx, state, route, screen, there, () => {
+        const x = middle + stands.out * scale;
+        if (stands.kid === null) {
+          drawHeidi(ctx, { x, y: foot.y, scale });
+        } else {
+          drawGoat(ctx, { x, y: foot.y, scale, goat: stands.kid });
+        }
+      });
+    }
+  }
+}
+
+/**
+ * The boy with the wand and the spider, halfway through the sixth section.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @remarks
+ * The spider first, so the boy stands in front of it rather than inside it.
+ */
+function drawDuelAhead(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  const middle = screen.width / 2;
+  for (const duel of duelPlaces(route.sections)) {
+    for (const one of [
+      { spot: duel.spider, tall: SPIDER_TALL, boy: false },
+      { spot: duel.boy, tall: WIZARD_TALL, boy: true },
+    ]) {
+      const gap = one.spot.at - state.rv.x;
+      if (gap <= VIEW.bonnet || gap >= VIEW.thingSight) {
+        continue;
+      }
+      const ground = heightAt(route, one.spot.at);
+      const foot = project(screen, ground, gap);
+      const scale = VIEW.focal / gap;
+      const there = { gap, foot: ground, tall: one.tall };
+      drawStanding(ctx, state, route, screen, there, () => {
+        const at = { x: middle + one.spot.out * scale, y: foot.y, scale };
+        if (one.boy) {
+          drawWizard(ctx, at, 1);
+        } else {
+          drawSpider(ctx, at, -1);
+        }
+      });
+    }
+  }
+}
+
+/**
+ * The four town musicians, at the start of the fifth section.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ */
+function drawBandAhead(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  for (const band of bandPlaces(route.sections)) {
+    const gap = band.at - state.rv.x;
+    if (gap <= VIEW.bonnet || gap >= VIEW.thingSight) {
+      continue;
+    }
+    const ground = heightAt(route, band.at);
+    const foot = project(screen, ground, gap);
+    const scale = VIEW.focal / gap;
+    const there = { gap, foot: ground, tall: BAND_REACH };
+    drawStanding(ctx, state, route, screen, there, () => {
+      drawBand(
+        ctx,
+        { x: screen.width / 2 + band.out * scale, y: foot.y, scale },
+        -1,
+      );
+    });
+  }
+}
+
+/**
+ * The seven dwarfs, walking up the climb of the fourth section.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @remarks
+ * Far ones first, so that the column overlaps the way a column does: each of
+ * them stands a little in front of the one behind him. At the top of the same
+ * rise waits the one they are walking home to, waving back down at them.
+ */
+function drawDwarfsAhead(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  const middle = screen.width / 2;
+  const walking = dwarfPlaces(route.sections, route.heights);
+  for (const dwarf of [...walking].reverse()) {
+    const gap = dwarf.at - state.rv.x;
+    if (gap <= VIEW.bonnet || gap >= VIEW.thingSight) {
+      continue;
+    }
+    const ground = heightAt(route, dwarf.at);
+    const foot = project(screen, ground, gap);
+    const scale = VIEW.focal / gap;
+    const there = { gap, foot: ground, tall: DWARF_TALL };
+    drawStanding(ctx, state, route, screen, there, () => {
+      drawDwarf(
+        ctx,
+        { x: middle + dwarf.out * scale, y: foot.y, scale },
+        dwarf,
+      );
+    });
+  }
+  for (const waiting of snowPlaces(route.sections, route.heights)) {
+    const gap = waiting.at - state.rv.x;
+    if (gap <= VIEW.bonnet || gap >= VIEW.thingSight) {
+      continue;
+    }
+    const ground = heightAt(route, waiting.at);
+    const foot = project(screen, ground, gap);
+    const scale = VIEW.focal / gap;
+    const there = { gap, foot: ground, tall: SNOW_TALL };
+    drawStanding(ctx, state, route, screen, there, () => {
+      drawSnow(ctx, { x: middle + waiting.out * scale, y: foot.y, scale }, -1);
+    });
+  }
+}
+
+/**
+ * The girl in the red hood and the wolf, on the last stretch before the chasm.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ */
+function drawRedAhead(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  const middle = screen.width / 2;
+  for (const meeting of redPlaces(route.sections, route.chasms)) {
+    for (const stands of [
+      { spot: meeting.girl, tall: RED_TALL, wolf: false },
+      { spot: meeting.wolf, tall: WOLF_TALL, wolf: true },
+    ]) {
+      const gap = stands.spot.at - state.rv.x;
+      if (gap <= VIEW.bonnet || gap >= VIEW.thingSight) {
+        continue;
+      }
+      const ground = heightAt(route, stands.spot.at);
+      const foot = project(screen, ground, gap);
+      const scale = VIEW.focal / gap;
+      const there = { gap, foot: ground, tall: stands.tall };
+      drawStanding(ctx, state, route, screen, there, () => {
+        const at = { x: middle + stands.spot.out * scale, y: foot.y, scale };
+        if (stands.wolf) {
+          drawWolf(ctx, at, -1);
+        } else {
+          drawRed(ctx, at);
+        }
+      });
+    }
+  }
+}
+
+/**
+ * The flying boy and his fairy, hanging over the ditch.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @remarks
+ * Through the same sight lines as everything else, only reckoned from where he
+ * **hangs** rather than from the ground: a boy in the air over a hole is still
+ * hidden by a rise between here and there, but he clears one that would hide
+ * anything standing on the road.
+ */
+function drawPeterAhead(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  for (const flying of peterPlaces(route.pits)) {
+    const gap = flying.at - state.rv.x;
+    if (gap <= VIEW.bonnet || gap >= VIEW.thingSight) {
+      continue;
+    }
+    const up = hoverOver(flying, [
+      heightAt(route, flying.rim[0]),
+      heightAt(route, flying.rim[1]),
+    ]);
+    const scale = VIEW.focal / gap;
+    const stands = { gap, foot: up, tall: PETER_LONG };
+    drawStanding(ctx, state, route, screen, stands, () => {
+      drawPeter(ctx, {
+        x: screen.width / 2 + PETER_OUT * scale,
+        y: project(screen, up, gap).y,
+        scale,
       });
     });
   }
@@ -1225,6 +1541,7 @@ function drawBridges(
 ): void {
   const middle = screen.width / 2;
   for (const bridge of route.bridges) {
+    drawUnderTheBridge(ctx, state, route, screen, bridge);
     for (
       let at = bridge.to;
       at >= bridge.from - VIEW.postEvery / 2;
@@ -1344,6 +1661,85 @@ function drawChasm(
     ctx.closePath();
     ctx.fill();
   }
+}
+
+/**
+ * What is beside and under a bridge: the drop, and the water at the bottom.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @param bridge - the bridge being driven towards
+ * @remarks
+ * From the seat, rails alone made a bridge look like a fenced-off stretch of
+ * road. What says bridge is that the **ground beside it is gone**: past the
+ * edge of the deck the hillside stops, there is a drop, and a long way down
+ * there is a river running under you.
+ *
+ * Painted per side over the hillside, from the near end of the bridge to the
+ * far one: first the rock wall falling away from the edge of the deck, then
+ * the water beyond and below it. Per side and not as one band across, or the
+ * water would be painted over the road you are driving on.
+ */
+function drawUnderTheBridge(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+  bridge: { readonly from: number; readonly to: number },
+): void {
+  const middle = screen.width / 2;
+  const near = Math.max(bridge.from - state.rv.x, VIEW.bonnet);
+  const far = Math.max(bridge.to - state.rv.x, VIEW.bonnet);
+  if (bridge.to - state.rv.x <= VIEW.bonnet || near >= VIEW.sight) {
+    return;
+  }
+  const lip = (at: number, gap: number) => {
+    const scale = VIEW.focal / gap;
+    return {
+      y: project(screen, heightAt(route, at), gap).y,
+      deck: VIEW.railSide * scale,
+      // Where the water is: further out and further down than the deck edge.
+      wet: VIEW.gapWet * scale,
+      wetY: VIEW.gapDeep * VIEW.gapWetAt * scale,
+      out: VIEW.gapOut * scale,
+      down: VIEW.gapDeep * scale,
+    };
+  };
+  const one = lip(bridge.from, near);
+  const two = lip(bridge.to, far);
+  // Nothing of the gorge is seen nearer than the edge one is standing on: the
+  // ground in front of the near lip is in the way, and without this the wall
+  // and the water sweep up towards the bonnet and it looks as though one were
+  // seeing **through** the bridge. Once out on the deck the near end is the
+  // bonnet itself, and the line drops off the bottom of the picture.
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, screen.width, one.y);
+  ctx.clip();
+  for (const side of [-1, 1]) {
+    // The wall of the gorge on this side: from the edge of the deck down and
+    // out to where the water begins.
+    ctx.fillStyle = PAINT.chasm;
+    ctx.beginPath();
+    ctx.moveTo(middle + side * one.deck, one.y);
+    ctx.lineTo(middle + side * two.deck, two.y);
+    ctx.lineTo(middle + side * two.wet, two.y + two.wetY);
+    ctx.lineTo(middle + side * one.wet, one.y + one.wetY);
+    ctx.closePath();
+    ctx.fill();
+    // And the water beyond it, which is the whole reason for the bridge.
+    ctx.fillStyle = PAINT.river;
+    ctx.beginPath();
+    ctx.moveTo(middle + side * one.wet, one.y + one.wetY);
+    ctx.lineTo(middle + side * two.wet, two.y + two.wetY);
+    ctx.lineTo(middle + side * two.out, two.y + two.down);
+    ctx.lineTo(middle + side * one.out, one.y + one.down);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /**
@@ -1899,14 +2295,17 @@ function drawFog(
   if (route.fog === null || !within(route.fog, state.rv.x)) {
     return;
   }
+  // Thinner where the boy and the spider are, or nobody ever sees them.
+  const left = fogLeft(route.sections, state.rv.x);
   const to = screen.horizon + screen.height * VIEW.fogTo;
   const wall = ctx.createLinearGradient(0, screen.horizon, 0, to);
   wall.addColorStop(0, PAINT.fog);
   wall.addColorStop(1, "#d8dee300");
+  ctx.globalAlpha = left;
   ctx.fillStyle = wall;
   ctx.fillRect(0, 0, screen.width, to);
   // Above the horizon there is nothing to see through: solid.
-  ctx.globalAlpha = VIEW.fogThick;
+  ctx.globalAlpha = VIEW.fogThick * left;
   ctx.fillStyle = PAINT.fog;
   ctx.fillRect(0, 0, screen.width, screen.horizon);
   ctx.globalAlpha = 1;

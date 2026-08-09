@@ -12,7 +12,8 @@
 import Link from "next/link";
 import { GameHeader } from "@/components/game-header";
 import { useRef, type ReactElement } from "react";
-import { useFullscreen } from "@/games/panzerkiste/hooks/use-fullscreen";
+import { useFullscreen } from "@/lib/screen/use-fullscreen";
+import { useShotRatio } from "@/lib/screen/use-shot-ratio";
 import {
   usePanzerkiste,
   type Hud,
@@ -30,6 +31,7 @@ import {
 import { PANZERKISTE_TEXTS } from "@/games/panzerkiste/i18n/texts";
 import { endlessNumber, isEndless } from "@/games/panzerkiste/engine/levels";
 import { BannerView } from "@/games/panzerkiste/components/round-banner";
+import { Leaderboard } from "@/games/panzerkiste/components/leaderboard";
 import { VolumeSlider } from "@/games/panzerkiste/components/volume-slider";
 
 /** Intrinsic canvas size of the tilted field (fixed, so it prerenders stable). */
@@ -51,10 +53,12 @@ export function PanzerkisteGame(): ReactElement {
     newMission,
     levelBack,
     levelForward,
+    toEndless,
   } = usePanzerkiste();
 
   const fieldRef = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreen(fieldRef);
+  useShotRatio(canvasRef, fieldRef);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-4">
@@ -129,7 +133,7 @@ export function PanzerkisteGame(): ReactElement {
         </div>
       </div>
 
-      <div ref={fieldRef} className="pk-fullscreen relative">
+      <div ref={fieldRef} className="game-fullscreen relative">
         <canvas
           ref={canvasRef}
           data-testid="panzerkiste-canvas"
@@ -142,7 +146,7 @@ export function PanzerkisteGame(): ReactElement {
           onStart={start}
           onNext={next}
           onRestart={newMission}
-          onEndless={levelForward}
+          onEndless={toEndless}
         />
         <BannerView banner={banner} />
         {fullscreen.active && (
@@ -291,6 +295,9 @@ function Overlay({
         <p className="text-lg font-semibold">
           {"\u{1F4A5}"} {PANZERKISTE_TEXTS.lost}
         </p>
+        {hud.runWave > 0 && (
+          <Leaderboard run={{ wave: hud.runWave, fair: hud.fair }} />
+        )}
         <OverlayButton onClick={onRestart}>
           {PANZERKISTE_TEXTS.playAgain}
         </OverlayButton>

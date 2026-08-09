@@ -137,6 +137,7 @@ function begin(route: Route, x = 0): GameState {
     fuel: 1,
     phase: "driving",
     time: 0,
+    doing: null,
     reached: x,
     bear:
       route.bear === null
@@ -710,6 +711,20 @@ describe("driving into a ditch", () => {
     expect(one(beside).carrying).not.toContain("tyres");
     const tried = hold(beside, DITCH, { work: true }, REPAIR_SECONDS * 2);
     expect(tried.damaged).toBe(true);
+  });
+
+  it("says which job the seconds belong to, and stops saying it when done", () => {
+    // The count on its own is half a fact. Which job it is used to be worked
+    // out again from where each player stood - which at the chasm reported
+    // somebody chopping a tree down as mending the motorhome, and in co-op
+    // told the one watching that they were doing the work themselves.
+    const ready = mendable();
+    expect(ready.doing).toBe(null);
+    const some = hold(ready, DITCH, { work: true }, REPAIR_SECONDS / 2);
+    expect(some.doing).toBe("mend");
+    const mended = hold(some, DITCH, { work: true }, REPAIR_SECONDS);
+    expect(mended.damaged).toBe(false);
+    expect(mended.doing).toBe(null);
   });
 
   it("keeps the hammer after mending - the next ditch is still out there", () => {

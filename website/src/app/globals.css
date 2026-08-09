@@ -227,25 +227,45 @@ body {
   }
 }
 
-/* Panzerkiste: the field wrapper fills the screen and centres the canvas when
-   it goes fullscreen, so the game is as large as it can be on a phone. The
-   canvas scales to fit within the screen with its aspect ratio kept - width and
-   height are left to the intrinsic size and only capped by max-width/max-height,
-   so it is never stretched. Its element box still matches the picture, so touch
-   aiming stays accurate. */
-.pk-fullscreen:fullscreen {
+/* Any game: the wrapper fills the screen and centres the canvas when it goes
+   fullscreen, so the picture is as large as the display allows. The width is
+   whichever is smaller: the whole screen, or as wide as the picture may be at
+   full screen height - so it grows until it touches one edge and stops, and
+   the height follows from its own proportions. Capping the height instead
+   would leave the width where it was and squash the picture. --shot-ratio
+   comes from the canvas itself (see use-shot-ratio.ts), so its element box
+   still matches the picture, which is what keeps touch aiming and the
+   overlays sitting where they should.
+
+   Where the buttons come along into fullscreen - a game has to stay playable
+   on a telephone - they keep their own height and the picture takes what is
+   left, which use-shot-space.ts measures into --shot-space. Games without
+   buttons in there never set it and get the whole screen. */
+.game-fullscreen:fullscreen {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
   background: #0b0f17;
   padding: 0;
 }
 
-.pk-fullscreen:fullscreen canvas {
-  width: auto;
+/* Where the picture sits in a wrapper of its own - because overlays are hung
+   over it - that wrapper has to be exactly as wide as the picture, or the
+   overlays end up centred on the screen instead of on the game. */
+.game-fullscreen:fullscreen .game-shot {
+  width: min(100%, calc(var(--shot-space, 100dvh) * var(--shot-ratio, 1)));
+}
+
+.game-fullscreen:fullscreen .game-shot canvas {
+  width: 100%;
+}
+
+.game-fullscreen:fullscreen canvas {
+  width: min(100%, calc(var(--shot-space, 100dvh) * var(--shot-ratio, 1)));
   height: auto;
   max-width: 100%;
-  max-height: 100%;
   border-radius: 0;
   border: 0;
 }

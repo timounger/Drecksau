@@ -101,6 +101,10 @@ export type Hud = {
   readonly mines: number;
   /** Which wave is out in the endless arena; zero on every other level. */
   readonly wave: number;
+  /** The furthest wave this mission has reached, for the board of the best. */
+  readonly runWave: number;
+  /** True while this mission may go on the board: nobody skipped a level. */
+  readonly fair: boolean;
   /** True once the player has started (not on the "click to start" screen). */
   readonly running: boolean;
 };
@@ -122,6 +126,8 @@ export type PanzerkisteGame = {
   readonly levelBack: () => void;
   /** Jumps straight to the level after the current one and starts it. */
   readonly levelForward: () => void;
+  /** Goes on into the arena from a won campaign, which still counts. */
+  readonly toEndless: () => void;
   /** How many levels the mission has, for enabling the jump buttons. */
   readonly levelCount: number;
 };
@@ -203,6 +209,16 @@ export function usePanzerkiste(): PanzerkisteGame {
   });
 
   /**
+   * What the mission is worth to the board of the best.
+   *
+   * @remarks
+   * `fair` starts true and never comes back: a mission that was fast-forwarded
+   * with the level buttons is not one somebody fought their way through, and a
+   * board that took those would only ever show whoever pressed hardest.
+   */
+  const runRef = useRef({ wave: 0, fair: true });
+
+  /**
    * Writes the shots not yet booked into the mission statistics.
    *
    * @remarks
@@ -245,11 +261,12 @@ export function usePanzerkiste(): PanzerkisteGame {
       bookedHit: 0,
       wave: 0,
     };
+    runRef.current = { wave: 0, fair: true };
   }, [flushStatsTime]);
 
   /** Mirrors the HUD into React state only when a shown value changes. */
   const syncHud = useCallback(() => {
-    const nextHud = hudOf(stateRef.current, runningRef.current);
+    const nextHud = hudOf(stateRef.current, runningRef.current, runRef.current);
     if (!sameHud(nextHud, hudRef.current)) {
       hudRef.current = nextHud;
       setHud(nextHud);
@@ -406,6 +423,10 @@ export function usePanzerkiste(): PanzerkisteGame {
         }
         if (missionStats.current.wave !== stateRef.current.wave) {
           missionStats.current.wave = stateRef.current.wave;
+          runRef.current.wave = Math.max(
+            runRef.current.wave,
+            stateRef.current.wave,
+          );
           recordWaveReached(stateRef.current.wave);
         }
         const input = readInput();
@@ -515,8 +536,9 @@ export function usePanzerkiste(): PanzerkisteGame {
     runningRef.current = true;
     syncHud();
   };
-  const jumpBy = (delta: number) => {
+  const jumpBy = (delta: number, fair = false) => {
     // No ceiling: past the campaign every step forward is the next arena.
+    runRef.current.fair = runRef.current.fair && fair;
     stateRef.current = setLevel(
       stateRef.current,
       stateRef.current.level + delta,
@@ -534,12 +556,20 @@ export function usePanzerkiste(): PanzerkisteGame {
     newMission: restartMission,
     levelBack: () => jumpBy(-1),
     levelForward: () => jumpBy(1),
+    toEndless: () => jumpBy(1, stateRef.current.phase === "won"),
     levelCount: LEVEL_COUNT,
   };
 }
 
 /** The HUD snapshot for a state. */
-function hudOf(state: GameState, running: boolean): Hud {
+function hudOf(
+  state: GameState,
+  running: boolean,
+  run: { readonly wave: number; readonly fair: boolean } = {
+    wave: 0,
+    fair: true,
+  },
+): Hud {
   return {
     phase: state.phase,
     level: state.level,
@@ -547,6 +577,8 @@ function hudOf(state: GameState, running: boolean): Hud {
     enemies: enemiesLeft(state),
     mines: minesLeft(state),
     wave: state.wave,
+    runWave: run.wave,
+    fair: run.fair,
     running,
   };
 }
@@ -560,6 +592,8 @@ function sameHud(a: Hud, b: Hud): boolean {
     a.enemies === b.enemies &&
     a.mines === b.mines &&
     a.wave === b.wave &&
+    a.runWave === b.runWave &&
+    a.fair === b.fair &&
     a.running === b.running
   );
 }

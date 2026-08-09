@@ -31,7 +31,6 @@ import { heightAt, routeLength, slopeAt } from "./terrain";
 import {
   ANCHOR_REACH,
   FUEL_BURN,
-  FUEL_SECONDS,
   BEAR_LEASH,
   BEAR_NOTICE,
   BEAR_REACH,
@@ -41,7 +40,6 @@ import {
   JUMP_HIGH,
   BRIDGE_LOAD,
   CHASM_STOP,
-  FELL_SECONDS,
   LADDER_REACH,
   LEAP_SPEED,
   ROOF_HALF,
@@ -54,7 +52,8 @@ import {
   STILL_SPEED,
   FOG_GRACE,
   PICKUP_REACH,
-  REPAIR_SECONDS,
+  WORK_SECONDS,
+  type Job,
   TYRE_FACTOR,
   WINCH_BURN,
   DRAG,
@@ -95,14 +94,6 @@ const UNHOOKED = -1;
 
 /** How far onto the roof a climb steps, in metres past its back edge. */
 const ROOF_STEP = 0.3;
-
-/** How long each job takes, in seconds. */
-const WORK_SECONDS: Readonly<Record<NonNullable<Job> | "mend", number>> = {
-  mend: REPAIR_SECONDS,
-  fit: REPAIR_SECONDS,
-  fuel: FUEL_SECONDS,
-  fell: FELL_SECONDS,
-};
 
 /**
  * What somebody is standing **on**, in metres above the ground.
@@ -297,6 +288,7 @@ export function step(
     felled: state.felled || (done && job === "fell"),
     tyres: state.tyres || (done && job === "fit"),
     repair: done ? 0 : repair,
+    doing: done ? null : job,
     section: Math.max(state.section, sectionAt(x)),
     hooked: releaseIf(hooked, rope, x, route),
     rope,
@@ -922,8 +914,8 @@ export function grip(slope: number, tyres = false): number {
   return (none - steep) / (none - full);
 }
 
-/** What somebody standing at the motorhome with the right thing can do to it. */
-export type Job = "mend" | "fit" | "fuel" | "fell" | null;
+/** What somebody standing at the right place with the right thing can do. */
+export type { Job };
 
 /**
  * The anchor the rope would reach right now.

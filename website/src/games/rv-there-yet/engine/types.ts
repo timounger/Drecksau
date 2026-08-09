@@ -406,6 +406,9 @@ export const SPRAY_SECONDS = 2;
  */
 export const REPAIR_SECONDS = 3;
 
+/** What somebody standing at the right place with the right thing can do. */
+export type Job = "mend" | "fit" | "fuel" | "fell" | null;
+
 /**
  * How long emptying a jerrycan into the tank takes, in seconds.
  *
@@ -414,6 +417,22 @@ export const REPAIR_SECONDS = 3;
  * there while the tank fills is the price of not having watched the gauge.
  */
 export const FUEL_SECONDS = 4;
+
+/**
+ * How long each job takes, in seconds.
+ *
+ * @remarks
+ * Here rather than in the engine because the screen needs it too: a count of
+ * seconds means nothing without the number it is counting towards, and two
+ * places keeping their own idea of how long fuelling takes is how a bar comes
+ * to fill up at a different rate from the job it is showing.
+ */
+export const WORK_SECONDS: Readonly<Record<NonNullable<Job>, number>> = {
+  mend: REPAIR_SECONDS,
+  fit: REPAIR_SECONDS,
+  fuel: FUEL_SECONDS,
+  fell: FELL_SECONDS,
+};
 
 /**
  * How long anything may stand still in the fog, in seconds.
@@ -712,6 +731,20 @@ export type GameState = {
   readonly brake: boolean;
   /** How long this drive has been going, in seconds. */
   readonly time: number;
+  /**
+   * Which job the seconds in {@link repair} belong to, or null while none runs.
+   *
+   * @remarks
+   * The count on its own is half a fact. Whose job it is used to be worked out
+   * again from where each player stood, which gave the wrong answer twice
+   * over: in co-op the one **watching** stands nowhere near the work and read
+   * their own surroundings instead of it, and the counts run at different
+   * speeds - fuelling takes four seconds and the rest three, so a share worked
+   * out against the wrong one is simply a wrong number.
+   *
+   * So the world says what is being done, and the screen reads it.
+   */
+  readonly doing: Job;
   /**
    * How long nothing has moved inside the fog, in seconds.
    *

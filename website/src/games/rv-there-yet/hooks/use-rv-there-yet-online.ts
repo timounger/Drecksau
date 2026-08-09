@@ -29,12 +29,24 @@ import {
   step,
 } from "@/games/rv-there-yet/engine/engine";
 import { startAt, theMap } from "@/games/rv-there-yet/engine/setup";
-import { draw } from "@/games/rv-there-yet/components/render";
+import {
+  CANVAS_H,
+  CANVAS_W,
+  draw,
+} from "@/games/rv-there-yet/components/render";
+import { fitCanvas } from "@/lib/screen/fit-canvas";
 import {
   createControls,
   type TouchButton,
 } from "@/games/rv-there-yet/hooks/controls";
 import { hudOf, sameHud, type Hud } from "@/games/rv-there-yet/hooks/hud";
+import {
+  NO_RUN,
+  runAgain,
+  runFrom,
+  runOn,
+  type Run,
+} from "@/games/rv-there-yet/stats/run-clock";
 import {
   loadSection,
   saveSection,
@@ -95,6 +107,15 @@ export type RvThereYetOnline = {
   readonly hud: Hud;
   /** Attach to the game `<canvas>` while playing. */
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  /**
+   * The drive as a whole, as it stood when it ended.
+   *
+   * @remarks
+   * Counted by each player's own screen rather than sent over the wire: both
+   * of them watch the same drive, so both arrive at the same seconds, and a
+   * number that only exists at the end is not worth a message every frame.
+   */
+  readonly run: Run;
   /** Host only: begin the drive at the host's own last section. */
   readonly start: () => void;
   /** Host only: start the current section over. */
@@ -214,12 +235,18 @@ export function useRvThereYetOnline(
     void transport.publish(room, EMPTY_HANDS);
   }, []);
 
+  /** The clock over the whole drive, and whether its end has been noticed. */
+  const runRef = useRef<Run>(NO_RUN);
+  const endedRef = useRef(false);
+  const [run, setRun] = useState<Run>(NO_RUN);
+
   /** Host only: deals a fresh world at a section and starts the drive. */
   const dealAt = useCallback(
-    (section: number) => {
+    (section: number, again = false) => {
       if (roleRef.current !== "host") {
         return;
       }
+      runRef.current = again ? runAgain(runRef.current) : runFrom(section);
       authRef.current = startAt(section, COOP_PLAYERS);
       runningRef.current = true;
       roomPhaseRef.current = "playing";
@@ -236,7 +263,9 @@ export function useRvThereYetOnline(
   }, [dealAt]);
 
   const again = useCallback(() => {
-    dealAt(authRef.current?.section ?? loadSection());
+    // The same drive carrying on: a section begun again after a crash does not
+    // put the clock back, or crashing on purpose would be the quick way round.
+    dealAt(authRef.current?.section ?? loadSection(), true);
   }, [dealAt]);
 
   const newGame = useCallback(() => {
@@ -411,10 +440,25 @@ export function useRvThereYetOnline(
             ? null
             : fromSnapshot(snapshotRef.current);
       if (world !== null) {
+        // Each screen keeps its own clock over the whole drive: both of them
+        // are watching the same one, so both arrive at the same seconds.
+        if (runningRef.current && world.phase === "driving") {
+          runRef.current = runOn(runRef.current, dt);
+        } else if (world.phase !== "driving" && !endedRef.current) {
+          endedRef.current = true;
+          setRun(runRef.current);
+        }
+        if (world.phase === "driving") {
+          endedRef.current = false;
+        }
         const person = world.people[me] ?? world.people[0];
         const ready = reachableAnchor(person, world, route);
         const candidate = ropeCandidate(world, route);
         syncHud(world, ready, candidate, me);
+        // As many pixels as the screen really gives it, so the picture is
+        // sharp full screen too; the drawing stays in the logical grid.
+        const dots = fitCanvas(canvas, CANVAS_W, CANVAS_H);
+        ctx.setTransform(dots, 0, 0, dots, 0, 0);
         draw(
           ctx,
           world,
@@ -445,6 +489,7 @@ export function useRvThereYetOnline(
     isHost,
     seats,
     hud,
+    run,
     canvasRef,
     start,
     again,
