@@ -54,6 +54,7 @@ Wer nah genug ist (`PICKUP_REACH` = 5 m), sieht einen gelben Ring darum.
 | `N`     | Nebel     | **Zwei** Marken: die erste schließt die Sicht, die zweite öffnet sie wieder. Steht nur eine, gilt der Nebel bis zum Ziel.                                       |
 | `B`     | Bär       | Bewacht seine Stelle: sperrt die Strecke 6 m vorher, bis er verscheucht ist. Sieht dich aus 30 m, kommt mit 3,2 m/s, folgt höchstens 12 m weit, tötet nach 4 s. |
 | `P`     | Brücke    | Morsches Holz über einer Schlucht, mit Warnschild davor. Trägt das Wohnmobil mit **einem** Insassen; sitzen beide drin, bricht sie ein.                         |
+| `M`     | Matsch    | Zerfahrener Boden: lässt das Fahrzeug durch, nimmt ihm aber das Tempo (höchstens 2 m/s). Steht vor einem Anstieg, den das Seil gewinnen soll.                      |
 | `A`     | Abgrund   | Gar keine Straße: 3,9 m breit, ohne Boden. Wer hineinfährt oder hineinspringt, ist tot. Zu Fuß bleibt man 1,5 m davor stehen.                                   |
 | `L`     | Baum      | Der Baum, der den Abgrund zufällt. Steht **jenseits** davon; gefällt liegt er als Straße darüber.                                                               |
 | `Z`     | Axt       | Fällt den Baum (3 s F halten). Liegt ebenfalls drüben - man kommt nur über das Dach des Wohnmobils dorthin.                                                     |
@@ -92,8 +93,8 @@ der Zielflagge.
 | Nr. | Beginn | Feld |  Höhe | Bis    | Was dort zu tun ist                     |
 | --: | -----: | ---: | ----: | ------ | --------------------------------------- |
 |   1 |   16 m |    2 | 18,0m | 376 m  | Bergab, dann bergauf - herunterschalten |
-|   2 |  376 m |   47 | 28,5m | 704 m  | Der Graben, Baum bei 560, Hammer b. 624 |
-|   3 |  704 m |   88 |  1,5m | 888 m  | Zu steiler Anstieg, Baum bei 776 m      |
+|   2 |  376 m |   47 | 28,5m | 688 m  | Matsch b. 504, Anstieg, Baum bei 560 m  |
+|   3 |  688 m |   86 | 12,0m | 888 m  | Der Graben, Baum bei 752, Hammer b. 808 |
 |   4 |  888 m |  111 |  0,0m | 1088 m | Zu steil, kein Baum, Reifen bei 904 m   |
 |   5 | 1088 m |  136 |  3,0m | 1256 m | Der Bär bei 1152, Spray bei 1104 m      |
 |   6 | 1256 m |  157 |  0,0m | 1536 m | Nebel 1248 - 1512 m, ständiges Auf und Ab |
@@ -105,9 +106,10 @@ Was wo liegt:
 | Ding     | Feld       | Meter     |
 | -------- | ---------- | --------- |
 | Kanister | 6          | 48        |
-| Graben   | 66, 67, 68 | 528 - 544 |
-| Bäume    | 70, 97     | 560, 776  |
-| Hammer   | 78         | 624       |
+| Matsch   | 63         | 500 - 508 |
+| Bäume    | 70, 94     | 560, 752  |
+| Graben   | 90, 91, 92 | 716 - 740 |
+| Hammer   | 101        | 808       |
 | Reifen   | 113        | 904       |
 | Spray    | 138        | 1104      |
 | Bär      | 144        | 1152      |
@@ -136,19 +138,29 @@ Abschnittsmarke; ein Test hält beide Zahlen aneinander.
    Wohnmobil im fünften Gang in 40 Sekunden noch **3,9 Meter** weit, im ersten
    **182**. Wer anhält, um sich etwas anzusehen, muss herunterschalten.
 
-2. **Der Graben** (376 - 704 m). Zu Fuß läuft man hinüber, mit dem Wohnmobil
-   bricht man ein. Also aussteigen, zum Baum bei 560 m laufen, Seil dran,
-   hinüberziehen. Wer trotzdem hineinfährt, hat ein **kaputtes** Fahrzeug und
-   braucht den **Hammer** von 624 m und drei Sekunden F.
-3. **Ein Anstieg mit Baum** (704 - 888 m). Dieselbe Übung ohne Graben: zu steil
-   zum Fahren, aber ein Baum bei 776 m steht in Seillänge. Der Abschnitt ist das
-   Wiederholungsstück - hier merkt man, dass die Winde nicht die Notlösung fürs
-   Verunglücken ist, sondern ein Werkzeug, das man einplant.
+2. **Am Seil hinauf** (376 - 688 m). Vom Hochplateau geht es hinunter ins Tal
+   und dann vor eine Wand, die zum Fahren zu steil ist - aber ein Baum bei
+   560 m steht in Seillänge. Aussteigen, hinlaufen, Seil dran, hochziehen. Hier
+   lernt man die Winde, bevor der Graben sie verlangt.
 
-   Wie knapp das ist, lohnt sich zu wissen, wenn man daran schraubt: Im ersten
-   Gang kommt das Wohnmobil bis **731,9 m** und bleibt dann stehen. Bis zum Baum
-   sind es von dort **44,1 Meter** - bei 46 Metern Seil. Zwei Meter mehr Wand,
-   und der Abschnitt wäre nicht mehr zu schaffen.
+   Damit das so bleibt, liegt bei 500 - 508 m **Matsch** vor der Wand. Ohne ihn
+   kam man mit dem Anlauf vom Plateau im fünften Gang schlicht hinüber:
+   gemessen bis **750,9 m**, also weit in den nächsten Abschnitt hinein, und
+   die Winde war Zierde. Mit Matsch endet dieselbe Fahrt bei **520,8 m**, am
+   Fuß der Wand.
+
+   Die Zahlen, die man kennen sollte, wenn man daran schraubt: Im ersten Gang
+   kommt das Wohnmobil bis **521,8 m** und bleibt dann stehen. Bis zum Baum
+   sind es von dort **38,2 Meter** - bei 46 Metern Seil. Ein Test misst beides
+   bei jedem Lauf gegeneinander, damit ein Dreh am Matsch die Wand nicht
+   unlösbar macht.
+
+3. **Der Graben** (688 - 888 m). Jetzt, wo die Winde sitzt, kommt der Fall, in
+   dem man sie **braucht**: Zu Fuß läuft man über den Graben bei 716 - 740 m
+   hinüber, mit dem Wohnmobil bricht man ein. Also aussteigen, zum Baum bei
+   752 m laufen, Seil dran, hinüberziehen. Wer trotzdem hineinfährt, hat ein
+   **kaputtes** Fahrzeug und braucht den **Hammer** von 808 m und drei
+   Sekunden F.
 
 4. **Zu steil, kein Baum** (888 - 1088 m). Weder Gas noch Winde helfen. Auf dem
    Weg davor liegen bei 904 m die **Geländereifen**: aufheben, zum Fahrzeug

@@ -638,7 +638,11 @@ function DrivingArea({
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <GearStick gear={hud.gear} onShift={online.shift} />
+        <GearStick
+          gear={hud.gear}
+          onShift={online.shift}
+          driving={hud.driving}
+        />
       </div>
 
       <Inventory
@@ -745,7 +749,6 @@ function ArrivedOverlay({
         <p className="text-2xl font-bold">
           {"\u{1F5A4}"} {RV_TEXTS.taken}
         </p>
-        <p className="text-sm text-zinc-300">{RV_TEXTS.takenHint}</p>
         {online.isHost ? (
           <button
             type="button"

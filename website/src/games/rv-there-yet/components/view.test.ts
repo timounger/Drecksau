@@ -15,11 +15,16 @@
 import { describe, expect, it } from "vitest";
 import { draw } from "./render";
 import { startAt } from "../engine/setup";
+import { RV_TEXTS } from "../i18n/texts";
+import { NOTICE_AFTER } from "./notice";
+import { SECTIONS, WOOD_FROM, woodShare } from "../engine/map";
 import {
   NEUTRAL,
   REVERSE,
   PICKUP_REACH,
+  HEIGHT_UNIT,
   ROUTE_STEP,
+  SNOW_FULL,
   STILL_SECONDS,
   TOP_GEAR,
   type GameState,
@@ -48,6 +53,10 @@ function recordingContext(): {
       void calls.push({ name: "addColorStop", args }),
   };
   const canvas = { width: 960, height: 420 };
+  /** How wide one character is, as a share of the size the font is set to. */
+  const LETTER = 0.5;
+  /** The size of the font in force, for measuring with. */
+  let size = 10;
   const ctx = new Proxy(
     {},
     {
@@ -57,10 +66,18 @@ function recordingContext(): {
         }
         return (...args: unknown[]) => {
           calls.push({ name: prop, args });
+          // Something that can be measured, or every width worked out from a
+          // string comes back as `undefined` and the geometry is all NaN.
+          if (prop === "measureText") {
+            return { width: String(args[0]).length * size * LETTER };
+          }
           return gradient;
         };
       },
       set: (_target, prop: string, value: unknown) => {
+        if (prop === "font") {
+          size = Number.parseFloat(String(value)) || size;
+        }
         calls.push({ name: `set:${String(prop)}`, args: [value] });
         return true;
       },
@@ -101,6 +118,50 @@ function crownRadii(calls: readonly Call[]): number[] {
 /** The greens a tree crown is painted in: plain, and lit up for the rope. */
 const CROWNS = ["#2f7d46", "#7ddc8f"];
 
+/** How wide the canvas is, for telling left of the road from right. */
+const WIDE = 960;
+
+/** The bark of a trunk, in both views. */
+const BARK = "#6b4a2f";
+
+/**
+ * How bright a colour is, on a scale of nought to one.
+ *
+ * @param tone - the colour, as `#rrggbb`
+ * @returns its brightness
+ */
+function brightness(tone: string): number {
+  const channels = [1, 3, 5].map((at) =>
+    Number.parseInt(tone.slice(at, at + 2), 16),
+  );
+  return channels.reduce((sum, each) => sum + each, 0) / (3 * 255);
+}
+
+/**
+ * The calls that painted the road surface itself.
+ *
+ * @param calls - what the canvas was asked to do
+ * @returns only the calls made while the road colours were in force
+ * @remarks
+ * The hillside either side of the road is built from flat quads as well, so a
+ * measurement of "how wide is the road here" has to know which colour it is
+ * looking at.
+ */
+function onlyRoad(calls: readonly Call[]): Call[] {
+  const ROAD = ["#b09265", "#8f7446", "#c6d5e4", "#adbfd2"];
+  const kept: Call[] = [];
+  let on = false;
+  for (const call of calls) {
+    if (call.name === "set:fillStyle") {
+      on = ROAD.includes(String(call.args[0]));
+    }
+    if (on) {
+      kept.push(call);
+    }
+  }
+  return kept;
+}
+
 /**
  * How wide every band of ground came out, far first.
  *
@@ -138,6 +199,7 @@ const TWO_TREES: Route = {
   bear: null,
   fog: null,
   bridges: [],
+  mud: [],
   chasms: [],
   fellTree: null,
   sections: [],
@@ -211,6 +273,7 @@ describe("the section flags", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [ROUTE_STEP * 2, ROUTE_STEP * 8],
@@ -325,10 +388,12 @@ describe("the view ahead", () => {
 
   it("narrows the road towards the horizon", () => {
     // Without this the road is a painted backdrop and no distance can be
-    // judged from it.
+    // judged from it. Measured on the **road** itself: the hillside beside it
+    // is drawn out of flat quads too, and counting those as road would be
+    // measuring the wrong thing.
     const { ctx, calls } = recordingContext();
     draw(ctx, seated(), TWO_TREES, -1, -1);
-    const widths = bandWidths(calls);
+    const widths = bandWidths(onlyRoad(calls));
     expect(widths.length).toBeGreaterThan(20);
     // Painted from far to near, so the last band is the widest by a long way.
     expect(widths[widths.length - 1]).toBeGreaterThan(widths[0] * 5);
@@ -642,10 +707,15 @@ describe("the bear on the screen", () => {
 
   /** The side view, with the bear in a given state and the clock at a time. */
   function scene(
-    over: { hold?: number; time?: number; walkerAt?: number } = {},
+    over: {
+      hold?: number;
+      time?: number;
+      walkerAt?: number;
+      bearAt?: number;
+    } = {},
   ): readonly Call[] {
     const base = standing();
-    const at = WITH_BEAR.bear ?? 0;
+    const at = over.bearAt ?? WITH_BEAR.bear ?? 0;
     const { ctx, calls } = recordingContext();
     draw(
       ctx,
@@ -727,6 +797,52 @@ describe("the bear on the screen", () => {
     expect(restingLater).toEqual(restingEarly);
   });
 
+  /** Where the paws were put down, across the canvas. */
+  function paws(calls: readonly Call[]): number[] {
+    let colour = "";
+    const feet: number[] = [];
+    for (const call of calls) {
+      if (call.name === "set:fillStyle") {
+        colour = String(call.args[0]);
+      }
+      if (call.name === "roundRect" && (colour === PAW || colour === FAR)) {
+        feet.push(Number(call.args[0]));
+      }
+    }
+    return feet;
+  }
+
+  /** The pale near paw, the shaded far side, the muzzle and the nose. */
+  const PAW = "#6b4d38";
+  const FAR = "#33241a";
+  const MUZZLE = "#8a6a4e";
+  const SNOUT = "#1d1512";
+
+  it("stands on four legs, two of them in its own shadow", () => {
+    // Two legs is a pantomime horse seen end-on. The far pair is darker, so
+    // that there is an animal between the two pairs.
+    expect(paws(scene())).toHaveLength(4);
+    expect(usedColour(scene(), FAR)).toBe(true);
+  });
+
+  it("has a muzzle on it, and a nose on the end of that", () => {
+    // What tells a bear from a boulder with ears: the long pale snout.
+    expect(usedColour(scene(), MUZZLE)).toBe(true);
+    expect(usedColour(scene(), SNOUT)).toBe(true);
+  });
+
+  it("walks in step with the ground it covers", () => {
+    // The legs swing by **where** it is, not by what time it is - a bear that
+    // paddles its legs while standing still is a bear on a treadmill. Two
+    // places, one a whole stride apart from the other and one half of one.
+    const spread = (at: number): number => {
+      const feet = paws(scene({ bearAt: at }));
+      return Math.max(...feet) - Math.min(...feet);
+    };
+    const square = 1.1111 * 29;
+    expect(spread(square + 0.2778)).toBeGreaterThan(spread(square) + 1);
+  });
+
   it("turns to face whoever is on foot", () => {
     /** Which way round the bear was drawn. */
     const facing = (calls: readonly Call[]) =>
@@ -736,6 +852,70 @@ describe("the bear on the screen", () => {
     const bearAt = WITH_BEAR.bear ?? 0;
     expect(facing(scene({ walkerAt: bearAt + 8 }))).toContain(1);
     expect(facing(scene({ walkerAt: bearAt - 8 }))).toContain(-1);
+  });
+});
+
+describe("the bear seen from the seat", () => {
+  /** A flat road with a bear standing on it, seen through the windscreen. */
+  const AHEAD: Route = {
+    ...TWO_TREES,
+    anchors: [],
+    items: [],
+    sections: [],
+    bear: ROUTE_STEP * 4,
+  };
+
+  /** Everything the cab drew, with the bear that far ahead. */
+  function fromSeat(): readonly Call[] {
+    const base = seated();
+    const at = AHEAD.bear ?? 0;
+    const { ctx, calls } = recordingContext();
+    draw(
+      ctx,
+      { ...base, bear: { at, hold: 0, sprayed: 0, gone: false } },
+      AHEAD,
+      -1,
+      -1,
+    );
+    return calls;
+  }
+
+  it("faces you with a head rather than a stack of circles", () => {
+    // Head-on it was three brown discs. Ears set wide, a pale blunt muzzle
+    // and two small eyes are what nobody takes for a boulder.
+    expect(usedColour(fromSeat(), "#8a6a4e")).toBe(true);
+    expect(usedColour(fromSeat(), "#1d1512")).toBe(true);
+  });
+
+  it("has a side the light is not on", () => {
+    // A flat brown blob has no front and no sides; the shading is what says
+    // "that is a body, and it is facing you". Found as the shaded slab laid
+    // over the chest and clipped to it - the far leg and the far ear are in
+    // the same colour, so the colour alone proves nothing.
+    let tone = "";
+    let shaded = 0;
+    for (const call of fromSeat()) {
+      if (call.name === "set:fillStyle") {
+        tone = String(call.args[0]);
+      } else if (call.name === "fillRect" && tone === "#33241a") {
+        shaded += 1;
+      }
+    }
+    expect(shaded).toBeGreaterThan(0);
+  });
+
+  it("is gone from the road once it has been driven off", () => {
+    const base = seated();
+    const at = AHEAD.bear ?? 0;
+    const { ctx, calls } = recordingContext();
+    draw(
+      ctx,
+      { ...base, bear: { at, hold: 0, sprayed: 0, gone: true } },
+      AHEAD,
+      -1,
+      -1,
+    );
+    expect(usedColour(calls, "#8a6a4e")).toBe(false);
   });
 });
 
@@ -1175,6 +1355,7 @@ describe("the figure in the fog", () => {
     anchors: [],
     fog: { from: 0, to: ROUTE_STEP * 100 },
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
   };
@@ -1486,6 +1667,7 @@ describe("the figure in the fog, seen from the cab", () => {
     anchors: [],
     fog: { from: 0, to: ROUTE_STEP * 100 },
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
   };
@@ -1686,6 +1868,7 @@ describe("the bridge", () => {
     ...TWO_TREES,
     anchors: [],
     bridges: [{ from: ROUTE_STEP * 3, to: ROUTE_STEP * 6 }],
+    mud: [],
     chasms: [],
     fellTree: null,
   };
@@ -1774,6 +1957,7 @@ describe("the chasm and the tree over it", () => {
   const GAP: Route = {
     ...TWO_TREES,
     anchors: [],
+    mud: [],
     chasms: [{ from: ROUTE_STEP * 3, to: ROUTE_STEP * 3 + 4.6 }],
     fellTree: ROUTE_STEP * 4,
     items: [{ at: ROUTE_STEP * 4 + 8, kind: "axe" }],
@@ -2017,5 +2201,891 @@ describe("the things in the road, seen from the seat", () => {
       (call) => call.name === "fillRect",
     );
     expect(can.length).not.toBe(spray.length);
+  });
+});
+
+describe("the mud", () => {
+  /** The wet brown of a churned patch. */
+  const MUD = "#5a4630";
+
+  /** Flat road with a patch of mud on it. */
+  const BOG: Route = {
+    ...TWO_TREES,
+    anchors: [],
+    mud: [{ from: ROUTE_STEP * 2, to: ROUTE_STEP * 4 }],
+  };
+
+  it("shows it from the side", () => {
+    const { ctx, calls } = recordingContext();
+    draw(ctx, standing(), BOG, -1, -1);
+    expect(usedColour(calls, MUD)).toBe(true);
+  });
+
+  it("shows it through the windscreen, where it matters most", () => {
+    // A driver who sees it coming stops arguing with the throttle.
+    const { ctx, calls } = recordingContext();
+    draw(ctx, seated(), BOG, -1, -1);
+    expect(usedColour(calls, MUD)).toBe(true);
+  });
+
+  it("paints none of it on a clean road", () => {
+    const side = recordingContext();
+    draw(side.ctx, standing(), TWO_TREES, -1, -1);
+    expect(usedColour(side.calls, MUD)).toBe(false);
+    const seat = recordingContext();
+    draw(seat.ctx, seated(), TWO_TREES, -1, -1);
+    expect(usedColour(seat.calls, MUD)).toBe(false);
+  });
+});
+
+describe("the trees", () => {
+  /** One circle of a crown. */
+  type Lobe = {
+    readonly tone: string;
+    readonly x: number;
+    readonly y: number;
+    readonly radius: number;
+  };
+
+  /** The calls that only prepare a shape, rather than being one. */
+  const BETWEEN = new Set(["set:fillStyle", "beginPath", "fill", "closePath"]);
+
+  /**
+   * The crowns drawn, each as the run of circles it is made of.
+   *
+   * @param calls - what the canvas was asked to do
+   * @returns one list of lobes per tree
+   * @remarks
+   * A crown is a run of circles with nothing but colour changes between them,
+   * which is what tells it from the wheels and the hub - those have the rest
+   * of a motorhome drawn in among them.
+   */
+  function crowns(calls: readonly Call[]): Lobe[][] {
+    const found: Lobe[][] = [];
+    let run: Lobe[] = [];
+    let tone = "";
+    for (const call of calls) {
+      if (call.name === "set:fillStyle") {
+        tone = String(call.args[0]);
+      } else if (call.name === "arc") {
+        run.push({
+          tone,
+          x: Number(call.args[0]),
+          y: Number(call.args[1]),
+          radius: Number(call.args[2]),
+        });
+      } else if (!BETWEEN.has(call.name)) {
+        if (run.some((lobe) => CROWNS.includes(lobe.tone))) {
+          found.push(run);
+        }
+        run = [];
+      }
+    }
+    return found;
+  }
+
+  /** One filled outline: the colour of it and the corners it was drawn with. */
+  type Shape = {
+    readonly tone: string;
+    readonly points: readonly { readonly x: number; readonly y: number }[];
+  };
+
+  /**
+   * Every filled outline, in the order they were painted.
+   *
+   * @param calls - what the canvas was asked to do
+   * @returns the outlines, each with the colour it was filled in
+   */
+  function shapes(calls: readonly Call[]): Shape[] {
+    const found: Shape[] = [];
+    let tone = "";
+    let points: { x: number; y: number }[] = [];
+    const corner = (x: unknown, y: unknown) =>
+      points.push({ x: Number(x), y: Number(y) });
+    for (const call of calls) {
+      if (call.name === "set:fillStyle") {
+        tone = String(call.args[0]);
+      } else if (call.name === "moveTo" || call.name === "lineTo") {
+        corner(call.args[0], call.args[1]);
+      } else if (call.name === "quadraticCurveTo") {
+        corner(call.args[2], call.args[3]);
+      } else if (call.name === "fill" && points.length > 0) {
+        found.push({ tone, points });
+        points = [];
+      } else if (call.name === "stroke") {
+        // A stroked path is a line, not an outline - and left lying about it
+        // would tack its corners onto the next shape that **is** filled.
+        points = [];
+      }
+    }
+    return found;
+  }
+
+  /** How wide an outline is at its lowest corners and at its highest. */
+  function spread(shape: Shape): {
+    foot: number;
+    wide: number;
+    thin: number;
+  } {
+    const low = Math.max(...shape.points.map((point) => point.y));
+    const high = Math.min(...shape.points.map((point) => point.y));
+    const at = (y: number) => {
+      const xs = shape.points.filter((p) => p.y === y).map((p) => p.x);
+      return Math.max(...xs) - Math.min(...xs);
+    };
+    return { foot: low, wide: at(low), thin: at(high) };
+  }
+
+  /** The first trunk drawn, and the shape painted straight after it. */
+  function firstTrunk(calls: readonly Call[]): {
+    readonly trunk: Shape;
+    readonly next: Shape;
+  } {
+    const all = shapes(calls);
+    const at = all.findIndex((shape) => shape.tone === BARK);
+    expect(at).toBeGreaterThan(-1);
+    expect(all[at + 1]).toBeDefined();
+    return { trunk: all[at], next: all[at + 1] };
+  }
+
+  /** Everything the roadside view drew, with two trees standing in it. */
+  function roadside(): Call[] {
+    const { ctx, calls } = recordingContext();
+    draw(ctx, standing(), TWO_TREES, -1, -1);
+    return calls;
+  }
+
+  it("gives a crown more than one circle to be made of", () => {
+    // One circle is a lollipop. Several overlapping ones, in tones of the same
+    // green, are a crown with a shape and a side the light comes from.
+    const [first] = crowns(roadside());
+    expect(first.length).toBeGreaterThan(3);
+    expect(new Set(first.map((lobe) => lobe.tone)).size).toBeGreaterThan(3);
+  });
+
+  it("lights the crown from the same side as the rest of the view", () => {
+    // The hillside, the trunk and the crown all catch the light from one side.
+    // Two of them agreeing and the third not is worse than no shading at all.
+    const [first] = crowns(roadside());
+    const sorted = [...first].sort(
+      (a, b) => brightness(a.tone) - brightness(b.tone),
+    );
+    expect(sorted[0].x).toBeGreaterThan(sorted[sorted.length - 1].x);
+  });
+
+  it("holds the crown up on the trunk instead of on the ground", () => {
+    // The rope goes round the trunk at the height the map gives. With the
+    // crown centred there it swallowed the whole trunk and sat in the grass.
+    const calls = roadside();
+    const [first] = crowns(calls);
+    const body = first.find((lobe) => CROWNS.includes(lobe.tone));
+    const trunk = spread(firstTrunk(calls).trunk);
+    expect(body).toBeDefined();
+    const clear = trunk.foot - (Number(body?.y) + Number(body?.radius));
+    expect(clear).toBeGreaterThan(Number(body?.radius) / 4);
+  });
+
+  it("widens the trunk towards its roots", () => {
+    // A trunk of one width is a broom handle, and one that merely tapers is a
+    // pencil: it flares out where it goes into the ground, so that it stands
+    // in the earth rather than having been stuck into it.
+    const trunk = spread(firstTrunk(roadside()).trunk);
+    expect(trunk.wide).toBeGreaterThan(trunk.thin * 3);
+  });
+
+  it("shades one side of the trunk", () => {
+    // Two flat browns side by side is what makes a trunk round instead of a
+    // plank, and the dark one has to be the side the light is not on.
+    const { trunk, next } = firstTrunk(roadside());
+    expect(brightness(next.tone)).toBeLessThan(brightness(trunk.tone));
+    const middle =
+      (Math.min(...trunk.points.map((point) => point.x)) +
+        Math.max(...trunk.points.map((point) => point.x))) /
+      2;
+    expect(Math.min(...next.points.map((point) => point.x))).toBeGreaterThan(
+      middle,
+    );
+  });
+
+  it("puts branches out from the trunk", () => {
+    // Trunk, crown, nothing in between is a mushroom. A branch or two coming
+    // out from under the leaves is what says the crown grew there.
+    const reaches: number[] = [];
+    let bark = false;
+    let from = 0;
+    for (const call of roadside()) {
+      if (call.name === "set:strokeStyle") {
+        bark = call.args[0] === BARK;
+      } else if (bark && call.name === "moveTo") {
+        from = Number(call.args[0]);
+      } else if (bark && call.name === "quadraticCurveTo") {
+        reaches.push(Math.abs(Number(call.args[2]) - from));
+      }
+    }
+    const trunk = spread(firstTrunk(roadside()).trunk);
+    expect(reaches.length).toBeGreaterThan(1);
+    expect(Math.max(...reaches)).toBeGreaterThan(trunk.wide);
+  });
+
+  it("does not draw one tree over and over", () => {
+    // Two trees within sight of one another in the same shape read as
+    // wallpaper. Closer together than the usual pair, so that both of them
+    // are on the canvas at once.
+    const near: Route = {
+      ...TWO_TREES,
+      anchors: [
+        { x: ROUTE_STEP * 3, y: 0 },
+        { x: ROUTE_STEP * 6, y: 0 },
+      ],
+    };
+    const { ctx, calls } = recordingContext();
+    draw(ctx, standing(), near, -1, -1);
+    const [first, second] = crowns(calls);
+    expect(second).toBeDefined();
+    const shape = (lobes: Lobe[]) => {
+      const body = lobes.find((lobe) => CROWNS.includes(lobe.tone));
+      const unit = Number(body?.radius);
+      return lobes
+        .map((lobe) =>
+          [
+            ((lobe.x - Number(body?.x)) / unit).toFixed(2),
+            ((lobe.y - Number(body?.y)) / unit).toFixed(2),
+            (lobe.radius / unit).toFixed(2),
+          ].join(),
+        )
+        .join(" ");
+    };
+    expect(shape(first)).not.toBe(shape(second));
+  });
+});
+
+describe("the country the drive goes through", () => {
+  /** The far range, the near range, and the near wall of forest. */
+  const RANGE = "#a9c2d8";
+  const NEARER = "#93ae9b";
+  const WOOD = "#4c6a48";
+
+  /** The two views, from a place along the route. */
+  function seen(at: number): {
+    readonly side: readonly Call[];
+    readonly cab: readonly Call[];
+  } {
+    const out = standing();
+    const side = recordingContext();
+    draw(
+      side.ctx,
+      { ...out, rv: { x: at, v: 0 }, people: [{ ...out.people[0], at }] },
+      TWO_TREES,
+      -1,
+      -1,
+    );
+    const seat = seated();
+    const cab = recordingContext();
+    draw(cab.ctx, { ...seat, rv: { x: at, v: 0 } }, TWO_TREES, -1, -1);
+    return { side: side.calls, cab: cab.calls };
+  }
+
+  it("climbs about in the mountains for the first half of it", () => {
+    const early = seen(0);
+    expect(usedColour(early.side, RANGE)).toBe(true);
+    expect(usedColour(early.side, WOOD)).toBe(false);
+    expect(usedColour(early.cab, WOOD)).toBe(false);
+  });
+
+  it("runs into forest from the fifth section on", () => {
+    // Half the map each: rock and snow to begin with, trees from the bear
+    // onwards. One drive, two countries.
+    const late = seen(WOOD_FROM + ROUTE_STEP);
+    expect(usedColour(late.side, WOOD)).toBe(true);
+    expect(usedColour(late.side, RANGE)).toBe(false);
+    expect(usedColour(late.side, NEARER)).toBe(false);
+    expect(usedColour(late.cab, WOOD)).toBe(true);
+  });
+
+  it("mixes the one into the other rather than switching", () => {
+    // At speed a skyline that changed between one frame and the next would
+    // read as a fault, so for a stretch both are there and both are faint.
+    const between = seen(WOOD_FROM - ROUTE_STEP * 4);
+    expect(usedColour(between.side, RANGE)).toBe(true);
+    expect(usedColour(between.side, WOOD)).toBe(true);
+    const fading = between.side
+      .filter((call) => call.name === "set:globalAlpha")
+      .map((call) => Number(call.args[0]));
+    expect(fading.some((share) => share > 0 && share < 1)).toBe(true);
+  });
+
+  it("stands trees along both verges once the wood begins", () => {
+    // A treeline on the horizon says there is a forest somewhere out there.
+    // Trees going past the window say you are in one.
+    const CONIFER = "#3f6b46";
+    const late = seen(WOOD_FROM + ROUTE_STEP);
+    expect(usedColour(late.cab, CONIFER)).toBe(true);
+    expect(usedColour(late.side, CONIFER)).toBe(true);
+    // On trunks, not hanging in the air: a conifer without one is a green
+    // arrowhead lying on the grass.
+    expect(usedColour(late.cab, "#43301f")).toBe(true);
+  });
+
+  it("leaves the mountain half without them", () => {
+    const CONIFER = "#3f6b46";
+    const early = seen(0);
+    expect(usedColour(early.cab, CONIFER)).toBe(false);
+    expect(usedColour(early.side, CONIFER)).toBe(false);
+  });
+
+  it("has both halves in full by the time a section starts", () => {
+    // Whoever starts a section afresh stands well past the mixing, so no
+    // section ever opens on a half-faded skyline.
+    for (const start of SECTIONS) {
+      const share = woodShare(start);
+      expect(share === 0 || share === 1).toBe(true);
+    }
+  });
+});
+
+describe("the notice board at the start of a section", () => {
+  /** The wording of the first section, which is the one that has one. */
+  const FIRST = RV_TEXTS.sectionHints[0];
+
+  /** The painted face of the board, which nothing else in the picture wears. */
+  const PAPER = "#f7f1e3";
+
+  /** The lit side of a post it stands on. */
+  const POST = "#6b4a2f";
+
+  /** Where the first section starts, and where its board therefore stands. */
+  const STARTS = ROUTE_STEP * 2;
+
+  /** A flat road with a section marker on it, and so with a board. */
+  const MARKED: Route = { ...TWO_TREES, anchors: [], sections: [STARTS] };
+
+  /** What the canvas was asked to do, from a place along that road. */
+  function shown(
+    at: number,
+    inside = true,
+  ): { readonly written: string[]; readonly calls: Call[] } {
+    const base = inside ? seated() : standing();
+    const state = {
+      ...base,
+      rv: { x: at, v: 0 },
+      people: [{ ...base.people[0], at }],
+    };
+    const { ctx, calls } = recordingContext();
+    draw(ctx, state, MARKED, -1, -1);
+    return {
+      written: calls
+        .filter((call) => call.name === "fillText")
+        .map((call) => String(call.args[0])),
+      calls,
+    };
+  }
+
+  /** How many boards were painted: one face fill each. */
+  function boards(calls: readonly Call[]): number {
+    return calls.filter((call) => call.args[0] === PAPER).length;
+  }
+
+  it("stands where the section starts, to be read from the seat", () => {
+    // A section drops you somewhere new with a new problem, and out of the
+    // scenery alone there is no telling what the game wants of you.
+    const { written, calls } = shown(STARTS);
+    expect(boards(calls)).toBe(1);
+    expect(written.filter((each) => FIRST.includes(each)).join(" ")).toBe(
+      FIRST,
+    );
+  });
+
+  it("stands to the left of the road", () => {
+    // Where a driver looking over the wheel has it in front of them all the
+    // way up to it, rather than off in the corner of the windscreen.
+    const { calls } = shown(STARTS);
+    const writing = calls
+      .filter((call) => call.name === "fillText")
+      .filter((call) => FIRST.includes(String(call.args[0])));
+    expect(writing.length).toBeGreaterThan(0);
+    for (const line of writing) {
+      expect(Number(line.args[1])).toBeLessThan(WIDE / 2);
+    }
+  });
+
+  it("stands in the ground on the way in, not on top of the marker", () => {
+    // A few metres past it: the marker says which section, the board says
+    // what to do in it, and neither is drawn over the other.
+    expect(NOTICE_AFTER).toBeGreaterThan(0);
+    // Still in sight from the marker itself, or it would say it too late.
+    expect(boards(shown(STARTS).calls)).toBe(1);
+  });
+
+  it("is there from the roadside as well", () => {
+    // It belongs to the ground it stands in, not to the seat.
+    expect(boards(shown(STARTS, false).calls)).toBeGreaterThan(0);
+  });
+
+  it("stands on two posts that go into the ground", () => {
+    // A board hanging in the air is a placard; this one is planted in the
+    // verge, and both posts have to reach the same ground.
+    const posts: { readonly x: number; readonly foot: number }[] = [];
+    let tone = "";
+    for (const call of shown(STARTS).calls) {
+      if (call.name === "set:fillStyle") {
+        tone = String(call.args[0]);
+      } else if (call.name === "fillRect" && tone === POST) {
+        posts.push({
+          x: Number(call.args[0]),
+          foot: Number(call.args[1]) + Number(call.args[3]),
+        });
+      }
+    }
+    expect(posts).toHaveLength(2);
+    expect(posts[0].foot).toBeCloseTo(posts[1].foot, 5);
+    expect(posts[0].x).not.toBeCloseTo(posts[1].x, 5);
+  });
+
+  it("breaks the wording over the board rather than off the edge of it", () => {
+    // A sentence set in one line on a board this shape comes out either as a
+    // strip of two-pixel letters or as half a sentence.
+    const lines = shown(STARTS).written.filter((each) => FIRST.includes(each));
+    expect(lines.length).toBeGreaterThan(1);
+  });
+
+  it("sets the wording once and then only scales it", () => {
+    // It used to be laid out in pixels, afresh every frame, so as the board
+    // grew on the approach the line break kept changing its mind: five words
+    // on the first line, then four, then five again. A painted sign does not
+    // reflow itself while you drive towards it.
+    const writing = (
+      at: number,
+    ): { readonly lines: string[]; readonly size: number } => {
+      const lines: string[] = [];
+      let font = "";
+      let size = 0;
+      for (const call of shown(at).calls) {
+        if (call.name === "set:font") {
+          font = String(call.args[0]);
+        } else if (
+          call.name === "fillText" &&
+          FIRST.includes(String(call.args[0]))
+        ) {
+          lines.push(String(call.args[0]));
+          size = Number.parseFloat(font);
+        }
+      }
+      return { lines, size };
+    };
+    const near = writing(STARTS);
+    const far = writing(STARTS - NOTICE_AFTER);
+    expect(near.lines.length).toBeGreaterThan(1);
+    expect(near.lines).toEqual(far.lines);
+    // Twice as far off, half the letters - and nothing else changed.
+    expect(far.size * 2).toBeCloseTo(near.size, 5);
+  });
+
+  it("keeps the writing on the board, in lines that do not touch", () => {
+    // The size is chosen to fit the face: too big and the sentence hangs off
+    // the edges of it, too tight and the lines sit on top of one another.
+    let tone = "";
+    let font = 0;
+    let face: { y: number; high: number } | null = null;
+    let size = 0;
+    const down: number[] = [];
+    for (const call of shown(STARTS).calls) {
+      if (call.name === "set:fillStyle") {
+        tone = String(call.args[0]);
+      } else if (call.name === "set:font") {
+        font = Number.parseFloat(String(call.args[0]));
+      } else if (call.name === "fillRect" && tone === PAPER) {
+        face = { y: Number(call.args[1]), high: Number(call.args[3]) };
+      } else if (
+        call.name === "fillText" &&
+        FIRST.includes(String(call.args[0]))
+      ) {
+        // The size in force **then**, not the last one the frame ever set.
+        size = font;
+        down.push(Number(call.args[2]));
+      }
+    }
+    expect(face).not.toBeNull();
+    expect(down.length).toBeGreaterThan(1);
+    for (const y of down) {
+      expect(y).toBeGreaterThan(Number(face?.y));
+      expect(y).toBeLessThan(Number(face?.y) + Number(face?.high));
+    }
+    expect(down[1] - down[0]).toBeGreaterThan(size);
+  });
+
+  it("leaves the wording off when it is too far away to read", () => {
+    // Half-pixel letters are a grey smear that says less than a blank board.
+    const far = shown(STARTS - 120);
+    expect(boards(far.calls)).toBe(1);
+    expect(far.written.filter((each) => FIRST.includes(each))).toEqual([]);
+  });
+
+  it("gives every section with something to say a board of its own", () => {
+    // One board per hint, and none for a section nobody has written one for:
+    // a blank board beside the road would be worse than no board.
+    const all = RV_TEXTS.sectionHints.length;
+    const many: Route = {
+      ...MARKED,
+      // One section more than there are hints, all of them within reading
+      // distance, so the odd one out has to come out as no board rather than
+      // as an empty one.
+      sections: Array.from(
+        { length: all + 1 },
+        (_each, index) => STARTS + index * ROUTE_STEP,
+      ),
+    };
+    const { ctx, calls } = recordingContext();
+    draw(ctx, { ...seated(), rv: { x: STARTS, v: 0 } }, many, -1, -1);
+    expect(boards(calls)).toBe(all);
+  });
+});
+
+describe("what the land hides", () => {
+  /** The crowns drawn from the seat, as circles in the tree's own greens. */
+  function crownsAhead(route: Route, at: number): number {
+    const { ctx, calls } = recordingContext();
+    draw(ctx, { ...seated(), rv: { x: at, v: 0 } }, route, -1, -1);
+    return crownRadii(calls).length;
+  }
+
+  /**
+   * A flat road with a rise in it and one tree beyond the rise.
+   *
+   * @param high - how high the rise is, in metres
+   * @returns the route
+   */
+  function overTheRise(high: number): Route {
+    const heights = Array.from({ length: 40 }, (_each, field) =>
+      field >= 3 && field <= 5 ? high : 0,
+    );
+    return {
+      ...TWO_TREES,
+      heights,
+      sections: [],
+      anchors: [{ x: ROUTE_STEP * 10, y: 0 }],
+    };
+  }
+
+  /** A flat road with one tree on it, that many metres along. */
+  function outThere(at: number): Route {
+    return { ...TWO_TREES, sections: [], anchors: [{ x: at, y: 0 }] };
+  }
+
+  it("keeps what is behind a rise behind it", () => {
+    // The whole complaint: from the seat you could see every tree, marker and
+    // item the section still held, hills or no hills. Half of a bend or a
+    // brow is not knowing yet what is over it.
+    expect(crownsAhead(overTheRise(6), 0)).toBe(0);
+  });
+
+  it("shows it again from the top of the rise", () => {
+    // Hidden has to mean hidden by **something**, not simply gone: from up on
+    // the brow the same tree is in plain sight.
+    expect(crownsAhead(overTheRise(6), ROUTE_STEP * 4)).toBe(1);
+  });
+
+  it("invents no hill on the level", () => {
+    // The line of sight runs a whisker over flat ground all the way, so the
+    // rule must not shave off what stands on it.
+    expect(crownsAhead(overTheRise(0), 0)).toBe(1);
+  });
+
+  it("cuts a tree off at the crest it stands behind", () => {
+    // A rise too low to hide the whole tree hides the foot of it, the way a
+    // hill does - the crown stands over the brow and the trunk does not.
+    const { ctx, calls } = recordingContext();
+    draw(ctx, seated(), overTheRise(3), -1, -1);
+    expect(crownRadii(calls)).toHaveLength(1);
+    const cut = calls.filter((call) => call.name === "rect");
+    const foot = Math.max(
+      ...calls
+        .filter((call) => call.name === "moveTo")
+        .map((call) => Number(call.args[1])),
+    );
+    expect(cut.some((call) => Number(call.args[3]) < foot)).toBe(true);
+  });
+
+  it("leaves out what is further off than things are drawn", () => {
+    // The road runs to the horizon; what stands beside it does not have to.
+    expect(crownsAhead(outThere(100), 0)).toBe(1);
+    expect(crownsAhead(outThere(200), 0)).toBe(0);
+  });
+
+  it("fades the last stretch out rather than letting it pop", () => {
+    const faded = (at: number): number => {
+      const { ctx, calls } = recordingContext();
+      draw(ctx, seated(), outThere(at), -1, -1);
+      const set = calls.filter((call) => call.name === "set:globalAlpha");
+      return Math.min(...set.map((call) => Number(call.args[0])), 1);
+    };
+    expect(faded(100)).toBe(1);
+    const going = faded(150);
+    expect(going).toBeGreaterThan(0);
+    expect(going).toBeLessThan(1);
+  });
+});
+
+describe("the hillside beside the road", () => {
+  /** The canvas, its middle, and where the horizon sits. */
+  const WIDE = 960;
+  const HORIZON = 420 * 0.44;
+
+  /** The green of the range on the horizon, and of the road surface. */
+  const RIDGE = "#9fbcae";
+  /** Both roads: the bare one, and the one under snow up at the top. */
+  const ROADS = new Set(["#b09265", "#c6d5e4"]);
+
+  /**
+   * Ground that rises to a ridge, and ground that dips into a valley.
+   *
+   * @remarks
+   * Deliberately below the snow line, so the hillside keeps its plain green
+   * and can be picked out by colour.
+   */
+  function shaped(peak: boolean): Route {
+    // Level for a good way either side of where the motorhome stands, so the
+    // **road** ahead is the same in all three worlds and only the country
+    // beyond it differs. Otherwise a test of the hillside would really be a
+    // test of the slope under the wheels.
+    const heights = Array.from({ length: 60 }, (_each, field) => {
+      const away = Math.abs(field - 30);
+      const step = Math.max(0, away - 5) * HEIGHT_UNIT;
+      return peak ? -step : step;
+    });
+    return { ...TWO_TREES, anchors: [], heights };
+  }
+
+  /** Behind the wheel at the top of the ridge or the bottom of the valley. */
+  function atTheMiddle(): GameState {
+    const state = seated();
+    const at = ROUTE_STEP * 30;
+    return {
+      ...state,
+      rv: { x: at, v: 0 },
+      people: [{ ...state.people[0], at, inside: true }],
+    };
+  }
+
+  /**
+   * Where the near end of the outermost hillside strip is drawn.
+   *
+   * @param route - the ground to drive on
+   * @returns its y on the canvas, which is lower down the steeper it falls
+   * @remarks
+   * Found by colour: the steering wheel and the dashboard reach further out
+   * still, and measuring one of those would say nothing about the land.
+   */
+  function flankNear(route: Route): number {
+    let widest = 0;
+    let atWidest = HORIZON;
+    for (const call of hillside(route)) {
+      if (call.name !== "moveTo" && call.name !== "lineTo") {
+        continue;
+      }
+      const away = Math.abs(Number(call.args[0]) - WIDE / 2);
+      if (away > widest) {
+        widest = away;
+        atWidest = Number(call.args[1]);
+      }
+    }
+    expect(widest).toBeGreaterThan(0);
+    return atWidest;
+  }
+
+  /**
+   * Everything the cab drew for the hillside.
+   *
+   * @param route - the ground to drive on
+   * @returns the calls between the range on the horizon and the road surface
+   * @remarks
+   * Found by **when** rather than by colour: the hillside is shaded from its
+   * own shape, so its colours are worked out rather than named, and the only
+   * fixed thing about it is that it is painted after the horizon and before
+   * the road that lies on it.
+   */
+  function hillside(route: Route): Call[] {
+    const { ctx, calls } = recordingContext();
+    draw(ctx, atTheMiddle(), route, -1, -1);
+    const from = calls.findLastIndex((call) => call.args[0] === RIDGE);
+    const to = calls.findIndex((call) => ROADS.has(String(call.args[0])));
+    expect(from).toBeGreaterThan(0);
+    expect(to).toBeGreaterThan(from);
+    return calls.slice(from, to);
+  }
+
+  it("falls away to both sides on a ridge and climbs in a valley", () => {
+    // The whole point: driving along the top of something has to look like
+    // it, and driving along the bottom of something has to look like that.
+    // Lower down the canvas is further below the eye, so the ridge's flank is
+    // drawn under the flat one and the valley's above it.
+    const ridge = flankNear(shaped(true));
+    const flat = flankNear(TWO_TREES);
+    const valley = flankNear(shaped(false));
+    expect(ridge).toBeGreaterThan(flat);
+    expect(valley).toBeLessThan(flat);
+  });
+
+  /** How tall a shape has to be to be a strip of hillside and not a band. */
+  const DEEP = 100;
+
+  /** One strip of hillside: the colour it was filled with and where it lies. */
+  type Strip = {
+    readonly tone: string;
+    /** The middle of it across the canvas. */
+    readonly x: number;
+    /** How far out its outer edge reaches, as a distance from the middle. */
+    readonly reach: number;
+    /** Where its outer edge starts, at the near end of the view. */
+    readonly near: number;
+  };
+
+  /**
+   * The strips of hillside, in the order they were painted.
+   *
+   * @param route - the ground to drive on
+   * @returns each strip's colour and the middle of it across the canvas
+   */
+  function strips(route: Route): Strip[] {
+    const found: Strip[] = [];
+    let tone = "";
+    let across: number[] = [];
+    let down: number[] = [];
+    for (const call of hillside(route)) {
+      if (call.name === "set:fillStyle") {
+        tone = String(call.args[0]);
+      } else if (call.name === "moveTo" || call.name === "lineTo") {
+        across.push(Number(call.args[0]));
+        down.push(Number(call.args[1]));
+      } else if (call.name === "fill" && across.length > 0) {
+        const tall = Math.max(...down) - Math.min(...down);
+        // Told from the bands over the road by how deep it is: a strip of
+        // hillside runs from under the bumper to the horizon, while a band
+        // across the road is a sliver a couple of pixels high.
+        if (tall > DEEP) {
+          const middle = across.reduce((sum, x) => sum + x, 0) / across.length;
+          const reach = Math.max(...across.map((x) => Math.abs(x - WIDE / 2)));
+          found.push({ tone, x: middle, reach, near: down[0] });
+        }
+        across = [];
+        down = [];
+      }
+    }
+    expect(found.length).toBeGreaterThan(2);
+    return found;
+  }
+
+  /** The strips on one side of the road, outermost first. */
+  function side(route: Route, left: boolean): Strip[] {
+    return strips(route).filter((strip) =>
+      left ? strip.x < WIDE / 2 : strip.x > WIDE / 2,
+    );
+  }
+
+  it("shades the faces, so the lie of the land can be read", () => {
+    // Without this the hillside is one flat green shape and says nothing
+    // about whether the country falls away or climbs.
+    const tones = strips(shaped(false)).map((strip) => brightness(strip.tone));
+    expect(Math.max(...tones) - Math.min(...tones)).toBeGreaterThan(0.1);
+  });
+
+  it("darkens a face the further down the hillside it lies", () => {
+    // The outermost strip is painted first, and it is the one furthest from
+    // the road and so the deepest into the shade.
+    const strip = side(shaped(false), true);
+    const tones = strip.map((each) => brightness(each.tone));
+    expect(tones.length).toBeGreaterThan(2);
+    for (let index = 1; index < tones.length; index++) {
+      expect(tones[index]).toBeGreaterThanOrEqual(tones[index - 1]);
+    }
+    // Never the same all the way: the strips near the road may round to the
+    // same colour, but the foot of the hillside is plainly darker than its
+    // shoulder or nothing has been shaded at all.
+    expect(tones[tones.length - 1]).toBeGreaterThan(tones[0] + 0.1);
+  });
+
+  it("lights the two sides of the road differently", () => {
+    // One light, one direction: a hillside lit the same on both flanks reads
+    // as a paper cut-out rather than as ground.
+    const valley = shaped(false);
+    const left = brightness(side(valley, true)[0].tone);
+    const right = brightness(side(valley, false)[0].tone);
+    expect(Math.abs(left - right)).toBeGreaterThan(0.05);
+    // And a ridge, whose flanks face the other way, is lit the other way
+    // about: whichever side the light catches in a valley, it misses here.
+    const ridge = shaped(true);
+    const overLeft = brightness(side(ridge, true)[0].tone);
+    const overRight = brightness(side(ridge, false)[0].tone);
+    expect(left > right).toBe(overLeft < overRight);
+  });
+
+  it("rounds the hillside rather than stepping it", () => {
+    // A handful of wide steps is a staircase, not a hillside: the ground has
+    // to come round in enough faces, and shade gently enough from one to the
+    // next, that no single edge of it stands out as a line.
+    const tones = side(shaped(false), true).map((each) =>
+      brightness(each.tone),
+    );
+    expect(tones.length).toBeGreaterThan(4);
+    for (let index = 1; index < tones.length; index++) {
+      expect(tones[index] - tones[index - 1]).toBeLessThan(0.12);
+    }
+  });
+
+  it("shades snow as well, so a summit is not one white sheet", () => {
+    // Up where everything is white the shading is the only thing left saying
+    // where the ground rises and where it falls.
+    const deep = shaped(false);
+    const snowy: Route = {
+      ...deep,
+      heights: deep.heights.map((height) => height + SNOW_FULL),
+    };
+    const tones = strips(snowy).map((strip) => brightness(strip.tone));
+    expect(Math.max(...tones)).toBeGreaterThan(Math.min(...tones) + 0.05);
+  });
+
+  it("carries the hillside far out past the roadside", () => {
+    // Stopping it at the verge is what left the picture a band of ground with
+    // one flat colour either side of it: the country has to reach out several
+    // times the width of the road before it runs off the screen.
+    const left = side(shaped(false), true);
+    const outermost = left[0].reach;
+    const atTheVerge = left[left.length - 1].reach;
+    expect(outermost).toBeGreaterThan(atTheVerge * 4);
+  });
+
+  it("drops each step of the hillside further than the one before", () => {
+    // What rounds it: one drop per step is a straight wedge, and a wedge has
+    // an edge along the top of it that reads as a crease in the ground.
+    const near = side(shaped(false), true).map((each) => each.near);
+    const drops = near
+      .slice(1)
+      .map((each, index) => Math.abs(each - near[index]));
+    expect(drops.length).toBeGreaterThan(2);
+    // Painted from the outside in, so the drops get smaller as they go.
+    for (let index = 1; index < drops.length; index++) {
+      expect(drops[index]).toBeLessThan(drops[index - 1]);
+    }
+  });
+
+  it("leaves flat country one colour", () => {
+    // No relief, nothing to shade: inventing light and shade on the level
+    // would show hills where the map has none.
+    const tones = new Set(strips(TWO_TREES).map((strip) => strip.tone));
+    expect(tones.size).toBe(1);
+  });
+
+  it("leaves flat country flat", () => {
+    // Nothing invented where the map says nothing: on the level the hillside
+    // lies at the height of the road, the same both sides of it.
+    const seen = hillside(TWO_TREES)
+      .filter((call) => call.name === "lineTo")
+      .map((call) => ({ x: Number(call.args[0]), y: Number(call.args[1]) }));
+    // Every point of it sits at the same height as the road at that distance,
+    // so the left and the right of the picture mirror one another exactly.
+    const left = seen.filter((point) => point.x < WIDE / 2).map((p) => p.y);
+    const right = seen.filter((point) => point.x > WIDE / 2).map((p) => p.y);
+    expect(left.length).toBeGreaterThan(0);
+    expect(Math.min(...left)).toBeCloseTo(Math.min(...right), 5);
+    expect(Math.max(...left)).toBeCloseTo(Math.max(...right), 5);
   });
 });

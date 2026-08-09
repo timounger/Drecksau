@@ -31,6 +31,8 @@ import {
   FELL_SECONDS,
   ROOF_HALF,
   ROOF_HIGH,
+  HEIGHT_UNIT,
+  MUD_SPEED,
   IDLE_INPUT,
   STOP_SPEED,
   NO_GRIP_SLOPE,
@@ -44,6 +46,7 @@ import {
   JUMP_HIGH,
   MAX_STEP,
   STILL_SECONDS,
+  FOG_GRACE,
   SPRAY_REACH,
   MAUL_SECONDS,
   BEAR_SPEED,
@@ -86,6 +89,7 @@ const FLAT: Route = {
   bear: null,
   fog: null,
   bridges: [],
+  mud: [],
   chasms: [],
   fellTree: null,
   sections: [],
@@ -101,6 +105,7 @@ const LONG: Route = {
   bear: null,
   fog: null,
   bridges: [],
+  mud: [],
   chasms: [],
   fellTree: null,
   sections: [],
@@ -116,6 +121,7 @@ const WALL: Route = {
   bear: null,
   fog: null,
   bridges: [],
+  mud: [],
   chasms: [],
   fellTree: null,
   sections: [],
@@ -340,6 +346,7 @@ describe("the gearbox", () => {
       bear: null,
       fog: null,
       bridges: [],
+      mud: [],
       chasms: [],
       fellTree: null,
       sections: [],
@@ -589,6 +596,7 @@ describe("driving into a ditch", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -759,6 +767,7 @@ describe("the off-road tyres and the bear", () => {
     bear: ROUTE_STEP * 11,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -1508,6 +1517,7 @@ describe("picking things up", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -1600,6 +1610,7 @@ describe("the bag and the hand", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -1698,6 +1709,7 @@ describe("the jerrycan", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -1773,6 +1785,7 @@ describe("standing still in the fog", () => {
     bear: null,
     fog: { from: ROUTE_STEP * 10, to: ROUTE_STEP * 100 },
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -1806,10 +1819,42 @@ describe("standing still in the fog", () => {
     // The rule is about the fog, not about the vehicle: the motorhome is
     // parked well short of it here, and only the walker is in the grey.
     const parked = at(ROUTE_STEP * 4);
+    const deep = Number(FOGGY.fog?.from) + FOG_GRACE * 2;
+    const out: GameState = {
+      ...parked,
+      people: [{ ...parked.people[0], inside: false, at: deep }],
+      driver: -1,
+    };
+    expect(hold(out, FOGGY, {}, STILL_SECONDS + 0.2).phase).toBe("taken");
+  });
+
+  it("gives away the first stretch of it", () => {
+    // The section starts inside the fog, with everybody out of the cab. A
+    // count running from the first frame would take people for opening the
+    // door, which is a trap rather than a rule.
+    const edge = at(Number(FOGGY.fog?.from) + 1);
+    const waited = hold(edge, FOGGY, {}, STILL_SECONDS * 3);
+    expect(waited.still).toBe(0);
+    expect(waited.phase).toBe("driving");
+  });
+
+  it("starts counting once somebody is properly in it", () => {
+    const inside = at(Number(FOGGY.fog?.from) + FOG_GRACE + 1);
+    expect(hold(inside, FOGGY, {}, STILL_SECONDS + 0.2).phase).toBe("taken");
+  });
+
+  it("counts on whoever is furthest in, not on the motorhome alone", () => {
+    // Otherwise parking at the edge of the grey and walking on ahead would
+    // turn the rule off for the one doing the walking.
+    const parked = at(Number(FOGGY.fog?.from) + 1);
     const out: GameState = {
       ...parked,
       people: [
-        { ...parked.people[0], inside: false, at: FOGGY.fog?.from as number },
+        {
+          ...parked.people[0],
+          inside: false,
+          at: Number(FOGGY.fog?.from) + FOG_GRACE * 2,
+        },
       ],
       driver: -1,
     };
@@ -1874,6 +1919,7 @@ describe("jumping", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -2000,6 +2046,7 @@ describe("jumping in the fog", () => {
     bear: null,
     fog: { from: 0, to: ROUTE_STEP * 100 },
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -2061,6 +2108,7 @@ describe("how a jump is timed", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -2133,6 +2181,7 @@ describe("the handbrake", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -2290,6 +2339,7 @@ describe("the hand that fills itself", () => {
     bear: ROUTE_STEP * 20,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -2390,6 +2440,7 @@ describe("the bridge", () => {
     bear: null,
     fog: null,
     bridges: [{ from: ROUTE_STEP * 10, to: ROUTE_STEP * 16 }],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -2491,6 +2542,7 @@ describe("the chasm and the tree over it", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [{ from: ROUTE_STEP * 12 - 1.95, to: ROUTE_STEP * 12 + 1.95 }],
     fellTree: ROUTE_STEP * 13,
     sections: [],
@@ -2649,6 +2701,7 @@ describe("the roof of the motorhome", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -2727,6 +2780,7 @@ describe("the door", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -2832,6 +2886,7 @@ describe("the winch remote", () => {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -2875,5 +2930,88 @@ describe("the winch remote", () => {
     const out = steppedOut(begin(TREE), TREE);
     const picked = step(out, TREE, [{ ...IDLE_INPUT, pick: 0 }], FRAME);
     expect(one(picked).holding).toBe(null);
+  });
+});
+
+describe("the mud", () => {
+  /** A long flat run-up, a patch of mud, then a wall nobody drives up. */
+  const BOG: Route = {
+    name: "Matsch",
+    heights: [
+      ...Array.from({ length: 20 }, () => 0),
+      HEIGHT_UNIT * 2,
+      HEIGHT_UNIT * 4,
+      HEIGHT_UNIT * 6,
+      HEIGHT_UNIT * 8,
+      ...Array.from({ length: 8 }, () => HEIGHT_UNIT * 8),
+    ],
+    anchors: [],
+    pits: [],
+    items: [],
+    bear: null,
+    fog: null,
+    mud: [{ from: ROUTE_STEP * 17 - 4, to: ROUTE_STEP * 18 + 4 }],
+    bridges: [],
+    chasms: [],
+    fellTree: null,
+    sections: [],
+  };
+
+  /** Where the wall begins, and where the run-up starts. */
+  const WALL = ROUTE_STEP * 20;
+  const FAR_BACK = ROUTE_STEP * 2;
+
+  /** Driving flat out from a long way back, in top gear. */
+  function chargedAt(route: Route): GameState {
+    const start = begin(route, FAR_BACK);
+    return hold(
+      { ...start, rv: { x: FAR_BACK, v: 0 } },
+      route,
+      { drive: 1, shift: TOP_GEAR },
+      40,
+    );
+  }
+
+  it("holds the motorhome to a walking pace while it is in it", () => {
+    const bogged = hold(
+      { ...begin(BOG, ROUTE_STEP * 10), rv: { x: ROUTE_STEP * 10, v: 0 } },
+      BOG,
+      { drive: 1, shift: TOP_GEAR },
+      12,
+    );
+    expect(bogged.rv.x).toBeGreaterThan(BOG.mud[0].from);
+    expect(bogged.rv.x).toBeLessThan(BOG.mud[0].to);
+    expect(bogged.rv.v).toBeLessThanOrEqual(MUD_SPEED);
+  });
+
+  it("lets it through rather than stopping it", () => {
+    // It is not a ditch: given time the motorhome crawls out the far side.
+    const through = hold(
+      { ...begin(BOG, ROUTE_STEP * 15), rv: { x: ROUTE_STEP * 15, v: 0 } },
+      BOG,
+      { drive: 1, shift: 1 },
+      30,
+    );
+    expect(through.rv.x).toBeGreaterThan(BOG.mud[0].to);
+    expect(through.damaged).toBe(false);
+  });
+
+  it("takes the run-up away from the wall behind it", () => {
+    // The whole reason it is there: with a long enough approach in top gear
+    // the motorhome sailed over a climb the rope is meant to win.
+    const dry = chargedAt({ ...BOG, mud: [] });
+    const wet = chargedAt(BOG);
+    expect(dry.rv.x).toBeGreaterThan(WALL);
+    expect(wet.rv.x).toBeLessThan(WALL);
+  });
+
+  it("leaves the rest of the route alone", () => {
+    const clear = hold(
+      { ...begin(BOG, FAR_BACK), rv: { x: FAR_BACK, v: 0 } },
+      BOG,
+      { drive: 1, shift: TOP_GEAR },
+      8,
+    );
+    expect(clear.rv.v).toBeGreaterThan(MUD_SPEED);
   });
 });

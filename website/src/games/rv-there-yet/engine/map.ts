@@ -22,6 +22,7 @@
  * - `B` the bear
  * - `P` a field of bridge - old timber over a gap, with its warning sign at
  *   the near end
+ * - `M` a field of mud: it lets the motorhome through and keeps its speed
  * - `A` the chasm: no road at all, and no bottom either
  * - `L` the tree that can be felled across it, `Z` the axe that fells it
  *
@@ -82,6 +83,9 @@ const FOG_MARK = "N";
 /** The character that marks a field of bridge. */
 const BRIDGE_MARK = "P";
 
+/** The character that marks a field of mud. */
+const MUD_MARK = "M";
+
 /** The character that marks the chasm, and the tree felled across it. */
 const CHASM_MARK = "A";
 const FELL_MARK = "L";
@@ -110,7 +114,7 @@ const HEIGHT_SCALE = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 /** The ground, one character every {@link ROUTE_STEP} metres. */
 const GROUND =
   "CCCCCCCCCCBA98765432111111123456789ABCDEFGHIJJJJJJJIHGFEDCBA" +
-  "988888000888888888887654321111113579999999876543210000002468" +
+  "988888ACEGGGGGGGGGFEDCBA988888000888888888876543210000002468" +
   "AAAAAAA98765432222222222222222222211000001234543210123456543" +
   "210123432111111111111111111111111111111111111111111111111111" +
   "1111111111111111111111111111111100000000";
@@ -118,7 +122,7 @@ const GROUND =
 /** What stands on it: trees, sections, ditches and the things lying about. */
 const MARKS =
   "  C   K                                        C            " +
-  "      XXX T       H         C        T             C R      " +
+  "   M      T               C   XXX T      H         C R      " +
   "                C S     B           NC                      " +
   "         N  C            PPPPPP         C           ALZ     " +
   "                                        ";
@@ -131,6 +135,52 @@ export const SECTIONS: readonly number[] = MAP.sections;
 
 /** How many sections the map has. */
 export const SECTION_COUNT = SECTIONS.length;
+
+/**
+ * The first section that is driven through woods rather than through mountains.
+ *
+ * @remarks
+ * Half the map each. The first four sections climb about in the rock and the
+ * snow; from the bear onwards the road runs into forest, and the far view is a
+ * treeline instead of a range of summits. One drive, two countries - and the
+ * change is where the map already puts a break anyway.
+ */
+export const WOOD_SECTION = Math.floor(SECTION_COUNT / 2);
+
+/** Where the woods begin, in metres. */
+export const WOOD_FROM = SECTIONS[WOOD_SECTION];
+
+/** Over how many metres the mountains give way to the trees. */
+const WOOD_BLEND = 60;
+
+/**
+ * How far **before** the section the mixing is over, in metres.
+ *
+ * @remarks
+ * A section starts with everybody standing beside the motorhome, which is a
+ * few metres behind it. Finishing the mix exactly on the section mark would
+ * leave those few metres showing a last ghost of mountain between the trees,
+ * and a ghost is what a half-drawn thing looks like.
+ */
+const WOOD_DONE = 14;
+
+/**
+ * How much of the far view is wood rather than mountain.
+ *
+ * @param x - where along the route, in metres
+ * @returns nought in the mountains, one in the woods, and a mix between
+ * @remarks
+ * Mixed rather than switched: driving over the line at speed, a skyline that
+ * changed between one frame and the next would read as a fault. Over sixty
+ * metres the summits fade out behind the trees the way a wood really does
+ * close in - and the mixing is over a little **before** the section mark, so
+ * that anybody starting the section afresh, standing beside the motorhome and
+ * therefore a few metres short of it, sees trees and nothing else.
+ */
+export function woodShare(x: number): number {
+  const past = x - (WOOD_FROM - WOOD_DONE - WOOD_BLEND);
+  return Math.min(1, Math.max(0, past / WOOD_BLEND));
+}
 
 /**
  * The section a place on the map belongs to.
@@ -190,6 +240,7 @@ export function parseMap(ground: string, marks: string): Route {
     bear: bearOf(marks, heights),
     fog: fogOf(marks, heights),
     bridges: runsOf(marks, heights, BRIDGE_MARK),
+    mud: runsOf(marks, heights, MUD_MARK),
     chasms: runsOf(marks, heights, CHASM_MARK, CHASM_HALF),
     fellTree: markAt(marks, heights, FELL_MARK),
     sections: sectionsOf(ground, marks),

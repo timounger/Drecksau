@@ -254,6 +254,17 @@ export const LEAP_SPEED = 5;
 export const CHASM_STOP = 1.5;
 
 /**
+ * The fastest anything moves through mud, in metres per second.
+ *
+ * @remarks
+ * A walking pace. Mud is not a wall and not a ditch: it lets the motorhome
+ * through and keeps the speed. That is the whole job - the climb after it is
+ * meant to be won with the rope, and a run-up is exactly what would win it
+ * without one.
+ */
+export const MUD_SPEED = 2;
+
+/**
  * How long felling the tree takes with the axe, in seconds.
  *
  * @remarks
@@ -427,6 +438,20 @@ export const STILL_SECONDS = 5;
 export const STILL_SPEED = 0.5;
 
 /**
+ * How far into the fog the counting only starts, in metres.
+ *
+ * @remarks
+ * The section begins **inside** the fog, and every attempt at it begins with
+ * everybody standing beside the motorhome. Counting from the first frame would
+ * mean the fog taking people for opening the door - a rule that kills before
+ * the player has done anything is not a rule, it is a trap.
+ *
+ * So the first stretch of the grey is free ground: stand there as long as you
+ * like. The counting starts once somebody has taken the section on.
+ */
+export const FOG_GRACE = 30;
+
+/**
  * Where the snow begins, in metres above the valley floor.
  *
  * @remarks
@@ -514,6 +539,16 @@ export type Route = {
    * but a coin toss.
    */
   readonly fog: Pit | null;
+  /**
+   * The stretches of road that are churned to mud.
+   *
+   * @remarks
+   * They do not stop the motorhome, they take its **speed** away: no run-up
+   * survives one. Laid in front of a climb that is meant to need the winch,
+   * because a long enough flat approach in top gear would otherwise carry it
+   * over the top and leave the rope as decoration.
+   */
+  readonly mud: readonly Pit[];
   /**
    * The stretches of road that are simply not there.
    *

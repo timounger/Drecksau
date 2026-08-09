@@ -47,10 +47,12 @@ import {
   ROOF_HALF,
   ROOF_HIGH,
   MAUL_SECONDS,
+  MUD_SPEED,
   SPRAY_REACH,
   SPRAY_SECONDS,
   STILL_SECONDS,
   STILL_SPEED,
+  FOG_GRACE,
   PICKUP_REACH,
   REPAIR_SECONDS,
   TYRE_FACTOR,
@@ -737,8 +739,29 @@ function driven(
   const braking = pedal < 0 || handbrake;
   const stopped =
     braking && state.rv.v !== 0 && Math.sign(v) !== Math.sign(state.rv.v);
-  const speed = stopped ? 0 : v;
+  const speed = throughMud(route, state.rv.x, stopped ? 0 : v);
   return { x: state.rv.x + speed * Math.cos(angle) * span, v: speed };
+}
+
+/**
+ * The same speed, with the mud taken out of it.
+ *
+ * @param route - the route being driven
+ * @param x - where the motorhome is, in metres
+ * @param v - how fast it would be going
+ * @returns how fast it actually goes
+ * @remarks
+ * Mud is not a wall and not a ditch: it lets the motorhome through and keeps
+ * the **speed**. A cap rather than a drag, because what it is there to stop is
+ * exact - a run-up long enough to carry the vehicle over a climb the rope is
+ * meant to win - and a cap is a promise that no approach, however long,
+ * arrives at the far side with anything left.
+ */
+function throughMud(route: Route, x: number, v: number): number {
+  if (!route.mud.some((patch) => within(patch, x))) {
+    return v;
+  }
+  return Math.max(-MUD_SPEED, Math.min(MUD_SPEED, v));
 }
 
 /**
@@ -1463,7 +1486,8 @@ function tooHeavyForTheBridge(
  * are moving, and that is the honest reading of "keep going".
  *
  * Outside the fog it stays at zero, so the count never carries over from the
- * clear stretch behind.
+ * clear stretch behind - and inside it, not until {@link FOG_GRACE} metres in,
+ * because the section starts in the fog with everybody out of the cab.
  */
 function nextStill(
   state: GameState,
@@ -1480,6 +1504,16 @@ function nextStill(
     within(fog, rvX) ||
     people.some((person) => !person.inside && within(fog, person.at));
   if (!inFog) {
+    return 0;
+  }
+  // The first stretch of the grey is free ground. Measured on whoever has got
+  // furthest into it, so that parking at the edge and wandering on ahead is
+  // not a way of turning the rule off.
+  const deepest = Math.max(
+    rvX,
+    ...people.filter((person) => !person.inside).map((person) => person.at),
+  );
+  if (deepest < fog.from + FOG_GRACE) {
     return 0;
   }
   const crept = STILL_SPEED * span;

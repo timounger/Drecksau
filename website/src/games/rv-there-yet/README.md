@@ -26,11 +26,23 @@ Schritt vorgesehen.
 - **Springen (zu Fuß):** Leertaste · zweimal kurz hintereinander doppelt so hoch
 - **Aufs Dach klettern:** Leertaste an der **Leiter** hinten am Wohnmobil
 - **Handbremse (im Fahrerhaus):** Leertaste **halten** · bremst bis zum Stillstand
-- **Fernbedienung:** W zieht ein, S gibt aus (nur zu Fuß)
+- **Seilwinde:** W zieht ein, S gibt aus (nur zu Fuß)
 - **Handy:** die Knöpfe unter dem Bild
 
+**Auf jedem Knopf steht seine Taste** - „Aufheben (F)", „Springen (Leertaste)",
+„▶ (W)". Wer die Knöpfe einmal gefunden hat, soll die Tastatur nicht noch
+einmal suchen müssen, und `W`/`S` beziehungsweise `A`/`D` stehen dort je
+nachdem, ob man im Fahrerhaus sitzt oder daneben steht - genau wie die Tasten
+selbst ihre Bedeutung tauschen.
+
+**Anklicken lässt sich nur, was hier und jetzt etwas tut.** „Rennen" ist im
+Fahrerhaus tot, „Seil ein" ohne hängendes Seil, „Aufheben" ohne etwas zum
+Aufheben, „Tür" in voller Fahrt, die Gänge außerhalb des Fahrerhauses, und die
+Pedale gehören im Koop dem, der am Steuer sitzt. Neun Knöpfe, von denen vier
+etwas tun, sind eine Reihe, die man lesen muss - und beim Lesen fährt niemand.
+
 `W` und `S` sind immer „das da vorn": im Fahrerhaus die Pedale, zu Fuß die
-Fernbedienung der Winde. `A` und `D` sind immer deine Füße. Beides gilt nie
+Seilwinde. `A` und `D` sind immer deine Füße. Beides gilt nie
 gleichzeitig, also macht keine Taste zwei Dinge auf einmal.
 
 ## Das Getriebe
@@ -59,9 +71,9 @@ noch vorwärts rollt, wirst du langsamer - genau wie im Auto. Steht das Fahrzeug
 niemand suchen möchte.
 
 Die **Vorwärtsgänge bleiben deine Sache**. Wer aus dem Rückwärtsgang wieder
-vorwärts will, legt 1 bis 5 ein - W allein tut dann gar nichts, und die Zeile
-über dem Feld sagt auch, warum. Ein Getriebe, das den Gang für dich rät, fährt
-das Fahrzeug, nicht du.
+vorwärts will, legt 1 bis 5 ein - W allein tut dann gar nichts. Die Gangschaltung
+im Fahrerhaus zeigt, wo der Knauf steht. Ein Getriebe, das den Gang für dich
+rät, fährt das Fahrzeug, nicht du.
 
 **Leerlauf zieht nichts.** Am Hang gehört das Fahrzeug damit der Schwerkraft
 allein, was genau so beunruhigend ist, wie es klingt. Geschaltet wird nur aus
@@ -130,6 +142,33 @@ eingelegten Gangs. Kein Buchstabe in einem Kästchen, sondern eine Stellung -
 man sieht, **wo** der Gang ist, und der nächste liegt eine Gasse weiter statt
 eine Zahl weiter.
 
+**Links und rechts der Straße liegt ein Hang, kein Farbfeld.** Die Karte ist
+eine **Linie** von Höhen und sagt gar nichts darüber, was neben der Straße
+liegt - also wird es aus der Straße selbst hergeleitet: wie hoch eine Stelle im
+Vergleich zum Gelände um sie herum steht. Steht sie höher, fährt man auf einem
+Rücken, und der fällt zu beiden Seiten ab; liegt sie tiefer, ist es ein Tal,
+und das steigt zu beiden Seiten an. Auf ebenem Land bleibt es eben - erfunden
+wird nichts, wo die Karte nichts hergibt.
+
+Gezeichnet wird das in sieben Stufen nach außen. Seitlich rücken sie nahe der
+Straße enger zusammen, wo der Hang am breitesten zu sehen ist; nach unten fällt
+jede Stufe **weiter** als die vorige, sodass der Hang an der Schulter sanft
+wegläuft und weiter draußen steiler wird - ein gerundeter Hang statt des Keils,
+den ein gleicher Abfall pro Stufe ergäbe. Jede Stufe ist **ein** langer Streifen
+über die ganze Strecke und nicht ein Viereck pro Band: aus Vierecken
+zusammengesetzt zeigten sich die Nähte als Gitter feiner Linien den ganzen Hang
+hinunter.
+
+**Schattiert wird nach der Lage der Fläche.** Je weiter unten am Hang eine
+Fläche liegt, desto dunkler ist sie, und wie viel dunkler hängt davon ab, wie
+viel Hang überhaupt da ist: Auf ebenem Land bleibt alles eine Farbe, weil es
+nichts gibt, was das Licht schräg treffen könnte. Das Licht kommt von einer
+Seite, also ist ein Rücken auf der einen Flanke hell und auf der anderen
+dunkel - und ein Tal, dessen Wände andersherum stehen, genau umgekehrt. Ohne
+diesen Unterschied sähen beide Seiten gleich aus und der Hang wie ein
+ausgeschnittenes Stück Papier. Auch der Schnee bekommt seine zwei Töne, sonst wird ein Gipfel zu
+einer weißen Fläche, in der nichts mehr zu erkennen ist.
+
 **Unter dem Horizont ist immer Boden.** Die Straße besteht aus Bändern
 zwischen Messpunkten, und ein Band deckt nur den Boden ab, auf dem es steht -
 über einer Kuppe fing das nächste Band deutlich unter dem Horizont an, und
@@ -138,6 +177,27 @@ sähe man durch die Welt hindurch. Deshalb wird die ganze untere Hälfte zuerst
 erdfarben gefüllt (verschneit, wo Schnee liegt), und Straße, Bankett und Berge
 kommen darüber. Wo ein Band eine Lücke lässt, ist jetzt Boden dahinter statt
 eines Lochs.
+
+**Was hinter einer Kuppe liegt, sieht man nicht.** Bäume, Abschnittsfahnen,
+Gegenstände, der Bär und die Schilder standen bisher immer im Bild, sobald sie
+in Sichtweite waren - auch wenn ein Hügel dazwischen war. Von der ersten Kurve
+an sah man also, was der ganze Abschnitt noch bringt, und die halbe Kuppe ist,
+noch nicht zu wissen, was dahinter kommt.
+
+Gerechnet wird das in **Metern statt in Pixeln**: Vom Auge aus geht zu jeder
+Erhebung dazwischen eine Sichtlinie weiter bis zur Entfernung des Dings, und die
+höchste davon sagt, ab welcher Höhe dort etwas zu sehen ist. Was ganz darunter
+bleibt, wird weggelassen; was hineinragt, wird am Kamm abgeschnitten - der Baum
+steht also mit der Krone über der Kuppe und ohne Stamm. Abgetastet wird an
+denselben Entfernungen, an denen auch der Boden gezeichnet wird, damit genau
+das verdeckt ist, was das gemalte Gelände abdeckt. Auf ebenem Land läuft die
+Sichtlinie knapp über den Boden und verdeckt nichts.
+
+**Und auch auf ebenem Land nicht endlos weit.** Die Straße wird 260 m weit
+gezeichnet, weil sich sonst keine Entfernung abschätzen lässt; was daneben
+steht, nur 160 m weit. Weiter draußen sind es drei Pixel pro Baum, die nichts
+zeigen außer dem Inhaltsverzeichnis des Abschnitts. Die letzten 25 m davon
+werden ausgeblendet statt abgeschnitten, damit nichts aus dem Nichts aufpoppt.
 
 **Die Sachen auf der Straße sind auch von vorn zu erkennen.** Sie waren von
 der Fahrerseite lange nur farbige Kugeln - der Benzinkanister sogar eine
@@ -174,15 +234,15 @@ Stamm. Eine Wand ist damit kein Knopfdruck, sondern ein Gang:
 2. **Aussteigen** (E).
 3. Zum leuchtenden Baum **laufen**.
 4. **Seil dranmachen** (F).
-5. Mit der **Fernbedienung hochziehen** (W) - du stehst dabei am Baum und
+5. Mit der **Seilwinde hochziehen** (W) - du stehst dabei am Baum und
    siehst zu, wie sich das Wohnmobil heraufarbeitet.
 6. Seil ab, zurücklaufen, **einsteigen** und weiterfahren.
 
-## Die Fernbedienung
+## Die Seilwinde
 
-**Hängt das Seil, wird das Fahrzeug von außen bedient.** Die Winde hat eine
-Fernbedienung: **W zieht ein, S gibt aus**. Beides nur zu Fuß - eine
-Fernbedienung liegt in der Hand, und Hände sind nicht hinter einer
+**Hängt das Seil, wird das Fahrzeug von außen bedient.** Die Winde wird über
+einen Handsender geführt: **W zieht ein, S gibt aus**. Beides nur zu Fuß - der
+Sender liegt in der Hand, und Hände sind nicht hinter einer
 Windschutzscheibe. Nebenbei ist draußen auch der einzige Ort, von dem aus man
 sieht, was das Seil tut.
 
@@ -198,13 +258,95 @@ Beim Aussteigen **ohne** Seil ist die Handbremse angezogen. Ein Wohnmobil, das
 sich verabschiedet, während man am Baum steht, ist ein Witz, der beim ersten Mal
 aufhört, lustig zu sein.
 
-Über dem Bild steht immer, was gerade dran ist - „Am Baum - Seil dranmachen",
-„Am Fahrzeug - einsteigen (E)", „Fernbedienung: W einziehen, S ausgeben". Ohne diese Zeile
-wüsste niemand, warum das Gaspedal plötzlich ein Männchen spazieren führt.
+**Die Zeile rechts neben der Tankanzeige sagt nichts mehr darüber, was zu tun
+ist.** Sie tat es früher ununterbrochen - „Wohnmobil kaputt - Hammer suchen",
+„Am Baum - Seil dranmachen", „Nur einer im Wohnmobil" - und damit stand die
+Lösung jedes Abschnitts neben dem Tank, bevor irgendwer sie sich selbst
+zusammenreimen konnte. Worum es in einem Abschnitt geht, sagt jetzt die
+Hinweistafel an seinem Anfang; das Wie bleibt Aufgabe.
+
+Zu sehen ist die Zeile nur noch, **solange gerade etwas läuft**:
+
+- eine Arbeit mit gehaltener Taste - hämmern, montieren, tanken, fällen -,
+  jeweils mit Prozentzahl, denn Loslassen verliert den Fortschritt,
+- das Sprühen mit der Dose, ebenfalls in Prozent,
+- die gehaltene Handbremse, weil ein gebremstes Fahrzeug sonst wie ein
+  kaputtes aussieht,
+- der Matsch, weil Vollgas ohne Vorankommen sonst wie ein Fehler wirkt,
+- und im Koop der Hinweis, dass man auf dem Beifahrersitz sitzt und die Pedale
+  jemand anderem gehören - kein Tipp, sondern eine Auskunft über die Steuerung.
+
+Läuft nichts davon, steht dort auch **kein leerer Rahmen**, sondern gar nichts.
+
+Was einem **zustößt**, steht dort ebenfalls nicht. Wie lange der Bär schon
+zupackt und wie lange man im Nebel schon steht, stand eine Zeit lang als
+Prozentzahl daneben - das macht aus einem Schrecken einen Fortschrittsbalken.
+Beides sagt das Bild schon: Krallen, und eine Gestalt, die aus dem Grau
+kommt.
+
+**Am Anfang jedes Abschnitts steht eine Hinweistafel im Gelände** und sagt in
+einem Satz, worum es hier geht - im ersten: „Wähle den passenden Gang, um die
+Steigung zu meistern." Jeder Abschnitt setzt einen woanders ab, mit einem neuen
+Problem, und aus der Landschaft allein ist nicht zu erraten, was das Spiel
+gerade will.
+
+Sie hängt nicht im Bild, sondern **steckt im Boden**: ein Brett auf zwei
+Pfosten, zehn Meter hinter der Abschnittsflagge und neun Meter links der
+Fahrbahnmitte. Vom Fahrersitz aus steht sie damit die ganze Anfahrt über links
+im Blickfeld, weit genug außen, um der Abschnittsflagge nicht ins Gehege zu
+kommen; von der Seitenansicht aus steht sie einfach da, kann angelaufen und
+wieder besucht werden. Gezeichnet wird sie für beide Ansichten aus derselben
+Datei ([components/notice.ts](components/notice.ts)), die nur den Fußpunkt und
+den Maßstab bekommt.
+
+Das Brett ist **groß** - sieben mal drei Meter, so lang wie das Wohnmobil. Es
+muss so groß sein: Ein Meter Brett in zehn Meter Entfernung sind dreißig Pixel,
+und auf einem kleineren Schild wäre der Satz ein Schmierer. Die Schrift sucht
+sich die größte Größe, in der sie noch aufs Brett passt - erst einzeilig
+probiert, dann zwei-, dann dreizeilig, und die erste, deren Umbruch hineinpasst,
+gewinnt. Ist die Tafel zu weit weg, um lesbar zu sein, bleibt sie leer statt
+grauen Halbpixelbrei zu zeigen.
+
+Gerechnet wird der Satz **in Metern auf dem Brett**, nicht in Pixeln auf dem
+Bildschirm, und das ist wichtiger, als es klingt. In Pixeln kam die Rechnung in
+jedem Einzelbild neu heraus: Während die Tafel bei der Anfahrt größer wurde,
+wechselte der Umbruch ständig die Meinung - fünf Wörter in der ersten Zeile,
+dann vier, dann wieder fünf -, und der ganze Satz zappelte. Ein gemaltes Schild
+formatiert sich nicht neu, während man darauf zufährt. Also gehören Umbruch und
+Schriftgröße dem Brett, und die Entfernung skaliert nur noch. Gerechnet wird
+das je Wortlaut einmal und dann behalten.
+
+Die Texte stehen als `sectionHints` in [i18n/texts.ts](i18n/texts.ts), einer je
+Abschnitt in derselben Reihenfolge wie die Namen - vom Gang für die Steigung
+über die Seilwinde am Baum bis zu „Ein Wohnmobil bietet ausreichend Platz. Nicht
+nur im Inneren." am Abgrund. Sie sagen, worum es geht, ohne die Lösung zu
+verraten. Für einen Abschnitt ohne Text steht gar keine Tafel da; eine leere
+Tafel am Straßenrand wäre schlimmer als keine.
+
+Gezeichnet werden die Tafeln **nach dem Nebel**. „Im Nebel" beginnt mitten
+darin, und ausgerechnet dort steht „Nicht anhalten!" auf der Tafel - eine
+Tafel, die niemand lesen kann, ist nutzloser als der Nebel schön ist. In allen
+anderen Abschnitten liegt ohnehin kein Nebel darüber.
 
 Die Bäume geben zwei Stufen Hinweis: Der Baum, für den das Seil **lang genug**
 ist, glimmt (dorthin lohnt der Weg); der Baum, an dem du **stehst**, leuchtet
 hell (jetzt drücken).
+
+**Ein Baum ist kein Lutscher.** Gezeichnet wird er in beiden Ansichten aus
+derselben Datei ([components/tree.ts](components/tree.ts)): ein Stamm, der nach
+unten dicker wird und in den Wurzelansatz ausläuft, mit einer beschatteten
+Seite, damit er rund wirkt und nicht wie ein Brett; zwei Äste, die unter der
+Krone hervorkommen; und eine Krone aus mehreren überlappenden Ballen statt aus
+einer Kugel, von links oben beleuchtet wie alles andere im Bild. Der Ballen in
+der Mitte behält Größe und Farbe von früher - ein Baum ist also nach wie vor an
+genau einem Kreis zu messen, und leuchtet weiterhin auf, wenn das Seil hinreicht.
+
+Wichtig war die **Höhe der Krone**: Das Seil kommt auf der Höhe an den Stamm,
+die die Karte vorgibt (2,6 m), und genau dort saß vorher der Mittelpunkt einer
+Krone mit 2,4 m Radius - die hing also praktisch im Gras. Jetzt läuft der Stamm
+darüber hinaus weiter und die Krone sitzt oben darauf, sodass das Seil um den
+sichtbaren Stamm geht. Drei Kronenformen wechseln sich nach der Nummer des
+Baums ab, damit eine Reihe Bäume nicht wie eine Tapete aussieht.
 
 ## Zu Fuß
 
@@ -226,7 +368,7 @@ nicht: Das Wohnmobil muss ankommen, nicht du.
 Aufgehobenes landet **im Inventar**. Benutzt wird immer, was **in der Hand**
 ist - und in die Hand kommt es **von selbst**: Wer vor dem Bären steht, hält
 das Spray; wer am Wrack steht, den Hammer; wer am Baum steht oder am Seil
-hängt, die Fernbedienung. Das Ausgewählte ist in der Liste grün markiert, und
+hängt, die Seilwinde. Das Ausgewählte ist in der Liste grün markiert, und
 wo die Situation nichts verlangt, bleibt liegen, was man zuletzt gewählt hat -
 per Klick oder mit **Q** der Reihe nach.
 
@@ -249,8 +391,10 @@ Graben verschwindet nicht, nur weil man einmal drin war.
 Jedes Ding liegt außerdem in **genau einer** Tasche. Im Koop kann nicht jeder
 denselben Hammer aufheben; einen zweiten gibt es auf dieser Karte nicht.
 
-Die **Fernbedienung der Seilwinde** liegt von Anfang an drin - sie gehört zum
-Wohnmobil, nicht zum Berg, und liegt deshalb nirgends auf der Strecke herum.
+Die **Seilwinde** liegt von Anfang an drin - sie gehört zum Wohnmobil, nicht zum
+Berg, und liegt deshalb nirgends auf der Strecke herum. Im Beutel steht sie
+unter dem Namen der Sache, die sie tut, und nicht unter dem des Handsenders, mit
+dem man sie führt: „Fernbedienung" ließ offen, wovon.
 In der Hand ist sie aber **nur, solange das Seil hängt**: Sie kommt in dem
 Moment heraus, in dem das Seil an einem Baum ist, und wandert zurück in den
 Beutel, sobald es wieder ab ist.
@@ -318,8 +462,30 @@ Wohnmobil hängen und rollt zurück; im ersten geht es. Genau das prüft auch ei
 Test: einmal im höchsten Gang (kommt nicht über die Kuppe) und einmal im ersten
 (kommt hinüber).
 
-**Der zweite Abschnitt** (376 bis 704 m) ist ein **Graben** - zwölf Meter
-tief, mit Wänden, die kein Rad hält.
+**Der zweite Abschnitt** (376 bis 688 m) führt vom Hochplateau hinunter ins
+Tal und dann vor eine Wand, die zum Fahren zu steil ist - aber mit einem **Baum
+in Seillänge** dahinter. Aussteigen, hinlaufen, Seil dran, hochziehen. Hier
+lernt man die Winde in Ruhe: als Werkzeug, das man einplant, und noch nicht als
+Notlösung für ein kaputtes Fahrzeug.
+
+Vor der Wand liegt ein **Matschfeld**, und das ist kein Schmuck. Ohne es kam
+man mit dem Anlauf vom Plateau im fünften Gang schlicht darüber - gemessen bis
+751 m, weit in den nächsten Abschnitt hinein. Damit war der ganze Abschnitt
+umgehbar und die Winde Zierde. Der Matsch **deckelt das Tempo** auf zwei Meter
+pro Sekunde: Er hält niemanden auf, das Wohnmobil kriecht hindurch und kommt
+auf der anderen Seite heraus - nur eben ohne Schwung. Dieselbe Fahrt endet
+jetzt bei 521 m, am Fuß der Wand.
+
+Eine Deckelung und keine Bremse, weil das, was verhindert werden soll, exakt
+ist: Ein Deckel ist das Versprechen, dass **kein** Anlauf, wie lang auch immer,
+mit etwas übrig ankommt. Im ersten Gang bleibt das Wohnmobil bei 522 m stehen,
+der Baum steht bei 560 m - 38 Meter bei 46 Metern Seil. Ein Test misst beides
+bei jedem Lauf gegeneinander, damit ein Dreh am Matsch die Wand nicht
+stillschweigend unlösbar macht.
+
+**Der dritte Abschnitt** (688 bis 888 m) ist ein **Graben** - zwölf Meter
+tief, mit Wänden, die kein Rad hält. Jetzt, wo die Winde sitzt, kommt der Fall,
+in dem man sie **braucht**.
 
 **Wer hineinfährt, macht das Wohnmobil kaputt.** Es rollt dann noch, aber es
 fährt nicht mehr - kein Gang, kein Gas, nichts. Rauch steht darüber, damit ein
@@ -338,12 +504,9 @@ sich niemand erinnerte - und schlimmer, an einem vorbeizulaufen, ohne zu
 merken, dass man ihn jetzt hat.
 
 Dass du nah genug bist, **siehst** du: Ein Gegenstand in Reichweite bekommt
-einen gelben Ring. Ohne den wäre die Textzeile das einzige Zeichen, und wer auf
-die Strecke schaut, läuft an etwas vorbei, auf dem er gerade steht. Und dass es
-geklappt hat, sagt die Zeile: „Hammer dabei - zurück zum Wohnmobil". Sie sagte
-dort früher weiter „Hammer suchen", auch wenn man ihn längst dabeihatte - so
-wird aus einer Taste, die tut was sie soll, eine Taste, die angeblich kaputt
-ist. Die
+einen gelben Ring. Der ist inzwischen das einzige Zeichen dafür - die Textzeile
+sagt nichts mehr dazu -, und dass das Aufheben geklappt hat, steht in der
+Inventarliste. Die
 Reichweite ist mit **fünf Metern** außerdem großzügiger als die am Baum - ein
 Seil kommt an einen **bestimmten** Baum, da ist Genauigkeit der Punkt; ein
 Hammer, der im Weg liegt, ist keine Präzisionsaufgabe.
@@ -372,7 +535,7 @@ seinem kaputten Wohnmobil steht, greift nicht nach einem Seil.
 Damit war die Leertaste frei - und zwar für zwei Dinge, die nie in derselben
 Position vorkommen. **Zu Fuß** springt sie, **im Fahrerhaus** ist sie die
 **Handbremse**. Dieselbe Aufteilung haben `W` und `S` von Anfang an: „das da
-vorn" sind im Fahrerhaus die Pedale und zu Fuß die Fernbedienung. So macht keine
+vorn" sind im Fahrerhaus die Pedale und zu Fuß die Seilwinde. So macht keine
 Taste zwei Dinge auf einmal; sie bedeutet, was der Sitz aus ihr macht.
 
 Die **Handbremse** ist ein Hebel, den man **hält** - kein Zug, der einrastet.
@@ -457,12 +620,6 @@ ist damit immer offen; festsitzen tut das Fahrzeug, nicht der Fahrer.
 Gezeichnet wird beides in der Markenzeile: `X` über den Feldern, die ein
 Fahrzeug zerlegen, `H` dort, wo der Hammer liegt.
 
-**Der dritte Abschnitt** (704 bis 888 m) ist dieselbe Übung ohne Graben:
-ein Anstieg, der zum Fahren zu steil ist, aber mit einem **Baum in Seillänge**
-dahinter. Aussteigen, hinlaufen, Seil dran, hochziehen. Das Stück ist das
-Wiederholungsstück - hier merkt man, dass die Winde nicht die Notlösung fürs
-Verunglücken ist, sondern ein Werkzeug, das man einplant.
-
 **Der vierte Abschnitt** (888 bis 1088 m) ist zu steil für die Straßenreifen - und diesmal steht
 kein Baum in Seillänge. Weder Gas noch Winde helfen. Auf dem Weg davor liegen
 **Geländereifen**: aufheben, zum Fahrzeug zurück, **F halten**, montieren.
@@ -481,15 +638,15 @@ ausgewählt hat.
 
 Jedes Werkzeug zeigt beim Benutzen, dass es etwas tut:
 
-| Werkzeug          | beim Benutzen                                     |
-| ----------------- | ------------------------------------------------- |
-| Hammer            | wird im Takt geschwungen                          |
-| Geländereifen     | drehen sich in den Händen, der Fahrer hockt       |
-| Benzinkanister    | kippt immer weiter über, je voller der Tank       |
-| **Fernbedienung** | Lampe blinkt, solange die Winde wirklich läuft    |
-| **Bärenspray**    | wirft Nebelstöße nach vorn, solange gesprüht wird |
+| Werkzeug       | beim Benutzen                                     |
+| -------------- | ------------------------------------------------- |
+| Hammer         | wird im Takt geschwungen                          |
+| Geländereifen  | drehen sich in den Händen, der Fahrer hockt       |
+| Benzinkanister | kippt immer weiter über, je voller der Tank       |
+| **Seilwinde**  | Lampe blinkt, solange die Winde wirklich läuft    |
+| **Bärenspray** | wirft Nebelstöße nach vorn, solange gesprüht wird |
 
-Bei der Fernbedienung ist das besonders nötig: Sie ist das einzige Werkzeug,
+Bei der Seilwinde ist das besonders nötig: Sie ist das einzige Werkzeug,
 dessen Arbeit **woanders** passiert - das Seil bewegt sich dort drüben, die Hand
 tut nichts Sichtbares. Ohne die Lampe hielte man eine Taste und wüsste nicht, ob
 überhaupt etwas geschieht. Dass die Winde läuft, steht deshalb im Weltzustand
@@ -497,7 +654,7 @@ und nicht in der Zeichnung: Der Gast im Koop sieht nur, was über die Leitung
 kommt.
 
 Beides ist übrigens absichtlich **größer gezeichnet, als es wäre**. Bei dreizehn
-Pixeln pro Meter kam eine lebensechte Fernbedienung drei Pixel breit heraus, mit
+Pixeln pro Meter kam ein lebensechter Handsender drei Pixel breit heraus, mit
 einer Lampe, die keine Farbe mehr hatte - und eine Lampe, die niemand sieht, ist
 kein Signal. Aus demselben Grund hat sie keine Antenne: So kleine Formen sind
 nur ein Fleck.
@@ -535,6 +692,27 @@ zu Fuß quetscht man sich an einem Bären auch nicht vorbei. Davor liegt bei
   wie Aufstampfen), und die Tatze ist einen Ton **heller** als der Körper - in
   der Körperfarbe verschwand sie beim Schwung schlicht im Bär.
 
+- **Er sieht aus wie ein Bär**, und das war er lange nicht: Von der Seite war er
+  ein Kasten mit abgerundeten Ecken, zwei Beinen und einer Kugel als Kopf, von
+  vorn waren es drei braune Kreise. Beides las sich als Findling mit Ohren.
+
+  Von der Seite ist er jetzt ein Umriss statt eines Kastens: über den
+  Vorderbeinen der **Schulterbuckel**, dahinter eine flache Senke im Rücken, und
+  der **Kopf tief davor** getragen - so trägt ein Braunbär ihn, und diese drei
+  Linien sind das Tier. Dazu ein langes, blasses **Maul** mit dunkler Nase am
+  Ende, ein Auge, zwei Ohren und **vier** Beine: Das hintere Paar steht ein Stück
+  dahinter und ist dunkler, damit zwischen den Beinpaaren ein Körper liegt und
+  keine Pappfigur.
+
+  Die Beine schwingen im **Takt der zurückgelegten Strecke**, nicht der Uhr. Ein
+  Bär, der auf der Stelle die Beine bewegt, steht auf einem Laufband; so bewegt
+  er sie nur, wenn er wirklich läuft.
+
+  Von vorn sind es Brust und Schultern mit einer **beschatteten Seite** - eine
+  flache braune Fläche hat weder vorn noch Seiten -, weit auseinanderstehende
+  runde Ohren, das blasse Maul in der Mitte und zwei kleine Augen. Klein mit
+  Absicht: Größere machen daraus einen Teddy.
+
 - **Verscheuchen** heißt: nah genug ran (10 Meter, die Reichweite der Dose) und
   **F halten**. Nach **zwei Sekunden** dreht er ab und ist weg.
   Loslassen fängt von vorn an.
@@ -566,11 +744,16 @@ daneben steht, und im Koop zählen beide zusammen: Zwei Leute im Nebel sind
 nicht zwei Gelegenheiten herumzustehen. Es genügt, dass **einer** von beiden
 losfährt oder losläuft, dann steht der Zähler wieder auf null.
 
-Angekündigt wird das dreifach, denn ohne Vorwarnung wäre es ein Trick und keine
+**Die ersten dreißig Meter im Nebel zählen nicht.** Der Abschnitt beginnt
+_innerhalb_ des Nebels, und jeder Versuch beginnt damit, dass alle neben dem
+Wohnmobil stehen. Liefe der Zähler ab dem ersten Bild, holte der Nebel einen
+fürs Türöffnen - eine Regel, die zuschlägt, bevor der Spieler etwas getan hat,
+ist keine Regel, sondern eine Falle. Gemessen wird an dem, der am weitesten
+drin ist, damit „am Rand parken und allein vorlaufen" die Regel nicht abschaltet.
+
+Angekündigt wird das Ganze, denn ohne Vorwarnung wäre es ein Trick und keine
 Regel:
 
-- Die Zeile am Rand wird rot und zählt **in Prozent** hoch, von der ersten
-  Sekunde an.
 - Ab **40 Prozent** schält sich knapp zwanzig Meter voraus eine Gestalt aus dem
   Grau: Kopf und Schultern höher als das Wohnmobil, viel zu dünn, mit Armen bis
   unter die Knie und ohne Gesicht. Sie wird mit dem Zähler immer deutlicher.
@@ -585,7 +768,14 @@ Regel:
   Gestalten. Im Fahrerhaus liegt sie über dem Nebel, aber unter dem
   Armaturenbrett: Tacho und Kulisse bleiben lesbar.
 - Der Zähler springt bei **jeder** Bewegung auf null zurück, und außerhalb des
-  Nebels läuft er überhaupt nicht.
+  Nebels läuft er überhaupt nicht. Zu sehen ist er nirgends: Die Gestalt ist
+  die Warnung. Eine Prozentzahl neben der Tankanzeige wäre ein Countdown, und
+  ein Countdown ist nicht unheimlich.
+
+Der **Verlustbildschirm** sagt wie bei der Brücke nur, **was** passiert ist:
+„Etwas im Nebel hat dich geholt." Dass es am Stehenbleiben lag, stand dort
+früher ausgeschrieben - und damit die Regel des Abschnitts auf dem Bildschirm,
+den man am Ende des Abschnitts sieht.
 
 Bei 1512 m reißt der Nebel wieder auf, ein Stück vor dem nächsten Abschnitt.
 Früher lag er bis zur Flagge; seit dort eine Brücke steht, hat er ein Ende -
@@ -600,13 +790,22 @@ was kommt.
 
 **Der siebte Abschnitt** (1536 bis 1760 m) führt über eine Schlucht. Bei
 1636 m steht ein **rotes Warndreieck** am Weg, dahinter liegen 48 Meter altes
-Holz. Was das Schild meint, sagt die Zeile am Rand - ein Satz, gemalt in dieser
-Größe, wäre ein grauer Fleck: **morsch, hält nur wenig Gewicht.**
+Holz: **morsch, hält nur wenig Gewicht.** In Worten steht das auf der
+Hinweistafel am Anfang des Abschnitts - „Manchmal ist man alleine besser dran."
+-, denn ein ganzer Satz, in der Größe des Dreiecks gemalt, wäre ein grauer
+Fleck.
 
 Es trägt das Wohnmobil mit **einem** Insassen. Sitzen **beide** drin, bricht es
 ein, sobald die Räder auf den Planken sind: Die Fahrt ist zu Ende, und der
-Abschnitt fängt von vorn an. Die Zeile sagt es vorher deutlich - „Nur einer im
-Wohnmobil - der andere geht zu Fuß hinüber".
+Abschnitt fängt von vorn an. Vorgewarnt wird zweifach: von der Hinweistafel am
+Anfang und vom Warndreieck vor der Brücke.
+
+Der **Verlustbildschirm** sagt das ausdrücklich **nicht**. Dort steht nur, woran
+es lag: „Das vollbeladene Wohnmobil war zu schwer für das alte Holz." Vorher
+stand da „Einer fährt, einer geht" - also die Aufgabe des Abschnitts, gelöst
+und hingeschrieben, ausgerechnet auf dem Bildschirm, den man beim Scheitern zu
+sehen bekommt. Warum etwas passiert ist, gehört dorthin; was man daraus macht,
+ist die Aufgabe.
 
 Gezählt wird, wer **drinsitzt**, nicht wer auf der Brücke steht. Wer nebenher
 läuft, ist auf seinen eigenen zwei Beinen, und die Planke unter einem Paar
@@ -719,11 +918,15 @@ Ein Abschnitt ist zugleich die Aufgabe und der Speicherpunkt.
 Abschnitte beginnen immer auf **ebenem** Boden. Auf einer Schräge zu starten
 hieße, die Fahrt mit dem Zurückrutschen zu beginnen.
 
-## Berge im Hintergrund
+## Berge und Wald im Hintergrund
 
-Hinter der Strecke stehen **zwei Bergketten**, jede mit eigenen Gipfeln und die
-hintere mit Schnee auf den höchsten. Sie ziehen unterschiedlich schnell vorbei -
-die ferne kaum, die nähere deutlich.
+Die Fahrt geht durch **zwei Landschaften**: Die ersten vier Abschnitte klettern
+im Fels und im Schnee herum, ab dem Bären läuft die Strecke in den **Wald**.
+Hinten steht dann statt der Gipfel eine Baumreihe.
+
+Hinter der Strecke stehen im ersten Teil **zwei Bergketten**, jede mit eigenen
+Gipfeln und die hintere mit Schnee auf den höchsten. Sie ziehen unterschiedlich
+schnell vorbei - die ferne kaum, die nähere deutlich.
 
 Das ist kein Schmuck, sondern der **Bezugspunkt**. Vorher war der Hintergrund
 eine einzige glatte Sinuswelle: überall gleich, ohne Merkmal. Wer da einen
@@ -739,6 +942,42 @@ umherwandert, wäre schlimmer als gar keins.
 Im Fahrerhaus steht dieselbe Kette am Horizont, nur flacher: Aus dieser Sitzhöhe
 drückt die Entfernung alles zusammen. Es ist aber dieselbe Skyline, damit beide
 Ansichten von einer Welt erzählen.
+
+**Der Wald** ist genauso gebaut, nur eng und klein statt weit und groß: zwei
+Reihen Nadelbäume in denselben zwei Geschwindigkeiten, damit sich das Gefühl
+für das eigene Tempo mit der Landschaft nicht ändert - nur das, was da draußen
+steht. Zwischen den Bäumen bleibt flacher Boden stehen, sonst wäre es ein grünes
+Sägeblatt statt einzelner Stämme, und die Höhen kommen aus derselben Welle wie
+die Gipfelhöhen, wiederholen sich also ebenso wenig.
+
+**Und im Wald stehen Bäume an der Strecke**, nicht nur am Horizont: zwei Reihen
+Nadelbäume je Seite, alle sieben Meter einer, an denen man beim Fahren
+vorbeizieht. Ein Horizont voller Bäume sagt „irgendwo da draußen ist ein Wald";
+Bäume, die am Fenster vorbeiziehen, sagen „du bist **drin**", und das ist der
+Unterschied zwischen Kulisse und Ort.
+
+Wo sie stehen, wird aus ihrer Nummer gerechnet und nirgends gemerkt - derselbe
+Streckenabschnitt hat also immer denselben Wald; ein Wald, der sich hinter
+einem umstellt, wäre schlimmer als gar keiner. Abstände, Höhen und der Abstand
+zur Fahrbahn sind dabei alle leicht verwürfelt, sonst wäre es ein Zaun.
+
+Die erste Reihe beginnt bei **14,5 Metern** neben der Mitte - jenseits von
+allem, was eine Aufgabe hat: Die Fahrbahn ist 6,4 m breit, die Abschnittsfahnen
+stehen bei 5,5 m und die Hinweistafeln reichen bis 12,5 m hinaus. Kein Baum
+verdeckt je ein Schild. Aus dem Fahrerhaus laufen sie durch dieselben Regeln
+wie alles am Straßenrand: hinter einer Kuppe weg, jenseits der Sichtweite weg.
+Von der Seite stehen sie hinter der Straße, aber vor dem Boden - die hintere
+Reihe etwas höher im Bild und etwas kleiner, denn das sind die zwei Mittel, mit
+denen ein flaches Bild „weiter hinten" sagt.
+
+Gewechselt wird nicht umgeschaltet, sondern **übergeblendet**: Über sechzig
+Meter vor der Grenze verschwinden die Berge und die Bäume kommen. Bei Tempo
+sechzig wäre ein Horizont, der von einem Bild zum nächsten ein anderer ist, ein
+Fehler und keine Landschaft. Wer einen Abschnitt neu beginnt, steht immer
+jenseits der Blende - kein Abschnitt fängt mit einem halb verblassten Horizont
+an. Und gemessen wird an der Stelle, an der der **Spieler** steht, nicht am
+linken Bildrand: Der liegt zwanzig Meter zurück, und damit stünden noch zwanzig
+Meter Gebirge hinter dem Wald.
 
 ## Schnee
 
@@ -836,7 +1075,7 @@ Haltegriff und Handschuhfach. Dazu sagt es die Leiste über dem Bild („Du
 lenkst" / „Beifahrer") und die Zustandszeile.
 
 Zu zweit lohnt sich vor allem die Seilwinde: Einer bleibt am Steuer und gibt Gas,
-der andere steht am Baum und zieht mit der Fernbedienung. Solo muss man dafür
+der andere steht am Baum und zieht mit der Seilwinde. Solo muss man dafür
 aussteigen, hochziehen, wieder einsteigen.
 
 Und Sprachchat wie in den anderen Spielen - der Ton läuft direkt zwischen den

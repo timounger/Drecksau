@@ -20,12 +20,24 @@ import {
   snowShare,
 } from "@/games/rv-there-yet/engine/terrain";
 import { blend } from "@/games/rv-there-yet/components/palette";
+import { drawTree } from "@/games/rv-there-yet/components/tree";
+import {
+  drawNotice,
+  NOTICE_AFTER,
+  NOTICE_SIDE,
+} from "@/games/rv-there-yet/components/notice";
+import {
+  conifersBetween,
+  drawConifer,
+} from "@/games/rv-there-yet/components/wood";
+import { RV_TEXTS } from "@/games/rv-there-yet/i18n/texts";
 import {
   SLENDER,
   SLENDER_INK,
   slenderShowing,
   summitShare,
 } from "@/games/rv-there-yet/components/render";
+import { woodShare } from "@/games/rv-there-yet/engine/map";
 import { within } from "@/games/rv-there-yet/engine/engine";
 import {
   gearAt,
@@ -43,6 +55,19 @@ const VIEW = {
   focal: 300,
   /** How far ahead the road is drawn, in metres. */
   sight: 260,
+  /**
+   * How far ahead a thing standing beside the road is still drawn, in metres.
+   *
+   * @remarks
+   * Much less far than the road itself. The road has to run to the horizon or
+   * there is no distance to judge; the trees, markers and items along it do
+   * not - out at two hundred metres they are three pixels each, and all they
+   * do is show what the whole rest of the section holds before it is driven.
+   * Half the point of a bend or a rise is not knowing yet.
+   */
+  thingSight: 160,
+  /** Over how many of the last of those metres it fades out, in metres. */
+  thingFade: 25,
   /** How far apart the road is sampled near the bonnet, in metres. */
   nearStep: 1.5,
   /** How much wider each following sample is - detail near, speed far. */
@@ -53,6 +78,40 @@ const VIEW = {
   roadHalf: 3.2,
   /** Half the width of the verge beside it, in metres. */
   vergeHalf: 7,
+  /**
+   * The hillside beyond the verge: how far it reaches and what shape it has.
+   *
+   * @remarks
+   * Built as a **curve** rather than a handful of steps. The cross-section is
+   * a parabola - level at the shoulder of the road and steepening with every
+   * metre away from it, which is the shape water cuts and therefore the shape
+   * a hillside has. Enough steps that the silhouette reads as round instead of
+   * as three folds of cardboard, few enough that each one is still one fill.
+   *
+   * `flankOut` is how far out it goes, `flankCurve` how much of the local
+   * relief the outermost edge has fallen away by, and `flankSpread` bunches
+   * the steps up near the road, where they are seen widest and need the most
+   * detail.
+   */
+  flankSteps: 7,
+  flankOut: 110,
+  flankCurve: 3.4,
+  flankSpread: 1.7,
+  /** How hard the light from the left tells the two sides of the road apart. */
+  flankLight: 0.45,
+  /** How much relief counts as a hillside in full, in metres. */
+  flankFull: 7,
+  /**
+   * How far to either side the ground is measured to decide ridge or valley.
+   *
+   * @remarks
+   * Several distances rather than one, and each one further out than the last,
+   * so that neither a single pothole nor a single hummock decides the shape of
+   * a whole hillside.
+   */
+  reliefFrom: 24,
+  reliefSteps: 4,
+  reliefSpread: 1.7,
   /** How long one stripe of the road surface is, in metres. */
   stripe: 6,
   /** Where the horizon sits, as a share of the canvas height. */
@@ -90,6 +149,8 @@ const VIEW = {
   signHigh: 2.4,
   signWide: 1.7,
   signPost: 0.16,
+  /** How high the notice board at the start of a section reaches, in metres. */
+  noticeTop: 4.1,
   /** A section marker, in metres, standing on the left verge. */
   markPole: 3.6,
   markWide: 1.8,
@@ -248,6 +309,23 @@ const VIEW = {
    * for them.
    */
   ridgeSpacing: 130,
+  /**
+   * The treeline of the second half of the drive, in pixels.
+   *
+   * @remarks
+   * Two rows at two speeds where the mountains are one range, because a wood
+   * has depth in a way a distant summit has not: the near row is bigger,
+   * darker and slides past faster, and between them the road looks like it is
+   * running **into** something.
+   */
+  woodSpacing: 13,
+  woodHeight: 26,
+  woodGirth: 0.7,
+  woodLow: 0.45,
+  /** The near row: how much bigger, how much faster, how far below the far one. */
+  woodNearer: 1.5,
+  woodFaster: 2.2,
+  woodDown: 5,
   ridgeHeight: 34,
   ridgeDrift: 0.25,
   /**
@@ -271,7 +349,12 @@ const PAINT = {
   skyTop: "#9ed4f2",
   skyLow: "#e8f5fd",
   ridge: "#9fbcae",
+  flankLit: "#86ad63",
+  flankDeep: "#3d5a33",
   ridgeSnow: "#eef4fa",
+  /** The far wall of forest, and the nearer one. */
+  woodFar: "#7f9c86",
+  woodNear: "#4c6a48",
   fog: "#d8dee3",
   snow: "#eef4fa",
   snowDark: "#cddbe8",
@@ -290,6 +373,7 @@ const PAINT = {
   markFlag: "#3f7fd0",
   rail: "#7d6142",
   chasm: "#20262d",
+  mud: "#5a4630",
   signPost: "#6e6a64",
   signFace: "#f5efe2",
   signEdge: "#c0392b",
@@ -300,6 +384,11 @@ const PAINT = {
     spray: "#c0392b",
     bear: "#4a3527",
   } as Readonly<Record<string, string>>,
+  /** The bear head-on: the coat, its shaded side, the muzzle and the nose. */
+  bear: "#4a3527",
+  bearDark: "#33241a",
+  bearMuzzle: "#8a6a4e",
+  bearNose: "#1d1512",
   can: "#c4562a",
   canDark: "#9c421f",
   rim: "#e8dcc2",
@@ -348,12 +437,18 @@ export function drawCockpit(
   drawRidge(ctx, width, horizon, state.rv.x);
   drawRoad(ctx, state, route, { width, height, horizon, eye });
   drawTrees(ctx, state, route, candidate, { width, height, horizon, eye });
+  drawWoodside(ctx, state, route, { width, height, horizon, eye });
   drawSectionFlags(ctx, state, route, { width, height, horizon, eye });
   drawBridges(ctx, state, route, { width, height, horizon, eye });
+  drawMud(ctx, state, route, { width, height, horizon, eye });
   drawChasm(ctx, state, route, { width, height, horizon, eye });
   drawThings(ctx, state, route, { width, height, horizon, eye });
   drawFlag(ctx, state, route, { width, height, horizon, eye });
   drawFog(ctx, state, route, { width, height, horizon, eye });
+  // After the fog, not before it: the one section that begins **inside** the
+  // fog is the one whose board says "do not stop", and a board nobody can read
+  // is worse than no fog at all. Everywhere else there is no fog to be over.
+  drawNotices(ctx, state, route, { width, height, horizon, eye });
   drawSlender(ctx, state, route, { width, height, horizon, eye });
   drawDashboard(ctx, width, height);
   if (driving) {
@@ -425,6 +520,81 @@ function drawSky(
  * through the windscreen.
  */
 function drawRidge(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  horizon: number,
+  travelled: number,
+): void {
+  const wood = woodShare(travelled);
+  if (wood > 0) {
+    ctx.globalAlpha = wood;
+    drawWood(ctx, width, horizon + VIEW.woodDown, travelled, false);
+    drawWood(ctx, width, horizon, travelled, true);
+    ctx.globalAlpha = 1;
+  }
+  if (wood >= 1) {
+    return;
+  }
+  ctx.globalAlpha = 1 - wood;
+  drawRange(ctx, width, horizon, travelled);
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * One row of the treeline that fills the far view in the second half.
+ *
+ * @param ctx - the canvas to paint on
+ * @param width - how wide the canvas is
+ * @param horizon - where the trees stand
+ * @param travelled - how far along the route the motorhome is, in metres
+ * @param near - whether this is the near row: bigger, darker and faster
+ * @remarks
+ * Flat ground between the trees and a narrow triangle at each of them, so that
+ * the eye reads separate conifers rather than one green saw blade. The heights
+ * come out of the same wave the summits do, which is what keeps the line from
+ * repeating however far anybody drives.
+ */
+function drawWood(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  horizon: number,
+  travelled: number,
+  near: boolean,
+): void {
+  const grown = near ? VIEW.woodNearer : 1;
+  const spacing = VIEW.woodSpacing * grown;
+  const shift = travelled * VIEW.ridgeDrift * (near ? VIEW.woodFaster : 1);
+  const first = Math.floor(shift / spacing) - 1;
+  const last = first + Math.ceil(width / spacing) + 2;
+  const girth = (spacing * VIEW.woodGirth) / 2;
+
+  ctx.fillStyle = near ? PAINT.woodNear : PAINT.woodFar;
+  ctx.beginPath();
+  ctx.moveTo(-spacing, horizon);
+  for (let tree = first; tree <= last; tree++) {
+    const px = tree * spacing - shift;
+    const tall =
+      VIEW.woodHeight *
+      grown *
+      (VIEW.woodLow + (1 - VIEW.woodLow) * summitShare(tree));
+    ctx.lineTo(px - girth, horizon);
+    ctx.lineTo(px, horizon - tall);
+    ctx.lineTo(px + girth, horizon);
+  }
+  ctx.lineTo(width + spacing, horizon);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * The range of summits that fills the far view in the first half.
+ *
+ * @param ctx - the canvas to paint on
+ * @param width - how wide the canvas is
+ * @param horizon - where the range stands
+ * @param travelled - how far along the route the motorhome is, in metres
+ */
+function drawRange(
   ctx: CanvasRenderingContext2D,
   width: number,
   horizon: number,
@@ -511,6 +681,8 @@ function drawRoad(
 ): void {
   const middle = screen.width / 2;
   const bands = sampleAhead();
+  // The hillside first: the road and its verge are painted on top of it.
+  drawFlanks(ctx, state, route, screen);
   for (let index = bands.length - 1; index > 0; index--) {
     const far = bands[index];
     const near = bands[index - 1];
@@ -535,6 +707,189 @@ function drawRoad(
     band(ctx, middle, a.y, a.road, b.y, b.road);
     ctx.fill();
   }
+}
+
+/**
+ * The hillside to the left and right of the road, all the way ahead.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @remarks
+ * The map is a **line** of heights and says nothing about what lies beside the
+ * road, so the flanks are worked out from the road itself: how high each spot
+ * stands compared with the ground around it. On a ridge the land falls away to
+ * both sides, in a valley it climbs - which is what a driver sees out of the
+ * side windows, and what was missing while everything either side of the road
+ * was one flat colour.
+ *
+ * Each step outwards is **one** long strip rather than a quad per band. Made
+ * of separate quads the seams between them showed as a lattice of hairlines
+ * all down the hillside; as one path there are no seams to show.
+ *
+ * Drawn outermost first, so each step lies over the one beyond it.
+ */
+function drawFlanks(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  const bands = sampleAhead();
+  const white = snowShare(heightAt(route, state.rv.x));
+  const lift = reliefAt(route, state.rv.x);
+
+  for (let step = VIEW.flankSteps; step >= 1; step--) {
+    const out = flankStep(step);
+    const inner = flankStep(step - 1);
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = shadeOf(out, lift, side, white);
+      ctx.beginPath();
+      // Out along the far edge of the hillside, back along the near one.
+      bands.forEach((gap, index) => {
+        const point = flankPoint(state, route, screen, gap, side, out);
+        if (index === 0) {
+          ctx.moveTo(point.px, point.py);
+        } else {
+          ctx.lineTo(point.px, point.py);
+        }
+      });
+      for (let index = bands.length - 1; index >= 0; index--) {
+        const point = flankPoint(
+          state,
+          route,
+          screen,
+          bands[index],
+          side,
+          inner,
+        );
+        ctx.lineTo(point.px, point.py);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+}
+
+/**
+ * One step of the hillside: how far out it lies and how far it has fallen.
+ *
+ * @param step - which step, from 0 at the verge to `flankSteps` at the edge
+ * @returns where the edge of that step lies and how steeply it lies there
+ * @remarks
+ * The two curves that make the shape. Sideways the steps bunch up near the
+ * road, where the hillside is seen widest and the faces of it want to be
+ * smallest. Downwards each step falls further than the one before it, so the
+ * ground eases away at the shoulder and drops harder the further out it goes -
+ * a hillside rather than the straight wedge a single drop per step would
+ * make.
+ */
+function flankStep(step: number): Face {
+  const share = step / VIEW.flankSteps;
+  return {
+    out:
+      VIEW.vergeHalf +
+      (VIEW.flankOut - VIEW.vergeHalf) * share ** VIEW.flankSpread,
+    fall: VIEW.flankCurve * share ** 2,
+    tilt: share ** 2,
+  };
+}
+
+/**
+ * What colour a face of the hillside is, given how steeply it lies.
+ *
+ * @param out - the outer edge of the face
+ * @param lift - the relief here: positive on a ridge, negative in a valley
+ * @param side - -1 for the left of the road, 1 for the right
+ * @param snow - how much of the ground here is under snow, 0 to 1
+ * @returns the colour to fill it with
+ * @remarks
+ * This is what turns a fan of green wedges into ground you can read. The
+ * further down the hillside a face lies the darker it is, and how much darker
+ * depends on how much hillside there is: flat country stays one colour,
+ * because there is nothing there to catch the light at an angle, and the
+ * deeper the valley the harder the contrast between the top of its walls and
+ * the bottom of them.
+ *
+ * The light comes from up and to the **left**, so the two sides of the road
+ * are never the same shade. Lighting both alike is what makes a hillside look
+ * like a paper cut-out: it is the difference between the two that says the
+ * ground has a shape at all.
+ *
+ * @param side - -1 for the left of the road, 1 for the right
+ */
+function shadeOf(out: Face, lift: number, side: number, snow: number): string {
+  // How far down the hillside this face lies, and how much hillside there is
+  // for it to be down: on level ground nothing is shaded at all, because there
+  // is nothing there to catch the light at an angle.
+  const depth = out.tilt;
+  const strength = Math.min(1, Math.abs(lift) / VIEW.flankFull);
+  // The light comes from one side, so a ridge is bright on its left flank and
+  // dark on its right - and a valley, whose walls face the other way, the
+  // other way about.
+  const across = side * Math.sign(lift) * VIEW.flankLight;
+  const lit = Math.max(0, Math.min(1, 1 - depth * strength * (1 - across)));
+  // Snow has to be shaded as well, or a summit turns into one white sheet in
+  // which nothing can be made out at all - so the snow gets a lit and a shaded
+  // tone of its own and the green underneath is blended into them.
+  const green = blend(PAINT.flankDeep, PAINT.flankLit, lit);
+  const white = blend(PAINT.snowDark, PAINT.snow, lit);
+  return blend(green, white, snow);
+}
+
+/**
+ * One edge of the hillside, at one step out from the road.
+ *
+ * @remarks
+ * `out` is in metres beside the road and `fall` is the share of the relief it
+ * has fallen by there, so the same face serves for a ridge and for a valley -
+ * the relief carries the sign. `tilt` is how far down the hillside it lies,
+ * nought at the shoulder and one at the outer edge, and it is what the shading
+ * is made of.
+ */
+type Face = {
+  readonly out: number;
+  readonly fall: number;
+  readonly tilt: number;
+};
+
+/** Where one point of a hillside step lands on the canvas. */
+function flankPoint(
+  state: GameState,
+  route: Route,
+  screen: Screen,
+  gap: number,
+  side: number,
+  step: Face,
+): { readonly px: number; readonly py: number } {
+  const at = state.rv.x + gap;
+  const ground = heightAt(route, at) - reliefAt(route, at) * step.fall;
+  return {
+    px: screen.width / 2 + (side * step.out * VIEW.focal) / gap,
+    py: project(screen, ground, gap).y,
+  };
+}
+
+/**
+ * How much higher a place stands than the ground around it, in metres.
+ *
+ * @param route - the route being driven
+ * @param x - the place, in metres
+ * @returns positive on a ridge, negative in a valley, zero on the flat
+ * @remarks
+ * The only thing the map can say about the shape of the land to the side: a
+ * spot that stands above its surroundings is a ridge, and a ridge falls away
+ * on both sides. One that lies below them is a valley, and a valley climbs.
+ */
+function reliefAt(route: Route, x: number): number {
+  let around = 0;
+  let away = VIEW.reliefFrom;
+  for (let step = 0; step < VIEW.reliefSteps; step++) {
+    around += heightAt(route, x - away) + heightAt(route, x + away);
+    away *= VIEW.reliefSpread;
+  }
+  return heightAt(route, x) - around / (VIEW.reliefSteps * 2);
 }
 
 /** One four-cornered slice of ground, far edge first. */
@@ -575,6 +930,107 @@ function sampleAhead(): number[] {
   return bands;
 }
 
+/**
+ * Something standing on the road ahead.
+ *
+ * @remarks
+ * Everything the land can hide is one of these: how far off it is, how high
+ * the ground is where it stands, and how far above that it reaches.
+ */
+type Standing = {
+  readonly gap: number;
+  readonly foot: number;
+  readonly tall: number;
+  /** How much of it to show at all, for things that fade in with the country. */
+  readonly fade?: number;
+};
+
+/**
+ * The lowest a thing `gap` metres ahead can be and still be seen over the land.
+ *
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param gap - how far ahead the thing stands, in metres
+ * @returns that height in metres
+ * @remarks
+ * A line of sight, worked out in metres rather than in pixels. Every rise
+ * between here and there hides everything below the line from the eye over
+ * that rise and on to the thing; the highest of those lines is the one that
+ * counts. On the level it comes out at the ground itself, so nothing is hidden
+ * that should not be.
+ *
+ * Sampled at the same distances the ground is drawn at, on purpose: what is
+ * hidden is then exactly what the painted land covers, and a tree cannot come
+ * out from behind a hill that is still on the screen.
+ */
+function seenOver(state: GameState, route: Route, gap: number): number {
+  const eye = heightAt(route, state.rv.x) + VIEW.eye;
+  let over = Number.NEGATIVE_INFINITY;
+  for (const ahead of sampleAhead()) {
+    if (ahead >= gap) {
+      break;
+    }
+    const rise = heightAt(route, state.rv.x + ahead) - eye;
+    over = Math.max(over, eye + (rise * gap) / ahead);
+  }
+  return over;
+}
+
+/**
+ * How much of a thing that far off is still shown, from one to nothing.
+ *
+ * @param gap - how far ahead it stands, in metres
+ * @returns its share, one near to and nothing beyond {@link VIEW.thingSight}
+ * @remarks
+ * Faded rather than cut off, so that nothing pops into being out of clear air
+ * - by the time it starts to fade it is a few pixels across anyway.
+ */
+function showingAt(gap: number): number {
+  const past = gap - (VIEW.thingSight - VIEW.thingFade);
+  return past <= 0 ? 1 : Math.max(0, 1 - past / VIEW.thingFade);
+}
+
+/**
+ * Draws something standing ahead, as far as the land and the distance allow.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @param thing - where it stands and how tall it is
+ * @param paint - what to draw, if any of it can be seen
+ * @remarks
+ * Behind a rise it is left out; standing in one it is cut off at the crest,
+ * which is what a hill does to a tree. Without this everything the section
+ * still holds is on the screen from the start, hills or no hills.
+ */
+function drawStanding(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+  thing: Standing,
+  paint: () => void,
+): void {
+  const showing = showingAt(thing.gap) * (thing.fade ?? 1);
+  if (showing <= 0) {
+    return;
+  }
+  const over = seenOver(state, route, thing.gap);
+  if (thing.foot + thing.tall <= over) {
+    return;
+  }
+  ctx.save();
+  ctx.globalAlpha = showing;
+  if (over > thing.foot) {
+    ctx.beginPath();
+    ctx.rect(0, 0, screen.width, project(screen, over, thing.gap).y);
+    ctx.clip();
+  }
+  paint();
+  ctx.restore();
+}
+
 /** The trees the rope could be hooked to, standing beside the road. */
 function drawTrees(
   ctx: CanvasRenderingContext2D,
@@ -592,18 +1048,23 @@ function drawTrees(
   for (const { anchor, index, gap } of seen) {
     const foot = project(screen, anchor.y, gap);
     const scale = VIEW.focal / gap;
-    const at = middle + VIEW.treeSide * scale;
-    const top = foot.y - VIEW.treeTrunk * scale;
-    ctx.strokeStyle = PAINT.trunk;
-    ctx.lineWidth = Math.max(1, scale / VIEW.wheelLine);
-    ctx.beginPath();
-    ctx.moveTo(at, foot.y);
-    ctx.lineTo(at, top);
-    ctx.stroke();
-    ctx.fillStyle = index === candidate ? PAINT.crownNear : PAINT.crown;
-    ctx.beginPath();
-    ctx.arc(at, top, VIEW.treeCrown * scale, 0, Math.PI * 2);
-    ctx.fill();
+    const stands = {
+      gap,
+      foot: anchor.y,
+      tall: VIEW.treeTrunk + VIEW.treeCrown,
+    };
+    drawStanding(ctx, state, route, screen, stands, () => {
+      drawTree(ctx, {
+        x: middle + VIEW.treeSide * scale,
+        y: foot.y,
+        scale,
+        trunk: VIEW.treeTrunk,
+        crown: VIEW.treeCrown,
+        tone: index === candidate ? PAINT.crownNear : PAINT.crown,
+        bark: PAINT.trunk,
+        seed: index,
+      });
+    });
   }
 }
 
@@ -627,18 +1088,116 @@ function drawSectionFlags(
     .sort((a, b) => b.gap - a.gap);
 
   for (const { at, gap } of seen) {
-    const foot = project(screen, heightAt(route, at), gap);
+    const ground = heightAt(route, at);
+    const foot = project(screen, ground, gap);
     const scale = VIEW.focal / gap;
     const post = middle + VIEW.markSide * scale;
     const top = foot.y - VIEW.markPole * scale;
-    ctx.strokeStyle = PAINT.markPole;
-    ctx.lineWidth = Math.max(1, scale / VIEW.wheelLine);
-    ctx.beginPath();
-    ctx.moveTo(post, foot.y);
-    ctx.lineTo(post, top);
-    ctx.stroke();
-    ctx.fillStyle = PAINT.markFlag;
-    ctx.fillRect(post, top, VIEW.markWide * scale, VIEW.markTall * scale);
+    const stands = { gap, foot: ground, tall: VIEW.markPole };
+    drawStanding(ctx, state, route, screen, stands, () => {
+      ctx.strokeStyle = PAINT.markPole;
+      ctx.lineWidth = Math.max(1, scale / VIEW.wheelLine);
+      ctx.beginPath();
+      ctx.moveTo(post, foot.y);
+      ctx.lineTo(post, top);
+      ctx.stroke();
+      ctx.fillStyle = PAINT.markFlag;
+      ctx.fillRect(post, top, VIEW.markWide * scale, VIEW.markTall * scale);
+    });
+  }
+}
+
+/**
+ * The wood along both verges, in the second half of the drive.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @remarks
+ * A treeline on the horizon says there is a forest somewhere; trees going past
+ * the window say you are in one. Drawn furthest first, so the near ones stand
+ * in front, and each of them through the same rules as everything else that
+ * stands beside the road: gone behind a rise, gone past the far limit.
+ *
+ * Faded in with the country itself, so the wood arrives with the treeline
+ * rather than springing up at one line across the road.
+ */
+function drawWoodside(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  const middle = screen.width / 2;
+  const from = state.rv.x + VIEW.bonnet;
+  const trees = conifersBetween(from, state.rv.x + VIEW.thingSight);
+  for (const tree of trees.reverse()) {
+    const share = woodShare(tree.at);
+    if (share <= 0) {
+      continue;
+    }
+    const gap = tree.at - state.rv.x;
+    const ground = heightAt(route, tree.at);
+    const foot = project(screen, ground, gap);
+    const scale = VIEW.focal / gap;
+    const stands = { gap, foot: ground, tall: tree.tall, fade: share };
+    drawStanding(ctx, state, route, screen, stands, () => {
+      drawConifer(ctx, {
+        x: middle + tree.side * tree.out * scale,
+        y: foot.y,
+        scale,
+        tall: tree.tall,
+      });
+    });
+  }
+}
+
+/**
+ * The notice board at the start of each section, on the left verge.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @remarks
+ * On the **left**, where a driver looking over the wheel has it square in
+ * front of them for the length of the run-up to it, and far enough out that it
+ * does not sit on top of the section marker.
+ */
+function drawNotices(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  const boards = route.sections
+    .map((section, index) => ({
+      at: section + NOTICE_AFTER,
+      words: RV_TEXTS.sectionHints[index] ?? "",
+    }))
+    .map((board) => ({ ...board, gap: board.at - state.rv.x }))
+    .filter(
+      (board) =>
+        board.words !== "" &&
+        board.gap > VIEW.bonnet &&
+        board.gap < VIEW.thingSight,
+    )
+    .sort((a, b) => b.gap - a.gap);
+
+  for (const board of boards) {
+    const ground = heightAt(route, board.at);
+    const foot = project(screen, ground, board.gap);
+    const scale = VIEW.focal / board.gap;
+    const stands = { gap: board.gap, foot: ground, tall: VIEW.noticeTop };
+    drawStanding(ctx, state, route, screen, stands, () => {
+      drawNotice(ctx, {
+        x: screen.width / 2 + NOTICE_SIDE * scale,
+        y: foot.y,
+        scale,
+        words: board.words,
+      });
+    });
   }
 }
 
@@ -688,6 +1247,53 @@ function drawBridges(
       }
     }
     drawWarningSign(ctx, state, route, screen, bridge.from - VIEW.signBefore);
+  }
+}
+
+/**
+ * The mud ahead, seen from the seat: a dark wet band across the road.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @remarks
+ * On the road rather than instead of it - the motorhome goes through, it just
+ * arrives at the far side with no speed left. Seeing it coming is the point:
+ * a driver who knows it is there stops arguing with the throttle and reaches
+ * for the rope instead.
+ */
+function drawMud(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+): void {
+  const middle = screen.width / 2;
+  for (const patch of route.mud) {
+    const near = patch.from - state.rv.x;
+    const far = patch.to - state.rv.x;
+    if (far <= VIEW.bonnet || near >= VIEW.sight) {
+      continue;
+    }
+    const lip = project(
+      screen,
+      heightAt(route, patch.from),
+      Math.max(near, VIEW.bonnet),
+    );
+    const back = project(
+      screen,
+      heightAt(route, patch.to),
+      Math.max(far, VIEW.bonnet),
+    );
+    ctx.fillStyle = PAINT.mud;
+    ctx.beginPath();
+    ctx.moveTo(middle - lip.road, lip.y);
+    ctx.lineTo(middle + lip.road, lip.y);
+    ctx.lineTo(middle + back.road, back.y);
+    ctx.lineTo(middle - back.road, back.y);
+    ctx.closePath();
+    ctx.fill();
   }
 }
 
@@ -763,29 +1369,33 @@ function drawWarningSign(
   if (gap <= VIEW.bonnet || gap >= VIEW.sight) {
     return;
   }
-  const foot = project(screen, heightAt(route, at), gap);
+  const ground = heightAt(route, at);
+  const foot = project(screen, ground, gap);
   const scale = VIEW.focal / gap;
   const post = screen.width / 2 + VIEW.markSide * scale;
-  ctx.fillStyle = PAINT.signPost;
-  ctx.fillRect(
-    post - (VIEW.signPost * scale) / 2,
-    foot.y - VIEW.signHigh * scale,
-    VIEW.signPost * scale,
-    VIEW.signHigh * scale,
-  );
-  const top = foot.y - VIEW.signHigh * scale;
-  const half = (VIEW.signWide * scale) / 2;
-  ctx.beginPath();
-  ctx.moveTo(post, top);
-  ctx.lineTo(post + half, top + half * 2);
-  ctx.lineTo(post - half, top + half * 2);
-  ctx.closePath();
-  ctx.fillStyle = PAINT.signFace;
-  ctx.fill();
-  ctx.strokeStyle = PAINT.signEdge;
-  ctx.lineWidth = Math.max(1, scale / VIEW.wheelLine);
-  ctx.lineJoin = "round";
-  ctx.stroke();
+  const stands = { gap, foot: ground, tall: VIEW.signHigh };
+  drawStanding(ctx, state, route, screen, stands, () => {
+    ctx.fillStyle = PAINT.signPost;
+    ctx.fillRect(
+      post - (VIEW.signPost * scale) / 2,
+      foot.y - VIEW.signHigh * scale,
+      VIEW.signPost * scale,
+      VIEW.signHigh * scale,
+    );
+    const top = foot.y - VIEW.signHigh * scale;
+    const half = (VIEW.signWide * scale) / 2;
+    ctx.beginPath();
+    ctx.moveTo(post, top);
+    ctx.lineTo(post + half, top + half * 2);
+    ctx.lineTo(post - half, top + half * 2);
+    ctx.closePath();
+    ctx.fillStyle = PAINT.signFace;
+    ctx.fill();
+    ctx.strokeStyle = PAINT.signEdge;
+    ctx.lineWidth = Math.max(1, scale / VIEW.wheelLine);
+    ctx.lineJoin = "round";
+    ctx.stroke();
+  });
 }
 
 /**
@@ -819,16 +1429,25 @@ function drawThings(
     .map((each) => ({ ...each, gap: each.at - state.rv.x }))
     .filter((each) => each.gap > VIEW.bonnet && each.gap < VIEW.sight)
     .sort((a, b) => b.gap - a.gap)) {
-    const foot = project(screen, heightAt(route, thing.at), thing.gap);
+    const bear = thing.kind === "bear";
+    const ground = heightAt(route, thing.at);
+    const foot = project(screen, ground, thing.gap);
     const scale = VIEW.focal / thing.gap;
-    if (thing.kind === "bear") {
-      drawBearAhead(ctx, middle, foot.y, scale);
-    } else {
-      ctx.save();
-      ctx.translate(middle, foot.y);
-      thingShape(ctx, thing.kind, scale);
-      ctx.restore();
-    }
+    const stands = {
+      gap: thing.gap,
+      foot: ground,
+      tall: bear ? VIEW.bearSize : VIEW.itemSize,
+    };
+    drawStanding(ctx, state, route, screen, stands, () => {
+      if (bear) {
+        drawBearAhead(ctx, middle, foot.y, scale);
+      } else {
+        ctx.save();
+        ctx.translate(middle, foot.y);
+        thingShape(ctx, thing.kind, scale);
+        ctx.restore();
+      }
+    });
   }
 }
 
@@ -974,26 +1593,191 @@ function drawBearAhead(
   scale: number,
 ): void {
   const size = VIEW.bearSize * scale;
-  ctx.fillStyle = PAINT.thing.bear;
-  ctx.beginPath();
-  ctx.ellipse(middle, ground - size / 2, size / 2, size / 2, 0, 0, Math.PI * 2);
-  ctx.fill();
-  const head = size * VIEW.bearHead;
-  ctx.beginPath();
-  ctx.arc(middle, ground - size, head, 0, Math.PI * 2);
-  ctx.fill();
+  drawBearForelegs(ctx, middle, ground, size);
+  drawBearChest(ctx, middle, ground, size);
+  drawBearFace(ctx, middle, ground - size * BEAR.headAt, size);
+}
+
+/**
+ * The two forelegs, planted either side of the chest.
+ *
+ * @param ctx - the canvas to paint on
+ * @param middle - the middle of the bear across the canvas
+ * @param ground - where it stands
+ * @param size - how tall the whole animal is, in pixels
+ */
+function drawBearForelegs(
+  ctx: CanvasRenderingContext2D,
+  middle: number,
+  ground: number,
+  size: number,
+): void {
+  const wide = size * BEAR.legWide;
   for (const side of [-1, 1]) {
+    // The near foreleg is the one on the lit side; the other stands in the
+    // shadow of the chest, which is what stops the two reading as one block.
+    ctx.fillStyle = side < 0 ? PAINT.bear : PAINT.bearDark;
     ctx.beginPath();
-    ctx.arc(
-      middle + side * head,
-      ground - size - head,
-      head / 2,
-      0,
-      Math.PI * 2,
+    ctx.roundRect(
+      middle + side * size * BEAR.legAt - wide / 2,
+      ground - size * BEAR.legHigh,
+      wide,
+      size * BEAR.legHigh,
+      wide / 2,
     );
     ctx.fill();
   }
 }
+
+/**
+ * The chest and shoulders, with the far side of them in shade.
+ *
+ * @param ctx - the canvas to paint on
+ * @param middle - the middle of the bear across the canvas
+ * @param ground - where it stands
+ * @param size - how tall the whole animal is, in pixels
+ * @remarks
+ * Head-on a bear is mostly shoulder. The shading is not decoration: a flat
+ * brown blob has no front and no sides, and the one thing this shape has to
+ * say from two hundred metres is "that is a body, and it is facing you".
+ */
+function drawBearChest(
+  ctx: CanvasRenderingContext2D,
+  middle: number,
+  ground: number,
+  size: number,
+): void {
+  const mid = ground - size * BEAR.chestAt;
+  ctx.fillStyle = PAINT.bear;
+  ctx.beginPath();
+  ctx.ellipse(
+    middle,
+    mid,
+    size * BEAR.chestWide,
+    size * BEAR.chestTall,
+    0,
+    0,
+    FULL,
+  );
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = PAINT.bearDark;
+  ctx.fillRect(
+    middle + size * BEAR.chestWide * BEAR.shade,
+    mid - size,
+    size,
+    size * 2,
+  );
+  ctx.restore();
+}
+
+/**
+ * The head: skull, ears, muzzle, nose and two eyes.
+ *
+ * @param ctx - the canvas to paint on
+ * @param middle - the middle of the bear across the canvas
+ * @param at - where the middle of the skull sits on the canvas
+ * @param size - how tall the whole animal is, in pixels
+ * @remarks
+ * Round ears set wide apart, and a pale blunt muzzle in the middle of the
+ * face: those two together are what nobody mistakes for a boulder. The eyes
+ * are two dark dots, small on purpose - any bigger and it is a teddy.
+ */
+function drawBearFace(
+  ctx: CanvasRenderingContext2D,
+  middle: number,
+  at: number,
+  size: number,
+): void {
+  const skull = size * BEAR.skull;
+  for (const side of [-1, 1]) {
+    ctx.fillStyle = side < 0 ? PAINT.bear : PAINT.bearDark;
+    ctx.beginPath();
+    ctx.arc(
+      middle + side * skull * BEAR.earAt,
+      at - skull * BEAR.earUp,
+      skull * BEAR.ear,
+      0,
+      FULL,
+    );
+    ctx.fill();
+  }
+  ctx.fillStyle = PAINT.bear;
+  ctx.beginPath();
+  ctx.arc(middle, at, skull, 0, FULL);
+  ctx.fill();
+  ctx.fillStyle = PAINT.bearMuzzle;
+  ctx.beginPath();
+  ctx.ellipse(
+    middle,
+    at + skull * BEAR.muzzleLow,
+    skull * BEAR.muzzleWide,
+    skull * BEAR.muzzleTall,
+    0,
+    0,
+    FULL,
+  );
+  ctx.fill();
+  ctx.fillStyle = PAINT.bearNose;
+  ctx.beginPath();
+  ctx.ellipse(
+    middle,
+    at + skull * BEAR.noseLow,
+    skull * BEAR.nose,
+    skull * BEAR.nose * BEAR.noseFlat,
+    0,
+    0,
+    FULL,
+  );
+  ctx.fill();
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(
+      middle + side * skull * BEAR.eyeAt,
+      at - skull * BEAR.eyeUp,
+      skull * BEAR.eye,
+      0,
+      FULL,
+    );
+    ctx.fill();
+  }
+}
+
+/** A whole turn, for the arcs. */
+const FULL = Math.PI * 2;
+
+/** The bear head-on, as shares of how tall it is, or of its skull. */
+const BEAR = {
+  /** The forelegs: how far out they stand, how thick, how long. */
+  legAt: 0.26,
+  legWide: 0.19,
+  legHigh: 0.44,
+  /** The chest: where its middle sits and how big it is. */
+  chestAt: 0.55,
+  chestWide: 0.42,
+  chestTall: 0.4,
+  /** Where the shading starts across it, of its half-width. */
+  shade: 0.1,
+  /** The head: how high it is carried and how big the skull is. */
+  headAt: 1.06,
+  skull: 0.29,
+  /** The ears, as shares of the skull. */
+  ear: 0.36,
+  earAt: 0.92,
+  earUp: 0.62,
+  /** The muzzle and the nose on the end of it, as shares of the skull. */
+  muzzleLow: 0.34,
+  muzzleWide: 0.52,
+  muzzleTall: 0.42,
+  noseLow: 0.22,
+  nose: 0.22,
+  noseFlat: 0.72,
+  /** The eyes, as shares of the skull. */
+  eye: 0.11,
+  eyeAt: 0.42,
+  eyeUp: 0.2,
+} as const;
 
 /**
  * The figure that comes for whoever stands still in the fog, seen from the cab.
@@ -1074,18 +1858,22 @@ function drawFlag(
   if (gap <= VIEW.bonnet || gap >= VIEW.sight) {
     return;
   }
-  const foot = project(screen, heightAt(route, at), gap);
+  const ground = heightAt(route, at);
+  const foot = project(screen, ground, gap);
   const scale = VIEW.focal / gap;
   const middle = screen.width / 2;
   const top = foot.y - VIEW.flagPole * scale;
-  ctx.strokeStyle = PAINT.flagPole;
-  ctx.lineWidth = Math.max(1, scale / VIEW.wheelLine);
-  ctx.beginPath();
-  ctx.moveTo(middle, foot.y);
-  ctx.lineTo(middle, top);
-  ctx.stroke();
-  ctx.fillStyle = PAINT.flag;
-  ctx.fillRect(middle, top, VIEW.flagWide * scale, VIEW.flagTall * scale);
+  const stands = { gap, foot: ground, tall: VIEW.flagPole };
+  drawStanding(ctx, state, route, screen, stands, () => {
+    ctx.strokeStyle = PAINT.flagPole;
+    ctx.lineWidth = Math.max(1, scale / VIEW.wheelLine);
+    ctx.beginPath();
+    ctx.moveTo(middle, foot.y);
+    ctx.lineTo(middle, top);
+    ctx.stroke();
+    ctx.fillStyle = PAINT.flag;
+    ctx.fillRect(middle, top, VIEW.flagWide * scale, VIEW.flagTall * scale);
+  });
 }
 
 /**

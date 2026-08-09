@@ -21,6 +21,12 @@ import {
   snowShare,
 } from "@/games/rv-there-yet/engine/terrain";
 import { blend } from "@/games/rv-there-yet/components/palette";
+import { drawTree } from "@/games/rv-there-yet/components/tree";
+import {
+  drawNotice,
+  NOTICE_AFTER,
+} from "@/games/rv-there-yet/components/notice";
+import { RV_TEXTS } from "@/games/rv-there-yet/i18n/texts";
 import {
   FUEL_SECONDS,
   GOAL_MARGIN,
@@ -30,6 +36,11 @@ import {
   type Person,
   type Route,
 } from "@/games/rv-there-yet/engine/types";
+import { woodShare } from "@/games/rv-there-yet/engine/map";
+import {
+  conifersBetween,
+  drawConifer,
+} from "@/games/rv-there-yet/components/wood";
 import { within } from "@/games/rv-there-yet/engine/engine";
 import { drawCockpit } from "@/games/rv-there-yet/components/cockpit";
 
@@ -80,6 +91,12 @@ const LOOK = {
   signWide: 1.7,
   signPost: 0.16,
   signEdge: 3,
+  /** A patch of mud, in metres: how deep the wet band is and how often a rut. */
+  mudDeep: 0.55,
+  mudEvery: 1.6,
+  mudRut: 2,
+  /** Where a rut starts, as a share of the depth of the band. */
+  mudRutFrom: 0.25,
   /**
    * The tree that is felled across the chasm, in metres.
    *
@@ -140,6 +157,35 @@ const LOOK = {
     { parallax: 0.38, spacing: 150, foot: 22, height: 74, snow: false },
   ],
   /**
+   * The two walls of forest behind the second half of the drive, in pixels.
+   *
+   * @remarks
+   * The same two layers at the same two speeds as the ranges, so the sense of
+   * how fast one is going does not change with the scenery - only what is
+   * standing out there does. Trees are close together and much smaller than
+   * summits, and that alone is what tells a treeline from a mountain range at
+   * this size: a hundred small spikes rather than a handful of big ones.
+   */
+  woods: [
+    { parallax: 0.12, spacing: 16, foot: 10, height: 68, girth: 0.66 },
+    { parallax: 0.38, spacing: 21, foot: 22, height: 104, girth: 0.72 },
+  ],
+  /** How short the shortest tree in a wood is, of the tallest. */
+  treeLow: 0.45,
+  /**
+   * The roadside wood from the flank: how far past the edges to look for
+   * trees, and how "further out" is said in a picture with no depth.
+   *
+   * @remarks
+   * A tree twenty metres off the road is drawn a little higher up the canvas
+   * and a little smaller than one at the verge - the two tricks a flat picture
+   * has for saying "behind". Both are small: overdo either and the wood climbs
+   * into the sky.
+   */
+  woodOver: 30,
+  woodBack: 0.9,
+  woodSmall: 0.012,
+  /**
    * The three waves the skyline is mixed from: how fast each turns and how
    * much of the height it contributes.
    *
@@ -196,7 +242,18 @@ const LOOK = {
   sprayWide: 0.34,
   sprayTall: 0.6,
   sprayCap: 0.16,
-  /** The bear, in metres. */
+  /**
+   * The bear, in metres, seen from the side.
+   *
+   * @remarks
+   * A brown bear from the flank is three things before it is anything else:
+   * the **hump** over its shoulders, the low head carried in front of it, and
+   * the heavy straight legs. Miss those and any amount of rounding still
+   * leaves a boulder with ears on.
+   *
+   * `bearLong` and `bearHigh` are the body it has always had, so where it
+   * stands and how far its reach goes are untouched - only the outline is new.
+   */
   bearLong: 2.2,
   bearHigh: 1.5,
   bearLegs: 0.55,
@@ -204,6 +261,33 @@ const LOOK = {
   bearHead: 0.5,
   bearEar: 0.2,
   bearRound: 0.5,
+  /** How far the hump stands over the shoulders, and where it sits. */
+  bearHump: 0.22,
+  bearHumpAt: 0.42,
+  /** The dip of the back between hump and rump. */
+  bearDip: 0.12,
+  /** The head: how far forward and how low it is carried, and how big. */
+  bearHeadAt: 1.34,
+  bearHeadLow: 1.16,
+  bearSkull: 0.4,
+  /** The muzzle: how far it juts, how deep it is, and where the nose sits. */
+  bearSnout: 0.62,
+  bearSnoutDeep: 0.3,
+  bearNose: 0.09,
+  /** The eye: how big, and where on the skull. */
+  bearEye: 0.06,
+  bearEyeAt: 0.16,
+  /** Where the four legs stand, of half the body length. */
+  bearFront: 0.62,
+  bearHind: 0.72,
+  /** How far the far pair stands behind the near pair, and how much it swings. */
+  bearBehind: 0.16,
+  bearStride: 0.26,
+  /** How many strides the bear takes per metre walked. */
+  bearPace: 0.9,
+  /** The paw at the foot of a leg: how deep and how much wider than the leg. */
+  bearPad: 0.16,
+  bearPadOut: 0.06,
   /**
    * The attack: a paw, swung.
    *
@@ -512,6 +596,9 @@ const PAINT = {
   rangeFar: "#a9c2d8",
   rangeNear: "#93ae9b",
   rangeSnow: "#eef4fa",
+  /** The far wall of forest, and the nearer one. */
+  woodFar: "#7f9c86",
+  woodNear: "#4c6a48",
   ground: "#7ba05b",
   groundDeep: "#5c7a42",
   track: "#a68a5b",
@@ -520,6 +607,8 @@ const PAINT = {
   snowTrack: "#8ea4bb",
   rock: "#8d8677",
   trunk: "#6b4a2f",
+  mud: "#5a4630",
+  mudRut: "#41321f",
   axeHead: "#b8bec4",
   ladder: "#8d8578",
   crown: "#2f7d46",
@@ -557,6 +646,11 @@ const PAINT = {
   canDark: "#8f3a1c",
   sprayCap: "#f0f0f0",
   bear: "#4a3527",
+  /** The side of it away from the light, for the far legs and the far ear. */
+  bearDark: "#33241a",
+  /** The grizzled muzzle, and the wet nose and eye in it. */
+  bearMuzzle: "#8a6a4e",
+  bearNose: "#1d1512",
   bearPaw: "#6b4d38",
   bearClaw: "#e8e0d2",
   remote: "#2f3438",
@@ -594,8 +688,10 @@ export function draw(
   }
   const camera = cameraOf(mine, state, route);
   drawSky(ctx);
-  drawMountains(ctx, camera);
+  drawMountains(ctx, camera, mine.inside ? state.rv.x : mine.at);
   drawGround(ctx, route, camera);
+  drawWoodside(ctx, route, camera);
+  drawMud(ctx, route, camera);
   drawBridges(ctx, route, camera);
   drawChasms(ctx, route, camera);
   drawFellTree(ctx, state, route, camera);
@@ -613,8 +709,85 @@ export function draw(
   }
   // Last of all, so it closes over the whole picture and not merely the ground.
   drawFog(ctx, state, route, camera, mine);
+  // Over the fog, so that the board of the section that starts inside it can
+  // still be read - see the same call in the cab.
+  drawNotices(ctx, route, camera);
   // And he stands **in** the fog, so the grey is between him and you.
   drawSlender(ctx, state, route, camera, mine);
+}
+
+/**
+ * The wood along both verges, in the second half of the drive.
+ *
+ * @param ctx - the canvas to paint on
+ * @param route - the route being driven
+ * @param camera - where the view sits
+ * @remarks
+ * Behind everything that happens on the road and in front of the ground it
+ * stands on: from the side the wood is scenery, and a tree drawn over the
+ * motorhome would be a tree in the middle of the road.
+ *
+ * The near row is drawn over the far one, and both stand a little **above**
+ * their own ground: from the flank, "further away" can only be said with size
+ * and height, and a wood painted flat on the road line would look like an
+ * avenue of two trees.
+ */
+function drawWoodside(
+  ctx: CanvasRenderingContext2D,
+  route: Route,
+  camera: Camera,
+): void {
+  const from = camera.x - LOOK.woodOver;
+  const trees = conifersBetween(
+    from,
+    from + CANVAS_W / LOOK.scale + LOOK.woodOver * 2,
+  );
+  for (const tree of trees) {
+    const share = woodShare(tree.at);
+    if (share <= 0) {
+      continue;
+    }
+    const foot = toScreen(camera, tree.at, heightAt(route, tree.at));
+    const back = tree.out * LOOK.woodBack;
+    ctx.globalAlpha = share;
+    drawConifer(ctx, {
+      x: foot.px,
+      y: foot.py - back,
+      scale: LOOK.scale * (1 - tree.out * LOOK.woodSmall),
+      tall: tree.tall,
+    });
+    ctx.globalAlpha = 1;
+  }
+}
+
+/**
+ * The notice boards, one at the start of each section that has something to say.
+ *
+ * @param ctx - the canvas to paint on
+ * @param route - the route being driven
+ * @param camera - where the view sits
+ * @remarks
+ * Standing where they stand rather than shown when they are wanted: a board in
+ * the ground can be walked up to, driven past and come back to, and it says
+ * what the section is about at the one moment anybody is looking for that.
+ */
+function drawNotices(
+  ctx: CanvasRenderingContext2D,
+  route: Route,
+  camera: Camera,
+): void {
+  route.sections.forEach((section, index) => {
+    const words = RV_TEXTS.sectionHints[index] ?? "";
+    if (words === "") {
+      return;
+    }
+    const at = section + NOTICE_AFTER;
+    const foot = toScreen(camera, at, heightAt(route, at));
+    if (foot.px < -CANVAS_W || foot.px > CANVAS_W * 2) {
+      return;
+    }
+    drawNotice(ctx, { x: foot.px, y: foot.py, scale: LOOK.scale, words });
+  });
 }
 
 /**
@@ -788,6 +961,61 @@ function drawSign(
 }
 
 /**
+ * Every patch of mud on the route: churned ground that takes the speed away.
+ *
+ * @param ctx - the canvas to paint on
+ * @param route - the route being driven
+ * @param camera - where the view sits
+ * @remarks
+ * A dark wet band lying **on** the road rather than a hole in it, because
+ * that is what it is: the motorhome goes through, it simply arrives at the
+ * far side with nothing left. Drawn following the ground so it sits in the
+ * dips rather than floating over them, and with a few ruts across it so it
+ * reads as churned rather than merely painted.
+ */
+function drawMud(
+  ctx: CanvasRenderingContext2D,
+  route: Route,
+  camera: Camera,
+): void {
+  for (const patch of route.mud) {
+    const left = toScreen(camera, patch.from, heightAt(route, patch.from));
+    const right = toScreen(camera, patch.to, heightAt(route, patch.to));
+    if (right.px < 0 || left.px > CANVAS_W) {
+      continue;
+    }
+    ctx.fillStyle = PAINT.mud;
+    ctx.beginPath();
+    ctx.moveTo(left.px, left.py);
+    for (let px = left.px; px <= right.px; px += LOOK.groundStep) {
+      const at = camera.x + px / LOOK.scale;
+      ctx.lineTo(px, toScreen(camera, at, heightAt(route, at)).py);
+    }
+    ctx.lineTo(right.px, right.py);
+    ctx.lineTo(right.px, right.py + m(LOOK.mudDeep));
+    ctx.lineTo(left.px, left.py + m(LOOK.mudDeep));
+    ctx.closePath();
+    ctx.fill();
+
+    // Ruts across it, so it is churned ground and not a brown stripe.
+    ctx.strokeStyle = PAINT.mudRut;
+    ctx.lineWidth = LOOK.mudRut;
+    for (
+      let px = left.px + m(LOOK.mudEvery);
+      px < right.px;
+      px += m(LOOK.mudEvery)
+    ) {
+      const at = camera.x + px / LOOK.scale;
+      const top = toScreen(camera, at, heightAt(route, at)).py;
+      ctx.beginPath();
+      ctx.moveTo(px, top + m(LOOK.mudDeep) * LOOK.mudRutFrom);
+      ctx.lineTo(px, top + m(LOOK.mudDeep));
+      ctx.stroke();
+    }
+  }
+}
+
+/**
  * Every chasm on the route: a hole in the road with no bottom.
  *
  * @param ctx - the canvas to paint on
@@ -845,23 +1073,16 @@ function drawFellTree(
     return;
   }
   if (!state.felled) {
-    ctx.fillStyle = PAINT.trunk;
-    ctx.fillRect(
-      foot.px - m(LOOK.fellThick) / 2,
-      foot.py - m(LOOK.fellTall),
-      m(LOOK.fellThick),
-      m(LOOK.fellTall),
-    );
-    ctx.fillStyle = PAINT.crown;
-    ctx.beginPath();
-    ctx.arc(
-      foot.px,
-      foot.py - m(LOOK.fellTall),
-      m(LOOK.fellCrown),
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
+    drawTree(ctx, {
+      x: foot.px,
+      y: foot.py,
+      scale: LOOK.scale,
+      trunk: LOOK.fellTall,
+      crown: LOOK.fellCrown,
+      tone: PAINT.crown,
+      bark: PAINT.trunk,
+      seed: FELL_SEED,
+    });
     return;
   }
   // Down: the trunk reaches from where it stood back across the gap and onto
@@ -931,15 +1152,90 @@ function drawSky(ctx: CanvasRenderingContext2D): void {
  * from the same deterministic skyline, so the same stretch of road always shows
  * the same mountains - a landmark that moved about would be worse than none.
  */
-function drawMountains(ctx: CanvasRenderingContext2D, camera: Camera): void {
-  LOOK.ranges.forEach((range, index) => {
-    drawRange(
-      ctx,
-      camera,
-      range,
-      index === 0 ? PAINT.rangeFar : PAINT.rangeNear,
-    );
-  });
+function drawMountains(
+  ctx: CanvasRenderingContext2D,
+  camera: Camera,
+  at: number,
+): void {
+  // Worked out where the **player** is, not where the left edge of the canvas
+  // happens to fall: the camera sits some twenty metres behind them, which is
+  // twenty metres of mountains still standing behind a wood.
+  const wood = woodShare(at);
+  if (wood < 1) {
+    ctx.globalAlpha = 1 - wood;
+    LOOK.ranges.forEach((range, index) => {
+      drawRange(
+        ctx,
+        camera,
+        range,
+        index === 0 ? PAINT.rangeFar : PAINT.rangeNear,
+      );
+    });
+  }
+  if (wood > 0) {
+    ctx.globalAlpha = wood;
+    LOOK.woods.forEach((trees, index) => {
+      drawWood(
+        ctx,
+        camera,
+        trees,
+        index === 0 ? PAINT.woodFar : PAINT.woodNear,
+      );
+    });
+  }
+  ctx.globalAlpha = 1;
+}
+
+/** One wall of forest along the horizon: how fast, how close, how tall. */
+type Wood = {
+  readonly parallax: number;
+  readonly spacing: number;
+  readonly foot: number;
+  readonly height: number;
+  readonly girth: number;
+};
+
+/**
+ * One wall of forest, as a row of conifers along the skyline.
+ *
+ * @param ctx - the canvas to paint on
+ * @param camera - where the view sits
+ * @param wood - which wall of it
+ * @param colour - what to paint it in
+ * @remarks
+ * One path for the whole row, the same way the ranges are drawn: flat ground
+ * between the trees and a narrow triangle at each of them, so the eye reads
+ * separate trees rather than a green saw blade. The heights come out of the
+ * same wave as the summits do, which is what keeps the line from repeating.
+ */
+function drawWood(
+  ctx: CanvasRenderingContext2D,
+  camera: Camera,
+  wood: Wood,
+  colour: string,
+): void {
+  const shift = camera.x * LOOK.scale * wood.parallax;
+  const first = Math.floor(shift / wood.spacing) - 1;
+  const base = LOOK.driverY + wood.foot;
+  const last = first + Math.ceil(CANVAS_W / wood.spacing) + 2;
+  const girth = (wood.spacing * wood.girth) / 2;
+
+  ctx.fillStyle = colour;
+  ctx.beginPath();
+  ctx.moveTo(-wood.spacing, CANVAS_H);
+  ctx.lineTo(-wood.spacing, base);
+  for (let tree = first; tree <= last; tree++) {
+    const x = tree * wood.spacing - shift;
+    const tall =
+      wood.height * (LOOK.treeLow + (1 - LOOK.treeLow) * summitShare(tree));
+    ctx.lineTo(x - girth, base);
+    ctx.lineTo(x, base - tall);
+    ctx.lineTo(x + girth, base);
+  }
+  ctx.lineTo(CANVAS_W + wood.spacing, base);
+  ctx.lineTo(CANVAS_W + wood.spacing, CANVAS_H);
+  ctx.closePath();
+  ctx.fill();
 }
 
 /** One range of the skyline. */
@@ -1106,20 +1402,21 @@ function drawAnchors(
     if (foot.px < -LOOK.glowRadius || foot.px > CANVAS_W + LOOK.glowRadius) {
       return;
     }
-    const top = foot.py - LOOK.treeTrunk * LOOK.scale;
-    ctx.strokeStyle = PAINT.trunk;
-    ctx.lineWidth = LOOK.outline * 2;
-    ctx.beginPath();
-    ctx.moveTo(foot.px, foot.py);
-    ctx.lineTo(foot.px, top);
-    ctx.stroke();
-
-    ctx.fillStyle = crownColour(index, candidate, ready);
-    ctx.beginPath();
-    ctx.arc(foot.px, top, LOOK.treeCrown * LOOK.scale, 0, Math.PI * 2);
-    ctx.fill();
+    drawTree(ctx, {
+      x: foot.px,
+      y: foot.py,
+      scale: LOOK.scale,
+      trunk: LOOK.treeTrunk,
+      crown: LOOK.treeCrown,
+      tone: crownColour(index, candidate, ready),
+      bark: PAINT.trunk,
+      seed: index,
+    });
   });
 }
+
+/** Which of the tree shapes the one by the chasm gets. */
+const FELL_SEED = 2;
 
 /** How bright a tree's crown is: standing at it, worth walking to, or neither. */
 function crownColour(index: number, candidate: number, ready: number): string {
@@ -1417,6 +1714,185 @@ function canShape(ctx: CanvasRenderingContext2D): void {
   ctx.fill();
 }
 
+/**
+ * The body: rump, the hump over the shoulders, and the belly between them.
+ *
+ * @param ctx - the canvas to draw on, already at the bear and facing its way
+ * @remarks
+ * One path rather than a box with the corners taken off. The line is the
+ * animal: up over the rump, a shallow dip along the back, up again into the
+ * hump above the front legs and then **down** into the neck, because a bear
+ * carries its head below its shoulders. A rounded box is a sofa.
+ */
+function drawBearBody(ctx: CanvasRenderingContext2D): void {
+  const back = LOOK.bearLong / 2;
+  const high = LOOK.bearHigh;
+  const hump = LOOK.bearHumpAt * back;
+  ctx.fillStyle = PAINT.bear;
+  ctx.beginPath();
+  ctx.moveTo(m(-back), -m(LOOK.bearLegs));
+  ctx.quadraticCurveTo(
+    m(-back - LOOK.bearRound / 2),
+    -m(high),
+    m(-back / 2),
+    -m(high),
+  );
+  ctx.quadraticCurveTo(
+    0,
+    -m(high - LOOK.bearDip),
+    m(hump),
+    -m(high + LOOK.bearHump),
+  );
+  ctx.quadraticCurveTo(
+    m(back),
+    -m(high + LOOK.bearHump / 2),
+    m(back),
+    -m(LOOK.bearHeadLow),
+  );
+  ctx.quadraticCurveTo(
+    m(back),
+    -m(LOOK.bearLegs),
+    m(back / 2),
+    -m(LOOK.bearLegs),
+  );
+  ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * The head: skull, muzzle, ears, eye and nose.
+ *
+ * @param ctx - the canvas to draw on, already at the bear and facing its way
+ * @remarks
+ * The muzzle is what says bear rather than dog: long, blunt, and a shade
+ * lighter than the coat, with the nose a dark pad on the end of it. The far ear
+ * is drawn first and darker, so the head has two sides to it.
+ */
+function drawBearHead(ctx: CanvasRenderingContext2D): void {
+  const at = m(LOOK.bearHeadAt);
+  const low = -m(LOOK.bearHeadLow);
+  const skull = m(LOOK.bearSkull);
+  const ear = m(LOOK.bearEar);
+  ctx.fillStyle = PAINT.bearDark;
+  ctx.beginPath();
+  ctx.arc(at - skull * EAR.far, low - skull * EAR.high, ear, 0, FULL_TURN);
+  ctx.fill();
+  ctx.fillStyle = PAINT.bear;
+  ctx.beginPath();
+  ctx.arc(at, low, skull, 0, FULL_TURN);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(at - skull * EAR.near, low - skull * EAR.up, ear, 0, FULL_TURN);
+  ctx.fill();
+  const snout = m(LOOK.bearSnout);
+  const deep = m(LOOK.bearSnoutDeep);
+  ctx.fillStyle = PAINT.bearMuzzle;
+  ctx.beginPath();
+  ctx.moveTo(at, low - deep / 2);
+  ctx.quadraticCurveTo(at + snout, low - deep, at + snout, low + deep / 2);
+  ctx.quadraticCurveTo(at + snout / 2, low + deep, at, low + deep);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = PAINT.bearNose;
+  ctx.beginPath();
+  ctx.arc(
+    at + snout * EAR.nose,
+    low - deep * EAR.noseLow,
+    m(LOOK.bearNose),
+    0,
+    FULL_TURN,
+  );
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(
+    at + m(LOOK.bearEyeAt),
+    low - skull * EAR.eyeUp,
+    m(LOOK.bearEye),
+    0,
+    FULL_TURN,
+  );
+  ctx.fill();
+}
+
+/** Where the ears, nose and eye sit on the skull, as shares of it. */
+const EAR = {
+  far: 0.5,
+  high: 0.7,
+  near: 0.2,
+  up: 0.82,
+  nose: 0.86,
+  /** How far down the muzzle the nose sits, and how far up the skull the eye. */
+  noseLow: 0.25,
+  eyeUp: 0.33,
+} as const;
+
+/** A whole turn, for the arcs. */
+const FULL_TURN = Math.PI * 2;
+
+/**
+ * One pair of legs, front and hind.
+ *
+ * @param ctx - the canvas to draw on, already at the bear and facing its way
+ * @param stride - where in the stride it is, from -1 to 1
+ * @param near - whether this is the near pair, drawn over the body
+ * @remarks
+ * Four legs and not two. The far pair goes down first, darker and set back, so
+ * that there is an animal between them and the near pair rather than a
+ * cut-out. Each leg is a straight column with a paw on the end: at this size a
+ * bear has no knee worth drawing, and inventing one only looks broken.
+ */
+function drawBearLegs(
+  ctx: CanvasRenderingContext2D,
+  stride: number,
+  near: boolean,
+): void {
+  const half = LOOK.bearLong / 2;
+  const swing = stride * LOOK.bearStride * (near ? 1 : -1);
+  const behind = near ? 0 : -LOOK.bearBehind;
+  ctx.fillStyle = near ? PAINT.bear : PAINT.bearDark;
+  for (const leg of [LOOK.bearFront, -LOOK.bearHind]) {
+    const top = leg * half + behind;
+    drawBearLeg(ctx, top, top + swing * Math.sign(leg), near);
+  }
+}
+
+/**
+ * One leg, from the belly to the ground.
+ *
+ * @param ctx - the canvas to draw on, already at the bear and facing its way
+ * @param top - where it leaves the body, in metres from the middle
+ * @param foot - where it stands, in metres from the middle
+ * @param near - whether it is on the near side, and so gets a paler paw
+ */
+function drawBearLeg(
+  ctx: CanvasRenderingContext2D,
+  top: number,
+  foot: number,
+  near: boolean,
+): void {
+  const wide = LOOK.bearLeg / 2;
+  const pad = LOOK.bearPad;
+  const was = ctx.fillStyle;
+  ctx.beginPath();
+  ctx.moveTo(m(top - wide), -m(LOOK.bearLegs + LOOK.bearRound / 2));
+  ctx.lineTo(m(top + wide), -m(LOOK.bearLegs + LOOK.bearRound / 2));
+  ctx.lineTo(m(foot + wide), -m(pad));
+  ctx.lineTo(m(foot - wide), -m(pad));
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = near ? PAINT.bearPaw : PAINT.bearDark;
+  ctx.beginPath();
+  ctx.roundRect(
+    m(foot - wide - LOOK.bearPadOut),
+    -m(pad),
+    m((wide + LOOK.bearPadOut) * 2),
+    m(pad),
+    m(pad / 2),
+  );
+  ctx.fill();
+  ctx.fillStyle = was;
+}
+
 /** A can of bear spray: a red tin with a white cap. */
 function sprayShape(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = PAINT.spray;
@@ -1464,46 +1940,14 @@ function drawBear(
   ctx.save();
   ctx.translate(foot.px + beat * m(LOOK.maulLean) * facing, foot.py);
   ctx.scale(facing, 1);
-  ctx.fillStyle = PAINT.bear;
-  boxPath(
-    ctx,
-    -LOOK.bearLong / 2,
-    LOOK.bearLong / 2,
-    LOOK.bearLegs,
-    LOOK.bearHigh,
-    LOOK.bearRound,
-  );
-  ctx.fill();
-  for (const side of [-1, 1]) {
-    boxPath(
-      ctx,
-      (side * LOOK.bearLong) / 2 - LOOK.bearLeg / 2,
-      (side * LOOK.bearLong) / 2 + LOOK.bearLeg / 2,
-      0,
-      LOOK.bearLegs + LOOK.bearLeg,
-    );
-    ctx.fill();
-  }
-  // Head at the front, with an ear on top, so it reads as an animal and not a
-  // boulder.
-  ctx.beginPath();
-  ctx.arc(
-    m(LOOK.bearLong / 2),
-    -m(LOOK.bearHigh),
-    m(LOOK.bearHead),
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(
-    m(LOOK.bearLong / 2 + LOOK.bearHead / 2),
-    -m(LOOK.bearHigh + LOOK.bearHead),
-    m(LOOK.bearEar),
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
+  // In step with the ground rather than with the clock: a bear that swings its
+  // legs while standing still is a bear on a treadmill, and the one thing a
+  // standing bear must do is stand.
+  const stride = Math.sin(bear.at * LOOK.bearPace * Math.PI * 2);
+  drawBearLegs(ctx, stride, false);
+  drawBearBody(ctx);
+  drawBearHead(ctx);
+  drawBearLegs(ctx, stride, true);
   if (striking) {
     drawPaw(ctx, beat);
   }

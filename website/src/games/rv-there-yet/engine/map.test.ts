@@ -15,7 +15,12 @@
  * strand whoever saved there.
  */
 import { describe, expect, it } from "vitest";
-import { reachableAnchor, ropeCandidate, step } from "./engine";
+import {
+  besideTheVehicle,
+  reachableAnchor,
+  ropeCandidate,
+  step,
+} from "./engine";
 import {
   SECTIONS,
   SECTION_COUNT,
@@ -23,6 +28,9 @@ import {
   sectionStep,
   MAP,
   parseMap,
+  WOOD_FROM,
+  WOOD_SECTION,
+  woodShare,
 } from "./map";
 import { startAt, theMap } from "./setup";
 import { heightAt, routeLength, slopeAt, snowShare } from "./terrain";
@@ -34,6 +42,7 @@ import {
   LADDER_REACH,
   ANCHOR_REACH,
   CHASM_STOP,
+  WINCH_MIN,
   IDLE_INPUT,
   NO_GRIP_SLOPE,
   PICKUP_REACH,
@@ -141,8 +150,13 @@ function seated(state: GameState): GameState {
 
 /** Which field the ditch's floor lies in - the low point of the second section. */
 function ditchField(): number {
-  const from = 55;
-  const to = 80;
+  // Found through the pit the map itself declares, rather than by looking in
+  // a stretch of fields somebody wrote down once: the sections have been
+  // reordered before now, and a hand-written range quietly stops pointing at
+  // the hole when they are.
+  const pit = MAP.pits[0];
+  const from = Math.round(pit.from / ROUTE_STEP);
+  const to = Math.round(pit.to / ROUTE_STEP) + 1;
   const around = MAP.heights.slice(from, to);
   return from + around.indexOf(Math.min(...around));
 }
@@ -331,6 +345,9 @@ function driveFrom(section: number, until: number) {
   return { state, hooks, lowestFuel };
 }
 
+/** Which section is the climb the winch is for: the second one. */
+const WINCH_SECTION = 1;
+
 /** Which section the bridge is in, and which one the fog lies over. */
 const BRIDGE_SECTION = SECTION_COUNT - 2;
 const FOG_SECTION = SECTION_COUNT - 3;
@@ -355,6 +372,7 @@ function leapReach(from: number): number {
     bear: null,
     fog: null,
     bridges: [],
+    mud: [],
     chasms: [],
     fellTree: null,
     sections: [],
@@ -381,6 +399,44 @@ function leapReach(from: number): number {
 
 /** How far a felled trunk reaches back from where the tree stood, in metres. */
 const TRUNK_REACH = 12;
+
+/**
+ * The first steep field past a metre, in metres.
+ *
+ * @param from - where to start looking
+ * @returns where the ground first turns too steep to drive
+ */
+function firstSteepAfter(from: number): number {
+  for (let at = from; at < routeLength(MAP); at += ROUTE_STEP / 2) {
+    if (Math.abs(slopeAt(MAP, at)) >= NO_GRIP_SLOPE) {
+      return at;
+    }
+  }
+  return routeLength(MAP);
+}
+
+/**
+ * How far the motorhome gets up the hill from a section, under its own power.
+ *
+ * @param from - the metre to set off from
+ * @returns where it comes to a stand, in metres
+ * @remarks
+ * First gear, which is what the section teaches and what the autopilot uses:
+ * the stall point is the thing every other number here has to fit around.
+ */
+function driveUp(from: number): number {
+  const base = startAt(2);
+  let now: GameState = {
+    ...base,
+    rv: { x: from, v: 0 },
+    driver: 0,
+    people: [{ ...base.people[0], inside: true, at: from }],
+  };
+  for (let frame = 0; frame < 60 / FRAME; frame++) {
+    now = step(now, theMap(), [{ ...IDLE_INPUT, drive: 1, shift: 1 }], FRAME);
+  }
+  return now.rv.x;
+}
 
 describe("the map", () => {
   it("can be driven from the start to the flag", () => {
@@ -550,6 +606,30 @@ describe("the map", () => {
     // Crossing a bridge you cannot see is a coin toss, not a test of nerve.
     const bridge = MAP.bridges[0];
     expect(MAP.fog?.to ?? 0).toBeLessThan(bridge.from);
+  });
+
+  it("lays mud in front of the climb that wants the winch", () => {
+    // Without it a long enough approach in top gear carried the motorhome
+    // clean over that wall, and the rope was decoration.
+    expect(MAP.mud.length).toBe(1);
+    const bog = MAP.mud[0];
+    const tree = MAP.anchors.find((each) => each.x > bog.to);
+    expect(tree).toBeDefined();
+    // Between the section mark and the wall: the run-up is what it takes away.
+    const wall = firstSteepAfter(bog.to);
+    expect(bog.to).toBeLessThan(wall);
+    expect(bog.from).toBeGreaterThan(SECTIONS[WINCH_SECTION]);
+  });
+
+  it("keeps the tree in reach of where the wall stops the motorhome", () => {
+    // The mud costs a couple of metres of climb, and the section only works
+    // while the anchor is still inside a rope's length from the stall point.
+    const stalled = driveUp(SECTIONS[2]);
+    const tree = MAP.anchors.find((each) => each.x > stalled);
+    expect(tree).toBeDefined();
+    const gap = (tree?.x ?? 0) - stalled;
+    expect(gap).toBeGreaterThan(WINCH_MIN);
+    expect(gap).toBeLessThan(WINCH_RANGE);
   });
 
   it("digs a chasm nobody jumps from the road, and anybody clears from the roof", () => {
@@ -801,5 +881,35 @@ describe("finding a section", () => {
     expect(sectionStep(0, 1)).toBe(1);
     expect(sectionStep(0, -1)).toBe(SECTION_COUNT - 1);
     expect(sectionStep(SECTION_COUNT - 1, 1)).toBe(0);
+  });
+});
+
+describe("the two halves of the country", () => {
+  it("keeps the mountains for the first half and the woods for the second", () => {
+    // Half the map each, and the break where the map already has one.
+    expect(WOOD_FROM).toBe(SECTIONS[WOOD_SECTION]);
+    expect(WOOD_SECTION * 2).toBe(SECTION_COUNT);
+  });
+
+  it("gives every section one country or the other, never a mixture", () => {
+    // The mixing happens on the way in, so that nobody starting a section
+    // afresh is dropped in front of a half-faded skyline - and it is over
+    // before the mark, because everybody starts a few metres short of it,
+    // standing beside the motorhome.
+    for (const [index, start] of SECTIONS.entries()) {
+      const wood = index < WOOD_SECTION ? 0 : 1;
+      expect(woodShare(start)).toBe(wood);
+      expect(woodShare(besideTheVehicle(start))).toBe(wood);
+    }
+  });
+
+  it("mixes the one into the other on the way in", () => {
+    // A skyline that changed between one frame and the next would read as a
+    // fault rather than as a wood closing in.
+    const between = woodShare(WOOD_FROM - 30);
+    expect(between).toBeGreaterThan(0);
+    expect(between).toBeLessThan(1);
+    expect(woodShare(0)).toBe(0);
+    expect(woodShare(routeLength(MAP))).toBe(1);
   });
 });

@@ -61,10 +61,45 @@ describe("the German labels", () => {
     expect(RV_TEXTS.sectionNames).toHaveLength(SECTION_COUNT);
   });
 
+  it("call the thing that pulls the rope in a winch", () => {
+    // It is a winch on the vehicle, worked from a handset. Calling the item a
+    // remote control named the handset and left the winch unnamed, so the bag
+    // held a thing nobody could match to the job it does.
+    expect(RV_TEXTS.itemRemote).toBe("Seilwinde");
+    expect(labels().filter((text) => text.includes("Fernbedienung"))).toEqual(
+      [],
+    );
+  });
+
+  it("say what there is to do in every section", () => {
+    // Indexed by section number, so a hint too few would leave the last
+    // section without a board and one too many belongs to nothing.
+    expect(RV_TEXTS.sectionHints).toHaveLength(SECTION_COUNT);
+    expect(RV_TEXTS.sectionHints.filter((hint) => hint === "")).toEqual([]);
+    expect(RV_TEXTS.sectionHints[0]).toContain("Gang");
+  });
+
   it("say what the buttons after a finished drive do", () => {
     // The one that ends a drive says "from the start", because that is what it
     // does - landing back on the last section was the bug that put it here.
     expect(RV_TEXTS.againFromStart).toContain("vorne");
     expect(RV_TEXTS.again).not.toContain("vorne");
+  });
+});
+
+describe("what the loss screens give away", () => {
+  /** Words that would hand the player the answer to a section.  */
+  const GIVEAWAYS = ["einer fährt", "einer geht", "nur einer"];
+
+  it("says why the bridge went, not how to cross it", () => {
+    // The hint used to read "one drives, one walks" - the whole puzzle of the
+    // section, printed on the screen that comes up when you get it wrong.
+    const hint = RV_TEXTS.fallenHint.toLowerCase();
+    expect(hint.length).toBeGreaterThan(0);
+    for (const word of GIVEAWAYS) {
+      expect(hint).not.toContain(word);
+    }
+    // It still has to say what happened, or it is not a hint at all.
+    expect(hint).toContain("schwer");
   });
 });

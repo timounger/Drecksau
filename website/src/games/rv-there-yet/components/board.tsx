@@ -15,6 +15,7 @@ import {
   GEARS,
   NEUTRAL,
   REVERSE,
+  STOP_SPEED,
   type ItemKind,
 } from "@/games/rv-there-yet/engine/types";
 import type { Hud } from "@/games/rv-there-yet/hooks/hud";
@@ -90,9 +91,11 @@ export function Fuel({ share }: { share: number }): ReactElement {
 export function GearStick({
   gear,
   onShift,
+  driving,
 }: {
   readonly gear: number;
   readonly onShift: (gear: number) => void;
+  readonly driving: boolean;
 }): ReactElement {
   return (
     <div
@@ -111,11 +114,8 @@ export function GearStick({
             data-testid={`rv-gear-${entry.label}`}
             onClick={() => onShift(value)}
             title={gearTitle(value)}
-            className={
-              value === gear
-                ? "min-w-9 cursor-pointer rounded-lg bg-zinc-900 px-2 py-1 text-sm font-bold text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "min-w-9 cursor-pointer rounded-lg border border-zinc-300 px-2 py-1 text-sm font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            }
+            disabled={!driving}
+            className={gearClass(value === gear, driving)}
           >
             {entry.label}
           </button>
@@ -123,6 +123,27 @@ export function GearStick({
       })}
     </div>
   );
+}
+
+/**
+ * How a gear button looks: the one in, one that could be, or none of yours.
+ *
+ * @param on - whether this is the gear that is in
+ * @param driving - whether this player is the one at the wheel
+ * @returns the classes for it
+ * @remarks
+ * Dead unless you are steering. Out on the verge there is no gear to change,
+ * and in the passenger seat the gearbox belongs to somebody else.
+ */
+function gearClass(on: boolean, driving: boolean): string {
+  const shape = "min-w-9 rounded-lg px-2 py-1 text-sm";
+  if (!driving) {
+    return `${shape} cursor-not-allowed border border-zinc-200 font-semibold text-zinc-300 dark:border-zinc-800 dark:text-zinc-700`;
+  }
+  if (on) {
+    return `${shape} cursor-pointer bg-zinc-900 font-bold text-white dark:bg-zinc-100 dark:text-zinc-900`;
+  }
+  return `${shape} cursor-pointer border border-zinc-300 font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800`;
 }
 
 /** What a gear button says when hovered. */
@@ -201,35 +222,31 @@ export function TouchPad({
 }): ReactElement {
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
-      <Pedal onPress={onPress} button="back">
+      <Pedal onPress={onPress} button="back" hud={hud}>
         {RV_TEXTS.reverse}
       </Pedal>
-      <Pedal onPress={onPress} button="forward">
+      <Pedal onPress={onPress} button="forward" hud={hud}>
         {RV_TEXTS.drive}
       </Pedal>
-      <Pedal onPress={onPress} button="sprint" lit={!hud.inside}>
+      <Pedal onPress={onPress} button="sprint" hud={hud}>
         {RV_TEXTS.sprint}
       </Pedal>
-      <Pedal onPress={onPress} button="door">
+      <Pedal onPress={onPress} button="door" hud={hud}>
         {RV_TEXTS.door}
       </Pedal>
-      <Pedal onPress={onPress} button="take" lit={hud.pickUp !== null}>
+      <Pedal onPress={onPress} button="take" hud={hud}>
         {RV_TEXTS.take}
       </Pedal>
-      <Pedal onPress={onPress} button="use" lit={hud.ready || hud.hooked}>
+      <Pedal onPress={onPress} button="use" hud={hud}>
         {RV_TEXTS.use}
       </Pedal>
-      <Pedal
-        onPress={onPress}
-        button="jump"
-        lit={hud.inside ? hud.brake : true}
-      >
+      <Pedal onPress={onPress} button="jump" hud={hud}>
         {hud.inside ? RV_TEXTS.handbrake : RV_TEXTS.jump}
       </Pedal>
-      <Pedal onPress={onPress} button="wind" lit={hud.hooked && !hud.inside}>
+      <Pedal onPress={onPress} button="wind" hud={hud}>
         {RV_TEXTS.wind}
       </Pedal>
-      <Pedal onPress={onPress} button="windOut" lit={hud.hooked && !hud.inside}>
+      <Pedal onPress={onPress} button="windOut" hud={hud}>
         {RV_TEXTS.windOut}
       </Pedal>
     </div>
@@ -250,136 +267,67 @@ export function TouchPad({
  * What that line says, as a plain string.
  *
  * @param hud - the heads-up facts
- * @returns the sentence to show
+ * @returns the sentence to show, or nothing at all
  * @remarks
- * Pulled out of the component so the **order** can be tested. The order is the
- * whole substance here, and it has been wrong before: the line went on saying
- * "go and find the hammer" one frame after the hammer had been picked up, so a
- * player who read it went looking for a thing already in their hand.
+ * It speaks only while the player is **doing** something: a job with a key held
+ * down, the spray, the brake, the mud under the wheels. What there is to do in
+ * a section is on the board at the start of it, and a line that keeps saying it
+ * as well turns every puzzle into a set of instructions - "go and find the
+ * hammer", "put the rope on that tree", "get out and walk". Read them once and
+ * there is nothing left to work out.
+ *
+ * What is being **done to you** is not on it either. A percentage counting up
+ * while the bear has hold of you, or while the fog is deciding it has waited
+ * long enough, turns a fright into a progress bar: the picture already says
+ * both, in claws and in a shape coming out of the grey.
+ *
+ * Pulled out of the component so the **order** can be tested, which is where
+ * this has gone wrong before: the spray has to beat everything else, because
+ * the bear reaches you while you are still holding the key down.
  */
 export function doingText(hud: Hud): string {
-  // Order matters: what you can do **right now** beats what you are carrying.
-  // A rope on the tree must not hide the fact that you are standing at the
-  // open door and one key away from driving on.
-  let text: string;
   const bear = hud.bear;
-  // Standing in the fog beats even the bear: the bear you can see coming.
-  if (hud.still > 0) {
-    return RV_TEXTS.standingStill(Math.round(hud.still * PERCENT));
-  }
-  // While it is held there is nothing else the driver could be doing, and the
-  // line saying so is what tells them the vehicle is being braked rather than
-  // failing to pull away.
+  // The brake is held down by a hand on a key, and without a word the vehicle
+  // reads as one that has stopped working rather than one being braked.
   if (hud.inside && hud.brake) {
     return RV_TEXTS.parked;
   }
-  // The chasm before the bridge: it is the one that kills, and everything in
-  // that section is about getting past it.
-  if (hud.chasm && hud.felled) {
-    return RV_TEXTS.felled;
+  // Throttle down and going nowhere is the moment somebody starts wondering
+  // whether the game is broken.
+  if (hud.inside && hud.mud) {
+    return RV_TEXTS.mud;
   }
-  if (hud.chasm) {
-    if (hud.job === "fell" || hud.repair > 0) {
-      return hud.repair > 0
-        ? RV_TEXTS.felling(Math.round(hud.repair * PERCENT))
-        : RV_TEXTS.fellHere;
-    }
-    if (hud.carrying.includes("axe")) {
-      return RV_TEXTS.chasmAxe;
-    }
-    if (hud.pickUp === "axe") {
-      return RV_TEXTS.pickUpAxe;
-    }
-    if (hud.roof) {
-      return RV_TEXTS.chasmRoof;
-    }
-    if (hud.ladder) {
-      return RV_TEXTS.chasmLadder;
-    }
-    return hud.inside ? RV_TEXTS.chasm : RV_TEXTS.chasmNeedAxe;
-  }
-  // The bridge before anything else about driving: by the time it matters the
-  // wheels are already on it, and the one thing worth saying is who has to get
-  // out. The second line only appears when there is somebody to get out.
-  if (hud.bridge) {
-    return hud.aboard > 1 ? RV_TEXTS.bridgeAlone : RV_TEXTS.bridgeSign;
-  }
-  // A bear beats everything else on the screen. It is the only thing here that
-  // kills, and it is coming whether or not you were reading the line.
+  // It reaches you **while** you spray - that is the nerve of the thing - and
+  // the number that says "keep holding" beats the one that says "it has you".
   if (bear !== null && bear.sprayed > 0) {
-    // Ahead of the danger on purpose. The bear reaches you **while** you are
-    // spraying - that is the nerve of the thing - and at that moment the one
-    // number worth reading is the one that says "keep holding". That it has
-    // hold of you needs no caption; the line is already red.
-    text = RV_TEXTS.bearSpraying(Math.round(bear.sprayed * PERCENT));
-  } else if (bear !== null && bear.danger > 0) {
-    text = RV_TEXTS.bearHolding(Math.round(bear.danger * PERCENT));
-  } else if (bear !== null && bear.canSpray && bear.armed) {
-    text = RV_TEXTS.bearSpray;
-  } else if (bear !== null && bear.canSpray) {
-    text = RV_TEXTS.bearRun;
-  } else if (bear !== null && bear.coming && bear.armed) {
-    text = RV_TEXTS.bearComingArmed;
-  } else if (bear !== null && bear.coming) {
-    text = RV_TEXTS.bearComing;
-  } else if (hud.repair > 0) {
-    const share = Math.round(hud.repair * PERCENT);
-    text = WORKING[hud.job ?? "mend"](share);
-  } else if (hud.job === "fit") {
-    text = RV_TEXTS.fitTyres;
-  } else if (hud.job === "fuel") {
-    text = RV_TEXTS.fuelUp;
-  } else if (hud.pickUp !== null) {
-    // Standing at a thing beats everything else the key could do there: it is
-    // the one action that vanishes if you walk on without noticing it.
-    text = PICK_UP[hud.pickUp];
-  } else if (hud.canMend) {
-    text = RV_TEXTS.wreckedWithHammer;
-  } else if (hud.damaged && !hud.inside && hud.carrying.includes("hammer")) {
-    // Carried is enough. Without this the line said "go and find the hammer"
-    // one frame after picking the hammer up, and a player who reads that goes
-    // looking for a thing already in their bag.
-    text = RV_TEXTS.wreckedGotHammer;
-  } else if (hud.damaged && !hud.inside) {
-    text = RV_TEXTS.wrecked;
-  } else if (!hud.inside && hud.carrying.includes("can") && hud.fuel < 1) {
-    text = RV_TEXTS.gotCan;
-  } else if (!hud.inside && !hud.tyres && hud.carrying.includes("tyres")) {
-    text = RV_TEXTS.gotTyres;
-  } else if (hud.passenger) {
-    text = RV_TEXTS.passenger;
-  } else if (hud.atDoor) {
-    text = RV_TEXTS.atDoor;
-  } else if (!hud.inside && hud.ready && !hud.hooked) {
-    text = RV_TEXTS.ropeAtTree;
-  } else if (hud.hooked) {
-    text = hud.inside ? RV_TEXTS.ropeGetOut : RV_TEXTS.ropeRemote;
-  } else if (!hud.inside && hud.candidate) {
-    text = RV_TEXTS.ropeWalk;
-  } else {
-    text = hud.inside ? RV_TEXTS.atWheel : RV_TEXTS.onFoot;
+    return RV_TEXTS.bearSpraying(Math.round(bear.sprayed * PERCENT));
   }
-  return text;
+  // Hammering, fitting, fuelling, felling: a job with a key held down and a
+  // count that has to be watched, because letting go loses it.
+  if (hud.repair > 0) {
+    return WORKING[hud.job ?? "mend"](Math.round(hud.repair * PERCENT));
+  }
+  // Not a hint but a fact about the controls: a passenger pressing the pedals
+  // and seeing nothing happen has no other way of finding out why.
+  if (hud.passenger) {
+    return RV_TEXTS.passenger;
+  }
+  return "";
 }
 
-export function Doing({ hud }: { readonly hud: Hud }): ReactElement {
+export function Doing({ hud }: { readonly hud: Hud }): ReactElement | null {
+  const text = doingText(hud);
+  // Nothing going on, nothing on the screen: an empty box with a border round
+  // it is worse than the sentence it lost.
+  if (text === "") {
+    return null;
+  }
   return (
     <span data-testid="rv-doing" className={doingClass(hud)}>
-      {doingText(hud)}
+      {text}
     </span>
   );
 }
-
-/** What the line says for each thing lying about. */
-const PICK_UP: Readonly<Record<ItemKind, string>> = {
-  // The remote never lies on the route, so it never needs picking up.
-  remote: "",
-  can: RV_TEXTS.pickUpCan,
-  hammer: RV_TEXTS.pickUpHammer,
-  tyres: RV_TEXTS.pickUpTyres,
-  spray: RV_TEXTS.pickUpSpray,
-  axe: RV_TEXTS.pickUpAxe,
-};
 
 /** What the line counts up while each job is being done. */
 const WORKING: Readonly<
@@ -427,31 +375,120 @@ function doingClass(hud: Hud): string {
 export function Pedal({
   onPress,
   button,
-  lit = false,
+  hud,
   children,
 }: {
   readonly onPress: (button: TouchButton, down: boolean) => void;
   readonly button: TouchButton;
-  readonly lit?: boolean;
+  readonly hud: Hud;
   readonly children: string;
 }): ReactElement {
+  const now = pedalNow(hud, button);
   return (
     <button
       type="button"
       data-testid={`rv-${button}`}
+      disabled={!now.on}
       onPointerDown={() => onPress(button, true)}
       onPointerUp={() => onPress(button, false)}
       onPointerLeave={() => onPress(button, false)}
       onPointerCancel={() => onPress(button, false)}
-      className={
-        lit
-          ? "cursor-pointer touch-none rounded-lg border border-emerald-500 bg-emerald-50 px-5 py-2 text-sm font-semibold text-emerald-700 select-none dark:bg-emerald-950/40 dark:text-emerald-300"
-          : "cursor-pointer touch-none rounded-lg border border-zinc-300 px-5 py-2 text-sm font-semibold select-none hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-      }
+      className={pedalClass(now)}
     >
-      {children}
+      {children} <span className="font-normal opacity-60">({now.keys})</span>
     </button>
   );
+}
+
+/** How a button looks: dead, plain, or lit up because it is the one to press. */
+function pedalClass(now: PedalNow): string {
+  const shape =
+    "touch-none rounded-lg border px-5 py-2 text-sm font-semibold select-none";
+  if (!now.on) {
+    return `${shape} cursor-not-allowed border-zinc-200 text-zinc-300 dark:border-zinc-800 dark:text-zinc-700`;
+  }
+  if (now.lit) {
+    return `${shape} cursor-pointer border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300`;
+  }
+  return `${shape} cursor-pointer border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800`;
+}
+
+/** What a button is worth pressing for at this moment. */
+export type PedalNow = {
+  /** The key on a keyboard that does the same thing. */
+  readonly keys: string;
+  /** Whether pressing it would do anything at all here. */
+  readonly on: boolean;
+  /** Whether it is the one thing to press right now. */
+  readonly lit: boolean;
+};
+
+/**
+ * Which key a button stands for, and whether it does anything here.
+ *
+ * @param hud - the heads-up facts
+ * @param button - which button
+ * @returns its key, whether it is live, and whether it is lit up
+ * @remarks
+ * Two jobs, one place. The key is on the button because somebody who has found
+ * the button once should not have to find it again - the row is a keyboard
+ * lesson as much as it is a control. And a button that cannot do anything is
+ * **dead**: nine buttons of which four do something is a row you have to think
+ * about, and the pedals are not where the thinking belongs.
+ *
+ * `W`/`S` and `A`/`D` are the same two buttons in both seats, so the key on
+ * them changes with the seat, which is exactly what the keyboard does too.
+ */
+export function pedalNow(hud: Hud, button: TouchButton): PedalNow {
+  const bear = hud.bear;
+  const onFoot = !hud.inside;
+  switch (button) {
+    case "forward":
+      return { keys: hud.inside ? "W" : "D", on: !hud.passenger, lit: false };
+    case "back":
+      return { keys: hud.inside ? "S" : "A", on: !hud.passenger, lit: false };
+    case "sprint":
+      return { keys: RV_TEXTS.keyShift, on: onFoot, lit: false };
+    case "door":
+      // In: only once it has stopped rolling. Out: only at the door.
+      return {
+        keys: "E",
+        on: hud.inside ? Math.abs(hud.speed) <= STOP_SPEED : hud.atDoor,
+        lit: onFoot && hud.atDoor,
+      };
+    case "take":
+      return {
+        keys: "F",
+        on: onFoot && hud.pickUp !== null,
+        lit: hud.pickUp !== null,
+      };
+    case "use": {
+      // The same key, and everything it does other than picking a thing up:
+      // the rope on or off a tree, a job at the motorhome, the spray.
+      const useful =
+        hud.ready ||
+        hud.hooked ||
+        hud.job !== null ||
+        (bear !== null && bear.canSpray && bear.inBag);
+      return { keys: "F", on: onFoot && useful, lit: onFoot && useful };
+    }
+    case "jump":
+      // One button, two seats: a jump out there, the handbrake at the wheel -
+      // and the handbrake belongs to whoever is steering.
+      return {
+        keys: RV_TEXTS.keySpace,
+        on: onFoot || hud.driving,
+        lit: hud.inside && hud.brake,
+      };
+    default:
+      // Reeling in and paying out: the remote only works in a hand, and only
+      // while the rope is on something.
+      return {
+        keys: button === "wind" ? "W" : "S",
+        on: onFoot && hud.hooked,
+        lit: onFoot && hud.hooked,
+      };
+  }
 }
 
 /**

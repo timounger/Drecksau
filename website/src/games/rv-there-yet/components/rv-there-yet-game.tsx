@@ -113,7 +113,7 @@ export function RvThereYetGame(): ReactElement {
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <GearStick gear={hud.gear} onShift={shift} />
+        <GearStick gear={hud.gear} onShift={shift} driving={hud.driving} />
       </div>
 
       <Inventory carrying={hud.carrying} holding={hud.holding} onPick={pick} />
@@ -248,7 +248,6 @@ function Overlay({
         <p className="text-2xl font-bold">
           {"\u{1F5A4}"} {RV_TEXTS.taken}
         </p>
-        <p className="text-sm text-zinc-300">{RV_TEXTS.takenHint}</p>
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Action onClick={onAgain}>{RV_TEXTS.again}</Action>
         </div>

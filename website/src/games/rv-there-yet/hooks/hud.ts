@@ -102,6 +102,8 @@ export type Hud = {
   readonly brake: boolean;
   /** True while the motorhome is on or coming up to a bridge. */
   readonly bridge: boolean;
+  /** True while the motorhome is in the mud. */
+  readonly mud: boolean;
   /** True while a chasm is close ahead and still open. */
   readonly chasm: boolean;
   /** True while this player stands at the ladder and could climb it. */
@@ -184,6 +186,9 @@ export function hudOf(state: GameState, view: HudView): Hud {
     running: view.running,
     brake: state.brake,
     bridge: nearBridge(state, route),
+    mud: route.mud.some(
+      (patch) => state.rv.x >= patch.from && state.rv.x <= patch.to,
+    ),
     chasm: nearChasm(state, route, person),
     ladder:
       !person.inside && person.lift <= 0 && atTheLadder(person.at, state.rv.x),
@@ -300,6 +305,7 @@ export function sameHud(a: Hud, b: Hud): boolean {
     a.running === b.running &&
     a.brake === b.brake &&
     a.bridge === b.bridge &&
+    a.mud === b.mud &&
     a.chasm === b.chasm &&
     a.ladder === b.ladder &&
     a.roof === b.roof &&
