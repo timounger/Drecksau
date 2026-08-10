@@ -17,6 +17,7 @@ import panzerkiste from "./panzerkiste/assets/logo.webp";
 import krakel from "./krakel/assets/logo.webp";
 import skyjo from "./skyjo/assets/logo.webp";
 import rvThereYet from "./rv-there-yet/assets/logo.webp";
+import politik from "./politik/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -26,4 +27,5 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   krakel,
   skyjo,
   "rv-there-yet": rvThereYet,
+  politik,
 };

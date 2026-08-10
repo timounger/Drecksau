@@ -12,7 +12,13 @@
 
 /** Identifies a game for storage and statistics. Never reuse an old id. */
 export type GameId =
-  "drecksau" | "binokel" | "panzerkiste" | "krakel" | "skyjo" | "rv-there-yet";
+  | "drecksau"
+  | "binokel"
+  | "panzerkiste"
+  | "krakel"
+  | "skyjo"
+  | "rv-there-yet"
+  | "politik";
 
 /** One game of the collection. */
 export type GameDefinition = {
@@ -71,6 +77,13 @@ export const GAMES: readonly GameDefinition[] = [
     tagline: "Tausche deine Karten - die wenigsten Punkte gewinnen.",
     emoji: "\u{1F3B4}",
     href: "/skyjo",
+  },
+  {
+    id: "politik",
+    name: "Das politische Talent",
+    tagline: "Wahlkampf, Koalitionen, Wahlversprechen - wer regiert, gewinnt.",
+    emoji: "\u{1F3DB}\u{FE0F}",
+    href: "/politik",
   },
 ];
 
