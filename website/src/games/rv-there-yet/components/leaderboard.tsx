@@ -82,6 +82,7 @@ export function Leaderboard({ run = null }: LeaderboardProps): ReactElement {
         madeIt: RV_TEXTS.boardMadeIt,
         entered: RV_TEXTS.boardEntered,
         missed: RV_TEXTS.boardMissed,
+        kept: RV_TEXTS.boardKept,
         namePlaceholder: RV_TEXTS.boardNamePlaceholder,
         enter: RV_TEXTS.boardEnter,
         entering: RV_TEXTS.boardEntering,

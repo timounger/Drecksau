@@ -59,6 +59,7 @@ export function Leaderboard({ run = null }: LeaderboardProps): ReactElement {
         madeIt: PANZERKISTE_TEXTS.boardMadeIt,
         entered: PANZERKISTE_TEXTS.boardEntered,
         missed: PANZERKISTE_TEXTS.boardMissed,
+        kept: PANZERKISTE_TEXTS.boardKept,
         namePlaceholder: PANZERKISTE_TEXTS.boardNamePlaceholder,
         enter: PANZERKISTE_TEXTS.boardEnter,
         entering: PANZERKISTE_TEXTS.boardEntering,

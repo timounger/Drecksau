@@ -160,6 +160,8 @@ export const RV_TEXTS = {
   boardMadeIt: (place: number) =>
     `Platz ${place} - trag deinen Namen ein und du stehst auf der Liste.`,
   boardMissed: "Diesmal nicht unter den besten zehn. Die aktuelle Liste:",
+  boardKept: (best: string) =>
+    `Deine Bestzeit ${best} steht schon auf der Liste - diese Fahrt war langsamer. Jeder Name hat einen Platz, und das ist seine beste Fahrt.`,
   boardPartial:
     "Nur durchgehende Fahrten ab Abschnitt 1 kommen in die Liste - diese hier fing später an.",
   boardEnter: "Eintragen",
@@ -170,7 +172,16 @@ export const RV_TEXTS = {
   start: "Los geht's",
   startHint: "Klick auf die Strecke, um zu starten.",
   arrived: "Angekommen!",
-  arrivedIn: (seconds: string) => `Gebraucht: ${seconds} s`,
+  /**
+   * Wie lange die ganze Fahrt gedauert hat.
+   *
+   * @remarks
+   * Die **ganze** Fahrt, nicht der letzte Abschnitt: Genau diese Zeit wertet
+   * die Bestenliste, und zwei verschiedene Zahlen übereinander lesen sich als
+   * Fehler in der Liste.
+   */
+  arrivedIn: (clock: string) => `Gebraucht: ${clock}`,
+  arrivedSection: (seconds: string) => `Letzter Abschnitt: ${seconds} s`,
   again: "Nochmal",
   againFromStart: "Nochmal von vorne",
   newGame: "Neues Spiel",

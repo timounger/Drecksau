@@ -14,7 +14,6 @@ import { useRef, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
 import { useFullscreen } from "@/lib/screen/use-fullscreen";
 import { useShotRatio } from "@/lib/screen/use-shot-ratio";
-import { useShotSpace } from "@/lib/screen/use-shot-space";
 import { CANVAS_H, CANVAS_W } from "@/games/rv-there-yet/components/render";
 import {
   Action,
@@ -33,7 +32,10 @@ import {
   type Note,
 } from "@/games/rv-there-yet/hooks/use-rv-there-yet";
 import { RV_TEXTS } from "@/games/rv-there-yet/i18n/texts";
-import { Leaderboard } from "@/games/rv-there-yet/components/leaderboard";
+import {
+  Leaderboard,
+  asClock,
+} from "@/games/rv-there-yet/components/leaderboard";
 
 import type { Run } from "@/games/rv-there-yet/stats/run-clock";
 
@@ -62,11 +64,8 @@ export function RvThereYetGame(): ReactElement {
   } = useRvThereYet();
 
   const stageRef = useRef<HTMLDivElement>(null);
-  const controlsRef = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreen(stageRef);
   useShotRatio(canvasRef, stageRef);
-  // The buttons go fullscreen with the picture, so it only gets the rest.
-  useShotSpace(stageRef, controlsRef);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
@@ -151,9 +150,10 @@ export function RvThereYetGame(): ReactElement {
         </div>
 
         {/* Inside the part that goes fullscreen, so the game can still be
-            played with a thumb up there: the picture gives up the height
-            these need rather than the other way round. */}
-        <div ref={controlsRef} className="flex w-full flex-col gap-4">
+            played with a thumb up there. Full screen these lie **over** the
+            lower edge of the picture rather than under it: taking the height
+            out of the picture left a strip of game above a wall of buttons. */}
+        <div className="game-controls flex w-full flex-col gap-4">
           <div className="flex flex-wrap items-center justify-center gap-2">
             <GearStick gear={hud.gear} onShift={shift} driving={hud.driving} />
           </div>
@@ -166,7 +166,11 @@ export function RvThereYetGame(): ReactElement {
 
           <TouchPad onPress={touch} hud={hud} />
 
-          <ControlsHint inside={hud.inside} />
+          {/* Help text, not a control: out of the way when the screen is the
+              game and the keys are written on the buttons anyway. */}
+          <div className="game-hint">
+            <ControlsHint inside={hud.inside} />
+          </div>
         </div>
       </div>
     </div>
@@ -265,7 +269,7 @@ export function Overlay({
       <button
         type="button"
         onClick={onStart}
-        className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-900/70 p-4 text-center text-white"
+        className="absolute inset-0 z-40 flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-900/70 p-4 text-center text-white"
       >
         <span className="text-lg font-semibold">{RV_TEXTS.title}</span>
         <span className="text-sm text-zinc-200">{RV_TEXTS.startHint}</span>
@@ -277,7 +281,7 @@ export function Overlay({
   }
   if (hud.phase === "plunged") {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
+      <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
         <p className="text-2xl font-bold">
           {"\u{1F573}"} {RV_TEXTS.plunged}
         </p>
@@ -290,7 +294,7 @@ export function Overlay({
   }
   if (hud.phase === "fallen") {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
+      <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
         <p className="text-2xl font-bold">
           {"\u{1F6A7}"} {RV_TEXTS.fallen}
         </p>
@@ -303,7 +307,7 @@ export function Overlay({
   }
   if (hud.phase === "taken") {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
+      <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/90 p-4 text-center text-white">
         <p className="text-2xl font-bold">
           {"\u{1F5A4}"} {RV_TEXTS.taken}
         </p>
@@ -315,7 +319,7 @@ export function Overlay({
   }
   if (hud.phase === "mauled") {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-red-950/80 p-4 text-center text-white">
+      <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 rounded-2xl bg-red-950/80 p-4 text-center text-white">
         <p className="text-2xl font-bold">
           {"\u{1F43B}"} {RV_TEXTS.mauled}
         </p>
@@ -333,12 +337,15 @@ export function Overlay({
   // and no going back to the last section either. Playing again means playing
   // the map, from the plateau.
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 overflow-y-auto rounded-2xl bg-zinc-900/85 p-4 text-center text-white">
+    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-2 overflow-y-auto rounded-2xl bg-zinc-900/85 p-4 text-center text-white">
       <p className="text-2xl font-bold">
         {"\u{1F3C1}"} {RV_TEXTS.arrived}
       </p>
       <p className="text-sm text-zinc-200">
-        {RV_TEXTS.arrivedIn(hud.time.toFixed(CLOCK_DIGITS))}
+        {RV_TEXTS.arrivedIn(asClock(run.seconds * MS_PER_SECOND))}
+      </p>
+      <p className="text-xs text-zinc-400">
+        {RV_TEXTS.arrivedSection(hud.time.toFixed(CLOCK_DIGITS))}
       </p>
       <p className="text-base font-semibold text-emerald-300">
         {RV_TEXTS.allDone}

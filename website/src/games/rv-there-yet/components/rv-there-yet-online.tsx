@@ -53,7 +53,10 @@ import {
 } from "@/games/rv-there-yet/components/board";
 import { COOP_PLAYERS, RV_GAME_ID } from "@/games/rv-there-yet/multiplayer/net";
 import { RV_TEXTS } from "@/games/rv-there-yet/i18n/texts";
-import { Leaderboard } from "@/games/rv-there-yet/components/leaderboard";
+import {
+  Leaderboard,
+  asClock,
+} from "@/games/rv-there-yet/components/leaderboard";
 
 /** Milliseconds in a second, for handing the drive's clock to the board. */
 const MS_PER_SECOND = 1000;
@@ -823,7 +826,10 @@ function ArrivedOverlay({
         {"\u{1F3C1}"} {RV_TEXTS.arrived}
       </p>
       <p className="text-sm text-zinc-200">
-        {RV_TEXTS.arrivedIn(online.hud.time.toFixed(CLOCK_DIGITS))}
+        {RV_TEXTS.arrivedIn(asClock(online.run.seconds * MS_PER_SECOND))}
+      </p>
+      <p className="text-xs text-zinc-400">
+        {RV_TEXTS.arrivedSection(online.hud.time.toFixed(CLOCK_DIGITS))}
       </p>
       <p className="text-base font-semibold text-emerald-300">
         {RV_TEXTS.allDone}

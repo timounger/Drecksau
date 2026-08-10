@@ -59,7 +59,7 @@ export const NAME_LIMIT = 18;
  * @param than - the result it is held against
  * @returns true if `value` is the better of the two
  */
-function beats(board: Board, value: number, than: number): boolean {
+export function beats(board: Board, value: number, than: number): boolean {
   return board.less ? value < than : value > than;
 }
 

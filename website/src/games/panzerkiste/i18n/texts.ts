@@ -75,6 +75,8 @@ export const PANZERKISTE_TEXTS = {
   boardMadeIt: (place: number) =>
     `Platz ${place} - trag deinen Namen ein und du stehst auf der Liste.`,
   boardMissed: "Diesmal nicht unter den besten zehn. Die aktuelle Liste:",
+  boardKept: (best: string) =>
+    `Dein Rekord ${best} steht schon auf der Liste - diesmal kamst du nicht so weit. Jeder Name hat einen Platz, und das ist sein bester Lauf.`,
   boardPartial:
     "Nur Läufe ohne Levelsprung kommen in die Liste - hier wurde vorgespult.",
   boardEnter: "Eintragen",

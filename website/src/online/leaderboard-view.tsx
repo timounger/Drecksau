@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 import {
   NAME_LIMIT,
+  beats,
   bestOf,
   loadScores,
   makesTheBoard,
@@ -64,6 +65,8 @@ export type BoardTexts = {
   readonly madeIt: (place: number) => string;
   readonly entered: string;
   readonly missed: string;
+  /** What is said when the player's own better result already holds a place. */
+  readonly kept: (best: string) => string;
   readonly namePlaceholder: string;
   readonly enter: string;
   readonly entering: string;
@@ -133,9 +136,17 @@ export function LeaderboardView({
     board,
     entered === null ? scores : [...scores, entered],
   );
+  // What this player already holds, under the name they are going by. One
+  // place per name is the rule, so a run that does not beat their own is not
+  // worth entering - and saying so is the whole of the answer to "why does the
+  // old one still stand there".
+  const held = mineIn(places, name);
+  const worthIt =
+    run !== null && (held === null || beats(board, run.value, held.value));
   const wanted =
     run !== null &&
     run.counts &&
+    worthIt &&
     entered === null &&
     state === "ready" &&
     makesTheBoard(board, scores, run.value);
@@ -198,6 +209,7 @@ export function LeaderboardView({
           texts={texts}
           format={format}
           testId={testId}
+          held={worthIt ? null : held}
           wanted={wanted}
           place={place}
           entered={entered !== null}
@@ -209,6 +221,22 @@ export function LeaderboardView({
       )}
     </section>
   );
+}
+
+/**
+ * The place this player already holds, if any.
+ *
+ * @param places - the board as it stands
+ * @param name - the name the player is going by
+ * @returns their entry, or null while they are not on the board
+ * @remarks
+ * Matched the way the ranking matches names - ignoring case and outer spaces -
+ * so the board and this agree on who is who.
+ */
+function mineIn(places: readonly Score[], name: string): Score | null {
+  const key = name.trim().toLowerCase();
+  const found = places.find((each) => each.name.trim().toLowerCase() === key);
+  return key === "" || found === undefined ? null : found;
 }
 
 /** One place on the board. */
@@ -252,6 +280,7 @@ function Yours({
   texts,
   format,
   testId,
+  held,
   wanted,
   place,
   entered,
@@ -264,6 +293,7 @@ function Yours({
   readonly texts: BoardTexts;
   readonly format: (value: number) => string;
   readonly testId: string;
+  readonly held: Score | null;
   readonly wanted: boolean;
   readonly place: number;
   readonly entered: boolean;
@@ -288,7 +318,12 @@ function Yours({
           {place > 0 ? texts.madeIt(place) : texts.entered}
         </p>
       )}
-      {run.counts && !wanted && !entered && (
+      {held !== null && !entered && (
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          {texts.kept(format(held.value))}
+        </p>
+      )}
+      {run.counts && !wanted && !entered && held === null && (
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           {texts.missed}
         </p>

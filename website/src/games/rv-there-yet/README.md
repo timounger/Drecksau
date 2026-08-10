@@ -405,6 +405,18 @@ Auf der Liste steht **je Name nur die beste Fahrt** (Groß- und Kleinschreibung
 egal), sonst belegt ein schneller Spieler alle zehn Plätze und es gibt nichts
 mehr zu holen. Bei gleicher Zeit steht vorn, wer zuerst da war.
 
+Eine **bessere eigene Zeit ersetzt die alte** - dafür muss man nichts löschen,
+die Liste nimmt von jedem Namen immer die beste. War die Fahrt dagegen langsamer
+als der eigene Eintrag, sagt die Liste das jetzt auch so („Deine Bestzeit 3:48,2
+steht schon auf der Liste") statt bloß „nicht unter den besten zehn" - und das
+Namensfeld bleibt weg, weil ein langsamerer Eintrag unter demselben Namen
+ohnehin nie zu sehen wäre.
+
+Auf dem Zielbildschirm steht darum auch die **Gesamtzeit** oben, nicht die des
+letzten Abschnitts; die Abschnittszeit steht klein darunter. Zwei verschiedene
+Zahlen übereinander - oben die des Abschnitts, darunter die der Liste - lesen
+sich sonst als Fehler in der Liste.
+
 Gespeichert wird das in derselben Datenbank wie die Online-Räume, unter
 `rooms/rv-there-yet-__best` - aus demselben Grund wie die
 [Zufallssuche](../../online/matchmaking.ts): Die Sicherheitsregeln decken
@@ -1367,16 +1379,20 @@ füllt dann den ganzen Bildschirm, ein zweiter Knopf oben rechts führt wieder
 heraus.
 
 **Die Bedienknöpfe gehen mit ins Vollbild** - Gangschaltung, Inventar und die
-Tastenleiste stehen unter dem Bild. Ohne sie wäre der Vollbildmodus auf dem
-Telefon ein Bild zum Zusehen: Dort gibt es keine Tastatur, und was man nicht
-antippen kann, kann man nicht fahren.
+Tastenleiste. Ohne sie wäre der Vollbildmodus auf dem Telefon ein Bild zum
+Zusehen: Dort gibt es keine Tastatur, und was man nicht antippen kann, kann man
+nicht fahren.
 
-Das Bild wird dabei **so groß wie möglich, aber nie verzerrt**: Die Knöpfe
-behalten die Höhe, die ein Daumen braucht, und das Bild bekommt den Rest - wie
-viel das ist, misst `use-shot-space.ts` und schreibt es dem Stylesheet auf. Auf
-einem sehr flachen Bildschirm behält das Bild trotzdem einen Mindestanteil, und
-was dann nicht mehr passt, lässt sich scrollen; ein Bild ohne Höhe wäre die
-schlechtere Lösung.
+Sie liegen dabei **über** dem unteren Rand des Bildes, nicht darunter. Mit
+eigenem Streifen drückten sie das Spiel in ein Band am oberen Rand - das
+Gegenteil von dem, wofür Vollbild da ist. Damit sich beide möglichst wenig ins
+Gehege kommen, sitzt das Bild oben und die Leiste unten: Auf einem
+16:9-Bildschirm überlappen sie sich dadurch **gar nicht**, und was auf flachen
+Bildschirmen doch verdeckt wird, ist die Armaturenbrettkante und nicht die
+Strecke. Der Hinweistext mit der Tastenbelegung bleibt im Vollbild aus - er ist
+Hilfe, kein Bedienelement, und die Tasten stehen ohnehin auf den Knöpfen.
+
+Das Bild wird dabei **so groß wie möglich, aber nie verzerrt**.
 
 **Scharf statt hochskaliert:** Gezeichnet wird weiter im festen Raster von
 960 x 420 Punkten - das hält den Zeichencode lesbar und liefert überall

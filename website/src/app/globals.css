@@ -237,25 +237,52 @@ body {
    still matches the picture, which is what keeps touch aiming and the
    overlays sitting where they should.
 
-   Where the buttons come along into fullscreen - a game has to stay playable
-   on a telephone - they keep their own height and the picture takes what is
-   left, which use-shot-space.ts measures into --shot-space. Games without
-   buttons in there never set it and get the whole screen. */
+   Games whose buttons come along into fullscreen - a game has to stay playable
+   on a telephone - lay them over the foot of the picture, so the picture still
+   gets the whole screen. */
 .game-fullscreen:fullscreen {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  overflow-y: auto;
   background: #0b0f17;
   padding: 0;
+}
+
+/* With buttons floating at the foot of the screen the picture is pushed to the
+   top rather than centred: on a wide screen the two then barely overlap at
+   all, and what the buttons do cover is the empty strip under the road rather
+   than the speedometer. */
+.game-fullscreen:fullscreen:has(.game-controls) {
+  justify-content: flex-start;
+}
+
+/* The buttons lie over the foot of the picture rather than under it: given
+   their own strip they push the game into a band along the top edge, which is
+   the opposite of what going fullscreen is for. Over the road there is nothing
+   to lose - it is the sky and the far distance that carry the picture. */
+.game-fullscreen:fullscreen .game-controls {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  gap: 0.5rem;
+  padding: 0 0 0.5rem;
+  background: linear-gradient(to bottom, #0b0f1700, #0b0f17cc 40%);
+}
+
+/* Help text, not a control. */
+.game-fullscreen:fullscreen .game-hint {
+  display: none;
 }
 
 /* Where the picture sits in a wrapper of its own - because overlays are hung
    over it - that wrapper has to be exactly as wide as the picture, or the
    overlays end up centred on the screen instead of on the game. */
 .game-fullscreen:fullscreen .game-shot {
-  width: min(100%, calc(var(--shot-space, 100dvh) * var(--shot-ratio, 1)));
+  width: min(100%, calc(100dvh * var(--shot-ratio, 1)));
 }
 
 .game-fullscreen:fullscreen .game-shot canvas {
@@ -263,7 +290,7 @@ body {
 }
 
 .game-fullscreen:fullscreen canvas {
-  width: min(100%, calc(var(--shot-space, 100dvh) * var(--shot-ratio, 1)));
+  width: min(100%, calc(100dvh * var(--shot-ratio, 1)));
   height: auto;
   max-width: 100%;
   border-radius: 0;
