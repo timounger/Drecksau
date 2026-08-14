@@ -2770,8 +2770,9 @@ describe("the roof of the motorhome", () => {
     expect(one(off).lift).toBe(0);
   });
 
-  it("moves out from under anybody when it drives away", () => {
-    // The roof is the vehicle's, not a platform bolted to the map.
+  it("takes whoever is up there along when it drives away", () => {
+    // The roof is the vehicle's, so it goes where the vehicle goes: one drives,
+    // the other rides along on top instead of being left standing in the road.
     const up = tick(afoot(PARKED - ROOF_HALF), { jump: true });
     const aboard: GameState = {
       ...up,
@@ -2780,7 +2781,13 @@ describe("the roof of the motorhome", () => {
     };
     const driven = hold(aboard, YARD, { drive: 1, shift: 3 }, 4);
     expect(driven.rv.x).toBeGreaterThan(PARKED);
-    expect(driven.people[1].lift).toBe(0);
+    expect(driven.people[1].lift).toBe(ROOF_HIGH);
+    // Carried, not merely still in the air: they moved as far as the vehicle
+    // did, and they are still standing over it.
+    expect(driven.people[1].at).toBeCloseTo(one(up).at + driven.rv.x - PARKED);
+    expect(Math.abs(driven.people[1].at - driven.rv.x)).toBeLessThanOrEqual(
+      ROOF_HALF,
+    );
   });
 });
 

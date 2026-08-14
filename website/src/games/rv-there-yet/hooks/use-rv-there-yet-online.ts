@@ -257,15 +257,18 @@ export function useRvThereYetOnline(
   );
 
   const start = useCallback(() => {
-    // The host's own saved progress decides where the two of them set off -
-    // somebody has to choose, and it is their room.
-    dealAt(loadSection());
+    // Online always sets off from the very beginning. It used to start at
+    // whatever section the **host** had reached on their own, which meant the
+    // drive began somewhere only one of the two had ever been - and the guest
+    // was dropped into the middle of a mountain they had never driven up. A
+    // shared drive is a drive you both start.
+    dealAt(FIRST_SECTION);
   }, [dealAt]);
 
   const again = useCallback(() => {
     // The same drive carrying on: a section begun again after a crash does not
     // put the clock back, or crashing on purpose would be the quick way round.
-    dealAt(authRef.current?.section ?? loadSection(), true);
+    dealAt(authRef.current?.section ?? FIRST_SECTION, true);
   }, [dealAt]);
 
   const newGame = useCallback(() => {
@@ -467,8 +470,12 @@ export function useRvThereYetOnline(
           ready,
           Math.min(me, world.people.length - 1),
         );
-        // Both of them get to keep the progress they drove to together.
-        if (world.section !== savedSection) {
+        // Both of them get to keep the progress they drove to together -
+        // but only what is **further** than they had got on their own. An
+        // online drive starts at the first section however far either of them
+        // had already come, and writing that back would wipe an evening of
+        // solo climbing the moment somebody opened a room.
+        if (world.section > savedSection) {
           savedSection = world.section;
           saveSection(savedSection);
         }

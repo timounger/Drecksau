@@ -123,6 +123,23 @@ export function atTheLadder(at: number, rvX: number): boolean {
 }
 
 /**
+ * Whether somebody is riding on the roof rather than standing on the road.
+ *
+ * @param person - them
+ * @param rvX - where the motorhome stands, in metres
+ * @returns true while their feet are on the roof
+ * @remarks
+ * Feet **down** on it, not merely above it: somebody in the middle of a jump
+ * off the roof is going wherever their own leap takes them, and a vehicle that
+ * dragged them along mid-flight would ruin the one jump on the map that has to
+ * be measured.
+ */
+export function ridingOnTheRoof(person: Person, rvX: number): boolean {
+  const floor = floorUnder(person.at, person.lift, rvX);
+  return !person.inside && floor === ROOF_HIGH && !offTheGround(person, floor);
+}
+
+/**
  * Whether a place lies on a stretch of the route.
  *
  * @param span - the stretch, in metres
@@ -365,6 +382,7 @@ function moved(
     span,
     inside,
     rvX,
+    state.rv.x,
     state.felled,
   );
   // Climbing the ladder is a step **onto** the roof, not only upwards: the
@@ -780,6 +798,11 @@ export function besideTheVehicle(x: number): number {
  *
  * On foot no grip is asked for. A person walks up ground no motorhome could
  * hold, and the errand to the tree must never be the thing that fails.
+ *
+ * Somebody on the roof rides along. The roof is part of the vehicle, so it
+ * takes its passenger with it - and their own steps are added on top of that,
+ * which is what lets one of you walk forward along a roof that is already
+ * moving.
  */
 function whereTheyStand(
   person: Person,
@@ -788,16 +811,22 @@ function whereTheyStand(
   span: number,
   inside: boolean,
   rvX: number,
+  wasX: number,
   felled: boolean,
 ): number {
   if (inside) {
     return rvX;
   }
-  const from = person.inside ? besideTheVehicle(rvX) : person.at;
+  // Measured from where the roof **was**: this frame starts with both of them
+  // where they were, and asking whether somebody is on the roof using the
+  // position the vehicle has already moved to would drop the very passenger
+  // this is meant to carry.
+  const carried = ridingOnTheRoof(person, wasX) ? rvX - wasX : 0;
+  const from = person.inside ? besideTheVehicle(rvX) : person.at + carried;
   // In the air nobody runs: there is nothing to push against, and the one
   // jump that has to be measured stays a fixed distance rather than something
   // that depends on whether a key happened to be held.
-  const flying = offTheGround(person, floorUnder(person.at, person.lift, rvX));
+  const flying = offTheGround(person, floorUnder(person.at, person.lift, wasX));
   const pace = flying
     ? LEAP_SPEED
     : WALK_SPEED * (input.sprint ? SPRINT_FACTOR : 1);
@@ -1447,19 +1476,25 @@ function intoTheChasm(
  * carries the motorhome with **one** person in it and no more, so the pair
  * cannot both take the easy way across - one drives, one walks.
  *
- * Counted by who is **aboard**, not by who is on the bridge: somebody walking
+ * Counted by who is **carried**, not by who is on the bridge: somebody walking
  * over beside the motorhome is on their own two feet, and the plank under a
  * pair of boots is not the plank under three tonnes. Alone the question never
  * arises, which is why this asks something of co-op that solo is never asked.
+ *
+ * Riding on the roof counts as being carried. The timber holds up a weight,
+ * not a seating plan - and a roof that got the second person across for free
+ * would leave this section with nothing to ask.
  */
 function tooHeavyForTheBridge(
   route: Route,
   x: number,
   people: readonly Person[],
 ): boolean {
-  const aboard = people.filter((person) => person.inside).length;
+  const carried = people.filter(
+    (person) => person.inside || ridingOnTheRoof(person, x),
+  ).length;
   return (
-    aboard > BRIDGE_LOAD && route.bridges.some((bridge) => within(bridge, x))
+    carried > BRIDGE_LOAD && route.bridges.some((bridge) => within(bridge, x))
   );
 }
 

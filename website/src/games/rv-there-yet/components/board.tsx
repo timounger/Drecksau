@@ -403,7 +403,25 @@ export function Pedal({
   );
 }
 
-/** How a button looks: dead, plain, or lit up because it is the one to press. */
+/**
+ * How a button looks: dead, plain, or lit up because it is the one to press.
+ *
+ * @param now - what the button is worth pressing for at this moment
+ * @returns the classes for it
+ * @remarks
+ * A pressable button carries its **own** surface and its own text colour, and
+ * that is not decoration. Full screen these buttons lie over the foot of the
+ * picture, on a backdrop that runs to near-black - and one that only said
+ * `border-zinc-300` and took its text colour from the page was black-on-black
+ * there. On a phone in portrait, where the picture does not reach that far
+ * down, the pressable ones vanished completely while the greyed-out ones
+ * stayed perfectly readable: exactly the wrong way round.
+ *
+ * The dead one is deliberately left as bare grey text with no surface of its
+ * own. It reads on either backdrop, and giving it a pill as well made a row of
+ * solid grey slabs that shouted louder than the buttons that actually do
+ * something.
+ */
 function pedalClass(now: PedalNow): string {
   const shape =
     "touch-none rounded-lg border px-5 py-2 text-sm font-semibold select-none";
@@ -413,7 +431,7 @@ function pedalClass(now: PedalNow): string {
   if (now.lit) {
     return `${shape} cursor-pointer border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300`;
   }
-  return `${shape} cursor-pointer border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800`;
+  return `${shape} cursor-pointer border-zinc-300 bg-white/85 text-zinc-900 hover:bg-white dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-100 dark:hover:bg-zinc-800`;
 }
 
 /** What a button is worth pressing for at this moment. */

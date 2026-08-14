@@ -736,7 +736,7 @@ export function draw(
   if (mine.inside) {
     // Only one of the two seats has a wheel in front of it, and which one you
     // are in is not a detail: it decides whether the pedals answer to you.
-    drawCockpit(ctx, state, route, candidate, state.driver === me);
+    drawCockpit(ctx, state, route, candidate, state.driver === me, me);
     return;
   }
   const camera = cameraOf(mine, state, route);

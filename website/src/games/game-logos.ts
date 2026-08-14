@@ -18,6 +18,11 @@ import krakel from "./krakel/assets/logo.webp";
 import skyjo from "./skyjo/assets/logo.webp";
 import rvThereYet from "./rv-there-yet/assets/logo.webp";
 import politik from "./politik/assets/logo.webp";
+import camelUp from "./camel-up/assets/logo.webp";
+import theMind from "./the-mind/assets/logo.webp";
+import qwixx from "./qwixx/assets/logo.webp";
+import heckmeck from "./heckmeck/assets/logo.webp";
+import kniffel from "./kniffel/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -28,4 +33,9 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   skyjo,
   "rv-there-yet": rvThereYet,
   politik,
+  "camel-up": camelUp,
+  "the-mind": theMind,
+  qwixx,
+  heckmeck,
+  kniffel,
 };

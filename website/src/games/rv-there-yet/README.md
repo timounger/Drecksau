@@ -233,6 +233,40 @@ also läuft die Straße schnurgerade - was sich bewegt, ist ihr **Profil**, und
 genau das muss der Fahrer beurteilen. Die reine Welt darunter ändert sich
 nicht: dieselbe Höhenlinie, nur von woanders angeschaut.
 
+### Der Mitspieler auf der Straße
+
+**Wer zu Fuß vorausläuft, steht durch die Windschutzscheibe im Bild.** Von der
+Seite hat man einander immer gesehen; aus dem Fahrerhaus war der Mitspieler
+unsichtbar - ausgerechnet für den, der ihn nicht überfahren soll.
+
+Gezeichnet wird er von vorn statt im Profil, denn von der Sitzbank sieht man
+seinen Rücken oder sein Gesicht, nie seine Seite. Woran man die beiden
+unterscheidet, sind die **Augen**: Läuft er auf dich zu, hat er ein Gesicht;
+läuft er weg, hat er keines. Das ist die eine Sache, die auf dreißig Pixel
+Höhe wirklich gesagt werden muss.
+
+Nur, wer **vor** dem Wohnmobil ist. Eine Windschutzscheibe zeigt, was vorne
+ist; wer hinten herumgeht, ist hinten. Und wer oben auf dem Dach mitfährt,
+steht auf demselben Meter wie das Fahrzeug - näher also als die Motorhaube und
+damit ebenfalls nicht im Bild.
+
+### Der Mitspieler auf dem Sitz daneben
+
+**Sitzt der andere mit im Fahrerhaus, sieht man ihn dort auch.** Ob man allein
+in der Kabine ist, ist keine Kleinigkeit: Davon hängt ab, ob jemand die
+Seilwinde bedienen kann, ob die Brücke hält und ob das Wohnmobil beim
+Aussteigen unbeaufsichtigt bleibt. Vorher musste man dafür aussteigen und
+nachsehen.
+
+Auf welcher **Seite** er sitzt, sagt den Rest ohne ein Wort: Das Lenkrad ist
+links, also sieht der Fahrer seinen Beifahrer rechts und der Beifahrer seinen
+Fahrer links. Zu sehen sind Kopf und Schultern, unten vom Armaturenbrett
+abgeschnitten - mehr sieht man vom eigenen Sitz aus von niemandem.
+
+Der Schalthebel steht zwischen den beiden und liegt näher an der Kamera als
+der Beifahrer, verdeckt ihm also die äußere Schulter. Das ist kein Fehler,
+sondern die Sitzordnung eines Kastenwagens.
+
 ## Du bist eine Person, kein Lenkrad
 
 **Das Spiel beginnt neben dem Wohnmobil**, nicht darin. Das ist das Erste, was
@@ -919,9 +953,13 @@ und hingeschrieben, ausgerechnet auf dem Bildschirm, den man beim Scheitern zu
 sehen bekommt. Warum etwas passiert ist, gehört dorthin; was man daraus macht,
 ist die Aufgabe.
 
-Gezählt wird, wer **drinsitzt**, nicht wer auf der Brücke steht. Wer nebenher
+Gezählt wird, wer **mitfährt**, nicht wer auf der Brücke steht. Wer nebenher
 läuft, ist auf seinen eigenen zwei Beinen, und die Planke unter einem Paar
 Stiefel ist nicht die Planke unter drei Tonnen.
+
+Auf dem **Dach** mitzufahren zählt mit. Das Holz trägt ein Gewicht, keinen
+Sitzplan - und ein Dach, über das der zweite Mann umsonst hinüberkäme, würde
+diesem Abschnitt genau das nehmen, was er zu fragen hat.
 
 Allein stellt sich die Frage nie - und das ist Absicht. Dies ist die eine
 Stelle der Karte, die dem **Koop-Paar** etwas abverlangt, was ein einzelner
@@ -988,8 +1026,13 @@ Sprungweiten im laufenden Spiel und hält die Breite des Abgrunds dazwischen,
 damit ein Dreh an der Sprungkraft die Karte nicht stillschweigend unlösbar
 macht.
 
-Das **Dach** ist dabei richtiger Boden: Man läuft darauf herum, fällt vorn
-herunter, und wenn das Wohnmobil losfährt, steht man plötzlich auf der Straße.
+Das **Dach** ist dabei richtiger Boden: Man läuft darauf herum und fällt vorn
+herunter. Und wenn das Wohnmobil losfährt, **fährt man mit** - das Dach gehört
+zum Fahrzeug, also nimmt es seinen Fahrgast mit. Die eigenen Schritte kommen
+obendrauf, man kann also auf einem fahrenden Dach nach vorn laufen. Wer im
+Sprung ist, wird nicht mitgenommen: In der Luft gibt es nichts, woran man
+hängt, und ein Fahrzeug, das einen mitten im Sprung mitzöge, würde den einen
+Sprung ruinieren, auf den es auf dieser Karte ankommt.
 Und weil ein Sprung in der Luft weder schneller noch langsamer wird - dort gibt
 es nichts, wogegen man sich abstoßen könnte -, ist die Sprungweite eine feste
 Zahl und nicht davon abhängig, ob gerade die Renntaste gedrückt war.
@@ -1428,6 +1471,16 @@ lenkst" / „Beifahrer") und die Zustandszeile.
 Zu zweit lohnt sich vor allem die Seilwinde: Einer bleibt am Steuer und gibt Gas,
 der andere steht am Baum und zieht mit der Seilwinde. Solo muss man dafür
 aussteigen, hochziehen, wieder einsteigen.
+
+**Online beginnt immer bei Abschnitt 1.** Früher startete die Fahrt dort, wo
+der **Host** allein zuletzt war - und damit mitten auf einem Berg, den der Gast
+noch nie gefahren war. Eine gemeinsame Fahrt ist eine, die beide anfangen.
+
+Der eigene Fortschritt geht davon nicht verloren: Gespeichert wird nur, was
+**weiter** ist als das, was schon gespeichert war. Ein Abend Solo-Kletterei
+wird also nicht in dem Moment gelöscht, in dem jemand einen Raum aufmacht -
+gefahrene Abschnitte zählen aber weiterhin für beide, wenn sie über den eigenen
+Stand hinauskommen.
 
 Und Sprachchat wie in den anderen Spielen - der Ton läuft direkt zwischen den
 beiden Browsern, nicht über einen Server.

@@ -18,7 +18,12 @@ export type GameId =
   | "krakel"
   | "skyjo"
   | "rv-there-yet"
-  | "politik";
+  | "politik"
+  | "camel-up"
+  | "the-mind"
+  | "qwixx"
+  | "heckmeck"
+  | "kniffel";
 
 /** One game of the collection. */
 export type GameDefinition = {
@@ -33,8 +38,15 @@ export type GameDefinition = {
   readonly href: string;
 };
 
-/** All games, in the order they are listed on the start page. */
-export const GAMES: readonly GameDefinition[] = [
+/**
+ * Every game there is, in the order they happened to be added.
+ *
+ * @remarks
+ * Not the order anything is shown in - that is {@link GAMES}. New entries go
+ * on the end, where they are easy to add and impossible to put in the wrong
+ * place.
+ */
+const ENTRIES: readonly GameDefinition[] = [
   {
     id: "drecksau",
     name: "Drecksau",
@@ -85,7 +97,59 @@ export const GAMES: readonly GameDefinition[] = [
     emoji: "\u{1F3DB}\u{FE0F}",
     href: "/politik",
   },
+  {
+    id: "camel-up",
+    name: "Camel Up",
+    tagline: "Fünf Kamele, ein Stapel - wer getragen wird, liegt vorn.",
+    emoji: "\u{1F42B}",
+    href: "/camel-up",
+  },
+  {
+    id: "the-mind",
+    name: "The Mind",
+    tagline: "Gemeinsam aufsteigend ablegen - ohne ein Wort.",
+    emoji: "\u{1F9E0}",
+    href: "/the-mind",
+  },
+  {
+    id: "qwixx",
+    name: "Qwixx",
+    tagline: "Würfeln und ankreuzen - was du überspringst, ist weg.",
+    emoji: "\u{270F}\u{FE0F}",
+    href: "/qwixx",
+  },
+  {
+    id: "heckmeck",
+    name: "Heckmeck am Bratwurmeck",
+    tagline: "Acht Würfel, sechzehn Chips - ohne Wurm zählt nichts.",
+    emoji: "\u{1F41B}",
+    href: "/heckmeck",
+  },
+  {
+    id: "kniffel",
+    name: "Kniffel",
+    tagline: "Fünf Würfel, drei Würfe, dreizehn Felder - jedes nur einmal.",
+    emoji: "\u{1F3B2}",
+    href: "/kniffel",
+  },
 ];
+
+/**
+ * All games, by name - the order they are listed everywhere.
+ *
+ * @remarks
+ * Sorted here rather than at each place that shows a list, so the overview,
+ * the statistics page and anything added later cannot drift apart. And sorted
+ * rather than hand-ordered, because a hand-kept order is one more thing to get
+ * right when a game is added, and the ninth one would have been added to the
+ * end without anybody noticing.
+ *
+ * Compared the German way, so a future "Ärger" lands with the A rather than
+ * after Z.
+ */
+export const GAMES: readonly GameDefinition[] = [...ENTRIES].sort(
+  (left, right) => left.name.localeCompare(right.name, "de"),
+);
 
 /**
  * Looks up a game by its id.

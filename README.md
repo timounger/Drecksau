@@ -6,15 +6,20 @@ jedes Spiel hat seine eigene Seite.
 
 ## Spiele
 
-| Spiel                                                        | Beschreibung                                                                                             | Modus                |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------- |
-| [Drecksau](website/src/games/drecksau/README.md)             | Kosmos-Kartenspiel: wer zuerst nur noch Drecksaeue hat, gewinnt.                                         | Computer + Online    |
-| [Binokel](website/src/games/binokel/README.md)               | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online    |
-| [Panzerkiste](website/src/games/panzerkiste/README.md)       | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Allein + Koop-Online |
-| [Krakel Orakel](website/src/games/krakel/README.md)          | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online           |
-| [Skyjo](website/src/games/skyjo/README.md)                   | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online    |
-| [RV There Yet?](website/src/games/rv-there-yet/README.md)    | Seitenansicht: das Wohnmobil ueber den Berg bringen - notfalls mit der Seilwinde.                        | Allein + Koop-Online |
-| [Das politische Talent](website/src/games/politik/README.md) | Wahlkampf, Koalitionen, Wahlversprechen - wer regiert und liefert, gewinnt.                              | Computer + Online    |
+| Spiel                                                           | Beschreibung                                                                                             | Modus                |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------- |
+| [Binokel](website/src/games/binokel/README.md)                  | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online    |
+| [Camel Up](website/src/games/camel-up/README.md)                | Fuenf Kamele, ein Stapel - wer getragen wird, liegt vorn.                                                | Computer + Online    |
+| [Das politische Talent](website/src/games/politik/README.md)    | Wahlkampf, Koalitionen, Wahlversprechen - wer regiert und liefert, gewinnt.                              | Computer + Online    |
+| [Drecksau](website/src/games/drecksau/README.md)                | Kosmos-Kartenspiel: wer zuerst nur noch Drecksaeue hat, gewinnt.                                         | Computer + Online    |
+| [Heckmeck am Bratwurmeck](website/src/games/heckmeck/README.md) | Acht Wuerfel, sechzehn Chips - ohne Wurm zaehlt nichts.                                                  | Computer + Online    |
+| [Kniffel](website/src/games/kniffel/README.md)                  | Fuenf Wuerfel, drei Wuerfe, dreizehn Felder - jedes nur einmal.                                          | Computer + Online    |
+| [Krakel Orakel](website/src/games/krakel/README.md)             | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online           |
+| [Panzerkiste](website/src/games/panzerkiste/README.md)          | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Allein + Koop-Online |
+| [Qwixx](website/src/games/qwixx/README.md)                      | Wuerfeln und ankreuzen - was du ueberspringst, ist weg.                                                  | Computer + Online    |
+| [RV There Yet?](website/src/games/rv-there-yet/README.md)       | Seitenansicht: das Wohnmobil ueber den Berg bringen - notfalls mit der Seilwinde.                        | Allein + Koop-Online |
+| [Skyjo](website/src/games/skyjo/README.md)                      | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online    |
+| [The Mind](website/src/games/the-mind/README.md)                | Kooperativ: gemeinsam aufsteigend ablegen - ohne ein Wort.                                               | Computer + Online    |
 
 Weitere Spiele docken ueber die Registry an (siehe
 [Ein weiteres Spiel hinzufuegen](#ein-weiteres-spiel-hinzufuegen)).
@@ -65,6 +70,11 @@ website/src/
     skyjo/          Kartenspiel gegen Computer oder online
     rv-there-yet/   Fahrspiel in der Seitenansicht, allein
     politik/        Das politische Talent - Brettspiel gegen Computer oder online
+    camel-up/       Camel Up - Kamelrennen gegen Computer oder online
+    the-mind/       The Mind - kooperativ gegen die Reihenfolge
+    qwixx/          Qwixx - Wuerfelspiel gegen Computer oder online
+    heckmeck/       Heckmeck am Bratwurmeck - Wuerfelspiel gegen Computer oder online
+    kniffel/        Kniffel - der Wuerfelklassiker, auch allein
                     (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)
@@ -164,7 +174,8 @@ Die Speicher- und Statistik-Schicht ist bewusst spielunabhaengig. Fuer ein neues
 Spiel reicht:
 
 1. In [registry.ts](website/src/games/registry.ts) eine `GameId` und einen
-   Eintrag (Name, Tagline, Emoji, `href`) ergaenzen.
+   Eintrag (Name, Tagline, Emoji, `href`) **hinten anhaengen** - die Uebersicht
+   sortiert selbst nach Namen, die Reihenfolge im Code ist egal.
 2. Ein eigenes Modul `website/src/games/<spiel>/` anlegen (Engine, Komponenten,
    Texte) samt einer `isGameState`-Pruefung fuer gespeicherte Staende.
 3. Eine Route `website/src/app/<spiel>/page.tsx` erstellen, die die
@@ -220,4 +231,9 @@ $env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
   [Krakel Orakel](docs/games/krakel/game-rules.md) ·
   [Skyjo](docs/games/skyjo/game-rules.md) ·
   [RV There Yet?](docs/games/rv-there-yet/route-map.md) ·
-  [Das politische Talent](docs/games/politik/game-rules.md)
+  [Das politische Talent](docs/games/politik/game-rules.md) ·
+  [Camel Up](docs/games/camel-up/game-rules.md) ·
+  [The Mind](docs/games/the-mind/game-rules.md) ·
+  [Qwixx](docs/games/qwixx/game-rules.md) ·
+  [Heckmeck](docs/games/heckmeck/game-rules.md) ·
+  [Kniffel](docs/games/kniffel/game-rules.md)

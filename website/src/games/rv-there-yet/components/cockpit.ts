@@ -91,6 +91,7 @@ import {
   KMH_PER_MS,
   GOAL_MARGIN,
   type GameState,
+  type Person,
   type Route,
 } from "@/games/rv-there-yet/engine/types";
 
@@ -188,6 +189,53 @@ const VIEW = {
   itemSize: 1.2,
   bearSize: 2.2,
   bearHead: 0.28,
+  /**
+   * The other player, walking the road ahead, in metres.
+   *
+   * @remarks
+   * Head-on rather than in profile: from the seat you see their back going
+   * away from you or their face coming towards you, never their side. The
+   * height is the same 1.78 m the figure beside the motorhome is drawn to, so
+   * somebody who walks out of the door does not change size on the way.
+   */
+  mateTall: 1.78,
+  mateWide: 0.5,
+  mateHip: 0.78,
+  mateLegWide: 0.17,
+  mateLegAt: 0.12,
+  mateHeadR: 0.16,
+  mateCapHigh: 0.11,
+  /** How far the shoulders swing up and down over one stride, in metres. */
+  mateBob: 0.045,
+  /** How far one stride carries them, in metres - the legs swing with it. */
+  mateStride: 1.5,
+  /** How far each leg swings out to the side while walking, in metres. */
+  mateSwing: 0.09,
+  /** How round the shoulders of the jacket are, as a share of its width. */
+  mateRound: 0.28,
+  /** The eyes, when they are walking towards you. */
+  mateEyeR: 0.035,
+  mateEyeAt: 0.1,
+  /** How far below the middle of the head the eyes sit, in metres. */
+  mateEyeDrop: 0.03,
+  /**
+   * The one in the other seat, as shares of the canvas.
+   *
+   * @remarks
+   * Head and shoulders only, and well out towards the edge: from your own seat
+   * the person beside you is at the corner of your eye, not in the middle of
+   * the windscreen. Anything more would be a passenger sitting on the bonnet.
+   */
+  seatMateOut: 0.3,
+  seatMateHeadAt: 0.575,
+  seatMateHeadR: 0.031,
+  seatMateShoulderWide: 0.135,
+  seatMateShoulderAt: 0.655,
+  seatMateShoulderRound: 0.3,
+  /** The band of the cap, and the ear on the side turned towards you. */
+  seatMateCapHigh: 0.014,
+  seatMateEarAt: 0.45,
+  seatMateEarR: 0.005,
   /**
    * The bridge as it looks down the road, in metres.
    *
@@ -437,6 +485,12 @@ const PAINT = {
     spray: "#c0392b",
     bear: "#4a3527",
   } as Readonly<Record<string, string>>,
+  /** The other player, head-on - the same colours the side view dresses them in. */
+  mateSkin: "#f0c9a4",
+  mateVest: "#a8552c",
+  mateCap: "#8a4a2b",
+  mateTrousers: "#6d4326",
+  mateEyes: "#22252a",
   /** The bear head-on: the coat, its shaded side, the muzzle and the nose. */
   bear: "#4a3527",
   bearDark: "#33241a",
@@ -479,6 +533,7 @@ export function drawCockpit(
   route: Route,
   candidate: number,
   driving: boolean,
+  me: number,
 ): void {
   // The logical grid, not what the canvas happens to have: on a large screen
   // it is drawn on rather more pixels than that (see fit-canvas.ts), and a
@@ -506,6 +561,9 @@ export function drawCockpit(
   drawMud(ctx, state, route, { width, height, horizon, eye });
   drawChasm(ctx, state, route, { width, height, horizon, eye });
   drawThings(ctx, state, route, { width, height, horizon, eye });
+  // After the things lying on the road, so somebody standing over a can is in
+  // front of it rather than inside it.
+  drawMatesAhead(ctx, state, route, { width, height, horizon, eye }, me);
   drawFlag(ctx, state, route, { width, height, horizon, eye });
   drawFog(ctx, state, route, { width, height, horizon, eye });
   // After the fog, not before it: the one section that begins **inside** the
@@ -513,6 +571,11 @@ export function drawCockpit(
   // is worse than no fog at all. Everywhere else there is no fog to be over.
   drawNotices(ctx, state, route, { width, height, horizon, eye });
   drawSlender(ctx, state, route, { width, height, horizon, eye });
+  // Before the dashboard, so it cuts them off at the chest the way a
+  // dashboard does. Drawn over it they would be sitting on the bonnet.
+  if (state.people.some((person, seat) => seat !== me && person.inside)) {
+    drawMateAboard(ctx, width, height, driving);
+  }
   drawDashboard(ctx, width, height);
   if (driving) {
     drawSteeringWheel(ctx, width, height);
@@ -1995,6 +2058,143 @@ function drawBearAhead(
 }
 
 /**
+ * The other player, out of the cab and somewhere up the road.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the world as it is
+ * @param route - the route being driven
+ * @param screen - canvas size, horizon and eye height
+ * @param me - the seat this windscreen belongs to
+ * @remarks
+ * The side view has drawn everybody who is out of the cab since co-op existed;
+ * from the seat they were simply missing, so the one player who had got out to
+ * run ahead was invisible to the one who had to avoid running them over.
+ *
+ * Only those **ahead**: the windscreen shows the road in front of it, and
+ * somebody who walked round the back is behind you whether you would like to
+ * see them or not. Whoever is riding on the roof is not drawn either - they
+ * stand at the same metre as the motorhome, which is nearer than the bonnet.
+ */
+function drawMatesAhead(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  route: Route,
+  screen: Screen,
+  me: number,
+): void {
+  const middle = screen.width / 2;
+  state.people.forEach((person, seat) => {
+    const gap = person.at - state.rv.x;
+    if (seat === me || person.inside) {
+      return;
+    }
+    if (gap <= VIEW.bonnet || gap >= VIEW.thingSight) {
+      return;
+    }
+    const ground = heightAt(route, person.at) + person.lift;
+    const foot = project(screen, ground, gap);
+    const scale = VIEW.focal / gap;
+    const there = { gap, foot: ground, tall: VIEW.mateTall };
+    drawStanding(ctx, state, route, screen, there, () => {
+      drawMate(ctx, person, middle, foot.y, scale);
+    });
+  });
+}
+
+/**
+ * One person on the road, seen from the seat.
+ *
+ * @param ctx - the canvas to paint on
+ * @param person - them, as they are
+ * @param middle - the middle of the road on screen
+ * @param ground - where their boots are, on screen
+ * @param scale - how many pixels a metre is at that distance
+ * @remarks
+ * Legs, body, head and cap - no more, because at any distance worth drawing
+ * them at this is thirty pixels tall. What it does have to say is which way
+ * they are going, and that is what the eyes are for: coming towards you they
+ * have a face, going away from you they do not. Somebody walking **at** the
+ * motorhome is the one thing a driver has to notice.
+ */
+function drawMate(
+  ctx: CanvasRenderingContext2D,
+  person: Person,
+  middle: number,
+  ground: number,
+  scale: number,
+): void {
+  // The legs swing with the ground covered rather than with the clock, so they
+  // stop where the feet stop - the same rule the figure beside the vehicle
+  // follows. Head-on a stride reads as the legs parting, not as one going by.
+  const cycle = (person.stride / VIEW.mateStride) * Math.PI * 2;
+  const walking = person.walking && person.lift <= 0;
+  const swing = walking ? Math.sin(cycle) * VIEW.mateSwing * scale : 0;
+  const bob = walking ? Math.abs(Math.cos(cycle)) * VIEW.mateBob * scale : 0;
+  const top = ground - bob;
+
+  ctx.fillStyle = PAINT.mateTrousers;
+  for (const side of [-1, 1]) {
+    const wide = VIEW.mateLegWide * scale;
+    ctx.beginPath();
+    ctx.roundRect(
+      middle + side * (VIEW.mateLegAt * scale + Math.abs(swing)) - wide / 2,
+      top - VIEW.mateHip * scale,
+      wide,
+      VIEW.mateHip * scale + bob,
+      wide / 2,
+    );
+    ctx.fill();
+  }
+
+  const wide = VIEW.mateWide * scale;
+  ctx.fillStyle = PAINT.mateVest;
+  ctx.beginPath();
+  ctx.roundRect(
+    middle - wide / 2,
+    top - (VIEW.mateTall - VIEW.mateHeadR * 2) * scale,
+    wide,
+    (VIEW.mateTall - VIEW.mateHeadR * 2 - VIEW.mateHip) * scale,
+    wide * VIEW.mateRound,
+  );
+  ctx.fill();
+
+  const headR = VIEW.mateHeadR * scale;
+  const headY = top - (VIEW.mateTall - VIEW.mateHeadR) * scale;
+  ctx.fillStyle = PAINT.mateSkin;
+  ctx.beginPath();
+  ctx.arc(middle, headY, headR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // The cap sits on top and is drawn last, so it covers the crown of the head.
+  ctx.fillStyle = PAINT.mateCap;
+  ctx.beginPath();
+  ctx.arc(middle, headY, headR, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(
+    middle - headR,
+    headY - VIEW.mateCapHigh * scale,
+    headR * 2,
+    VIEW.mateCapHigh * scale,
+  );
+
+  // Facing left is facing back down the road - that is somebody looking at you.
+  if (person.facing < 0) {
+    ctx.fillStyle = PAINT.mateEyes;
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(
+        middle + side * VIEW.mateEyeAt * scale,
+        headY + VIEW.mateEyeDrop * scale,
+        VIEW.mateEyeR * scale,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
+  }
+}
+
+/**
  * The two forelegs, planted either side of the chest.
  *
  * @param ctx - the canvas to paint on
@@ -2436,6 +2636,84 @@ function drawPassengerSide(
     handleWide,
     handleTall,
     height * VIEW.handleRound,
+  );
+  ctx.fill();
+}
+
+/**
+ * The other player, in the seat next to yours.
+ *
+ * @param ctx - the canvas to paint on
+ * @param width - the canvas width
+ * @param height - the canvas height
+ * @param driving - whether this seat is the one with the wheel in front of it
+ * @remarks
+ * Whether you are alone in the cab is not a detail: it decides whether the
+ * winch has anybody to work it, whether the bridge will hold, and whether
+ * getting out leaves the motorhome unattended. Until now the only way to find
+ * out was to get out and look.
+ *
+ * Which **side** they sit on says the rest without a word: the wheel is on the
+ * left, so a driver sees their passenger to the right and a passenger sees the
+ * driver to the left. Head and shoulders only, cut off by the edge of the
+ * frame - that is as much of somebody beside you as anybody ever sees from
+ * their own seat.
+ */
+function drawMateAboard(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  driving: boolean,
+): void {
+  // The wheel is on the left: sitting at it, the other seat is to the right.
+  const side = driving ? 1 : -1;
+  const x = width / 2 + side * width * VIEW.seatMateOut;
+  const headY = height * VIEW.seatMateHeadAt;
+  const headR = width * VIEW.seatMateHeadR;
+
+  // Shoulders first, so the head sits on them rather than behind them.
+  const wide = width * VIEW.seatMateShoulderWide;
+  ctx.fillStyle = PAINT.mateVest;
+  ctx.beginPath();
+  ctx.roundRect(
+    x - wide / 2,
+    height * VIEW.seatMateShoulderAt,
+    wide,
+    height - height * VIEW.seatMateShoulderAt,
+    wide * VIEW.seatMateShoulderRound,
+  );
+  ctx.fill();
+
+  ctx.fillStyle = PAINT.mateSkin;
+  ctx.beginPath();
+  ctx.arc(x, headY, headR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // The cap over the crown. No peak: at this size a peak is a stick poking
+  // out of somebody's head, and the dome already says "cap".
+  ctx.fillStyle = PAINT.mateCap;
+  ctx.beginPath();
+  ctx.arc(x, headY, headR, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(
+    x - headR,
+    headY - height * VIEW.seatMateCapHigh,
+    headR * 2,
+    height * VIEW.seatMateCapHigh,
+  );
+
+  // One ear, on the side turned towards you - a head in profile without one
+  // reads as the back of a head, and then nobody is looking anywhere.
+  ctx.fillStyle = PAINT.mateEyes;
+  ctx.beginPath();
+  // Minus the side, not plus: the ear you can see is the one on the cheek
+  // turned your way, and their seat is out towards the edge from yours.
+  ctx.arc(
+    x - side * headR * VIEW.seatMateEarAt,
+    headY + headR * VIEW.seatMateEarAt,
+    width * VIEW.seatMateEarR,
+    0,
+    Math.PI * 2,
   );
   ctx.fill();
 }
