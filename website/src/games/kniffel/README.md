@@ -33,7 +33,17 @@ niemandem die Entscheidung ab - auf Papier rechnet man dasselbe im Kopf -, aber
 es macht das Vergleichen zu dem, was es ist: einmal die Spalte runterschauen.
 
 Eine **Null steht rot** da. Wer dort einträgt, streicht das Feld, und das soll
-man sehen, bevor man klickt, nicht danach.
+man sehen, bevor man klickt, nicht danach. Danach ist die Zeile
+**durchgestrichen** - Name und Null, mit rotem Strich, so wie man auf Papier
+einen Strich durch das Feld zieht. Eine nackte 0 würde nicht zeigen, dass hier
+etwas geopfert wurde.
+
+Die **Würfel liegen aufsteigend sortiert**, nach jedem Wurf neu. Das ist reine
+Lesbarkeit: Fünf Würfel in Reihenfolge zählt man mit einem Blick, und eine
+Straße sieht man, statt sie zusammenzusuchen. Sortiert wird dabei das **Paar**
+aus Würfel und "behalten" - sonst zeigte das Behalten nach dem Sortieren auf
+einen anderen Würfel, und die gehaltenen Sechsen kämen beim nächsten Wurf
+wieder ins Rutschen.
 
 ## Der Computergegner
 

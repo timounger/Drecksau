@@ -64,6 +64,13 @@ Teil. Die höchste Summe gewinnt.
 3. **Der Block zeigt, was ein Feld gerade brächte.** Auf Papier rechnet man das
    im Kopf; hier steht es daneben. Eine Null wird rot angezeigt, damit klar
    ist, dass Eintragen das Feld streicht.
+4. **Ein gestrichenes Feld wird durchgestrichen dargestellt** - Name und Null,
+   mit rotem Strich. Auf Papier zieht man einen Strich durch die Zeile; eine
+   nackte 0 würde nicht zeigen, dass hier ein Feld geopfert wurde.
+5. **Die Würfel liegen aufsteigend sortiert.** Nur fürs Auge: Fünf Würfel in
+   Reihenfolge zählt man mit einem Blick, und eine Straße sieht man, statt sie
+   zu suchen. Behaltene Würfel wandern beim Sortieren mit - sie bleiben
+   behalten.
 
 ## Umsetzung
 

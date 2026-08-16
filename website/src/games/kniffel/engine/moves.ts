@@ -88,18 +88,49 @@ function toggleHold(game: KniffelGame, index: number): KniffelGame | null {
 /** Throws everything that is not being kept. */
 function throwAgain(game: KniffelGame): KniffelGame {
   const random = createRandom(game.rng);
-  const dice = game.dice.map((die, index) =>
+  const thrown = game.dice.map((die, index) =>
     game.held[index] ? die : face(random),
   );
+  const sorted = inOrder(thrown, game.held);
   return {
     ...game,
-    dice,
+    dice: sorted.dice,
+    held: sorted.held,
     rollsLeft: game.rollsLeft - 1,
     rng: random.state(),
     log: [
       ...game.log,
-      `${game.players[game.active].name} würfelt: ${dice.join(" ")}.`,
+      `${game.players[game.active].name} würfelt: ${sorted.dice.join(" ")}.`,
     ],
+  };
+}
+
+/**
+ * Lays the dice out in ascending order.
+ *
+ * @param dice - the five dice as they fell
+ * @param held - which of them are being kept, indexed the same way
+ * @returns both lists, sorted together
+ * @remarks
+ * Sorted **as a pair**, and that is the whole point: `held` is indexed
+ * alongside `dice`, so sorting one without the other would leave "keep this
+ * one" pointing at a different die. A player who kept the pair of sixes would
+ * watch them come loose on the next throw.
+ *
+ * Sorting at all is for reading rather than for the rules: five dice in a row
+ * are counted at a glance when they are in order, and a straight is something
+ * you see instead of something you work out.
+ */
+function inOrder(
+  dice: readonly number[],
+  held: readonly boolean[],
+): { readonly dice: readonly number[]; readonly held: readonly boolean[] } {
+  const pairs = dice
+    .map((die, index) => ({ die, keep: held[index] ?? false }))
+    .sort((left, right) => left.die - right.die);
+  return {
+    dice: pairs.map((pair) => pair.die),
+    held: pairs.map((pair) => pair.keep),
   };
 }
 
@@ -166,7 +197,8 @@ function best(game: KniffelGame): string {
  */
 export function startTurn(game: KniffelGame, active: number): KniffelGame {
   const random = createRandom(game.rng);
-  const dice = Array.from({ length: DICE_COUNT }, () => face(random));
+  const thrown = Array.from({ length: DICE_COUNT }, () => face(random));
+  const dice = [...thrown].sort((left, right) => left - right);
   return {
     ...game,
     phase: "turn",

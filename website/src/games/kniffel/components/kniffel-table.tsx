@@ -237,6 +237,10 @@ function Line({
   const offer = scoreOf(game.dice, category);
   const free = written === null;
   const clickable = open && free;
+  // A nought is not a score, it is a box given up - on paper you draw a line
+  // through it, and a block that only showed "0" would hide the difference
+  // between a box that scored nothing and one that was sacrificed.
+  const struck = written === 0;
   return (
     <button
       type="button"
@@ -250,7 +254,15 @@ function Line({
           : "cursor-default"
       }`}
     >
-      <span className={free ? "" : "text-zinc-500 dark:text-zinc-400"}>
+      <span
+        className={
+          struck
+            ? "text-zinc-400 line-through decoration-red-500 decoration-2 dark:text-zinc-500"
+            : free
+              ? ""
+              : "text-zinc-500 dark:text-zinc-400"
+        }
+      >
         {CATEGORY_LABELS[category]}
       </span>
       {free ? (
@@ -266,7 +278,15 @@ function Line({
           {clickable ? offer : T.free}
         </span>
       ) : (
-        <span className="font-semibold tabular-nums">{written}</span>
+        <span
+          className={`font-semibold tabular-nums ${
+            struck
+              ? "text-zinc-400 line-through decoration-red-500 decoration-2 dark:text-zinc-500"
+              : ""
+          }`}
+        >
+          {written}
+        </span>
       )}
     </button>
   );
