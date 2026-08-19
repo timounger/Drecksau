@@ -23,7 +23,7 @@
  */
 "use client";
 
-import { useState, type ReactElement } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
 import { GRID_COLUMNS } from "@/games/skyjo/engine/cards";
 import {
   topOf,
@@ -34,7 +34,6 @@ import {
 import { SKYJO_TEXTS as T } from "@/games/skyjo/i18n/texts";
 import { LooseCard, SkyjoCard } from "./skyjo-card";
 
-/**
 /**
  * Whether the top card of the discard pile has been picked up.
  *
@@ -62,6 +61,14 @@ export type SkyjoTableProps = {
    * anyway, and labelling them all would say nothing.
    */
   readonly botSeats?: readonly number[];
+  /**
+   * The turn clock, shown beside whose turn it is.
+   *
+   * @remarks
+   * Passed in rather than built here, because only an online table has one:
+   * offline nobody is waiting on anybody.
+   */
+  readonly clock?: ReactNode;
 };
 
 /**
@@ -76,6 +83,7 @@ export function SkyjoTable({
   onMove,
   busy = false,
   botSeats = [],
+  clock,
 }: SkyjoTableProps): ReactElement {
   const [pending, setPending] = useState<Pending>("none");
   // A half-made choice must not outlive the turn it was made in: online the
@@ -203,7 +211,7 @@ export function SkyjoTable({
         />
       )}
 
-      <TurnBanner game={game} mySeat={mySeat} pending={pending} />
+      <TurnBanner game={game} mySeat={mySeat} pending={pending} clock={clock} />
     </div>
   );
 }
@@ -222,10 +230,12 @@ function TurnBanner({
   game,
   mySeat,
   pending,
+  clock,
 }: {
   readonly game: SkyjoGame;
   readonly mySeat: number | null;
   readonly pending: Pending;
+  readonly clock?: ReactNode;
 }): ReactElement {
   const mine = mySeat !== null && game.turn === mySeat;
   let text: string;
@@ -258,6 +268,7 @@ function TurnBanner({
       {game.endedBy !== null && game.phase === "turn" && (
         <span className="ml-2 font-semibold">{T.lastRound}</span>
       )}
+      {clock !== undefined && <span className="ml-2">{clock}</span>}
     </p>
   );
 }

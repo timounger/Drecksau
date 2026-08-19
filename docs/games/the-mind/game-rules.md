@@ -84,6 +84,9 @@ Spieler, 1 Startwurfstern, Karten 1-100.
 
 - Regeln: [engine/moves.ts](../../../website/src/games/the-mind/engine/moves.ts)
 - Zustand: [engine/state.ts](../../../website/src/games/the-mind/engine/state.ts)
-- Das Timing der Computerpartner:
-  [engine/ai.ts](../../../website/src/games/the-mind/engine/ai.ts)
 - Online: [multiplayer/adapter.ts](../../../website/src/games/the-mind/multiplayer/adapter.ts)
+
+The Mind wird **nur online** gespielt: Das Spiel besteht daraus, das Zögern der
+anderen zu lesen, und dafür braucht es Menschen am Tisch. Warum ein
+Computerpartner das nicht ersetzen kann, steht im
+[Modul-README](../../../website/src/games/the-mind/README.md).

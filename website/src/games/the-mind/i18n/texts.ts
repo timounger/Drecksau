@@ -10,18 +10,22 @@ export const MIND_TEXTS = {
   tagline: "Gemeinsam aufsteigend ablegen - ohne ein Wort.",
   newGame: "Neues Spiel",
   playOnline: "Online spielen",
-  settings: "Einstellungen",
   statistics: "Statistik",
   backToGame: "Zurück zum Spiel",
   log: "Verlauf",
 
-  settingsTitle: "The Mind - Einstellungen",
-  settingsSubtitle: "Wie viele gemeinsam schweigen.",
-  playerCount: "Spielerzahl",
-  playerCountHint:
-    "Du und deine Mitspieler. Zu zweit gibt es 12 Level, zu dritt 10, zu viert 8 - und so viele Leben, wie ihr seid.",
-  settingsNote:
-    "Änderungen gelten ab dem nächsten Spiel - das laufende bleibt, wie es ist.",
+  rulesTitle: "So wird gespielt",
+  rules: [
+    "Alle bekommen Handkarten mit Zahlen von 1 bis 100. Niemand zeigt sie her.",
+    "Gemeinsam werden alle Karten aufsteigend in die Tischmitte gelegt - ohne zu reden, ohne Zeichen, ohne Absprache.",
+    "Wer glaubt, die kleinste Karte zu haben, legt sie. Kommt jemand mit einer kleineren zu spät, kostet das ein Leben.",
+    "Jedes Level gibt es eine Karte mehr. Sind alle Leben weg, ist das Spiel vorbei.",
+    "Der Wurfstern wird nur einstimmig geworfen: dann legt jede und jeder die kleinste Handkarte offen ab.",
+  ],
+  needPlayers:
+    "Zu zweit bis zu viert. Zu zweit gibt es 12 Level, zu dritt 10, zu viert 8 - und so viele Leben, wie ihr seid.",
+  onlineOnly:
+    "The Mind lebt vom gemeinsamen Zögern, und das gibt es nur mit echten Mitspielern - deshalb wird es hier ausschließlich online gespielt.",
 
   level: (n: number, of: number) => `Level ${n} von ${of}`,
   lives: "Leben",
@@ -33,6 +37,7 @@ export const MIND_TEXTS = {
   yourHand: "Deine Karten",
   handEmpty: "Du hast abgelegt.",
   playLowest: "Niedrigste legen",
+  cardUnknown: "…",
   playCard: (card: number) => `Die ${card} legen`,
   shurikenAsk: "Wurfstern vorschlagen",
   shurikenWithdraw: "Vorschlag zurückziehen",

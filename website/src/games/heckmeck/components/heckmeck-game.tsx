@@ -11,6 +11,7 @@
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
+import { HECKMECK_RULES } from "@/games/heckmeck/i18n/rules";
 import { useHeckmeckGame } from "@/games/heckmeck/hooks/use-heckmeck-game";
 import {
   getServerSettingsSnapshot,
@@ -39,7 +40,7 @@ export function HeckmeckGameScreen(): ReactElement {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
-      <GameHeader title={T.title} subtitle={T.tagline}>
+      <GameHeader rules={HECKMECK_RULES} title={T.title} subtitle={T.tagline}>
         <button
           type="button"
           onClick={newGame}

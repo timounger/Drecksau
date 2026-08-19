@@ -28,6 +28,7 @@ import {
   type Sheet,
 } from "@/games/qwixx/engine/state";
 import { untilLock } from "@/games/qwixx/engine/moves";
+import { ComputerBadge } from "@/online/computer-badge";
 import { QWIXX_TEXTS as T } from "@/games/qwixx/i18n/texts";
 
 /** Props of {@link QwixxSheet}. */
@@ -44,6 +45,8 @@ export type QwixxSheetProps = {
    */
   readonly offers?: ReadonlyMap<string, QwixxMove>;
   readonly onMove?: (move: QwixxMove) => void;
+  /** True once the computer plays this seat, because its player left. */
+  readonly isBotSeat?: boolean;
 };
 
 /**
@@ -57,18 +60,19 @@ export function QwixxSheet({
   seat,
   offers,
   onMove,
+  isBotSeat = false,
 }: QwixxSheetProps): ReactElement {
   const player = game.players[seat];
   return (
     <div
       data-testid={`qwixx-sheet-${seat}`}
-      className="flex flex-col gap-1 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+      className="@container flex flex-col gap-1 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
     >
       <header className="flex items-baseline gap-2">
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">
           {player.name}
-          {player.isBot && " 🤖"}
         </span>
+        {isBotSeat && <ComputerBadge />}
         <span className="text-lg font-bold tabular-nums">
           {sheetScore(player.sheet, game.locked)}
         </span>
@@ -132,7 +136,7 @@ function RowLine({
         className="h-4 w-2 shrink-0 rounded-sm"
         style={{ backgroundColor: ROW_INK[row] }}
       />
-      <div className="flex flex-1 flex-wrap gap-0.5">
+      <div className="flex min-w-0 flex-1 gap-0.5">
         {Array.from({ length: ROW_LENGTH }, (unused, place) => {
           const key = `${row}-${place}`;
           const offer = offers?.get(key);
@@ -154,8 +158,10 @@ function RowLine({
       </div>
       {/* The points a row is worth, and - only when it is actually true - that
           the lock is now within reach. Everything else is noise beside eleven
-          numbers. */}
-      <span className="w-24 shrink-0 text-right text-[0.65rem] text-zinc-400">
+          numbers, which is also why this is the first thing to go when the
+          sheet gets narrow: it can be worked out from the crosses, the row
+          itself cannot. */}
+      <span className="hidden w-24 shrink-0 text-right text-[0.65rem] text-zinc-400 @[27.5rem]:block">
         {shut ? (
           T.locked
         ) : (
@@ -191,8 +197,16 @@ function Cell({
 }): ReactElement {
   const value = numberAt(row, place);
   const open = offer !== undefined && onMove !== undefined;
+  // Eleven numbers on one line, whatever the width. They share the space
+  // rather than breaking onto a second line, so the row stays a row.
+  //
+  // The smaller type is a last resort and deliberately kicks in late: a cell
+  // narrowed to about 17px still holds a two-digit number at the normal size,
+  // and eleven of those need 13.5rem inside the sheet - narrower than any real
+  // phone. Shrinking the numbers any sooner would cost legibility to solve a
+  // problem that is not there yet.
   const shape =
-    "h-7 w-7 rounded text-xs font-bold tabular-nums transition-colors";
+    "aspect-square min-w-0 max-w-7 flex-1 rounded text-[0.6rem] font-bold tabular-nums transition-colors @[13.5rem]:text-xs";
   let look: string;
   if (crossed) {
     look = "text-white";

@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import { GameHeader } from "@/components/game-header";
+import { DRECKSAU_RULES } from "@/games/drecksau/i18n/rules";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { isCardPlayable, isCardUsableNow } from "@/games/drecksau/engine/moves";
 import { currentPlayer, playerById } from "@/games/drecksau/engine/state";
@@ -73,6 +74,7 @@ export function DrecksauGame(): ReactElement {
           table size lives in the settings now, so a new game starts at the
           size chosen there. */}
       <GameHeader
+        rules={DRECKSAU_RULES}
         title={UI_TEXTS.appTitle}
         subtitle={
           state.hasExpansion ? UI_TEXTS.taglineExpansion : UI_TEXTS.tagline

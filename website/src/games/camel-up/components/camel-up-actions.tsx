@@ -32,6 +32,14 @@ export type CamelUpPanelProps = {
   readonly onMove: (move: CamelUpMove) => void;
   /** True while somebody else is being waited for. */
   readonly busy?: boolean;
+  /**
+   * The turn clock, shown beside whose turn it is.
+   *
+   * @remarks
+   * Passed in rather than built here, because only an online table has one:
+   * offline nobody is waiting on anybody.
+   */
+  readonly clock?: ReactNode;
 };
 
 /** What the panel is asking for at the moment. */
@@ -57,6 +65,7 @@ export function CamelUpPanel({
   mySeat,
   onMove,
   busy = false,
+  clock,
 }: CamelUpPanelProps): ReactElement {
   const mine = mySeat !== null && game.turn === mySeat && !busy;
   const waiting = game.players[game.turn]?.name ?? "";
@@ -81,9 +90,12 @@ export function CamelUpPanel({
       data-testid="camel-panel"
       className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
     >
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        {T.leg(game.leg)} · {T.diceLeft(game.dice.length)}
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          {T.leg(game.leg)} · {T.diceLeft(game.dice.length)}
+        </p>
+        {clock}
+      </div>
       {body}
     </section>
   );

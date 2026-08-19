@@ -25,7 +25,7 @@ import {
 import type { OnlineAdapter, SeatSetup } from "@/online/adapter";
 
 /** Namespaces this game's rooms in the shared database. */
-export const HECKMECK_GAME_ID = "qwixx";
+export const HECKMECK_GAME_ID = "heckmeck";
 
 /**
  * Heckmeck has nothing to choose before a game.

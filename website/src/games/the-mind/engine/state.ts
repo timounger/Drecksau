@@ -152,6 +152,23 @@ export type MindGame = {
 };
 
 /**
+ * The stand-in for a card this client is not allowed to see, or does not have
+ * yet.
+ *
+ * @remarks
+ * Zero, because no real card is zero - the deck is 1 to 100. Online the host
+ * publishes every hand as a row of these and sends each seat its own cards on a
+ * private channel; the two arrive over separate connections, so for a moment
+ * after somebody plays, a client can hold the new table and the old hand. It
+ * blanks the hand rather than showing stale numbers, and what is on screen then
+ * is this.
+ *
+ * **Never draw it as a number.** It is the absence of a card, and a screen that
+ * prints "0" is claiming to know something it does not.
+ */
+export const UNKNOWN_CARD = 0;
+
+/**
  * The card on top of the pile, or zero before anything is played.
  *
  * @param game - the current game

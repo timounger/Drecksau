@@ -217,6 +217,34 @@ export function seatOnTurn<G, M, H, O>(
   return index === null ? null : (room.seats[index] ?? null);
 }
 
+/**
+ * What counts as one turn for the auto-play clock.
+ *
+ * @param room - the room
+ * @param adapter - the game's online adapter
+ * @returns a value that holds still for as long as one turn lasts
+ * @remarks
+ * The host arms its timer from this and the players count down from it, so both
+ * mean the same thing by "one turn". Defaults to the seat on turn, which is
+ * right wherever a turn is a single move; a game with several moves per turn
+ * says so through its `turnKey`.
+ *
+ * Outside of play there is no turn, and the empty string says so - it holds
+ * still, so a finished game does not keep rearming a clock nobody is watching.
+ */
+export function turnKeyOf<G, M, H, O>(
+  room: RoomState<G>,
+  adapter: OnlineAdapter<G, M, H, O>,
+): string {
+  let key = "";
+  if (room.phase === "playing" && room.game !== null) {
+    key = adapter.turnKey
+      ? adapter.turnKey(room.game)
+      : String(adapter.seatIndexOnTurn(room.game));
+  }
+  return key;
+}
+
 /** Bumps the version so stale snapshots can be told apart. */
 function bump<G>(room: RoomState<G>): RoomState<G> {
   return { ...room, version: room.version + 1 };

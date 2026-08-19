@@ -56,6 +56,14 @@ export type PolitikPanelProps = {
   readonly onMove: (move: PolitikMove) => void;
   /** True while somebody else is being waited for. */
   readonly busy?: boolean;
+  /**
+   * The turn clock, shown beside whose turn it is.
+   *
+   * @remarks
+   * Passed in rather than built here, because only an online table has one:
+   * offline nobody is waiting on anybody.
+   */
+  readonly clock?: ReactNode;
 };
 
 /** What the panel is asking for at the moment. */
@@ -78,6 +86,7 @@ export function PolitikPanel({
   mySeat,
   onMove,
   busy = false,
+  clock,
 }: PolitikPanelProps): ReactElement {
   const mine = mySeat !== null && game.turn === mySeat && !busy;
   const waitingFor = game.players[game.turn]?.name ?? "";
@@ -104,7 +113,10 @@ export function PolitikPanel({
       data-testid="politik-panel"
       className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
     >
-      <Results game={game} />
+      <div className="flex flex-wrap items-center gap-2">
+        <Results game={game} />
+        {clock}
+      </div>
       {body}
     </section>
   );

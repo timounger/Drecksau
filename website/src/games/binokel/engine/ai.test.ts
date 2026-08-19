@@ -72,19 +72,28 @@ describe("chooseBid by difficulty", () => {
 });
 
 describe("chooseCard by difficulty", () => {
-  it("leads the strongest card on schwer and the weakest on mittel", () => {
+  it("leads a card worth having, trumps only on schwer", () => {
     const state = toTrickLead(2);
     expect(state.phase).toBe("trick");
     expect(state.currentTrick).toHaveLength(0);
 
     const actor = state.players[state.currentPlayerIndex];
     const legal = legalPlays(actor.hand, state.currentTrick, state.trump);
-    const values = legal.map(cardValue);
-    const valueOf = (id: string) =>
-      cardValue(actor.hand.find((card) => card.id === id)!);
+    const cardOf = (id: string) => actor.hand.find((card) => card.id === id)!;
+    const side = legal.filter((card) => card.suit !== state.trump);
 
-    expect(valueOf(chooseCard(state, "schwer"))).toBe(Math.max(...values));
-    expect(valueOf(chooseCard(state, "mittel"))).toBe(Math.min(...values));
+    // Schwer cashes its very best card, trumps included.
+    expect(cardValue(cardOf(chooseCard(state, "schwer")))).toBe(
+      Math.max(...legal.map(cardValue)),
+    );
+    // Mittel keeps its trumps back and cashes its best side card - but it does
+    // not dribble out a low one, which is the thing that made no sense.
+    const middle = cardOf(chooseCard(state, "mittel"));
+    expect(middle.suit).not.toBe(state.trump);
+    expect(cardValue(middle)).toBe(Math.max(...side.map(cardValue)));
+    expect(cardValue(middle)).toBeGreaterThan(
+      Math.min(...legal.map(cardValue)),
+    );
   });
 
   it("always plays a legal card, even on leicht", () => {

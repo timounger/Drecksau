@@ -11,6 +11,8 @@
 "use client";
 
 import Link from "next/link";
+import { RulesButton } from "@/components/rules-button";
+import { PANZERKISTE_RULES } from "@/games/panzerkiste/i18n/rules";
 import {
   useCallback,
   useEffect,
@@ -211,12 +213,15 @@ export function PanzerkisteOnline(): ReactElement {
             {T.subtitle}
           </p>
         </div>
-        <Link
-          href="/panzerkiste"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {T.backToGame}
-        </Link>
+        <div className="flex items-center gap-2">
+          <RulesButton rules={PANZERKISTE_RULES} />
+          <Link
+            href="/panzerkiste"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {T.backToGame}
+          </Link>
+        </div>
       </header>
       {body}
     </div>

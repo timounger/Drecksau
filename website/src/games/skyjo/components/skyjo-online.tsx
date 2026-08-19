@@ -14,6 +14,8 @@
 "use client";
 
 import Link from "next/link";
+import { RulesButton } from "@/components/rules-button";
+import { SKYJO_RULES } from "@/games/skyjo/i18n/rules";
 import {
   useCallback,
   useEffect,
@@ -37,6 +39,8 @@ import {
 } from "@/games/skyjo/settings/online-settings";
 import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import { SkyjoScores } from "./skyjo-scores";
+import { turnKeyOf } from "@/online/room";
+import { TurnClock, useTurnClock } from "@/online/turn-clock";
 import { SkyjoTable } from "./skyjo-table";
 import { database } from "@/online/firebase-app";
 import {
@@ -247,12 +251,15 @@ export function SkyjoOnlineScreen(): ReactElement {
             {L.subtitle}
           </p>
         </div>
-        <Link
-          href="/skyjo"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {L.back}
-        </Link>
+        <div className="flex items-center gap-2">
+          <RulesButton rules={SKYJO_RULES} />
+          <Link
+            href="/skyjo"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {L.back}
+          </Link>
+        </div>
       </header>
       {body}
     </div>
@@ -660,6 +667,11 @@ function Playing({
   const game = room.room?.game ?? null;
   const seats = room.room?.seats ?? [];
   const mySeat = seats.findIndex((seat) => seat.id === room.seatId);
+  const remainingMs = useTurnClock({
+    autoPlayMs: room.room?.autoPlayMs ?? null,
+    turn: room.room === null ? "" : turnKeyOf(room.room, skyjoAdapter),
+    running: game !== null && game.phase !== "gameOver",
+  });
   // Seats whose player left: the host plays them on, and the table says so.
   const botSeatIds = room.room?.botSeatIds ?? [];
   const botSeats = seats
@@ -690,6 +702,7 @@ function Playing({
           mySeat={mySeat >= 0 ? mySeat : null}
           onMove={room.sendMove}
           botSeats={botSeats}
+          clock={<TurnClock remainingMs={remainingMs} />}
         />
       </div>
 

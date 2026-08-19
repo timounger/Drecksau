@@ -8,6 +8,7 @@
  */
 import Link from "next/link";
 import { GameHeader } from "@/components/game-header";
+import { KRAKEL_RULES } from "@/games/krakel/i18n/rules";
 import type { ReactElement } from "react";
 import { KRAKEL_TEXTS } from "@/games/krakel/i18n/texts";
 
@@ -19,7 +20,11 @@ import { KRAKEL_TEXTS } from "@/games/krakel/i18n/texts";
 export function KrakelLanding(): ReactElement {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-4">
-      <GameHeader title={KRAKEL_TEXTS.title} subtitle={KRAKEL_TEXTS.subtitle} />
+      <GameHeader
+        rules={KRAKEL_RULES}
+        title={KRAKEL_TEXTS.title}
+        subtitle={KRAKEL_TEXTS.subtitle}
+      />
 
       <section className="flex flex-col gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/40 p-5 dark:border-indigo-900/50 dark:bg-indigo-950/20">
         <h2 className="text-sm font-semibold">{KRAKEL_TEXTS.rulesTitle}</h2>

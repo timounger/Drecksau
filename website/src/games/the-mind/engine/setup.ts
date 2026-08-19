@@ -23,9 +23,6 @@ export type MindSeat = {
   readonly isBot: boolean;
 };
 
-/** The computer players' names, in the order they join. */
-const BOT_NAMES: readonly string[] = ["Nima", "Ove", "Pia"];
-
 /**
  * Deals a fresh game at level one.
  *
@@ -89,24 +86,6 @@ export function dealLevel(game: MindGame): MindGame {
     rng: random.state(),
     log: [...game.log, `Level ${level} - ${level} Karten für jeden.`],
   };
-}
-
-/**
- * Builds the seats for a game against the computer.
- *
- * @param playerName - what the human seat is called
- * @param partners - how many computer players join
- * @returns the seats, the human first
- */
-export function soloSeats(
-  playerName: string,
-  partners: number,
-): readonly MindSeat[] {
-  const seats: MindSeat[] = [{ name: playerName, isBot: false }];
-  for (let index = 0; index < partners; index++) {
-    seats.push({ name: BOT_NAMES[index % BOT_NAMES.length], isBot: true });
-  }
-  return seats;
 }
 
 /** Shuffles the deck and gives everybody their cards, lowest first. */

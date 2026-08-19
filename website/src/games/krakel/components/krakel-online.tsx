@@ -12,6 +12,8 @@
 "use client";
 
 import Link from "next/link";
+import { RulesButton } from "@/components/rules-button";
+import { KRAKEL_RULES } from "@/games/krakel/i18n/rules";
 import {
   useCallback,
   useEffect,
@@ -251,12 +253,15 @@ export function KrakelOnlineScreen(): ReactElement {
             {T.subtitle}
           </p>
         </div>
-        <Link
-          href="/krakel"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {T.backToGame}
-        </Link>
+        <div className="flex items-center gap-2">
+          <RulesButton rules={KRAKEL_RULES} />
+          <Link
+            href="/krakel"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {T.backToGame}
+          </Link>
+        </div>
       </header>
       {body}
     </div>

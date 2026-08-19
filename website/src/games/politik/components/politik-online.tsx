@@ -15,6 +15,8 @@
 "use client";
 
 import Link from "next/link";
+import { RulesButton } from "@/components/rules-button";
+import { POLITIK_RULES } from "@/games/politik/i18n/rules";
 import {
   useCallback,
   useEffect,
@@ -43,6 +45,8 @@ import {
 import { POLITIK_TEXTS as T } from "@/games/politik/i18n/texts";
 import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import { PolitikBoard } from "./politik-board";
+import { turnKeyOf } from "@/online/room";
+import { TurnClock, useTurnClock } from "@/online/turn-clock";
 import { PolitikPanel } from "./politik-actions";
 import { PolitikScores } from "./politik-scores";
 import { database } from "@/online/firebase-app";
@@ -95,6 +99,7 @@ const L = {
   startGame: "Spiel starten",
   needPlayers: `Warte auf mindestens ${MIN_PLAYERS} Spieler …`,
   waitingForHost: "Warte auf den Host …",
+  waitingForRematch: "Warte auf den Host - er kann direkt neu austeilen.",
   cancelSearch: "Suche abbrechen",
   leaveRoom: "Raum verlassen",
   online: (n: number) => `${n} online`,
@@ -125,11 +130,12 @@ const GAME_ID = politikAdapter.gameId;
  * How long a player may dither before the computer plays their turn.
  *
  * @remarks
- * Longer than in the quicker games of the collection: a turn here can mean
- * reading an opposition card or weighing up a vote, and the adapter stretches
- * it further still for the coalition talks.
+ * The same thirty seconds as everywhere else online, so a player who has learnt
+ * the clock in one game is not caught out by another. A turn here can mean
+ * reading an opposition card, which is why the adapter still stretches the
+ * coalition talks past this - see its `turnTimeoutMs`.
  */
-const AUTO_PLAY_MS = 45_000;
+const AUTO_PLAY_MS = 30_000;
 
 /** How often the open room's matchmaking entry is kept alive, in ms. */
 const HEARTBEAT_MS = 10_000;
@@ -254,12 +260,15 @@ export function PolitikOnlineScreen(): ReactElement {
             {L.subtitle}
           </p>
         </div>
-        <Link
-          href="/politik"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {L.back}
-        </Link>
+        <div className="flex items-center gap-2">
+          <RulesButton rules={POLITIK_RULES} />
+          <Link
+            href="/politik"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {L.back}
+          </Link>
+        </div>
       </header>
       {body}
     </div>
@@ -667,6 +676,11 @@ function Playing({
   const game = room.room?.game ?? null;
   const seats = room.room?.seats ?? [];
   const mySeat = seats.findIndex((seat) => seat.id === room.seatId);
+  const remainingMs = useTurnClock({
+    autoPlayMs: room.room?.autoPlayMs ?? null,
+    turn: room.room === null ? "" : turnKeyOf(room.room, politikAdapter),
+    running: game !== null && game.phase !== "gameOver",
+  });
   // Seats whose player left: the host plays them on, and the table says so.
   const botSeatIds = room.room?.botSeatIds ?? [];
   const botSeats = seats
@@ -679,12 +693,25 @@ function Playing({
     <div className="flex flex-col gap-4 lg:flex-row">
       <div className="flex flex-1 flex-col gap-4">
         {game.phase === "gameOver" && (
-          <PolitikScores game={game} onNewGame={null} />
+          <>
+            {/* The table stays together: the host deals again with the same
+                seats instead of everyone leaving and looking for a new room. */}
+            <PolitikScores
+              game={game}
+              onNewGame={room.isHost ? room.newRound : null}
+            />
+            {!room.isHost && (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                {L.waitingForRematch}
+              </p>
+            )}
+          </>
         )}
         <PolitikPanel
           game={game}
           mySeat={mySeat >= 0 ? mySeat : null}
           onMove={room.sendMove}
+          clock={<TurnClock remainingMs={remainingMs} />}
         />
         <PolitikBoard
           game={game}

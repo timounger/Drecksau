@@ -3,10 +3,10 @@
  *
  * @module
  * @remarks
- * Short, and for a good reason: **nothing in Kniffel is secret.** The dice are
- * on the table, the grill is in the middle and every pile is face up. So there
- * is no redaction, no private channel and no host vault - the shared snapshot
- * is simply the game.
+ * Short, and for a good reason: **nothing in Kniffel is secret.** The dice lie
+ * on the table and every block is filled in where all can see it. So there is
+ * no redaction, no private channel and no host vault - the shared snapshot is
+ * simply the game.
  *
  * One player acts at a time, and everybody knows which - so `seatIndexOnTurn`
  * can name them without giving anything away, and the layer can play a
@@ -17,6 +17,7 @@ import { applyMove, seatOnTurn } from "@/games/kniffel/engine/moves";
 import { isKniffelGame } from "@/games/kniffel/engine/serialization";
 import { createGame, type KniffelSeat } from "@/games/kniffel/engine/setup";
 import {
+  CATEGORY_LABELS,
   MAX_PLAYERS,
   type KniffelGame,
   type KniffelMove,
@@ -24,7 +25,7 @@ import {
 import type { OnlineAdapter, SeatSetup } from "@/online/adapter";
 
 /** Namespaces this game's rooms in the shared database. */
-export const KNIFFEL_GAME_ID = "qwixx";
+export const KNIFFEL_GAME_ID = "kniffel";
 
 /**
  * Kniffel has nothing to choose before a game.
@@ -127,17 +128,31 @@ export const kniffelAdapter: OnlineAdapter<
 };
 
 /** The move kinds a client may send. */
-const MOVE_KINDS: readonly string[] = ["pick", "roll", "take", "steal"];
+const MOVE_KINDS: readonly string[] = ["hold", "roll", "enter"];
 
-/** Checks an untrusted value is a move. */
+/**
+ * Checks an untrusted value is a move.
+ *
+ * @param value - whatever came off the wire
+ * @returns true when it is a move this game knows
+ * @remarks
+ * The kinds must be **this** game's. A list belonging to another game lets one
+ * kind through by coincidence and silently drops the rest, which does not look
+ * like a rejected message at all - it looks like half the game not working.
+ */
 function isKniffelMove(value: unknown): value is KniffelMove {
-  const move = value as { kind?: unknown; face?: unknown; seat?: unknown };
+  const move = value as {
+    kind?: unknown;
+    index?: unknown;
+    category?: unknown;
+  };
   return (
     typeof value === "object" &&
     value !== null &&
     typeof move.kind === "string" &&
     MOVE_KINDS.includes(move.kind) &&
-    (move.face === undefined || Number.isInteger(move.face)) &&
-    (move.seat === undefined || Number.isInteger(move.seat))
+    (move.index === undefined || Number.isInteger(move.index)) &&
+    (move.category === undefined ||
+      (typeof move.category === "string" && move.category in CATEGORY_LABELS))
   );
 }

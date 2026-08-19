@@ -35,17 +35,30 @@ import {
 } from "./state";
 
 /**
- * Whose turn it is.
+ * Who the table is waiting for.
  *
  * @param game - the current game
- * @returns the active seat, or null once the game is over
+ * @returns the seat holding things up, or null once the game is over
  * @remarks
- * Public knowledge, exactly as at a real table - the active player is the one
- * who rolled. During the white step the others may act as well, and the
- * referee lets them; this only says who the turn belongs to.
+ * Public knowledge, exactly as at a real table. In the colour step that is the
+ * active player, who rolled and must answer alone.
+ *
+ * The white step is the awkward one, because it is not a turn: **everybody**
+ * answers, in no particular order, and the step ends when the last of them has.
+ * So the seat named here is the first one that still owes an answer. Naming the
+ * active player instead would be true to the turn but useless to the online
+ * layer, which asks this question for one reason - whom to hurry along, and
+ * whom to play for when they never answer. A player who has already decided
+ * cannot be hurried, and a step that waits on somebody nobody is watching is a
+ * game that stops.
  */
 export function seatOnTurn(game: QwixxGame): number | null {
-  return game.phase === "gameOver" ? null : game.active;
+  let seat: number | null = null;
+  if (game.phase !== "gameOver") {
+    const owing = game.decided.findIndex((done) => !done);
+    seat = game.phase === "white" && owing >= 0 ? owing : game.active;
+  }
+  return seat;
 }
 
 /**

@@ -6,6 +6,8 @@
 "use client";
 
 import Link from "next/link";
+import { RulesButton } from "@/components/rules-button";
+import { DRECKSAU_RULES } from "@/games/drecksau/i18n/rules";
 import {
   useCallback,
   useEffect,
@@ -199,12 +201,15 @@ export function OnlineGame(): ReactElement {
             {ONLINE_TEXTS.subtitle}
           </p>
         </div>
-        <Link
-          href="/drecksau"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {ONLINE_TEXTS.backToGame}
-        </Link>
+        <div className="flex items-center gap-2">
+          <RulesButton rules={DRECKSAU_RULES} />
+          <Link
+            href="/drecksau"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {ONLINE_TEXTS.backToGame}
+          </Link>
+        </div>
       </header>
       {body}
     </div>

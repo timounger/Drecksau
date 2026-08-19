@@ -30,6 +30,7 @@ import {
   type Player,
   type PolitikGame,
 } from "@/games/politik/engine/state";
+import { ComputerBadge } from "@/online/computer-badge";
 import { POLITIK_TEXTS as T } from "@/games/politik/i18n/texts";
 
 /** Props of {@link PolitikBoard}. */
@@ -169,7 +170,8 @@ function PartyCard({
           {player.name}
           {isMe && ` (${T.youShort})`}
         </span>
-        {(player.isBot || isBotSeat) && <Chip>{T.botTookOver}</Chip>}
+        {player.isBot && <Chip>{T.botTookOver}</Chip>}
+        {isBotSeat && <ComputerBadge />}
       </header>
 
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

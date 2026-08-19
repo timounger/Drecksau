@@ -10,7 +10,7 @@
  */
 "use client";
 
-import { useMemo, type ReactElement } from "react";
+import { useMemo, type ReactElement, type ReactNode } from "react";
 import { legalMoves, skipped } from "@/games/qwixx/engine/moves";
 import {
   ROW_INK,
@@ -21,6 +21,7 @@ import {
   type QwixxMove,
 } from "@/games/qwixx/engine/state";
 import { QWIXX_TEXTS as T } from "@/games/qwixx/i18n/texts";
+import { seatsFromMine } from "@/online/seat-order";
 import { QwixxSheet } from "./qwixx-sheet";
 
 /** Props of {@link QwixxTable}. */
@@ -31,6 +32,22 @@ export type QwixxTableProps = {
   readonly onMove: (move: QwixxMove) => void;
   /** True while a computer player is being waited for. */
   readonly busy?: boolean;
+  /**
+   * The turn clock, shown beside whose turn it is.
+   *
+   * @remarks
+   * Passed in rather than built here, because only an online table has one:
+   * offline nobody is waiting on anybody.
+   */
+  readonly clock?: ReactNode;
+  /**
+   * Seats the computer plays because their player left, by seat index.
+   *
+   * @remarks
+   * Only online: offline every opponent is a computer anyway, and marking them
+   * all would say nothing.
+   */
+  readonly botSeats?: readonly number[];
 };
 
 /**
@@ -44,6 +61,8 @@ export function QwixxTable({
   mySeat,
   onMove,
   busy = false,
+  clock,
+  botSeats = [],
 }: QwixxTableProps): ReactElement {
   const mine = mySeat !== null && !busy && game.phase !== "gameOver";
   const moves = useMemo(
@@ -51,6 +70,7 @@ export function QwixxTable({
     [game, mine, mySeat],
   );
   const offers = useMemo(() => cellOffers(game, moves), [game, moves]);
+  const order = seatsFromMine(game.players.length, mySeat);
   const canPass = moves.some((move) => move.kind === "pass");
   const waiting = game.decided.filter((done) => !done).length;
   const penalty =
@@ -68,7 +88,10 @@ export function QwixxTable({
             {game.phase === "white" ? T.phaseWhiteHint : T.phaseColourHint}
           </p>
         </div>
-        <p className="text-sm">{status(game, mySeat, waiting)}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm">{status(game, mySeat, waiting)}</p>
+          {clock}
+        </div>
         {mine && canPass && (
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -89,13 +112,14 @@ export function QwixxTable({
       </div>
 
       <div className="grid gap-3 xl:grid-cols-2">
-        {game.players.map((player, seat) => (
+        {order.map((seat) => (
           <QwixxSheet
-            key={player.name + seat}
+            key={game.players[seat].name + seat}
             game={game}
             seat={seat}
             offers={seat === mySeat && mine ? offers : undefined}
             onMove={seat === mySeat && mine ? onMove : undefined}
+            isBotSeat={botSeats.includes(seat)}
           />
         ))}
       </div>

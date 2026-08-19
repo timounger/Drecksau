@@ -5,8 +5,8 @@ Bezique-/Pinochle-Familie. Regionale Varianten sind zahlreich; diese Datei legt
 die **eine** Variante fest, die die Engine in `website/src/games/binokel/engine/`
 umsetzt. Abweichende Hausregeln koennen spaeter als Optionen dazukommen.
 
-Umgesetzt wird zunaechst **3 Spieler, jeder gegen jeden** (kein Team). Andere
-Spielerzahlen kommen spaeter.
+Umgesetzt sind **3 bis 6 Spieler**, jeder gegen jeden - und zu viert wie zu
+sechst wahlweise als **Kreuzbinokel** in zwei Mannschaften.
 
 ## Karten
 
@@ -34,10 +34,19 @@ Gesamte Augen im Spiel: (11+10+4+3+2+0) x 4 x 2 = **240**, plus **10 fuer den
 letzten Stich** = **250 Stichpunkte** pro Runde. Die Siebener sind 0 Augen wert;
 mit oder ohne Siebener bleibt die Augensumme gleich.
 
-## Geben (3 Spieler)
+## Geben
 
-- **Ohne Siebener (40 Karten):** je **12 Karten**, **Dabb 4**.
-- **Mit Siebenern (48 Karten):** je **15 Karten**, **Dabb 3**.
+So viele Karten je Person, dass der Rest genau den Dabb ergibt:
+
+| Spieler | ohne Siebener (40) | mit Siebenern (48) |
+| ------- | ------------------ | ------------------ |
+| 3       | je 12, Dabb 4      | je 15, Dabb 3      |
+| 4       | je 9, Dabb 4       | je 11, Dabb 4      |
+| 5       | je 7, Dabb 5       | je 9, Dabb 3       |
+| 6       | je 6, Dabb 4       | je 7, Dabb 6       |
+
+Ohne Dabb werden die Karten gleichmaessig ausgeteilt; was nicht aufgeht, bleibt
+als kleiner Rest liegen.
 
 Der Dabb liegt verdeckt. Wer das Reizen gewinnt (Spielmacher), nimmt den Dabb
 auf und **drueckt** danach genau so viele Karten wieder ab, dass er wieder seine
@@ -145,10 +154,23 @@ Runde werden die Punkte fortgeschrieben. Erreicht ein Spieler durch ein
 **gewonnenes** (nicht abgegangenes) Spiel das Ziel, ist die Partie zu Ende; wer
 oben steht, gewinnt.
 
+## Was umgesetzt ist
+
+- **3 bis 6 Spieler.** Zu viert und zu sechst wahlweise als **Kreuzbinokel** in
+  zwei Mannschaften; die Handkartenzahl richtet sich nach der Tischgroesse, so
+  dass der Rest genau den Dabb ergibt.
+- **Mit oder ohne Siebener** (48 oder 40 Karten) und **mit oder ohne Dabb**.
+  Ohne Dabb werden die Karten gleichmaessig verteilt; was nicht aufgeht, bleibt
+  als kleiner Rest liegen.
+- **Durch** (alle Stiche): nach dem Melden ansagbar, +1000 bei Erfolg, -1000
+  sonst. Der Spielmacher spielt dabei selbst aus.
+- Frei benennbar: Farben, Daus, Dix und das Reizen - je nachdem, wie es am
+  eigenen Tisch heisst.
+
 ## Offene/spaetere Punkte
 
-- Andere Spielerzahlen (2, 4er-Kreuzbinokel).
-- Sonderspiele „Durch" (alle Stiche) und „Bettel/Untendurch" (kein Stich).
+- Spiel zu **zweit**.
+- Sonderspiel „Bettel/Untendurch" (kein Stich).
 - „Rufen" einer fehlenden Karte.
 
 ## Quellen

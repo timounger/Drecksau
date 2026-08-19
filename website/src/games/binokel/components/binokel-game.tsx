@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import { GameHeader } from "@/components/game-header";
+import { BINOKEL_RULES } from "@/games/binokel/i18n/rules";
 import { useSyncExternalStore, type ReactElement } from "react";
 import type { Suit } from "@/games/binokel/engine/cards";
 import type {
@@ -78,6 +79,7 @@ export function BinokelGame(): ReactElement {
     <BinokelNamingProvider value={naming}>
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
         <GameHeader
+          rules={BINOKEL_RULES}
           title={BINOKEL_TEXTS.title}
           subtitle={BINOKEL_TEXTS.subtitle}
         >

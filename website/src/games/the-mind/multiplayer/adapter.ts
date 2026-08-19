@@ -25,15 +25,13 @@ import {
   MAX_PLAYERS,
   MIN_PLAYERS,
   type MindGame,
+  UNKNOWN_CARD,
   type MindMove,
 } from "@/games/the-mind/engine/state";
 import type { OnlineAdapter, SeatSetup } from "@/online/adapter";
 
 /** Namespaces this game's rooms in the shared database. */
 export const THE_MIND_GAME_ID = "the-mind";
-
-/** The card a hidden one is published as; no real card is zero. */
-const HIDDEN = 0;
 
 /**
  * The Mind has nothing to choose before a game.
@@ -90,7 +88,7 @@ export const theMindAdapter: OnlineAdapter<
       ...game,
       players: game.players.map((player) => ({
         ...player,
-        hand: player.hand.map(() => HIDDEN),
+        hand: player.hand.map(() => UNKNOWN_CARD),
       })),
     };
   },

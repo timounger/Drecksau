@@ -11,7 +11,7 @@
  */
 "use client";
 
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { faceName, legalMoves } from "@/games/heckmeck/engine/moves";
 import {
   WORM,
@@ -26,6 +26,7 @@ import {
   type HeckmeckGame,
   type HeckmeckMove,
 } from "@/games/heckmeck/engine/state";
+import { ComputerBadge } from "@/online/computer-badge";
 import { HECKMECK_TEXTS as T } from "@/games/heckmeck/i18n/texts";
 
 /** Props of {@link HeckmeckTable}. */
@@ -34,6 +35,22 @@ export type HeckmeckTableProps = {
   /** The seat the reader plays, or null while only watching. */
   readonly mySeat: number | null;
   readonly onMove: (move: HeckmeckMove) => void;
+  /**
+   * The turn clock, shown beside whose turn it is.
+   *
+   * @remarks
+   * Passed in rather than built here, because only an online table has one:
+   * offline nobody is waiting on anybody.
+   */
+  readonly clock?: ReactNode;
+  /**
+   * Seats the computer plays because their player left, by seat index.
+   *
+   * @remarks
+   * Only online: offline every opponent is a computer anyway, and marking them
+   * all would say nothing.
+   */
+  readonly botSeats?: readonly number[];
 };
 
 /**
@@ -46,6 +63,8 @@ export function HeckmeckTable({
   game,
   mySeat,
   onMove,
+  clock,
+  botSeats = [],
 }: HeckmeckTableProps): ReactElement {
   const mine =
     mySeat !== null && mySeat === game.active && game.phase !== "gameOver";
@@ -54,11 +73,22 @@ export function HeckmeckTable({
   return (
     <section className="flex flex-col gap-4">
       <Grill game={game} />
-      <Turn game={game} moves={moves} mine={mine} onMove={onMove} />
+      <Turn
+        game={game}
+        moves={moves}
+        mine={mine}
+        onMove={onMove}
+        clock={clock}
+      />
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {game.players.map((player, seat) => (
           <li key={player.name + seat}>
-            <Pile game={game} seat={seat} isMe={seat === mySeat} />
+            <Pile
+              game={game}
+              seat={seat}
+              isMe={seat === mySeat}
+              isBotSeat={botSeats.includes(seat)}
+            />
           </li>
         ))}
       </ul>
@@ -121,20 +151,25 @@ function Turn({
   moves,
   mine,
   onMove,
+  clock,
 }: {
   readonly game: HeckmeckGame;
   readonly moves: readonly HeckmeckMove[];
   readonly mine: boolean;
   readonly onMove: (move: HeckmeckMove) => void;
+  readonly clock?: ReactNode;
 }): ReactElement {
   const taken = takenFaces(game.kept);
   const sum = total(game.kept);
   const offer = grillOffer(game);
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="text-sm font-semibold">
-        {mine ? T.yourTurn : T.waitingFor(game.players[game.active].name)}
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-semibold">
+          {mine ? T.yourTurn : T.waitingFor(game.players[game.active].name)}
+        </p>
+        {clock}
+      </div>
 
       <div>
         <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -296,10 +331,12 @@ function Pile({
   game,
   seat,
   isMe,
+  isBotSeat,
 }: {
   readonly game: HeckmeckGame;
   readonly seat: number;
   readonly isMe: boolean;
+  readonly isBotSeat: boolean;
 }): ReactElement {
   const player = game.players[seat];
   const top = topTile(player);
@@ -316,8 +353,8 @@ function Pile({
         <span className="min-w-0 flex-1 truncate font-semibold">
           {player.name}
           {isMe && " (Du)"}
-          {player.isBot && " \u{1F916}"}
         </span>
+        {isBotSeat && <ComputerBadge />}
         <span className="text-lg font-bold tabular-nums">
           {wormCount(player)}
         </span>

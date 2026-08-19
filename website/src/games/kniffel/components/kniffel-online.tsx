@@ -15,6 +15,8 @@
 "use client";
 
 import Link from "next/link";
+import { RulesButton } from "@/components/rules-button";
+import { KNIFFEL_RULES } from "@/games/kniffel/i18n/rules";
 import {
   useCallback,
   useEffect,
@@ -43,6 +45,8 @@ import {
 import { KNIFFEL_TEXTS as T } from "@/games/kniffel/i18n/texts";
 import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import { KniffelScores } from "./kniffel-scores";
+import { turnKeyOf } from "@/online/room";
+import { TurnClock, useTurnClock } from "@/online/turn-clock";
 import { KniffelTable } from "./kniffel-table";
 import { database } from "@/online/firebase-app";
 import {
@@ -94,6 +98,7 @@ const L = {
   startGame: "Spiel starten",
   needPlayers: `Warte auf mindestens ${MIN_PLAYERS} Spieler …`,
   waitingForHost: "Warte auf den Host …",
+  waitingForRematch: "Warte auf den Host - er kann direkt neu austeilen.",
   cancelSearch: "Suche abbrechen",
   leaveRoom: "Raum verlassen",
   online: (n: number) => `${n} online`,
@@ -253,12 +258,15 @@ export function KniffelOnlineScreen(): ReactElement {
             {L.subtitle}
           </p>
         </div>
-        <Link
-          href="/kniffel"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {L.back}
-        </Link>
+        <div className="flex items-center gap-2">
+          <RulesButton rules={KNIFFEL_RULES} />
+          <Link
+            href="/kniffel"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {L.back}
+          </Link>
+        </div>
       </header>
       {body}
     </div>
@@ -666,6 +674,16 @@ function Playing({
   const game = room.room?.game ?? null;
   const seats = room.room?.seats ?? [];
   const mySeat = seats.findIndex((seat) => seat.id === room.seatId);
+  // Seats whose player left: the host plays them on, and the table says so.
+  const botSeatIds = room.room?.botSeatIds ?? [];
+  const botSeats = seats
+    .map((seat, index) => (botSeatIds.includes(seat.id) ? index : -1))
+    .filter((index) => index >= 0);
+  const remainingMs = useTurnClock({
+    autoPlayMs: room.room?.autoPlayMs ?? null,
+    turn: room.room === null ? "" : turnKeyOf(room.room, kniffelAdapter),
+    running: game !== null && game.phase !== "gameOver",
+  });
 
   return game === null ? (
     <p className="text-sm">{L.connecting}</p>
@@ -673,12 +691,26 @@ function Playing({
     <div className="flex flex-col gap-4 lg:flex-row">
       <div className="flex flex-1 flex-col gap-4">
         {game.phase === "gameOver" && (
-          <KniffelScores game={game} onNewGame={null} />
+          <>
+            {/* The table stays together: the host deals again with the same
+                seats instead of everyone leaving and looking for a new room. */}
+            <KniffelScores
+              game={game}
+              onNewGame={room.isHost ? room.newRound : null}
+            />
+            {!room.isHost && (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                {L.waitingForRematch}
+              </p>
+            )}
+          </>
         )}
         <KniffelTable
           game={game}
           mySeat={mySeat >= 0 ? mySeat : null}
           onMove={room.sendMove}
+          clock={<TurnClock remainingMs={remainingMs} />}
+          botSeats={botSeats}
         />
       </div>
 

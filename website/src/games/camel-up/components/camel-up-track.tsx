@@ -21,6 +21,7 @@ import {
   type Camel,
   type CamelUpGame,
 } from "@/games/camel-up/engine/state";
+import { ComputerBadge } from "@/online/computer-badge";
 import { CAMEL_TEXTS as T } from "@/games/camel-up/i18n/texts";
 
 /** Props of {@link CamelUpTrack}. */
@@ -241,11 +242,15 @@ function PurseCard({
           {player.name}
           {isMe && ` (${T.youShort})`}
         </span>
-        {(player.isBot || isBotSeat) && (
+        {/* Two different things wearing the same word: an opponent that was
+            always the computer, and a seat it only took over because its
+            player left. The second is news, so it gets the shared mark. */}
+        {player.isBot && (
           <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
             {T.botBadge}
           </span>
         )}
+        {isBotSeat && <ComputerBadge />}
         <span className="text-lg font-bold tabular-nums">{player.coins}</span>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">
           {T.coinsShort}

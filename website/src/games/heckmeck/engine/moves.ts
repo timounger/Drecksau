@@ -272,12 +272,30 @@ export function startTurn(game: HeckmeckGame, active: number): HeckmeckGame {
   };
 }
 
-/** Throws a handful of dice. */
+/**
+ * Throws a handful of dice and lays them out in order.
+ *
+ * @param random - the generator, advanced once per die
+ * @param count - how many dice to throw
+ * @returns the faces, ascending, with the worms at the end
+ * @remarks
+ * Sorting is for reading, not for the rules: which face you take is decided by
+ * counting how many of each are lying there, and eight dice in a jumble have to
+ * be counted one by one. In order they are seen at a glance.
+ *
+ * The worms come last by themselves, because {@link WORM} is the sixth face -
+ * the one worth more than the five. That is also the order the dice sit in on
+ * the box, so it is what a player expects.
+ *
+ * Nothing else depends on the order: a face is picked by its value and the dice
+ * set aside keep their own record in `kept`.
+ */
 function throwDice(random: Random, count: number): readonly number[] {
-  return Array.from(
+  const thrown = Array.from(
     { length: count },
     () => 1 + Math.floor(random.next() * WORM),
   );
+  return thrown.sort((left, right) => left - right);
 }
 
 /**

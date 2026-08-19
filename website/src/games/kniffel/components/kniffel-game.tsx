@@ -11,6 +11,7 @@
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
+import { KNIFFEL_RULES } from "@/games/kniffel/i18n/rules";
 import { useKniffelGame } from "@/games/kniffel/hooks/use-kniffel-game";
 import {
   getServerSettingsSnapshot,
@@ -39,7 +40,7 @@ export function KniffelGameScreen(): ReactElement {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
-      <GameHeader title={T.title} subtitle={T.tagline}>
+      <GameHeader rules={KNIFFEL_RULES} title={T.title} subtitle={T.tagline}>
         <button
           type="button"
           onClick={newGame}

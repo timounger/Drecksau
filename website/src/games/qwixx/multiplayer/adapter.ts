@@ -83,10 +83,19 @@ export const qwixxAdapter: OnlineAdapter<
     return game.phase === "gameOver";
   },
 
+  turnKey(game): string {
+    // The phase belongs in the key: the white step and the colour step are two
+    // separate decisions, and often by the same person. Keyed on the seat alone
+    // they would share one budget, so answering the white dice slowly would eat
+    // the time for the colour die.
+    return `${game.phase}-${seatOnTurn(game) ?? -1}`;
+  },
+
   aiMove(game): QwixxMove | null {
-    // Only ever asked for the seat the layer thinks is on turn, which is the
-    // active player. During the white step the others answer for themselves.
-    return aiMove(game, game.active);
+    // Must be the very seat seatIndexOnTurn names, because that is the seat the
+    // layer will apply the move as. Ask the same question rather than assuming
+    // the active player: in the white step it is whoever still owes an answer.
+    return aiMove(game, seatOnTurn(game) ?? game.active);
   },
 
   redact(game): QwixxGame {

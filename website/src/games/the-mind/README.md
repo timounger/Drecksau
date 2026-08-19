@@ -9,35 +9,30 @@ Das Kartenspiel von Wolfgang Warsch. Ihr legt gemeinsam die Zahlen 1 bis 100 in
 niedrigste Karte zu haben. Das Einzige, worauf man sich stützen kann, ist, wie
 lange die anderen still sind.
 
-## Spielen
+## Spielen - nur online
 
-`/the-mind` teilt sofort ein Spiel mit Computerpartnern aus:
+The Mind lebt davon, herauszuspüren, wie lange die anderen zögern. Dafür braucht
+es echte Mitspieler, deshalb gibt es **kein Spiel gegen den Computer**:
 
-| Seite                     | Was dort passiert                     |
-| ------------------------- | ------------------------------------- |
-| `/the-mind`               | Spiel mit Computerpartnern            |
-| `/the-mind/einstellungen` | Spielerzahl (2 bis 4)                 |
-| `/the-mind/online`        | automatische Suche oder privater Raum |
-| `/the-mind/statistik`     | gespielte Partien und Erfolge         |
+| Seite                 | Was dort passiert                     |
+| --------------------- | ------------------------------------- |
+| `/the-mind`           | Regeln und der Weg ins Spiel          |
+| `/the-mind/online`    | automatische Suche oder privater Raum |
+| `/the-mind/statistik` | gespielte Partien und Erfolge         |
 
 Kooperativ heißt: Es gibt keine Rangliste und nichts zu vergleichen. Gewonnen
-oder verloren wird gemeinsam, und die Statistik zählt es genauso.
+oder verloren wird gemeinsam, und die Statistik zählt es genauso - gezählt wird
+im eigenen Browser, aus dem Online-Tisch heraus
+([hooks/use-mind-stats.ts](hooks/use-mind-stats.ts)).
 
-## Die Computerpartner sind eine Uhr, kein Gegner
+## Warum es keine Computerpartner gibt
 
 Was gelegt wird, steht immer fest - die niedrigste Karte. Ein Computerpartner
-hat also **gar keine Wahl**; sein ganzer Beitrag ist das _Wann_, und das Wann
-ist das Spiel.
-
-Er wartet im Verhältnis zum **Abstand** zwischen seiner niedrigsten Karte und
-der obersten auf dem Stapel - rund eine Sekunde je zehn Punkte, also genau die
-Faustregel, die das Spiel einem selbst beibringt. Wer die 12 über einer 9 hält,
-legt fast sofort; wer die 80 hält, sitzt auf den Händen.
-
-Und die Uhr läuft **nicht** einmal ab, sondern wird bei jeder Änderung neu
-gestellt ([hooks/use-the-mind-game.ts](hooks/use-the-mind-game.ts)). Das ist
-keine Abkürzung, sondern richtig: Kommt die 40 herunter, muss der mit der 44
-nicht mehr lange warten. Genau das macht ein Mensch am Tisch auch.
+hätte also **gar keine Wahl**; sein ganzer Beitrag wäre das _Wann_, und das Wann
+ist das Spiel. Er könnte es nur auf zwei Arten bestimmen: Er kennt alle Hände -
+dann ist es kein Spiel mehr - oder er wartet eine ausgedachte Zahl von Sekunden,
+was auf dasselbe hinausläuft. Beides nimmt den Menschen am Tisch genau das weg,
+wofür sie gekommen sind.
 
 ## Was auf dem Bildschirm steht - und was nicht
 
@@ -48,6 +43,14 @@ wäre, keinen Fortschrittsbalken, keinen Hinweis.
 
 Das Einzige, was die anderen von sich geben können, ist die **erhobene Hand**
 für einen Wurfstern - das ist im Original das einzige erlaubte Signal.
+
+Kurz nach einem Zug kann eine eigene Karte als **… (verdeckt)** dastehen. Das
+ist kein Fehler: Der Host schickt den Tisch mit lauter Platzhaltern und jedem
+Sitz seine echten Karten getrennt daneben, und beide Wege kommen unabhängig an.
+Solange sie nicht zusammenpassen, zeigt der Bildschirm lieber nichts als eine
+Zahl, die er nicht kennt
+([engine/state.ts](engine/state.ts), `UNKNOWN_CARD`). Legen kann man trotzdem -
+welche Karte herunterkommt, entscheidet ohnehin der Schiedsrichter.
 
 ## Aufbau des Spielmoduls
 

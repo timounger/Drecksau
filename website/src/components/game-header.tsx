@@ -16,6 +16,8 @@
 import Link from "next/link";
 import type { ReactElement, ReactNode } from "react";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
+import type { GameRules } from "./game-rules";
+import { RulesButton } from "./rules-button";
 
 /** Props of {@link GameHeader}. */
 export type GameHeaderProps = {
@@ -30,6 +32,16 @@ export type GameHeaderProps = {
    * They may wrap freely among themselves; only the way back is pinned.
    */
   readonly children?: ReactNode;
+  /**
+   * The game's rules, if it has them written down.
+   *
+   * @remarks
+   * Pinned beside the way back rather than left among the game's own buttons,
+   * for the same reason the way back is: looking the rules up is something you
+   * do in a hurry, mid-game, and a button that sits somewhere different in
+   * every game is one you have to find first.
+   */
+  readonly rules?: GameRules;
 };
 
 /**
@@ -42,6 +54,7 @@ export function GameHeader({
   title,
   subtitle,
   children,
+  rules,
 }: GameHeaderProps): ReactElement {
   return (
     <header className="flex flex-col gap-3 lg:flex-row lg:items-start">
@@ -66,6 +79,7 @@ export function GameHeader({
             two extra words push the game's own subtitle into a second line, so
             there the destination alone has to do - the accessible name stays
             the long one either way. */}
+        {rules !== undefined && <RulesButton rules={rules} />}
         <Link
           href="/"
           data-testid="collection-link"

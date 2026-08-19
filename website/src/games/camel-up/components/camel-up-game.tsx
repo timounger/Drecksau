@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
+import { CAMEL_UP_RULES } from "@/games/camel-up/i18n/rules";
 import { useCamelUpGame } from "@/games/camel-up/hooks/use-camel-up-game";
 import {
   getServerSettingsSnapshot,
@@ -42,6 +43,7 @@ export function CamelUpGame(): ReactElement {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
       <GameHeader
+        rules={CAMEL_UP_RULES}
         title={T.title}
         subtitle={`${T.leg(game.leg)} · ${T.diceLeft(game.dice.length)}`}
       >

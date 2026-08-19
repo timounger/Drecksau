@@ -153,6 +153,25 @@ export type OnlineAdapter<G, M, H, O> = {
   turnTimeoutMs?(game: G, configuredMs: number | null): number | null;
 
   /**
+   * What counts as one turn for the clock.
+   *
+   * @param game - the game state
+   * @returns a value that stays the same for as long as one turn lasts
+   * @remarks
+   * Optional, and only interesting for a game where one turn is **several
+   * moves**. The auto-play clock is restarted whenever this changes and left
+   * running when it does not, so the timeout is a budget for the whole turn
+   * rather than for each move inside it. Without that, a player who keeps
+   * fiddling - holding a die, letting it go, holding it again - restarts their
+   * own clock forever and the table waits as long as they like.
+   *
+   * The default is the seat on turn, which is right for every game where a turn
+   * is one move. A game whose turn has phases should fold the phase in, so each
+   * phase gets its own budget instead of sharing one.
+   */
+  turnKey?(game: G): string;
+
+  /**
    * Hides every seat's private data for the shared snapshot.
    *
    * @param game - the authoritative game state

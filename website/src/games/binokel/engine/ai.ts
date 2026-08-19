@@ -141,11 +141,17 @@ function keepScore(card: Card, trump: Suit): number {
  * @param difficulty - how well to play; defaults to the middle level
  * @returns the id of the card to play
  * @remarks
- * The legal set already forces a player to head the trick when they can, so the
- * cheapest legal card ("mittel") wins tricks cheaply when winning is required
- * and sheds a low card otherwise. "leicht" plays a random legal card, throwing
- * away winners; "schwer" additionally cashes its winners by leading its
- * strongest card to pull trumps and take points.
+ * Two quite different questions, and only one of them is about being cheap.
+ *
+ * **Following** is where the cheapest legal card is right: {@link legalPlays}
+ * has already forced the player to head the trick if they can, so the cheapest
+ * of those wins it for the least, and when none of them wins, the cheapest is
+ * the right thing to throw away.
+ *
+ * **Leading** is the opposite. Nothing has to be beaten, so a low card is
+ * simply handed to whoever plays after you - and it takes your own points with
+ * it. So both playing levels lead something worth having; they differ in
+ * whether they spend trumps on it.
  */
 export function chooseCard(
   state: GameState,
@@ -153,17 +159,42 @@ export function chooseCard(
 ): string {
   const actor = state.players[state.currentPlayerIndex];
   const legal = legalPlays(actor.hand, state.currentTrick, state.trump);
-
+  let chosen: Card;
   if (difficulty === "leicht") {
-    return randomCard(state, legal).id;
+    chosen = randomCard(state, legal);
+  } else if (state.currentTrick.length === 0) {
+    chosen = cardToLead(legal, state.trump, difficulty);
+  } else {
+    chosen = legal.reduce((best, card) => (cheaper(card, best) ? card : best));
   }
-  if (difficulty === "schwer" && state.currentTrick.length === 0) {
-    // On lead there is no card to beat, so cash the strongest one.
-    return legal.reduce((best, card) =>
-      beatsForLead(card, best) ? card : best,
-    ).id;
-  }
-  return legal.reduce((best, card) => (cheaper(card, best) ? card : best)).id;
+  return chosen.id;
+}
+
+/**
+ * The card to come out with.
+ *
+ * @param legal - the cards that may be led, which on lead is the whole hand
+ * @param trump - the trump suit
+ * @param difficulty - how well to play
+ * @returns the card to lead
+ * @remarks
+ * Both levels cash a high card rather than dribbling out a low one. What tells
+ * them apart is the trump suit: **schwer** leads its very best card, trumps
+ * included, which drags out everybody else's trumps and clears the way for the
+ * rest of its hand. **Mittel** keeps its trumps back and cashes its best side
+ * card instead - decent play, and a step behind, because a side ace can still
+ * be trumped by somebody who is void.
+ *
+ * A hand of nothing but trumps leaves no choice, and then both lead the same.
+ */
+function cardToLead(
+  legal: readonly Card[],
+  trump: Suit | null,
+  difficulty: Difficulty,
+): Card {
+  const side = legal.filter((card) => card.suit !== trump);
+  const from = difficulty === "schwer" || side.length === 0 ? legal : side;
+  return from.reduce((best, card) => (beatsForLead(card, best) ? card : best));
 }
 
 /** Whether the first card is the cheaper shed - lower value, then weaker. */

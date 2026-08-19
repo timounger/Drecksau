@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
+import { POLITIK_RULES } from "@/games/politik/i18n/rules";
 import { THEME_ICONS, THEME_LABELS } from "@/games/politik/engine/cards";
 import {
   CYCLES,
@@ -47,7 +48,11 @@ export function PolitikGame(): ReactElement {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
-      <GameHeader title={T.title} subtitle={<Subtitle game={game} />}>
+      <GameHeader
+        rules={POLITIK_RULES}
+        title={T.title}
+        subtitle={<Subtitle game={game} />}
+      >
         <button
           type="button"
           onClick={newGame}

@@ -11,7 +11,7 @@
  */
 "use client";
 
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { legalMoves } from "@/games/kniffel/engine/moves";
 import {
   BONUS_TARGET,
@@ -27,7 +27,9 @@ import {
   type KniffelGame,
   type KniffelMove,
 } from "@/games/kniffel/engine/state";
+import { ComputerBadge } from "@/online/computer-badge";
 import { KNIFFEL_TEXTS as T } from "@/games/kniffel/i18n/texts";
+import { seatsFromMine } from "@/online/seat-order";
 
 /** Props of {@link KniffelTable}. */
 export type KniffelTableProps = {
@@ -35,6 +37,22 @@ export type KniffelTableProps = {
   /** The seat the reader plays, or null while only watching. */
   readonly mySeat: number | null;
   readonly onMove: (move: KniffelMove) => void;
+  /**
+   * The turn clock, shown beside whose turn it is.
+   *
+   * @remarks
+   * Passed in rather than built here, because only an online table has one:
+   * offline nobody is waiting on anybody.
+   */
+  readonly clock?: ReactNode;
+  /**
+   * Seats the computer plays because their player left, by seat index.
+   *
+   * @remarks
+   * Only online: offline every opponent is a computer anyway, and marking them
+   * all would say nothing.
+   */
+  readonly botSeats?: readonly number[];
 };
 
 /**
@@ -47,6 +65,8 @@ export function KniffelTable({
   game,
   mySeat,
   onMove,
+  clock,
+  botSeats = [],
 }: KniffelTableProps): ReactElement {
   const mine =
     mySeat !== null && mySeat === game.active && game.phase === "turn";
@@ -56,12 +76,15 @@ export function KniffelTable({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-sm font-semibold">
-          {mine ? T.yourTurn : T.waitingFor(game.players[game.active].name)}
-          <span className="ml-2 font-normal text-zinc-500 dark:text-zinc-400">
-            {T.rollsLeft(game.rollsLeft)}
-          </span>
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold">
+            {mine ? T.yourTurn : T.waitingFor(game.players[game.active].name)}
+            <span className="ml-2 font-normal text-zinc-500 dark:text-zinc-400">
+              {T.rollsLeft(game.rollsLeft)}
+            </span>
+          </p>
+          {clock}
+        </div>
 
         <ul className="flex flex-wrap gap-2">
           {game.dice.map((die, index) => (
@@ -96,12 +119,13 @@ export function KniffelTable({
       </div>
 
       <div className="grid gap-3 xl:grid-cols-2">
-        {game.players.map((player, seat) => (
+        {seatsFromMine(game.players.length, mySeat).map((seat) => (
           <Block
-            key={player.name + seat}
+            key={game.players[seat].name + seat}
             game={game}
             seat={seat}
             isMe={seat === mySeat}
+            isBotSeat={botSeats.includes(seat)}
             open={mine && seat === mySeat}
             onMove={onMove}
           />
@@ -146,12 +170,14 @@ function Block({
   game,
   seat,
   isMe,
+  isBotSeat,
   open,
   onMove,
 }: {
   readonly game: KniffelGame;
   readonly seat: number;
   readonly isMe: boolean;
+  readonly isBotSeat: boolean;
   readonly open: boolean;
   readonly onMove: (move: KniffelMove) => void;
 }): ReactElement {
@@ -169,8 +195,8 @@ function Block({
         <span className="min-w-0 flex-1 truncate font-semibold">
           {player.name}
           {isMe && " (Du)"}
-          {player.isBot && " \u{1F916}"}
         </span>
+        {isBotSeat && <ComputerBadge />}
         <span className="text-lg font-bold tabular-nums">
           {sheetTotal(player.sheet)}
         </span>

@@ -11,6 +11,7 @@
 
 import Link from "next/link";
 import { GameHeader } from "@/components/game-header";
+import { PANZERKISTE_RULES } from "@/games/panzerkiste/i18n/rules";
 import { useRef, type ReactElement } from "react";
 import { useFullscreen } from "@/lib/screen/use-fullscreen";
 import { useShotRatio } from "@/lib/screen/use-shot-ratio";
@@ -63,6 +64,7 @@ export function PanzerkisteGame(): ReactElement {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-4">
       <GameHeader
+        rules={PANZERKISTE_RULES}
         title={PANZERKISTE_TEXTS.title}
         subtitle={PANZERKISTE_TEXTS.subtitle}
       >

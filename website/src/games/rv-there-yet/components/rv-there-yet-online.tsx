@@ -13,6 +13,8 @@
 "use client";
 
 import Link from "next/link";
+import { RulesButton } from "@/components/rules-button";
+import { RV_RULES } from "@/games/rv-there-yet/i18n/rules";
 import {
   useCallback,
   useEffect,
@@ -231,12 +233,15 @@ export function RvThereYetOnlineScreen(): ReactElement {
             {T.subtitle}
           </p>
         </div>
-        <Link
-          href="/rv-there-yet"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {T.backToGame}
-        </Link>
+        <div className="flex items-center gap-2">
+          <RulesButton rules={RV_RULES} />
+          <Link
+            href="/rv-there-yet"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {T.backToGame}
+          </Link>
+        </div>
       </header>
       {body}
     </div>

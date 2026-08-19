@@ -26,6 +26,7 @@ import {
   markSeatsAsBots,
   returnToLobby,
   seatOnTurn,
+  turnKeyOf,
   startGame,
 } from "./room";
 import type { ChatMessage, RoomTransport } from "./transport";
@@ -299,6 +300,9 @@ async function installHost<G, M, H, O>(
   sinks.setIsHost(true);
   let authoritative = initialRoom;
   let aiTimer: ReturnType<typeof setTimeout> | undefined;
+  // The turn the running timer belongs to, so a move inside the same turn does
+  // not hand its player a fresh timeout.
+  let armedFor: string | null = null;
 
   /** Stores, publishes and shows a new authoritative room. */
   const commit = (next: RoomState<G>) => {
@@ -308,7 +312,7 @@ async function installHost<G, M, H, O>(
       sinks.setRoom(next);
       sinks.setStatus(next.phase);
     }
-    // Any change restarts the clock for whoever is now on turn.
+    // A new turn restarts the clock; a move within one lets it run on.
     scheduleAiTurn();
   };
 
@@ -322,14 +326,42 @@ async function installHost<G, M, H, O>(
     }
   };
 
-  /** Plays a move for the seat on turn, at the game's chosen difficulty. */
+  /**
+   * Plays a move for the seat on turn, at the game's chosen difficulty.
+   *
+   * @remarks
+   * The clock is rearmed here when nothing came of it. The timer is normally
+   * restarted by {@link commit}, which only runs when the referee accepted the
+   * move - so an auto-play the referee turns down, or a game that offers no
+   * move at all, would otherwise stop the clock for good and leave the table
+   * waiting on somebody who is not there. That is a stall no player can undo,
+   * and it is worth one idle timer per timeout to make it impossible.
+   */
   const playAiTurn = () => {
+    // Spent: the handle must go before anything else, or the guard in
+    // scheduleAiTurn would take a fired timer for a running one and never rearm.
+    aiTimer = undefined;
+    armedFor = null;
     const onTurn = seatOnTurn(authoritative, adapter);
     // Do nothing once the room has been left, so no stray write goes out.
     if (!sinks.cancelled() && onTurn !== null && authoritative.game !== null) {
+      const was = turnKeyOf(authoritative, adapter);
+      const before = authoritative;
       const move = adapter.aiMove(authoritative.game);
       if (move !== null) {
         refereeApply(onTurn.id, move);
+      }
+      if (authoritative === before) {
+        scheduleAiTurn();
+      } else if (turnKeyOf(authoritative, adapter) === was) {
+        // The turn is not over. Having taken it over, the computer plays it out
+        // at its own pace instead of handing a fresh timeout back for each
+        // remaining move - a turn of five held dice would otherwise take
+        // several minutes to finish, which is not what running out of time
+        // means to the people watching.
+        clearTimeout(aiTimer);
+        aiTimer = setTimeout(playAiTurn, BOT_MOVE_DELAY_MS);
+        armedFor = was;
       }
     }
   };
@@ -340,9 +372,17 @@ async function installHost<G, M, H, O>(
    * once the auto-play timeout runs out, and only if the host turned that on.
    */
   const scheduleAiTurn = () => {
-    clearTimeout(aiTimer);
     const onTurn = seatOnTurn(authoritative, adapter);
     const game = authoritative.game;
+    const key = turnKeyOf(authoritative, adapter);
+    // Still the same turn: whatever is already running is this turn's budget,
+    // and starting over would hand it back every time its player touched a die.
+    if (key !== "" && key === armedFor && aiTimer !== undefined) {
+      return;
+    }
+    clearTimeout(aiTimer);
+    aiTimer = undefined;
+    armedFor = key === "" ? null : key;
     if (authoritative.phase !== "playing" || onTurn === null || game === null) {
       return;
     }

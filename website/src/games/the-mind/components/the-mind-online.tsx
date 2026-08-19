@@ -15,6 +15,8 @@
 "use client";
 
 import Link from "next/link";
+import { RulesButton } from "@/components/rules-button";
+import { MIND_RULES } from "@/games/the-mind/i18n/rules";
 import {
   useCallback,
   useEffect,
@@ -42,6 +44,7 @@ import {
 } from "@/games/the-mind/settings/online-settings";
 import { MIND_TEXTS as T } from "@/games/the-mind/i18n/texts";
 import { loadPlayerName, savePlayerName } from "@/online/player-name";
+import { useMindStats } from "@/games/the-mind/hooks/use-mind-stats";
 import { MindLevelPanel, MindScores } from "./the-mind-scores";
 import { MindTable } from "./the-mind-table";
 import { database } from "@/online/firebase-app";
@@ -94,6 +97,7 @@ const L = {
   startGame: "Spiel starten",
   needPlayers: `Warte auf mindestens ${MIN_PLAYERS} Spieler …`,
   waitingForHost: "Warte auf den Host …",
+  waitingForRematch: "Warte auf den Host - er kann direkt neu austeilen.",
   cancelSearch: "Suche abbrechen",
   leaveRoom: "Raum verlassen",
   online: (n: number) => `${n} online`,
@@ -253,12 +257,15 @@ export function TheMindOnlineScreen(): ReactElement {
             {L.subtitle}
           </p>
         </div>
-        <Link
-          href="/the-mind"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {L.back}
-        </Link>
+        <div className="flex items-center gap-2">
+          <RulesButton rules={MIND_RULES} />
+          <Link
+            href="/the-mind"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {L.back}
+          </Link>
+        </div>
       </header>
       {body}
     </div>
@@ -671,6 +678,7 @@ function Playing({
   const botSeats = seats
     .map((seat, index) => (botSeatIds.includes(seat.id) ? index : -1))
     .filter((index) => index >= 0);
+  useMindStats(game);
 
   return game === null ? (
     <p className="text-sm">{L.connecting}</p>
@@ -678,7 +686,19 @@ function Playing({
     <div className="flex flex-col gap-4 lg:flex-row">
       <div className="flex flex-1 flex-col gap-4">
         {game.phase === "gameOver" && (
-          <MindScores game={game} onNewGame={null} />
+          <>
+            {/* The table stays together: the host deals again with the same
+                seats instead of everyone leaving and looking for a new room. */}
+            <MindScores
+              game={game}
+              onNewGame={room.isHost ? room.newRound : null}
+            />
+            {!room.isHost && (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                {L.waitingForRematch}
+              </p>
+            )}
+          </>
         )}
         {game.phase === "levelOver" && (
           <MindLevelPanel game={game} onMove={room.sendMove} />

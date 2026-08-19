@@ -18,9 +18,11 @@ import {
   cardsLeft,
   shurikenAgreed,
   topCard,
+  UNKNOWN_CARD,
   type MindGame,
   type MindMove,
 } from "@/games/the-mind/engine/state";
+import { ComputerBadge } from "@/online/computer-badge";
 import { MIND_TEXTS as T } from "@/games/the-mind/i18n/texts";
 
 /** Props of {@link MindTable}. */
@@ -80,7 +82,7 @@ export function MindTable({
           >
             <span className="min-w-0 flex-1 truncate font-semibold">
               {player.name}
-              {(player.isBot || botSeats.includes(seat)) && " 🤖"}
+              {botSeats.includes(seat) && <ComputerBadge />}
             </span>
             {player.wantsShuriken && (
               <span
@@ -187,16 +189,24 @@ function MyHand({
       ) : (
         <ul className="flex flex-wrap gap-2">
           {me.hand.map((card, index) => (
-            <li key={card}>
+            // Keyed by place as well as value: a hand still waiting for its
+            // private copy is all placeholders, and those are not unique.
+            <li key={`${index}-${card}`}>
               <span
-                data-testid={`mind-card-${card}`}
+                data-testid={
+                  card === UNKNOWN_CARD
+                    ? "mind-card-hidden"
+                    : `mind-card-${card}`
+                }
                 className={`block rounded-xl border px-4 py-3 text-2xl font-bold tabular-nums ${
-                  index === 0
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-100"
-                    : "border-zinc-300 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
+                  card === UNKNOWN_CARD
+                    ? "border-dashed border-zinc-300 text-zinc-300 dark:border-zinc-700 dark:text-zinc-600"
+                    : index === 0
+                      ? "border-indigo-500 bg-indigo-50 text-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-100"
+                      : "border-zinc-300 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
                 }`}
               >
-                {card}
+                {card === UNKNOWN_CARD ? T.cardUnknown : card}
               </span>
             </li>
           ))}
@@ -211,7 +221,9 @@ function MyHand({
           onClick={() => onMove({ kind: "play" })}
           className="cursor-pointer rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {playable ? T.playCard(me.hand[0]) : T.playLowest}
+          {playable && me.hand[0] !== UNKNOWN_CARD
+            ? T.playCard(me.hand[0])
+            : T.playLowest}
         </button>
         <button
           type="button"

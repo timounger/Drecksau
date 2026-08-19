@@ -19,7 +19,7 @@ jedes Spiel hat seine eigene Seite.
 | [Qwixx](website/src/games/qwixx/README.md)                      | Wuerfeln und ankreuzen - was du ueberspringst, ist weg.                                                  | Computer + Online    |
 | [RV There Yet?](website/src/games/rv-there-yet/README.md)       | Seitenansicht: das Wohnmobil ueber den Berg bringen - notfalls mit der Seilwinde.                        | Allein + Koop-Online |
 | [Skyjo](website/src/games/skyjo/README.md)                      | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online    |
-| [The Mind](website/src/games/the-mind/README.md)                | Kooperativ: gemeinsam aufsteigend ablegen - ohne ein Wort.                                               | Computer + Online    |
+| [The Mind](website/src/games/the-mind/README.md)                | Kooperativ: gemeinsam aufsteigend ablegen - ohne ein Wort.                                               | Nur Online           |
 
 Weitere Spiele docken ueber die Registry an (siehe
 [Ein weiteres Spiel hinzufuegen](#ein-weiteres-spiel-hinzufuegen)).
@@ -71,7 +71,7 @@ website/src/
     rv-there-yet/   Fahrspiel in der Seitenansicht, allein
     politik/        Das politische Talent - Brettspiel gegen Computer oder online
     camel-up/       Camel Up - Kamelrennen gegen Computer oder online
-    the-mind/       The Mind - kooperativ gegen die Reihenfolge
+    the-mind/       The Mind - kooperativ gegen die Reihenfolge (nur online)
     qwixx/          Qwixx - Wuerfelspiel gegen Computer oder online
     heckmeck/       Heckmeck am Bratwurmeck - Wuerfelspiel gegen Computer oder online
     kniffel/        Kniffel - der Wuerfelklassiker, auch allein

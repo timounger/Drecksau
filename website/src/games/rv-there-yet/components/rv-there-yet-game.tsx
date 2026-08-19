@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { useRef, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
+import { RV_RULES } from "@/games/rv-there-yet/i18n/rules";
 import { useFullscreen } from "@/lib/screen/use-fullscreen";
 import { useShotRatio } from "@/lib/screen/use-shot-ratio";
 import { CANVAS_H, CANVAS_W } from "@/games/rv-there-yet/components/render";
@@ -69,7 +70,11 @@ export function RvThereYetGame(): ReactElement {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
-      <GameHeader title={RV_TEXTS.title} subtitle={RV_TEXTS.subtitle}>
+      <GameHeader
+        rules={RV_RULES}
+        title={RV_TEXTS.title}
+        subtitle={RV_TEXTS.subtitle}
+      >
         <button
           type="button"
           data-testid="rv-new-game"

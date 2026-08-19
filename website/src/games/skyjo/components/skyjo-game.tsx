@@ -11,6 +11,7 @@
 
 import Link from "next/link";
 import { GameHeader } from "@/components/game-header";
+import { SKYJO_RULES } from "@/games/skyjo/i18n/rules";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { useSkyjoGame } from "@/games/skyjo/hooks/use-skyjo-game";
 import {
@@ -41,6 +42,7 @@ export function SkyjoGame(): ReactElement {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-4">
       <GameHeader
+        rules={SKYJO_RULES}
         title={T.title}
         subtitle={`${T.round(game.round)} · ${DIFFICULTY_LABELS[settings.difficulty]}`}
       >
