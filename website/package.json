@@ -19,8 +19,8 @@
     "deps:upgrade": "npx --yes npm-check-updates -u && npm install"
   },
   "dependencies": {
-    "firebase": "^12.16.0",
-    "next": "16.2.12",
+    "firebase": "^12.17.1",
+    "next": "16.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -30,7 +30,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.3.1",
     "prettier": "^3.9.6",
     "tailwindcss": "^4",
     "typedoc": "^0.28.20",
