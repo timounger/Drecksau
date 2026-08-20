@@ -26,6 +26,8 @@ import heckmeck from "./heckmeck/assets/logo.webp";
 import kniffel from "./kniffel/assets/logo.webp";
 import jammerlappen from "./jammerlappen/assets/logo.webp";
 import explodingKittens from "./exploding-kittens/assets/logo.webp";
+import codenames from "./codenames/assets/logo.webp";
+import flip7 from "./flip-7/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -44,4 +46,6 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   kniffel,
   jammerlappen,
   "exploding-kittens": explodingKittens,
+  codenames,
+  "flip-7": flip7,
 };

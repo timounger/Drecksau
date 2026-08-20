@@ -322,8 +322,14 @@ export function legalMoves(
       if (hasWorm(game.kept) && grillOffer(game) !== null) {
         moves.push({ kind: "take" });
       }
-      for (const victim of stealable(game)) {
-        moves.push({ kind: "steal", seat: victim });
+      // The worm gates stealing exactly as it gates taking: without one the
+      // dice are worth nothing, so they cannot match anybody's tile either.
+      // Leaving it off here put a button on screen that the referee then
+      // refused - the one thing a list of legal moves must never do.
+      if (hasWorm(game.kept)) {
+        for (const victim of stealable(game)) {
+          moves.push({ kind: "steal", seat: victim });
+        }
       }
     }
   }

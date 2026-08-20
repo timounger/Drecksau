@@ -26,7 +26,9 @@ export type GameId =
   | "kniffel"
   | "kuhle-kuehe"
   | "jammerlappen"
-  | "exploding-kittens";
+  | "exploding-kittens"
+  | "codenames"
+  | "flip-7";
 
 /** One game of the collection. */
 export type GameDefinition = {
@@ -155,6 +157,20 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Zieh keine Bombe - wer als Letzter lebt, gewinnt.",
     emoji: "\u{1F4A5}",
     href: "/exploding-kittens",
+  },
+  {
+    id: "codenames",
+    name: "Codenames",
+    tagline: "Ein Wort, eine Zahl - und der Attentäter wartet.",
+    emoji: "\u{1F575}\u{FE0F}",
+    href: "/codenames",
+  },
+  {
+    id: "flip-7",
+    name: "Flip 7",
+    tagline: "Sieben verschiedene Zahlen - oder eine zu viel.",
+    emoji: "\u{1F522}",
+    href: "/flip-7",
   },
 ];
 

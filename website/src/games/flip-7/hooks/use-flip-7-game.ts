@@ -3,24 +3,26 @@
  *
  * @module
  * @remarks
- * A computer turn is not one move but a run of them - set a value aside, throw
- * again, set another aside, stop - so the effect fires repeatedly for the same
- * seat with a pause between. Watching the dice come off the table one value at
- * a time is most of the fun of somebody else's turn.
+ * The effect asks the engine **who the table is waiting for** rather than whose
+ * turn it is, and in this game those come apart constantly: an action card is
+ * pointed by whoever drew it, the three cards of a Dreimal are turned over by
+ * their victim, and the next round is dealt by the next dealer. None of those
+ * need be the player on turn.
  */
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { aiMove } from "@/games/kniffel/engine/ai";
-import { applyMove } from "@/games/kniffel/engine/moves";
-import { isKniffelGame } from "@/games/kniffel/engine/serialization";
-import { createGame, soloSeats } from "@/games/kniffel/engine/setup";
+import { aiMove, botWaitMs } from "@/games/flip-7/engine/ai";
+import { applyMove, seatOnTurn } from "@/games/flip-7/engine/moves";
+import { isFlip7Game } from "@/games/flip-7/engine/serialization";
+import { createGame, soloSeats } from "@/games/flip-7/engine/setup";
 import {
+  SELF_NAME,
   leaders,
-  type KniffelGame,
-  type KniffelMove,
-} from "@/games/kniffel/engine/state";
-import type { KniffelSettings } from "@/games/kniffel/settings/app-settings";
+  type Flip7Game,
+  type Flip7Move,
+} from "@/games/flip-7/engine/state";
+import type { Flip7Settings } from "@/games/flip-7/settings/app-settings";
 import type { GameId } from "@/games/registry";
 import {
   clearSession,
@@ -35,16 +37,13 @@ import {
 import { invalidateStats } from "@/lib/stats/stats-store";
 
 /** This game's id for storage and statistics. */
-const GAME_ID: GameId = "kniffel";
-
-/** How long a computer player pauses before answering, so it can be followed. */
-const AI_MOVE_DELAY_MS = 750;
+const GAME_ID: GameId = "flip-7";
 
 /** The human always sits first. */
 const MY_SEAT = 0;
 
 /** What the human seat is called at the table. */
-const HUMAN_NAME = "Du";
+const HUMAN_NAME = SELF_NAME;
 
 /** Longest gap counted as play time, so a tab left open does not inflate it. */
 const MAX_COUNTED_PAUSE_MS = 60_000;
@@ -53,13 +52,13 @@ const MAX_COUNTED_PAUSE_MS = 60_000;
  * The deal the very first render uses.
  *
  * @remarks
- * Fixed on purpose: the page is prerendered, and a random roll would differ
+ * Fixed on purpose: the page is prerendered, and a random shuffle would differ
  * from the markup the browser gets. The real game replaces it on mount.
  */
-const INITIAL_SEED = 20240808;
+const INITIAL_SEED = 20240823;
 
 /** Opponents the prerendered placeholder table shows. */
-const DEFAULT_OPPONENTS = 2;
+const DEFAULT_OPPONENTS = 3;
 
 /** The bookkeeping that travels with a saved game. */
 type SessionMeta = {
@@ -69,23 +68,23 @@ type SessionMeta = {
 };
 
 /** What the game screen needs from the hook. */
-export type KniffelSession = {
-  readonly game: KniffelGame;
+export type Flip7Session = {
+  readonly game: Flip7Game;
   /** Which seat the human plays. */
   readonly mySeat: number;
-  readonly play: (move: KniffelMove) => void;
-  /** Deals a fresh game with the settings as they stand. */
+  readonly play: (move: Flip7Move) => void;
+  /** Shuffles a fresh game with the settings as they stand. */
   readonly newGame: () => void;
 };
 
 /**
  * Runs one game against the computer.
  *
- * @param settings - how many roll
+ * @param settings - how many sit at the table
  * @returns the running game and the actions on it
  */
-export function useKniffelGame(settings: KniffelSettings): KniffelSession {
-  const [game, setGame] = useState<KniffelGame>(() =>
+export function useFlip7Game(settings: Flip7Settings): Flip7Session {
+  const [game, setGame] = useState<Flip7Game>(() =>
     createGame(soloSeats(HUMAN_NAME, DEFAULT_OPPONENTS), INITIAL_SEED),
   );
   // Read through a ref so a settings change never restarts the game by itself.
@@ -116,7 +115,7 @@ export function useKniffelGame(settings: KniffelSettings): KniffelSession {
   }, []);
 
   /** Starts counting a brand new game. */
-  const beginGame = useCallback((next: KniffelGame) => {
+  const beginGame = useCallback((next: Flip7Game) => {
     const now = Date.now();
     meta.current = { startedAt: now, playTimeMs: 0, isOutcomeRecorded: false };
     activeSince.current = now;
@@ -129,7 +128,7 @@ export function useKniffelGame(settings: KniffelSettings): KniffelSession {
   useEffect(() => {
     if (!isReady.current) {
       isReady.current = true;
-      const saved = loadSession(GAME_ID, isKniffelGame);
+      const saved = loadSession(GAME_ID, isFlip7Game);
       if (saved === null) {
         const fresh = createGame(
           soloSeats(HUMAN_NAME, settingsRef.current.playerCount - 1),
@@ -144,7 +143,7 @@ export function useKniffelGame(settings: KniffelSettings): KniffelSession {
           isOutcomeRecorded: saved.isOutcomeRecorded,
         };
         activeSince.current =
-          saved.state.phase === "gameOver" ? null : Date.now();
+          saved.state.stage === "gameOver" ? null : Date.now();
         setGame(saved.state);
       }
     }
@@ -157,11 +156,11 @@ export function useKniffelGame(settings: KniffelSettings): KniffelSession {
     if (isReady.current) {
       const now = Date.now();
       flushPlayTime(now);
-      if (game.phase === "gameOver" && !meta.current.isOutcomeRecorded) {
+      if (game.stage === "gameOver" && !meta.current.isOutcomeRecorded) {
         meta.current.isOutcomeRecorded = true;
         activeSince.current = null;
         recordGameFinished(GAME_ID, {
-          // Most worms wins; a shared best counts as a win.
+          // Most points wins; a shared best counts as a win.
           won: leaders(game).includes(MY_SEAT),
           durationMs: meta.current.playTimeMs,
           finishedAt: now,
@@ -177,7 +176,7 @@ export function useKniffelGame(settings: KniffelSettings): KniffelSession {
     const onVisibility = () => {
       const now = Date.now();
       if (document.visibilityState === "visible") {
-        activeSince.current = game.phase === "gameOver" ? null : now;
+        activeSince.current = game.stage === "gameOver" ? null : now;
       } else {
         flushPlayTime(now);
         activeSince.current = null;
@@ -185,20 +184,12 @@ export function useKniffelGame(settings: KniffelSettings): KniffelSession {
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [game.phase, flushPlayTime]);
+  }, [game.stage, flushPlayTime]);
 
-  /**
-   * The computer seat that is on turn, or -1.
-   *
-   * @remarks
-   * A whole turn is several moves - set aside, roll, set aside, stop - so this
-   * fires again and again for the same seat until the turn is over. The pause
-   * between them is what makes a computer turn something you can follow.
-   */
+  // The seat the table is waiting for, if the computer plays it.
+  const waiting = seatOnTurn(game);
   const pending =
-    game.phase !== "gameOver" && game.players[game.active].isBot
-      ? game.active
-      : -1;
+    waiting !== null && game.players[waiting].isBot ? waiting : -1;
 
   useEffect(() => {
     if (pending < 0) {
@@ -206,16 +197,16 @@ export function useKniffelGame(settings: KniffelSettings): KniffelSession {
     }
     const timer = setTimeout(() => {
       setGame((current) => {
-        const move = aiMove(current);
+        const move = aiMove(current, pending);
         return (
           (move === null ? null : applyMove(current, pending, move)) ?? current
         );
       });
-    }, AI_MOVE_DELAY_MS);
+    }, botWaitMs(game));
     return () => clearTimeout(timer);
   }, [pending, game]);
 
-  const play = useCallback((move: KniffelMove) => {
+  const play = useCallback((move: Flip7Move) => {
     setGame((current) => applyMove(current, MY_SEAT, move) ?? current);
   }, []);
 
@@ -230,8 +221,5 @@ export function useKniffelGame(settings: KniffelSettings): KniffelSession {
     setGame(fresh);
   }, [flushPlayTime, beginGame]);
 
-  // No "busy" flag on purpose: during the white step the human may answer
-  // while computer players are still thinking, so blocking the sheet would be
-  // wrong. What the human may do is decided by the legal moves alone.
   return { game, mySeat: MY_SEAT, play, newGame };
 }

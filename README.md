@@ -10,10 +10,12 @@ jedes Spiel hat seine eigene Seite.
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------- |
 | [Binokel](website/src/games/binokel/README.md)                     | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online    |
 | [Camel Up](website/src/games/camel-up/README.md)                   | Fuenf Kamele, ein Stapel - wer getragen wird, liegt vorn.                                                | Computer + Online    |
+| [Codenames](website/src/games/codenames/README.md)                 | Ein Wort, eine Zahl - und der Attentaeter wartet.                                                        | Computer + Online    |
 | [Das politische Talent](website/src/games/politik/README.md)       | Wahlkampf, Koalitionen, Wahlversprechen - wer regiert und liefert, gewinnt.                              | Computer + Online    |
 | [Drecksau](website/src/games/drecksau/README.md)                   | Kosmos-Kartenspiel: wer zuerst nur noch Drecksaeue hat, gewinnt.                                         | Computer + Online    |
 | [Jammerlappen](website/src/games/jammerlappen/README.md)           | Werd alle Karten los - wer als Letzter drauf sitzt, ist der Jammerlappen.                                | Computer + Online    |
 | [Exploding Kittens](website/src/games/exploding-kittens/README.md) | Zieh keine Bombe - wer als Letzter uebrig ist, gewinnt.                                                  | Computer + Online    |
+| [Flip 7](website/src/games/flip-7/README.md)                       | Sieben verschiedene Zahlen - oder eine zu viel.                                                          | Computer + Online    |
 | [Heckmeck am Bratwurmeck](website/src/games/heckmeck/README.md)    | Acht Wuerfel, sechzehn Chips - ohne Wurm zaehlt nichts.                                                  | Computer + Online    |
 | [Kniffel](website/src/games/kniffel/README.md)                     | Fuenf Wuerfel, drei Wuerfe, dreizehn Felder - jedes nur einmal.                                          | Computer + Online    |
 | [Kuhle Kuehe](website/src/games/kuhle-kuehe/README.md)             | Baut aus Koepfen, Mittelteilen und Hinterteilen die laengsten Kuehe und die groesste Herde.              | Computer + Online    |
@@ -81,6 +83,8 @@ website/src/
     kniffel/        Kniffel - der Wuerfelklassiker, auch allein
     jammerlappen/   Jammerlappen - Kartenspiel gegen Computer oder online
     exploding-kittens/ Exploding Kittens - Kartenspiel gegen Computer oder online
+    codenames/      Codenames - Wortspiel gegen Computer oder online
+    flip-7/         Flip 7 - Push-your-luck-Kartenspiel gegen Computer oder online
                     (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)
@@ -244,4 +248,6 @@ $env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
   [Heckmeck](docs/games/heckmeck/game-rules.md) ·
   [Kniffel](docs/games/kniffel/game-rules.md) ·
   [Jammerlappen](docs/games/jammerlappen/game-rules.md) ·
-  [Exploding Kittens](docs/games/exploding-kittens/game-rules.md)
+  [Exploding Kittens](docs/games/exploding-kittens/game-rules.md) ·
+  [Codenames](docs/games/codenames/game-rules.md) ·
+  [Flip 7](docs/games/flip-7/game-rules.md)

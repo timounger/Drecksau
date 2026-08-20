@@ -15,9 +15,11 @@ import type { ReactElement, ReactNode } from "react";
 import { faceName, legalMoves } from "@/games/heckmeck/engine/moves";
 import {
   WORM,
+  canStop,
   grillOffer,
   hasWorm,
   pickable,
+  stealable,
   takenFaces,
   topTile,
   total,
@@ -162,6 +164,18 @@ function Turn({
   const taken = takenFaces(game.kept);
   const sum = total(game.kept);
   const offer = grillOffer(game);
+  // What the line above the buttons says. "Weiter würfeln oder aufhören?" is
+  // only true when stopping is actually one of the two - and the case that
+  // reads like a broken screen is having the points for a chip but no worm, so
+  // that one gets said out loud.
+  const hint =
+    game.phase === "pick"
+      ? T.pickHint
+      : canStop(game)
+        ? T.decidePrompt
+        : offer !== null || stealable(game).length > 0
+          ? T.wormMissing(offer)
+          : T.nothingToTake;
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex flex-wrap items-center gap-2">
@@ -214,9 +228,7 @@ function Turn({
 
       {mine && (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {game.phase === "pick" ? T.pickHint : T.decidePrompt}
-          </p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>
           <div className="flex flex-wrap gap-2">
             {game.phase === "pick" &&
               pickable(game).map((face) => (

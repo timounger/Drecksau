@@ -35,7 +35,7 @@ import {
 import { invalidateStats } from "@/lib/stats/stats-store";
 
 /** This game's id for storage and statistics. */
-const GAME_ID: GameId = "qwixx";
+const GAME_ID: GameId = "heckmeck";
 
 /** How long a computer player pauses before answering, so it can be followed. */
 const AI_MOVE_DELAY_MS = 750;

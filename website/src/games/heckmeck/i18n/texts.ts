@@ -44,6 +44,10 @@ export const HECKMECK_TEXTS = {
   takeTile: (tile: number) => `Chip ${tile} nehmen`,
   stealFrom: (tile: number, name: string) => `Chip ${tile} von ${name} klauen`,
   nothingToTake: "Nichts zu holen - du musst weiterwürfeln.",
+  wormMissing: (tile: number | null) =>
+    tile === null
+      ? "Etwas wäre in Reichweite - aber ohne Wurm zählt nichts."
+      : `Chip ${tile} wäre in Reichweite - aber ohne Wurm zählt nichts.`,
 
   bustTitle: "Verspekuliert!",
   bustReturned: (tile: number) => `Chip ${tile} geht zurück auf den Grill.`,
