@@ -16,6 +16,7 @@ import { applyMove } from "@/games/heckmeck/engine/moves";
 import { isHeckmeckGame } from "@/games/heckmeck/engine/serialization";
 import { createGame, soloSeats } from "@/games/heckmeck/engine/setup";
 import {
+  SELF_NAME,
   leaders,
   type HeckmeckGame,
   type HeckmeckMove,
@@ -44,7 +45,7 @@ const AI_MOVE_DELAY_MS = 750;
 const MY_SEAT = 0;
 
 /** What the human seat is called at the table. */
-const HUMAN_NAME = "Du";
+const HUMAN_NAME = SELF_NAME;
 
 /** Longest gap counted as play time, so a tab left open does not inflate it. */
 const MAX_COUNTED_PAUSE_MS = 60_000;

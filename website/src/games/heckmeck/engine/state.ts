@@ -16,6 +16,16 @@
 export const LOWEST_TILE = 21;
 export const HIGHEST_TILE = 36;
 
+/**
+ * What the seat you play yourself is called when it has no other name.
+ *
+ * @remarks
+ * Offline there is nobody to tell your name to, so the seat is simply "Du" -
+ * and the table then knows not to label it "Du (Du)". Online every seat has a
+ * real name and this never comes up.
+ */
+export const SELF_NAME = "Du";
+
 /** How many dice a turn starts with. */
 export const DICE_COUNT = 8;
 

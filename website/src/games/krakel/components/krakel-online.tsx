@@ -36,6 +36,7 @@ import {
   normalizeRoomCode,
 } from "@/online/room-code";
 import { useOnlineCount } from "@/online/use-online-presence";
+import { VoiceChat } from "@/online/voice-chat";
 import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import {
   DEFAULT_PLAYER_COUNT,
@@ -563,6 +564,15 @@ function OnlineLobby({
           {T.waitingForHost}
         </p>
       )}
+
+      {/* Also here, not only at the table: the waiting for the room to
+          fill is exactly when there is something to say to each other. */}
+      <VoiceChat
+        gameId={KRAKEL_GAME_ID}
+        code={code}
+        seatId={online.seatId}
+        seats={online.seats}
+      />
 
       <LeaveButton onLeave={onLeave} />
     </div>

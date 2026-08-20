@@ -41,6 +41,7 @@ import {
   normalizeRoomCode,
 } from "@/online/room-code";
 import { useOnlineCount } from "@/online/use-online-presence";
+import { VoiceChat } from "@/online/voice-chat";
 import type { RoomState } from "@/online/adapter";
 import {
   useOnlineRoom,
@@ -550,6 +551,15 @@ function OnlineLobby({ room, online, onLeave }: RoomViewProps): ReactElement {
           {BINOKEL_ONLINE_TEXTS.waitingForHost}
         </p>
       )}
+
+      {/* Also here, not only at the table: the waiting for the room to
+          fill is exactly when there is something to say to each other. */}
+      <VoiceChat
+        gameId={GAME_ID}
+        code={room.code}
+        seatId={online.seatId}
+        seats={room.seats}
+      />
 
       <LeaveButton onLeave={onLeave} />
     </div>

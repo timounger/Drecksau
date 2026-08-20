@@ -87,6 +87,17 @@ Verdeckt sind schlicht **die Karten**: Jede fremde Hand reist als Reihe von
 Nullen der richtigen Länge, sodass die Anzahl sichtbar bleibt und sonst nichts
 ([multiplayer/adapter.ts](multiplayer/adapter.ts)).
 
+## Das Ende
+
+Trophäe oder Kackhaufen, fünf Sekunden über den ganzen Bildschirm. Die
+Animation ist dieselbe wie bei Drecksau, weil es dieselbe Datei ist
+([components/game-result-overlay.tsx](../../components/game-result-overlay.tsx)):
+Zwei Spiele, die „das Gleiche" aus zwei Dateien zeigen, zeigen dasselbe nur so
+lange, bis jemand eine davon anfasst.
+
+Eigen ist nur das Wort in der Mitte - **„Geschafft!"** oder **„Vorbei"**, die
+beiden Wörter, die dieses Spiel ohnehin am Ende sagt.
+
 ## Regeln im Detail
 
 Die Spezifikation samt der Werte, die aus dem Gedächtnis stammen, steht in

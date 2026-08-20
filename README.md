@@ -124,11 +124,28 @@ teilt, dient nur dazu, dass sich die Browser finden.
 angefragt, bis jemand zum ersten Mal auf „Mikro an" drückt. Wer nie sprechen
 will, bekommt nie einen Berechtigungsdialog. Zuhören läuft von selbst.
 
+Der Sprachchat steht **schon in der Lobby** - das Warten darauf, dass der Raum
+voll wird, ist ja genau der Moment, in dem es etwas zu besprechen gibt. Und er
+bleibt, wenn ihr **nochmal spielt**: Der Weg vom Tisch zurück in die Lobby und
+wieder an den Tisch legt keine Leitung. Wer sein Mikro an hatte, hat es danach
+immer noch an.
+
+Beim Wechsel in einen **anderen** Raum fängt es dagegen stumm an. Das ist
+Absicht: An einen fremden Tisch zu kommen ist nicht dasselbe wie an den eigenen
+zurück, und niemand soll sich zu hören wiederfinden, wo er gerade erst
+hereingekommen ist.
+
 Ob dein Mikrofon offen ist, zeigt ein **Mikrofonsymbol**: **rot**, solange du zu
 hören bist, und **grau durchgestrichen**, solange nicht. Nicht nur die Farbe
 entscheidet - der Strich sagt dasselbe noch einmal, für alle, die Rot und Grau
 schlecht auseinanderhalten. Rot ist bewusst der laute Zustand: Es ist die Farbe,
 die überall sonst „nimmt gerade auf" bedeutet.
+
+Dasselbe Symbol steht **neben jedem Mitspieler**. Damit beantwortet ein Blick
+die Frage, die im Sprachchat sonst ständig gestellt wird: Wer hört mich
+gerade, und wer redet in ein totes Mikrofon? Es kommt aus dem, was jeder über
+sich selbst meldet, nicht aus dem ankommenden Ton - Stille ist nicht dasselbe
+wie stumm, und wer nur gerade nichts sagt, soll nicht abgeschaltet aussehen.
 
 Wie **laut** die anderen sind, stellt ein Regler unter dem Mikrofonknopf ein -
 von voll bis stumm. Die Einstellung gilt für alle Online-Spiele und hält bis zum

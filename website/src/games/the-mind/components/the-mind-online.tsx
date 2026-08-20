@@ -59,6 +59,10 @@ import {
 import { OnlineChat, type OnlineChatTexts } from "@/online/online-chat";
 import { VoiceChat } from "@/online/voice-chat";
 import {
+  GameResultOverlay,
+  type GameOutcome,
+} from "@/components/game-result-overlay";
+import {
   generateRoomCode,
   isValidRoomCode,
   normalizeRoomCode,
@@ -110,6 +114,18 @@ const L = {
   relaxedNow: "Wir starten jetzt auch mit weniger Spielern.",
   error: "Verbindung fehlgeschlagen oder Raum nicht gefunden.",
 } as const;
+
+/**
+ * The big word the end animation puts on the screen.
+ *
+ * @remarks
+ * The game's own two words, not a generic pair: this table either got through
+ * together or it did not, and "Geschafft!" is what that feels like.
+ */
+const RESULT_WORDS: Readonly<Record<GameOutcome, string>> = {
+  won: T.wonTitle,
+  lost: T.lostTitle,
+};
 
 /** Labels the shared chat needs. */
 const CHAT_TEXTS: OnlineChatTexts = {
@@ -657,6 +673,15 @@ function Lobby({
         </p>
       )}
 
+      {/* Also here, not only at the table: the waiting for the room to
+          fill is exactly when there is something to say to each other. */}
+      <VoiceChat
+        gameId={GAME_ID}
+        code={code}
+        seatId={room.seatId}
+        seats={seats}
+      />
+
       <LeaveButton onLeave={onLeave} />
     </div>
   );
@@ -680,10 +705,21 @@ function Playing({
     .filter((index) => index >= 0);
   useMindStats(game);
 
+  // Trophy or dung, once, when the last card is down. Read from the phase
+  // rather than kept in state: the room hands the same game to everybody, so
+  // the whole table gets its ending at the same moment.
+  const outcome: GameOutcome | null =
+    game === null || game.phase !== "gameOver"
+      ? null
+      : game.won
+        ? "won"
+        : "lost";
+
   return game === null ? (
     <p className="text-sm">{L.connecting}</p>
   ) : (
     <div className="flex flex-col gap-4 lg:flex-row">
+      <GameResultOverlay outcome={outcome} words={RESULT_WORDS} />
       <div className="flex flex-1 flex-col gap-4">
         {game.phase === "gameOver" && (
           <>

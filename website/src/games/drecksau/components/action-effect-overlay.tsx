@@ -164,7 +164,7 @@ const EFFECTS: Readonly<Record<ActionCardType, () => ReactElement>> = {
           style={{
             left: `${(index * RAIN.spreadStepPercent) % FULL_WIDTH_PERCENT}%`,
             height: `${RAIN.minLengthPx + (index % RAIN.lengthVariants) * RAIN.lengthStepPx}px`,
-            animation: `drecksau-drop ${RAIN.minFallMs + (index % RAIN.fallVariants) * RAIN.fallStepMs}ms linear ${(index % RAIN.delayVariants) * RAIN.delayStepMs}ms both`,
+            animation: `game-fall ${RAIN.minFallMs + (index % RAIN.fallVariants) * RAIN.fallStepMs}ms linear ${(index % RAIN.delayVariants) * RAIN.delayStepMs}ms both`,
           }}
         />
       ))}

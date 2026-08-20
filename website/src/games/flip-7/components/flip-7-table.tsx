@@ -369,8 +369,7 @@ function Face({ card }: { readonly card: Card }): ReactElement {
       title={`${CARD_NAMES[card.kind]} - ${CARD_TEXTS[card.kind]}`}
       className={`flex h-11 items-center justify-center rounded-lg border-2 border-zinc-300 bg-white text-center leading-none font-bold dark:border-zinc-600 dark:bg-zinc-800 ${
         number ? "w-9 text-lg tabular-nums" : "w-auto px-1.5 text-[10px]"
-      }`}
-      style={{ color: CARD_INK[card.kind] }}
+      } ${CARD_INK[card.kind]}`}
     >
       {number ? cardFace(card) : `${CARD_ICONS[card.kind]} ${cardFace(card)}`}
     </span>

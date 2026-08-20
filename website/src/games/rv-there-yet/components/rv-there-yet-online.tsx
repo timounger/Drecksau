@@ -445,6 +445,15 @@ function OnlineLobby({
         </p>
       )}
 
+      {/* Also here, not only at the table: the waiting for the room to
+          fill is exactly when there is something to say to each other. */}
+      <VoiceChat
+        gameId={RV_GAME_ID}
+        code={code}
+        seatId={online.seatId}
+        seats={online.seats}
+      />
+
       <LeaveButton onLeave={onLeave} />
     </div>
   );

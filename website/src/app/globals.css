@@ -35,7 +35,7 @@ body {
    --------------------------------------------------------------------------- */
 
 /* Rain: a drop falls the whole height of the screen. */
-@keyframes drecksau-drop {
+@keyframes game-fall {
   from {
     transform: translateY(-10vh);
     opacity: 0;
@@ -186,10 +186,13 @@ body {
 /* ---------------------------------------------------------------------------
    End of game: a big result that pops in and stays readable almost the whole
    time before fading, so it plays longer than a card effect.
+
+   Shared by every game that has a win and a loss to show, which is why these
+   carry no game's name - see src/components/game-result-overlay.tsx.
    --------------------------------------------------------------------------- */
 
 /* The result icon and word: grow with a little bounce, hold, then fade late. */
-@keyframes drecksau-result {
+@keyframes game-result {
   from {
     transform: scale(0.3);
     opacity: 0;
@@ -212,7 +215,7 @@ body {
 }
 
 /* A colour wash that holds most of the result, then fades. */
-@keyframes drecksau-result-tint {
+@keyframes game-result-tint {
   from {
     opacity: 0;
   }

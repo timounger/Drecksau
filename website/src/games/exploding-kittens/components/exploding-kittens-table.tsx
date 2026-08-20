@@ -727,9 +727,9 @@ function CardFace({
     picked
       ? "border-indigo-500 bg-indigo-100 dark:bg-indigo-900/60"
       : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-800"
-  } ${dim ? "opacity-50" : ""}`;
-  const style =
-    card.kind === "hidden" ? undefined : { color: CARD_INK[card.kind] };
+  } ${dim ? "opacity-50" : ""} ${
+    card.kind === "hidden" ? "" : CARD_INK[card.kind]
+  }`;
   const face = (
     <>
       <span aria-hidden className={small ? "text-sm" : "text-xl"}>
@@ -752,17 +752,11 @@ function CardFace({
       onClick={onClick}
       title={title}
       className={`${look} cursor-pointer hover:brightness-95`}
-      style={style}
     >
       {face}
     </button>
   ) : (
-    <span
-      data-testid={`ek-card-${card.id}`}
-      title={title}
-      className={look}
-      style={style}
-    >
+    <span data-testid={`ek-card-${card.id}`} title={title} className={look}>
       {face}
     </span>
   );

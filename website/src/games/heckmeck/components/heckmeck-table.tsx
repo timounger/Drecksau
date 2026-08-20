@@ -14,6 +14,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { faceName, legalMoves } from "@/games/heckmeck/engine/moves";
 import {
+  SELF_NAME,
   WORM,
   canStop,
   grillOffer,
@@ -364,7 +365,10 @@ function Pile({
       <header className="flex items-baseline gap-2">
         <span className="min-w-0 flex-1 truncate font-semibold">
           {player.name}
-          {isMe && " (Du)"}
+          {/* Offline the seat is already called "Du" - saying so twice reads
+              like a bug. Online it is your own name and the marker earns its
+              place. */}
+          {isMe && player.name !== SELF_NAME && " (Du)"}
         </span>
         {isBotSeat && <ComputerBadge />}
         <span className="text-lg font-bold tabular-nums">

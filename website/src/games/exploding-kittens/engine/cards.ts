@@ -151,21 +151,28 @@ export const CARD_TEXTS: Readonly<Record<CardKind, string>> = {
   beard: "Allein wertlos. Zwei gleiche klauen eine Karte.",
 };
 
-/** The colour each card is drawn in. */
+/**
+ * The colour each card is drawn in, light theme and dark.
+ *
+ * @remarks
+ * Two classes rather than one colour, because a fixed value cannot know which
+ * theme it landed in. These used to be hex codes handed to an inline `style`,
+ * and a dark slate number on a dark card was simply not there.
+ */
 export const CARD_INK: Readonly<Record<CardKind, string>> = {
-  kitten: "#be123c",
-  defuse: "#15803d",
-  nope: "#c2410c",
-  attack: "#b91c1c",
-  skip: "#7c3aed",
-  favor: "#0f766e",
-  shuffle: "#1d4ed8",
-  future: "#a16207",
-  tacocat: "#0891b2",
-  rainbow: "#db2777",
-  melon: "#65a30d",
-  potato: "#92400e",
-  beard: "#4f46e5",
+  kitten: "text-rose-700 dark:text-rose-300",
+  defuse: "text-green-700 dark:text-green-300",
+  nope: "text-orange-700 dark:text-orange-300",
+  attack: "text-red-700 dark:text-red-300",
+  skip: "text-violet-700 dark:text-violet-300",
+  favor: "text-teal-700 dark:text-teal-300",
+  shuffle: "text-blue-700 dark:text-blue-300",
+  future: "text-amber-700 dark:text-amber-300",
+  tacocat: "text-cyan-700 dark:text-cyan-300",
+  rainbow: "text-pink-700 dark:text-pink-300",
+  melon: "text-lime-700 dark:text-lime-300",
+  potato: "text-amber-800 dark:text-amber-200",
+  beard: "text-indigo-700 dark:text-indigo-300",
 };
 
 /** The emoji each card wears, so a hand reads at a glance. */

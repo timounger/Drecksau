@@ -4,28 +4,32 @@
  * @module
  * @remarks
  * Shared by every online game, exactly like {@link ./online-chat}. Mounting it
- * beside the chat is all a game has to do.
+ * beside the chat is all a game has to do - in the lobby as well as at the
+ * table, because the waiting is exactly when there is something to say.
  *
  * Muted is the state you start in, and the microphone is not even asked for
  * until the first press - so a player who never wants to talk is never shown a
  * permission dialog. Listening starts on its own, because a voice chat where
  * nobody hears anybody until everyone has pressed a button is no voice chat.
+ *
+ * Nothing about the connection is kept here. That lives in
+ * {@link ./voice-session}, so that going from the lobby to the table and back
+ * for a rematch does not hang up on anybody in mid-sentence.
  */
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactElement,
-} from "react";
+import { useEffect, useSyncExternalStore, type ReactElement } from "react";
 import { database } from "@/online/firebase-app";
+import type { VoicePeer } from "@/online/voice";
 import {
-  createVoiceRoom,
-  type VoicePeer,
-  type VoiceRoom,
-} from "@/online/voice";
+  openVoice,
+  releaseVoice,
+  serverVoiceState,
+  setVoiceMic,
+  setVoiceVolume,
+  subscribeVoice,
+  voiceState,
+} from "@/online/voice-session";
 import { voiceVolume } from "@/online/voice-volume";
 import type { Seat, SeatId } from "@/online/adapter";
 
@@ -44,6 +48,10 @@ const T = {
   connecting: "verbindet …",
   connected: "verbunden",
   lost: "kein Ton",
+  // Said about somebody else, so no "du" in it - and separate from the button
+  // labels above, which name an action rather than a state.
+  micIsOn: "Mikro an",
+  micIsOff: "Mikro aus",
   alone: "Noch niemand sonst da.",
   hint: "Der Ton läuft direkt zwischen euch, nicht über einen Server.",
 } as const;
@@ -71,10 +79,11 @@ export function VoiceChat({
   seatId,
   seats,
 }: VoiceChatProps): ReactElement | null {
-  const roomRef = useRef<VoiceRoom | null>(null);
-  const [peers, setPeers] = useState<readonly VoicePeer[]>([]);
-  const [micOn, setMicOn] = useState(false);
-  const [denied, setDenied] = useState(false);
+  const { micOn, denied, peers } = useSyncExternalStore(
+    subscribeVoice,
+    voiceState,
+    serverVoiceState,
+  );
   const volume = useSyncExternalStore(
     voiceVolume.subscribe,
     voiceVolume.getSnapshot,
@@ -85,50 +94,21 @@ export function VoiceChat({
     if (seatId === null) {
       return;
     }
-    const room = createVoiceRoom({
-      database: database(),
-      gameId,
-      code,
-      selfId: seatId,
-      onPeers: setPeers,
-      // Read here rather than passed in: a room opened after the slider was
-      // moved has to start where it was left, not at full.
-      volume: voiceVolume.load(),
-    });
-    roomRef.current = room;
-    return () => {
-      roomRef.current = null;
-      room.close();
-    };
+    openVoice({ database: database(), gameId, code, selfId: seatId });
+    // Released rather than closed: the next screen asks for the same room a
+    // moment later, and the call has to be there when it does.
+    return releaseVoice;
   }, [gameId, code, seatId]);
 
   // Follow the slider while the room is open. Runs after the effect above, so
   // the room is already there on the first pass.
   useEffect(() => {
-    roomRef.current?.setVolume(volume);
+    setVoiceVolume(volume);
   }, [volume]);
 
   if (seatId === null) {
     return null;
   }
-
-  const toggle = () => {
-    const room = roomRef.current;
-    if (room === null) {
-      return;
-    }
-    const next = !micOn;
-    setDenied(false);
-    room
-      .setMicOn(next)
-      .then(() => setMicOn(next))
-      // Refused, or no microphone at all: stay muted and say so, rather than
-      // showing a live button that sends nothing.
-      .catch(() => {
-        setMicOn(false);
-        setDenied(true);
-      });
-  };
 
   const nameOf = (id: SeatId) =>
     seats.find((seat) => seat.id === id)?.name ?? id;
@@ -139,7 +119,7 @@ export function VoiceChat({
         <h2 className="font-semibold">{T.title}</h2>
         <button
           type="button"
-          onClick={toggle}
+          onClick={() => setVoiceMic(!micOn)}
           aria-pressed={micOn}
           className={
             // Red while live, nothing while muted: the button must not say
@@ -179,7 +159,27 @@ export function VoiceChat({
               key={peer.seatId}
               className="flex items-center justify-between gap-2 text-xs"
             >
-              <span>{nameOf(peer.seatId)}</span>
+              {/* The same symbol everybody sees for themselves above, so one
+                  glance answers the question the whole room keeps asking:
+                  who can hear me, and who is talking into a dead microphone. */}
+              <span
+                title={peer.mic ? T.micIsOn : T.micIsOff}
+                data-testid={`voice-peer-mic-${peer.seatId}`}
+                data-state={peer.mic ? "live" : "muted"}
+                className={
+                  peer.mic
+                    ? "flex min-w-0 flex-1 items-center gap-1.5 text-red-600 dark:text-red-400"
+                    : "flex min-w-0 flex-1 items-center gap-1.5 text-zinc-400 dark:text-zinc-500"
+                }
+              >
+                <MicIcon live={peer.mic} small />
+                <span className="truncate text-zinc-700 dark:text-zinc-200">
+                  {nameOf(peer.seatId)}
+                </span>
+                <span className="sr-only">
+                  {peer.mic ? T.micIsOn : T.micIsOff}
+                </span>
+              </span>
               <span className={stateClass(peer)}>{stateLabel(peer)}</span>
             </li>
           ))}
@@ -202,14 +202,21 @@ export function VoiceChat({
  * like everywhere else, and the stroke says "off" even to somebody who cannot
  * tell the two colours apart.
  */
-function MicIcon({ live }: { live: boolean }): ReactElement {
+function MicIcon({
+  live,
+  small = false,
+}: {
+  live: boolean;
+  /** Smaller, for the line of one other player rather than your own state. */
+  small?: boolean;
+}): ReactElement {
   return (
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
       data-testid="voice-mic-icon"
       data-state={live ? "live" : "muted"}
-      className="h-5 w-5 shrink-0"
+      className={`shrink-0 ${small ? "h-3.5 w-3.5" : "h-5 w-5"}`}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}

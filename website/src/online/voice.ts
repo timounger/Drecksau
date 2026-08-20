@@ -8,8 +8,10 @@
  * way this works at all on a site that has no server behind it.
  *
  * Layout under `rooms/{gameId}-{code}/voice`:
- * - `present/{seatId}` - who has voice open; removed automatically on
- *   disconnect, so a closed tab does not leave a ghost to call.
+ * - `present/{seatId}` - who has voice open, and whether their microphone is
+ *   live; removed automatically on disconnect, so a closed tab does not leave a
+ *   ghost to call. The two facts share one flag because they are one fact: the
+ *   node says "I am here", and the boolean says whether I can be heard.
  * - `mail/{seatId}/{pushId}` - one signalling message **for** that seat: an
  *   offer, an answer or a network candidate. The reader deletes what it has
  *   handled, so the mailbox stays short.
@@ -38,6 +40,15 @@ export type VoiceLink = "connecting" | "live" | "lost";
 export type VoicePeer = {
   readonly seatId: SeatId;
   readonly link: VoiceLink;
+  /**
+   * Whether that player's microphone is open.
+   *
+   * @remarks
+   * Read from what they publish about themselves, not from the sound arriving:
+   * silence is not the same as muted, and a player who has simply stopped
+   * talking must not look switched off.
+   */
+  readonly mic: boolean;
 };
 
 /** What a signalling message carries. */
@@ -226,6 +237,8 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
   };
 
   const calls = new Map<SeatId, Call>();
+  // What everybody last said about their own microphone, own seat included.
+  let mics: Readonly<Record<string, boolean>> = {};
   const unsubscribes: Array<() => void> = [];
   let mic: MediaStream | null = null;
   let closed = false;
@@ -238,6 +251,7 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
       [...calls.entries()].map(([seatId, call]) => ({
         seatId,
         link: call.link,
+        mic: mics[seatId] === true,
       })),
     );
   };
@@ -365,11 +379,12 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
     }
   };
 
-  // Announce that this seat is listening, and take it back on disconnect.
+  // Announce that this seat is listening - muted, until it says otherwise -
+  // and take the whole thing back on disconnect.
   const ownPresence = ref(database, `${presentPath}/${selfId}`);
   void (async () => {
     await onDisconnect(ownPresence).remove();
-    await set(ownPresence, true);
+    await set(ownPresence, false);
   })();
 
   // Everyone present, minus ourselves, is somebody to call.
@@ -378,9 +393,8 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
       if (closed) {
         return;
       }
-      const present = Object.keys(
-        (snapshot.val() as Record<string, unknown> | null) ?? {},
-      );
+      mics = (snapshot.val() as Record<string, boolean> | null) ?? {};
+      const present = Object.keys(mics);
       const changes = peerChanges(calls.keys(), present, selfId);
       for (const peerId of changes.drop) {
         hangUp(peerId);
@@ -417,6 +431,9 @@ export function createVoiceRoom(options: VoiceOptions): VoiceRoom {
     for (const call of calls.values()) {
       attachMic(call);
     }
+    // Written only once the microphone really is open or really is stopped, so
+    // a refused permission never lights somebody else's screen up.
+    await set(ownPresence, on);
   };
 
   const setVolume = (volume: number): void => {

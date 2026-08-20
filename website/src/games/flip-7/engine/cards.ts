@@ -89,14 +89,21 @@ export const CARD_TEXTS: Readonly<Record<CardKind, string>> = {
   second: "Rettet dich einmal vor einer doppelten Zahl.",
 };
 
-/** The colour each card is drawn in. */
+/**
+ * The colour each card is drawn in, light theme and dark.
+ *
+ * @remarks
+ * Two classes rather than one colour, because a fixed value cannot know which
+ * theme it landed in. These used to be hex codes handed to an inline `style`,
+ * and a dark slate number on a dark card was simply not there.
+ */
 export const CARD_INK: Readonly<Record<CardKind, string>> = {
-  number: "#1e293b",
-  plus: "#15803d",
-  times: "#a16207",
-  freeze: "#0284c7",
-  flip3: "#c2410c",
-  second: "#7c3aed",
+  number: "text-zinc-800 dark:text-zinc-100",
+  plus: "text-green-700 dark:text-green-300",
+  times: "text-amber-700 dark:text-amber-300",
+  freeze: "text-sky-700 dark:text-sky-300",
+  flip3: "text-orange-700 dark:text-orange-300",
+  second: "text-violet-700 dark:text-violet-300",
 };
 
 /** The icon each card wears. */

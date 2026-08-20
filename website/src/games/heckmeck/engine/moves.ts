@@ -78,13 +78,18 @@ export function applyMove(
  * Every die showing it, not one - that is the rule that makes a lucky roll of
  * five twos a real decision rather than a gift. And the face is spent: it can
  * never be set aside again this turn.
+ *
+ * What is set aside is kept in order, for the same reason the roll is
+ * ({@link throwDice}): the row is there to be added up at a glance, and it
+ * grows in the order the faces happened to be picked, which is no order at all.
+ * The worms end up last, where the eye looks for them.
  */
 function setAside(game: HeckmeckGame, face: number): HeckmeckGame | null {
   let next: HeckmeckGame | null = null;
   if (pickable(game).includes(face)) {
     const taken = game.dice.filter((die) => die === face);
     const rest = game.dice.filter((die) => die !== face);
-    const kept = [...game.kept, ...taken];
+    const kept = [...game.kept, ...taken].sort((left, right) => left - right);
     next = afterPick({
       ...game,
       phase: "decide",
@@ -92,7 +97,7 @@ function setAside(game: HeckmeckGame, face: number): HeckmeckGame | null {
       kept,
       log: [
         ...game.log,
-        `${game.players[game.active].name} legt ${taken.length}× ${faceName(face)} beiseite (${total(kept)}).`,
+        `${game.players[game.active].name}: ${taken.length}× ${faceName(face)} beiseite (${total(kept)}).`,
       ],
     });
   }
@@ -131,7 +136,7 @@ function rollOn(game: HeckmeckGame): HeckmeckGame | null {
       rng: random.state(),
       log: [
         ...game.log,
-        `${game.players[game.active].name} würfelt ${dice.map(faceName).join(" ")}.`,
+        `${game.players[game.active].name}: ${dice.map(faceName).join(" ")} gewürfelt.`,
       ],
     };
     next = pickable(rolled).length === 0 ? bust(rolled) : rolled;
@@ -153,7 +158,7 @@ function takeFromGrill(game: HeckmeckGame): HeckmeckGame | null {
         }),
         log: [
           ...game.log,
-          `${game.players[game.active].name} nimmt Chip ${tile}.`,
+          `${game.players[game.active].name}: Chip ${tile} genommen.`,
         ],
       },
       { seat: game.active, tile, from: null, bust: false, burnt: null },
@@ -178,7 +183,7 @@ function stealFrom(game: HeckmeckGame, victim: number): HeckmeckGame | null {
         }),
         log: [
           ...game.log,
-          `${game.players[game.active].name} klaut Chip ${tile} von ${game.players[victim].name}.`,
+          `${game.players[game.active].name}: Chip ${tile} geklaut von ${game.players[victim].name}.`,
         ],
       },
       { seat: game.active, tile, from: victim, bust: false, burnt: null },
@@ -221,7 +226,7 @@ function bust(game: HeckmeckGame): HeckmeckGame {
           : [...game.burnt, burnt].sort((a, b) => a - b),
       log: [
         ...game.log,
-        `${player.name} verspekuliert sich${returned === null ? "" : ` und gibt Chip ${returned} zurück`}${burnt === null ? "" : `; Chip ${burnt} fliegt raus`}.`,
+        `${player.name}: verspekuliert${returned === null ? "" : `, Chip ${returned} zurück`}${burnt === null ? "" : `; Chip ${burnt} fliegt raus`}.`,
       ],
     },
     {
@@ -267,7 +272,7 @@ export function startTurn(game: HeckmeckGame, active: number): HeckmeckGame {
     rng: random.state(),
     log: [
       ...game.log,
-      `${game.players[active].name} würfelt ${dice.map(faceName).join(" ")}.`,
+      `${game.players[active].name}: ${dice.map(faceName).join(" ")} gewürfelt.`,
     ],
   };
 }
@@ -287,8 +292,9 @@ export function startTurn(game: HeckmeckGame, active: number): HeckmeckGame {
  * the one worth more than the five. That is also the order the dice sit in on
  * the box, so it is what a player expects.
  *
- * Nothing else depends on the order: a face is picked by its value and the dice
- * set aside keep their own record in `kept`.
+ * Nothing else depends on the order: a face is picked by its value, and `kept`
+ * is only ever summed or searched. It is sorted the same way, in
+ * {@link setAside}.
  */
 function throwDice(random: Random, count: number): readonly number[] {
   const thrown = Array.from(
