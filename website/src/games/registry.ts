@@ -23,7 +23,10 @@ export type GameId =
   | "the-mind"
   | "qwixx"
   | "heckmeck"
-  | "kniffel";
+  | "kniffel"
+  | "kuhle-kuehe"
+  | "jammerlappen"
+  | "exploding-kittens";
 
 /** One game of the collection. */
 export type GameDefinition = {
@@ -126,11 +129,32 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/heckmeck",
   },
   {
+    id: "kuhle-kuehe",
+    name: "Kuhle Kühe",
+    tagline: "Baut die längsten Kühe und die größte Herde.",
+    emoji: "\u{1F404}",
+    href: "/kuhle-kuehe",
+  },
+  {
     id: "kniffel",
     name: "Kniffel",
     tagline: "Fünf Würfel, drei Würfe, dreizehn Felder - jedes nur einmal.",
     emoji: "\u{1F3B2}",
     href: "/kniffel",
+  },
+  {
+    id: "jammerlappen",
+    name: "Jammerlappen",
+    tagline: "Werd alle Karten los - der Letzte ist der Jammerlappen.",
+    emoji: "\u{1F62D}",
+    href: "/jammerlappen",
+  },
+  {
+    id: "exploding-kittens",
+    name: "Exploding Kittens",
+    tagline: "Zieh keine Bombe - wer als Letzter lebt, gewinnt.",
+    emoji: "\u{1F4A5}",
+    href: "/exploding-kittens",
   },
 ];
 

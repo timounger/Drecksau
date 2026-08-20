@@ -19,10 +19,13 @@ import skyjo from "./skyjo/assets/logo.webp";
 import rvThereYet from "./rv-there-yet/assets/logo.webp";
 import politik from "./politik/assets/logo.webp";
 import camelUp from "./camel-up/assets/logo.webp";
+import kuhleKuehe from "./kuhle-kuehe/assets/logo.webp";
 import theMind from "./the-mind/assets/logo.webp";
 import qwixx from "./qwixx/assets/logo.webp";
 import heckmeck from "./heckmeck/assets/logo.webp";
 import kniffel from "./kniffel/assets/logo.webp";
+import jammerlappen from "./jammerlappen/assets/logo.webp";
+import explodingKittens from "./exploding-kittens/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -34,8 +37,11 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   "rv-there-yet": rvThereYet,
   politik,
   "camel-up": camelUp,
+  "kuhle-kuehe": kuhleKuehe,
   "the-mind": theMind,
   qwixx,
   heckmeck,
   kniffel,
+  jammerlappen,
+  "exploding-kittens": explodingKittens,
 };

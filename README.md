@@ -6,20 +6,23 @@ jedes Spiel hat seine eigene Seite.
 
 ## Spiele
 
-| Spiel                                                           | Beschreibung                                                                                             | Modus                |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------- |
-| [Binokel](website/src/games/binokel/README.md)                  | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online    |
-| [Camel Up](website/src/games/camel-up/README.md)                | Fuenf Kamele, ein Stapel - wer getragen wird, liegt vorn.                                                | Computer + Online    |
-| [Das politische Talent](website/src/games/politik/README.md)    | Wahlkampf, Koalitionen, Wahlversprechen - wer regiert und liefert, gewinnt.                              | Computer + Online    |
-| [Drecksau](website/src/games/drecksau/README.md)                | Kosmos-Kartenspiel: wer zuerst nur noch Drecksaeue hat, gewinnt.                                         | Computer + Online    |
-| [Heckmeck am Bratwurmeck](website/src/games/heckmeck/README.md) | Acht Wuerfel, sechzehn Chips - ohne Wurm zaehlt nichts.                                                  | Computer + Online    |
-| [Kniffel](website/src/games/kniffel/README.md)                  | Fuenf Wuerfel, drei Wuerfe, dreizehn Felder - jedes nur einmal.                                          | Computer + Online    |
-| [Krakel Orakel](website/src/games/krakel/README.md)             | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online           |
-| [Panzerkiste](website/src/games/panzerkiste/README.md)          | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Allein + Koop-Online |
-| [Qwixx](website/src/games/qwixx/README.md)                      | Wuerfeln und ankreuzen - was du ueberspringst, ist weg.                                                  | Computer + Online    |
-| [RV There Yet?](website/src/games/rv-there-yet/README.md)       | Seitenansicht: das Wohnmobil ueber den Berg bringen - notfalls mit der Seilwinde.                        | Allein + Koop-Online |
-| [Skyjo](website/src/games/skyjo/README.md)                      | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online    |
-| [The Mind](website/src/games/the-mind/README.md)                | Kooperativ: gemeinsam aufsteigend ablegen - ohne ein Wort.                                               | Nur Online           |
+| Spiel                                                              | Beschreibung                                                                                             | Modus                |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------- |
+| [Binokel](website/src/games/binokel/README.md)                     | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online    |
+| [Camel Up](website/src/games/camel-up/README.md)                   | Fuenf Kamele, ein Stapel - wer getragen wird, liegt vorn.                                                | Computer + Online    |
+| [Das politische Talent](website/src/games/politik/README.md)       | Wahlkampf, Koalitionen, Wahlversprechen - wer regiert und liefert, gewinnt.                              | Computer + Online    |
+| [Drecksau](website/src/games/drecksau/README.md)                   | Kosmos-Kartenspiel: wer zuerst nur noch Drecksaeue hat, gewinnt.                                         | Computer + Online    |
+| [Jammerlappen](website/src/games/jammerlappen/README.md)           | Werd alle Karten los - wer als Letzter drauf sitzt, ist der Jammerlappen.                                | Computer + Online    |
+| [Exploding Kittens](website/src/games/exploding-kittens/README.md) | Zieh keine Bombe - wer als Letzter uebrig ist, gewinnt.                                                  | Computer + Online    |
+| [Heckmeck am Bratwurmeck](website/src/games/heckmeck/README.md)    | Acht Wuerfel, sechzehn Chips - ohne Wurm zaehlt nichts.                                                  | Computer + Online    |
+| [Kniffel](website/src/games/kniffel/README.md)                     | Fuenf Wuerfel, drei Wuerfe, dreizehn Felder - jedes nur einmal.                                          | Computer + Online    |
+| [Kuhle Kuehe](website/src/games/kuhle-kuehe/README.md)             | Baut aus Koepfen, Mittelteilen und Hinterteilen die laengsten Kuehe und die groesste Herde.              | Computer + Online    |
+| [Krakel Orakel](website/src/games/krakel/README.md)                | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online           |
+| [Panzerkiste](website/src/games/panzerkiste/README.md)             | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Allein + Koop-Online |
+| [Qwixx](website/src/games/qwixx/README.md)                         | Wuerfeln und ankreuzen - was du ueberspringst, ist weg.                                                  | Computer + Online    |
+| [RV There Yet?](website/src/games/rv-there-yet/README.md)          | Seitenansicht: das Wohnmobil ueber den Berg bringen - notfalls mit der Seilwinde.                        | Allein + Koop-Online |
+| [Skyjo](website/src/games/skyjo/README.md)                         | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online    |
+| [The Mind](website/src/games/the-mind/README.md)                   | Kooperativ: gemeinsam aufsteigend ablegen - ohne ein Wort.                                               | Nur Online           |
 
 Weitere Spiele docken ueber die Registry an (siehe
 [Ein weiteres Spiel hinzufuegen](#ein-weiteres-spiel-hinzufuegen)).
@@ -71,10 +74,13 @@ website/src/
     rv-there-yet/   Fahrspiel in der Seitenansicht, allein
     politik/        Das politische Talent - Brettspiel gegen Computer oder online
     camel-up/       Camel Up - Kamelrennen gegen Computer oder online
+    kuhle-kuehe/    Kuhle Kuehe - Kuehe aus Kartenteilen bauen
     the-mind/       The Mind - kooperativ gegen die Reihenfolge (nur online)
     qwixx/          Qwixx - Wuerfelspiel gegen Computer oder online
     heckmeck/       Heckmeck am Bratwurmeck - Wuerfelspiel gegen Computer oder online
     kniffel/        Kniffel - der Wuerfelklassiker, auch allein
+    jammerlappen/   Jammerlappen - Kartenspiel gegen Computer oder online
+    exploding-kittens/ Exploding Kittens - Kartenspiel gegen Computer oder online
                     (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)
@@ -236,4 +242,6 @@ $env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
   [The Mind](docs/games/the-mind/game-rules.md) ·
   [Qwixx](docs/games/qwixx/game-rules.md) ·
   [Heckmeck](docs/games/heckmeck/game-rules.md) ·
-  [Kniffel](docs/games/kniffel/game-rules.md)
+  [Kniffel](docs/games/kniffel/game-rules.md) ·
+  [Jammerlappen](docs/games/jammerlappen/game-rules.md) ·
+  [Exploding Kittens](docs/games/exploding-kittens/game-rules.md)
