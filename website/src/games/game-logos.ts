@@ -28,6 +28,9 @@ import jammerlappen from "./jammerlappen/assets/logo.webp";
 import explodingKittens from "./exploding-kittens/assets/logo.webp";
 import codenames from "./codenames/assets/logo.webp";
 import flip7 from "./flip-7/assets/logo.webp";
+import skyTeam from "./sky-team/assets/logo.webp";
+import flashPoint from "./flash-point/assets/logo.webp";
+import theGame from "./the-game/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -48,4 +51,7 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   "exploding-kittens": explodingKittens,
   codenames,
   "flip-7": flip7,
+  "sky-team": skyTeam,
+  "flash-point": flashPoint,
+  "the-game": theGame,
 };

@@ -28,7 +28,10 @@ export type GameId =
   | "jammerlappen"
   | "exploding-kittens"
   | "codenames"
-  | "flip-7";
+  | "flip-7"
+  | "sky-team"
+  | "flash-point"
+  | "the-game";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -235,6 +238,24 @@ const ENTRIES: readonly GameDefinition[] = [
     addedOn: "2026-08-20",
   },
   {
+    id: "flash-point",
+    name: "Flash Point",
+    tagline: "Rettet die Opfer, bevor das Haus einstürzt.",
+    emoji: "\u{1F692}",
+    href: "/flash-point",
+    category: "gemeinsam",
+    addedOn: "2026-08-22",
+  },
+  {
+    id: "sky-team",
+    name: "Sky Team",
+    tagline: "Landet das Flugzeug zu zweit - und schweigt dabei.",
+    emoji: "\u{2708}\u{FE0F}",
+    href: "/sky-team",
+    category: "gemeinsam",
+    addedOn: "2026-08-22",
+  },
+  {
     id: "flip-7",
     name: "Flip 7",
     tagline: "Sieben verschiedene Zahlen - oder eine zu viel.",
@@ -242,6 +263,15 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/flip-7",
     category: "karten",
     addedOn: "2026-08-20",
+  },
+  {
+    id: "the-game",
+    name: "The Game",
+    tagline: "98 Karten auf vier Reihen - und keiner darf Zahlen nennen.",
+    emoji: "\u{2195}\u{FE0F}",
+    href: "/the-game",
+    category: "karten",
+    addedOn: "2026-08-22",
   },
 ];
 
