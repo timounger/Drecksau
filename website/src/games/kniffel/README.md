@@ -47,9 +47,9 @@ wieder ins Rutschen.
 
 ## Der Computergegner
 
-**Was er behält** ist eine lesbare Regel: eine Straße jagen, wenn vier in Folge
-schon liegen, sonst die häufigste Zahl sammeln - bei Gleichstand die höhere,
-weil der obere Teil nach Augenzahl bezahlt.
+Beide Entscheidungen eines Zugs sind Entscheidungen **über den Block**, nicht
+über die Würfel. Das ist das ganze Kniffel: Fünf Sechsen sind 50 Punkte im
+Kniffel-Feld, 30 in den Sechsern - und gar nichts, wenn beide schon voll sind.
 
 **Wo er einträgt** ist die Stelle, an der Kniffel gewonnen wird. Einfach die
 größte Zahl zu nehmen ist oft falsch: 22 in die Chance zu schreiben bringt 22
@@ -57,14 +57,48 @@ und verbrennt das eine Feld, das später jeden Wurf annimmt. Also wird jedes
 Feld danach bewertet, was es **jetzt** bringt, abzüglich dessen, was es
 üblicherweise wert wäre, wenn man es aufhebt. Dass auf einem schlechten Wurf
 irgendwo eine Null landen muss, fällt aus derselben Rechnung heraus - das
-billigste Feld wird geopfert.
+billigste Feld wird geopfert. Dazu ein Schubs Richtung oberer Teil, solange der
+**Bonus** noch erreichbar ist.
 
-Dazu ein Schubs Richtung oberer Teil, solange der **Bonus** noch erreichbar
-ist: Zwei Sechsen in die Sechser zu schreiben ist genau, wie die 35 Punkte
-still verloren gehen.
+**Was er behält** war lange die schwächere Hälfte, und man hat es ihm angesehen.
+Die Regel lautete „die häufigste Zahl sammeln, außer es liegen vier einer Straße"
 
-Gemessen kommt er im Schnitt auf **rund 215 Punkte**, mit Kniffel in etwa jeder
-zweiten Partie und Bonus in etwa jeder vierten.
+- und die schaute **überhaupt nicht auf den Block**. Also sammelte er weiter
+  Sechsen, nachdem die Sechser gestrichen waren, und hielt Paare fest, mit denen
+  kein freies Feld etwas anfangen konnte. Von der anderen Tischseite sieht das
+  genau so aus, wie es ist: jemand, der nicht darauf achtet, was er noch braucht.
+
+Jetzt probiert er **jede** Art, Würfel zu behalten - höchstens 32, und deutlich
+weniger, sobald gleiche Augen zusammengefasst werden -, würfelt den Rest im Kopf
+einmal aus und nimmt die Variante mit dem höchsten Erwartungswert über die noch
+freien Felder ([engine/ai.ts](engine/ai.ts)). Die Sonderregel für Straßen ist
+damit verschwunden: Vier einer Folge festzuhalten gewinnt von allein, sobald
+jemand das Sechstel Chance auf die fünfte wirklich ausrechnet.
+
+Gerechnet wird über **Multimengen**, nicht über geordnete Würfe: 6^5 sind 7776
+Reihenfolgen von fünf Würfeln und nur 252 Blätter, und mehr als das Blatt kann
+Kniffel nicht unterscheiden. Eine Entscheidung kostet so etwa zwei Millisekunden.
+
+Ein Wurf Vorausschau, auch wenn noch zwei übrig sind. Zwei wären tausend
+Ergebnisse gegen tausend weitere, und der Unterschied ist kleiner, als irgendwer
+am Tisch ausspielen würde. Worauf es ankommt, ist, dass der Block überhaupt in
+der Rechnung steht.
+
+Gemessen über 120 identische Spiele gegen die alte Regel:
+
+|                     | alt       | neu           |
+| ------------------- | --------- | ------------- |
+| Schnitt             | 209       | **234**       |
+| Median              | 210       | **234**       |
+| schlechteste Partie | 120       | **146**       |
+| Bonus erreicht      | 17 von 80 | **27 von 80** |
+
+In 83 von 120 Partien war das neue Verhalten besser, in keiner dramatisch
+schlechter.
+
+Dieselbe Funktion spielt auch online: sowohl den Platz, den jemand verlassen
+hat, als auch einen Zug, für den die 30 Sekunden abgelaufen sind. Wer also
+übernommen wird, wird jetzt auch **sinnvoll** übernommen.
 
 ## Online ist wenig zu tun
 

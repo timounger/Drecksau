@@ -31,7 +31,8 @@ export type GameId =
   | "flip-7"
   | "sky-team"
   | "flash-point"
-  | "the-game";
+  | "the-game"
+  | "risiko";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -271,6 +272,15 @@ const ENTRIES: readonly GameDefinition[] = [
     emoji: "\u{2195}\u{FE0F}",
     href: "/the-game",
     category: "karten",
+    addedOn: "2026-08-22",
+  },
+  {
+    id: "risiko",
+    name: "Risiko",
+    tagline: "Gebiet für Gebiet die Welt erobern.",
+    emoji: "\u{1F30D}",
+    href: "/risiko",
+    category: "action",
     addedOn: "2026-08-22",
   },
 ];

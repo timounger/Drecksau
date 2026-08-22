@@ -1,5 +1,5 @@
 /**
- * Das Spiel online: the entry screen, the lobby and the table.
+ * Risiko online: the entry screen, the lobby and the board.
  *
  * @module
  * @remarks
@@ -7,25 +7,21 @@
  * room, the host election and the redaction, and this screen only renders what
  * it hands back.
  *
- * **Online is where this game belongs**, and not by a little. Against the
- * computer the rule about not naming numbers is a rule the computer keeps
- * because it cannot do otherwise; between people it is a promise, and keeping
- * it while watching somebody bury a row you were saving is the entire game.
+ * **Which game gets dealt depends on how many turn up**, and that is the box's
+ * doing rather than a shortcut: two players get "Risiko für 2 Spieler" with its
+ * three neutral armies, because the basic game starts at three. Three to five
+ * get whatever the host chose. See the adapter's `createGame`.
  *
- * The voice and text chat are open here, as at any table. The rule is an
- * agreement between people and a program has no business gagging them - it only
- * has to make sure the one thing it *can* offer, the markers on the rows,
- * cannot break the rule for you.
- *
- * Two ways in, like the other games: automatic matchmaking against strangers (a
- * wished table size, then {@link SearchingLobby} gathers players and starts on
- * its own) or a private room whose four-letter code you pass around.
+ * A turn here is long - place, attack, attack, follow up, move - so the
+ * auto-play clock is set generously and counts the **whole phase** rather than
+ * each move inside it. Somebody thinking about where to send three units is not
+ * racing a timer that restarts under them.
  */
 "use client";
 
 import Link from "next/link";
 import { RulesButton } from "@/components/rules-button";
-import { THE_GAME_RULES } from "@/games/the-game/i18n/rules";
+import { RISIKO_RULES } from "@/games/risiko/i18n/rules";
 
 import {
   useCallback,
@@ -36,28 +32,31 @@ import {
 } from "react";
 import {
   MAX_PLAYERS,
-  ONLINE_MIN_PLAYERS as MIN_PLAYERS,
-  type TheGame,
-  type TheGameMove,
-} from "@/games/the-game/engine/state";
+  MIN_PLAYERS,
+  incomeOf,
+  type RisikoGame,
+  type RisikoMove,
+} from "@/games/risiko/engine/state";
 import {
-  theGameAdapter,
-  type TheGameOptions,
-} from "@/games/the-game/multiplayer/adapter";
+  risikoAdapter,
+  type RisikoOptions,
+} from "@/games/risiko/multiplayer/adapter";
 import {
   DEFAULT_PLAYER_COUNT,
-  PLAYER_COUNTS,
-} from "@/games/the-game/settings/app-settings";
+  ONLINE_COUNTS,
+} from "@/games/risiko/settings/app-settings";
 import {
   loadMatchCount,
   saveMatchCount,
-} from "@/games/the-game/settings/online-settings";
-import { THE_GAME_TEXTS as T } from "@/games/the-game/i18n/texts";
+} from "@/games/risiko/settings/online-settings";
+import { RISIKO_TEXTS as T } from "@/games/risiko/i18n/texts";
 import { loadPlayerName, savePlayerName } from "@/online/player-name";
-import { TheGameScores } from "./the-game-scores";
+import { RisikoScores } from "./risiko-scores";
 import { turnKeyOf } from "@/online/room";
 import { TurnClock, useTurnClock } from "@/online/turn-clock";
-import { TheGameStatus, TheGameTable } from "./the-game-table";
+import { RisikoBoard } from "./risiko-board";
+import { RisikoBattle, RisikoCards, RisikoStandings } from "./risiko-panels";
+import { PHASE_NAMES } from "@/games/risiko/i18n/phases";
 import { database } from "@/online/firebase-app";
 import {
   clearMatch,
@@ -91,7 +90,7 @@ import {
 /** German labels for the online screen. */
 const L = {
   title: `${T.title} online`,
-  subtitle: "Vier Reihen, 98 Karten - jede:r am eigenen Gerät",
+  subtitle: "42 Gebiete, sechs Kontinente - jede:r am eigenen Gerät",
   back: "Zurück",
   yourName: "Dein Name",
   namePlaceholder: "z. B. Alex",
@@ -144,19 +143,19 @@ const CHAT_TEXTS: OnlineChatTexts = {
 };
 
 /** This game's id, for presence and matchmaking namespacing. */
-const GAME_ID = theGameAdapter.gameId;
+const GAME_ID = risikoAdapter.gameId;
 
 /**
  * How long a player may dither before the computer plays their turn.
  *
  * @remarks
- * Generous, and it has to be: a turn here is not one decision but two or three,
- * each of which changes the rows the next one is chosen against. The budget is
- * for the **whole turn** rather than for each card - see the adapter's
- * `turnKey` - so a player laying card after card is not racing a clock that
- * restarts underneath them.
+ * Two minutes, which is a lot and is right: a Risk turn is four jobs and a
+ * dozen moves, and the one that takes the longest - deciding where to attack -
+ * is the one nobody should be hurried through. The budget covers a **whole
+ * phase** rather than each move inside it, so a player who keeps attacking is
+ * not racing a clock that restarts underneath them.
  */
-const AUTO_PLAY_MS = 75_000;
+const AUTO_PLAY_MS = 120_000;
 
 /** How often the open room's matchmaking entry is kept alive, in ms. */
 const HEARTBEAT_MS = 10_000;
@@ -195,7 +194,7 @@ function matchWish(count: number): Wish {
  *
  * @returns the online element
  */
-export function TheGameOnlineScreen(): ReactElement {
+export function RisikoOnlineScreen(): ReactElement {
   const onlineCount = useOnlineCount(GAME_ID);
   const [session, setSession] = useState<OnlineSession | null>(null);
   // Set while auto-matching, so the lobby searches and starts on its own
@@ -203,7 +202,7 @@ export function TheGameOnlineScreen(): ReactElement {
   const [auto, setAuto] = useState<Match | null>(null);
   // The table size the search waits for, kept while the lobby is open.
   const [wanted, setWanted] = useState(DEFAULT_PLAYER_COUNT);
-  const room = useOnlineRoom(theGameAdapter, session);
+  const room = useOnlineRoom(risikoAdapter, session);
 
   // Leaving: an auto-match host also frees its open-room slot for the next wave.
   const leave = useCallback(() => {
@@ -282,9 +281,9 @@ export function TheGameOnlineScreen(): ReactElement {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <RulesButton rules={THE_GAME_RULES} />
+          <RulesButton rules={RISIKO_RULES} />
           <Link
-            href="/the-game"
+            href="/risiko"
             className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
           >
             {L.back}
@@ -297,7 +296,7 @@ export function TheGameOnlineScreen(): ReactElement {
 }
 
 /** The type the room hook hands back, for the panels below. */
-type Room = OnlineRoom<TheGame, TheGameMove, TheGameOptions>;
+type Room = OnlineRoom<RisikoGame, RisikoMove, RisikoOptions>;
 
 /** The first screen: pick a name and table size, then match, host or join. */
 function Entry({
@@ -477,7 +476,7 @@ function PlayerCountPicker({
       <span className="text-xs text-zinc-500 dark:text-zinc-400">
         {L.tableSize}
       </span>
-      {PLAYER_COUNTS.map((option) => (
+      {ONLINE_COUNTS.map((option: number) => (
         <button
           key={option}
           type="button"
@@ -729,6 +728,7 @@ function Playing({
   readonly room: Room;
   readonly onLeave: () => void;
 }): ReactElement {
+  const [picked, setPicked] = useState<readonly string[]>([]);
   const game = room.room?.game ?? null;
   const seats = room.room?.seats ?? [];
   const mySeat = seats.findIndex((seat) => seat.id === room.seatId);
@@ -739,21 +739,22 @@ function Playing({
     .filter((index) => index >= 0);
   const remainingMs = useTurnClock({
     autoPlayMs: room.room?.autoPlayMs ?? null,
-    turn: room.room === null ? "" : turnKeyOf(room.room, theGameAdapter),
-    running: game !== null && game.phase === "playing",
+    turn: room.room === null ? "" : turnKeyOf(room.room, risikoAdapter),
+    running: game !== null && game.phase !== "gameOver",
   });
 
   return game === null ? (
     <p className="text-sm">{L.connecting}</p>
   ) : (
     <div className="flex flex-col gap-4 lg:flex-row">
-      <div className="flex flex-1 flex-col gap-4">
-        {game.phase !== "playing" && (
+      <div className="flex min-w-0 flex-1 flex-col gap-4">
+        {game.phase === "gameOver" && (
           <>
             {/* The table stays together: the host deals again with the same
                 seats instead of everyone leaving and looking for a new room. */}
-            <TheGameScores
+            <RisikoScores
               game={game}
+              mySeat={mySeat >= 0 ? mySeat : null}
               onNewGame={room.isHost ? room.newRound : null}
             />
             {!room.isHost && (
@@ -763,8 +764,27 @@ function Playing({
             )}
           </>
         )}
-        <div className="flex flex-wrap items-center gap-3">
-          <TheGameStatus game={game} mySeat={mySeat >= 0 ? mySeat : null} />
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <span data-testid="rk-turn" className="font-semibold">
+            {game.phase === "gameOver"
+              ? T.overNow
+              : mySeat === game.active
+                ? T.yourTurn
+                : T.waitingFor(game.players[game.active]?.name ?? "")}
+          </span>
+          {game.phase !== "gameOver" && (
+            <span
+              data-testid="rk-phase"
+              className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-semibold dark:bg-zinc-700"
+            >
+              {PHASE_NAMES[game.phase]}
+            </span>
+          )}
+          {game.phase === "reinforce" && (
+            <span className="text-zinc-500 dark:text-zinc-400">
+              {T.income(incomeOf(game, game.active))}
+            </span>
+          )}
           <TurnClock remainingMs={remainingMs} />
           {botSeats.length > 0 && (
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -776,14 +796,34 @@ function Playing({
             </span>
           )}
         </div>
-        <TheGameTable
+        <RisikoBoard
           game={game}
-          mySeat={mySeat >= 0 && game.phase === "playing" ? mySeat : null}
+          mySeat={mySeat >= 0 && game.phase !== "gameOver" ? mySeat : null}
           onMove={room.sendMove}
         />
+        <RisikoBattle game={game} mySeat={mySeat >= 0 ? mySeat : null} />
       </div>
 
-      <aside className="flex w-full flex-col gap-3 lg:w-72">
+      <aside className="flex w-full flex-col gap-3 lg:w-80">
+        <RisikoStandings game={game} mySeat={mySeat >= 0 ? mySeat : null} />
+        {mySeat >= 0 && (
+          <RisikoCards
+            game={game}
+            mySeat={mySeat}
+            picked={picked}
+            onPick={(card) =>
+              setPicked((all) =>
+                all.includes(card)
+                  ? all.filter((each) => each !== card)
+                  : [...all, card],
+              )
+            }
+            onTrade={(cards) => {
+              setPicked([]);
+              room.sendMove({ kind: "trade", cards });
+            }}
+          />
+        )}
         <LeaveButton onLeave={onLeave} />
         <VoiceChat
           gameId={GAME_ID}

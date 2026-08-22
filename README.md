@@ -19,6 +19,7 @@ jedes Spiel hat seine eigene Seite.
 | [Sky Team](website/src/games/sky-team/README.md)                   | Landet das Flugzeug zu zweit - und schweigt dabei.                                                       | Computer + Online    |
 | [Flash Point](website/src/games/flash-point/README.md)             | Rettet die Opfer, bevor das Haus einstuerzt.                                                             | Computer + Online    |
 | [The Game](website/src/games/the-game/README.md)                   | 98 Karten auf vier Reihen - und keiner darf Zahlen nennen.                                               | Computer + Online    |
+| [Risiko](website/src/games/risiko/README.md)                       | Gebiet fuer Gebiet die Welt erobern.                                                                     | Computer + Online    |
 | [Heckmeck am Bratwurmeck](website/src/games/heckmeck/README.md)    | Acht Wuerfel, sechzehn Chips - ohne Wurm zaehlt nichts.                                                  | Computer + Online    |
 | [Kniffel](website/src/games/kniffel/README.md)                     | Fuenf Wuerfel, drei Wuerfe, dreizehn Felder - jedes nur einmal.                                          | Computer + Online    |
 | [Kuhle Kuehe](website/src/games/kuhle-kuehe/README.md)             | Baut aus Koepfen, Mittelteilen und Hinterteilen die laengsten Kuehe und die groesste Herde.              | Computer + Online    |
@@ -91,6 +92,7 @@ website/src/
     sky-team/       Sky Team - kooperatives Wuerfelspiel zu zweit, Spiel des Jahres 2024
     flash-point/    Flash Point: Fire Rescue - kooperativer Feuerwehreinsatz
     the-game/       The Game - kooperatives Kartenspiel, ohne ueber Zahlen zu reden
+    risiko/         Risiko - 42 Gebiete, drei Varianten aus der Schachtel
                     (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)
@@ -448,4 +450,5 @@ $env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
   [Flip 7](docs/games/flip-7/game-rules.md) ·
   [Sky Team](docs/games/sky-team/game-rules.md) ·
   [Flash Point](docs/games/flash-point/game-rules.md) ·
-  [The Game](docs/games/the-game/game-rules.md)
+  [The Game](docs/games/the-game/game-rules.md) ·
+  [Risiko](docs/games/risiko/game-rules.md)

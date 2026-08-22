@@ -31,6 +31,7 @@ import flip7 from "./flip-7/assets/logo.webp";
 import skyTeam from "./sky-team/assets/logo.webp";
 import flashPoint from "./flash-point/assets/logo.webp";
 import theGame from "./the-game/assets/logo.webp";
+import risiko from "./risiko/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -54,4 +55,5 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   "sky-team": skyTeam,
   "flash-point": flashPoint,
   "the-game": theGame,
+  risiko,
 };
