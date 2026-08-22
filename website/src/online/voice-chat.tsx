@@ -20,6 +20,7 @@
 
 import { useEffect, useSyncExternalStore, type ReactElement } from "react";
 import { database } from "@/online/firebase-app";
+import { Avatar } from "@/online/avatar";
 import type { VoicePeer } from "@/online/voice";
 import {
   openVoice,
@@ -112,6 +113,8 @@ export function VoiceChat({
 
   const nameOf = (id: SeatId) =>
     seats.find((seat) => seat.id === id)?.name ?? id;
+  const faceOfSeat = (id: SeatId) =>
+    seats.find((seat) => seat.id === id)?.avatar;
 
   return (
     <section className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-3 text-sm dark:border-zinc-800">
@@ -172,6 +175,7 @@ export function VoiceChat({
                     : "flex min-w-0 flex-1 items-center gap-1.5 text-zinc-400 dark:text-zinc-500"
                 }
               >
+                <Avatar id={faceOfSeat(peer.seatId)} size={PEER_FACE} />
                 <MicIcon live={peer.mic} small />
                 <span className="truncate text-zinc-700 dark:text-zinc-200">
                   {nameOf(peer.seatId)}
@@ -230,6 +234,9 @@ function MicIcon({
     </svg>
   );
 }
+
+/** How big a face is on one other player's line. */
+const PEER_FACE = 18;
 
 /** Steps the slider offers between silence and full, so it lands on round numbers. */
 const STEPS = 20;

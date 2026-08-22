@@ -97,6 +97,53 @@ website/src/
 Die Spiellogik eines Spiels ist von der Oberflaeche getrennt und rein
 funktional: jeder Zug erzeugt einen neuen Zustand, testbar ohne Browser.
 
+## Hell und Dunkel
+
+Unten rechts steht auf **jeder** Seite ein Schalter mit drei Zuständen: **hell**,
+**wie das System**, **dunkel**
+([components/theme-toggle.tsx](website/src/components/theme-toggle.tsx)).
+
+Drei und nicht zwei. Ein einfacher Umschalter kann immer nur „das Gegenteil von
+jetzt" bedeuten und wirft dabei die Antwort weg, die die meisten eigentlich
+wollen: dass die Seite mitmacht, was das Telefon abends ohnehin tut. „System"
+ist deshalb der Zustand, den niemand wählen muss - und der, zu dem man
+zurückkommt.
+
+Der Schalter hängt im Grundgerüst, nicht in den Kopfzeilen. Es gibt rund fünfzig
+Bildschirme und fast ebenso viele Kopfzeilen, einige davon von einem Spiel
+selbst geschrieben; ein Schalter, an den man in jeder einzelnen denken müsste,
+fehlt auf der nächsten neuen Seite.
+
+### Warum es kein Aufblitzen gibt
+
+Die Seite ist eine statische Datei und weiß beim Ausliefern nichts von der
+Wahl. Würde React sie treffen, wäre erst die falsche Farbe zu sehen und einen
+Wimpernschlag später die richtige. Stattdessen setzt ein winziges Skript im
+`<head>` das Attribut, während der Browser noch den Kopf liest - vor dem ersten
+Zeichnen ([lib/theme/theme-boot.ts](website/src/lib/theme/theme-boot.ts), nach
+der Anleitung des Frameworks unter
+`node_modules/next/dist/docs/01-app/02-guides/preventing-flash-before-hydration.md`).
+
+Drei Zustände, drei Selektoren, und welcher gewinnt, entscheidet alles:
+
+| Am `<html>`          | Was gilt                        |
+| -------------------- | ------------------------------- |
+| `data-theme="dark"`  | dunkel, gewählt                 |
+| `data-theme="light"` | hell, gewählt                   |
+| gar kein Attribut    | was `prefers-color-scheme` sagt |
+
+Der dritte Fall ist der wichtige: „System" **entfernt** das Attribut, statt
+„hell" hineinzuschreiben. Damit entscheidet wieder das Stylesheet - dieselbe
+Stelle, die auch für jemanden entscheidet, bei dem gar kein JavaScript läuft.
+Der bekommt so weiterhin die Farben seines Systems statt der, mit denen die
+Datei zufällig exportiert wurde.
+
+Deshalb ist „dunkel" in [globals.css](website/src/app/globals.css) **nie nur**
+in der Media-Query und **nie nur** am Attribut definiert, sondern an beidem -
+sonst geht einer der drei Zustände schief. Dasselbe gilt für Tailwinds
+`dark:`-Variante, die dort neu definiert wird und danach für alle rund 650
+Regeln im Projekt gleichzeitig gilt.
+
 ## Die Startseite: Regale statt Liste
 
 Siebzehn Karten alphabetisch untereinander sind ein Katalog, und ein Katalog
@@ -157,6 +204,83 @@ Spieler, nicht zum Tisch, an dem er gerade sitzt
 Wer vorher schon einen Namen in einem Spiel hinterlegt hatte, verliert ihn
 nicht: Beim ersten Mal wird der aelteste noch vorhandene uebernommen, danach
 gibt es nur noch den einen Schluessel.
+
+## Einladungslink
+
+Ein privater Raum hat einen **Code** aus vier Zeichen - kurz genug, um ihn am
+Telefon vorzulesen. Für den umgekehrten Weg gibt es den **Link**: In der Lobby
+steht neben dem Code „Link kopieren", und der Link trägt den Code mit
+(`…/qwixx/online/?raum=DE83`). Verschickt wird er da, wo ihr euch ohnehin
+schreibt.
+
+Der Link **füllt das Feld aus, er tritt nicht bei.** Beitreten braucht einen
+Namen, und wer aus einer Chatnachricht kommt, wurde noch nicht nach seinem
+gefragt. Also öffnet sich der Einstiegsbildschirm mit dem Code schon drin, grün
+umrandet und mit einem Satz dazu - ein Knopf bleibt zu drücken. Das ist auch der
+Moment, in dem man sieht, zu welchem Spiel man eingeladen wurde, bevor man
+zusagt.
+
+Der Code reist als Query-Parameter und nicht als Pfadsegment, weil die Seite
+statisch exportiert wird: `?raum=DE83` braucht keine eigene Route, `/raum/DE83`
+bräuchte eine Seite pro Code.
+
+Alles davon liegt in
+[online/room-invite.tsx](website/src/online/room-invite.tsx) und gilt für alle
+Online-Spiele gleich.
+
+## Konto: Name und Gesicht
+
+Oben rechts auf der Startseite steht ein Knopf mit **deinem eigenen Gesicht und
+deinem Namen** ([components/account-button.tsx](website/src/components/account-button.tsx)).
+Dahinter liegt das Einzige, was hier so etwas wie ein Konto ist: die beiden
+Dinge, die deine Mitspieler online sehen. Angemeldet wird sich nirgends, nichts
+verlässt den Browser.
+
+Ein Knopf mit dem eigenen Gesicht statt eines allgemeinen Personensymbols: Ein
+Symbol sagt „hier ist ein Konto", das Gesicht sagt „so sehen dich die anderen" -
+und mehr steckt ohnehin nicht dahinter.
+
+**Gewählt wird beides nur hier.** Vorher wurde das Gesicht auf demjenigen
+Online-Bildschirm gewählt, den man gerade offen hatte - dieselbe Entscheidung an
+siebzehn Stellen und an keiner davon zu Hause. Die Online-Bildschirme **zeigen**
+es jetzt nur noch, neben dem Namensfeld: sichtbar, weil man sonst nie erführe,
+dass man eins hat, aber nicht änderbar.
+
+## Avatare
+
+Achtzehn Gesichter stehen zur Wahl - kurze Haare und lange, Zöpfe und Bärte,
+junge Gesichter und graue, und Hauttöne von hell bis dunkel
+([online/avatar.tsx](website/src/online/avatar.tsx)).
+
+Die Gesichter sind **gezeichnet, nicht aus dem Emoji-Zeichensatz genommen** -
+aus demselben Grund wie das Mikrofonsymbol: Ein Emoji sieht auf jedem
+Betriebssystem nach einer anderen Person aus, und ein Gesicht, das jemand als
+sich selbst gewählt hat, darf auf dem Handy seines Freundes nicht jemand anders
+sein.
+
+Die Beschriftungen sagen, was zu sehen ist („Zopf", „Grauer Bart") - nicht, für
+wen es gedacht ist. Die Auswahl ist das Verlangte; jemandem zu sagen, welches
+davon er ist, ist nicht Aufgabe der Software.
+
+Gespeichert wird die Wahl wie der Name: **ein Schlüssel für alle Spiele**, im
+Browser - und gelesen über einen Store mit eigenem Server-Schnappschuss
+([lib/storage/stored-value.ts](website/src/lib/storage/stored-value.ts)). Das
+ist kein Umweg: Die Seiten werden statisch exportiert, das ausgelieferte HTML
+kennt den Speicher nicht, und wer ihn beim Rendern liest, produziert einen
+ersten Durchlauf, der dem HTML widerspricht - React wirft dann den ganzen
+Teilbaum weg und baut ihn neu. Auf die Reise geht sie am **Sitzplatz** - der wird im Raum genau einmal
+gebaut ([use-online-room.ts](website/src/online/use-online-room.ts)), also
+erreicht das Gesicht jeden Bildschirm, der ohnehin schon einen Namen zeigt, ohne
+dass ein einziges Spiel es weiterreichen müsste.
+
+Zu sehen ist es in der **Lobby**, in der **Warteliste** des automatischen
+Matchings und im **Sprachchat**. Die Spieltische selbst zeigen weiterhin nur
+Namen - dort ist der Platz knapp und jedes Spiel baut ihn anders.
+
+Eine Avatar-Kennung reist über die Leitung und liegt im Speicher, deshalb wird
+**keine je wiederverwendet**: Eine Kennung, die ihre Bedeutung ändert, macht aus
+einem alten Mitspieler einen Fremden. Hinzufügen ist gefahrlos, Umnummerieren
+nicht.
 
 ## Sprachchat
 

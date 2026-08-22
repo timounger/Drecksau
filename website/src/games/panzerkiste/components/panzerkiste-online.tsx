@@ -35,6 +35,13 @@ import {
   normalizeRoomCode,
 } from "@/online/room-code";
 import { useOnlineCount } from "@/online/use-online-presence";
+import { ShareRow, invitedCode } from "@/online/room-invite";
+import { Avatar } from "@/online/avatar";
+import { StoredAvatarFace } from "@/online/player-avatar";
+
+/** How big a face is beside a seat name, and in a waiting-room pill. */
+const AVATAR_SEAT = 22;
+const AVATAR_TINY = 16;
 import { OnlineChat, type OnlineChatTexts } from "@/online/online-chat";
 import { VoiceChat } from "@/online/voice-chat";
 import { loadPlayerName, savePlayerName } from "@/online/player-name";
@@ -63,6 +70,7 @@ const T = {
   orDivider: "oder",
   createRoom: "Raum erstellen",
   roomCode: "Raumcode",
+  invitedHint: "Du wurdest eingeladen - Namen eintragen und beitreten.",
   roomCodePlaceholder: "ABCD",
   joinRoom: "Raum beitreten",
   connecting: "Verbinde …",
@@ -126,12 +134,6 @@ const RELAX_MS = 12_000;
 
 /** How often a lone waiting host looks for a table to merge into, in ms. */
 const RELAX_TICK_MS = 4_000;
-
-/** Query parameter that carries a room code in an invite link. */
-const ROOM_QUERY_PARAM = "raum";
-
-/** How long the "copied!" confirmation stays up, in milliseconds. */
-const COPIED_FEEDBACK_MS = 1500;
 
 /**
  * Renders the whole online mode, from joining a room to playing.
@@ -243,6 +245,8 @@ function OnlineEntry({
 }: OnlineEntryProps): ReactElement {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  // True when the code came from an invite link rather than being typed.
+  const [invited, setInvited] = useState(false);
   const [searching, setSearching] = useState(false);
 
   // Prefill the saved name and any invite code, in the browser only so the
@@ -253,10 +257,10 @@ function OnlineEntry({
     if (saved.length > 0) {
       setName(saved);
     }
-    const params = new URLSearchParams(window.location.search);
-    const invited = params.get(ROOM_QUERY_PARAM);
-    if (invited !== null) {
-      setCode(normalizeRoomCode(invited));
+    const fromLink = invitedCode();
+    if (fromLink !== "") {
+      setCode(fromLink);
+      setInvited(true);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
@@ -292,16 +296,23 @@ function OnlineEntry({
     <div className="flex max-w-md flex-col gap-6">
       <OnlineCountBadge count={onlineCount} />
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">{T.yourName}</span>
-        <input
-          type="text"
-          value={name}
-          onChange={(event) => changeName(event.target.value)}
-          placeholder={T.yourNamePlaceholder}
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
-        />
-      </label>
+      {/* Shown, not offered: the face is picked in the account on the
+          start page, but it belongs beside the name you are about to
+          join under. */}
+      <div className="flex items-end gap-3">
+        <StoredAvatarFace />
+        {/* Takes the rest of the row, so the field is as wide as it was. */}
+        <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+          <span className="font-medium">{T.yourName}</span>
+          <input
+            type="text"
+            value={name}
+            onChange={(event) => changeName(event.target.value)}
+            placeholder={T.yourNamePlaceholder}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </label>
+      </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
         <div>
@@ -334,7 +345,20 @@ function OnlineEntry({
         {T.createRoom}
       </button>
 
-      <div className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <div
+        className={`flex flex-col gap-2 rounded-2xl border p-4 ${
+          invited
+            ? "border-emerald-400 dark:border-emerald-600"
+            : "border-zinc-200 dark:border-zinc-800"
+        }`}
+      >
+        {/* Somebody who followed a link lands on a screen offering three
+            different ways in. This says which one is theirs. */}
+        {invited && (
+          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            {T.invitedHint}
+          </p>
+        )}
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">{T.roomCode}</span>
           <input
@@ -386,14 +410,7 @@ function OnlineLobby({
           {T.shareHint}
         </p>
         <div className="flex items-center gap-3">
-          <span
-            data-testid="room-code"
-            className="rounded-lg bg-zinc-100 px-3 py-2 font-mono text-2xl font-bold tracking-widest dark:bg-zinc-800"
-          >
-            {code}
-          </span>
-          <CopyButton label={T.copyCode} value={code} />
-          <CopyButton label={T.copyLink} value={inviteLink(code)} />
+          <ShareRow code={code} texts={T} />
         </div>
       </section>
 
@@ -448,6 +465,7 @@ function SeatList({ online }: { online: PanzerkisteOnline }): ReactElement {
             key={seat.id}
             className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
           >
+            <Avatar id={seat.avatar} size={AVATAR_SEAT} />
             <span>{seat.name}</span>
             {seat.isHost && <Badge>{T.hostBadge}</Badge>}
             {seat.id === online.seatId && <Badge>{T.youBadge}</Badge>}
@@ -561,8 +579,9 @@ function SearchingLobby({
           {online.seats.map((seat) => (
             <li
               key={seat.id}
-              className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800"
+              className="flex items-center gap-1 rounded-full bg-zinc-100 py-0.5 pr-2 pl-0.5 text-xs dark:bg-zinc-800"
             >
+              <Avatar id={seat.avatar} size={AVATAR_TINY} />
               {seat.name}
             </li>
           ))}
@@ -762,32 +781,6 @@ function Badge({ children }: { children: string }): ReactElement {
   );
 }
 
-/** Copies a value to the clipboard and briefly confirms it. */
-function CopyButton({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}): ReactElement {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    void navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
-    });
-  };
-  return (
-    <button
-      type="button"
-      onClick={copy}
-      className="cursor-pointer rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-    >
-      {copied ? T.copied : label}
-    </button>
-  );
-}
-
 /** Leaves the room and returns to the entry screen. */
 function LeaveButton({ onLeave }: { onLeave: () => void }): ReactElement {
   return (
@@ -799,9 +792,4 @@ function LeaveButton({ onLeave }: { onLeave: () => void }): ReactElement {
       {T.leaveRoom}
     </button>
   );
-}
-
-/** Builds the invite link for a room code from the current page URL. */
-function inviteLink(code: string): string {
-  return `${window.location.origin}${window.location.pathname}?${ROOM_QUERY_PARAM}=${code}`;
 }

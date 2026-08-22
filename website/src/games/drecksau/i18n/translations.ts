@@ -127,6 +127,7 @@ export const ONLINE_TEXTS = {
   createRoom: "Raum erstellen",
   joinRoom: "Raum beitreten",
   roomCode: "Raumcode",
+  invitedHint: "Du wurdest eingeladen - Namen eintragen und beitreten.",
   roomCodePlaceholder: "z. B. ABCD",
   connecting: "Verbinde ...",
   waitingForHost: "Warte auf den Gastgeber ...",

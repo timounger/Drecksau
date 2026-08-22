@@ -137,6 +137,7 @@ export const BINOKEL_ONLINE_TEXTS = {
   playersOnline: (count: number) =>
     count === 1 ? "1 Spieler online" : `${count} Spieler online`,
   roomCode: "Raumcode",
+  invitedHint: "Du wurdest eingeladen - Namen eintragen und beitreten.",
   roomCodePlaceholder: "z. B. ABCD",
   connecting: "Verbinde ...",
   waitingForHost: "Warte auf den Gastgeber ...",

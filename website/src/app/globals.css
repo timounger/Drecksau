@@ -1,8 +1,56 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Light and dark.
+
+   Three states, and the difference between them is which selector wins:
+
+   - `data-theme="dark"` on the root: the reader chose dark.
+   - `data-theme="light"`: the reader chose light.
+   - no attribute at all: the reader is on "system", and the media query below
+     decides. Removing the attribute is how the switch hands the decision back
+     (see lib/theme/theme-store.ts) - and it is also the state of a reader who
+     never ran any JavaScript, who therefore still gets their system's colours
+     rather than whatever the file was exported with.
+
+   Because of that last case, dark is never defined *only* inside the media
+   query and never *only* on the attribute: it needs both, or one of the three
+   states goes wrong.
+   --------------------------------------------------------------------------- */
+
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(
+      :root:not([data-theme="light"]),
+      :root:not([data-theme="light"]) *
+    ) {
+      @slot;
+    }
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* So scrollbars and form controls come in the same colours as the page. */
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -10,13 +58,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

@@ -70,6 +70,13 @@ import {
   normalizeRoomCode,
 } from "@/online/room-code";
 import { useOnlineCount } from "@/online/use-online-presence";
+import { ShareRow, invitedCode } from "@/online/room-invite";
+import { Avatar } from "@/online/avatar";
+import { StoredAvatarFace } from "@/online/player-avatar";
+
+/** How big a face is beside a seat name, and in a waiting-room pill. */
+const AVATAR_SEAT = 22;
+const AVATAR_TINY = 16;
 import {
   useOnlineRoom,
   type OnlineRoom,
@@ -79,7 +86,7 @@ import {
 /** German labels for the online screen. */
 const L = {
   title: `${T.title} online`,
-  subtitle: "Werd deine Karten los - der Letzte ist der Flip 7",
+  subtitle: "Sieben verschiedene Zahlen - jede:r am eigenen Gerät",
   back: "Zurück",
   yourName: "Dein Name",
   namePlaceholder: "z. B. Alex",
@@ -98,6 +105,10 @@ const L = {
   lobbyTitle: "Privater Raum",
   shareHint: `Teile den Code mit deinen Mitspielern (${MIN_PLAYERS} bis ${MAX_PLAYERS}).`,
   players: "Spieler",
+  copyCode: "Code kopieren",
+  copyLink: "Link kopieren",
+  copied: "Kopiert!",
+  invitedHint: "Du wurdest eingeladen - Namen eintragen und beitreten.",
   hostBadge: "Host",
   youBadge: "Du",
   startGame: "Spiel starten",
@@ -293,11 +304,20 @@ function Entry({
 }): ReactElement {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  // True when the code came from an invite link rather than being typed.
+  const [invited, setInvited] = useState(false);
   const [count, setCount] = useState(DEFAULT_PLAYER_COUNT);
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- mount-time prefill from storage */
+    /* eslint-disable react-hooks/set-state-in-effect -- mount-time prefill from storage and URL */
+    // An invite link fills the field in; joining still needs a name, and
+    // whoever followed the link from a chat has not been asked for one yet.
+    const fromLink = invitedCode();
+    if (fromLink !== "") {
+      setCode(fromLink);
+      setInvited(true);
+    }
     const saved = loadPlayerName().trim();
     if (saved.length > 0) {
       setName(saved);
@@ -345,16 +365,23 @@ function Entry({
     <div className="flex max-w-md flex-col gap-5">
       <OnlineCountBadge count={onlineCount} />
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">{L.yourName}</span>
-        <input
-          type="text"
-          value={name}
-          onChange={(event) => changeName(event.target.value)}
-          placeholder={L.namePlaceholder}
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
-        />
-      </label>
+      {/* Shown, not offered: the face is picked in the account on the
+          start page, but it belongs beside the name you are about to
+          join under. */}
+      <div className="flex items-end gap-3">
+        <StoredAvatarFace />
+        {/* Takes the rest of the row, so the field is as wide as it was. */}
+        <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+          <span className="font-medium">{L.yourName}</span>
+          <input
+            type="text"
+            value={name}
+            onChange={(event) => changeName(event.target.value)}
+            placeholder={L.namePlaceholder}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </label>
+      </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
         <div>
@@ -388,7 +415,20 @@ function Entry({
         {L.createRoom}
       </button>
 
-      <div className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <div
+        className={`flex flex-col gap-2 rounded-2xl border p-4 ${
+          invited
+            ? "border-emerald-400 dark:border-emerald-600"
+            : "border-zinc-200 dark:border-zinc-800"
+        }`}
+      >
+        {/* Somebody who followed a link lands on a screen offering three
+            different ways in. This says which one is theirs. */}
+        {invited && (
+          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            {L.invitedHint}
+          </p>
+        )}
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">{L.roomCode}</span>
           <input
@@ -571,8 +611,9 @@ function SearchingLobby({
           {seats.map((seat) => (
             <li
               key={seat.id}
-              className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800"
+              className="flex items-center gap-1 rounded-full bg-zinc-100 py-0.5 pr-2 pl-0.5 text-xs dark:bg-zinc-800"
             >
+              <Avatar id={seat.avatar} size={AVATAR_TINY} />
               {seat.name}
             </li>
           ))}
@@ -615,12 +656,7 @@ function Lobby({
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           {L.shareHint}
         </p>
-        <span
-          data-testid="room-code"
-          className="self-start rounded-lg bg-zinc-100 px-3 py-2 font-mono text-2xl font-bold tracking-widest dark:bg-zinc-800"
-        >
-          {code}
-        </span>
+        <ShareRow code={code} texts={L} />
       </section>
 
       <section className="flex flex-col gap-2">
@@ -633,6 +669,7 @@ function Lobby({
               key={seat.id}
               className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
             >
+              <Avatar id={seat.avatar} size={AVATAR_SEAT} />
               <span>{seat.name}</span>
               {seat.isHost && <Badge>{L.hostBadge}</Badge>}
               {seat.id === room.seatId && <Badge>{L.youBadge}</Badge>}

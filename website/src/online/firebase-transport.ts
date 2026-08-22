@@ -240,7 +240,16 @@ function readMembers(value: unknown): Seat[] {
   }
 
   members.sort(byHostThenJoin);
-  return members.map(({ id, name, isHost }) => ({ id, name, isHost }));
+  // Rebuilt field by field rather than spread: whatever else a peer wrote into
+  // its member entry stays out of the room. Anything a seat is meant to carry
+  // has to be named here as well as on the type - the avatar was written,
+  // travelled, arrived, and was quietly dropped on this line.
+  return members.map(({ id, name, isHost, avatar }) => ({
+    id,
+    name,
+    isHost,
+    avatar,
+  }));
 }
 
 /** Orders the host first, then earlier joiners, then by id for a stable tie. */
@@ -267,7 +276,9 @@ function isStoredMember(value: unknown): value is StoredMember {
     typeof member.name === "string" &&
     member.name.length > 0 &&
     typeof member.isHost === "boolean" &&
-    typeof member.joinedAt === "number"
+    typeof member.joinedAt === "number" &&
+    // Optional, so a player on an older build is still a valid member.
+    (member.avatar === undefined || typeof member.avatar === "string")
   );
 }
 

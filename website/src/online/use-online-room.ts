@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { database, signIn } from "@/online/firebase-app";
+import { loadPlayerAvatar } from "./player-avatar";
 import type { OnlineAdapter, RoomState, Seat, SeatId } from "./adapter";
 import { createFirebaseTransport } from "./firebase-transport";
 import { createWireGuards } from "./online-state";
@@ -252,6 +253,10 @@ async function connect<G, M, H, O>(
       id: uid,
       name: session.name.trim() || DEFAULT_PLAYER_NAME,
       isHost: session.mode === "host",
+      // Read here rather than passed in by each game: the seat is built once,
+      // so the face reaches every screen that already shows a name without a
+      // single game having to carry it.
+      avatar: loadPlayerAvatar(),
     };
 
     // Chat is peer to peer: everyone writes and reads it directly, host or not.

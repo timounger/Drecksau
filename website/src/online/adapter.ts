@@ -27,6 +27,15 @@ export type Seat = {
   readonly name: string;
   /** True for the one player who runs the authoritative game. */
   readonly isHost: boolean;
+  /**
+   * The face they picked, as an avatar id.
+   *
+   * @remarks
+   * Optional, and stays optional: a player on an older build sends a seat
+   * without one, and a seat stored in a room from before this existed has
+   * none either. Both get the plain default rather than an error.
+   */
+  readonly avatar?: string;
 };
 
 /**

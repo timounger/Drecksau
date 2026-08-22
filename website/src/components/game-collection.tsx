@@ -32,6 +32,7 @@ import {
 } from "@/games/registry";
 import { GAME_LOGOS } from "@/games/game-logos";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
+import { AccountButton } from "@/components/account-button";
 import { POPULAR_DAYS, loadPlayTimes } from "@/online/popularity";
 
 /** How many games the popular shelf holds. */
@@ -54,11 +55,17 @@ export function GameCollection(): ReactElement {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 p-4">
       <header className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">{COLLECTION_TEXTS.title}</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {COLLECTION_TEXTS.subtitle}
-          </p>
+        <div className="flex items-start gap-3">
+          <div className="mr-auto min-w-0">
+            <h1 className="text-3xl font-bold">{COLLECTION_TEXTS.title}</h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {COLLECTION_TEXTS.subtitle}
+            </p>
+          </div>
+          {/* The one place the name and the face are set. Here rather than on
+              every online screen: the same choice in seventeen places is a
+              choice with no home. */}
+          <AccountButton />
         </div>
         <input
           type="search"

@@ -41,6 +41,13 @@ import {
   normalizeRoomCode,
 } from "@/online/room-code";
 import { useOnlineCount } from "@/online/use-online-presence";
+import { ShareRow, invitedCode } from "@/online/room-invite";
+import { Avatar } from "@/online/avatar";
+import { StoredAvatarFace } from "@/online/player-avatar";
+
+/** How big a face is beside a seat name, and in a waiting-room pill. */
+const AVATAR_SEAT = 22;
+const AVATAR_TINY = 16;
 import { VoiceChat } from "@/online/voice-chat";
 import type { RoomState } from "@/online/adapter";
 import {
@@ -54,14 +61,8 @@ import { OnlineBoard } from "./online-board";
 /** This game's id, for presence and matchmaking namespacing. */
 const GAME_ID = "binokel";
 
-/** Query parameter that carries a room code in an invite link. */
-const ROOM_QUERY_PARAM = "raum";
-
 /** Points that end a match, as in the local game. */
 const TARGET_SCORE = 1000;
-
-/** How long the "copied!" confirmation stays up, in milliseconds. */
-const COPIED_FEEDBACK_MS = 1500;
 
 /** Milliseconds in a second, for the auto-play labels and countdowns. */
 const MS_PER_SECOND = 1000;
@@ -244,6 +245,8 @@ function OnlineEntry({
 }: OnlineEntryProps): ReactElement {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  // True when the code came from an invite link rather than being typed.
+  const [invited, setInvited] = useState(false);
   const [count, setCount] = useState(MIN_PLAYERS);
   const [searching, setSearching] = useState(false);
 
@@ -256,10 +259,10 @@ function OnlineEntry({
       setName(saved);
     }
     setCount(loadBinokelHostSettings().matchPlayerCount);
-    const params = new URLSearchParams(window.location.search);
-    const invited = params.get(ROOM_QUERY_PARAM);
-    if (invited !== null) {
-      setCode(normalizeRoomCode(invited));
+    const fromLink = invitedCode();
+    if (fromLink !== "") {
+      setCode(fromLink);
+      setInvited(true);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
@@ -299,16 +302,23 @@ function OnlineEntry({
     <div className="flex max-w-md flex-col gap-6">
       <OnlineCountBadge count={onlineCount} />
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">{BINOKEL_ONLINE_TEXTS.yourName}</span>
-        <input
-          type="text"
-          value={name}
-          onChange={(event) => changeName(event.target.value)}
-          placeholder={BINOKEL_ONLINE_TEXTS.yourNamePlaceholder}
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
-        />
-      </label>
+      {/* Shown, not offered: the face is picked in the account on the
+          start page, but it belongs beside the name you are about to
+          join under. */}
+      <div className="flex items-end gap-3">
+        <StoredAvatarFace />
+        {/* Takes the rest of the row, so the field is as wide as it was. */}
+        <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+          <span className="font-medium">{BINOKEL_ONLINE_TEXTS.yourName}</span>
+          <input
+            type="text"
+            value={name}
+            onChange={(event) => changeName(event.target.value)}
+            placeholder={BINOKEL_ONLINE_TEXTS.yourNamePlaceholder}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </label>
+      </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
         <div>
@@ -367,7 +377,20 @@ function OnlineEntry({
         {BINOKEL_ONLINE_TEXTS.createRoom}
       </button>
 
-      <div className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <div
+        className={`flex flex-col gap-2 rounded-2xl border p-4 ${
+          invited
+            ? "border-emerald-400 dark:border-emerald-600"
+            : "border-zinc-200 dark:border-zinc-800"
+        }`}
+      >
+        {/* Somebody who followed a link lands on a screen offering three
+            different ways in. This says which one is theirs. */}
+        {invited && (
+          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            {BINOKEL_ONLINE_TEXTS.invitedHint}
+          </p>
+        )}
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">{BINOKEL_ONLINE_TEXTS.roomCode}</span>
           <input
@@ -441,17 +464,7 @@ function OnlineLobby({ room, online, onLeave }: RoomViewProps): ReactElement {
           {BINOKEL_ONLINE_TEXTS.shareHint}
         </p>
         <div className="flex items-center gap-3">
-          <span
-            data-testid="room-code"
-            className="rounded-lg bg-zinc-100 px-3 py-2 font-mono text-2xl font-bold tracking-widest dark:bg-zinc-800"
-          >
-            {room.code}
-          </span>
-          <CopyButton label={BINOKEL_ONLINE_TEXTS.copyCode} value={room.code} />
-          <CopyButton
-            label={BINOKEL_ONLINE_TEXTS.copyLink}
-            value={inviteLink(room.code)}
-          />
+          <ShareRow code={room.code} texts={BINOKEL_ONLINE_TEXTS} />
         </div>
       </section>
 
@@ -465,6 +478,7 @@ function OnlineLobby({ room, online, onLeave }: RoomViewProps): ReactElement {
               key={seat.id}
               className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
             >
+              <Avatar id={seat.avatar} size={AVATAR_SEAT} />
               <span>{seat.name}</span>
               {seat.isHost && <Badge>{BINOKEL_ONLINE_TEXTS.hostBadge}</Badge>}
               {seat.id === online.seatId && (
@@ -739,8 +753,9 @@ function SearchingLobby({
           {room.seats.map((seat) => (
             <li
               key={seat.id}
-              className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800"
+              className="flex items-center gap-1 rounded-full bg-zinc-100 py-0.5 pr-2 pl-0.5 text-xs dark:bg-zinc-800"
             >
+              <Avatar id={seat.avatar} size={AVATAR_TINY} />
               {seat.name}
             </li>
           ))}
@@ -851,34 +866,6 @@ function Badge({ children }: { children: string }): ReactElement {
   );
 }
 
-/** Props of {@link CopyButton}. */
-type CopyButtonProps = {
-  readonly label: string;
-  readonly value: string;
-};
-
-/** Copies a value to the clipboard and briefly confirms it. */
-function CopyButton({ label, value }: CopyButtonProps): ReactElement {
-  const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    void navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
-    });
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={copy}
-      className="cursor-pointer rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-    >
-      {copied ? BINOKEL_ONLINE_TEXTS.copied : label}
-    </button>
-  );
-}
-
 /** Props of {@link LeaveButton}. */
 type LeaveButtonProps = {
   readonly onLeave: () => void;
@@ -895,9 +882,4 @@ function LeaveButton({ onLeave }: LeaveButtonProps): ReactElement {
       {BINOKEL_ONLINE_TEXTS.leaveRoom}
     </button>
   );
-}
-
-/** Builds the invite link for a room code from the current page URL. */
-function inviteLink(code: string): string {
-  return `${window.location.origin}${window.location.pathname}?${ROOM_QUERY_PARAM}=${code}`;
 }

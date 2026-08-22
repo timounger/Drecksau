@@ -13,6 +13,10 @@
  * what comes up next, wherever that was.
  */
 import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
+import {
+  createStoredValue,
+  type StoredValue,
+} from "@/lib/storage/stored-value";
 
 /** Schema version of the stored name - raise it on breaking changes. */
 const NAME_VERSION = 1;
@@ -81,3 +85,20 @@ function adoptOldName(): string {
 function isName(value: unknown): value is string {
   return typeof value === "string";
 }
+
+/**
+ * The same name, as a store React may read while rendering.
+ *
+ * @remarks
+ * The two functions above read storage directly, which is right for an effect
+ * that runs after mount. A component that wants the name **during** its first
+ * render needs this instead: a prerendered page has no storage, and reading it
+ * while rendering makes the first client render disagree with the HTML that
+ * arrived. Both write to the same key, so they cannot drift apart.
+ */
+export const playerNameStore: StoredValue<string> = createStoredValue(
+  NAME_KEY,
+  NAME_VERSION,
+  "",
+  isName,
+);
