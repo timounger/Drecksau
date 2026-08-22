@@ -97,6 +97,51 @@ website/src/
 Die Spiellogik eines Spiels ist von der Oberflaeche getrennt und rein
 funktional: jeder Zug erzeugt einen neuen Zustand, testbar ohne Browser.
 
+## Die Startseite: Regale statt Liste
+
+Siebzehn Karten alphabetisch untereinander sind ein Katalog, und ein Katalog
+beantwortet keine Frage, mit der jemand ankommt. Die Sammlung liegt deshalb in
+**Regalen** ([components/game-collection.tsx](website/src/components/game-collection.tsx)):
+
+- **Beliebt** - die Spiele, mit denen in den letzten **7 Tagen** am längsten
+  gespielt wurde, von allen zusammen.
+- **Neu** - was zuletzt dazugekommen ist.
+- danach nach Art des Abends: **Kartenspiele**, **Würfelspiele**, **Gemeinsam
+  gegen das Spiel**, **Wort und Party**, **Action und Taktik**.
+
+Jedes Spiel steht in **genau einem** Kategorie-Regal. Zwei Regale für ein Spiel
+hieße, an derselben Karte zweimal vorbeizuscrollen und sich zu fragen, ob man
+etwas übersehen hat. „Beliebt" und „Neu" sind dagegen keine Ablage, sondern die
+Antwort auf eine Frage - dass ein Spiel dort **und** unten in seiner Kategorie
+auftaucht, ist der Zweck.
+
+Wer sucht, bekommt eine flache Trefferliste ohne Regale. Wer einen Namen tippt,
+weiß, was er sucht; ihn dann noch durch Abschnitte jagen zu lassen, hilft
+niemandem.
+
+### Wie „beliebt" gerechnet wird
+
+Gezählt wird **Spielzeit**, nicht wie oft ein Spiel gestartet wurde. Ein Start
+heißt, dass jemand einmal geklickt hat - ein Regal darauf zu bauen belohnt den
+neugierigen Klick gegenüber dem Abend, den jemand wirklich dabei geblieben ist.
+
+Die Zeit ist die einzige Zahl auf der Startseite, die **nicht** aus dem eigenen
+Browser kommt: Sie liegt als eine laufende Summe pro Spiel und UTC-Tag unter
+`rooms/__played/<spiel-id>/<JJJJ-MM-TT>` in derselben Firebase-Datenbank wie die
+Online-Räume ([online/popularity.ts](website/src/online/popularity.ts)).
+Addiert wird atomar, damit zwei Leute, die gleichzeitig aufhören, sich nicht
+gegenseitig überschreiben.
+
+Tage statt einer Gesamtsumme, weil eine Gesamtsumme nie vergessen könnte - ein
+Spiel, das im Frühjahr beliebt war, stünde für immer oben. Und Tage statt einer
+Liste einzelner Sitzungen, weil die endlos wachsen und zum Summieren ganz
+gelesen werden müsste.
+
+Übertragen wird nur die Spanne selbst, gebündelt etwa alle 30 Sekunden statt
+nach jedem Zug. Der Knoten enthält eine Zahl pro Spiel und Tag und keine Spur
+davon, wer sie dazugezählt hat. Die eigentliche Statistik bleibt im Browser,
+wie es die Statistikseite verspricht.
+
 ## Online-Spielername
 
 Der Name, unter dem du online spielst, gilt **fuer alle Spiele der Sammlung**.
@@ -201,8 +246,11 @@ Die Speicher- und Statistik-Schicht ist bewusst spielunabhaengig. Fuer ein neues
 Spiel reicht:
 
 1. In [registry.ts](website/src/games/registry.ts) eine `GameId` und einen
-   Eintrag (Name, Tagline, Emoji, `href`) **hinten anhaengen** - die Uebersicht
-   sortiert selbst nach Namen, die Reihenfolge im Code ist egal.
+   Eintrag (Name, Tagline, Emoji, `href`, `category`, `addedOn`) **hinten
+   anhaengen** - die Uebersicht sortiert selbst nach Namen, die Reihenfolge im
+   Code ist egal. `addedOn` ist der Tag im Format `JJJJ-MM-TT`; davon lebt das
+   Regal „Neu", und ausgeschrieben werden muss er, weil die Reihenfolge im Code
+   nur _fast_ die Reihenfolge des Hinzufuegens ist.
 2. Ein eigenes Modul `website/src/games/<spiel>/` anlegen (Engine, Komponenten,
    Texte) samt einer `isGameState`-Pruefung fuer gespeicherte Staende.
 3. Eine Route `website/src/app/<spiel>/page.tsx` erstellen, die die

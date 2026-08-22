@@ -2,8 +2,14 @@
  * Writes events into the stored statistics: read, update, save.
  *
  * @module
+ * @remarks
+ * Play time goes two ways from here, and only play time. The statistics
+ * themselves stay in this browser, as the statistics page promises; what also
+ * travels is the bare span, added to a shared per-day total that decides which
+ * games the start page calls popular. Nothing identifies who played.
  */
 import type { GameId } from "@/games/registry";
+import { reportPlayTime } from "@/online/popularity";
 import {
   withGameFinished,
   withGameStarted,
@@ -45,4 +51,5 @@ export function recordPlayTime(
   at: number,
 ): void {
   saveStats(gameId, withPlayTime(loadStats(gameId), elapsedMs, at));
+  reportPlayTime(gameId, elapsedMs);
 }

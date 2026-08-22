@@ -30,6 +30,30 @@ export type GameId =
   | "codenames"
   | "flip-7";
 
+/** The shelves the collection is sorted onto. */
+export type GameCategory =
+  "karten" | "wuerfel" | "gemeinsam" | "wort" | "action";
+
+/**
+ * The categories, in the order they are shown.
+ *
+ * @remarks
+ * Every game sits on exactly one shelf. Two shelves for one game would mean a
+ * player scrolling past the same card twice and wondering whether they had
+ * missed something, and the question "which shelf is it on" would stop having
+ * an answer.
+ */
+export const CATEGORIES: readonly {
+  readonly id: GameCategory;
+  readonly name: string;
+}[] = [
+  { id: "karten", name: "Kartenspiele" },
+  { id: "wuerfel", name: "Würfelspiele" },
+  { id: "gemeinsam", name: "Gemeinsam gegen das Spiel" },
+  { id: "wort", name: "Wort und Party" },
+  { id: "action", name: "Action und Taktik" },
+];
+
 /** One game of the collection. */
 export type GameDefinition = {
   readonly id: GameId;
@@ -41,6 +65,19 @@ export type GameDefinition = {
   readonly emoji: string;
   /** Route of the game's own page. */
   readonly href: string;
+  /** Which shelf it sits on in the overview. */
+  readonly category: GameCategory;
+  /**
+   * The day it joined the collection, as `YYYY-MM-DD`.
+   *
+   * @remarks
+   * Taken from when the game's folder first appeared in the repository, so it
+   * is a fact rather than a guess. It is what "Neu" means - and it has to be
+   * written down, because the order of the list below is only nearly the order
+   * things were added and would quietly start lying the first time somebody
+   * sorted it.
+   */
+  readonly addedOn: string;
 };
 
 /**
@@ -58,6 +95,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Wer zuerst nur noch Drecksäue hat, gewinnt.",
     emoji: "\u{1F437}",
     href: "/drecksau",
+    category: "karten",
+    addedOn: "2026-07-18",
   },
   {
     id: "binokel",
@@ -65,6 +104,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Schwäbisches Stichspiel - Reizen, Melden, Stechen.",
     emoji: "\u{1F0CF}",
     href: "/binokel",
+    category: "karten",
+    addedOn: "2026-07-18",
   },
   {
     id: "panzerkiste",
@@ -72,6 +113,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Zerstöre alle feindlichen Panzer - schießen, minen, ausweichen.",
     emoji: "\u{1F696}",
     href: "/panzerkiste",
+    category: "action",
+    addedOn: "2026-07-20",
   },
   {
     id: "krakel",
@@ -80,6 +123,8 @@ const ENTRIES: readonly GameDefinition[] = [
       "Alle malen gleichzeitig - streicht die Wörter, die keiner gemalt hat.",
     emoji: "\u{1F52E}",
     href: "/krakel",
+    category: "wort",
+    addedOn: "2026-07-28",
   },
   {
     id: "rv-there-yet",
@@ -87,6 +132,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Bring das Wohnmobil über den Berg - notfalls mit der Seilwinde.",
     emoji: "\u{1F69A}",
     href: "/rv-there-yet",
+    category: "gemeinsam",
+    addedOn: "2026-08-03",
   },
   {
     id: "skyjo",
@@ -94,6 +141,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Tausche deine Karten - die wenigsten Punkte gewinnen.",
     emoji: "\u{1F3B4}",
     href: "/skyjo",
+    category: "karten",
+    addedOn: "2026-07-30",
   },
   {
     id: "politik",
@@ -101,6 +150,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Wahlkampf, Koalitionen, Wahlversprechen - wer regiert, gewinnt.",
     emoji: "\u{1F3DB}\u{FE0F}",
     href: "/politik",
+    category: "action",
+    addedOn: "2026-08-11",
   },
   {
     id: "camel-up",
@@ -108,6 +159,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Fünf Kamele, ein Stapel - wer getragen wird, liegt vorn.",
     emoji: "\u{1F42B}",
     href: "/camel-up",
+    category: "wuerfel",
+    addedOn: "2026-08-14",
   },
   {
     id: "the-mind",
@@ -115,6 +168,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Gemeinsam aufsteigend ablegen - ohne ein Wort.",
     emoji: "\u{1F9E0}",
     href: "/the-mind",
+    category: "gemeinsam",
+    addedOn: "2026-08-14",
   },
   {
     id: "qwixx",
@@ -122,6 +177,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Würfeln und ankreuzen - was du überspringst, ist weg.",
     emoji: "\u{270F}\u{FE0F}",
     href: "/qwixx",
+    category: "wuerfel",
+    addedOn: "2026-08-14",
   },
   {
     id: "heckmeck",
@@ -129,6 +186,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Acht Würfel, sechzehn Chips - ohne Wurm zählt nichts.",
     emoji: "\u{1F41B}",
     href: "/heckmeck",
+    category: "wuerfel",
+    addedOn: "2026-08-14",
   },
   {
     id: "kuhle-kuehe",
@@ -136,6 +195,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Baut die längsten Kühe und die größte Herde.",
     emoji: "\u{1F404}",
     href: "/kuhle-kuehe",
+    category: "karten",
+    addedOn: "2026-08-20",
   },
   {
     id: "kniffel",
@@ -143,6 +204,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Fünf Würfel, drei Würfe, dreizehn Felder - jedes nur einmal.",
     emoji: "\u{1F3B2}",
     href: "/kniffel",
+    category: "wuerfel",
+    addedOn: "2026-08-14",
   },
   {
     id: "jammerlappen",
@@ -150,6 +213,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Werd alle Karten los - der Letzte ist der Jammerlappen.",
     emoji: "\u{1F62D}",
     href: "/jammerlappen",
+    category: "karten",
+    addedOn: "2026-08-20",
   },
   {
     id: "exploding-kittens",
@@ -157,6 +222,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Zieh keine Bombe - wer als Letzter lebt, gewinnt.",
     emoji: "\u{1F4A5}",
     href: "/exploding-kittens",
+    category: "karten",
+    addedOn: "2026-08-20",
   },
   {
     id: "codenames",
@@ -164,6 +231,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Ein Wort, eine Zahl - und der Attentäter wartet.",
     emoji: "\u{1F575}\u{FE0F}",
     href: "/codenames",
+    category: "wort",
+    addedOn: "2026-08-20",
   },
   {
     id: "flip-7",
@@ -171,6 +240,8 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Sieben verschiedene Zahlen - oder eine zu viel.",
     emoji: "\u{1F522}",
     href: "/flip-7",
+    category: "karten",
+    addedOn: "2026-08-20",
   },
 ];
 
@@ -190,6 +261,58 @@ const ENTRIES: readonly GameDefinition[] = [
 export const GAMES: readonly GameDefinition[] = [...ENTRIES].sort(
   (left, right) => left.name.localeCompare(right.name, "de"),
 );
+
+/**
+ * How many games "Neu" shows at most.
+ *
+ * @remarks
+ * A cap rather than a time window: a quiet month would leave the shelf empty,
+ * and a busy week would put half the collection on it.
+ */
+const NEW_LIMIT = 6;
+
+/**
+ * The games that joined the collection most recently.
+ *
+ * @returns the newest games, newest first
+ * @remarks
+ * Cut on whole days. Five games added on the same afternoon are equally new,
+ * and taking four of them because a limit fell in the middle would put one
+ * game on a shelf and its twin off it for no reason a reader could see. So a
+ * day is taken whole or not at all, and the shelf may come out a little
+ * shorter than the limit.
+ */
+export function newGames(): readonly GameDefinition[] {
+  const byDay = [...ENTRIES].sort((left, right) =>
+    right.addedOn.localeCompare(left.addedOn),
+  );
+  const taken: GameDefinition[] = [];
+  let at = 0;
+  let full = false;
+  while (at < byDay.length && !full) {
+    const group = byDay.filter((game) => game.addedOn === byDay[at].addedOn);
+    // A day that does not fit **ends** the shelf. Skipping it to reach for an
+    // older, smaller day would fill the last place with a game that is not
+    // among the newest at all.
+    if (taken.length === 0 || taken.length + group.length <= NEW_LIMIT) {
+      taken.push(...group);
+      at += group.length;
+    } else {
+      full = true;
+    }
+  }
+  return taken;
+}
+
+/**
+ * The games on one shelf, by name.
+ *
+ * @param category - which shelf
+ * @returns its games, in the collection's usual order
+ */
+export function gamesIn(category: GameCategory): readonly GameDefinition[] {
+  return GAMES.filter((game) => game.category === category);
+}
 
 /**
  * Looks up a game by its id.

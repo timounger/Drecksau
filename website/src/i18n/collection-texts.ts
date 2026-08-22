@@ -17,6 +17,11 @@ export const COLLECTION_TEXTS = {
   statistics: "Statistik",
   settings: "Einstellungen",
   moreSoon: "Weitere Spiele folgen.",
+  popular: "Beliebt",
+  popularHint: (days: number) =>
+    `Am längsten gespielt in den letzten ${days} Tagen - von allen zusammen.`,
+  newest: "Neu",
+  newestHint: "Zuletzt dazugekommen.",
   searchPlaceholder: "Spiel suchen ...",
   noResults: "Keine Spiele gefunden.",
 } as const;
