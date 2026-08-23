@@ -20,6 +20,8 @@ jedes Spiel hat seine eigene Seite.
 | [Flash Point](website/src/games/flash-point/README.md)             | Rettet die Opfer, bevor das Haus einstuerzt.                                                             | Computer + Online    |
 | [The Game](website/src/games/the-game/README.md)                   | 98 Karten auf vier Reihen - und keiner darf Zahlen nennen.                                               | Computer + Online    |
 | [Risiko](website/src/games/risiko/README.md)                       | Gebiet fuer Gebiet die Welt erobern.                                                                     | Computer + Online    |
+| [Monopoly](website/src/games/monopoly/README.md)                   | Kaufen, bauen, kassieren - bis nur noch einer zahlen kann.                                               | Computer + Online    |
+| [CATAN](website/src/games/catan/README.md)                         | Siedeln, handeln, bauen - und die Insel unter euch aufteilen.                                            | Computer + Online    |
 | [Heckmeck am Bratwurmeck](website/src/games/heckmeck/README.md)    | Acht Wuerfel, sechzehn Chips - ohne Wurm zaehlt nichts.                                                  | Computer + Online    |
 | [Kniffel](website/src/games/kniffel/README.md)                     | Fuenf Wuerfel, drei Wuerfe, dreizehn Felder - jedes nur einmal.                                          | Computer + Online    |
 | [Kuhle Kuehe](website/src/games/kuhle-kuehe/README.md)             | Baut aus Koepfen, Mittelteilen und Hinterteilen die laengsten Kuehe und die groesste Herde.              | Computer + Online    |
@@ -93,6 +95,8 @@ website/src/
     flash-point/    Flash Point: Fire Rescue - kooperativer Feuerwehreinsatz
     the-game/       The Game - kooperatives Kartenspiel, ohne ueber Zahlen zu reden
     risiko/         Risiko - 42 Gebiete, drei Varianten aus der Schachtel
+    monopoly/       Monopoly Klassik - deutscher Spielplan, Auktionen und Handel
+    catan/          CATAN - 19 Landschaftsfelder, variabler Aufbau, Haefen und Raeuber
                     (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)
@@ -451,4 +455,6 @@ $env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
   [Sky Team](docs/games/sky-team/game-rules.md) ·
   [Flash Point](docs/games/flash-point/game-rules.md) ·
   [The Game](docs/games/the-game/game-rules.md) ·
-  [Risiko](docs/games/risiko/game-rules.md)
+  [Risiko](docs/games/risiko/game-rules.md) ·
+  [Monopoly](docs/games/monopoly/game-rules.md) ·
+  [CATAN](docs/games/catan/game-rules.md)

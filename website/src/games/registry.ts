@@ -32,7 +32,9 @@ export type GameId =
   | "sky-team"
   | "flash-point"
   | "the-game"
-  | "risiko";
+  | "risiko"
+  | "monopoly"
+  | "catan";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -282,6 +284,24 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/risiko",
     category: "action",
     addedOn: "2026-08-22",
+  },
+  {
+    id: "monopoly",
+    name: "Monopoly",
+    tagline: "Kaufen, bauen, kassieren - bis nur noch einer zahlen kann.",
+    emoji: "\u{1F3E0}",
+    href: "/monopoly",
+    category: "action",
+    addedOn: "2026-08-23",
+  },
+  {
+    id: "catan",
+    name: "CATAN",
+    tagline: "Siedeln, handeln, bauen - und die Insel unter euch aufteilen.",
+    emoji: "\u{1F3DD}\u{FE0F}",
+    href: "/catan",
+    category: "action",
+    addedOn: "2026-08-23",
   },
 ];
 
