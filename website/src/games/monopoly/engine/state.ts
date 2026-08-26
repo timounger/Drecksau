@@ -142,6 +142,25 @@ export type Offer = {
   readonly cash: number;
 };
 
+/**
+ * A deed somebody has already refused to part with.
+ *
+ * @remarks
+ * Only the computer players read these. A person may ask as often as they like
+ * - re-asking with more money is half of what haggling *is*, and the referee
+ * has no business forbidding it. A bot has no better second offer in it, so
+ * without a memory it would put the identical deal on the table every single
+ * turn until the game ended.
+ */
+export type Refusal = {
+  /** Who asked. */
+  readonly from: number;
+  /** Who said no. */
+  readonly to: number;
+  /** The field they would not sell. */
+  readonly field: number;
+};
+
 /** A card lying face up. */
 export type Drawn = {
   readonly card: number;
@@ -228,6 +247,17 @@ export type MonopolyGame = {
    * re-proposes the deal it was just refused proposes it forever.
    */
   readonly offersThisTurn: number;
+  /**
+   * Trades already turned down, so a bot does not ask twice.
+   *
+   * @remarks
+   * Optional, and staying optional: a game saved before this existed has none,
+   * and it should carry on rather than be thrown away for a field that only
+   * makes the opponents less annoying. Read it through {@link wasRefused},
+   * which treats "missing" and "nobody has refused anything" as the same thing,
+   * because they are.
+   */
+  readonly refused?: readonly Refusal[];
   /**
    * Fields still to go under the hammer.
    *
@@ -484,6 +514,55 @@ export function stillIn(game: MonopolyGame): readonly number[] {
   return game.players
     .map((player, seat) => (player.bankrupt ? -1 : seat))
     .filter((seat) => seat >= 0);
+}
+
+/**
+ * Whether this exact request has already been turned down.
+ *
+ * @param game - the game
+ * @param from - who would be asking
+ * @param to - who would be asked
+ * @param field - the deed being asked for
+ * @returns true if that seat has already said no to that seat about that deed
+ * @remarks
+ * A refusal holds for the rest of the game. It could be given a memory that
+ * fades, and then the asking would come back - which is the thing it is there
+ * to stop. Somebody who changes their mind can offer the deed themselves; the
+ * panel beside the board has always been able to do that.
+ */
+export function wasRefused(
+  game: MonopolyGame,
+  from: number,
+  to: number,
+  field: number,
+): boolean {
+  return (game.refused ?? []).some(
+    (no) => no.from === from && no.to === to && no.field === field,
+  );
+}
+
+/**
+ * The refusals a rejected offer adds.
+ *
+ * @param game - the game whose offer has just been turned down
+ * @param offer - the offer that was refused
+ * @returns the list to store, with nothing recorded twice
+ * @remarks
+ * One entry per deed asked for. Cash asked for records nothing: money is not a
+ * thing somebody refuses to part with, it is a price, and a bot that offered
+ * more next time would be haggling rather than pestering.
+ */
+export function withRefusal(
+  game: MonopolyGame,
+  offer: Offer,
+): readonly Refusal[] {
+  const kept = [...(game.refused ?? [])];
+  for (const field of offer.want) {
+    if (!wasRefused(game, offer.from, offer.to, field)) {
+      kept.push({ from: offer.from, to: offer.to, field });
+    }
+  }
+  return kept;
 }
 
 /**

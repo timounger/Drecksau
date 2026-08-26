@@ -39,6 +39,7 @@ import {
   ownedBy,
   raisable,
   stillIn,
+  wasRefused,
   worthOf,
   type MonopolyGame,
   type MonopolyMove,
@@ -407,6 +408,11 @@ function judgeOffer(game: MonopolyGame, seat: number): MonopolyMove {
  * badly is worse than one that does not negotiate, and this one shape is the
  * only trade in Monopoly that is obviously worth making.
  *
+ * Asked once each, and never again: a refusal is remembered
+ * ({@link wasRefused}). This bot has no second offer in it, so a second asking
+ * would be the identical deal, and a player who has said no once should not
+ * have to say it every turn for the rest of the game.
+ *
  * The price offered is what the *other* player would value it at, plus the
  * margin they insist on, so an offer that gets made is an offer that gets
  * taken. That comes to about one and three quarter times the printed price -
@@ -428,7 +434,11 @@ function proposeTrade(game: MonopolyGame, seat: number): MonopolyMove | null {
         holder >= 0 &&
         holder !== seat &&
         !game.players[holder].bankrupt &&
-        estateAt(game, wanted).houses === 0
+        estateAt(game, wanted).houses === 0 &&
+        // Asked once and told no. There is no better second offer in here -
+        // the price is already what the holder would value it at - so asking
+        // again would be the same deal, every turn, until the game ended.
+        !wasRefused(game, seat, holder, wanted)
       ) {
         const ask = Math.ceil(valueOf(game, holder, wanted) * TRADE_MARGIN) + 1;
         if (game.players[seat].cash - ask >= BUILD_RESERVE) {

@@ -34,7 +34,8 @@ export type GameId =
   | "the-game"
   | "risiko"
   | "monopoly"
-  | "catan";
+  | "catan"
+  | "bohnanza";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -302,6 +303,15 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/catan",
     category: "action",
     addedOn: "2026-08-23",
+  },
+  {
+    id: "bohnanza",
+    name: "Bohnanza",
+    tagline: "Anbauen, handeln, ernten - wer die meisten Taler hat, gewinnt.",
+    emoji: "\u{1FAD8}",
+    href: "/bohnanza",
+    category: "karten",
+    addedOn: "2026-08-26",
   },
 ];
 

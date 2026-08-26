@@ -316,7 +316,7 @@ eine bewusst kurze oder lange Partie ihre Länge.
 
 ### Noch nicht umgesetzt
 
-Von den acht vorliegenden Anleitungen ist bisher nur der Varianten-Teil von
+Von den neun vorliegenden Anleitungen ist bisher nur der Varianten-Teil von
 Händler & Barbaren umgesetzt. Offen sind:
 
 | Anleitung                      | Umfang                                | Stand    |
@@ -325,7 +325,7 @@ Händler & Barbaren umgesetzt. Offen sind:
 | Händler & Barbaren, Varianten  | CATAN für Zwei                        | offen    |
 | Händler & Barbaren, Szenarien  | 5 Szenarien als Kampagne              | offen    |
 | Seefahrer                      | 8 Szenarien plus freies Spiel         | offen    |
-| Städte & Ritter                | Handelswaren, Ritter, Metropolen      | offen    |
+| Städte & Ritter                | Handelswaren, Ritter, Metropolen      | [spezifiziert](staedte-und-ritter.md) |
 | Entdecker & Piraten            | 5 Szenarien auf eigenem Spielplan     | offen    |
 | 5-6 Personen, Grundspiel       | Stein 1 / Stein 2, 30 Felder          | fertig   |
 | 5-6 Personen, je Erweiterung   | Wagen 1 / Wagen 2 je Szenario         | offen    |

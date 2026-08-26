@@ -194,6 +194,123 @@ export const BREED_INK: Readonly<Record<Breed, string>> = {
 /** The colour a joker is drawn in - deliberately none of the breeds'. */
 export const JOKER_INK = "#7c3aed";
 
+/**
+ * How each breed is printed: the hide, its markings, and the horns.
+ *
+ * @remarks
+ * Fixed colours in both themes, because a card is printed card - the same
+ * reason the Monopoly board and the Bohnanza cards keep theirs, and the page
+ * around them carries the theme.
+ *
+ * The three breeds are told apart by **markings and horns** before colour: the
+ * Holstein is white with black patches and stubby horns, the Longhorn is tan
+ * with the long straight pair it is named after, the Hochland is shaggy ginger
+ * with a fringe over its eyes. A herd read by hue alone is a herd somebody
+ * cannot read.
+ */
+export const BREED_PAINT: Readonly<
+  Record<
+    Breed | "joker",
+    {
+      /** The coloured strip the name sits on. */
+      readonly band: string;
+      /** What is legible on that strip. */
+      readonly ink: string;
+      /** The hide. */
+      readonly hide: string;
+      /** Patches, shading and the outline. */
+      readonly mark: string;
+      /** Horns and hooves. */
+      readonly horn: string;
+    }
+  >
+> = {
+  longhorn: {
+    band: "#b45309",
+    ink: "#ffffff",
+    hide: "#d08f45",
+    mark: "#7a4413",
+    horn: "#f2e4c4",
+  },
+  holstein: {
+    band: "#334155",
+    ink: "#ffffff",
+    hide: "#f4f2ee",
+    mark: "#22262c",
+    horn: "#ded6c2",
+  },
+  hochland: {
+    band: "#92400e",
+    ink: "#ffffff",
+    hide: "#c8681f",
+    mark: "#6d3208",
+    horn: "#e8d9b4",
+  },
+  joker: {
+    band: "#7c3aed",
+    ink: "#ffffff",
+    hide: "#a877ee",
+    mark: "#4a1f96",
+    horn: "#e6dcfb",
+  },
+};
+
+/** The card stock every card is printed on, in both themes. */
+export const CARD_STOCK = "#fbf8f0";
+
+/** The line round the edge of a card. */
+export const CARD_EDGE = "#2b2b26";
+
+/** What a joker's breed band says - it fits any of the three. */
+export const JOKER_NAME = "Joker";
+
+/** How a calf is printed. */
+export const CALF_PAINT = {
+  band: "#0f766e",
+  ink: "#ffffff",
+  hide: "#f0e6d2",
+  mark: "#5c4a2e",
+  horn: "#e8dcc0",
+} as const;
+
+/**
+ * What sort of thing an action card is, which is what its colour says.
+ *
+ * @remarks
+ * Twelve actions is more emblems than anybody wants to learn, and the name on
+ * the card is what actually identifies one. What the colour is for is the
+ * question you ask across the table at a glance - **is that card coming for
+ * me?** So the four groups are the four answers: something being built,
+ * something being taken, something being protected, and the two oddities.
+ */
+export type ActionClass = "build" | "attack" | "guard" | "special";
+
+/** Which group each action belongs to. */
+export const ACTION_CLASS: Readonly<Record<Action, ActionClass>> = {
+  feed: "build",
+  cross2: "build",
+  cross3: "build",
+  rustler: "attack",
+  shove: "attack",
+  pitchfork: "attack",
+  calfNap: "attack",
+  dog: "guard",
+  brand: "guard",
+  barn: "guard",
+  lasso: "special",
+  again: "special",
+};
+
+/** How each group of action cards is printed. */
+export const ACTION_PAINT: Readonly<
+  Record<ActionClass, { readonly band: string; readonly ink: string }>
+> = {
+  build: { band: "#3f7d20", ink: "#ffffff" },
+  attack: { band: "#b3261e", ink: "#ffffff" },
+  guard: { band: "#b78103", ink: "#20180a" },
+  special: { band: "#5b3fb8", ink: "#ffffff" },
+};
+
 /** Which actions are attacks, and so can be turned away by a Herdenhund. */
 const ATTACKS: readonly Action[] = ["rustler", "shove", "pitchfork", "calfNap"];
 

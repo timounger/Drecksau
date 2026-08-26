@@ -8,6 +8,7 @@ jedes Spiel hat seine eigene Seite.
 
 | Spiel                                                              | Beschreibung                                                                                             | Modus                |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------- |
+| [Bohnanza](website/src/games/bohnanza/README.md)                   | Anbauen, handeln, ernten - wer die meisten Bohnentaler hat, gewinnt.                                     | Computer + Online    |
 | [Binokel](website/src/games/binokel/README.md)                     | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online    |
 | [Camel Up](website/src/games/camel-up/README.md)                   | Fuenf Kamele, ein Stapel - wer getragen wird, liegt vorn.                                                | Computer + Online    |
 | [Codenames](website/src/games/codenames/README.md)                 | Ein Wort, eine Zahl - und der Attentaeter wartet.                                                        | Computer + Online    |
@@ -96,6 +97,7 @@ website/src/
     the-game/       The Game - kooperatives Kartenspiel, ohne ueber Zahlen zu reden
     risiko/         Risiko - 42 Gebiete, drei Varianten aus der Schachtel
     monopoly/       Monopoly Klassik - deutscher Spielplan, Auktionen und Handel
+    bohnanza/       Bohnanza - Bohnen anbauen, handeln und ernten
     catan/          CATAN - 19 Landschaftsfelder, variabler Aufbau, Haefen und Raeuber
                     (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
@@ -457,4 +459,5 @@ $env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
   [The Game](docs/games/the-game/game-rules.md) ·
   [Risiko](docs/games/risiko/game-rules.md) ·
   [Monopoly](docs/games/monopoly/game-rules.md) ·
-  [CATAN](docs/games/catan/game-rules.md)
+  [CATAN](docs/games/catan/game-rules.md) ·
+  [Bohnanza](docs/games/bohnanza/game-rules.md)

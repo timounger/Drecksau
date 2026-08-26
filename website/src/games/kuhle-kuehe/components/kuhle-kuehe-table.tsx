@@ -19,9 +19,7 @@ import { useState, type ReactElement, type ReactNode } from "react";
 import {
   ACTION_NAMES,
   ACTION_TEXTS,
-  BREED_INK,
   BREED_NAMES,
-  JOKER_INK,
   PART_NAMES,
   isAttack,
   isGuard,
@@ -39,6 +37,7 @@ import {
   type KuhleKueheGame,
   type KuhleKueheMove,
 } from "@/games/kuhle-kuehe/engine/state";
+import { KuhCard } from "./kuh-card";
 import { KUHLE_TEXTS as T } from "@/games/kuhle-kuehe/i18n/texts";
 import { ComputerBadge } from "@/online/computer-badge";
 import { seatsFromMine } from "@/online/seat-order";
@@ -641,10 +640,9 @@ function Hand({
  * One card, face up or face down.
  *
  * @remarks
- * A button only while it can be pressed. The cards inside a cow sit in a row
- * that is itself pressable - you aim an attack at the whole animal, not at one
- * of its legs - and a button inside a button is invalid HTML that React will
- * not render the same way twice.
+ * The chrome and the drawing live in {@link KuhCard}; this only works out what
+ * the card is called, so every place that shows a card gets the same tooltip
+ * as the log gets a name.
  */
 function CardFace({
   card,
@@ -659,41 +657,15 @@ function CardFace({
   readonly open?: boolean;
   readonly onClick?: () => void;
 }): ReactElement {
-  const size = small
-    ? "h-9 min-w-9 px-1 text-[10px]"
-    : "h-16 min-w-16 px-2 text-xs";
-  const ink =
-    card.kind === "cow"
-      ? card.breed === null
-        ? JOKER_INK
-        : BREED_INK[card.breed]
-      : undefined;
-  const look = `flex flex-col items-center justify-center gap-0.5 rounded-lg border-2 text-center leading-tight font-semibold ${size} ${
-    picked
-      ? "border-indigo-500 bg-indigo-100 dark:bg-indigo-900/60"
-      : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-800"
-  }`;
-  const style = ink === undefined ? undefined : { color: ink };
-  return open ? (
-    <button
-      type="button"
-      data-testid={`kuhle-card-${card.id}`}
+  return (
+    <KuhCard
+      card={card}
+      size={small ? "sm" : "md"}
+      picked={picked}
+      open={open}
       onClick={onClick}
       title={labelOf(card)}
-      className={`${look} cursor-pointer hover:brightness-95`}
-      style={style}
-    >
-      {label(card)}
-    </button>
-  ) : (
-    <span
-      data-testid={`kuhle-card-${card.id}`}
-      title={labelOf(card)}
-      className={look}
-      style={style}
-    >
-      {label(card)}
-    </span>
+    />
   );
 }
 

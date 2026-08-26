@@ -27,3 +27,6 @@ website/*.tsbuildinfo
 website/next-env.d.ts
 website/docs/api
 website/.lighthouseci
+
+# other
+game_instructions

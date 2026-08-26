@@ -57,6 +57,7 @@ import {
   ownedBy,
   raisable,
   stillIn,
+  withRefusal,
   type MonopolyGame,
   type MonopolyMove,
 } from "./state";
@@ -1544,7 +1545,13 @@ function answerOffer(
   let next: MonopolyGame | null = null;
   if (deal !== null && deal.to === seat) {
     if (move.kind === "reject") {
-      next = note({ ...game, offer: null }, `${name(game, seat)}: lehnt ab.`);
+      // Remembered, so a bot does not put the same deal back on the table next
+      // turn and every turn after that. A person is not stopped from re-asking:
+      // only the computer reads this.
+      next = note(
+        { ...game, offer: null, refused: withRefusal(game, deal) },
+        `${name(game, seat)}: lehnt ab.`,
+      );
     } else if (move.kind === "accept") {
       next = closeOffer(game, deal);
     }

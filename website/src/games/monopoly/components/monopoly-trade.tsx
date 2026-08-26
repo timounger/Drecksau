@@ -85,7 +85,7 @@ export function MonopolyTrade({
           <span className="font-semibold">
             {T.tradeOpen(game.players[open.from].name)}
           </span>
-          <Summary give={open.give} want={open.want} cash={open.cash} />
+          <TradeSummary give={open.give} want={open.want} cash={open.cash} />
           <span className="flex gap-1">
             <Small
               label={T.tradeAccept}
@@ -252,7 +252,20 @@ function Picker({
 }
 
 /** What an offer on the table actually says. */
-function Summary({
+/**
+ * What an offer says, from the point of view of the seat being asked.
+ *
+ * @remarks
+ * Exported because the middle of the board shows the same offer: an offer
+ * waiting for your answer is something that **has** to happen, and the middle
+ * of the board is where this game puts those. Two drawings of one offer would
+ * be two chances to word it differently.
+ *
+ * Note the sides are swapped on purpose. `give` and `want` are the offerer's
+ * words for it, and everybody reading this is the other party - what they hand
+ * over is what you get.
+ */
+export function TradeSummary({
   give,
   want,
   cash,

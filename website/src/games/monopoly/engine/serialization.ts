@@ -24,6 +24,7 @@ import type {
   MonopolyGame,
   MonopolyPlayer,
   Offer,
+  Refusal,
 } from "./state";
 
 /** The phases a stored game may claim to be in. */
@@ -70,6 +71,7 @@ export function isMonopolyGame(value: unknown): value is MonopolyGame {
     isAuction(game.auction, seats) &&
     isDebt(game.debt, seats) &&
     isOffer(game.offer, seats) &&
+    areRefusals(game.refused, seats) &&
     Number.isInteger(game.offersThisTurn) &&
     isFields(game.toAuction) &&
     Array.isArray(game.winners) &&
@@ -182,6 +184,31 @@ function isOffer(value: unknown, seats: number): value is Offer | null {
       isFields(deal.give) &&
       isFields(deal.want) &&
       Number.isFinite(deal.cash))
+  );
+}
+
+/**
+ * Whether the remembered refusals are refusals.
+ *
+ * @remarks
+ * Missing passes. The field arrived after games were already being saved, and a
+ * stored game without it is not broken - it is simply one in which nobody has
+ * refused anything yet. Throwing such a game away over it would cost the player
+ * their evening to spare them a repeated offer.
+ */
+function areRefusals(value: unknown, seats: number): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.every((entry) => {
+        const no = entry as Refusal;
+        return (
+          isObject(entry) &&
+          isSeat(no.from, seats) &&
+          isSeat(no.to, seats) &&
+          isField(no.field)
+        );
+      }))
   );
 }
 

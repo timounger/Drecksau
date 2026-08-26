@@ -27,6 +27,42 @@ den Regeln: Eine Kuh **existiert** nur mit Kopf und Hinterteil, Futter hängt ei
 Mittelteil an, und der Kuhschubser reißt alle Mittelteile heraus und lässt das
 Tier stehen. In einer flachen Liste wäre jede dieser Regeln eine Suche.
 
+## Die Karten sind Karten, und die Kuh setzt sich zusammen
+
+Hochformat, etwa zwei zu drei - das Maß aus der Schachtel und dasselbe, das die
+Bohnanza-Karten haben ([components/kuh-card.tsx](components/kuh-card.tsx)). Eine
+Sammlung, in der eine Karte überall eine Karte ist, spart pro Spiel eine Sache
+zum Lernen.
+
+Das Bild ist hier nicht Schmuck, sondern die Spielidee: Eine Kuh wird aus
+**Kopf, Mittelteilen und Hinterteil von links nach rechts** gebaut, also sind
+die drei Bilder drei Scheiben **eines** Tieres - und sie sind so gezeichnet,
+dass sie **zusammenpassen**. Der Rumpf läuft auf jeder Karte auf derselben Höhe
+und stößt dort flach an den Rand, wo die nächste Karte weitermacht. Drei Karten
+nebeneinander lesen sich als Kuh, und genau darum geht es in den Regeln.
+
+Deshalb steht die Rumpfhöhe an genau einer Stelle im Code (`BODY_TOP`,
+`BODY_BOTTOM`): Ändert man sie an einer Karte, hört die Herde auf, sich zu
+fügen.
+
+Die Rassen unterscheiden sich zuerst an **Zeichnung und Hörnern**, nicht an der
+Farbe: die Holstein weiß mit schwarzen Flecken und Stummelhörnern, das Longhorn
+sandfarben mit dem langen geraden Paar, das Hochlandrind zottelig mit dem Pony
+über den Augen. Drei Felle, die sich nur im Farbton unterscheiden, sind für
+manche keine drei Rassen. Der **Joker** ist violett und trägt drei Punkte -
+einen pro Rasse, weil er jede davon sein wird.
+
+Bei den **Aktionskarten** gibt es ein Bild pro **Gruppe** statt pro Karte, und
+das ist eine Entscheidung und keine Abkürzung: Zwölf Sinnbilder will sich
+niemand merken, und was die Karte ist, sagt ihr Name darunter. Wofür Bild und
+Farbe da sind, ist die Frage, die man quer über den Tisch stellt - _kommt die
+gerade zu mir?_ -, und darauf gibt es vier Antworten: gebaut, genommen,
+geschützt, oder eine der beiden Sonderbaren.
+
+Gezeichnet ist alles selbst; die Bilder auf der Schachtel gehören jemandem.
+Karten behalten ihre Druckfarben in beiden Themes - eine echte Karte wird abends
+nicht dunkler, und das Thema trägt die Seite ringsherum.
+
 ## Zwei Unterbrechungen, zwei eigene Phasen
 
 Ein Zug hat zwei Hälften - Karten holen und Karten ausspielen. Zweimal kann

@@ -123,13 +123,15 @@ export function MonopolyGameScreen(): ReactElement {
           </MonopolyBoard>
         </div>
         <aside className="flex w-full flex-col gap-3 xl:w-96">
-          <MonopolyPlayers game={game} mySeat={mySeat} />
+          {/* Your own deeds first, then everybody else's standing. What you
+            own is what you act on - build, mortgage, offer - and the standings
+            are only there to be read. A panel you press buttons in should not
+            sit below one you never touch. */}
           {!over && (
-            <>
-              <MonopolyEstate game={game} mySeat={mySeat} onMove={play} />
-              <MonopolyTrade game={game} mySeat={mySeat} onMove={play} />
-            </>
+            <MonopolyEstate game={game} mySeat={mySeat} onMove={play} />
           )}
+          <MonopolyPlayers game={game} mySeat={mySeat} />
+          {!over && <MonopolyTrade game={game} mySeat={mySeat} onMove={play} />}
         </aside>
       </div>
 

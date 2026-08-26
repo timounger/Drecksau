@@ -34,6 +34,7 @@ import theGame from "./the-game/assets/logo.webp";
 import risiko from "./risiko/assets/logo.webp";
 import monopoly from "./monopoly/assets/logo.webp";
 import catan from "./catan/assets/logo.webp";
+import bohnanza from "./bohnanza/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -60,4 +61,5 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   risiko,
   monopoly,
   catan,
+  bohnanza,
 };

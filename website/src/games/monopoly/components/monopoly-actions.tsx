@@ -33,6 +33,7 @@ import {
 } from "@/games/monopoly/engine/state";
 import { TOKENS } from "@/games/monopoly/engine/tokens";
 import { MONOPOLY_TEXTS as T } from "@/games/monopoly/i18n/texts";
+import { TradeSummary } from "./monopoly-trade";
 
 /**
  * What the bid box starts at, over the standing bid.
@@ -108,6 +109,8 @@ function Prompt({
     body = <TokenPicker game={game} mySeat={mySeat} onMove={onMove} />;
   } else if (game.drawn !== null) {
     body = <CardFace game={game} mySeat={mySeat} onMove={onMove} />;
+  } else if (game.offer !== null && game.offer.to === mySeat) {
+    body = <OfferToMe game={game} offer={game.offer} onMove={onMove} />;
   } else if (game.offer !== null) {
     body = <Line text={T.tradeWaiting(game.players[game.offer.to].name)} />;
   } else if (game.auction !== null) {
@@ -250,10 +253,6 @@ function Bidding({
     cash,
     Math.max(least, (running?.bid ?? 0) + RAISE_STEP),
   );
-  // Typed, but it climbs with the bidding: a number typed a moment ago that the
-  // rules would now refuse is worse than no number at all.
-  const [typed, setTyped] = useState<number | null>(null);
-  const amount = Math.min(cash, Math.max(least, typed ?? opening));
 
   return (
     <div
@@ -271,30 +270,23 @@ function Bidding({
       {mine ? (
         <span className="flex flex-col items-center gap-1">
           {canBid && (
-            <span className="flex items-center gap-1">
-              <input
-                type="number"
-                min={least}
-                max={cash}
-                step={RAISE_STEP}
-                value={amount}
-                aria-label={T.yourBid}
-                data-testid="mo-bid-amount"
-                onChange={(event) =>
-                  setTyped(Math.trunc(Number(event.target.value)))
-                }
-                className="w-24 rounded border border-black/50 bg-white px-1 py-0.5 text-right text-[11px] tabular-nums text-black"
-              />
-              <Button
-                label={T.bidOf(amount)}
-                onClick={() => onMove({ kind: "bid", amount })}
-                testId="mo-bid"
-                strong
-              />
-            </span>
+            // Keyed on the standing bid, so every raise gives back a fresh box
+            // opening ten over the new one. Without the key a number typed
+            // three bids ago would still be sitting there.
+            <BidBox
+              key={running?.bid ?? 0}
+              opening={opening}
+              least={least}
+              cash={cash}
+              onBid={(amount) => onMove({ kind: "bid", amount })}
+            />
           )}
           <span className="flex flex-wrap justify-center gap-1">
-            {canBid && least !== amount && (
+            {/* Always there while you may bid, rather than only when it differs
+                from what is in the box. It used to come and go with whatever
+                had been typed, which moved "Aussteigen" along the row - and the
+                one button nobody wants to hit by accident is that one. */}
+            {canBid && (
               <Button
                 label={T.bidLeast(least)}
                 onClick={() => onMove({ kind: "bid", amount: least })}
@@ -314,6 +306,74 @@ function Bidding({
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * The box you type a bid into.
+ *
+ * @remarks
+ * It holds **what you typed**, as text, and not a number the render has already
+ * corrected. That sounds like a detail and was the whole bug: clamping the value
+ * on every keystroke meant the field could not be emptied - a cleared box reads
+ * as zero, zero is under the minimum, and the minimum was written straight back
+ * into it. Typing 150 over a standing bid of 90 was impossible too, because the
+ * "1" became 91 before the "5" arrived.
+ *
+ * So nothing is corrected while you type. The **button** is what knows the
+ * rules: it stays dark until the number in the box is one the referee would
+ * take, and says which number it would send. That is also the honest split -
+ * a field that silently rewrites what you typed cannot be trusted, and a button
+ * that refuses to light up explains itself.
+ *
+ * It starts at ten over the standing bid because that is the raise somebody
+ * means when they raise. The rulebook's own step is one euro, which is right at
+ * a table and unusable on a screen - and it is still there, as the button
+ * beside this one.
+ */
+function BidBox({
+  opening,
+  least,
+  cash,
+  onBid,
+}: {
+  /** What the box starts at: ten over the standing bid. */
+  readonly opening: number;
+  /** The smallest bid the referee would take. */
+  readonly least: number;
+  /** What the bidder actually holds. */
+  readonly cash: number;
+  readonly onBid: (amount: number) => void;
+}): ReactElement {
+  const [text, setText] = useState(String(opening));
+  const wanted = Number(text);
+  const usable =
+    text.trim() !== "" &&
+    Number.isInteger(wanted) &&
+    wanted >= least &&
+    wanted <= cash;
+
+  return (
+    <span className="flex items-center gap-1">
+      <input
+        type="number"
+        min={least}
+        max={cash}
+        step={RAISE_STEP}
+        value={text}
+        aria-label={T.yourBid}
+        data-testid="mo-bid-amount"
+        onChange={(event) => setText(event.target.value)}
+        className="w-24 rounded border border-black/50 bg-white px-1 py-0.5 text-right text-[11px] tabular-nums text-black"
+      />
+      <Button
+        label={T.bidOf(usable ? wanted : least)}
+        onClick={() => onBid(usable ? wanted : least)}
+        testId="mo-bid"
+        strong
+        off={!usable}
+      />
+    </span>
   );
 }
 
@@ -477,24 +537,79 @@ function Line({ text }: { readonly text: string }): ReactElement {
   return <span className="text-[11px] font-semibold">{text}</span>;
 }
 
+/**
+ * A trade waiting for **your** answer.
+ *
+ * @remarks
+ * In the middle of the board, and by this module's own rule: everything that
+ * has to happen before the game can go on belongs here, where a table would put
+ * the dice and the card just turned over. A trade on the table stops the game
+ * exactly the way an auction or a debt does - the offerer is sitting there
+ * waiting - so it is not something to notice out of the corner of your eye in a
+ * panel beside the board.
+ *
+ * The panel keeps the same two buttons. It is where you *build* an offer, so it
+ * is also where somebody who was already looking at it will answer one.
+ */
+function OfferToMe({
+  game,
+  offer,
+  onMove,
+}: {
+  readonly game: MonopolyGame;
+  readonly offer: NonNullable<MonopolyGame["offer"]>;
+  readonly onMove: (move: MonopolyMove) => void;
+}): ReactElement {
+  return (
+    <span
+      data-testid="mo-centre-offer"
+      className="flex flex-col items-center gap-1 rounded-lg border border-amber-500 bg-amber-50/90 px-2 py-1.5 text-[11px] text-black"
+    >
+      <span className="font-semibold">
+        {T.tradeOpen(game.players[offer.from].name)}
+      </span>
+      <TradeSummary give={offer.give} want={offer.want} cash={offer.cash} />
+      <span className="flex gap-1">
+        <Button
+          label={T.tradeAccept}
+          onClick={() => onMove({ kind: "accept" })}
+          testId="mo-centre-accept"
+          strong
+        />
+        <Button
+          label={T.tradeReject}
+          onClick={() => onMove({ kind: "reject" })}
+          testId="mo-centre-reject"
+        />
+      </span>
+    </span>
+  );
+}
+
 /** One button in the middle of the board. */
 function Button({
   label,
   onClick,
   testId,
   strong,
+  off,
 }: {
   readonly label: string;
   readonly onClick: () => void;
   readonly testId: string;
   readonly strong?: boolean;
+  /** Greyed out and unclickable - for a move the rules would refuse. */
+  readonly off?: boolean;
 }): ReactElement {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={off === true}
       data-testid={testId}
-      className={`cursor-pointer rounded border px-2 py-1 text-[11px] font-semibold ${
+      className={`rounded border px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
+        off === true ? "" : "cursor-pointer"
+      } ${
         strong === true
           ? "border-black bg-black text-white"
           : "border-black/50 bg-white/80 text-black hover:bg-white"

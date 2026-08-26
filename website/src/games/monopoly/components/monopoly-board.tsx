@@ -14,15 +14,23 @@
  * times. The corners get a wider track than the sides, as the printed board
  * does - the ratio is what stops it looking like a spreadsheet.
  *
- * The colour bar of a street sits on its **inner** edge, facing the middle,
- * which means the bar is on a different side of the cell on each of the four
- * runs. That is what makes the ring read as a ring.
+ * Every edge of a field means something, and each means only one thing:
+ *
+ * - the **inner** edge, facing the middle, carries the street's colour group,
+ * - the **outer** edge carries a square in its owner's colour, set into the
+ *   middle of it,
+ * - the houses stand **on** the colour bar, which is where a printed board puts
+ *   them.
+ *
+ * All three therefore sit on a different side of the cell on each of the four
+ * runs, worked out from {@link sideOf}. That is what makes the ring read as a
+ * ring instead of as a table.
  *
  * Two things on it are drawn for **one** reader rather than for everybody, and
  * both answer the same question - "where am I?". Your own piece is bigger and
  * ringed, and the fields you own are tinted in your colour and outlined in it,
- * where everybody else's get only a small corner tab. On a board of forty
- * fields with six pieces on it, finding yourself should not be work.
+ * on top of the square everybody's fields get. On a board of forty fields with
+ * six pieces on it, finding yourself should not be work.
  *
  * Neither highlight leans on the token's colour being dark or light - the
  * pieces run from near-black to yellow, and a black outline round the top hat's
@@ -50,6 +58,7 @@ import {
   HOTEL,
   estateAt,
   tokenFor,
+  type Estate,
   type MonopolyGame,
 } from "@/games/monopoly/engine/state";
 
@@ -66,6 +75,50 @@ const SIDE = 9;
 
 /** How strongly one's own fields are washed in one's own colour. */
 const MINE_TINT = 0.18;
+
+/**
+ * How thick the colour bar of a street is, as a share of the field.
+ *
+ * @remarks
+ * Named because two things measure themselves against it: the bar itself, and
+ * the houses that stand on the bar's inner edge. Two copies of "14%" would come
+ * apart the first time somebody adjusted one of them.
+ */
+const BAR_THICK = "14%";
+
+/**
+ * How big the owner's square is, against the short side of a field.
+ *
+ * @remarks
+ * Against the **short** side, so the marker is the same size on all four runs -
+ * see {@link OwnerStripe}. Big enough to pick a colour out of at arm's length,
+ * small enough that it cannot be mistaken for the colour bar opposite.
+ */
+const OWNER_MARK = "34%";
+
+/**
+ * The lane kept clear for the houses on the left and right runs.
+ *
+ * @remarks
+ * Only there. On the top and bottom runs a field is tall and the buildings sit
+ * in the space above the name anyway; on the sides it is flat and wide, the
+ * name fills the width, and a hotel drawn on the colour bar lands on the "B" of
+ * Bahnhofstraße. Padding on the button moves the text and **not** the bars -
+ * an absolutely positioned child measures from the padding box, so the stripes
+ * still reach the edges.
+ */
+const BUILD_LANE = "34%";
+
+/**
+ * The lane kept clear for the owner's square, again only on the side runs.
+ *
+ * @remarks
+ * The mirror of {@link BUILD_LANE} on the other edge. A flat wide field has a
+ * marker on its outer edge and houses on its inner one, and the name sits
+ * between them - without both lanes it ran under whichever it reached first,
+ * and "Bahnhofstraße" came out as "Bahnhofstraß".
+ */
+const MARK_LANE = "24%";
 
 /** Props of {@link MonopolyBoard}. */
 export type MonopolyBoardProps = {
@@ -127,7 +180,7 @@ export function MonopolyBoard({
             gridRow: `2 / span ${SIDE}`,
           }}
         >
-          <Middle game={game} />
+          <Middle />
           <div className="relative z-10 flex w-full flex-col items-center">
             {children}
           </div>
@@ -145,9 +198,16 @@ export function MonopolyBoard({
  * is where a real board puts them - and where a player's eye goes when a card is
  * drawn. It sits **behind** whatever the turn is asking for and takes no
  * clicks: decoration must never be the reason somebody misses a button.
+ *
+ * The piles used to carry the count of what was left in them, and it said
+ * nothing: "Danach legen Sie die Karte unter den Stapel zurück" makes each deck
+ * a ring that never runs out, so the number sat at sixteen all game. The one
+ * thing that ever moved it was somebody holding a Get-Out-Of-Jail card - which
+ * the standings already say in words. A number that is constant except when it
+ * repeats something is worse than no number: it teaches you to read it, and
+ * then never rewards you for it.
  */
-function Middle({ game }: { readonly game: MonopolyGame }): ReactElement {
-  const dot = "\u{00B7}";
+function Middle(): ReactElement {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
       <span
@@ -160,13 +220,13 @@ function Middle({ game }: { readonly game: MonopolyGame }): ReactElement {
         className="absolute top-[20%] left-[8%] -rotate-45 rounded border border-black/30 px-2 py-1 text-[9px] font-bold"
         style={{ background: "#e8efe9" }}
       >
-        Gemeinschaft {dot} {game.gemeinschaft.length}
+        Gemeinschaft
       </span>
       <span
         className="absolute right-[8%] bottom-[20%] -rotate-45 rounded border border-black/30 px-2 py-1 text-[9px] font-bold"
         style={{ background: "#e8efe9" }}
       >
-        Ereignis {dot} {game.ereignis.length}
+        Ereignis
       </span>
       <span className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[9px] tracking-wide opacity-60">
         Das berühmte Spiel um den großen Deal
@@ -214,6 +274,11 @@ function Cell({
         gridRow: spot.row,
         background: FELT,
         color: INK,
+        // Keeps the name clear of both edges; see BUILD_LANE and MARK_LANE.
+        // Only where something is actually standing there - a lane held open
+        // for nothing is a name wrapped for nothing, and most fields on these
+        // runs are empty most of the game.
+        ...laneStyle(at, estate),
         // Your own fields are outlined in your own colour. Everybody else's get
         // the corner tab below, which is enough to read and not enough to
         // compete with the one thing you are looking for.
@@ -238,13 +303,7 @@ function Cell({
         />
       )}
       <ColourBar at={at} field={field} />
-      {owner !== null && !isMine && (
-        <span
-          aria-hidden
-          className="absolute top-0 right-0 h-2 w-2"
-          style={{ background: owner.colour }}
-        />
-      )}
+      {owner !== null && <OwnerStripe at={at} colour={owner.colour} />}
       {estate.mortgaged && (
         <span
           aria-hidden
@@ -252,7 +311,11 @@ function Cell({
           title="Hypothek"
         />
       )}
-      <span className="mt-1.5 text-[7px] font-semibold break-words">
+      {/* w-full and min-w-0 are what let a long name wrap instead of running
+          under the markers on either edge: a flex item defaults to
+          min-width:auto and so refuses to shrink below its own text, and the
+          field's overflow-hidden then simply cut "Bahnhofstraße" in half. */}
+      <span className="mt-1.5 w-full min-w-0 text-[7px] font-semibold break-words">
         {labelOf(at)}
       </span>
       {field.price !== undefined && (
@@ -260,7 +323,7 @@ function Cell({
           {field.price}
         </span>
       )}
-      <Buildings houses={estate.houses} />
+      <Buildings at={at} houses={estate.houses} />
       {here.length > 0 && (
         <span className="mt-0.5 flex flex-wrap justify-center gap-px">
           {here.map((seat) => (
@@ -324,7 +387,7 @@ function ColourBar({
 }): ReactElement | null {
   const group = field.group === undefined ? null : groupOf(field.group);
   const side = sideOf(at);
-  const thick = "14%";
+  const thick = BAR_THICK;
   const style: React.CSSProperties = { background: group?.colour };
   if (side === "bottom") {
     Object.assign(style, { top: 0, left: 0, right: 0, height: thick });
@@ -344,27 +407,165 @@ function ColourBar({
   );
 }
 
-/** The houses, or the hotel, standing on a street. */
+/**
+ * How much room the name gives up to the markers beside it.
+ *
+ * @param at - the position
+ * @param estate - what is built there and who owns it
+ * @returns the padding for that field, empty on the top and bottom runs
+ * @remarks
+ * Only the **left and right** runs need it: there a field is flat and wide, the
+ * name fills the width, and a hotel on the colour bar or an owner's square on
+ * the outer edge lands on top of it. On the top and bottom runs the field is
+ * tall and the name has its own line already.
+ *
+ * And only for what is really there. Held open on every field, these lanes made
+ * "Gemeinschaft" wrap on a square with nothing on it at all.
+ */
+function laneStyle(at: number, estate: Estate): React.CSSProperties {
+  const side = sideOf(at);
+  const build = estate.houses > 0 ? BUILD_LANE : undefined;
+  const mark = estate.owner >= 0 ? MARK_LANE : undefined;
+  let lanes: React.CSSProperties = {};
+  if (side === "left") {
+    lanes = { paddingRight: build, paddingLeft: mark };
+  } else if (side === "right") {
+    lanes = { paddingLeft: build, paddingRight: mark };
+  }
+  return lanes;
+}
+
+/**
+ * Who owns the field, as a square set into its outer edge.
+ *
+ * @param props - the position and the owner's colour
+ * @returns the marker
+ * @remarks
+ * On the **outer** edge - the one facing away from the middle - so it is never
+ * on the same side as the colour group, and on the left run it sits on the
+ * left, on the bottom run at the bottom, and so on.
+ *
+ * A **square in the middle of that edge**, and not a stripe running its whole
+ * length. The stripe was the first attempt and it was a mistake for a reason
+ * worth writing down: at the length of a field it looked exactly like the
+ * colour bar on the opposite edge, so a board full of them asked the reader to
+ * work out which of two identical bars meant a group and which meant a person.
+ * A shape that differs only in position is not a different shape.
+ *
+ * Square rather than a rectangle scaled to the cell, which is why only one
+ * dimension is set: the fields are taller than wide on the top and bottom runs
+ * and wider than tall on the sides, so the side is measured against whichever
+ * of the two is the short one and `aspect-ratio` supplies the other.
+ */
+function OwnerStripe({
+  at,
+  colour,
+}: {
+  readonly at: number;
+  readonly colour: string;
+}): ReactElement {
+  const side = sideOf(at);
+  const style: React.CSSProperties = { background: colour, aspectRatio: "1" };
+  const middle = { transform: "translateX(-50%)", left: "50%" } as const;
+  const centre = { transform: "translateY(-50%)", top: "50%" } as const;
+  if (side === "bottom") {
+    Object.assign(style, middle, { bottom: 0, width: OWNER_MARK });
+  } else if (side === "left") {
+    Object.assign(style, centre, { left: 0, height: OWNER_MARK });
+  } else if (side === "top") {
+    Object.assign(style, middle, { top: 0, width: OWNER_MARK });
+  } else {
+    Object.assign(style, centre, { right: 0, height: OWNER_MARK });
+  }
+  return (
+    <span
+      aria-hidden
+      className="absolute border border-black/40"
+      style={style}
+    />
+  );
+}
+
+/**
+ * The houses, or the hotel, standing on a street.
+ *
+ * @param props - the position and how much is built
+ * @returns the buildings, or null on an empty street
+ * @remarks
+ * On the **colour bar**, which is where they go on a printed board and the
+ * opposite edge from the owner's stripe. They used to sit in the middle of the
+ * field under the price, where they were three green specks in a column of text
+ * - and where a street with four houses looked like a street with a typo.
+ *
+ * Drawn as buildings rather than as squares: a row of little green houses and
+ * one long red hotel is the picture everybody already has of a Monopoly board,
+ * and it says which of the two it is without anybody counting.
+ */
 function Buildings({
+  at,
   houses,
 }: {
+  readonly at: number;
   readonly houses: number;
 }): ReactElement | null {
+  const side = sideOf(at);
+  const upright = side === "bottom" || side === "top";
+  const style: React.CSSProperties = {};
+  if (side === "bottom") {
+    Object.assign(style, { top: BAR_THICK, left: 0, right: 0 });
+  } else if (side === "top") {
+    Object.assign(style, { bottom: BAR_THICK, left: 0, right: 0 });
+  } else if (side === "left") {
+    Object.assign(style, { right: BAR_THICK, top: 0, bottom: 0 });
+  } else {
+    Object.assign(style, { left: BAR_THICK, top: 0, bottom: 0 });
+  }
   return houses === 0 ? null : (
-    <span className="mt-0.5 flex gap-px" aria-hidden>
+    <span
+      aria-hidden
+      title={houses === HOTEL ? "Hotel" : `${houses} Häuser`}
+      style={style}
+      className={`absolute flex items-center justify-center gap-px ${
+        upright ? "flex-row" : "flex-col"
+      }`}
+    >
       {houses === HOTEL ? (
-        <span className="h-1.5 w-3 rounded-[1px] bg-red-600" title="Hotel" />
+        <Hotel />
       ) : (
-        Array.from({ length: houses }, (unused, index) => (
-          <span
-            key={index}
-            className="h-1.5 w-1.5 rounded-[1px] bg-green-700"
-          />
-        ))
+        Array.from({ length: houses }, (unused, index) => <House key={index} />)
       )}
     </span>
   );
 }
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- coordinates on a small
+   canvas: drawing, not arithmetic. */
+
+/** One green house: a body with a pitched roof, the way the piece looks. */
+function House(): ReactElement {
+  return (
+    <svg viewBox="0 0 12 11" className="h-2.5 w-2.5" aria-hidden>
+      <path d="M1 5.5 6 1l5 4.5z" fill="#0b4f26" />
+      <rect x="2" y="5.5" width="8" height="4.5" fill="#17843f" />
+      <rect x="5" y="7" width="2" height="3" fill="#0b4f26" />
+    </svg>
+  );
+}
+
+/** The red hotel: longer, with a row of windows. */
+function Hotel(): ReactElement {
+  return (
+    <svg viewBox="0 0 20 11" className="h-2.5 w-4" aria-hidden>
+      <path d="M1 5 10 1l9 4z" fill="#7f1410" />
+      <rect x="2" y="5" width="16" height="5" fill="#c2231b" />
+      {[4.5, 8, 11.5, 15].map((x) => (
+        <rect key={x} x={x} y="6.4" width="2" height="2" fill="#ffe9e6" />
+      ))}
+    </svg>
+  );
+}
+
+/* eslint-enable @typescript-eslint/no-magic-numbers */
 
 /**
  * Which run of the ring a field is on.

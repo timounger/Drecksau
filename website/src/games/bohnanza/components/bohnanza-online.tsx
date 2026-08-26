@@ -1,5 +1,5 @@
 /**
- * Monopoly online: the entry screen, the lobby and the board.
+ * Bohnanza online: the entry screen, the lobby and the table.
  *
  * @module
  * @remarks
@@ -7,21 +7,21 @@
  * room, the host election and the redaction, and this screen only renders what
  * it hands back.
  *
- * **Monopoly is the game in this collection that most wants other people.** The
- * computer buys well and builds sensibly and will take a trade that is clearly
- * good for it - but the whole middle of this game is talking somebody into a
- * deal that is not, and no bot is going to fall for that. Which is why the
- * voice and text chat matter here more than anywhere else on the site.
+ * It needs no loop of its own even though half of what happens here comes from
+ * seats whose turn it is not. A harvest is legal for anybody at any moment, and
+ * a proposal is answered by whoever it was aimed at; both are simply moves, and
+ * the host is the referee - the first one to arrive is the one that lands, and
+ * every other client hears about it in the same snapshot as everything else.
  *
- * A turn is long and can be interrupted by an auction, a debt or a trade that
- * lands on somebody else entirely - so the auto-play clock is generous and
- * counts each of those separately. See the adapter's `turnKey`.
+ * Two ways in, like the other games: automatic matchmaking against strangers (a
+ * wished table size, then {@link SearchingLobby} gathers players and starts on
+ * its own) or a private room whose four-letter code you pass around.
  */
 "use client";
 
 import Link from "next/link";
 import { RulesButton } from "@/components/rules-button";
-import { MONOPOLY_RULES } from "@/games/monopoly/i18n/rules";
+import { BZ_RULES } from "@/games/bohnanza/i18n/rules";
 
 import {
   useCallback,
@@ -33,31 +33,27 @@ import {
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
-  type MonopolyGame,
-  type MonopolyMove,
-} from "@/games/monopoly/engine/state";
+  type BohnanzaGame,
+  type BohnanzaMove,
+} from "@/games/bohnanza/engine/state";
 import {
-  monopolyAdapter,
-  type MonopolyOptions,
-} from "@/games/monopoly/multiplayer/adapter";
+  bohnanzaAdapter,
+  type BohnanzaOptions,
+} from "@/games/bohnanza/multiplayer/adapter";
 import {
   DEFAULT_PLAYER_COUNT,
   PLAYER_COUNTS,
-} from "@/games/monopoly/settings/app-settings";
+} from "@/games/bohnanza/settings/app-settings";
 import {
   loadMatchCount,
   saveMatchCount,
-} from "@/games/monopoly/settings/online-settings";
-import { MONOPOLY_TEXTS as T } from "@/games/monopoly/i18n/texts";
+} from "@/games/bohnanza/settings/online-settings";
+import { BZ_TEXTS as T } from "@/games/bohnanza/i18n/texts";
 import { loadPlayerName, savePlayerName } from "@/online/player-name";
-import { MonopolyScores } from "./monopoly-scores";
+import { BohnanzaScores } from "./bohnanza-scores";
 import { turnKeyOf } from "@/online/room";
 import { TurnClock, useTurnClock } from "@/online/turn-clock";
-import { MonopolyBoard } from "./monopoly-board";
-import { MonopolyCentre } from "./monopoly-actions";
-import { MonopolyTrade } from "./monopoly-trade";
-import { MonopolyEstate, MonopolyPlayers } from "./monopoly-panels";
-import { PHASE_NAMES } from "@/games/monopoly/i18n/phases";
+import { BohnanzaTable } from "./bohnanza-table";
 import { database } from "@/online/firebase-app";
 import {
   clearMatch,
@@ -91,7 +87,7 @@ import {
 /** German labels for the online screen. */
 const L = {
   title: `${T.title} online`,
-  subtitle: "Kaufen, bauen, kassieren - jede:r am eigenen Gerät",
+  subtitle: "Anbauen, handeln, ernten - jede:r am eigenen Gerät",
   back: "Zurück",
   yourName: "Dein Name",
   namePlaceholder: "z. B. Alex",
@@ -144,20 +140,18 @@ const CHAT_TEXTS: OnlineChatTexts = {
 };
 
 /** This game's id, for presence and matchmaking namespacing. */
-const GAME_ID = monopolyAdapter.gameId;
+const GAME_ID = bohnanzaAdapter.gameId;
 
 /**
  * How long a player may dither before the computer plays their turn.
  *
  * @remarks
- * Two minutes, which is a lot and is right: a Monopoly turn can be a roll, a
- * purchase, three houses and a trade, and the one that takes the longest -
- * deciding whether a deal is a good one - is the one nobody should be hurried
- * through. The budget covers a **whole phase** rather than each move inside it,
- * so a player who keeps building is not racing a clock that restarts underneath
- * them.
+ * Longer than in the quick games of the collection, because a turn here is
+ * genuinely something to think about: which of two fields to give up, what to
+ * ask for, whether an offer is worth it. Short enough, still, that a table does
+ * not sit and wait on somebody who has walked away.
  */
-const AUTO_PLAY_MS = 120_000;
+const AUTO_PLAY_MS = 60_000;
 
 /** How often the open room's matchmaking entry is kept alive, in ms. */
 const HEARTBEAT_MS = 10_000;
@@ -196,7 +190,7 @@ function matchWish(count: number): Wish {
  *
  * @returns the online element
  */
-export function MonopolyOnlineScreen(): ReactElement {
+export function BohnanzaOnlineScreen(): ReactElement {
   const onlineCount = useOnlineCount(GAME_ID);
   const [session, setSession] = useState<OnlineSession | null>(null);
   // Set while auto-matching, so the lobby searches and starts on its own
@@ -204,7 +198,7 @@ export function MonopolyOnlineScreen(): ReactElement {
   const [auto, setAuto] = useState<Match | null>(null);
   // The table size the search waits for, kept while the lobby is open.
   const [wanted, setWanted] = useState(DEFAULT_PLAYER_COUNT);
-  const room = useOnlineRoom(monopolyAdapter, session);
+  const room = useOnlineRoom(bohnanzaAdapter, session);
 
   // Leaving: an auto-match host also frees its open-room slot for the next wave.
   const leave = useCallback(() => {
@@ -283,9 +277,9 @@ export function MonopolyOnlineScreen(): ReactElement {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <RulesButton rules={MONOPOLY_RULES} />
+          <RulesButton rules={BZ_RULES} />
           <Link
-            href="/monopoly"
+            href="/bohnanza"
             className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
           >
             {L.back}
@@ -298,7 +292,7 @@ export function MonopolyOnlineScreen(): ReactElement {
 }
 
 /** The type the room hook hands back, for the panels below. */
-type Room = OnlineRoom<MonopolyGame, MonopolyMove, MonopolyOptions>;
+type Room = OnlineRoom<BohnanzaGame, BohnanzaMove, BohnanzaOptions>;
 
 /** The first screen: pick a name and table size, then match, host or join. */
 function Entry({
@@ -478,7 +472,7 @@ function PlayerCountPicker({
       <span className="text-xs text-zinc-500 dark:text-zinc-400">
         {L.tableSize}
       </span>
-      {PLAYER_COUNTS.map((option: number) => (
+      {PLAYER_COUNTS.map((option) => (
         <button
           key={option}
           type="button"
@@ -740,7 +734,7 @@ function Playing({
     .filter((index) => index >= 0);
   const remainingMs = useTurnClock({
     autoPlayMs: room.room?.autoPlayMs ?? null,
-    turn: room.room === null ? "" : turnKeyOf(room.room, monopolyAdapter),
+    turn: room.room === null ? "" : turnKeyOf(room.room, bohnanzaAdapter),
     running: game !== null && game.phase !== "gameOver",
   });
 
@@ -748,14 +742,13 @@ function Playing({
     <p className="text-sm">{L.connecting}</p>
   ) : (
     <div className="flex flex-col gap-4 lg:flex-row">
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
+      <div className="flex flex-1 flex-col gap-4">
         {game.phase === "gameOver" && (
           <>
             {/* The table stays together: the host deals again with the same
                 seats instead of everyone leaving and looking for a new room. */}
-            <MonopolyScores
+            <BohnanzaScores
               game={game}
-              mySeat={mySeat >= 0 ? mySeat : null}
               onNewGame={room.isHost ? room.newRound : null}
             />
             {!room.isHost && (
@@ -765,65 +758,16 @@ function Playing({
             )}
           </>
         )}
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <span data-testid="mo-turn" className="font-semibold">
-            {game.phase === "gameOver"
-              ? T.overNow
-              : mySeat === game.active
-                ? T.yourTurn
-                : T.waitingFor(game.players[game.active]?.name ?? "")}
-          </span>
-          {game.phase !== "gameOver" && (
-            <span
-              data-testid="mo-phase"
-              className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-semibold dark:bg-zinc-700"
-            >
-              {PHASE_NAMES[game.phase]}
-            </span>
-          )}
-          {mySeat >= 0 && (
-            <span className="text-zinc-500 dark:text-zinc-400">
-              {T.cash(game.players[mySeat]?.cash ?? 0)}
-            </span>
-          )}
-          <TurnClock remainingMs={remainingMs} />
-          {botSeats.length > 0 && (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              {botSeats
-                .map((seat) => game.players[seat]?.name)
-                .filter(Boolean)
-                .join(", ")}
-              : Computer übernimmt
-            </span>
-          )}
-        </div>
-        <MonopolyBoard
+        <BohnanzaTable
           game={game}
           mySeat={mySeat >= 0 ? mySeat : null}
-          picked={null}
-          open={[]}
-          onPick={() => {}}
-        >
-          <MonopolyCentre
-            game={game}
-            mySeat={mySeat >= 0 && game.phase !== "gameOver" ? mySeat : null}
-            onMove={room.sendMove}
-          />
-        </MonopolyBoard>
+          onMove={room.sendMove}
+          clock={<TurnClock remainingMs={remainingMs} />}
+          botSeats={botSeats}
+        />
       </div>
 
-      <aside className="flex w-full flex-col gap-3 lg:w-96">
-        {/* Your own deeds first, then everybody else's standing. What you
-            own is what you act on - build, mortgage, offer - and the standings
-            are only there to be read. A panel you press buttons in should not
-            sit below one you never touch. */}
-        {mySeat >= 0 && game.phase !== "gameOver" && (
-          <MonopolyEstate game={game} mySeat={mySeat} onMove={room.sendMove} />
-        )}
-        <MonopolyPlayers game={game} mySeat={mySeat >= 0 ? mySeat : null} />
-        {mySeat >= 0 && game.phase !== "gameOver" && (
-          <MonopolyTrade game={game} mySeat={mySeat} onMove={room.sendMove} />
-        )}
+      <aside className="flex w-full flex-col gap-3 lg:w-72">
         <LeaveButton onLeave={onLeave} />
         <VoiceChat
           gameId={GAME_ID}
