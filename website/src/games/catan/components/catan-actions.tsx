@@ -15,8 +15,36 @@
 import { useState, type ReactElement } from "react";
 import {
   discardCount,
+  neutralSpots,
   seatOnTurn,
 } from "@/games/catan/engine/moves";
+import {
+  SWAP_CARDS,
+  canHandKnightIn,
+  chipCost,
+  neutralSeats,
+} from "@/games/catan/engine/two";
+import {
+  COMMODITIES,
+  COMMODITY_NAMES,
+  KNIGHT_NAMES,
+} from "@/games/catan/engine/knights";
+import {
+  PROGRESS_NAMES,
+  PROGRESS_TEXTS,
+  isPointCard,
+  type Progress,
+} from "@/games/catan/engine/progress";
+import {
+  ACTIVATE_COST,
+  KNIGHT_COST,
+  WALL_COST,
+  canChase,
+  canUpgrade,
+  canWall,
+  knightReady,
+  marchSpots,
+} from "@/games/catan/engine/ritter";
 import {
   EVENT_ASK,
   EVENT_NAMES,
@@ -29,7 +57,11 @@ import { COLOUR_INK } from "@/games/catan/engine/setup";
 import {
   NO_CARDS,
   RESOURCES,
+  covers,
   handSize,
+  playingRitter,
+  playingTwo,
+  realSeats,
   sharesTurns,
   withCard,
   type CatanGame,
@@ -188,9 +220,13 @@ function Naming({
   readonly game: CatanGame;
   readonly onMove: (move: CatanMove) => void;
 }): ReactElement {
-  const asking = game.phase === "monopol" ? T.pickMonopol : T.pickGift(game.gifts);
+  const asking =
+    game.phase === "monopol" ? T.pickMonopol : T.pickGift(game.gifts);
   return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="ct-name-sort">
+    <div
+      className="flex flex-wrap items-center gap-2"
+      data-testid="ct-name-sort"
+    >
       <span className="text-sm font-semibold">{asking}</span>
       {RESOURCES.map((sort: Resource) => (
         <Button
@@ -237,12 +273,19 @@ function Answering({
   if (kind !== undefined && ask === "sort") {
     const own = fromOwnHand(kind);
     body = (
-      <div className="flex flex-wrap items-center gap-2" data-testid="ct-event-sort">
-        <span className="text-sm font-semibold">{own ? T.pickOwnCard : T.pickFreeCard}</span>
+      <div
+        className="flex flex-wrap items-center gap-2"
+        data-testid="ct-event-sort"
+      >
+        <span className="text-sm font-semibold">
+          {own ? T.pickOwnCard : T.pickFreeCard}
+        </span>
         {RESOURCES.map((sort) => (
           <Button
             key={sort}
-            label={own ? `${SORT_NAMES[sort]} (${hand[sort]})` : SORT_NAMES[sort]}
+            label={
+              own ? `${SORT_NAMES[sort]} (${hand[sort]})` : SORT_NAMES[sort]
+            }
             off={own && hand[sort] === 0}
             testId={`ct-event-${sort}`}
             onClick={() => onMove({ kind: "event", sort })}
@@ -258,7 +301,10 @@ function Answering({
     );
   } else if (ask === "victim") {
     body = (
-      <div className="flex flex-wrap items-center gap-2" data-testid="ct-event-victim">
+      <div
+        className="flex flex-wrap items-center gap-2"
+        data-testid="ct-event-victim"
+      >
         <span className="text-sm font-semibold">{T.pickDrawFrom}</span>
         {anybodyHolding(game, mySeat).map((seat) => (
           <Button
@@ -309,6 +355,382 @@ function Answering({
   return body;
 }
 
+/**
+ * *CATAN für Zwei*: which neutral colour the free piece goes in.
+ *
+ * @remarks
+ * The colour is picked here and the **place** on the board, in that order, and
+ * not the other way round. A neutral settlement may go on any free crossing the
+ * distance rule allows - the same set of crossings for both colours - so a tap
+ * alone could never say which colour was meant.
+ *
+ * It is also the more interesting half of the decision: the neutral colours can
+ * take the Längste Handelsroute, so feeding one of them is a way of taking it
+ * off the other player.
+ */
+function NeutralPick({
+  game,
+  chosen,
+  onChoose,
+}: {
+  readonly game: CatanGame;
+  readonly chosen: number | null;
+  readonly onChoose?: (seat: number) => void;
+}): ReactElement {
+  const kind = game.neutralBuild === "road" ? T.neutralRoad : T.neutralTown;
+  const colours = neutralSeats(game).filter((seat) =>
+    neutralSpots(game, game.neutralBuild ?? "town").some(
+      (spot) => spot.seat === seat,
+    ),
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="ct-neutral">
+      <span className="text-sm font-semibold">{T.neutralHint(kind)}</span>
+      {colours.map((seat) => (
+        <button
+          key={seat}
+          type="button"
+          data-testid={`ct-neutral-${seat}`}
+          onClick={() => onChoose?.(seat)}
+          className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold ${
+            seat === chosen
+              ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+              : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          }`}
+        >
+          <span
+            className="inline-block h-3 w-3 rounded-full border border-black/30"
+            style={{ backgroundColor: COLOUR_INK[game.players[seat].colour] }}
+          />
+          {game.players[seat].name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * *CATAN für Zwei*: the two Handelschip actions.
+ *
+ * @remarks
+ * Shown with their price, because the price is the rule people forget: one chip
+ * while you are level or behind and **two** while you are ahead. A button that
+ * quietly costs double is worse than one that says so.
+ */
+function ChipActions({
+  game,
+  mySeat,
+  onMove,
+}: {
+  readonly game: CatanGame;
+  readonly mySeat: number;
+  readonly onMove: (move: CatanMove) => void;
+}): ReactElement | null {
+  const price = chipCost(game, mySeat);
+  const held = game.players[mySeat].chips;
+  return !playingTwo(game) ? null : (
+    <span
+      className="flex flex-wrap items-center gap-1.5"
+      data-testid="ct-chips"
+    >
+      <span className="text-xs font-semibold">{T.chipsHeld(held)}</span>
+      <Button
+        label={T.chipSwap(price)}
+        testId="ct-chip-swap"
+        off={held < price}
+        onClick={() => onMove({ kind: "chip", action: "swap" })}
+      />
+      <Button
+        label={T.chipRobber(price)}
+        testId="ct-chip-robber"
+        off={held < price}
+        onClick={() => onMove({ kind: "chip", action: "robber" })}
+      />
+      {canHandKnightIn(game, mySeat) && (
+        <Button
+          label={T.knightIn}
+          testId="ct-knight-in"
+          onClick={() => onMove({ kind: "knightIn" })}
+        />
+      )}
+    </span>
+  );
+}
+
+/**
+ * *CATAN für Zwei*: choosing the two cards a Zwangshandel hands back.
+ *
+ * @remarks
+ * The same picker the discard after a seven uses, for the same reason - it is
+ * the same decision, only smaller.
+ */
+function GivingBack({
+  game,
+  mySeat,
+  onMove,
+}: {
+  readonly game: CatanGame;
+  readonly mySeat: number;
+  readonly onMove: (move: CatanMove) => void;
+}): ReactElement {
+  const [picked, setPicked] = useState<Hand>(NO_CARDS);
+  const owed = Math.min(SWAP_CARDS, handSize(game.players[mySeat].hand));
+  return (
+    <div className="flex flex-col gap-2" data-testid="ct-giveback">
+      <span className="text-sm font-semibold">{T.giveBackHint(owed)}</span>
+      <CardPicker
+        hand={game.players[mySeat].hand}
+        limit={game.players[mySeat].hand}
+        onChange={setPicked}
+        testId="ct-giveback-pick"
+      />
+      <Button
+        label={T.giveBack}
+        strong
+        testId="ct-giveback-send"
+        off={handSize(picked) !== owed}
+        onClick={() => onMove({ kind: "giveBack", cards: picked })}
+      />
+    </div>
+  );
+}
+
+/**
+ * *Städte & Ritter*: the things you do with knights and walls.
+ *
+ * @remarks
+ * Beside the board rather than on it, because each of these is about a knight
+ * you already have: waking it, raising it, sending it somewhere. Only the
+ * **placing** of a new knight is a tap on the board, since that is the one that
+ * is really about a crossing.
+ */
+function RitterActions({
+  game,
+  mySeat,
+  onMove,
+  marching,
+  onMarch,
+}: {
+  readonly game: CatanGame;
+  readonly mySeat: number;
+  readonly onMove: (move: CatanMove) => void;
+  readonly marching: number | null;
+  readonly onMarch?: (at: number | null) => void;
+}): ReactElement | null {
+  const mine = game.garrison
+    .map((knight, at) => (knight?.owner === mySeat ? at : -1))
+    .filter((at) => at >= 0);
+  const hand = game.players[mySeat].hand;
+  return !playingRitter(game) ? null : (
+    <span
+      className="flex flex-wrap items-center gap-1.5"
+      data-testid="ct-ritter"
+    >
+      {canWall(game, mySeat) && (
+        <Button
+          label={T.buildWall}
+          testId="ct-wall"
+          off={!covers(hand, WALL_COST)}
+          onClick={() => onMove({ kind: "wall" })}
+        />
+      )}
+      {mine.map((at) => (
+        <KnightButtons
+          key={at}
+          game={game}
+          mySeat={mySeat}
+          at={at}
+          picked={marching === at}
+          onMove={onMove}
+          onMarch={onMarch}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** What can be done with one knight, right now. */
+function KnightButtons({
+  game,
+  mySeat,
+  at,
+  picked,
+  onMove,
+  onMarch,
+}: {
+  readonly game: CatanGame;
+  readonly mySeat: number;
+  readonly at: number;
+  readonly picked: boolean;
+  readonly onMove: (move: CatanMove) => void;
+  readonly onMarch?: (at: number | null) => void;
+}): ReactElement | null {
+  const knight = game.garrison[at];
+  const hand = game.players[mySeat].hand;
+  const ready = knightReady(game, at);
+  return knight === null ? null : (
+    <span
+      data-testid={`ct-knight-actions-${at}`}
+      className={`flex items-center gap-1 rounded-lg border px-1.5 py-0.5 ${
+        picked
+          ? "border-zinc-900 dark:border-zinc-100"
+          : "border-zinc-200 dark:border-zinc-800"
+      }`}
+    >
+      <span
+        className="text-[10px] font-bold"
+        title={KNIGHT_NAMES[knight.level - 1]}
+      >
+        {"❰".repeat(knight.level)}
+      </span>
+      {!knight.active && covers(hand, ACTIVATE_COST) && (
+        <Button
+          label={T.wakeKnight}
+          testId={`ct-activate-${at}`}
+          onClick={() => onMove({ kind: "activate", at })}
+        />
+      )}
+      {canUpgrade(game, mySeat, at) && covers(hand, KNIGHT_COST) && (
+        <Button
+          label={T.raiseKnight}
+          testId={`ct-upgrade-${at}`}
+          onClick={() => onMove({ kind: "upgrade", at })}
+        />
+      )}
+      {canChase(game, at) && (
+        <Button
+          label={T.chaseRobber}
+          testId={`ct-chase-${at}`}
+          onClick={() => onMove({ kind: "chase", at })}
+        />
+      )}
+      {ready && marchSpots(game, at).length > 0 && (
+        <Button
+          label={picked ? T.marchCancel : T.marchKnight}
+          testId={`ct-march-${at}`}
+          onClick={() => onMarch?.(picked ? null : at)}
+        />
+      )}
+    </span>
+  );
+}
+
+/**
+ * *Städte & Ritter*: what a Fortschrittskarte is waiting to be told.
+ *
+ * @remarks
+ * One panel for sixteen cards, the way the referee has one phase for them. What
+ * it shows is decided by {@link CatanGame.playing} - the card on the table
+ * knows what it asked - and the cards whose answer is a **place** say so and
+ * leave the tapping to the board.
+ */
+function CardAsking({
+  game,
+  mySeat,
+  onMove,
+}: {
+  readonly game: CatanGame;
+  readonly mySeat: number;
+  readonly onMove: (move: CatanMove) => void;
+}): ReactElement | null {
+  const card = game.playing;
+  const others = realSeats(game).filter((at) => at !== mySeat);
+  return card === null ? null : (
+    <div className="flex flex-col gap-2" data-testid="ct-asking">
+      <span className="text-sm font-semibold">
+        {PROGRESS_NAMES[card]}: {PROGRESS_TEXTS[card]}
+      </span>
+      {card === "rohstoffmonopol" && (
+        <span className="flex flex-wrap gap-1.5">
+          {RESOURCES.map((sort) => (
+            <Button
+              key={sort}
+              label={SORT_NAMES[sort]}
+              testId={`ct-ask-${sort}`}
+              onClick={() => onMove({ kind: "answerCard", sort })}
+            />
+          ))}
+        </span>
+      )}
+      {(card === "warenmonopol" || card === "handelsflotte") && (
+        <span className="flex flex-wrap gap-1.5">
+          {COMMODITIES.map((good) => (
+            <Button
+              key={good}
+              label={COMMODITY_NAMES[good]}
+              testId={`ct-ask-${good}`}
+              onClick={() => onMove({ kind: "answerCard", good })}
+            />
+          ))}
+          {card === "handelsflotte" &&
+            RESOURCES.map((sort) => (
+              <Button
+                key={sort}
+                label={SORT_NAMES[sort]}
+                testId={`ct-ask-${sort}`}
+                onClick={() => onMove({ kind: "answerCard", sort })}
+              />
+            ))}
+        </span>
+      )}
+      {card === "spionage" && (
+        <span className="flex flex-wrap gap-1.5">
+          {others.flatMap((at) =>
+            game.players[at].progress
+              .filter((each) => !isPointCard(each))
+              .map((each, index) => (
+                <Button
+                  key={`${at}-${each}-${index}`}
+                  label={`${game.players[at].name}: ${PROGRESS_NAMES[each]}`}
+                  testId={`ct-ask-spy-${at}`}
+                  onClick={() =>
+                    onMove({ kind: "answerCard", seat: at, card: each })
+                  }
+                />
+              )),
+          )}
+        </span>
+      )}
+      {card === "verrat" && (
+        <span className="flex flex-wrap gap-1.5">
+          {game.garrison
+            .map((knight, at) => ({ knight, at }))
+            .filter(({ knight }) => knight !== null && knight.owner !== mySeat)
+            .map(({ knight, at }) => (
+              <Button
+                key={at}
+                label={`${game.players[knight?.owner ?? 0].name}: ${"❰".repeat(knight?.level ?? 1)}`}
+                testId={`ct-ask-verrat-${at}`}
+                onClick={() =>
+                  onMove({ kind: "answerCard", at, seat: knight?.owner })
+                }
+              />
+            ))}
+        </span>
+      )}
+      {ASKS_FOR_PLACE.includes(card) && (
+        <span className="text-xs opacity-70">{T.tapTheBoard}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The cards whose answer is a place on the board rather than a button.
+ *
+ * @remarks
+ * Listed rather than worked out, because the list is short and the alternative
+ * - inferring it from what the card does - would be a second copy of the rules.
+ */
+const ASKS_FOR_PLACE: readonly Progress[] = [
+  "haendler",
+  "medizin",
+  "schmiedekunst",
+  "diplomatie",
+  "intrige",
+  "erfindung",
+];
+
 /** What the dice last said. */
 function Dice({ game }: { readonly game: CatanGame }): ReactElement | null {
   const dice = game.dice;
@@ -332,10 +754,20 @@ export function CatanActions({
   game,
   mySeat,
   onMove,
+  neutralColour = null,
+  onNeutralColour,
+  marching = null,
+  onMarch,
 }: {
   readonly game: CatanGame;
   readonly mySeat: number;
   readonly onMove: (move: CatanMove) => void;
+  /** *CATAN für Zwei*: which neutral colour the free piece goes in. */
+  readonly neutralColour?: number | null;
+  readonly onNeutralColour?: (seat: number) => void;
+  /** *Städte & Ritter*: the crossing of the knight picked to be marched. */
+  readonly marching?: number | null;
+  readonly onMarch?: (at: number | null) => void;
 }): ReactElement | null {
   const turn = seatOnTurn(game);
   const mine = turn === mySeat;
@@ -347,7 +779,11 @@ export function CatanActions({
     game.dice === null &&
     game.drawn === null &&
     game.phase !== "discard" &&
-    game.phase !== "event";
+    game.phase !== "event" &&
+    game.phase !== "neutral" &&
+    game.phase !== "swap" &&
+    game.phase !== "displaced" &&
+    game.phase !== "progress";
 
   return empty ? null : (
     <section className="flex flex-col gap-2 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -369,7 +805,11 @@ export function CatanActions({
         )}
         {game.phase === "roll" && mine && (
           <Button
-            label={game.events.length > 0 || game.drawn !== null ? T.drawCard : T.roll}
+            label={
+              game.events.length > 0 || game.drawn !== null
+                ? T.drawCard
+                : T.roll
+            }
             strong
             testId="ct-roll"
             onClick={() => onMove({ kind: "roll" })}
@@ -378,6 +818,23 @@ export function CatanActions({
         {game.phase === "robber" && mine && (
           <span className="text-sm font-semibold" data-testid="ct-hint">
             {T.pickRobber}
+          </span>
+        )}
+        {(game.phase === "roll" || game.phase === "trade") && mine && (
+          <ChipActions game={game} mySeat={mySeat} onMove={onMove} />
+        )}
+        {game.phase === "trade" && mine && (
+          <RitterActions
+            game={game}
+            mySeat={mySeat}
+            onMove={onMove}
+            marching={marching}
+            onMarch={onMarch}
+          />
+        )}
+        {game.phase === "displaced" && mine && (
+          <span className="text-sm font-semibold" data-testid="ct-hint">
+            {T.retreatHint}
           </span>
         )}
         {game.phase === "trade" && mine && (
@@ -408,7 +865,10 @@ export function CatanActions({
             who is not the player whose turn it is - which the header above does
             not say and cannot. Everything else it already says. */}
         {!mine && waiting !== null && game.phase === "event" && (
-          <span className="flex items-center gap-1.5 text-sm" data-testid="ct-waiting">
+          <span
+            className="flex items-center gap-1.5 text-sm"
+            data-testid="ct-waiting"
+          >
             <span
               className="inline-block h-3 w-3 rounded-full border border-black/30"
               style={{ backgroundColor: COLOUR_INK[waiting.colour] }}
@@ -417,7 +877,10 @@ export function CatanActions({
           </span>
         )}
         {!mine && waiting !== null && game.phase === "discard" && (
-          <span className="flex items-center gap-1.5 text-sm" data-testid="ct-waiting">
+          <span
+            className="flex items-center gap-1.5 text-sm"
+            data-testid="ct-waiting"
+          >
             <span
               className="inline-block h-3 w-3 rounded-full border border-black/30"
               style={{ backgroundColor: COLOUR_INK[waiting.colour] }}
@@ -432,12 +895,29 @@ export function CatanActions({
       {game.phase === "event" && mine && (
         <Answering game={game} mySeat={mySeat} onMove={onMove} />
       )}
-      {game.phase === "trade" && mine && game.players[mySeat].damaged !== null && (
-        <span className="text-xs opacity-70" data-testid="ct-repair-hint">
-          {T.repairHint}
-        </span>
+      {game.phase === "trade" &&
+        mine &&
+        game.players[mySeat].damaged !== null && (
+          <span className="text-xs opacity-70" data-testid="ct-repair-hint">
+            {T.repairHint}
+          </span>
+        )}
+      {game.phase === "neutral" && mine && (
+        <NeutralPick
+          game={game}
+          chosen={neutralColour}
+          onChoose={onNeutralColour}
+        />
       )}
-      {game.phase === "steal" && mine && <Stealing game={game} onMove={onMove} />}
+      {game.phase === "swap" && mine && (
+        <GivingBack game={game} mySeat={mySeat} onMove={onMove} />
+      )}
+      {game.phase === "progress" && mine && (
+        <CardAsking game={game} mySeat={mySeat} onMove={onMove} />
+      )}
+      {game.phase === "steal" && mine && (
+        <Stealing game={game} onMove={onMove} />
+      )}
       {(game.phase === "monopol" || game.phase === "erfindung") && mine && (
         <Naming game={game} onMove={onMove} />
       )}

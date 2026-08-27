@@ -22,5 +22,9 @@ export const PHASE_NAMES: Readonly<Record<Phase, string>> = {
   monopol: T.phaseMonopol,
   erfindung: T.phaseErfindung,
   event: T.phaseEvent,
+  neutral: T.phaseNeutral,
+  swap: T.phaseSwap,
+  displaced: T.phaseDisplaced,
+  progress: T.phaseProgress,
   gameOver: T.overNow,
 };

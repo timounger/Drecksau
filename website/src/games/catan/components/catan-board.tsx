@@ -25,9 +25,25 @@
 "use client";
 
 import type { ReactElement } from "react";
-import { islandOf, pointOf, type Island, type Point } from "@/games/catan/engine/board";
+import {
+  islandOf,
+  pointOf,
+  type Island,
+  type Point,
+} from "@/games/catan/engine/board";
 import { EVENT_ASK } from "@/games/catan/engine/events";
-import { citySpots, roadSpots, townSpots } from "@/games/catan/engine/moves";
+import {
+  citySpots,
+  neutralSpots,
+  roadSpots,
+  townSpots,
+} from "@/games/catan/engine/moves";
+import {
+  KNIGHT_COST,
+  canKnight,
+  marchSpots,
+  retreatSpots,
+} from "@/games/catan/engine/ritter";
 import { robberSpots } from "@/games/catan/engine/variants";
 import { COLOUR_INK } from "@/games/catan/engine/setup";
 import {
@@ -36,6 +52,7 @@ import {
   TOWN_COST,
   actingSeat,
   covers,
+  playingRitter,
   type CatanGame,
   type CatanMove,
   type Land,
@@ -90,8 +107,28 @@ const MINE_INK = 0.85;
 
 /** A place on the board that can be tapped. */
 type Spot = {
-  readonly kind: "town" | "road" | "city" | "robber" | "breakRoad";
+  readonly kind:
+    | "town"
+    | "road"
+    | "city"
+    | "robber"
+    | "breakRoad"
+    /** *CATAN für Zwei*: the free piece, in the colour {@link Spot.seat} names. */
+    | "neutralTown"
+    | "neutralRoad"
+    /** *Städte & Ritter*: put a knight here, or march the picked one here. */
+    | "knight"
+    | "march";
   readonly at: number;
+  /**
+   * Whose piece, where that is not simply the reader's own.
+   *
+   * @remarks
+   * For a `march` this carries the **crossing the knight starts on** instead.
+   * Both are one number naming the other end of the move, and a second field
+   * used by one kind would be empty on every other.
+   */
+  readonly seat?: number;
 };
 
 /** Where a lattice point lands on the drawing. */
@@ -131,21 +168,36 @@ function pips(chip: number): number {
  * Asked of the referee rather than reasoned about: the same three predicates
  * the rules run on decide what the board lights.
  */
-export function tappable(game: CatanGame, seat: number | null): readonly Spot[] {
+export function tappable(
+  game: CatanGame,
+  seat: number | null,
+  neutralColour: number | null = null,
+  marching: number | null = null,
+): readonly Spot[] {
   const board = islandOf(game.land.length);
   const spots: Spot[] = [];
   const mine = seat !== null && seat === actingSeat(game);
   const hand = seat === null ? null : game.players[seat].hand;
   if (mine && game.phase === "founding" && game.founding?.placing === "town") {
-    townSpots(game, seat, true).forEach((id) => spots.push({ kind: "town", at: id }));
+    townSpots(game, seat, true).forEach((id) =>
+      spots.push({ kind: "town", at: id }),
+    );
   } else if (mine && game.phase === "founding" && game.founding !== null) {
     const from = game.founding.lastTown;
     board.paths.forEach((path) => {
-      if (from !== null && path.ends.includes(from) && game.roads[path.id] === null) {
+      if (
+        from !== null &&
+        path.ends.includes(from) &&
+        game.roads[path.id] === null
+      ) {
         spots.push({ kind: "road", at: path.id });
       }
     });
-  } else if (seat !== null && game.phase === "event" && asksForRoad(game, seat)) {
+  } else if (
+    seat !== null &&
+    game.phase === "event" &&
+    asksForRoad(game, seat)
+  ) {
     // An Erdbeben: the tap picks one of your own roads to lie down, so what
     // lights up is your network rather than the empty paths.
     game.roads.forEach((owner, path) => {
@@ -153,20 +205,64 @@ export function tappable(game: CatanGame, seat: number | null): readonly Spot[] 
         spots.push({ kind: "breakRoad", at: path });
       }
     });
+  } else if (mine && game.phase === "neutral" && neutralColour !== null) {
+    // One colour at a time. Every free crossing obeys the distance rule for
+    // *both* neutral colours, so lighting both at once would make each tap
+    // ambiguous - the colour is picked first, beside the board.
+    neutralSpots(game, game.neutralBuild ?? "town")
+      .filter((spot) => spot.seat === neutralColour)
+      .forEach((spot) =>
+        spots.push({
+          kind: game.neutralBuild === "road" ? "neutralRoad" : "neutralTown",
+          at: spot.at,
+          seat: spot.seat,
+        }),
+      );
+  } else if (game.phase === "displaced" && game.displaced !== null) {
+    // The knight that was driven off, walking out from where it was pushed.
+    // Its owner answers, and that is not the acting seat.
+    const owner = game.garrison[game.displaced]?.owner ?? null;
+    if (owner !== null && owner === seat) {
+      retreatSpots(game, game.displaced, owner).forEach((to) =>
+        spots.push({ kind: "march", at: to, seat: game.displaced ?? 0 }),
+      );
+    }
+  } else if (mine && marching !== null && game.phase === "trade") {
+    // A knight has been picked beside the board and the board now shows where
+    // it could go. Picked first, moved second - for the same reason the neutral
+    // colours are picked first: a tap on a crossing cannot say which knight.
+    marchSpots(game, marching).forEach((to) =>
+      spots.push({ kind: "march", at: to, seat: marching }),
+    );
   } else if (mine && game.phase === "robber") {
     // Not simply "any other landscape": the friendly robber rules out the ones
     // beside a player who is still being spared, and the referee is the one
     // that knows which those are.
-    robberSpots(game, game.robber).forEach((hex) => spots.push({ kind: "robber", at: hex }));
+    robberSpots(game, game.robber).forEach((hex) =>
+      spots.push({ kind: "robber", at: hex }),
+    );
   } else if (mine && game.phase === "trade" && hand !== null) {
     if (covers(hand, CITY_COST)) {
-      citySpots(game, seat).forEach((id) => spots.push({ kind: "city", at: id }));
+      citySpots(game, seat).forEach((id) =>
+        spots.push({ kind: "city", at: id }),
+      );
     }
     if (covers(hand, TOWN_COST)) {
-      townSpots(game, seat).forEach((id) => spots.push({ kind: "town", at: id }));
+      townSpots(game, seat).forEach((id) =>
+        spots.push({ kind: "town", at: id }),
+      );
     }
     if (game.freeRoads > 0 || covers(hand, ROAD_COST)) {
-      roadSpots(game, seat).forEach((id) => spots.push({ kind: "road", at: id }));
+      roadSpots(game, seat).forEach((id) =>
+        spots.push({ kind: "road", at: id }),
+      );
+    }
+    if (playingRitter(game) && covers(hand, KNIGHT_COST)) {
+      board.crossings.forEach((crossing) => {
+        if (canKnight(game, seat, crossing.id)) {
+          spots.push({ kind: "knight", at: crossing.id });
+        }
+      });
     }
   }
   return spots;
@@ -188,8 +284,66 @@ function moveFor(spot: Spot): CatanMove {
     city: { kind: "city", at: spot.at },
     robber: { kind: "robber", at: spot.at },
     breakRoad: { kind: "event", at: spot.at },
+    neutralTown: { kind: "neutral", seat: spot.seat ?? 0, at: spot.at },
+    neutralRoad: { kind: "neutral", seat: spot.seat ?? 0, at: spot.at },
+    knight: { kind: "knight", at: spot.at },
+    // For a march the picked knight travels in `seat`, which is the only Spot
+    // that means a crossing rather than a colour - the comment is on the field.
+    march: { kind: "march", from: spot.seat ?? 0, to: spot.at },
   };
   return moves[spot.kind];
+}
+
+/**
+ * A knight standing on a crossing.
+ *
+ * @param props - the game, the crossing and who is looking
+ * @returns the piece
+ * @remarks
+ * A shield with as many notches as the knight has strength, which is how the
+ * printed piece says it too - "die Stärke eines Ritters wird durch die Anzahl
+ * der Spitzen an der Fahne dargestellt". Counting notches beats reading a
+ * number on a board this size.
+ *
+ * An **awake** knight is drawn filled and a passive one hollow. That is the one
+ * thing about a knight that changes every turn and decides whether it counts in
+ * the raid, so it is the one thing the shape says at a glance.
+ */
+function KnightPiece({
+  game,
+  crossing,
+  mySeat,
+}: {
+  readonly game: CatanGame;
+  readonly crossing: number;
+  readonly mySeat: number | null;
+}): ReactElement {
+  const knight = game.garrison[crossing];
+  const { px, py } = crossPoint(islandOf(game.land.length), crossing);
+  const owner = knight?.owner ?? 0;
+  const ink = COLOUR_INK[game.players[owner].colour];
+  const awake = knight?.active === true;
+  const shield = `M ${px - 7} ${py - 7} L ${px + 7} ${py - 7} L ${px + 7} ${py + 1} L ${px} ${py + 8} L ${px - 7} ${py + 1} Z`;
+  return (
+    <g data-testid={`ct-knight-${crossing}`} pointerEvents="none">
+      <path
+        d={shield}
+        fill={awake ? ink : "#ffffff"}
+        stroke={owner === mySeat ? "#111827" : "#374151"}
+        strokeWidth={owner === mySeat ? 2.5 : 1.5}
+        strokeLinejoin="round"
+      />
+      {Array.from({ length: knight?.level ?? 1 }, (unused, notch) => (
+        <circle
+          key={notch}
+          cx={px - 4 + notch * 4}
+          cy={py - 3}
+          r={1.4}
+          fill={awake ? "#ffffff" : ink}
+        />
+      ))}
+    </g>
+  );
 }
 
 /** Which landscapes this seat has a building on. */
@@ -277,7 +431,13 @@ function Landscape({
 }
 
 /** The robber. */
-function Robber({ x, y }: { readonly x: number; readonly y: number }): ReactElement {
+function Robber({
+  x,
+  y,
+}: {
+  readonly x: number;
+  readonly y: number;
+}): ReactElement {
   return (
     <g data-testid="ct-robber" pointerEvents="none">
       <ellipse cx={x} cy={y + 6} rx={7} ry={3} fill="#00000055" />
@@ -317,8 +477,22 @@ function Dock({
   const wide = LABEL_PAD + label.length * LETTER_WIDTH;
   return (
     <g data-testid={`ct-harbour-${harbour}`} pointerEvents="none">
-      <line x1={a.px} y1={a.py} x2={out.px} y2={out.py} stroke="#a9803f" strokeWidth={2} />
-      <line x1={b.px} y1={b.py} x2={out.px} y2={out.py} stroke="#a9803f" strokeWidth={2} />
+      <line
+        x1={a.px}
+        y1={a.py}
+        x2={out.px}
+        y2={out.py}
+        stroke="#a9803f"
+        strokeWidth={2}
+      />
+      <line
+        x1={b.px}
+        y1={b.py}
+        x2={out.px}
+        y2={out.py}
+        stroke="#a9803f"
+        strokeWidth={2}
+      />
       <rect
         x={out.px - wide / 2}
         y={out.py - 8}
@@ -405,9 +579,31 @@ function Building({
     : `M ${px - 7} ${py + 6} L ${px - 7} ${py - 1} L ${px} ${py - 8} L ${px + 7} ${py - 1} L ${px + 7} ${py + 6} Z`;
   return (
     <g data-testid={`ct-town-${crossing}`} pointerEvents="none">
-      {mine && <path d={shape} fill="none" stroke="#ffffff" strokeWidth={5} strokeLinejoin="round" />}
-      {mine && <path d={shape} fill="none" stroke="#111827" strokeWidth={2} strokeLinejoin="round" />}
-      <path d={shape} fill={ink} stroke="#1f2937" strokeWidth={1.2} strokeLinejoin="round" />
+      {mine && (
+        <path
+          d={shape}
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth={5}
+          strokeLinejoin="round"
+        />
+      )}
+      {mine && (
+        <path
+          d={shape}
+          fill="none"
+          stroke="#111827"
+          strokeWidth={2}
+          strokeLinejoin="round"
+        />
+      )}
+      <path
+        d={shape}
+        fill={ink}
+        stroke="#1f2937"
+        strokeWidth={1.2}
+        strokeLinejoin="round"
+      />
     </g>
   );
 }
@@ -422,18 +618,28 @@ export function CatanBoard({
   game,
   mySeat,
   onMove,
+  neutralColour = null,
+  marching = null,
 }: {
   readonly game: CatanGame;
   readonly mySeat: number | null;
   readonly onMove: (move: CatanMove) => void;
+  /** *CATAN für Zwei*: which neutral colour the free piece is going in. */
+  readonly neutralColour?: number | null;
+  /** *Städte & Ritter*: the crossing of the knight picked to be marched. */
+  readonly marching?: number | null;
 }): ReactElement {
-  const spots = tappable(game, mySeat);
-  const litHex = new Set(spots.filter((s) => s.kind === "robber").map((s) => s.at));
-  const litPath = new Set(
-    spots.filter((s) => s.kind === "road" || s.kind === "breakRoad").map((s) => s.at),
+  const spots = tappable(game, mySeat, neutralColour, marching);
+  const litHex = new Set(
+    spots.filter((s) => s.kind === "robber").map((s) => s.at),
   );
-  const breaking = new Set(spots.filter((s) => s.kind === "breakRoad").map((s) => s.at));
-  const litCross = spots.filter((s) => s.kind === "town" || s.kind === "city");
+  const litPaths = spots.filter(
+    (s) =>
+      s.kind === "road" || s.kind === "breakRoad" || s.kind === "neutralRoad",
+  );
+  const litCross = spots.filter(
+    (s) => s.kind === "town" || s.kind === "city" || s.kind === "neutralTown",
+  );
   const tinted = myLands(game, mySeat);
   const board = islandOf(game.land.length);
   // The crossings reach five half-widths across and eight half-heights down,
@@ -461,7 +667,9 @@ export function CatanBoard({
             hex={hex.id}
             lit={litHex.has(hex.id)}
             onTap={
-              litHex.has(hex.id) ? () => onMove({ kind: "robber", at: hex.id }) : null
+              litHex.has(hex.id)
+                ? () => onMove({ kind: "robber", at: hex.id })
+                : null
             }
           />
         ))}
@@ -479,13 +687,16 @@ export function CatanBoard({
             ))}
           </g>
         )}
-        {[...litPath].map((path) => {
-          const a = crossPoint(board, board.paths[path].ends[0]);
-          const b = crossPoint(board, board.paths[path].ends[1]);
+        {/* Through moveFor like the crossings, rather than rebuilding the move
+            here: two places deciding what a tap means is two places to teach
+            every time a new one is added. */}
+        {litPaths.map((spot) => {
+          const a = crossPoint(board, board.paths[spot.at].ends[0]);
+          const b = crossPoint(board, board.paths[spot.at].ends[1]);
           return (
             <line
-              key={`lit-${path}`}
-              data-testid={`ct-path-${path}`}
+              key={`lit-${spot.at}`}
+              data-testid={`ct-path-${spot.at}`}
               x1={a.px}
               y1={a.py}
               x2={b.px}
@@ -495,9 +706,7 @@ export function CatanBoard({
               strokeLinecap="round"
               opacity={0.75}
               className="cursor-pointer"
-              onClick={() =>
-                onMove(breaking.has(path) ? { kind: "event", at: path } : { kind: "road", at: path })
-              }
+              onClick={() => onMove(moveFor(spot))}
             />
           );
         })}
@@ -528,6 +737,18 @@ export function CatanBoard({
           game.towns[crossing.id] === null ? null : (
             <Building
               key={crossing.id}
+              game={game}
+              crossing={crossing.id}
+              mySeat={mySeat}
+            />
+          ),
+        )}
+        {/* After the buildings, so a knight is never hidden behind one - the
+            two never share a crossing, but they do share the drawing order. */}
+        {board.crossings.map((crossing) =>
+          game.garrison[crossing.id] === null ? null : (
+            <KnightPiece
+              key={`k-${crossing.id}`}
               game={game}
               crossing={crossing.id}
               mySeat={mySeat}

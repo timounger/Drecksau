@@ -12,11 +12,20 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore, type ReactElement } from "react";
+import { useState, useSyncExternalStore, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
 import { CatanActions } from "@/games/catan/components/catan-actions";
 import { CatanBoard } from "@/games/catan/components/catan-board";
-import { CatanCards, CatanHand, CatanStandings } from "@/games/catan/components/catan-panels";
+import {
+  CatanCards,
+  CatanHand,
+  CatanStandings,
+} from "@/games/catan/components/catan-panels";
+import {
+  CatanBarbarians,
+  CatanProgress,
+  CatanTableau,
+} from "@/games/catan/components/catan-ritter";
 import { CatanScores } from "@/games/catan/components/catan-scores";
 import { CatanTrade } from "@/games/catan/components/catan-trade";
 import { actingSeat } from "@/games/catan/engine/state";
@@ -48,6 +57,13 @@ export function CatanGameScreen(): ReactElement {
   );
   const { game, mySeat, play, newGame } = useCatanGame(settings);
   useForcedMove(game, mySeat, play);
+  // CATAN für Zwei: which neutral colour the free piece goes in. Screen state
+  // rather than game state - it is a half-made choice, and nobody else's
+  // business until the piece is actually down.
+  const [neutralColour, setNeutralColour] = useState<number | null>(null);
+  // Städte & Ritter: which knight is being sent somewhere. Screen state, like
+  // the neutral colour - a half-made move nobody else needs to know about.
+  const [marching, setMarching] = useState<number | null>(null);
   const over = game.phase === "gameOver";
   const onTurn = game.players[actingSeat(game)];
 
@@ -107,12 +123,29 @@ export function CatanGameScreen(): ReactElement {
 
       <div className="flex flex-col gap-4 xl:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <CatanBoard game={game} mySeat={over ? null : mySeat} onMove={play} />
-          <CatanActions game={game} mySeat={mySeat} onMove={play} />
+          <CatanBoard
+            game={game}
+            mySeat={over ? null : mySeat}
+            onMove={play}
+            neutralColour={neutralColour}
+            marching={marching}
+          />
+          <CatanActions
+            game={game}
+            mySeat={mySeat}
+            onMove={play}
+            neutralColour={neutralColour}
+            onNeutralColour={setNeutralColour}
+            marching={marching}
+            onMarch={setMarching}
+          />
         </div>
         <aside className="flex w-full flex-col gap-3 xl:w-80">
           <CatanStandings game={game} mySeat={mySeat} />
           <CatanHand game={game} mySeat={mySeat} />
+          <CatanBarbarians game={game} />
+          <CatanTableau game={game} mySeat={mySeat} onMove={play} />
+          <CatanProgress game={game} mySeat={mySeat} onMove={play} />
           <CatanTrade game={game} mySeat={mySeat} onMove={play} />
           <CatanCards game={game} mySeat={mySeat} onMove={play} />
         </aside>

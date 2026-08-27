@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
-import { VARIANTS } from "@/games/catan/engine/state";
+import { MODES, VARIANTS } from "@/games/catan/engine/state";
 import { CATAN_TEXTS as T, VARIANT_TEXTS } from "@/games/catan/i18n/texts";
 import { PLAYER_COUNTS, TARGETS } from "@/games/catan/settings/app-settings";
 import {
@@ -60,7 +60,11 @@ export function CatanSettingsView(): ReactElement {
             Zu dritt bleiben die weißen Figuren in der Schachtel. {T.crewHint}
           </p>
         </div>
-        <div role="radiogroup" aria-label={T.players} className="flex flex-wrap gap-1.5">
+        <div
+          role="radiogroup"
+          aria-label={T.players}
+          className="flex flex-wrap gap-1.5"
+        >
           {PLAYER_COUNTS.map((count) => (
             <button
               key={count}
@@ -68,7 +72,9 @@ export function CatanSettingsView(): ReactElement {
               role="radio"
               aria-checked={count === settings.playerCount}
               data-testid={`ct-players-${count}`}
-              onClick={() => updateSettings({ ...settings, playerCount: count })}
+              onClick={() =>
+                updateSettings({ ...settings, playerCount: count })
+              }
               className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm font-semibold ${
                 count === settings.playerCount
                   ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40"
@@ -83,7 +89,11 @@ export function CatanSettingsView(): ReactElement {
 
       <section className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
         <h2 className="text-sm font-semibold">{T.target}</h2>
-        <div role="radiogroup" aria-label={T.target} className="flex flex-col gap-1.5">
+        <div
+          role="radiogroup"
+          aria-label={T.target}
+          className="flex flex-col gap-1.5"
+        >
           {TARGETS.map((target) => (
             <button
               key={target}
@@ -98,9 +108,47 @@ export function CatanSettingsView(): ReactElement {
                   : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
               }`}
             >
-              <span className="block text-sm font-semibold">{T.points(target)}</span>
+              <span className="block text-sm font-semibold">
+                {T.points(target)}
+              </span>
               <span className="block text-xs text-zinc-500 dark:text-zinc-400">
                 {TARGET_HINTS[target] ?? ""}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* The mode comes before the variants, and looks different on purpose:
+          it is a choice of *which game*, where the variants are switches on
+          whichever game that is. Städte & Ritter replaces the development
+          cards, the dice and the finish line, so it can never be one of the
+          ticks below it. */}
+      <section className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+        <div>
+          <h2 className="text-sm font-semibold">{T.modeTitle}</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {T.modeHint}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup">
+          {MODES.map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="radio"
+              aria-checked={settings.mode === mode}
+              data-testid={`ct-mode-${mode}`}
+              onClick={() => updateSettings({ ...settings, mode })}
+              className={`cursor-pointer rounded-lg border px-3 py-2 text-left text-sm ${
+                settings.mode === mode
+                  ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40"
+                  : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <span className="font-semibold">{T.modeName(mode)}</span>
+              <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                {T.modeText(mode)}
               </span>
             </button>
           ))}
@@ -110,7 +158,9 @@ export function CatanSettingsView(): ReactElement {
       <section className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
         <div>
           <h2 className="text-sm font-semibold">{T.variants}</h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">{T.variantsHint}</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {T.variantsHint}
+          </p>
         </div>
         <div className="flex flex-col gap-1.5">
           {VARIANTS.map((variant) => {

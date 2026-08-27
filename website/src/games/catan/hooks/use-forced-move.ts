@@ -48,7 +48,8 @@ export function useForcedMove(
   seat: number | null,
   onMove: (move: CatanMove) => void,
 ): void {
-  const kind = game === null || seat === null ? "" : (forcedMove(game, seat)?.kind ?? "");
+  const kind =
+    game === null || seat === null ? "" : (forcedMove(game, seat)?.kind ?? "");
   // Held in a ref so a screen that hands over a fresh callback on every render
   // cannot keep restarting the timer and starve the move it is waiting to make.
   const send = useRef(onMove);

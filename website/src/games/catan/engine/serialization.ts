@@ -15,7 +15,14 @@
  * rather than failing where the mistake happened.
  */
 import { LARGE_HEXES, SMALL_HEXES, islandOf } from "./board";
-import { RESOURCES, type CatanGame, type CatanPlayer, type Hand } from "./state";
+import { COMMODITIES, NO_GOODS, NO_TABLEAU, type Knight } from "./knights";
+import { PROGRESS_NAMES_LIST, TRACK_LIST, buildDecks } from "./progress";
+import {
+  RESOURCES,
+  type CatanGame,
+  type CatanPlayer,
+  type Hand,
+} from "./state";
 
 /** The phases a stored game may claim to be in. */
 const PHASES: readonly string[] = [
@@ -27,6 +34,13 @@ const PHASES: readonly string[] = [
   "trade",
   "monopol",
   "erfindung",
+  // "event" was missing here, which quietly threw away any session saved while
+  // an Ereigniskarte was on the table - a real phase the referee can sit in.
+  "event",
+  "neutral",
+  "swap",
+  "displaced",
+  "progress",
   "gameOver",
 ];
 
@@ -34,7 +48,14 @@ const PHASES: readonly string[] = [
 const VARIANT_NAMES: readonly string[] = ["raeuber", "ereignisse", "haefen"];
 
 /** The landscapes a stored game may claim to have. */
-const LANDS: readonly string[] = ["lehm", "holz", "wolle", "getreide", "erz", "wueste"];
+const LANDS: readonly string[] = [
+  "lehm",
+  "holz",
+  "wolle",
+  "getreide",
+  "erz",
+  "wueste",
+];
 
 /** The development cards a stored game may claim to hold. */
 const CARDS: readonly string[] = [
@@ -77,7 +98,9 @@ export function isCatanGame(value: unknown): value is CatanGame {
     (game.drawn === null || isEventCard(game.drawn)) &&
     (game.after === null || Number.isInteger(game.after)) &&
     Array.isArray(game.given) &&
-    game.given.every((sort) => sort === null || RESOURCES.includes(sort as never)) &&
+    game.given.every(
+      (sort) => sort === null || RESOURCES.includes(sort as never),
+    ) &&
     isSeats(game.targets, seats) &&
     Number.isInteger(game.freeRoads) &&
     Number.isInteger(game.gifts) &&
@@ -87,6 +110,41 @@ export function isCatanGame(value: unknown): value is CatanGame {
     (game.harbourTile === null || isSeat(game.harbourTile, seats)) &&
     Number.isInteger(game.harbourBest) &&
     typeof game.playedDev === "boolean" &&
+    (game.rolls === undefined || Number.isInteger(game.rolls)) &&
+    (game.firstRoll === undefined ||
+      game.firstRoll === null ||
+      Number.isInteger(game.firstRoll)) &&
+    (game.neutralBuild === undefined ||
+      game.neutralBuild === null ||
+      game.neutralBuild === "town" ||
+      game.neutralBuild === "road") &&
+    (game.swapWith === undefined ||
+      game.swapWith === null ||
+      Number.isInteger(game.swapWith)) &&
+    (game.knightGiven === undefined || typeof game.knightGiven === "boolean") &&
+    // Städte & Ritter. All optional, so a game stored before it existed still
+    // loads; reviveCatanGame is what fills them in afterwards.
+    (game.mode === undefined ||
+      game.mode === "klassisch" ||
+      game.mode === "ritter") &&
+    (game.garrison === undefined ||
+      isGarrison(game.garrison, seats, game.towns)) &&
+    (game.decks === undefined || isDecks(game.decks)) &&
+    (game.barbarian === undefined || Number.isInteger(game.barbarian)) &&
+    (game.landed === undefined || typeof game.landed === "boolean") &&
+    (game.metro === undefined || isMetro(game.metro, seats)) &&
+    (game.trader === undefined ||
+      game.trader === null ||
+      isHex(game.trader, game.land.length)) &&
+    (game.traderOwner === undefined ||
+      game.traderOwner === null ||
+      isSeat(game.traderOwner, seats)) &&
+    (game.playing === undefined ||
+      game.playing === null ||
+      PROGRESS_NAMES_LIST.includes(game.playing)) &&
+    (game.displaced === undefined ||
+      game.displaced === null ||
+      Number.isInteger(game.displaced)) &&
     (game.longest === null || isSeat(game.longest, seats)) &&
     Number.isInteger(game.longestLen) &&
     (game.army === null || isSeat(game.army, seats)) &&
@@ -106,6 +164,21 @@ function isPlayer(value: unknown): value is CatanPlayer {
     typeof player.name === "string" &&
     typeof player.bot === "boolean" &&
     typeof player.colour === "string" &&
+    // Optional, and staying optional: a game stored before CATAN für Zwei
+    // existed has neither, and is a perfectly good three-handed game without
+    // them. Read everywhere through the player, which defaults them.
+    (player.neutral === undefined || typeof player.neutral === "boolean") &&
+    (player.chips === undefined || Number.isInteger(player.chips)) &&
+    (player.goods === undefined || isGoods(player.goods)) &&
+    (player.tableau === undefined || isTableau(player.tableau)) &&
+    (player.walls === undefined || Number.isInteger(player.walls)) &&
+    (player.victoryChips === undefined ||
+      Number.isInteger(player.victoryChips)) &&
+    (player.progress === undefined ||
+      (Array.isArray(player.progress) &&
+        player.progress.every((card) =>
+          PROGRESS_NAMES_LIST.includes(card as string),
+        ))) &&
     isHand(player.hand) &&
     Number.isInteger(player.cards) &&
     isCards(player.deck) &&
@@ -118,10 +191,79 @@ function isPlayer(value: unknown): value is CatanPlayer {
   );
 }
 
+/** Whether this is a set of Handelswaren. */
+function isGoods(value: unknown): boolean {
+  const goods = value as Record<string, unknown>;
+  return (
+    isObject(value) &&
+    COMMODITIES.every((sort) => Number.isInteger(goods[sort]))
+  );
+}
+
+/** Whether this is a Fortschritt-Tableau. */
+function isTableau(value: unknown): boolean {
+  const tableau = value as Record<string, unknown>;
+  return (
+    isObject(value) &&
+    TRACK_LIST.every((track) => Number.isInteger(tableau[track]))
+  );
+}
+
+/** Whether this is a board of knights the right length. */
+function isGarrison(value: unknown, seats: number, towns: unknown): boolean {
+  const wanted = Array.isArray(towns) ? towns.length : -1;
+  return (
+    Array.isArray(value) &&
+    value.length === wanted &&
+    value.every(
+      (knight) =>
+        knight === null ||
+        (isObject(knight) &&
+          isSeat((knight as Knight).owner, seats) &&
+          Number.isInteger((knight as Knight).level) &&
+          typeof (knight as Knight).active === "boolean" &&
+          typeof (knight as Knight).fresh === "boolean" &&
+          typeof (knight as Knight).spent === "boolean"),
+    )
+  );
+}
+
+/** Whether these are the three Fortschritt piles. */
+function isDecks(value: unknown): boolean {
+  const decks = value as Record<string, unknown>;
+  return (
+    isObject(value) &&
+    TRACK_LIST.every(
+      (track) =>
+        Array.isArray(decks[track]) &&
+        (decks[track] as unknown[]).every((card) =>
+          PROGRESS_NAMES_LIST.includes(card as string),
+        ),
+    )
+  );
+}
+
+/** Whether these are the three metropolises. */
+function isMetro(value: unknown, seats: number): boolean {
+  const metro = value as Record<string, unknown>;
+  return (
+    isObject(value) &&
+    TRACK_LIST.every((track) => {
+      const one = metro[track] as { seat?: unknown; at?: unknown } | null;
+      return (
+        one === null ||
+        (isObject(one) && isSeat(one.seat, seats) && Number.isInteger(one.at))
+      );
+    })
+  );
+}
+
 /** Whether this is a hand of resource cards. */
 function isHand(value: unknown): value is Hand {
   const hand = value as Hand;
-  return isObject(value) && RESOURCES.every((sort) => Number.isInteger(hand[sort]));
+  return (
+    isObject(value) && RESOURCES.every((sort) => Number.isInteger(hand[sort]))
+  );
 }
 
 /** The events a stored game may name. */
@@ -163,7 +305,11 @@ function isCards(value: unknown): boolean {
 
 /** Whether this names a seat at this table. */
 function isSeat(value: unknown, seats: number): boolean {
-  return Number.isInteger(value) && (value as number) >= 0 && (value as number) < seats;
+  return (
+    Number.isInteger(value) &&
+    (value as number) >= 0 &&
+    (value as number) < seats
+  );
 }
 
 /** Whether this is a list of seats. */
@@ -173,7 +319,11 @@ function isSeats(value: unknown, seats: number): boolean {
 
 /** Whether this names a landscape. */
 function isHex(value: unknown, hexes: number): boolean {
-  return Number.isInteger(value) && (value as number) >= 0 && (value as number) < hexes;
+  return (
+    Number.isInteger(value) &&
+    (value as number) >= 0 &&
+    (value as number) < hexes
+  );
 }
 
 /**
@@ -227,7 +377,9 @@ function isTowns(value: unknown, seats: number, hexes: number): boolean {
       const built = town as { owner?: unknown; city?: unknown };
       return (
         town === null ||
-        (isObject(town) && isSeat(built.owner, seats) && typeof built.city === "boolean")
+        (isObject(town) &&
+          isSeat(built.owner, seats) &&
+          typeof built.city === "boolean")
       );
     })
   );
@@ -246,7 +398,9 @@ function isRoads(value: unknown, seats: number, hexes: number): boolean {
 function isDice(value: unknown): boolean {
   return (
     value === null ||
-    (Array.isArray(value) && value.length === 2 && value.every((die) => Number.isInteger(die)))
+    (Array.isArray(value) &&
+      value.length === 2 &&
+      value.every((die) => Number.isInteger(die)))
   );
 }
 
@@ -286,11 +440,62 @@ function isOffer(value: unknown, seats: number): boolean {
       isHand(offer.want) &&
       Array.isArray(offer.answers) &&
       offer.answers.length === seats &&
-      offer.answers.every((answer) => answer === null || typeof answer === "boolean"))
+      offer.answers.every(
+        (answer) => answer === null || typeof answer === "boolean",
+      ))
   );
 }
 
 /** Whether this is an object at all. */
 function isObject(value: unknown): boolean {
   return typeof value === "object" && value !== null;
+}
+
+/**
+ * Fills in what a game stored before *CATAN für Zwei* has never heard of.
+ *
+ * @param game - a game that has passed {@link isCatanGame}
+ * @returns the same game with every field the referee expects
+ * @remarks
+ * The guard accepts those fields missing on purpose - an old three-handed save
+ * is a perfectly good game and throwing it away would cost somebody their
+ * evening over a variant they were not playing. But the referee does arithmetic
+ * on `rolls`, so "missing" has to become "zero" **once**, here, rather than at
+ * every place that reads it.
+ */
+export function reviveCatanGame(game: CatanGame): CatanGame {
+  return {
+    ...game,
+    rolls: game.rolls ?? 0,
+    firstRoll: game.firstRoll ?? null,
+    neutralBuild: game.neutralBuild ?? null,
+    swapWith: game.swapWith ?? null,
+    knightGiven: game.knightGiven ?? false,
+    mode: game.mode ?? "klassisch",
+    garrison: game.garrison ?? game.towns.map(() => null),
+    decks: game.decks ?? buildDecks(),
+    barbarian: game.barbarian ?? 0,
+    landed: game.landed ?? false,
+    metro: game.metro ?? { wissenschaft: null, handel: null, politik: null },
+    eventDie: game.eventDie ?? null,
+    redDie: game.redDie ?? null,
+    trader: game.trader ?? null,
+    traderOwner: game.traderOwner ?? null,
+    drawing: game.drawing ?? [],
+    playing: game.playing ?? null,
+    displaced: game.displaced ?? null,
+    crane: game.crane ?? null,
+    fleet: game.fleet ?? null,
+    players: game.players.map((player) => ({
+      ...player,
+      neutral: player.neutral ?? false,
+      chips: player.chips ?? 0,
+      goods: player.goods ?? NO_GOODS,
+      goodsCount: player.goodsCount ?? 0,
+      tableau: player.tableau ?? NO_TABLEAU,
+      walls: player.walls ?? 0,
+      progress: player.progress ?? [],
+      victoryChips: player.victoryChips ?? 0,
+    })),
+  };
 }

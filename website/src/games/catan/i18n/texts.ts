@@ -30,6 +30,61 @@ export const CATAN_TEXTS = {
   phaseTrade: "Handeln und Bauen",
   phaseMonopol: "Monopol",
   phaseErfindung: "Erfindung",
+  neutralSeat: "neutrale Farbe",
+  neutralTown: "Siedlung",
+  neutralRoad: "Straße",
+  neutralHint: (what: string): string =>
+    `Gratis: 1 ${what} in einer neutralen Farbe - Farbe wählen, dann auf dem Brett tippen.`,
+  chipsHeld: (count: number): string => `Handelschips: ${count}`,
+  chipSwap: (price: number): string => `Zwangshandel (${price})`,
+  chipRobber: (price: number): string => `Räuber in die Wüste (${price})`,
+  knightIn: "Ritter abgeben (+2 Chips)",
+  giveBackHint: (count: number): string => `Gib ${count} Karte(n) zurück.`,
+  giveBack: "Zurückgeben",
+  modeTitle: "Spiel",
+  modeHint:
+    "Städte & Ritter ersetzt die Entwicklungskarten, würfelt mit drei Würfeln und geht bis 13 Siegpunkte.",
+  modeName: (mode: string): string =>
+    mode === "ritter" ? "Städte & Ritter" : "CATAN - Das Spiel",
+  modeText: (mode: string): string =>
+    mode === "ritter"
+      ? "Handelswaren, Stadtausbau, Ritter und die Barbaren."
+      : "Das gedruckte Grundspiel.",
+  buildWall: "Stadtmauer (2 Lehm)",
+  wakeKnight: "Aktivieren",
+  raiseKnight: "Aufwerten",
+  chaseRobber: "Räuber verjagen",
+  marchKnight: "Versetzen",
+  marchCancel: "Abbrechen",
+  retreatHint: "Setze deinen vertriebenen Ritter auf eine freie Kreuzung.",
+  tapTheBoard: "Wähle auf dem Brett.",
+  tableau: "Stadtausbau",
+  barbarians: "Barbaren",
+  progressCards: "Fortschrittskarten",
+  noProgress: "Keine Fortschrittskarten.",
+  knights: "Ritter:",
+  knightAwake: "wach",
+  knightAsleep: "passiv",
+  improveFor: (price: number): string => `Ausbauen (${price})`,
+  drawsNever: "Zieht keine Karten.",
+  drawsAt: (limit: number): string => `Zieht bei rot 1-${limit}.`,
+  metroHeld: (name: string): string => `Metropole: ${name}`,
+  metroHint: "Stufe 4 gewinnt die Metropole (2 Siegpunkte).",
+  benefitOf: (track: string): string =>
+    track === "wissenschaft"
+      ? "Aquädukt: gehst du leer aus, nimm dir einen Rohstoff."
+      : track === "handel"
+        ? "Gilde: Handelswaren 2:1 tauschen."
+        : "Festung: Starke Ritter zu Mächtigen aufwerten.",
+  barbarianOdds: (defence: number, attack: number): string =>
+    `Ritter ${defence} gegen Städte ${attack}`,
+  wouldHold: "hält",
+  wouldFall: "fällt",
+  robberPinned: "Der Räuber bleibt, bis die Barbaren zum ersten Mal landen.",
+  phaseNeutral: "Neutrale Figur setzen",
+  phaseSwap: "Karten zurückgeben",
+  phaseDisplaced: "Vertriebenen Ritter versetzen",
+  phaseProgress: "Fortschrittskarte",
   phaseEvent: "Ereignis",
   drawCard: "Karte aufdecken",
   eventCard: "Ereigniskarte",
@@ -39,7 +94,8 @@ export const CATAN_TEXTS = {
   pickDrawFrom: "Bei wem ziehst du eine Karte?",
   pickGiftTo: "Wem schenkst du sie?",
   repair: "Straße reparieren",
-  repairHint: "Eine deiner Straßen liegt quer. Bis sie repariert ist, kannst du keine neue Straße bauen.",
+  repairHint:
+    "Eine deiner Straßen liegt quer. Bis sie repariert ist, kannst du keine neue Straße bauen.",
   eventWaiting: (name: string): string => `${name} beantwortet die Karte.`,
 
   roll: "Würfeln",
@@ -52,12 +108,17 @@ export const CATAN_TEXTS = {
   pickVictim: "Von wem ziehst du eine Karte?",
   pickMonopol: "Welchen Rohstoff nimmst du allen ab?",
   pickGift: (left: number): string =>
-    left === 1 ? "Nimm noch 1 Rohstoff aus dem Vorrat." : `Nimm ${left} Rohstoffe aus dem Vorrat.`,
+    left === 1
+      ? "Nimm noch 1 Rohstoff aus dem Vorrat."
+      : `Nimm ${left} Rohstoffe aus dem Vorrat.`,
   freeRoads: (left: number): string =>
-    left === 1 ? "Noch 1 kostenlose Straße." : `Noch ${left} kostenlose Straßen.`,
+    left === 1
+      ? "Noch 1 kostenlose Straße."
+      : `Noch ${left} kostenlose Straßen.`,
 
   discardHead: (count: number): string => `Du musst ${count} Karten abgeben.`,
-  discardHint: "Mehr als 7 Karten auf der Hand - die Hälfte geht zurück in den Vorrat.",
+  discardHint:
+    "Mehr als 7 Karten auf der Hand - die Hälfte geht zurück in den Vorrat.",
   discardDo: (count: number): string => `${count} Karten abgeben`,
   discardWaiting: (name: string): string => `${name} gibt Karten ab.`,
 
@@ -66,7 +127,8 @@ export const CATAN_TEXTS = {
   buildTown: "Siedlung",
   buildCity: "Stadt",
   buyCard: "Entwicklungskarte",
-  buildHint: "Tippe direkt auf das Spielfeld: Weg für eine Straße, Kreuzung für eine Siedlung, eigene Siedlung für eine Stadt.",
+  buildHint:
+    "Tippe direkt auf das Spielfeld: Weg für eine Straße, Kreuzung für eine Siedlung, eigene Siedlung für eine Stadt.",
   cardsLeft: (count: number): string => `${count} Karten im Stapel`,
 
   hand: "Deine Rohstoffe",
@@ -101,11 +163,14 @@ export const CATAN_TEXTS = {
   offerLimit: "Für diesen Zug sind genug Angebote gemacht.",
 
   standings: "Spieler",
-  points: (count: number): string => (count === 1 ? "1 Siegpunkt" : `${count} Siegpunkte`),
-  handCount: (count: number): string => (count === 1 ? "1 Karte" : `${count} Karten`),
+  points: (count: number): string =>
+    count === 1 ? "1 Siegpunkt" : `${count} Siegpunkte`,
+  handCount: (count: number): string =>
+    count === 1 ? "1 Karte" : `${count} Karten`,
   devCount: (count: number): string =>
     count === 1 ? "1 Entwicklungskarte" : `${count} Entwicklungskarten`,
-  knightCount: (count: number): string => (count === 1 ? "1 Ritter" : `${count} Ritter`),
+  knightCount: (count: number): string =>
+    count === 1 ? "1 Ritter" : `${count} Ritter`,
   routeTile: "Längste Handelsroute",
   armyTile: "Größte Rittermacht",
   routeLength: (count: number): string => `${count} Straßen`,

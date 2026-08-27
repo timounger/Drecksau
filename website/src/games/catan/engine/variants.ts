@@ -53,7 +53,12 @@ export function harbourPoints(game: CatanGame, seat: number): number {
   return game.harbours.reduce((sum, harbour) => {
     const mine = board.paths[harbour.path].ends.reduce((count, end) => {
       const town = game.towns[end];
-      const worth = town !== null && town.owner === seat ? (town.city ? CITY_HARBOUR : 1) : 0;
+      const worth =
+        town !== null && town.owner === seat
+          ? town.city
+            ? CITY_HARBOUR
+            : 1
+          : 0;
       return count + worth;
     }, 0);
     return sum + mine;
@@ -73,7 +78,9 @@ export function harbourPoints(game: CatanGame, seat: number): number {
 export function awardHarbourTile(game: CatanGame): CatanGame {
   let next = game;
   if (playing(game, "haefen")) {
-    const points = game.players.map((unused, seat) => harbourPoints(game, seat));
+    const points = game.players.map((unused, seat) =>
+      harbourPoints(game, seat),
+    );
     const holder = game.harbourTile;
     const beat = holder === null ? HARBOUR_MIN - 1 : points[holder];
     const best = Math.max(...points);
@@ -82,7 +89,11 @@ export function awardHarbourTile(game: CatanGame): CatanGame {
       [],
     );
     const won = best > beat && leaders.length === 1 ? leaders[0] : holder;
-    next = { ...game, harbourTile: won, harbourBest: won === null ? 0 : points[won] };
+    next = {
+      ...game,
+      harbourTile: won,
+      harbourBest: won === null ? 0 : points[won],
+    };
   }
   return next;
 }

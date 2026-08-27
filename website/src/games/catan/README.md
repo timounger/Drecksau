@@ -3,16 +3,16 @@
 **CATAN - Das Spiel** von Klaus Teuber (KOSMOS, Ausgabe 2025). 19
 Landschaftsfelder, 5 Rohstoffe, 2 Würfel - und wer zuerst genug Siegpunkte hat
 und selbst am Zug ist, gewinnt. Dazu die **5-6 Personen Erweiterung** und die
-zuschaltbaren Varianten aus *Händler & Barbaren*.
+zuschaltbaren Varianten aus _Händler & Barbaren_.
 
 ## Spielen
 
-| Seite                  | Was dort passiert                     |
-| ---------------------- | ------------------------------------- |
-| `/catan`               | gegen Computergegner                  |
+| Seite                  | Was dort passiert                        |
+| ---------------------- | ---------------------------------------- |
+| `/catan`               | gegen Computergegner                     |
 | `/catan/einstellungen` | Spielerzahl (3-6), Siegpunkte, Varianten |
-| `/catan/online`        | automatische Suche oder privater Raum |
-| `/catan/statistik`     | gespielte Partien und Erfolge         |
+| `/catan/online`        | automatische Suche oder privater Raum    |
+| `/catan/statistik`     | gespielte Partien und Erfolge            |
 
 Die vollständigen Regeln stehen im Spiel hinter **„? Regeln"** und als
 Spezifikation in
@@ -80,7 +80,7 @@ leuchtet gar nicht erst.
 Die eigene Farbe ist zweimal markiert - ein weiß-dunkler Doppelring um die
 eigenen Figuren und ein Ring in der eigenen Farbe um jedes Feld, das man berührt.
 Beides sind **Umrisse und keine Flächen**, und das war eine Korrektur: Eine
-Einfärbung nimmt dem Feld seine Farbe mit, und auf diesem Brett *ist* die Farbe
+Einfärbung nimmt dem Feld seine Farbe mit, und auf diesem Brett _ist_ die Farbe
 eines Feldes das, was es abwirft. Der Doppelring wiederum ist Gürtel und
 Hosenträger für die weißen Figuren, die fast die Farbe des Bretts haben.
 
@@ -208,8 +208,9 @@ Fehler.
 
 Das Spielende fällt damit von selbst richtig aus. Die Anleitung sagt, bei
 Gleichstand im selben Spielzug gewinne Stein 1 und Stein 2 komme nicht mehr dran
+
 - und genau das passiert, wenn man den Sieg immer bei der gerade handelnden
-Person prüft.
+  Person prüft.
 
 ## Das 28er-Chipalphabet ist gesucht, nicht geraten
 
@@ -229,22 +230,116 @@ auseinander, weil zwischen zwei Ringen die Nachbarschaft abreißt. Hätte ich nu
 nach Gefühl verteilt, wäre das Ergebnis schlechter gewesen - und niemand hätte
 es gemerkt außer beim Spielen.
 
+## Städte & Ritter ist ein Modus, keine Variante
+
+Die Varianten aus _Händler & Barbaren_ legen etwas dazu. Städte & Ritter
+**ersetzt**: keine Entwicklungskarten, drei Würfel statt zwei, 13 Siegpunkte
+statt 10, keine Größte Rittermacht („lasst ihr in der Schachtel"), und die
+zweite Gründungsfigur ist eine Stadt. Also ist es eine Auswahl - `mode` - und
+steht in den Einstellungen über den Häkchen, nicht zwischen ihnen.
+
+Drei Entwurfsentscheidungen tragen den Rest:
+
+**Ritter bekommen ein eigenes Kreuzungs-Brett** (`garrison`), kein Feld an der
+Siedlung. Ein Ritter ist kein Gebäude: Er steht auf einer _freien_ Kreuzung,
+ignoriert die Abstandsregel komplett und blockiert Straßen, statt etwas
+einzubringen.
+
+**Eine Phase für alle 22 Kartenwirkungen**, nicht zwölf. Die Karte auf dem Tisch
+sagt selbst, was sie fragt (`playing`), und eine einzige Antwortnachricht trägt
+die Felder, die sie braucht - genau wie es die Ereigniskarten schon machen.
+Zwölf fast gleiche Phasen hätten dasselbe Wissen über zwölf Stellen verteilt.
+
+**Marschieren, Vertreiben und Ausweichen sind ein Zug** (`march`). Auf dem Brett
+sind sie dieselbe Geste - dieser Ritter geht auf jene Kreuzung -, und was sie
+unterscheidet, ist, wer dort steht. Das sieht der Schiedsrichter selbst.
+
+### Was das Selbstspiel gefunden hat
+
+Zehn Partien, 108 bis 216 Züge, alle beendet. **21 der 23 spielbaren Karten**
+kamen dabei tatsächlich vor, ohne eine einzige Blockade. Zwei Fehler fielen auf:
+
+1. Ein **Zwangshandel zwischen den beiden Würfen** von CATAN für Zwei kehrte in
+   die Bauphase zurück und verschluckte den zweiten Wurf.
+2. Der Computer spielte **Medizin** ohne die Rohstoffe dafür und blieb dann in
+   der Kartenphase stehen. Er prüft eine Karte jetzt, indem er ihre Antwort
+   **durchrechnet** - nicht nur, ob eine existiert.
+
+Der messbarste Beleg, dass die Ritter tun, was sie sollen: Bevor es sie gab,
+verloren die Spieler 12 bis 38 Städte je Partie an die Barbaren. Danach 1 bis 4.
+
+Zwei Karten spielt der Computer bewusst nicht. **Alchemie** (die eigenen Würfel
+zu bestimmen braucht einen Plan für den Zug; geraten ist sie schlechter als
+würfeln) und **Erfindung** (zwei Zahlenchips zu tauschen ist eine offene Wahl,
+bei der Raten schadet). Beide sind im Schiedsrichter da und für Menschen
+spielbar.
+
+## CATAN für Zwei ist kein Schalter
+
+Die anderen Varianten kann man zuschalten. Diese nicht: **Zu zweit gibt es kein
+Catan ohne sie**, also spielt ein Tisch mit zwei Personen sie immer, und der
+Code fragt nie eine Einstellung, sondern nur
+[`playingTwo`](engine/two.ts) - „stehen neutrale Farben am Tisch?".
+
+Die beiden neutralen Farben sind **gewöhnliche Sitze**. Das war die eine
+Entwurfsentscheidung, an der alles andere hängt: Eine Kreuzung merkt sich den
+Sitz, der darauf gebaut hat, also muss eine neutrale Siedlung dort stehen und
+blockieren können wie jede andere. Dadurch gelten Abstandsregel, Straßenregeln
+und die Längste Handelsroute für sie durch den ganz normalen Code - und die
+Anleitung will genau das: „In einer neutralen Farbe kann aber durchaus die
+Längste Handelsroute entstehen."
+
+Was sie nie tun - Zug, Karten, Erträge, Sieg - steht deshalb an genau drei
+Stellen: `realSeats` überspringt sie in der Zugreihenfolge, `payout` schüttet
+ihnen nichts aus, und in der Tabelle steht statt Punkten „neutrale Farbe".
+
+### Erst die Farbe, dann der Platz
+
+Eine neutrale Siedlung darf auf **jede** freie Kreuzung, die die Abstandsregel
+erlaubt. Das ist für beide Farben dieselbe Menge - ein Tippen aufs Brett könnte
+also nie sagen, welche Farbe gemeint war. Also wird die Farbe daneben gewählt
+und das Brett leuchtet erst danach. Es ist ohnehin die interessantere Hälfte
+der Entscheidung: Wen man füttert, entscheidet, wem die Längste Handelsroute
+weggenommen wird.
+
+### Zwei Fehler, die das Selbstspiel gefunden hat
+
+Vier Partien durchgespielt, und zwei Dinge fielen dabei auf:
+
+1. Ein **Zwangshandel zwischen den beiden Würfen** kehrte in die Bauphase
+   zurück und verschluckte den zweiten Wurf. Die Rückkehr fragte „wurde schon
+   gewürfelt?" statt „ist noch ein Wurf offen?".
+2. Der Computer nutzte **keine einzige** Chip-Aktion, weil ihm niemand welche
+   beigebracht hatte. Jetzt sind es 15 bis 29 pro Partie.
+
+Nebenbei fiel noch ein Fehler auf, der nichts mit dieser Variante zu tun hat:
+Die **erste** Partie nach einer Einstellungsänderung wurde aus den _Vorgaben_
+gebaut, nicht aus der Einstellung. Der Grund ist die Hydration - beim ersten
+Rendern gibt der Einstellungsspeicher noch seinen Server-Schnappschuss zurück,
+damit das Markup passt, und genau daraus war die Referenz gefüllt. Wer eine
+Tischgröße wählte, bekam sie erst nach „Neues Spiel". Jetzt wird beim Anlegen
+live gelesen.
+
+Und `event` fehlte in der Phasenliste der Zustandsprüfung: Ein Spielstand, der
+während einer Ereigniskarte gespeichert wurde, wäre stillschweigend verworfen
+worden.
+
 ## Varianten sind Schalter, keine Auswahl
 
-Die Anleitung von *Händler & Barbaren* sagt ausdrücklich, dass ihre Varianten
+Die Anleitung von _Händler & Barbaren_ sagt ausdrücklich, dass ihre Varianten
 sich beliebig kombinieren lassen. Deshalb ist `CatanGame.variants` eine **Liste**
 und nicht ein Feld, und alles, was sie liest, fragt „ist das hier an" statt
 „welche spielen wir". Die Einstellungen zeigen entsprechend Schalter und keine
 Radiogruppe.
 
-[engine/variants.ts](engine/variants.ts) hält, was eine Variante *hinzufügt*,
+[engine/variants.ts](engine/variants.ts) hält, was eine Variante _hinzufügt_,
 und nichts sonst - genau wie die Anleitung selbst: „Gespielt wird nach den
 normalen Regeln von CATAN - Das Spiel. Hinzu kommen folgende Änderungen."
 
 Zwei Dinge daraus sind Auslegungen und stehen als solche in der
 [Spezifikation](../../../../docs/games/catan/game-rules.md): Der freundliche
 Räuber zählt **offene** Siegpunkte, weil eine verdeckte Siegpunktkarte sonst
-verraten würde, dass es sie gibt. Und *Die Häfen von Catan* erhöht das Ziel um
+verraten würde, dass es sie gibt. Und _Die Häfen von Catan_ erhöht das Ziel um
 **eins** statt es auf elf festzunageln, damit eine kurze oder lange Partie ihre
 Länge behält.
 
@@ -252,12 +347,12 @@ Das Selbstspiel läuft über **alle vier Kombinationen** der beiden Schalter, un
 es hat sofort einen echten Fehler gefunden: `doCity` rief `awardTiles` nicht
 auf. Im gedruckten Spiel fällt das nicht auf - eine Stadt ändert weder die
 längste Route noch die Ritterzahl. Mit Hafenpunkten schon: Sie verdoppelt einen,
-und die Tafel *Stärkste Häfen* wurde deshalb nach einem Städtebau nie neu
+und die Tafel _Stärkste Häfen_ wurde deshalb nach einem Städtebau nie neu
 vergeben.
 
 ## Ereigniskarten sind zwei Würfel, ausgeschrieben
 
-Bei *Ereignisse auf Catan* ersetzen 37 Karten die Würfel, und die Zahlen darauf
+Bei _Ereignisse auf Catan_ ersetzen 37 Karten die Würfel, und die Zahlen darauf
 sind keine Mischung: einmal die 2, zweimal die 3, dreimal die 4 ... sechsmal die
 7 und wieder herunter. Das sind exakt die 36 Ergebnisse zweier Würfel. Ein
 Blick, der das übersieht, würde die Zahlen "ungefähr gleichmäßig" verteilen und

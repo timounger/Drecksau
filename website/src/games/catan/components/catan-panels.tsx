@@ -18,12 +18,19 @@ import { ownHarbours } from "@/games/catan/engine/moves";
 import { COLOUR_INK } from "@/games/catan/engine/setup";
 import { harbourPoints } from "@/games/catan/engine/variants";
 import {
+  COMMODITIES,
+  COMMODITY_NAMES,
+  type Commodity,
+} from "@/games/catan/engine/knights";
+import {
   DEV_COST,
   RESOURCES,
   actingSeat,
   covers,
   hiddenPoints,
   playing,
+  playingRitter,
+  playingTwo,
   openPoints,
   pointsOf,
   type CatanGame,
@@ -45,6 +52,7 @@ export function CatanHand({
   readonly mySeat: number;
 }): ReactElement {
   const hand = game.players[mySeat].hand;
+  const goods = game.players[mySeat].goods;
   return (
     <section className="flex flex-col gap-2 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
       <h2 className="text-sm font-semibold">{T.hand}</h2>
@@ -62,11 +70,43 @@ export function CatanHand({
             {SORT_NAMES[sort]} {hand[sort]}
           </span>
         ))}
+        {/* Handelswaren sit in the same row rather than a panel of their own:
+            they are held in the hand, traded like resources and counted with
+            them when a seven is rolled. A second box would say they were a
+            different kind of thing. */}
+        {playingRitter(game) &&
+          COMMODITIES.map((sort) => (
+            <span
+              key={sort}
+              data-testid={`ct-good-${sort}`}
+              style={{ borderColor: GOOD_INK[sort] }}
+              className={`rounded-lg border-2 px-2 py-1 text-xs font-semibold tabular-nums ${
+                goods[sort] === 0 ? "opacity-40" : ""
+              }`}
+            >
+              {COMMODITY_NAMES[sort]} {goods[sort]}
+            </span>
+          ))}
       </div>
       <Harbours game={game} mySeat={mySeat} />
     </section>
   );
 }
+
+/**
+ * What each Handelsware is outlined in.
+ *
+ * @remarks
+ * Outlined rather than filled, and in the colour of the landscape that makes
+ * it: paper from the forest, cloth from the pasture, coin from the mountains.
+ * The outline is what separates them from the five resources beside them
+ * without making them shout.
+ */
+const GOOD_INK: Readonly<Record<Commodity, string>> = {
+  papier: "#2f6d3a",
+  tuch: "#7fa63c",
+  muenzen: "#6b7280",
+};
 
 /** Which harbours you can use. */
 function Harbours({
@@ -78,7 +118,10 @@ function Harbours({
 }): ReactElement {
   const docks = ownHarbours(game, mySeat);
   return (
-    <div className="flex flex-wrap items-center gap-1.5" data-testid="ct-harbours">
+    <div
+      className="flex flex-wrap items-center gap-1.5"
+      data-testid="ct-harbours"
+    >
       <span className="text-xs font-semibold opacity-70">{T.harbours}</span>
       {docks.length === 0 ? (
         <span className="text-xs opacity-60">{T.noHarbours}</span>
@@ -161,7 +204,9 @@ export function CatanCards({
             onClick={() => onMove({ kind: "buy" })}
           />
         )}
-        <span className="text-[10px] opacity-60">{T.cardsLeft(game.stack.length)}</span>
+        <span className="text-[10px] opacity-60">
+          {T.cardsLeft(game.stack.length)}
+        </span>
       </span>
     </section>
   );
@@ -196,15 +241,36 @@ export function CatanStandings({
                 style={{ backgroundColor: COLOUR_INK[player.colour] }}
               />
               {player.name}
-              {seat === mySeat && <span className="text-[10px] opacity-60">(du)</span>}
-              <span className="ml-auto tabular-nums">
-                {T.points(over ? pointsOf(game, seat) : openPoints(game, seat))}
-              </span>
+              {seat === mySeat && (
+                <span className="text-[10px] opacity-60">(du)</span>
+              )}
+              {/* A neutral colour owns pieces and can hold the Längste
+                  Handelsroute, so it needs a row - but it is not an opponent,
+                  and a row that looks like one would be read as a third
+                  player. No points, no cards, and it says what it is. */}
+              {player.neutral ? (
+                <span className="ml-auto text-[10px] opacity-60">
+                  {T.neutralSeat}
+                </span>
+              ) : (
+                <span className="ml-auto tabular-nums">
+                  {T.points(
+                    over ? pointsOf(game, seat) : openPoints(game, seat),
+                  )}
+                </span>
+              )}
             </span>
             <span className="flex flex-wrap gap-x-2 text-[10px] opacity-70">
-              <span>{T.handCount(player.cards)}</span>
-              <span>{T.devCount(player.deck.length + player.fresh.length)}</span>
-              <span>{T.knightCount(player.knights)}</span>
+              {!player.neutral && <span>{T.handCount(player.cards)}</span>}
+              {!player.neutral && (
+                <span>
+                  {T.devCount(player.deck.length + player.fresh.length)}
+                </span>
+              )}
+              {!player.neutral && <span>{T.knightCount(player.knights)}</span>}
+              {playingTwo(game) && !player.neutral && (
+                <span>{T.chipsHeld(player.chips)}</span>
+              )}
               {playing(game, "haefen") && (
                 <span>{T.harbourPoints(harbourPoints(game, seat))}</span>
               )}

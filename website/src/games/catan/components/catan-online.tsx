@@ -34,7 +34,11 @@ import {
   type ReactElement,
 } from "react";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/catan/engine/setup";
-import { openPoints, type CatanGame, type CatanMove } from "@/games/catan/engine/state";
+import {
+  openPoints,
+  type CatanGame,
+  type CatanMove,
+} from "@/games/catan/engine/state";
 import {
   catanAdapter,
   type CatanOptions,
@@ -53,6 +57,7 @@ import { CatanScores } from "./catan-scores";
 import { turnKeyOf } from "@/online/room";
 import { TurnClock, useTurnClock } from "@/online/turn-clock";
 import { CatanBoard } from "./catan-board";
+import { CatanBarbarians, CatanProgress, CatanTableau } from "./catan-ritter";
 import { useForcedMove } from "@/games/catan/hooks/use-forced-move";
 import { CatanActions } from "./catan-actions";
 import { CatanTrade } from "./catan-trade";
@@ -739,6 +744,10 @@ function Playing({
     .map((seat, index) => (botSeatIds.includes(seat.id) ? index : -1))
     .filter((index) => index >= 0);
   useForcedMove(game, mySeat >= 0 ? mySeat : null, room.sendMove);
+  // CATAN für Zwei: the half-made choice of which neutral colour to build in.
+  const [neutralColour, setNeutralColour] = useState<number | null>(null);
+  // Städte & Ritter: the knight picked to be sent somewhere.
+  const [marching, setMarching] = useState<number | null>(null);
   const remainingMs = useTurnClock({
     autoPlayMs: room.room?.autoPlayMs ?? null,
     turn: room.room === null ? "" : turnKeyOf(room.room, catanAdapter),
@@ -802,9 +811,19 @@ function Playing({
           game={game}
           mySeat={mySeat >= 0 && game.phase !== "gameOver" ? mySeat : null}
           onMove={room.sendMove}
+          neutralColour={neutralColour}
+          marching={marching}
         />
         {mySeat >= 0 && game.phase !== "gameOver" && (
-          <CatanActions game={game} mySeat={mySeat} onMove={room.sendMove} />
+          <CatanActions
+            game={game}
+            mySeat={mySeat}
+            onMove={room.sendMove}
+            neutralColour={neutralColour}
+            onNeutralColour={setNeutralColour}
+            marching={marching}
+            onMarch={setMarching}
+          />
         )}
       </div>
 
@@ -813,6 +832,9 @@ function Playing({
         {mySeat >= 0 && game.phase !== "gameOver" && (
           <>
             <CatanHand game={game} mySeat={mySeat} />
+            <CatanBarbarians game={game} />
+            <CatanTableau game={game} mySeat={mySeat} onMove={room.sendMove} />
+            <CatanProgress game={game} mySeat={mySeat} onMove={room.sendMove} />
             <CatanTrade game={game} mySeat={mySeat} onMove={room.sendMove} />
             <CatanCards game={game} mySeat={mySeat} onMove={room.sendMove} />
           </>

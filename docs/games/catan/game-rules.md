@@ -303,6 +303,47 @@ Zwei Ereignisse brauchen eine Erklärung:
   gemeinsam bewegt** - sonst könnte jemand eine Karte weitergeben, die er gerade
   erst bekommen hat.
 
+#### CATAN für Zwei
+
+Zu zweit gibt es kein Catan ohne diese Variante, also ist sie **kein Schalter**:
+Ein Tisch mit zwei Personen spielt sie immer. Vier Dinge ändern sich.
+
+**Zwei neutrale Farben.** „Die beiden Figurensätze, mit denen ihr nicht spielt,
+sind die Figuren von zwei imaginären neutralen Personen." Sie sind hier
+gewöhnliche Sitze, weil sie auf dem Brett genau das sind: Eine Kreuzung merkt
+sich den Sitz, der darauf gebaut hat. Sie bekommen nie Erträge, halten nie
+Karten und sind nie am Zug - aber sie können die **Längste Handelsroute**
+halten, was die Anleitung ausdrücklich sagt.
+
+Ihre beiden Startsiedlungen stehen schon, bevor die Gründungsphase beginnt. Die
+Anleitung zeigt sie nur im Bild, auf dem festen Startaufbau: **oben und unten am
+Mittelfeld**, punktsymmetrisch zur Brettmitte. Weil hier variabel aufgebaut
+wird, ist daraus eine *Form* geworden statt zweier Kreuzungsnummern - die
+oberste und unterste Ecke des mittleren Landschaftsfeldes. Das ist auch
+drehungssicher: Es fragt die Geometrie, wo oben ist, statt zu raten, welcher
+Eintrag von `corners` das gerade ist.
+
+**Zweimal würfeln pro Zug**, und die beiden Zahlen müssen sich unterscheiden.
+Ein Wiederholungswurf ist kein Ergebnis, also wird er im Schiedsrichter
+weggeworfen statt angezeigt. Nach jedem Wurf gibt es sofort Erträge bzw. wird
+bei einer 7 der Räuber versetzt - erst danach kommt der zweite Wurf.
+
+**Freie neutrale Figur.** Wer eine Straße oder Siedlung baut, setzt gratis eine
+in einer neutralen Farbe dazu. Nicht bei Stadt oder Entwicklungskarte, und nicht
+in der Gründungsphase: Die Anleitung zählt das Brett danach ab - „insgesamt 6
+Siedlungen und 4 Straßen" - und das sind die zwei aus dem Aufbau plus je zwei.
+
+Am Bildschirm wird **erst die Farbe gewählt, dann der Platz**. Anders geht es
+nicht: Eine neutrale Siedlung darf auf jede freie Kreuzung, die die
+Abstandsregel erlaubt - und das ist für beide Farben dieselbe Menge, ein Tippen
+allein könnte also nie sagen, welche gemeint war.
+
+**Handelschips.** Fünf zum Start. Eine Aktion kostet 1 Chip, oder **2, solange
+man vorne liegt** - eine Aufholregel. Zwei Aktionen: *Zwangshandel* (2 Karten
+blind ziehen, 2 beliebige zurückgeben) und *Räuber in die Wüste* (ohne jemanden
+zu bestehlen). Nachschub: einen ausgespielten Ritter abgeben (+2), eine Siedlung
+an der Küste (+1), an der Wüste (+2), an beidem (+3).
+
 #### Die Häfen von Catan
 
 Siedlung am Hafen 1 Hafenpunkt, Stadt 2. Ab 3 Hafenpunkten gibt es die
@@ -316,16 +357,16 @@ eine bewusst kurze oder lange Partie ihre Länge.
 
 ### Noch nicht umgesetzt
 
-Von den neun vorliegenden Anleitungen ist bisher nur der Varianten-Teil von
-Händler & Barbaren umgesetzt. Offen sind:
+Von den neun vorliegenden Anleitungen ist bisher der Varianten-Teil von
+Händler & Barbaren umgesetzt - alle vier Varianten. Offen sind:
 
 | Anleitung                      | Umfang                                | Stand    |
 | ------------------------------ | ------------------------------------- | -------- |
 | Händler & Barbaren, Varianten  | Freundlicher Räuber, Ereignisse auf Catan, Die Häfen | fertig |
-| Händler & Barbaren, Varianten  | CATAN für Zwei                        | offen    |
+| Händler & Barbaren, Varianten  | CATAN für Zwei                        | fertig   |
 | Händler & Barbaren, Szenarien  | 5 Szenarien als Kampagne              | offen    |
 | Seefahrer                      | 8 Szenarien plus freies Spiel         | offen    |
-| Städte & Ritter                | Handelswaren, Ritter, Metropolen      | [spezifiziert](staedte-und-ritter.md) |
+| Städte & Ritter                | Handelswaren, Ritter, Metropolen      | [fertig](staedte-und-ritter.md) |
 | Entdecker & Piraten            | 5 Szenarien auf eigenem Spielplan     | offen    |
 | 5-6 Personen, Grundspiel       | Stein 1 / Stein 2, 30 Felder          | fertig   |
 | 5-6 Personen, je Erweiterung   | Wagen 1 / Wagen 2 je Szenario         | offen    |

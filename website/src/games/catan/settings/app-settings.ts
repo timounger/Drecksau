@@ -14,6 +14,7 @@
  * stays exactly as printed.
  */
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/catan/engine/setup";
+import type { Mode } from "@/games/catan/engine/state";
 import { VARIANTS, WIN_POINTS, type Variant } from "@/games/catan/engine/state";
 import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 
@@ -27,11 +28,17 @@ const SETTINGS_KEY = storageKey("catan", "settings");
  * Table size of a first-time visitor's game.
  *
  * @remarks
- * Three, which is the fewest the box seats and the quickest of its sizes.
+ * Three: the printed game at its quickest.
+ *
+ * Deliberately **not** {@link MIN_PLAYERS}, which it used to be. That became
+ * two the moment CATAN für Zwei arrived, and everybody's default would have
+ * silently turned into a different variant with two neutral colours on the
+ * board. Two is a table you choose, not one you land in.
+ *
  * Five and six need the 5-6 Personen Erweiterung: a bigger island, and a
  * Spielzug that two people share.
  */
-export const DEFAULT_PLAYER_COUNT = MIN_PLAYERS;
+export const DEFAULT_PLAYER_COUNT = 3;
 
 /** The table sizes on offer. */
 export const PLAYER_COUNTS: readonly number[] = Array.from(
@@ -63,6 +70,16 @@ export type CatanSettings = {
    * "kann man alles kombinieren" has a yes for an answer here.
    */
   readonly variants: readonly Variant[];
+  /**
+   * Which game to play - the printed one, or Städte & Ritter.
+   *
+   * @remarks
+   * A choice and not a switch, unlike the variants beside it: Städte & Ritter
+   * replaces the development cards, the two dice, the ten points and the Größte
+   * Rittermacht, so it cannot be combined with itself and there is nothing to
+   * tick.
+   */
+  readonly mode: Mode;
 };
 
 /** What a first-time visitor gets. */
@@ -70,6 +87,7 @@ export const DEFAULT_SETTINGS: CatanSettings = {
   playerCount: DEFAULT_PLAYER_COUNT,
   target: WIN_POINTS,
   variants: [],
+  mode: "klassisch",
 };
 
 /**
@@ -83,6 +101,7 @@ export function loadSettings(): CatanSettings {
     playerCount: clampPlayers(stored?.playerCount),
     target: clampTarget(stored?.target),
     variants: clampVariants(stored?.variants),
+    mode: stored?.mode === "ritter" ? "ritter" : "klassisch",
   };
 }
 
@@ -96,6 +115,7 @@ export function saveSettings(settings: CatanSettings): void {
     playerCount: clampPlayers(settings.playerCount),
     target: clampTarget(settings.target),
     variants: clampVariants(settings.variants),
+    mode: settings.mode === "ritter" ? "ritter" : "klassisch",
   });
 }
 
@@ -134,7 +154,9 @@ export function clampPlayers(count: unknown): number {
  */
 export function clampTarget(target: unknown): number {
   const wanted =
-    typeof target === "number" && Number.isFinite(target) ? Math.round(target) : 0;
+    typeof target === "number" && Number.isFinite(target)
+      ? Math.round(target)
+      : 0;
   return TARGETS.includes(wanted) ? wanted : WIN_POINTS;
 }
 

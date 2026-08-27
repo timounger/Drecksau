@@ -20,12 +20,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { aiMove, botWaitMs } from "@/games/catan/engine/ai";
 import { applyMove, seatOnTurn } from "@/games/catan/engine/moves";
-import { isCatanGame } from "@/games/catan/engine/serialization";
+import {
+  isCatanGame,
+  reviveCatanGame,
+} from "@/games/catan/engine/serialization";
 import { createGame, soloSeats } from "@/games/catan/engine/setup";
 import type { CatanGame, CatanMove } from "@/games/catan/engine/state";
 import type { CatanSettings } from "@/games/catan/settings/app-settings";
+import { getSettingsSnapshot } from "@/games/catan/settings/settings-store";
 import type { GameId } from "@/games/registry";
-import { clearSession, loadSession, saveSession } from "@/lib/storage/game-session";
+import {
+  clearSession,
+  loadSession,
+  saveSession,
+} from "@/lib/storage/game-session";
 import {
   recordGameFinished,
   recordGameStarted,
@@ -122,25 +130,41 @@ export function useCatanGame(settings: CatanSettings): CatanSession {
   useEffect(() => {
     if (!isReady.current) {
       isReady.current = true;
-      const saved = loadSession(GAME_ID, isCatanGame);
+      const stored = loadSession(GAME_ID, isCatanGame);
+      // Filled out, because a session stored before CATAN für Zwei knows
+      // nothing of its fields and the referee counts with them.
+      const saved =
+        stored === null
+          ? null
+          : { ...stored, state: reviveCatanGame(stored.state) };
+      let opening: CatanGame;
       if (saved === null) {
-        const fresh = createGame(
-          soloSeats(settingsRef.current.playerCount),
+        // Read live rather than through the ref. The ref is seeded from the
+        // first render, and on that render the settings store is still handing
+        // back its **server** snapshot so the markup matches - so the very
+        // first game after changing a setting was built from the defaults, and
+        // picking a table of two or of six did nothing until you pressed
+        // "Neues Spiel".
+        const chosen = getSettingsSnapshot();
+        opening = createGame(
+          soloSeats(chosen.playerCount),
           Date.now() >>> 0,
-          settingsRef.current.target,
-          settingsRef.current.variants,
+          chosen.target,
+          chosen.variants,
+          chosen.mode,
         );
-        beginGame(fresh);
-        setGame(fresh);
+        beginGame(opening);
       } else {
         meta.current = {
           startedAt: saved.startedAt,
           playTimeMs: saved.playTimeMs,
           isOutcomeRecorded: saved.isOutcomeRecorded,
         };
-        activeSince.current = saved.state.phase === "gameOver" ? null : Date.now();
-        setGame(saved.state);
+        activeSince.current =
+          saved.state.phase === "gameOver" ? null : Date.now();
+        opening = saved.state;
       }
+      setGame(opening);
     }
     // Runs once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,7 +215,9 @@ export function useCatanGame(settings: CatanSettings): CatanSession {
     const timer = setTimeout(() => {
       setGame((current) => {
         const move = aiMove(current, pending);
-        return (move === null ? null : applyMove(current, pending, move)) ?? current;
+        return (
+          (move === null ? null : applyMove(current, pending, move)) ?? current
+        );
       });
     }, botWaitMs(game));
     return () => clearTimeout(timer);
@@ -209,6 +235,7 @@ export function useCatanGame(settings: CatanSettings): CatanSession {
       Date.now() >>> 0,
       settingsRef.current.target,
       settingsRef.current.variants,
+      settingsRef.current.mode,
     );
     beginGame(fresh);
     setGame(fresh);

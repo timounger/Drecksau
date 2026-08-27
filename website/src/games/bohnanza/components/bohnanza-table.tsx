@@ -99,12 +99,21 @@ export function BohnanzaTable({
       {mySeat !== null && (
         <Guidance game={game} mySeat={mySeat} onMove={onMove} />
       )}
-      {/* Your hand comes before everybody's fields, and before the trading.
-          It is the thing you look at every single turn, and the one thing on
-          this screen nobody else can see for you - at the bottom of a page four
-          seat rows long it may as well not be drawn. Your own row is first in
-          the list below, so in the planting phase, when the trade panel is not
-          there, the hand and the fields it has to go on sit together. */}
+      {/* Your hand, then your own fields, and only then the trading and
+          everybody else. Those two are what you act *from* and what you act
+          *on*, and every phase of this game needs them side by side:
+
+          - planting puts the front card on one of those fields,
+          - trading asks what you are short of, which is what the fields say,
+          - and harvesting is allowed "jederzeit im Spiel", so the buttons for
+            it live on those fields in every phase - including while trading,
+            which is exactly when somebody clears a field to make room.
+
+          The trade panel used to sit between the two. Measured on an
+          890-pixel window it ran to y=936 while your own row began at 952 - so
+          the moment there was anything to decide, the fields it had to be
+          decided against were off the bottom of the screen, and that is with
+          the panel still empty. */}
       {mySeat !== null && (
         <MyHand
           game={game}
@@ -113,21 +122,34 @@ export function BohnanzaTable({
           onChoose={setChosen}
         />
       )}
+      {mySeat !== null && (
+        <SeatRow
+          game={game}
+          seat={mySeat}
+          isMe
+          isBotSeat={botSeats.includes(mySeat)}
+          moves={moves}
+          settling={settling}
+          onMove={onMove}
+        />
+      )}
       <BohnanzaTrade game={game} mySeat={mySeat} onMove={onMove} />
       <ul className="flex flex-col gap-2">
-        {order.map((seat) => (
-          <li key={game.players[seat].name + seat}>
-            <SeatRow
-              game={game}
-              seat={seat}
-              isMe={seat === mySeat}
-              isBotSeat={botSeats.includes(seat)}
-              moves={seat === mySeat ? moves : []}
-              settling={seat === mySeat ? settling : null}
-              onMove={onMove}
-            />
-          </li>
-        ))}
+        {order
+          .filter((seat) => seat !== mySeat)
+          .map((seat) => (
+            <li key={game.players[seat].name + seat}>
+              <SeatRow
+                game={game}
+                seat={seat}
+                isMe={false}
+                isBotSeat={botSeats.includes(seat)}
+                moves={[]}
+                settling={null}
+                onMove={onMove}
+              />
+            </li>
+          ))}
       </ul>
     </section>
   );

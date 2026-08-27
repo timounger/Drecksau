@@ -97,7 +97,9 @@ export const TURNING: EventCard = { number: null, kind: "jahreswechsel" };
  * verdeckt 5 Karten unter die Karte Jahreswechsel und die restlichen Karten
  * verdeckt oben auf die Karte."
  */
-export function stackEvents(shuffled: readonly EventCard[]): readonly EventCard[] {
+export function stackEvents(
+  shuffled: readonly EventCard[],
+): readonly EventCard[] {
   const below = shuffled.slice(0, UNDER_TURNING);
   const above = shuffled.slice(UNDER_TURNING);
   return [...above, TURNING, ...below];
@@ -147,7 +149,9 @@ function withRoads(game: CatanGame): readonly number[] {
 /** Whoever has played the most knights - all of them on a tie. */
 function mostKnights(game: CatanGame): readonly number[] {
   const best = Math.max(...game.players.map((player) => player.knights));
-  return best === 0 ? [] : everySeat(game).filter((seat) => game.players[seat].knights === best);
+  return best === 0
+    ? []
+    : everySeat(game).filter((seat) => game.players[seat].knights === best);
 }
 
 /**
@@ -170,12 +174,16 @@ function mostAtHarbours(game: CatanGame): readonly number[] {
     game.harbours.reduce(
       (sum, harbour) =>
         sum +
-        board.paths[harbour.path].ends.filter((end) => game.towns[end]?.owner === seat).length,
+        board.paths[harbour.path].ends.filter(
+          (end) => game.towns[end]?.owner === seat,
+        ).length,
       0,
     ),
   );
   const best = Math.max(...counts);
-  return best === 0 ? [] : everySeat(game).filter((seat) => counts[seat] === best);
+  return best === 0
+    ? []
+    : everySeat(game).filter((seat) => counts[seat] === best);
 }
 
 /** Whoever is furthest ahead on points anybody can see - all of them on a tie. */
@@ -188,7 +196,9 @@ function richestInPoints(game: CatanGame): readonly number[] {
   const poorer = points.some((count) => count < best);
   return !poorer
     ? []
-    : everySeat(game).filter((seat) => points[seat] === best && game.players[seat].cards > 0);
+    : everySeat(game).filter(
+        (seat) => points[seat] === best && game.players[seat].cards > 0,
+      );
 }
 
 /** Who a Nachbarschaftshilfe gift may go to. */
@@ -198,8 +208,13 @@ export function poorerThan(game: CatanGame, seat: number): readonly number[] {
 }
 
 /** Who a card may be drawn from - anybody else holding one. */
-export function anybodyHolding(game: CatanGame, seat: number): readonly number[] {
-  return everySeat(game).filter((other) => other !== seat && game.players[other].cards > 0);
+export function anybodyHolding(
+  game: CatanGame,
+  seat: number,
+): readonly number[] {
+  return everySeat(game).filter(
+    (other) => other !== seat && game.players[other].cards > 0,
+  );
 }
 
 /** What kind of answer an event wants from the seat it is asking. */
@@ -247,15 +262,20 @@ export const EVENT_NAMES: Readonly<Record<EventKind, string>> = {
 /** What each card does, in one line. */
 export const EVENT_TEXTS: Readonly<Record<EventKind, string>> = {
   schoenerTag: "Kein Ereignis. Die Rohstoffe werden normal ausgeschüttet.",
-  raeuberueberfall: "Wie eine gewürfelte 7: abgeben, Räuber versetzen, 1 Karte ziehen.",
+  raeuberueberfall:
+    "Wie eine gewürfelte 7: abgeben, Räuber versetzen, 1 Karte ziehen.",
   seuche: "Alle erhalten für jede ihrer Städte nur 1 Rohstoff.",
   erdbeben: "Alle drehen 1 eigene Straße quer. Reparatur: 1 Holz + 1 Lehm.",
   guteNachbarschaft: "Alle geben der Person links neben sich 1 Handkarte.",
-  ritterturnier: "Wer die meisten Ritter ausgespielt hat, nimmt 1 Rohstoff aus dem Vorrat.",
-  handelsvorteil: "Wer die Längste Handelsroute hat, zieht bei jemandem 1 Karte.",
-  ruhigeSee: "Wer die meisten Gebäude an Häfen hat, nimmt 1 Rohstoff aus dem Vorrat.",
+  ritterturnier:
+    "Wer die meisten Ritter ausgespielt hat, nimmt 1 Rohstoff aus dem Vorrat.",
+  handelsvorteil:
+    "Wer die Längste Handelsroute hat, zieht bei jemandem 1 Karte.",
+  ruhigeSee:
+    "Wer die meisten Gebäude an Häfen hat, nimmt 1 Rohstoff aus dem Vorrat.",
   rueckzug: "Der Räuber geht zurück auf die Wüste. Es wird nichts gezogen.",
-  nachbarschaftshilfe: "Wer die meisten Siegpunkte hat, schenkt jemandem mit weniger 1 Karte.",
+  nachbarschaftshilfe:
+    "Wer die meisten Siegpunkte hat, schenkt jemandem mit weniger 1 Karte.",
   konflikt: "Wer alleine die meisten Ritter hat, zieht bei jemandem 1 Karte.",
   ertragreichesJahr: "Alle nehmen 1 Rohstoff ihrer Wahl aus dem Vorrat.",
   jahreswechsel: "Der Stapel wird neu gemischt.",

@@ -17,14 +17,19 @@
  */
 /* eslint-disable @typescript-eslint/no-magic-numbers -- the material list and the chip alphabet are printed data */
 
-import { SMALL_HEXES, hexesFor, islandOf } from "./board";
+import { SMALL_HEXES, hexesFor, islandOf, type Island } from "./board";
 import { buildEventCards, stackEvents } from "./events";
+import { NO_GOODS, NO_TABLEAU } from "./knights";
+import { deckOf } from "./progress";
 import { createRandom, randomInt, shuffle, type Random } from "./random";
 import {
   CREW_DEV,
   DEV_DECK,
   NO_CARDS,
   RESOURCES,
+  START_CHIPS,
+  RITTER_EXTRA,
+  type Mode,
   STOCK,
   WIN_POINTS,
   type CatanGame,
@@ -33,6 +38,7 @@ import {
   type Harbour,
   type Land,
   type Resource,
+  type Town,
   type Variant,
 } from "./state";
 
@@ -45,8 +51,31 @@ export type CatanSeat = {
 /** What the seat you play yourself is called when it has no other name. */
 export const SELF_NAME = "Du";
 
-/** The fewest the box seats. */
-export const MIN_PLAYERS = 3;
+/**
+ * The fewest the box seats.
+ *
+ * @remarks
+ * Two, because of *CATAN für Zwei* - which is not an optional extra at that
+ * count but the only way the box plays at all with two people. A table of two
+ * therefore always gets the neutral colours; there is nothing to switch on.
+ */
+export const MIN_PLAYERS = 2;
+
+/** How many people make it a game of *CATAN für Zwei*. */
+export const TWO_PLAYERS = 2;
+
+/**
+ * What the neutral colours are called on screen.
+ *
+ * @remarks
+ * Not names, because they are not people. They own roads and settlements and
+ * can hold the Längste Handelsroute, so they need a row in the standings - and
+ * that row should read as a colour on the board rather than as an opponent.
+ */
+export const NEUTRAL_NAMES: readonly string[] = [
+  "Neutral hell",
+  "Neutral dunkel",
+];
 
 /**
  * The most the box seats with the 5-6 Personen Erweiterung.
@@ -68,7 +97,14 @@ export const CREW_PLAYERS = 5;
  * "Spielt ihr zu dritt, lasst ihr die weißen Figuren weg" - so white is last,
  * and a table of three is red, blue and orange.
  */
-export const COLOURS: readonly string[] = ["rot", "blau", "orange", "weiss", "gruen", "lila"];
+export const COLOURS: readonly string[] = [
+  "rot",
+  "blau",
+  "orange",
+  "weiss",
+  "gruen",
+  "lila",
+];
 
 /** What each colour is painted, as a CSS colour. */
 export const COLOUR_INK: Readonly<Record<string, string>> = {
@@ -81,7 +117,13 @@ export const COLOUR_INK: Readonly<Record<string, string>> = {
 };
 
 /** Names the computer plays under. */
-export const BOT_NAMES: readonly string[] = ["Freya", "Knut", "Silke", "Malte", "Rieke"];
+export const BOT_NAMES: readonly string[] = [
+  "Freya",
+  "Knut",
+  "Silke",
+  "Malte",
+  "Rieke",
+];
 
 /**
  * How the 19 landscapes are stocked.
@@ -155,7 +197,8 @@ export const CHIP_LETTERS: readonly number[] = [
  * measurement is in the spec.
  */
 export const CREW_CHIP_LETTERS: readonly number[] = [
-  10, 4, 8, 11, 5, 6, 10, 9, 6, 11, 8, 5, 12, 6, 9, 3, 11, 2, 3, 4, 5, 4, 12, 9, 10, 3, 2, 8,
+  10, 4, 8, 11, 5, 6, 10, 9, 6, 11, 8, 5, 12, 6, 9, 3, 11, 2, 3, 4, 5, 4, 12, 9,
+  10, 3, 2, 8,
 ];
 
 /**
@@ -215,7 +258,8 @@ function dealLand(random: Random, hexes: number): readonly Land[] {
  */
 function layChips(land: readonly Land[], start: number): readonly number[] {
   const board = islandOf(land.length);
-  const letters = land.length === SMALL_HEXES ? CHIP_LETTERS : CREW_CHIP_LETTERS;
+  const letters =
+    land.length === SMALL_HEXES ? CHIP_LETTERS : CREW_CHIP_LETTERS;
   const chips = board.hexes.map(() => 0);
   let letter = 0;
   (board.spirals[start] ?? []).forEach((hex) => {
@@ -278,16 +322,84 @@ function buildStack(random: Random, hexes: number): readonly DevKind[] {
  * places two settlements back to back.
  */
 export function foundingOrder(seats: number, first: number): readonly number[] {
-  const round = Array.from({ length: seats }, (unused, step) => (first + step) % seats);
+  const round = Array.from(
+    { length: seats },
+    (unused, step) => (first + step) % seats,
+  );
   return [...round, ...[...round].reverse()];
 }
 
+/**
+ * Where the two neutral settlements of *CATAN für Zwei* start.
+ *
+ * @param board - the island being played
+ * @returns the two crossings, top one first
+ * @remarks
+ * "Setzt von jeder der beiden neutralen Farben jeweils 1 Siedlung (ohne Straße)
+ * auf die beiden Kreuzungen, wie auf der Abbildung gezeigt." The figure is
+ * drawn on the fixed starting layout and shows them **above and below the
+ * middle landscape**, point-symmetric about the centre of the board.
+ *
+ * Read off the picture rather than named, because the rulebook gives no
+ * crossing numbers and this table builds its island variably - so the rule has
+ * to be a *shape* rather than two indexes. The shape is what the picture is
+ * about anyway: two settlements in the middle, in the way of the best spots,
+ * and far enough apart to satisfy the Abstandsregel between themselves.
+ *
+ * Taking the topmost and bottommost corner of the middle hex is also what makes
+ * it orientation-proof: it asks the geometry where "above" is instead of
+ * assuming which entry of `corners` that happens to be.
+ */
+export function neutralStart(board: Island): readonly [number, number] {
+  const middleX = mean(board.hexes.map((hex) => hex.x));
+  const middleY = mean(board.hexes.map((hex) => hex.y));
+  const centre = board.hexes.reduce((best, hex) =>
+    Math.hypot(hex.x - middleX, hex.y - middleY) <
+    Math.hypot(best.x - middleX, best.y - middleY)
+      ? hex
+      : best,
+  );
+  const byHeight = [...centre.corners].sort(
+    (one, other) => board.crossings[one].y - board.crossings[other].y,
+  );
+  return [byHeight[0], byHeight[byHeight.length - 1]];
+}
+
+/** The average of a list, for finding the middle of the board. */
+function mean(values: readonly number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+/**
+ * The board as the founding phase finds it.
+ *
+ * @param board - the island
+ * @param seats - how many people are playing
+ * @returns the crossings, with the two neutral settlements already on them
+ */
+function startingTowns(board: Island, seats: number): readonly (Town | null)[] {
+  const towns: (Town | null)[] = board.crossings.map(() => null);
+  if (seats === TWO_PLAYERS) {
+    neutralStart(board).forEach((crossing, index) => {
+      towns[crossing] = { owner: seats + index, city: false };
+    });
+  }
+  return towns;
+}
+
 /** A player with nothing yet. */
-function seatPlayer(seat: CatanSeat, colour: string): CatanPlayer {
+function seatPlayer(
+  seat: CatanSeat,
+  colour: string,
+  chips = 0,
+  neutral = false,
+): CatanPlayer {
   return {
     name: seat.name,
     bot: seat.isBot,
     colour,
+    neutral,
+    chips,
     hand: NO_CARDS,
     cards: 0,
     deck: [],
@@ -297,6 +409,12 @@ function seatPlayer(seat: CatanSeat, colour: string): CatanPlayer {
     roads: STOCK.roads,
     settlements: STOCK.settlements,
     cities: STOCK.cities,
+    goods: NO_GOODS,
+    goodsCount: 0,
+    tableau: NO_TABLEAU,
+    walls: 0,
+    progress: [],
+    victoryChips: 0,
   };
 }
 
@@ -321,8 +439,10 @@ export function createGame(
   seed: number,
   target: number = WIN_POINTS,
   variants: readonly Variant[] = [],
+  mode: Mode = "klassisch",
 ): CatanGame {
   const random = createRandom(seed);
+  const goal = mode === "ritter" ? target + RITTER_EXTRA : target;
   const hexes = hexesFor(seats.length);
   const board = islandOf(hexes);
   const land = dealLand(random, hexes);
@@ -337,12 +457,34 @@ export function createGame(
   const desert = deserts[randomInt(random, deserts.length)];
   return {
     seed: random.state(),
-    players: seats.map((seat, index) => seatPlayer(seat, COLOURS[index])),
+    players: [
+      ...seats.map((seat, index) =>
+        seatPlayer(
+          seat,
+          COLOURS[index],
+          seats.length === TWO_PLAYERS ? START_CHIPS : 0,
+        ),
+      ),
+      // "Die beiden Figurensätze, mit denen ihr nicht spielt, sind die Figuren
+      // von zwei imaginären neutralen Personen." Only ever at a table of two.
+      ...(seats.length === TWO_PLAYERS
+        ? NEUTRAL_NAMES.map((name, index) =>
+            seatPlayer(
+              { name, isBot: false },
+              COLOURS[seats.length + index],
+              0,
+              true,
+            ),
+          )
+        : []),
+    ],
     land,
     chips,
     harbours: dockHarbours(random, hexes),
     robber: desert,
-    towns: board.crossings.map(() => null),
+    // The two neutral settlements are already standing when the founding
+    // phase begins - they are part of the setup, not of anybody's turn.
+    towns: startingTowns(board, seats.length),
     roads: board.paths.map(() => null),
     stack: buildStack(random, hexes),
     events: variants.includes("ereignisse")
@@ -350,12 +492,48 @@ export function createGame(
       : [],
     drawn: null,
     owed: [],
-    given: seats.map(() => null),
+    // One slot per seat on the board, neutral colours included: the array is
+    // indexed by seat and a short one would run off the end of it.
+    given: Array.from(
+      {
+        length:
+          seats.length === TWO_PLAYERS
+            ? seats.length + NEUTRAL_NAMES.length
+            : seats.length,
+      },
+      () => null,
+    ),
     after: null,
     active: first,
     stone: 1,
     phase: "founding",
     dice: null,
+    rolls: 0,
+    firstRoll: null,
+    neutralBuild: null,
+    swapWith: null,
+    knightGiven: false,
+    mode,
+    garrison: board.crossings.map(() => null),
+    // Shuffled once at the start. Each is a ring afterwards: a played card goes
+    // back underneath its own deck, so a deck never runs out.
+    decks: {
+      wissenschaft: shuffle(random, deckOf("wissenschaft")),
+      handel: shuffle(random, deckOf("handel")),
+      politik: shuffle(random, deckOf("politik")),
+    },
+    barbarian: 0,
+    landed: false,
+    metro: { wissenschaft: null, handel: null, politik: null },
+    eventDie: null,
+    redDie: null,
+    trader: null,
+    traderOwner: null,
+    drawing: [],
+    playing: null,
+    displaced: null,
+    crane: null,
+    fleet: null,
     variants,
     harbourTile: null,
     harbourBest: 0,
@@ -375,7 +553,8 @@ export function createGame(
     longest: null,
     longestLen: 0,
     army: null,
-    target: target + (variants.includes("haefen") ? 1 : 0),
+    // Both add to the target rather than replacing it; see RITTER_EXTRA.
+    target: goal + (variants.includes("haefen") ? 1 : 0),
     winner: null,
     turn: 0,
     log: [],
@@ -389,6 +568,9 @@ export function createGame(
  * @returns you first, then as many bots as it takes
  */
 export function soloSeats(count: number): readonly CatanSeat[] {
-  const bots = BOT_NAMES.slice(0, count - 1).map((name) => ({ name, isBot: true }));
+  const bots = BOT_NAMES.slice(0, count - 1).map((name) => ({
+    name,
+    isBot: true,
+  }));
   return [{ name: SELF_NAME, isBot: false }, ...bots];
 }

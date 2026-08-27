@@ -32,8 +32,12 @@ export type CatanScoresProps = {
 
 /** Where one player's points came from. */
 function breakdown(game: CatanGame, seat: number): string {
-  const towns = game.towns.filter((t) => t !== null && t.owner === seat && !t.city).length;
-  const cities = game.towns.filter((t) => t !== null && t.owner === seat && t.city).length;
+  const towns = game.towns.filter(
+    (t) => t !== null && t.owner === seat && !t.city,
+  ).length;
+  const cities = game.towns.filter(
+    (t) => t !== null && t.owner === seat && t.city,
+  ).length;
   const parts: string[] = [];
   if (towns > 0) {
     parts.push(`${towns} Siedlungen`);
@@ -63,7 +67,11 @@ function breakdown(game: CatanGame, seat: number): string {
  * @param props - the finished game and the way to start another
  * @returns the screen element
  */
-export function CatanScores({ game, mySeat, onNewGame }: CatanScoresProps): ReactElement {
+export function CatanScores({
+  game,
+  mySeat,
+  onNewGame,
+}: CatanScoresProps): ReactElement {
   const winner = game.winner;
   const mine = winner !== null && winner === mySeat;
 
@@ -93,8 +101,12 @@ export function CatanScores({ game, mySeat, onNewGame }: CatanScoresProps): Reac
               <span className={seat === winner ? "font-bold" : "opacity-70"}>
                 {game.players[seat].name}
               </span>
-              <span className="text-xs opacity-60">{breakdown(game, seat)}</span>
-              <span className="ml-auto tabular-nums">{T.points(pointsOf(game, seat))}</span>
+              <span className="text-xs opacity-60">
+                {breakdown(game, seat)}
+              </span>
+              <span className="ml-auto tabular-nums">
+                {T.points(pointsOf(game, seat))}
+              </span>
             </li>
           ))}
       </ul>

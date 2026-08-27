@@ -4,7 +4,10 @@ Spezifikation der Erweiterung von **Klaus Teuber** (KOSMOS 1998/2025), gelesen
 aus `game_instructions/catan_ritter.pdf` (16 Seiten, Fließtext vollständig
 eingebettet).
 
-**Stand: spezifiziert, noch nicht umgesetzt.** Was schon läuft, steht in
+**Stand: spielbar.** Regeln, Computergegner und Anzeige
+sind fertig; der Modus steht in den Einstellungen unter **Spiel** zur Wahl. Das
+gewöhnliche Catan ist unverändert (1206 Tests grün). Was noch fehlt, steht unten
+unter [Was noch zu tun ist](#was-noch-zu-tun-ist). Was schon läuft, steht in
 [game-rules.md](game-rules.md); dort ist auch die Übersicht aller neun
 Anleitungen.
 
@@ -256,3 +259,71 @@ Vier Stellen, die eine Anleitung einem Tisch überlässt und ein Bildschirm nich
 4. **Die Zielkreuzung eines vertriebenen Ritters** wählt dessen Besitzer:in,
    nicht die angreifende Person - also eine weitere Unterbrechung wie das
    Abwerfen.
+
+## Was noch zu tun ist
+
+Fertig und gegen die Anleitung geprüft:
+
+- `engine/knights.ts` - Handelswaren und welche Landschaft sie macht, die drei
+  Leisten mit allen fünfzehn Gebäudenamen, Ausbaukosten, die Würfelbedingung,
+  Ritterstufen, Barbarenstrecke, Stadtmauern, 13 Siegpunkte.
+- `engine/progress.ts` - alle **54 Karten**, 18 je Stapel nachgezählt, mit Text
+  und Rückgabe-Stapel.
+- Der Zustand: `mode`, Handelswaren als zweite Hand, Tableau, Mauern,
+  Fortschrittskarten, Ritter auf eigenem Kreuzungs-Brett, Barbarenstand,
+  Metropolen, Händler.
+- Alte Spielstände laden weiter; die neuen Felder werden beim Laden aufgefüllt.
+
+Geprüft wurden dabei beide Rechenbeispiele der Anleitung: Stufe 1 zieht bei
+Würfel 1-2, Stufe 3 bei „+4" und damit auch bei einer gewürfelten 3.
+
+Dazu fertig:
+
+- **Der Schiedsrichter** (`engine/ritter.ts` und `engine/moves.ts`): drei Würfel
+  in der Reihenfolge Ereignis-vor-Ertrag; Städte, die Rohstoff *und*
+  Handelsware bringen; Stadtausbau samt Metropolen und den drei Vorteilen;
+  Stadtmauern, die die Handkartengrenze heben; Ritter bauen, aktivieren,
+  aufwerten, versetzen, vertreiben, Räuber verjagen; der Barbarenzug mit
+  Auswertung, Belohnung und Überfall; der bis zur ersten Landung festgesetzte
+  Räuber; 13 Siegpunkte; Stadt statt zweiter Siedlung.
+- **Alle 22 Kartenwirkungen**, mit einer einzigen Phase statt zwölf: Die Karte
+  auf dem Tisch sagt selbst, was sie fragt - genau wie bei den Ereigniskarten.
+- **Der Computergegner** für all das.
+
+Im Selbstspiel über zehn Partien (108 bis 216 Züge, alle beendet) wurden **21
+der 23 spielbaren Karten** tatsächlich gespielt, ohne eine einzige Blockade.
+Die zwei fehlenden spielt der Computer bewusst nicht: **Alchemie** (die eigenen
+Würfel gut zu bestimmen braucht einen Plan für den Zug, und geraten ist sie
+schlechter als würfeln) und **Erfindung** (zwei Zahlenchips zu tauschen ist eine
+offene Wahl, bei der Raten schadet). Beide sind im Schiedsrichter da und für
+Menschen spielbar.
+
+Zwei Fehler hat das Selbstspiel gefunden: ein **Zwangshandel zwischen den zwei
+Würfen** von CATAN für Zwei kehrte in die falsche Phase zurück, und der
+Computer spielte **Medizin** ohne die Rohstoffe dafür und blieb dann in der
+Kartenphase stehen. Seither prüft er eine Karte, indem er ihre Antwort
+durchrechnet, statt nur zu fragen, ob eine existiert.
+
+Dazu die Anzeige:
+
+- **Fortschritt-Tableau** - drei Spalten, fünf Stufen, alle fünfzehn
+  Gebäudenamen; ★ auf der Vorteilsstufe, ♛ auf der Metropolenstufe, darunter
+  die Würfelzahl, bei der man zieht, und der Preis auf dem Knopf.
+- **Barbarenleiste** mit dem Stärkevergleich **vor** der Landung. Genau das ist
+  ja die Frage, die die Erweiterung jede Runde stellt: Lohnt sich ein Getreide,
+  um noch einen Ritter zu wecken? Eine Zahl, die man erst sieht, wenn es zu
+  spät ist, kann niemand nutzen.
+- **Ritter auf dem Brett** als Schild: gefüllt = wach, hohl = passiv, Punkte =
+  Stärke, dickere Kontur = die eigenen. Was sich jede Runde ändert und über den
+  Überfall entscheidet, ist damit die Form selbst.
+- **Handelswaren** in derselben Zeile wie die Rohstoffe, nur umrandet statt
+  gefüllt. Sie liegen auf der Hand, werden wie Rohstoffe gehandelt und zählen
+  bei der 7 mit - ein eigener Kasten würde behaupten, sie wären etwas anderes.
+- **Kartenaufforderungen** in einer Anzeige für alle sechzehn, so wie der
+  Schiedsrichter eine Phase für alle hat.
+- **Online** sind Handelswaren und Fortschrittskarten geschwärzt; nur die
+  beiden Siegpunktkarten bleiben offen, weil die Anleitung sie offen auslegt.
+
+Offen bleibt eine Kleinigkeit: Online setzt der Gastgeber bisher **überhaupt
+keine** Optionen - auch die Varianten nicht -, also gibt es dort noch keine
+Modusauswahl. Der Adapter nimmt sie entgegen; es fehlt die Bedienung dafür.

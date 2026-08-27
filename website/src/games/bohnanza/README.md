@@ -104,6 +104,33 @@ Zwei kleinere Entscheidungen folgen daraus:
 Ein Angebot ohne Wunschsorte ist ein Geschenk - und braucht dieselbe Zusage wie
 jeder andere Handel, weil die Anleitung das ausdrücklich verlangt.
 
+## Deine Hand, deine Felder, dann alles andere
+
+Die Reihenfolge auf dem Tisch ist nicht beliebig: erst **deine Hand**, dann
+**deine Felder**, und erst danach das Handelsfenster und die anderen Plätze.
+Die beiden ersten sind das, womit du handelst, und das, worauf du es tust - und
+jede Phase dieses Spiels braucht sie nebeneinander:
+
+- Anbauen legt die vorderste Handkarte auf eines dieser Felder,
+- Handeln fragt, was dir fehlt, und das steht auf den Feldern,
+- und Ernten ist „jederzeit" erlaubt, die Knöpfe dafür liegen also auch
+  während des Handelns dort - genau dann räumt man ja ein Feld frei.
+
+Beides stand einmal woanders, und beides war nachweisbar falsch:
+
+Die **Hand** lag ganz unten, unter vier Spielerreihen: Überschrift bei y=1111
+in einem 900 Pixel hohen Fenster. Ohne Scrollen sah man von der eigenen Hand
+nur die Zahl „5 Handkarten".
+
+Danach stand das **Handelsfenster zwischen Hand und Feldern**. Gemessen: Das
+Fenster reichte bis y=936, die eigene Reihe begann bei 952 - die Felder, gegen
+die man den Handel entscheidet, lagen also unter der Bildschirmkante, sobald es
+etwas zu entscheiden gab. Und das mit noch **leerem** Handelsfenster; mit
+ausgewählten Karten wird es größer.
+
+Jetzt: Hand bei 389, eigene Felder 564 bis 755, Handelsfenster ab 771. Alles
+drei ohne Scrollen.
+
 ## Ernten geht immer
 
 „Du darfst jederzeit im Spiel deine Bohnenfelder abernten, auch wenn du nicht

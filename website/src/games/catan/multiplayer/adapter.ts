@@ -37,6 +37,8 @@ import {
   createGame,
   type CatanSeat,
 } from "@/games/catan/engine/setup";
+import { NO_GOODS, type Goods } from "@/games/catan/engine/knights";
+import { isPointCard, type Progress } from "@/games/catan/engine/progress";
 import {
   NO_CARDS,
   RESOURCES,
@@ -44,6 +46,7 @@ import {
   type CatanMove,
   type DevKind,
   type Hand,
+  type Mode,
   type Variant,
 } from "@/games/catan/engine/state";
 import type { OnlineAdapter, SeatSetup } from "@/online/adapter";
@@ -62,12 +65,24 @@ export const CATAN_GAME_ID = "catan";
  */
 const FACE_DOWN: DevKind = "ritter";
 
+/**
+ * What a Fortschrittskarte looks like from the other side of the table.
+ *
+ * @remarks
+ * A real card rather than a ninth invented one, for the same reason as
+ * {@link FACE_DOWN}: nothing downstream has to know about a card that is not in
+ * the box. Nothing ever reads it - a redacted card is only ever counted.
+ */
+const FACE_DOWN_CARD: Progress = "bergbau";
+
 /** What the host chose before dealing. */
 export type CatanOptions = {
   /** Siegpunkte needed to win; the printed game asks ten. */
   readonly target?: number;
   /** Which variants of *Händler & Barbaren* the host switched on. */
   readonly variants?: readonly Variant[];
+  /** Which game the host chose - the printed one, or Städte & Ritter. */
+  readonly mode?: Mode;
 };
 
 /** What travels off the public snapshot. */
@@ -76,6 +91,9 @@ export type CatanHand = {
   readonly hand?: Hand;
   readonly deck?: readonly DevKind[];
   readonly fresh?: readonly DevKind[];
+  /** *Städte & Ritter*: the Handelswaren and Fortschrittskarten of one seat. */
+  readonly goods?: Goods;
+  readonly progress?: readonly Progress[];
   /** The undrawn development cards - the host's vault. */
   readonly vault?: {
     readonly stack: readonly DevKind[];
@@ -83,14 +101,28 @@ export type CatanHand = {
 };
 
 /** The adapter the online layer drives the game through. */
-export const catanAdapter: OnlineAdapter<CatanGame, CatanMove, CatanHand, CatanOptions> = {
+export const catanAdapter: OnlineAdapter<
+  CatanGame,
+  CatanMove,
+  CatanHand,
+  CatanOptions
+> = {
   gameId: CATAN_GAME_ID,
   minPlayers: MIN_PLAYERS,
   maxPlayers: MAX_PLAYERS,
 
   createGame(seats: readonly SeatSetup[], options, seed): CatanGame {
-    const table: CatanSeat[] = seats.map((seat) => ({ name: seat.name, isBot: false }));
-    return createGame(table, seed, options?.target, options?.variants ?? []);
+    const table: CatanSeat[] = seats.map((seat) => ({
+      name: seat.name,
+      isBot: false,
+    }));
+    return createGame(
+      table,
+      seed,
+      options?.target,
+      options?.variants ?? [],
+      options?.mode ?? "klassisch",
+    );
   },
 
   seatIndexOnTurn(game): number | null {
@@ -128,8 +160,22 @@ export const catanAdapter: OnlineAdapter<CatanGame, CatanMove, CatanHand, CatanO
             hand: NO_CARDS,
             deck: player.deck.map(() => FACE_DOWN),
             fresh: player.fresh.map(() => FACE_DOWN),
+            // Städte & Ritter. Handelswaren are cards in hand and just as
+            // secret; the count survives, the sorts do not. The Fortschritt
+            // cards go face down **except** the two Siegpunkt ones, which the
+            // rulebook lays open the moment they are drawn - and which the
+            // standings would give away anyway.
+            goods: NO_GOODS,
+            progress: player.progress.map((card) =>
+              isPointCard(card) ? card : FACE_DOWN_CARD,
+            ),
           })),
           stack: game.stack.map(() => FACE_DOWN),
+          decks: {
+            wissenschaft: game.decks.wissenschaft.map(() => FACE_DOWN_CARD),
+            handel: game.decks.handel.map(() => FACE_DOWN_CARD),
+            politik: game.decks.politik.map(() => FACE_DOWN_CARD),
+          },
         };
   },
 
@@ -138,6 +184,8 @@ export const catanAdapter: OnlineAdapter<CatanGame, CatanMove, CatanHand, CatanO
       hand: player.hand,
       deck: player.deck,
       fresh: player.fresh,
+      goods: player.goods,
+      progress: player.progress,
     }));
   },
 
@@ -153,6 +201,8 @@ export const catanAdapter: OnlineAdapter<CatanGame, CatanMove, CatanHand, CatanO
                   hand: hand.hand ?? player.hand,
                   deck: hand.deck ?? player.deck,
                   fresh: hand.fresh ?? player.fresh,
+                  goods: hand.goods ?? player.goods,
+                  progress: hand.progress ?? player.progress,
                 }
               : player,
           ),
@@ -286,7 +336,9 @@ function isHand(value: unknown): boolean {
 
 /** Whether a value is a list of development cards. */
 function isCardList(value: unknown): boolean {
-  return Array.isArray(value) && value.every((card) => CARD_KINDS.includes(card));
+  return (
+    Array.isArray(value) && value.every((card) => CARD_KINDS.includes(card))
+  );
 }
 
 /** Checks an untrusted value is a hand or a vault. */

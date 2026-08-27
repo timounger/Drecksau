@@ -11,6 +11,17 @@
  * @module
  */
 import type { EventCard } from "./events";
+import {
+  METRO_POINTS,
+  TRACKS,
+  type Commodity,
+  type Metropolis,
+  type Goods,
+  type Knight,
+  type Tableau,
+  type Track,
+} from "./knights";
+import { isPointCard, type Progress } from "./progress";
 
 /** The five things the island produces. */
 export type Resource = "lehm" | "holz" | "wolle" | "getreide" | "erz";
@@ -22,7 +33,13 @@ export type Land = Resource | "wueste";
 export type Hand = Readonly<Record<Resource, number>>;
 
 /** The five sorts, in the order the rulebook lists them. */
-export const RESOURCES: readonly Resource[] = ["lehm", "holz", "wolle", "getreide", "erz"];
+export const RESOURCES: readonly Resource[] = [
+  "lehm",
+  "holz",
+  "wolle",
+  "getreide",
+  "erz",
+];
 
 /** What each landscape produces. */
 export const YIELD: Readonly<Record<Land, Resource | null>> = {
@@ -35,7 +52,13 @@ export const YIELD: Readonly<Record<Land, Resource | null>> = {
 };
 
 /** An empty hand. */
-export const NO_CARDS: Hand = { lehm: 0, holz: 0, wolle: 0, getreide: 0, erz: 0 };
+export const NO_CARDS: Hand = {
+  lehm: 0,
+  holz: 0,
+  wolle: 0,
+  getreide: 0,
+  erz: 0,
+};
 
 /**
  * The variants of *Händler & Barbaren* that need no new board.
@@ -49,6 +72,26 @@ export const NO_CARDS: Hand = { lehm: 0, holz: 0, wolle: 0, getreide: 0, erz: 0 
  */
 export type Variant = "raeuber" | "ereignisse" | "haefen";
 
+/**
+ * Which game is being played.
+ *
+ * @remarks
+ * A **mode**, not a variant, and the difference matters. The variants of
+ * *Händler & Barbaren* add to the printed game and combine freely; *Städte &
+ * Ritter* replaces parts of it - the development cards, the two dice, the ten
+ * points, the Größte Rittermacht, the second founding placement - so it is one
+ * or the other for a whole game and there is nothing to combine.
+ */
+export type Mode = "klassisch" | "ritter";
+
+/** The two games on offer, printed one first. */
+export const MODES: readonly Mode[] = ["klassisch", "ritter"];
+
+/** Whether this is a game of Städte & Ritter. */
+export function playingRitter(game: CatanGame): boolean {
+  return game.mode === "ritter";
+}
+
 /** The variants, in the order the rulebook introduces them. */
 export const VARIANTS: readonly Variant[] = ["raeuber", "ereignisse", "haefen"];
 
@@ -58,7 +101,8 @@ export function playing(game: CatanGame, variant: Variant): boolean {
 }
 
 /** The five kinds of Entwicklungskarte. */
-export type DevKind = "ritter" | "siegpunkt" | "monopol" | "strassenbau" | "erfindung";
+export type DevKind =
+  "ritter" | "siegpunkt" | "monopol" | "strassenbau" | "erfindung";
 
 /** How the development deck is stocked - 25 cards. */
 export const DEV_DECK: Readonly<Record<DevKind, number>> = {
@@ -109,6 +153,31 @@ export type CatanPlayer = {
   readonly bot: boolean;
   /** Which of the four figure colours they play. */
   readonly colour: string;
+  /**
+   * A colour nobody plays, for *CATAN für Zwei*.
+   *
+   * @remarks
+   * "Die beiden Figurensätze, mit denen ihr nicht spielt, sind die Figuren von
+   * zwei imaginären neutralen Personen." They are seats rather than a structure
+   * of their own because that is exactly what they are on the board: a crossing
+   * stores the seat that built on it, and a neutral settlement has to be able
+   * to sit there and block it like any other.
+   *
+   * What they never do: take a turn, hold a card, collect an income, or win.
+   * What they very much do: **hold the Längste Handelsroute**, which the
+   * rulebook says outright - "in einer neutralen Farbe kann aber durchaus die
+   * Längste Handelsroute entstehen".
+   */
+  readonly neutral: boolean;
+  /**
+   * Handelschips, the currency of *CATAN für Zwei*.
+   *
+   * @remarks
+   * Zero on every other table. Five each at the start; spent on the two chip
+   * actions and earned back by handing in a played knight or by founding on
+   * the coast or the desert.
+   */
+  readonly chips: number;
   readonly hand: Hand;
   /**
    * How many resource cards this player holds.
@@ -141,6 +210,35 @@ export type CatanPlayer = {
   readonly roads: number;
   readonly settlements: number;
   readonly cities: number;
+  /**
+   * *Städte & Ritter*: Handelswaren in hand.
+   *
+   * @remarks
+   * A second hand rather than three more entries in the first, because the two
+   * are counted separately everywhere the rules touch them: a harbour takes
+   * four of **one** sort, and "jede der 3 Handelswaren zählt als eigene Sorte".
+   * They do count together against the seven after a seven, which is the one
+   * place the two hands are added up.
+   */
+  readonly goods: Goods;
+  /** How many Handelswaren this player holds, kept for redaction like `cards`. */
+  readonly goodsCount: number;
+  /** How far each of the three city tracks is built, 0 to 5. */
+  readonly tableau: Tableau;
+  /** City walls standing, at most {@link MAX_WALLS}. */
+  readonly walls: number;
+  /** Fortschrittskarten held face down, plus the face-up victory points. */
+  readonly progress: readonly Progress[];
+  /**
+   * Siegpunkt-Chips won by leading the defence against the barbarians.
+   *
+   * @remarks
+   * Named apart from {@link CatanPlayer.chips}, which is the Handelschips of
+   * *CATAN für Zwei* and buys actions. These are victory points and buy
+   * nothing; two things called "chips" in one player would be a bug waiting to
+   * be written.
+   */
+  readonly victoryChips: number;
 };
 
 /** An offer on the table during the trading phase. */
@@ -185,6 +283,29 @@ export type Phase =
   | "erfindung"
   /** An event card is on the table and somebody has to answer it. */
   | "event"
+  /**
+   * *CATAN für Zwei*: a free piece has to go down in a neutral colour.
+   *
+   * @remarks
+   * Its own phase because it is a **choice** and not a consequence - which of
+   * the two colours, and where - and because the turn may not go on until it
+   * has been made. {@link CatanGame.neutralBuild} says what is owed.
+   */
+  | "neutral"
+  /**
+   * *CATAN für Zwei*: two cards have been pulled and two have to go back.
+   *
+   * @remarks
+   * Zwangshandel is two steps at a table too: "Du darfst 2 Karten aus der Hand
+   * der anderen Person ziehen. Dafür musst du ihr 2 beliebige Karten
+   * zurückgeben." The pull is blind and the return is a choice, so the choice
+   * needs somewhere to wait.
+   */
+  | "swap"
+  /** *Städte & Ritter*: a driven-off knight is waiting to be put somewhere. */
+  | "displaced"
+  /** *Städte & Ritter*: a Fortschrittskarte is waiting for its choice. */
+  | "progress"
   | "gameOver";
 
 /** A whole game. */
@@ -233,6 +354,51 @@ export type CatanGame = {
   readonly stone: number;
   readonly phase: Phase;
   readonly dice: readonly [number, number] | null;
+  /**
+   * *CATAN für Zwei*: how many of the turn's two rolls are done.
+   *
+   * @remarks
+   * "Bist du an der Reihe, würfelst du zweimal hintereinander." Always 0 or 1
+   * on any other table, where the turn has one roll and moves on.
+   */
+  readonly rolls: number;
+  /**
+   * The first of the two rolls, so the second can be made to differ.
+   *
+   * @remarks
+   * "Zeigt der zweite Würfelwurf das gleiche Ergebnis wie der erste, wird er
+   * wiederholt." Rerolled inside the referee rather than handed back to the
+   * player, because a repeat is not a result - it never happened.
+   */
+  readonly firstRoll: number | null;
+  /**
+   * *CATAN für Zwei*: a free neutral piece still to be placed.
+   *
+   * @remarks
+   * "Baust du eine Straße oder Siedlung, baust du ebenfalls (kostenlos) 1
+   * Straße bzw. Siedlung in einer beliebigen der beiden neutralen Farben." The
+   * kind is what the rulebook owes; whether it can still be paid is worked out
+   * when the choice is offered, because "kann bei beiden Farben keine Siedlung
+   * gebaut werden, baust du stattdessen eine Straße".
+   */
+  readonly neutralBuild: "town" | "road" | null;
+  /**
+   * *CATAN für Zwei*: cards pulled by a Zwangshandel, waiting to be paid for.
+   *
+   * @remarks
+   * They are already in the puller's hand - the pull is over - and this only
+   * remembers **whom** the two cards going back are owed to.
+   */
+  readonly swapWith: number | null;
+  /**
+   * *CATAN für Zwei*: whether the turn's one knight-for-chips has been used.
+   *
+   * @remarks
+   * "Bist du an der Reihe, darfst du **einmal** in deinem Zug einen deiner
+   * bereits ausgespielten Ritter abgeben." Cleared by {@link nextTurn} like the
+   * turn's other allowances.
+   */
+  readonly knightGiven: boolean;
   readonly founding: Founding | null;
   readonly offer: Offer | null;
   /** Seats that still owe a discard after a seven. */
@@ -254,6 +420,65 @@ export type CatanGame = {
   readonly army: number | null;
   /** Which variants are switched on. */
   readonly variants: readonly Variant[];
+  /** Which game this is - see {@link Mode}. */
+  readonly mode: Mode;
+  /**
+   * *Städte & Ritter*: the knights standing on the 54 crossings.
+   *
+   * @remarks
+   * Its own board rather than a field on {@link Town}, because a knight is not
+   * a building: it stands on a **free** crossing, ignores the Abstandsregel
+   * entirely, and blocks roads rather than earning anything. The two never
+   * share a crossing, which the referee checks in both directions.
+   */
+  readonly garrison: readonly (Knight | null)[];
+  /** The three Fortschrittskarten piles, top card first. */
+  readonly decks: Readonly<Record<Track, readonly Progress[]>>;
+  /** How far the barbarian ship has sailed, 0 to {@link BARBARIAN_STEPS}. */
+  readonly barbarian: number;
+  /**
+   * Whether the barbarians have ever landed.
+   *
+   * @remarks
+   * The robber is nailed to its stone peninsula until they do - "der Räuber
+   * darf zu Beginn des Spiels so lange nicht versetzt werden, bis die Barbaren
+   * zum ersten Mal Catan erreicht haben" - and that holds against knights and
+   * Fortschrittskarten too, not just against a seven.
+   */
+  readonly landed: boolean;
+  /** Each metropolis, or null while nobody has built that one. */
+  readonly metro: Readonly<Record<Track, Metropolis | null>>;
+  /** What the event die showed on the last roll. */
+  readonly eventDie: "schiff" | Track | null;
+  /** What the red die showed, which is what draws Fortschrittskarten. */
+  readonly redDie: number | null;
+  /** The landscape the Händler stands on, and who put it there. */
+  readonly trader: number | null;
+  readonly traderOwner: number | null;
+  /** Seats still to draw a Fortschrittskarte from this roll. */
+  readonly drawing: readonly number[];
+  /** A card being played that is waiting for its choice. */
+  readonly playing: Progress | null;
+  /**
+   * *Städte & Ritter*: a knight that has been driven off and must move.
+   *
+   * @remarks
+   * "Die Person, deren Ritter vertrieben wurde, muss diesen auf eine freie
+   * Kreuzung innerhalb derselben (eigenen) Handelsroute versetzen." Their
+   * choice, not the attacker's - so the turn waits for them.
+   */
+  readonly displaced: number | null;
+  /**
+   * *Städte & Ritter*: the seat holding an unspent Baukran discount.
+   *
+   * @remarks
+   * Null almost always. It is a seat rather than a flag because the card is
+   * played by one person and cleared when **their** improvement uses it or
+   * their turn ends - "nur in der Runde, in der du die Karte ausspielst".
+   */
+  readonly crane: number | null;
+  /** The sort a Handelsflotte is trading 2:1 until the turn ends. */
+  readonly fleet: Resource | Commodity | null;
   /** Who holds *Stärkste Häfen*, and with how many harbour points. */
   readonly harbourTile: number | null;
   readonly harbourBest: number;
@@ -268,7 +493,13 @@ export type CatanGame = {
 export const ROAD_COST: Hand = { ...NO_CARDS, lehm: 1, holz: 1 };
 
 /** What a settlement costs. */
-export const TOWN_COST: Hand = { lehm: 1, holz: 1, wolle: 1, getreide: 1, erz: 0 };
+export const TOWN_COST: Hand = {
+  lehm: 1,
+  holz: 1,
+  wolle: 1,
+  getreide: 1,
+  erz: 0,
+};
 
 /** What upgrading a settlement to a city costs. */
 export const CITY_COST: Hand = { ...NO_CARDS, getreide: 2, erz: 3 };
@@ -294,7 +525,58 @@ export const STONE_GAP = 3;
 
 /** Whether this table shares its turns between two stones. */
 export function sharesTurns(game: CatanGame): boolean {
-  return game.players.length >= CREW_PLAYERS;
+  return realSeats(game).length >= CREW_PLAYERS;
+}
+
+/** How many Handelschips each side starts *CATAN für Zwei* with. */
+export const START_CHIPS = 5;
+
+/** What a chip action costs while you are not ahead. */
+export const CHIP_COST = 1;
+
+/** What it costs while you are. */
+export const CHIP_COST_AHEAD = 2;
+
+/** Chips for handing in a played knight. */
+export const CHIPS_PER_KNIGHT = 2;
+
+/** Chips for founding at the coast, at the desert, and at both. */
+export const CHIPS_COAST = 1;
+export const CHIPS_DESERT = 2;
+
+/**
+ * The seats somebody actually plays.
+ *
+ * @param game - the game
+ * @returns the seat indexes, in order
+ * @remarks
+ * Everything that counts *people* has to go through this rather than through
+ * `players.length`: turn order, the shared Spielzug, who owes a discard, who
+ * can win. The two neutral colours of *CATAN für Zwei* are seats on the board
+ * and nothing else.
+ */
+export function realSeats(game: CatanGame): readonly number[] {
+  return game.players
+    .map((player, seat) => (player.neutral ? -1 : seat))
+    .filter((seat) => seat >= 0);
+}
+
+/** Whether this is a game of *CATAN für Zwei*. */
+export function playingTwo(game: CatanGame): boolean {
+  return game.players.some((player) => player.neutral);
+}
+
+/**
+ * The seat that plays after this one, skipping the neutral colours.
+ *
+ * @param game - the game
+ * @param seat - the seat that has just finished
+ * @returns the next seat somebody sits in
+ */
+export function seatAfter(game: CatanGame, seat: number): number {
+  const order = realSeats(game);
+  const at = order.indexOf(seat);
+  return order[(at + 1) % order.length] ?? seat;
 }
 
 /** Who holds Stein 2 - three seats to the left of Stein 1. */
@@ -344,6 +626,18 @@ export const TILE_POINTS = 2;
 
 /** The rulebook's own finish line. */
 export const WIN_POINTS = 10;
+
+/**
+ * What Städte & Ritter adds to the target.
+ *
+ * @remarks
+ * "Wer zuerst 13 Siegpunkte erreicht, gewinnt das Spiel." Written as the
+ * difference rather than as a fixed thirteen, and for the same reason Die Häfen
+ * von Catan adds one: the extra points come from new sources - metropolises,
+ * Siegpunkt-Chips, the Händler - so a deliberately short or long game keeps its
+ * own length instead of being overruled.
+ */
+export const RITTER_EXTRA = 3;
 
 /** How many cards a hand holds. */
 export function handSize(hand: Hand): number {
@@ -396,7 +690,13 @@ export function spread(hand: Hand): readonly Resource[] {
 /** How many victory point cards a player is sitting on. */
 export function hiddenPoints(player: CatanPlayer): number {
   const all = [...player.deck, ...player.fresh];
-  return all.filter((card) => card === "siegpunkt").length;
+  const dev = all.filter((card) => card === "siegpunkt").length;
+  // Buchdruck and Verfassung. The rulebook has them laid **face up** the moment
+  // they are drawn, so they are not really hidden - but they are counted here
+  // because this is where "a card that is a point" is counted, and openPoints
+  // subtracts the whole of it. Laying them face up is a thing the screen does.
+  const cards = player.progress.filter(isPointCard).length;
+  return dev + cards;
 }
 
 /**
@@ -409,17 +709,61 @@ export function hiddenPoints(player: CatanPlayer): number {
  */
 export function pointsOf(game: CatanGame, seat: number): number {
   const built = game.towns.reduce(
-    (sum, town) => (town !== null && town.owner === seat ? sum + (town.city ? 2 : 1) : sum),
+    (sum, town) =>
+      town !== null && town.owner === seat ? sum + (town.city ? 2 : 1) : sum,
     0,
   );
   const tiles =
     (game.longest === seat ? TILE_POINTS : 0) +
-    (game.army === seat ? TILE_POINTS : 0) +
+    // The Größte Rittermacht is not in a game of Städte & Ritter at all -
+    // "die Sondersiegpunkttafel Größte Rittermacht lasst ihr in der Schachtel".
+    (!playingRitter(game) && game.army === seat ? TILE_POINTS : 0) +
     // Stärkste Häfen, when Die Häfen von Catan is switched on. Held at null
     // otherwise, so this costs nothing in a printed game.
     (game.harbourTile === seat ? TILE_POINTS : 0);
-  return built + tiles + hiddenPoints(game.players[seat]);
+  return (
+    built + tiles + ritterPoints(game, seat) + hiddenPoints(game.players[seat])
+  );
 }
+
+/**
+ * What Städte & Ritter adds to a seat's score.
+ *
+ * @param game - the game
+ * @param seat - whose score
+ * @returns nothing at all in the printed game
+ * @remarks
+ * Three sources, and each is worth saying out loud because none of them exists
+ * in the base game:
+ *
+ * - a **metropolis** is two on top of the city it sits on, so a city with one
+ *   is worth four,
+ * - a **Siegpunkt-Chip** is one, handed out for leading the defence when the
+ *   barbarians are beaten,
+ * - the **Händler** is one, "solange er bei dir steht" - it moves when somebody
+ *   plays the card again, and the point moves with it.
+ *
+ * The two Fortschritt point cards are counted by {@link hiddenPoints} instead,
+ * with the development cards, because they are the same kind of thing.
+ */
+function ritterPoints(game: CatanGame, seat: number): number {
+  let points = 0;
+  if (playingRitter(game)) {
+    for (const track of TRACKS) {
+      if (game.metro[track]?.seat === seat) {
+        points += METRO_POINTS;
+      }
+    }
+    points += game.players[seat].victoryChips;
+    if (game.traderOwner === seat) {
+      points += TRADER_POINTS;
+    }
+  }
+  return points;
+}
+
+/** What the Händler is worth to whoever last placed it. */
+export const TRADER_POINTS = 1;
 
 /** What the other players can see a player is worth. */
 export function openPoints(game: CatanGame, seat: number): number {
@@ -442,7 +786,15 @@ export type CatanMove =
   | { readonly kind: "road"; readonly at: number }
   | { readonly kind: "city"; readonly at: number }
   | { readonly kind: "roll" }
-  | { readonly kind: "discard"; readonly cards: Hand }
+  /**
+   * Laying cards down after a seven.
+   *
+   * @remarks
+   * `goods` only ever carries anything in Städte & Ritter, where Handelswaren
+   * count towards the limit and so have to be able to pay it. A hand of nine
+   * Papier and no resources would otherwise owe four cards it could not give.
+   */
+  | { readonly kind: "discard"; readonly cards: Hand; readonly goods?: Goods }
   | { readonly kind: "robber"; readonly at: number }
   | { readonly kind: "rob"; readonly seat: number }
   | { readonly kind: "buy" }
@@ -462,4 +814,65 @@ export type CatanMove =
     }
   /** Putting an Erdbeben road back up: 1 Holz + 1 Lehm. */
   | { readonly kind: "repair" }
+  /**
+   * *CATAN für Zwei*: the free piece in a neutral colour.
+   *
+   * @remarks
+   * Carries the colour as well as the place, because the choice the rulebook
+   * gives is "eine beliebige der beiden neutralen Farben" - which colour is
+   * half the decision, and often the whole of it.
+   */
+  | { readonly kind: "neutral"; readonly seat: number; readonly at: number }
+  /** *CATAN für Zwei*: a Handelschip action. */
+  | { readonly kind: "chip"; readonly action: "swap" | "robber" }
+  /** *CATAN für Zwei*: hand a played knight back in for two chips. */
+  | { readonly kind: "knightIn" }
+  /** *Städte & Ritter*: take the next step of one of the three city tracks. */
+  | { readonly kind: "improve"; readonly track: Track }
+  /** *Städte & Ritter*: put a city wall up. */
+  | { readonly kind: "wall" }
+  /** *Städte & Ritter*: put a knight on a crossing. */
+  | { readonly kind: "knight"; readonly at: number }
+  /** *Städte & Ritter*: give a knight its helmet, for one Getreide. */
+  | { readonly kind: "activate"; readonly at: number }
+  /** *Städte & Ritter*: raise a knight a strength. */
+  | { readonly kind: "upgrade"; readonly at: number }
+  /**
+   * *Städte & Ritter*: send a knight somewhere.
+   *
+   * @remarks
+   * One move for three things the rulebook lists apart - moving, driving a
+   * weaker knight off, and answering a displacement - because on the board they
+   * are the same gesture: this knight goes to that crossing. What differs is
+   * what is standing there, which the referee can see for itself.
+   */
+  | { readonly kind: "march"; readonly from: number; readonly to: number }
+  /** *Städte & Ritter*: chase the robber off with a knight. */
+  | { readonly kind: "chase"; readonly at: number }
+  /** *Städte & Ritter*: play a Fortschrittskarte. */
+  | { readonly kind: "progress"; readonly card: Progress }
+  /**
+   * *Städte & Ritter*: the answer a Fortschrittskarte was waiting for.
+   *
+   * @remarks
+   * One move for all of them, the way {@link CatanMove} already does it for the
+   * event cards. Which of these fields matters is decided by
+   * {@link CatanGame.playing} - the card on the table knows what it asked, and
+   * a dozen near-identical move kinds would only spread that knowledge out.
+   */
+  | {
+      readonly kind: "answerCard";
+      readonly sort?: Resource;
+      readonly good?: Commodity;
+      readonly at?: number;
+      readonly to?: number;
+      readonly seat?: number;
+      readonly track?: Track;
+      readonly dice?: readonly [number, number];
+      readonly cards?: Hand;
+      readonly goods?: Goods;
+      readonly card?: Progress;
+    }
+  /** *CATAN für Zwei*: the two cards going back after a Zwangshandel. */
+  | { readonly kind: "giveBack"; readonly cards: Hand }
   | { readonly kind: "endTurn" };

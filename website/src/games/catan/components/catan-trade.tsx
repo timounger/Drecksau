@@ -95,7 +95,8 @@ function BankTrade({
   const [give, setGive] = useState<Resource | null>(null);
   const [want, setWant] = useState<Resource | null>(null);
   const rate = give === null ? 0 : tradeRate(game, mySeat, give);
-  const ready = give !== null && want !== null && give !== want && hand[give] >= rate;
+  const ready =
+    give !== null && want !== null && give !== want && hand[give] >= rate;
 
   return (
     <div className="flex flex-col gap-1.5" data-testid="ct-bank">
@@ -170,9 +171,19 @@ function MakeOffer({
   return (
     <div className="flex flex-col gap-1.5" data-testid="ct-offer-make">
       <span className="text-xs font-semibold opacity-70">{T.offerGive}</span>
-      <CardPicker hand={give} limit={spent} onChange={setGive} testId="ct-offer-give" />
+      <CardPicker
+        hand={give}
+        limit={spent}
+        onChange={setGive}
+        testId="ct-offer-give"
+      />
       <span className="text-xs font-semibold opacity-70">{T.offerWant}</span>
-      <CardPicker hand={want} limit={room} onChange={setWant} testId="ct-offer-want" />
+      <CardPicker
+        hand={want}
+        limit={room}
+        onChange={setWant}
+        testId="ct-offer-want"
+      />
       {full ? (
         <span className="text-xs opacity-70">{T.offerLimit}</span>
       ) : (
@@ -216,7 +227,9 @@ function OpenOffer({
     const thinking = offer.answers.findIndex((answer) => answer === null);
     body = (
       <div className="flex flex-col gap-1.5" data-testid="ct-offer-open">
-        <span className="text-sm font-semibold">{T.offerOpen(game.players[offer.from].name)}</span>
+        <span className="text-sm font-semibold">
+          {T.offerOpen(game.players[offer.from].name)}
+        </span>
         <span className="text-xs">
           {mine
             ? T.offerFor(spell(offer.give), spell(offer.want))
@@ -268,7 +281,9 @@ function OpenOffer({
           <span className="flex items-center gap-1.5 text-xs opacity-70">
             <span
               className="inline-block h-2.5 w-2.5 rounded-full border border-black/30"
-              style={{ backgroundColor: COLOUR_INK[game.players[offer.from].colour] }}
+              style={{
+                backgroundColor: COLOUR_INK[game.players[offer.from].colour],
+              }}
             />
             {offer.answers[mySeat] === true ? T.offerYes : T.offerNo}
           </span>
@@ -303,7 +318,9 @@ export function CatanTrade({
   if (trading || answering) {
     panel = (
       <section className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-sm font-semibold">{answering ? T.offer : T.bank}</h2>
+        <h2 className="text-sm font-semibold">
+          {answering ? T.offer : T.bank}
+        </h2>
         {answering ? (
           <OpenOffer game={game} mySeat={mySeat} onMove={onMove} />
         ) : (

@@ -134,7 +134,9 @@ function keyOf(a: number, b: number): string {
 }
 
 /** Middles of the landscapes, in reading order. */
-function hexMiddles(rows: readonly number[]): readonly (readonly [number, number])[] {
+function hexMiddles(
+  rows: readonly number[],
+): readonly (readonly [number, number])[] {
   const middles: (readonly [number, number])[] = [];
   const mid = (rows.length - 1) / 2;
   rows.forEach((count, row) => {
@@ -223,11 +225,21 @@ function buildSkeleton(rows: readonly number[]): Skeleton {
 
   hexMiddles(rows).forEach(([hx, hy], id) => {
     const corners = CORNERS.map(([dx, dy]) => crossingId(hx + dx, hy + dy));
-    const rim = corners.map((from, i) => pathId(from, corners[(i + 1) % corners.length]));
+    const rim = corners.map((from, i) =>
+      pathId(from, corners[(i + 1) % corners.length]),
+    );
     corners.forEach((at) => cHexes[at].push(id));
     rim.forEach((at) => pHexes[at].push(id));
     const row = rowOf(rows, id);
-    hexes.push({ id, row, col: id - firstOfRow(rows, row), x: hx, y: hy, corners, rim });
+    hexes.push({
+      id,
+      row,
+      col: id - firstOfRow(rows, row),
+      x: hx,
+      y: hy,
+      corners,
+      rim,
+    });
   });
 
   return {
@@ -254,10 +266,13 @@ function buildSkeleton(rows: readonly number[]): Skeleton {
  * not used yet - on a ring, that is only ever one.
  */
 function walkTheCoast(board: Skeleton): readonly number[] {
-  const coastal = board.paths.filter((path) => path.hexes.length === 1).map((path) => path.id);
+  const coastal = board.paths
+    .filter((path) => path.hexes.length === 1)
+    .map((path) => path.id);
   const isCoastal = new Set(coastal);
   const start = coastal.reduce((best, id) =>
-    board.crossings[board.paths[id].ends[0]].y < board.crossings[board.paths[best].ends[0]].y
+    board.crossings[board.paths[id].ends[0]].y <
+    board.crossings[board.paths[best].ends[0]].y
       ? id
       : best,
   );
@@ -266,7 +281,9 @@ function walkTheCoast(board: Skeleton): readonly number[] {
   let at = board.paths[start].ends[1];
   let going = true;
   while (going && walk.length < coastal.length) {
-    const step = board.crossings[at].paths.find((id) => isCoastal.has(id) && !seen.has(id));
+    const step = board.crossings[at].paths.find(
+      (id) => isCoastal.has(id) && !seen.has(id),
+    );
     if (step === undefined) {
       going = false;
     } else {
@@ -290,8 +307,10 @@ function walkTheCoast(board: Skeleton): readonly number[] {
  * where any particular harbour lands is decided by how the pieces are turned.
  */
 function dockSpots(coast: readonly number[], count: number): readonly number[] {
-  return Array.from({ length: count }, (unused, index) =>
-    coast[Math.round((index * coast.length) / count) % coast.length],
+  return Array.from(
+    { length: count },
+    (unused, index) =>
+      coast[Math.round((index * coast.length) / count) % coast.length],
   );
 }
 
@@ -312,7 +331,9 @@ function rings(board: Skeleton): readonly number[] {
   while (left.size > 0) {
     const edge = [...left].filter((id) =>
       board.hexes[id].rim.some((path) =>
-        board.paths[path].hexes.every((other) => other === id || !left.has(other)),
+        board.paths[path].hexes.every(
+          (other) => other === id || !left.has(other),
+        ),
       ),
     );
     edge.forEach((id) => {
@@ -388,7 +409,11 @@ function buildIsland(rows: readonly number[], harbours: number): Island {
   const coast = walkTheCoast(board);
   const depth = rings(board);
   const ends = rows.reduce<number[]>(
-    (list, count, row) => [...list, firstOfRow(rows, row), firstOfRow(rows, row) + count - 1],
+    (list, count, row) => [
+      ...list,
+      firstOfRow(rows, row),
+      firstOfRow(rows, row) + count - 1,
+    ],
     [],
   );
   // The points of the island: the two ends of the top row, the widest row and
@@ -401,7 +426,9 @@ function buildIsland(rows: readonly number[], harbours: number): Island {
     firstOfRow(rows, widest) + rows[widest] - 1,
     firstOfRow(rows, rows.length - 1),
     firstOfRow(rows, rows.length - 1) + rows[rows.length - 1] - 1,
-  ].filter((id, index, list) => list.indexOf(id) === index && ends.includes(id));
+  ].filter(
+    (id, index, list) => list.indexOf(id) === index && ends.includes(id),
+  );
   const spirals: Record<number, readonly number[]> = {};
   cornerHexes.forEach((corner) => {
     spirals[corner] = spiralFrom(board, depth, corner);
