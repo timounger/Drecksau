@@ -152,6 +152,7 @@ export function useCatanGame(settings: CatanSettings): CatanSession {
           chosen.target,
           chosen.variants,
           chosen.mode,
+          chosen.scenario,
         );
         beginGame(opening);
       } else {
@@ -236,6 +237,7 @@ export function useCatanGame(settings: CatanSettings): CatanSession {
       settingsRef.current.target,
       settingsRef.current.variants,
       settingsRef.current.mode,
+      settingsRef.current.scenario,
     );
     beginGame(fresh);
     setGame(fresh);

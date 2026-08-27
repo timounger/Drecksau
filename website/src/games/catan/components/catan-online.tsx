@@ -35,10 +35,17 @@ import {
 } from "react";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/catan/engine/setup";
 import {
+  MODES,
+  SCENARIOS,
+  VARIANTS,
   openPoints,
   type CatanGame,
   type CatanMove,
+  type Mode,
+  type Scenario,
+  type Variant,
 } from "@/games/catan/engine/state";
+import { getSettingsSnapshot } from "@/games/catan/settings/settings-store";
 import {
   catanAdapter,
   type CatanOptions,
@@ -51,13 +58,24 @@ import {
   loadMatchCount,
   saveMatchCount,
 } from "@/games/catan/settings/online-settings";
-import { CATAN_TEXTS as T } from "@/games/catan/i18n/texts";
+import { CATAN_TEXTS as T, VARIANT_TEXTS } from "@/games/catan/i18n/texts";
 import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import { CatanScores } from "./catan-scores";
 import { turnKeyOf } from "@/online/room";
 import { TurnClock, useTurnClock } from "@/online/turn-clock";
 import { CatanBoard } from "./catan-board";
-import { CatanBarbarians, CatanProgress, CatanTableau } from "./catan-ritter";
+import { CatanHaul } from "@/games/catan/components/catan-handel";
+import { CatanFind } from "@/games/catan/components/catan-entdecker";
+import { CatanSea } from "@/games/catan/components/catan-seefahrer";
+import { CatanRaid } from "@/games/catan/components/catan-barbaren";
+import { CatanGold } from "@/games/catan/components/catan-fluesse";
+import { CatanVote } from "@/games/catan/components/catan-tross";
+import {
+  CatanBarbarians,
+  CatanFish,
+  CatanProgress,
+  CatanTableau,
+} from "./catan-ritter";
 import { useForcedMove } from "@/games/catan/hooks/use-forced-move";
 import { CatanActions } from "./catan-actions";
 import { CatanTrade } from "./catan-trade";
@@ -649,6 +667,132 @@ function SearchingLobby({
   );
 }
 
+/**
+ * What the host is starting, and - for the host - the controls to change it.
+ *
+ * @param props - the choices and how to change them, or null for a guest
+ * @returns the block
+ * @remarks
+ * These reached the table for the first time here. Before this the lobby
+ * started `room.start({ autoPlayMs })` and nothing else, so **every** online
+ * game was the plain printed one: the variants of Händler & Barbaren could be
+ * switched on offline and had no way of ever reaching a room, and Städte &
+ * Ritter would have had the same fate.
+ *
+ * The buttons are the **host's only**. The guests are not left in the dark
+ * though: the host publishes what it has set up as one line into the room, and
+ * every guest reads it back - see {@link tableLine} and the shared layer's
+ * `setNotice`. The first version of this panel simply hid everything from the
+ * guests, and the version before that showed them *their own* settings under
+ * the heading of the table's, which was worse than showing nothing.
+ */
+function TableOptions({
+  mode,
+  scenario,
+  variants,
+  onMode,
+  onScenario,
+  onVariant,
+}: {
+  readonly mode: Mode;
+  readonly scenario: Scenario;
+  readonly variants: readonly Variant[];
+  readonly onMode: (mode: Mode) => void;
+  readonly onScenario: (scenario: Scenario) => void;
+  readonly onVariant: (variant: Variant) => void;
+}): ReactElement {
+  return (
+    <section
+      className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800"
+      data-testid="ct-table-options"
+    >
+      <h2 className="text-sm font-semibold">{T.modeTitle}</h2>
+      <div className="flex flex-wrap gap-1.5">
+        {MODES.map((each) => (
+          <button
+            key={each}
+            type="button"
+            role="radio"
+            aria-checked={mode === each}
+            data-testid={`ct-lobby-mode-${each}`}
+            onClick={() => onMode(each)}
+            className={`cursor-pointer rounded-lg border px-2 py-1 text-xs ${
+              mode === each
+                ? "border-indigo-500 bg-indigo-50 font-semibold dark:bg-indigo-950/40"
+                : "border-zinc-300 dark:border-zinc-700"
+            }`}
+          >
+            {T.modeName(each)}
+          </button>
+        ))}
+      </div>
+      <h2 className="text-sm font-semibold">{T.scenarioTitle}</h2>
+      <div className="flex flex-wrap gap-1.5">
+        {SCENARIOS.map((each) => (
+          <button
+            key={each}
+            type="button"
+            role="radio"
+            aria-checked={scenario === each}
+            data-testid={`ct-lobby-scenario-${each}`}
+            onClick={() => onScenario(each)}
+            className={`cursor-pointer rounded-lg border px-2 py-1 text-xs ${
+              scenario === each
+                ? "border-indigo-500 bg-indigo-50 font-semibold dark:bg-indigo-950/40"
+                : "border-zinc-300 dark:border-zinc-700"
+            }`}
+          >
+            {T.scenarioName(each)}
+          </button>
+        ))}
+      </div>
+      <h2 className="text-sm font-semibold">{T.variants}</h2>
+      <div className="flex flex-wrap gap-1.5">
+        {VARIANTS.map((variant) => {
+          const on = variants.includes(variant);
+          return (
+            <button
+              key={variant}
+              type="button"
+              role="switch"
+              aria-checked={on}
+              data-testid={`ct-lobby-variant-${variant}`}
+              onClick={() => onVariant(variant)}
+              className={`cursor-pointer rounded-lg border px-2 py-1 text-xs ${
+                on
+                  ? "border-indigo-500 bg-indigo-50 font-semibold dark:bg-indigo-950/40"
+                  : "border-zinc-300 dark:border-zinc-700"
+              }`}
+            >
+              {VARIANT_TEXTS[variant].label}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * What the host has set up, as one line for the guests.
+ *
+ * @param mode - the game
+ * @param scenario - the scenario, if any
+ * @param variants - the variants switched on
+ * @returns a sentence a guest can read before joining in
+ */
+function tableLine(
+  mode: Mode,
+  scenario: Scenario,
+  variants: readonly Variant[],
+): string {
+  return [
+    T.modeName(mode),
+    ...(scenario === "keins" ? [] : [T.scenarioName(scenario)]),
+    ...variants.map((variant) => VARIANT_TEXTS[variant].label),
+  ].join(" · ");
+}
+
 /** The waiting room: share the code, see who is in, and start. */
 function Lobby({
   room,
@@ -661,6 +805,24 @@ function Lobby({
 }): ReactElement {
   const seats = room.room?.seats ?? [];
   const enough = seats.length >= MIN_PLAYERS;
+  // Seeded from the host's own settings, so the choice they made for the solo
+  // game is the one they start with here rather than a second blank form.
+  const [mode, setMode] = useState<Mode>(() => getSettingsSnapshot().mode);
+  const [scenario, setScenario] = useState<Scenario>(
+    () => getSettingsSnapshot().scenario,
+  );
+  const [variants, setVariants] = useState<readonly Variant[]>(
+    () => getSettingsSnapshot().variants,
+  );
+  // Published rather than kept: a guest joining the room can then read what
+  // they are about to play instead of finding out when the cards are dealt.
+  const notice = tableLine(mode, scenario, variants);
+  const { isHost, setNotice } = room;
+  useEffect(() => {
+    if (isHost) {
+      setNotice(notice);
+    }
+  }, [isHost, notice, setNotice]);
 
   return (
     <div className="flex max-w-md flex-col gap-5">
@@ -691,12 +853,42 @@ function Lobby({
         </ul>
       </section>
 
+      {!room.isHost && (
+        <section
+          className="flex flex-col gap-1 rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800"
+          data-testid="ct-table-notice"
+        >
+          <h2 className="text-sm font-semibold">{T.tableTitle}</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {room.room?.notice ?? T.tableUnknown}
+          </p>
+        </section>
+      )}
+      {room.isHost && (
+        <TableOptions
+          mode={mode}
+          scenario={scenario}
+          variants={variants}
+          onMode={setMode}
+          onScenario={setScenario}
+          onVariant={(variant) =>
+            setVariants((now) =>
+              now.includes(variant)
+                ? now.filter((each) => each !== variant)
+                : [...now, variant],
+            )
+          }
+        />
+      )}
+
       {room.isHost ? (
         <>
           <button
             type="button"
             disabled={!enough}
-            onClick={() => room.start({ autoPlayMs: AUTO_PLAY_MS })}
+            onClick={() =>
+              room.start({ autoPlayMs: AUTO_PLAY_MS, mode, scenario, variants })
+            }
             className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {L.startGame}
@@ -748,6 +940,8 @@ function Playing({
   const [neutralColour, setNeutralColour] = useState<number | null>(null);
   // Städte & Ritter: the knight picked to be sent somewhere.
   const [marching, setMarching] = useState<number | null>(null);
+  const [riding, setRiding] = useState<number | null>(null);
+  const [sailingShip, setSailing] = useState<number | null>(null);
   const remainingMs = useTurnClock({
     autoPlayMs: room.room?.autoPlayMs ?? null,
     turn: room.room === null ? "" : turnKeyOf(room.room, catanAdapter),
@@ -813,6 +1007,10 @@ function Playing({
           onMove={room.sendMove}
           neutralColour={neutralColour}
           marching={marching}
+          riding={riding}
+          onRide={setRiding}
+          sailingShip={sailingShip}
+          onSail={setSailing}
         />
         {mySeat >= 0 && game.phase !== "gameOver" && (
           <CatanActions
@@ -823,6 +1021,7 @@ function Playing({
             onNeutralColour={setNeutralColour}
             marching={marching}
             onMarch={setMarching}
+            riding={riding}
           />
         )}
       </div>
@@ -832,6 +1031,13 @@ function Playing({
         {mySeat >= 0 && game.phase !== "gameOver" && (
           <>
             <CatanHand game={game} mySeat={mySeat} />
+            <CatanFish game={game} mySeat={mySeat} onMove={room.sendMove} />
+            <CatanVote game={game} mySeat={mySeat} onMove={room.sendMove} />
+            <CatanSea game={game} mySeat={mySeat} sailingShip={sailingShip} />
+            <CatanFind game={game} mySeat={mySeat} />
+            <CatanRaid game={game} mySeat={mySeat} />
+            <CatanHaul game={game} mySeat={mySeat} onMove={room.sendMove} />
+            <CatanGold game={game} mySeat={mySeat} onMove={room.sendMove} />
             <CatanBarbarians game={game} />
             <CatanTableau game={game} mySeat={mySeat} onMove={room.sendMove} />
             <CatanProgress game={game} mySeat={mySeat} onMove={room.sendMove} />

@@ -22,6 +22,7 @@
  * neutralen Farbe kann aber durchaus die Längste Handelsroute entstehen".
  */
 import { islandOf } from "./board";
+import { SKIP_CHIPS } from "./handel";
 import {
   CHIPS_COAST,
   CHIPS_DESERT,
@@ -91,8 +92,14 @@ export function owesRoll(game: CatanGame): boolean {
  * is not a result, so it is thrown away inside the referee rather than shown.
  */
 export function rollStands(game: CatanGame, rolled: number): boolean {
+  // "Würfelst du eine '2' oder eine '12', wiederhole deinen Würfelwurf." The
+  // hauling scenario leaves both chips in the box, so neither number pays
+  // anybody and both are simply thrown again. Here rather than in the referee
+  // because this is already the one question "does this roll count".
+  const skipped = game.scenario === "handel" && SKIP_CHIPS.includes(rolled);
   return (
-    !playingTwo(game) || game.firstRoll === null || game.firstRoll !== rolled
+    !skipped &&
+    (!playingTwo(game) || game.firstRoll === null || game.firstRoll !== rolled)
   );
 }
 

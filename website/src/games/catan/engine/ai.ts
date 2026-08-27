@@ -26,10 +26,14 @@ import { islandOf } from "./board";
 import {
   applyMove,
   canRoad,
+  canTown,
   citySpots,
   discardCount,
   openRoads,
   neutralSpots,
+  postSpots,
+  putSpots,
+  takeSpots,
   roadSpots,
   townSpots,
   tradeRate,
@@ -47,7 +51,55 @@ import {
   type Goods,
   type Track,
 } from "./knights";
-import { isPointCard, type Progress } from "./progress";
+import { FISH_ACTIONS, FISH_COST, fishing } from "./fischer";
+import { BRIDGE_PRICE, BUYS_PER_TURN, GOLD_PER_BUY, rivers } from "./fluesse";
+import {
+  EXTRA_STEPS,
+  KNIGHT_STEPS,
+  guardsAt,
+  raiding,
+  rideSpots,
+} from "./barbaren";
+import {
+  GRAIN_MOVE,
+  HAUL_POINT_CARDS,
+  WARE_GOES,
+  driveSpots,
+  facingRaiders,
+  hauling,
+  raiderSpots,
+  stepCost,
+  stepPrice,
+} from "./handel";
+import {
+  BOAT_COST,
+  PORT_COST,
+  SCOUT_COST,
+  UNIT_COST,
+  camping,
+  campsFrom,
+  chasers,
+  pirateSeas,
+  boatSpots,
+  finding,
+  portShore,
+  landfall,
+  lanesFrom,
+  pointsAt,
+  portsOf,
+  seaLane as findLane,
+} from "./entdecker";
+import {
+  SHIP_COST,
+  landCrossing,
+  newIsland,
+  pirateSpots,
+  sailing,
+  seaPath,
+  shipSpots,
+} from "./seefahrer";
+import { BALLOT, wagonSpots } from "./karawane";
+import { isPointCard, isRealCard, type Progress } from "./progress";
 import {
   ACTIVATE_COST,
   KNIGHT_COST,
@@ -419,10 +471,19 @@ function buildingMoves(game: CatanGame, seat: number): readonly CatanMove[] {
 function candidates(game: CatanGame, seat: number): readonly CatanMove[] {
   const phase = game.phase;
   const moves: CatanMove[] = [];
-  if (phase === "founding" && game.founding?.placing === "town") {
-    bestFirst(game, townSpots(game, seat, true)).forEach((at) =>
-      moves.push({ kind: "town", at }),
+  if (phase === "founding" && game.founding?.placing === "boat") {
+    // The founding Entdeckerschiff, beside the harbour settlement just placed.
+    boatSpots(game, seat).forEach((at) => moves.push({ kind: "boat", at }));
+  } else if (phase === "founding" && game.founding?.placing === "town") {
+    const spots = townSpots(game, seat, true).filter(
+      (at) =>
+        !finding(game) ||
+        game.founding === null ||
+        game.founding.step >= realSeats(game).length ||
+        // The first piece becomes a Hafensiedlung, which wants a shore.
+        portShore(game, at),
     );
+    bestFirst(game, spots).forEach((at) => moves.push({ kind: "town", at }));
   } else if (phase === "founding") {
     foundingRoads(game, seat, game.founding?.lastTown ?? 0).forEach((at) =>
       moves.push({ kind: "road", at }),
@@ -457,6 +518,29 @@ function candidates(game: CatanGame, seat: number): readonly CatanMove[] {
     if (answer !== null) {
       moves.push(answer);
     }
+  } else if (phase === "corsair") {
+    corsairMoves(game, seat).forEach((move) => moves.push(move));
+  } else if (phase === "sailing") {
+    voyageMoves(game, seat).forEach((move) => moves.push(move));
+    moves.push({ kind: "endTurn" });
+  } else if (phase === "pirate") {
+    pirateMoves(game, seat).forEach((move) => moves.push(move));
+  } else if (phase === "goldPick") {
+    moves.push({ kind: "gold", sort: wantedSort(game, seat) });
+  } else if (phase === "driving") {
+    driveMoves(game, seat).forEach((move) => moves.push(move));
+    moves.push({ kind: "endTurn" });
+  } else if (phase === "shifting") {
+    shiftMoves(game, seat).forEach((move) => moves.push(move));
+  } else if (phase === "posting") {
+    postMoves(game, seat).forEach((move) => moves.push(move));
+  } else if (phase === "barbarians") {
+    barbMoves(game, seat).forEach((move) => moves.push(move));
+  } else if (phase === "knights") {
+    rideMoves(game, seat).forEach((move) => moves.push(move));
+    moves.push({ kind: "endTurn" });
+  } else if (phase === "vote") {
+    voteMoves(game, seat).forEach((move) => moves.push(move));
   } else if (phase === "displaced") {
     retreatMoves(game).forEach((move) => moves.push(move));
   } else if (phase === "neutral") {
@@ -480,6 +564,11 @@ function candidates(game: CatanGame, seat: number): readonly CatanMove[] {
       moves.push({ kind: "repair" });
     }
     freeRoadMoves(game, seat).forEach((move) => moves.push(move));
+    fishMoves(game, seat).forEach((move) => moves.push(move));
+    haulMoves(game, seat).forEach((move) => moves.push(move));
+    shipMoves(game, seat).forEach((move) => moves.push(move));
+    findMoves(game, seat).forEach((move) => moves.push(move));
+    goldMoves(game, seat).forEach((move) => moves.push(move));
     ritterBuilds(game, seat).forEach((move) => moves.push(move));
     knightMoves(game, seat).forEach((move) => moves.push(move));
     progressPlays(game, seat).forEach((move) => moves.push(move));
@@ -717,7 +806,9 @@ function retreatMoves(game: CatanGame): readonly CatanMove[] {
  * that rolls - it would spend a card to get the same result.
  */
 function progressPlays(game: CatanGame, seat: number): readonly CatanMove[] {
-  const held = [...new Set(game.players[seat].progress)];
+  // Only real cards: a back is somebody else's view of a card and never the
+  // computer's own, but the type says it could be and the compiler is right.
+  const held = [...new Set(game.players[seat].progress)].filter(isRealCard);
   return playingRitter(game) && game.phase === "trade"
     ? held
         .filter((card) => !isPointCard(card) && card !== "alchemie")
@@ -797,12 +888,16 @@ function answerFor(game: CatanGame, seat: number): CatanMove | null {
     move = at === undefined ? null : { kind: "answerCard", at };
   } else if (card === "spionage") {
     const from = others.find((at) =>
-      game.players[at].progress.some((each) => !isPointCard(each)),
+      game.players[at].progress
+        .filter(isRealCard)
+        .some((each) => !isPointCard(each)),
     );
     const take =
       from === undefined
         ? undefined
-        : game.players[from].progress.find((each) => !isPointCard(each));
+        : game.players[from].progress
+            .filter(isRealCard)
+            .find((each) => !isPointCard(each));
     move =
       from === undefined || take === undefined
         ? null
@@ -961,6 +1056,897 @@ function tributeAnswer(game: CatanGame, seat: number): CatanMove {
 }
 
 /**
+ * What the computer does with its fish, best first.
+ *
+ * @param game - the game
+ * @param seat - whose turn it is
+ * @returns the moves it would consider
+ * @remarks
+ * The dearest action it can afford, and only ever an exact-ish payment: the
+ * rulebook gives no change - "gibst du mehr Fische aus, als die Aktion kostet,
+ * verfallen die überzähligen Fische" - so paying seven fish for a two-fish
+ * action is throwing five away. It therefore looks for the cheapest bundle
+ * that covers each price and takes the most valuable action such a bundle
+ * reaches.
+ *
+ * The Alter Schuh is passed on the first chance there is: it costs a victory
+ * point and the only cost of moving it is the move.
+ */
+function fishMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const moves: CatanMove[] = [];
+  if (fishing(game)) {
+    const held = game.players[seat].fish;
+    for (const action of [...FISH_ACTIONS].reverse()) {
+      const tiles = cheapestBundle(held, FISH_COST[action]);
+      if (tiles !== null) {
+        moves.push({ kind: "fish", action, tiles });
+        break;
+      }
+    }
+    if (game.shoe === seat) {
+      const to = realSeats(game).find(
+        (at) => at !== seat && pointsOf(game, at) >= pointsOf(game, seat),
+      );
+      if (to !== undefined) {
+        moves.push({ kind: "shoe", seat: to });
+      }
+    }
+  }
+  return moves;
+}
+
+/** How the computer weighs Entdecker & Piraten. */
+const PORT_WORTH = 2;
+
+/**
+ * What the computer builds in *Entdecker & Piraten*.
+ *
+ * @param game - the game
+ * @param seat - whose turn
+ * @returns the pieces it would buy, best first
+ * @remarks
+ * A Hafensiedlung is two points and a place to build ships from, so it comes
+ * first; then an explorer to go and found with, then a ship to carry it.
+ */
+function findMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const moves: CatanMove[] = [];
+  if (finding(game)) {
+    const player = game.players[seat];
+    if (player.portsLeft > 0 && covers(player.hand, PORT_COST)) {
+      game.towns.forEach((town, at) => {
+        if (town !== null && town.owner === seat && town.port !== true) {
+          moves.push({ kind: "port", at });
+        }
+      });
+    }
+    // An explorer only where there is a ship or a basin waiting for it.
+    if (player.scoutsLeft > 0 && covers(player.hand, SCOUT_COST)) {
+      portsOf(game, seat).forEach((at) => {
+        if ((game.docks[at] ?? []).length === 0) {
+          moves.push({ kind: "scout", at });
+        }
+      });
+    }
+    if (player.boatsLeft > 0 && covers(player.hand, BOAT_COST)) {
+      boatSpots(game, seat).forEach((at) => moves.push({ kind: "boat", at }));
+    }
+    // A unit is only worth building while there is a camp left to storm.
+    if (
+      camping(game) &&
+      player.unitsLeft > 0 &&
+      covers(player.hand, UNIT_COST) &&
+      Object.values(game.camps).some((camp) => !camp.taken)
+    ) {
+      portsOf(game, seat).forEach((at) => moves.push({ kind: "unit", at }));
+    }
+  }
+  return moves.slice(0, PORT_WORTH * 2);
+}
+
+/**
+ * How the computer sails.
+ *
+ * @param game - the game
+ * @param seat - whose ships
+ * @returns the one thing it does next in the movement phase
+ * @remarks
+ * One ship at a time, because the rulebook makes that a rule - "du musst die
+ * Bewegung eines Schiffes erst beenden, bevor du das nächste bewegen darfst" -
+ * and it goes where there is something to turn over: an unknown field is a
+ * resource or two gold either way, and beyond it may be land to settle.
+ */
+function voyageMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const which = game.sailing;
+  const boat = which === null ? undefined : game.boats[which];
+  const moves: CatanMove[] = [];
+  if (boat === undefined || boat.owner !== seat) {
+    // Nobody at the helm: take one.
+    // Driving a pirate ship off is free and only ever helps, so it comes first.
+    chasers(game, seat).forEach((which) =>
+      moves.push({ kind: "hunt", boat: which }),
+    );
+    game.boats.forEach((each, index) => {
+      if (
+        each.owner === seat &&
+        !each.done &&
+        (lanesFrom(game, each).length > 0 || landfall(game, each.at).length > 0)
+      ) {
+        moves.push({ kind: "helm", boat: index });
+      }
+    });
+  } else {
+    const board = islandOf(game.land.length);
+    // Units go ashore on a camp the moment they can: that is what they are for.
+    if (boat.hold.includes("einheit")) {
+      campsFrom(game, boat.at).forEach((at) =>
+        moves.push({ kind: "storm", at }),
+      );
+    }
+    // An explorer that can land does so: that is the point of carrying one.
+    if (boat.hold.includes("entdecker")) {
+      landfall(game, boat.at).forEach((at) =>
+        moves.push({ kind: "landfall", at }),
+      );
+    }
+    // Otherwise pick up an explorer that is waiting in a harbour.
+    if (boat.hold.length === 0) {
+      islandOf(game.land.length)
+        .paths[boat.at].ends.filter((end) => (game.docks[end] ?? []).length > 0)
+        .forEach((at) => moves.push({ kind: "load", at }));
+    }
+    // Three things a ship can be sailing towards, and it wants the nearest of
+    // whichever applies: a camp with units aboard, its own harbour when there
+    // is cargo waiting there, and otherwise the unknown.
+    const waiting = portsOf(game, seat).filter(
+      (at) => (game.docks[at] ?? []).length > 0,
+    );
+    const near = boat.hold.includes("einheit")
+      ? campWanted(game)
+      : boat.hold.length === 0 && waiting.length > 0
+        ? dockWanted(game, waiting)
+        : seaWanted(game);
+    const worth = (at: number): number =>
+      (boat.hold.includes("einheit")
+        ? campsFrom(game, at).length * LANDFALL_WORTH
+        : boat.hold.length === 0 && waiting.length > 0
+          ? board.paths[at].ends.some((end) => waiting.includes(end))
+            ? LANDFALL_WORTH
+            : 0
+          : pointsAt(game, at) === null
+            ? 0
+            : LANDFALL_WORTH) - (near.get(at) ?? SHIP_REACH);
+    [...lanesFrom(game, boat)]
+      .sort((one, other) => worth(other) - worth(one))
+      .slice(0, 1)
+      .forEach((at) => moves.push({ kind: "sail2", at }));
+  }
+  return moves;
+}
+
+/**
+ * How far every sea path is from one of this seat's loaded harbours.
+ *
+ * @param game - the game
+ * @param ports - the harbour settlements with something waiting in them
+ * @returns steps over the water, for the paths within reach
+ * @remarks
+ * The missing third of the pipeline: units are built into a basin, a ship has
+ * to fetch them, and a ship that only ever sails towards the unknown never
+ * comes back for them.
+ */
+function dockWanted(
+  game: CatanGame,
+  ports: readonly number[],
+): Map<number, number> {
+  const board = islandOf(game.land.length);
+  const best = new Map<number, number>();
+  let edge: number[] = [];
+  board.paths.forEach((path) => {
+    if (
+      findLane(game, path.id) &&
+      path.ends.some((end) => ports.includes(end))
+    ) {
+      best.set(path.id, 0);
+      edge.push(path.id);
+    }
+  });
+  for (let step = 1; step <= SHIP_REACH && edge.length > 0; step++) {
+    const next: number[] = [];
+    for (const at of edge) {
+      for (const end of board.paths[at].ends) {
+        for (const near of board.crossings[end].paths) {
+          if (findLane(game, near) && !best.has(near)) {
+            best.set(near, step);
+            next.push(near);
+          }
+        }
+      }
+    }
+    edge = next;
+  }
+  return best;
+}
+
+/**
+ * How far every sea path is from one that could land units on a camp.
+ *
+ * @param game - the game
+ * @returns steps over the water, for the paths within reach
+ * @remarks
+ * The same backwards walk as {@link seaWanted}, from the paths that already
+ * touch a camp still standing. Without it a loaded ship wanders: every single
+ * step looks the same, and a landing is a run of them.
+ */
+function campWanted(game: CatanGame): Map<number, number> {
+  const board = islandOf(game.land.length);
+  const best = new Map<number, number>();
+  let edge: number[] = [];
+  board.paths.forEach((path) => {
+    if (findLane(game, path.id) && campsFrom(game, path.id).length > 0) {
+      best.set(path.id, 0);
+      edge.push(path.id);
+    }
+  });
+  for (let step = 1; step <= SHIP_REACH && edge.length > 0; step++) {
+    const next: number[] = [];
+    for (const at of edge) {
+      for (const end of board.paths[at].ends) {
+        for (const near of board.crossings[end].paths) {
+          if (findLane(game, near) && !best.has(near)) {
+            best.set(near, step);
+            next.push(near);
+          }
+        }
+      }
+    }
+    edge = next;
+  }
+  return best;
+}
+
+/**
+ * How far every sea path is from one that would turn a field over.
+ *
+ * @param game - the game
+ * @returns steps over the water, for the paths within reach
+ * @remarks
+ * A breadth-first walk backwards from the paths that already point at something
+ * face down, so one pass answers the question for every ship at once.
+ */
+function seaWanted(game: CatanGame): Map<number, number> {
+  const board = islandOf(game.land.length);
+  const best = new Map<number, number>();
+  let edge: number[] = [];
+  board.paths.forEach((path) => {
+    if (findLane(game, path.id) && pointsAt(game, path.id) !== null) {
+      best.set(path.id, 0);
+      edge.push(path.id);
+    }
+  });
+  for (let step = 1; step <= SHIP_REACH && edge.length > 0; step++) {
+    const next: number[] = [];
+    for (const at of edge) {
+      for (const end of board.paths[at].ends) {
+        for (const near of board.crossings[end].paths) {
+          if (findLane(game, near) && !best.has(near)) {
+            best.set(near, step);
+            next.push(near);
+          }
+        }
+      }
+    }
+    edge = next;
+  }
+  return best;
+}
+
+/**
+ * Where the computer puts its own pirate ship.
+ *
+ * @param game - the game
+ * @param seat - whose ship
+ * @returns the sea field it would pick
+ * @remarks
+ * Where somebody else's ships are: that is where it takes a card, and where its
+ * toll costs them most.
+ */
+function corsairMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const board = islandOf(game.land.length);
+  const worth = (hex: number): number =>
+    board.hexes[hex].rim.reduce(
+      (sum, path) =>
+        sum +
+        game.boats.filter((boat) => boat.at === path && boat.owner !== seat)
+          .length,
+      0,
+    );
+  return [...pirateSeas(game)]
+    .sort((one, other) => worth(other) - worth(one))
+    .slice(0, 1)
+    .map((at) => ({ kind: "corsair", at }) as CatanMove);
+}
+
+/** How the computer weighs the sea. */
+const SHIP_WORTH = 3;
+const SHIP_REACH = 6;
+const LANDFALL_WORTH = 9;
+
+/**
+ * Where the computer sends the Seeräuber.
+ *
+ * @param game - the game
+ * @param seat - who is moving it
+ * @returns the sea fields it would pick, best first
+ * @remarks
+ * Onto the water where the leader's ships are, which is the same instinct the
+ * robber follows on land - and if nobody is out there, anywhere at all, because
+ * "eine der beiden Figuren muss versetzt werden".
+ */
+function pirateMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const board = islandOf(game.land.length);
+  const worth = (hex: number): number =>
+    board.hexes[hex].rim.reduce((sum, path) => {
+      const owner = game.ships[path];
+      return (
+        sum + (owner === null || owner === seat ? 0 : 1 + pointsOf(game, owner))
+      );
+    }, 0);
+  return [...pirateSpots(game)]
+    .sort((one, other) => worth(other) - worth(one))
+    .slice(0, 1)
+    .map((at) => ({ kind: "pirate", at }) as CatanMove);
+}
+
+/** Which resource the computer takes from a Goldfluss. */
+function wantedSort(game: CatanGame, seat: number): Resource {
+  const hand = game.players[seat].hand;
+  // The card that is missing from the next thing worth building: a city is the
+  // dearest, so ore and grain first, then whatever is scarcest in hand.
+  const wanted: readonly Resource[] = [
+    "erz",
+    "getreide",
+    "lehm",
+    "holz",
+    "wolle",
+  ];
+  return (
+    wanted.find((sort) => hand[sort] === 0) ??
+    [...RESOURCES].sort((one, other) => hand[one] - hand[other])[0]
+  );
+}
+
+/**
+ * What the computer does at sea.
+ *
+ * @param game - the game
+ * @param seat - whose turn
+ * @returns the ships it would build or move, best first
+ * @remarks
+ * A ship is worth building where it brings a **new island** within reach, which
+ * is what the free game pays a point for - and worth little in open water that
+ * leads nowhere. Moving one is offered last, because a ship already on the
+ * board is doing something.
+ */
+function shipMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const moves: CatanMove[] = [];
+  if (sailing(game) && covers(game.players[seat].hand, SHIP_COST)) {
+    const board = islandOf(game.land.length);
+    const wanted = shoreWanted(game, seat);
+    const worth = (at: number): number =>
+      board.paths[at].ends.reduce((sum, end) => {
+        const landing =
+          landCrossing(game, end) &&
+          game.towns[end] === null &&
+          canTown({ ...game, ships: shipAt(game, seat, at) }, seat, end);
+        // Reaching a foreign shore is what the free game pays for; getting
+        // nearer to one is the next best thing, and open water that leads
+        // nowhere is worth nothing at all.
+        return (
+          sum +
+          (landing && newIsland(game, seat, end) ? LANDFALL_WORTH : 0) +
+          (landing ? SHIP_WORTH : 0) +
+          Math.max(0, SHIP_REACH - (wanted.get(end) ?? SHIP_REACH))
+        );
+      }, 0);
+    const ranked = [...shipSpots(game, seat)].sort(
+      (one, other) => worth(other) - worth(one),
+    );
+    if (ranked.length > 0 && worth(ranked[0]) > 0) {
+      moves.push({ kind: "ship", at: ranked[0] });
+    }
+  }
+  return moves;
+}
+
+/** The board with one more ship of this seat's on it. */
+function shipAt(
+  game: CatanGame,
+  seat: number,
+  at: number,
+): readonly (number | null)[] {
+  return game.ships.map((owner, path) => (path === at ? seat : owner));
+}
+
+/**
+ * How far every crossing is from the nearest foreign shore.
+ *
+ * @param game - the game
+ * @param seat - whose voyage
+ * @returns steps over water, for the crossings within reach
+ * @remarks
+ * A breadth-first walk **backwards** from the shores worth landing on, so one
+ * pass answers the question for every candidate ship at once. Without it the
+ * computer builds ships that go nowhere: each single ship looks the same as the
+ * next, and a voyage is a run of them.
+ */
+function shoreWanted(game: CatanGame, seat: number): Map<number, number> {
+  const board = islandOf(game.land.length);
+  const best = new Map<number, number>();
+  let edge: number[] = [];
+  board.crossings.forEach((crossing) => {
+    if (
+      landCrossing(game, crossing.id) &&
+      game.towns[crossing.id] === null &&
+      newIsland(game, seat, crossing.id)
+    ) {
+      best.set(crossing.id, 0);
+      edge.push(crossing.id);
+    }
+  });
+  for (let step = 1; step <= SHIP_REACH && edge.length > 0; step++) {
+    const next: number[] = [];
+    for (const at of edge) {
+      for (const path of board.crossings[at].paths) {
+        if (seaPath(game, path)) {
+          const ends = board.paths[path].ends;
+          const to = ends[0] === at ? ends[1] : ends[0];
+          if (!best.has(to)) {
+            best.set(to, step);
+            next.push(to);
+          }
+        }
+      }
+    }
+    edge = next;
+  }
+  return best;
+}
+
+/** How far the computer looks along the roads for a site. */
+const HAUL_REACH = 12;
+
+/**
+ * How far the wagon is from where it has to go.
+ *
+ * @param game - the game
+ * @param seat - whose wagon
+ * @param from - the crossing to measure from
+ * @returns the cheapest run of movement points, or a large number
+ * @remarks
+ * Measured in **movement points** rather than in steps, because that is what a
+ * drive spends: a rival's road is as far as one's own, but a bare path is twice
+ * as far and a barbarian adds two on top. A plain breadth-first walk over the
+ * crossings, stopped at a depth no board needs more than.
+ */
+function haulDistance(
+  game: CatanGame,
+  seat: number,
+  from: number,
+  goal: number,
+): number {
+  const board = islandOf(game.land.length);
+  const best = new Map<number, number>([[from, 0]]);
+  let edge = [from];
+  for (let step = 0; step < HAUL_REACH && edge.length > 0; step++) {
+    const next: number[] = [];
+    for (const at of edge) {
+      const here = best.get(at) ?? 0;
+      for (const path of board.crossings[at].paths) {
+        const ends = board.paths[path].ends;
+        const to = ends[0] === at ? ends[1] : ends[0];
+        const cost = here + stepCost(game, seat, path).moves;
+        if (cost < (best.get(to) ?? Number.MAX_SAFE_INTEGER)) {
+          best.set(to, cost);
+          next.push(to);
+        }
+      }
+    }
+    edge = next;
+  }
+  return best.get(goal) ?? Number.MAX_SAFE_INTEGER;
+}
+
+/** Where this seat's wagon is trying to get to. */
+function haulGoal(game: CatanGame, seat: number): number | null {
+  const player = game.players[seat];
+  const target = player.ware === null ? null : WARE_GOES[player.ware];
+  const depot =
+    target === null
+      ? // No load yet: any site will do, so the nearest one.
+        [...game.depots].sort(
+          (one, other) =>
+            haulDistance(game, seat, player.wagon ?? 0, one.gate) -
+            haulDistance(game, seat, player.wagon ?? 0, other.gate),
+        )[0]
+      : game.depots.find((each) => each.target === target);
+  return depot?.gate ?? null;
+}
+
+/**
+ * How the computer drives.
+ *
+ * @param game - the game
+ * @param seat - whose wagon
+ * @returns the step it would take, best first
+ * @remarks
+ * It drives towards its load's destination, one step at a time, and takes the
+ * step that shortens the run most. A barbarian in the way is rolled against
+ * first when the tableau allows it, because a successful roll is free and
+ * shortens the same run by two.
+ */
+function driveMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const moves: CatanMove[] = [];
+  const goal = haulGoal(game, seat);
+  const player = game.players[seat];
+  if (goal !== null && player.wagon !== null) {
+    facingRaiders(game, seat).forEach((at) =>
+      moves.push({ kind: "shove", at }),
+    );
+    const here = haulDistance(game, seat, player.wagon, goal);
+    const steps = [...driveSpots(game, seat)].sort(
+      (one, other) =>
+        haulDistance(game, seat, one, goal) -
+        haulDistance(game, seat, other, goal),
+    );
+    steps.forEach((at) => {
+      if (haulDistance(game, seat, at, goal) < here) {
+        moves.push({ kind: "drive", at });
+      }
+    });
+    // The Getreide is worth spending only when the last two points would
+    // finish the run.
+    if (!player.boosted && here <= player.moves + GRAIN_MOVE) {
+      moves.push({ kind: "boost" });
+    }
+  }
+  return moves;
+}
+
+/** Where the computer puts a barbarian it has lifted. */
+function shiftMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const worth = (at: number): number => {
+    const owner = game.roads[at];
+    // On a rival's road first - that is where it costs them and may cost them
+    // a card - and never back onto one's own.
+    return owner === null ? 1 : owner === seat ? -1 : 2;
+  };
+  return [...raiderSpots(game)]
+    .sort((one, other) => worth(other) - worth(one))
+    .slice(0, 1)
+    .map((at) => ({ kind: "shift", at }) as CatanMove);
+}
+
+/** What the computer does with the hauling cards and the tableau. */
+function haulMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const moves: CatanMove[] = [];
+  if (hauling(game)) {
+    const price = stepPrice(game, seat);
+    if (price !== null && covers(game.players[seat].hand, price)) {
+      moves.push({ kind: "tableau" });
+    }
+    for (const card of game.players[seat].haul) {
+      if (!HAUL_POINT_CARDS.includes(card)) {
+        moves.push({ kind: "haulCard", card });
+      }
+    }
+  }
+  return moves;
+}
+
+/** How the computer weighs the barbarian scenario. */
+const OWN_COAST = 3;
+const RIDE_FAR_GRAIN = 3;
+
+/**
+ * Where the computer puts a knight a card has just handed it.
+ *
+ * @param game - the game
+ * @param seat - whose card it is
+ * @returns the placements it would consider, best first
+ * @remarks
+ * A knight is worth most where it can finish a battle - "eure Ritter besiegen
+ * die Barbaren, wenn sich auf den Wegen, die ein Küstenfeld umgeben, mehr
+ * Ritter befinden als Barbaren" - and second-most beside a field this seat has
+ * built at, because that is the field whose loss would cost it an income.
+ */
+function postMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const where = game.posting;
+  return where === null
+    ? []
+    : [...postSpots(game, where)]
+        .sort(
+          (one, other) =>
+            pathWorth(game, seat, other) - pathWorth(game, seat, one),
+        )
+        .map((at) => ({ kind: "post", at }) as CatanMove);
+}
+
+/** What a path is worth to a knight of this seat's. */
+function pathWorth(game: CatanGame, seat: number, at: number): number {
+  const board = islandOf(game.land.length);
+  return board.paths[at].hexes.reduce((sum, hex) => {
+    const barbarians = game.barbarians[hex] ?? 0;
+    const mine = board.hexes[hex].corners.some(
+      (corner) => game.towns[corner]?.owner === seat,
+    );
+    // A field one more knight would win outright is worth the most; after that,
+    // any field with barbarians on it, and one of one's own above a stranger's.
+    const nearly =
+      barbarians > 0 && guardsAt(game, hex).length + 1 > barbarians;
+    return (
+      sum + (nearly ? OWN_COAST * 2 : 0) + barbarians + (mine ? OWN_COAST : 0)
+    );
+  }, 0);
+}
+
+/**
+ * Which barbarian a card takes or puts down.
+ *
+ * @param game - the game
+ * @param seat - whose card it is
+ * @returns the fields it would pick, best first
+ * @remarks
+ * Taking, it clears the field nearest its own buildings; putting one back down,
+ * it picks the field furthest from them, which is what "setze diese auf 2
+ * anderen, noch nicht eroberten wieder ein" is for.
+ */
+function barbMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const taking = game.barbTake > 0;
+  const spots = taking ? takeSpots(game) : putSpots(game);
+  const worth = (hex: number): number => {
+    const board = islandOf(game.land.length);
+    const mine = board.hexes[hex].corners.filter(
+      (corner) => game.towns[corner]?.owner === seat,
+    ).length;
+    return taking ? mine * OWN_COAST + (game.barbarians[hex] ?? 0) : -mine;
+  };
+  return [...spots]
+    .sort((one, other) => worth(other) - worth(one))
+    .map((at) => ({ kind: "barb", at }) as CatanMove);
+}
+
+/**
+ * Where the computer rides its knights.
+ *
+ * @param game - the game
+ * @param seat - whose knights
+ * @returns one ride, the best it can see
+ * @remarks
+ * One at a time, because each ride changes what the next one is worth: a knight
+ * that has just made a field winnable changes where the second one should go.
+ */
+function rideMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const moves: CatanMove[] = [];
+  const grain = game.players[seat].hand.getreide;
+  game.guards.forEach((owner, from) => {
+    if (owner === seat && !game.ridden.includes(from)) {
+      // The far ride costs a Getreide, so it is only asked for when the near
+      // one cannot reach anything better.
+      const near = bestRide(game, seat, from, KNIGHT_STEPS);
+      const far =
+        grain > RIDE_FAR_GRAIN
+          ? bestRide(game, seat, from, KNIGHT_STEPS + EXTRA_STEPS)
+          : null;
+      // A knight trained this turn has to leave the castle whatever the
+      // ground outside is worth: "hast du in deinem Zug einen Ritter auf einen
+      // Weg des Burgfeldes gesetzt, musst du ihn von dort wegziehen."
+      const here = game.fort.gates.includes(from)
+        ? -1
+        : pathWorth(game, seat, from);
+      if (far !== null && near !== null && far.worth > near.worth) {
+        moves.push({ kind: "ride", from, to: far.at, far: true });
+      } else if (near !== null && near.worth > here) {
+        moves.push({ kind: "ride", from, to: near.at });
+      }
+    }
+  });
+  // The castle first: that ride is owed, the others are only worth making.
+  const owed = moves.filter((move) =>
+    move.kind === "ride" ? game.fort.gates.includes(move.from) : false,
+  );
+  return [...owed, ...moves].slice(0, 1);
+}
+
+/** The best place one knight could reach, and what it is worth there. */
+function bestRide(
+  game: CatanGame,
+  seat: number,
+  from: number,
+  steps: number,
+): { readonly at: number; readonly worth: number } | null {
+  const spots = rideSpots(game, from, steps);
+  const ranked = [...spots].sort(
+    (one, other) => pathWorth(game, seat, other) - pathWorth(game, seat, one),
+  );
+  return ranked.length === 0
+    ? null
+    : { at: ranked[0], worth: pathWorth(game, seat, ranked[0]) };
+}
+
+/** How the computer weighs a wagon position, and its ballot. */
+const WAGON_WORTH = 4;
+const ROAD_WORTH = 1;
+const LOUD_WORTH = 4;
+const BALLOT_MAX = 2;
+
+/**
+ * How much this seat would like the wagon to go there.
+ *
+ * @param game - the game
+ * @param seat - who is asking
+ * @param at - the path
+ * @returns higher where it helps this seat, lower where it helps a rival
+ * @remarks
+ * Asked of {@link pointsOf} on the board as it would be, rather than of a rule
+ * of thumb: the wagon is worth a point where it puts one of this seat's
+ * settlements between two of them, and worth exactly as much to a rival where
+ * it does the same for theirs. A road of one's own underneath is worth a little
+ * on top, because that road then counts double in a trade route.
+ */
+function wagonValue(game: CatanGame, seat: number, at: number): number {
+  const after = {
+    ...game,
+    wagons: game.wagons.map((which, path) => (path === at ? 0 : which)),
+  };
+  const mine = pointsOf(after, seat) - pointsOf(game, seat);
+  const theirs = Math.max(
+    0,
+    ...realSeats(game)
+      .filter((other) => other !== seat)
+      .map((other) => pointsOf(after, other) - pointsOf(game, other)),
+  );
+  return (
+    (mine - theirs) * WAGON_WORTH + (game.roads[at] === seat ? ROAD_WORTH : 0)
+  );
+}
+
+/**
+ * What the computer does in a voting round.
+ *
+ * @param game - the game
+ * @param seat - whose answer the round is waiting for
+ * @returns the one move it owes
+ * @remarks
+ * It lays cards down only when the best position on offer is worth something to
+ * it, and never its last wool or grain: "Getreide zählt bei einer Abstimmung
+ * als Stimme, wird aber häufiger als Wolle für Bauaktionen benötigt", so wool
+ * goes into the ballot first.
+ */
+function voteMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const vote = game.vote;
+  const moves: CatanMove[] = [];
+  if (vote !== null) {
+    const best = [...wagonSpots(game)].sort(
+      (one, other) =>
+        wagonValue(game, seat, other) - wagonValue(game, seat, one),
+    )[0];
+    const worth = best === undefined ? 0 : wagonValue(game, seat, best);
+    if (vote.stage === "lay") {
+      moves.push({ kind: "lay", cards: ballotFor(game, seat, worth) });
+    } else if (best !== undefined) {
+      moves.push(
+        vote.stage === "assign"
+          ? { kind: "vote", at: best }
+          : { kind: "wagon", at: best },
+      );
+    }
+  }
+  return moves;
+}
+
+/** How many spare wool and grain cards go into the ballot. */
+function ballotFor(game: CatanGame, seat: number, worth: number): Hand {
+  const hand = game.players[seat].hand;
+  let want = worth >= LOUD_WORTH ? BALLOT_MAX : worth > 0 ? 1 : 0;
+  let cards = NO_CARDS;
+  for (const sort of BALLOT) {
+    // Never the last one: a vote is not worth the settlement it was saved for.
+    const spare = Math.min(want, Math.max(0, hand[sort] - 1));
+    cards = withCard(cards, sort, spare);
+    want -= spare;
+  }
+  return cards;
+}
+
+/**
+ * The fewest fish that still cover a price.
+ *
+ * @param held - the tiles in hand, by their fish counts
+ * @param price - what has to be covered
+ * @returns the tiles' places in the hand, or null if they cannot cover it
+ * @remarks
+ * Biggest tiles first, which both reaches the price in the fewest tiles and
+ * wastes the least - a hand of 3+3 paying a four-fish action loses two, where
+ * 1+1+1+1 would lose none. Exhaustive search over seven tiles would be cheap
+ * enough, but the greedy order is what a person does and the difference is one
+ * fish at the margin.
+ */
+function cheapestBundle(
+  held: readonly number[],
+  price: number,
+): readonly number[] | null {
+  const order = held
+    .map((fish, at) => ({ fish, at }))
+    .sort((one, other) => other.fish - one.fish);
+  const picked: number[] = [];
+  let paid = 0;
+  for (const tile of order) {
+    if (paid >= price) {
+      break;
+    }
+    picked.push(tile.at);
+    paid += tile.fish;
+  }
+  return paid >= price ? picked : null;
+}
+
+/**
+ * What the computer does with gold and bridges, best first.
+ *
+ * @param game - the game
+ * @param seat - whose turn it is
+ * @returns the moves it would consider
+ * @remarks
+ * A **bridge** first whenever one is affordable and legal: it pays three gold
+ * on the spot, counts towards the Längste Handelsroute like a road, and there
+ * are only three for the whole game - so the reason not to build one is never
+ * that it was not worth it.
+ *
+ * Then **buying** what it is short of, since two gold for a card is a better
+ * rate than any harbour, and the allowance of two lapses at the end of the
+ * turn. Selling four of a spare sort for one gold comes last, and only while
+ * the seat is not already sitting on the Armer Cataner - the tile is minus two
+ * points, and gold is exactly what lifts it.
+ */
+function goldMoves(game: CatanGame, seat: number): readonly CatanMove[] {
+  const moves: CatanMove[] = [];
+  // Gold is spent the same way wherever it exists - Die Flüsse, Der
+  // Barbarenüberfall, Händler & Barbaren, Entdecker & Piraten. Asking only
+  // about the rivers left the others hoarding it: a self-played Piratenlager
+  // ended with 1160 gold on one seat and nothing left to build.
+  if (rivers(game) || raiding(game) || hauling(game) || finding(game)) {
+    const hand = game.players[seat].hand;
+    if (
+      rivers(game) &&
+      game.players[seat].bridgesLeft > 0 &&
+      covers(hand, BRIDGE_PRICE)
+    ) {
+      game.rivers.bridges
+        .filter((at) => game.roads[at] === null)
+        .forEach((at) => moves.push({ kind: "bridge", at }));
+    }
+    if (
+      game.goldBuys < BUYS_PER_TURN &&
+      game.players[seat].gold >= GOLD_PER_BUY
+    ) {
+      const need = wants(game, seat);
+      const sort = [...RESOURCES].sort(
+        (one, other) => need[other] - need[one],
+      )[0];
+      moves.push({ kind: "goldBuy", sort });
+    }
+    // Only out of a genuine surplus, and never down to nothing.
+    const spare = [...RESOURCES]
+      .filter((sort) => hand[sort] >= tradeRate(game, seat, sort) + 2)
+      .sort((one, other) => hand[other] - hand[one])[0];
+    if (spare !== undefined) {
+      moves.push({ kind: "goldSell", sort: spare });
+    }
+  }
+  return moves;
+}
+
+/**
  * The Handelschip actions worth taking, best first.
  *
  * @param game - the game
@@ -986,9 +1972,12 @@ function chipMoves(game: CatanGame, seat: number): readonly CatanMove[] {
     const price = chipCost(game, seat);
     const held = game.players[seat].chips;
     const other = realSeats(game).find((at) => at !== seat);
-    const robbed = islandOf(game.land.length).hexes[game.robber].corners.some(
-      (corner) => game.towns[corner]?.owner === seat,
-    );
+    // The robber can be off the board entirely - Fischfang auf Catan starts
+    // that way, and a fish action puts it back there - so there is nothing to
+    // be sitting on.
+    const robbed = (
+      islandOf(game.land.length).hexes[game.robber]?.corners ?? []
+    ).some((corner) => game.towns[corner]?.owner === seat);
     if (held >= price && robbed) {
       moves.push({ kind: "chip", action: "robber" });
     }
@@ -1087,9 +2076,9 @@ function playableCards(game: CatanGame, seat: number): readonly CatanMove[] {
  * without waiting for somebody else to roll a seven.
  */
 function knightFirst(game: CatanGame, seat: number): readonly CatanMove[] {
-  const blocked = islandOf(game.land.length).hexes[game.robber].corners.some(
-    (at: number) => game.towns[at]?.owner === seat,
-  );
+  const blocked = (
+    islandOf(game.land.length).hexes[game.robber]?.corners ?? []
+  ).some((at: number) => game.towns[at]?.owner === seat);
   const holds = game.players[seat].deck.includes("ritter");
   return holds && !game.playedDev && blocked
     ? [{ kind: "play", card: "ritter" }]

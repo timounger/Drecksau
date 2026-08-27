@@ -14,8 +14,13 @@
  * stays exactly as printed.
  */
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/games/catan/engine/setup";
-import type { Mode } from "@/games/catan/engine/state";
-import { VARIANTS, WIN_POINTS, type Variant } from "@/games/catan/engine/state";
+import type { Mode, Scenario } from "@/games/catan/engine/state";
+import {
+  SCENARIOS,
+  VARIANTS,
+  WIN_POINTS,
+  type Variant,
+} from "@/games/catan/engine/state";
 import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 
 /** Schema version of the stored settings - raise it on breaking changes. */
@@ -80,6 +85,8 @@ export type CatanSettings = {
    * tick.
    */
   readonly mode: Mode;
+  /** Which scenario of *Händler & Barbaren*, if any. */
+  readonly scenario: Scenario;
 };
 
 /** What a first-time visitor gets. */
@@ -88,6 +95,7 @@ export const DEFAULT_SETTINGS: CatanSettings = {
   target: WIN_POINTS,
   variants: [],
   mode: "klassisch",
+  scenario: "keins",
 };
 
 /**
@@ -102,6 +110,7 @@ export function loadSettings(): CatanSettings {
     target: clampTarget(stored?.target),
     variants: clampVariants(stored?.variants),
     mode: stored?.mode === "ritter" ? "ritter" : "klassisch",
+    scenario: clampScenario(stored?.scenario),
   };
 }
 
@@ -116,7 +125,24 @@ export function saveSettings(settings: CatanSettings): void {
     target: clampTarget(settings.target),
     variants: clampVariants(settings.variants),
     mode: settings.mode === "ritter" ? "ritter" : "klassisch",
+    scenario: clampScenario(settings.scenario),
   });
+}
+
+/**
+ * Keeps only a scenario this build knows.
+ *
+ * @param scenario - the value read back from storage or a control
+ * @returns that scenario, or none
+ * @remarks
+ * Asked of {@link SCENARIOS} rather than named one by one: the first two were
+ * written out by hand, and the third was then silently dropped on its way into
+ * storage - a settings page whose buttons did nothing.
+ */
+function clampScenario(scenario: unknown): Scenario {
+  return SCENARIOS.includes(scenario as Scenario)
+    ? (scenario as Scenario)
+    : "keins";
 }
 
 /**

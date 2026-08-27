@@ -41,6 +41,141 @@ export const CATAN_TEXTS = {
   knightIn: "Ritter abgeben (+2 Chips)",
   giveBackHint: (count: number): string => `Gib ${count} Karte(n) zurück.`,
   giveBack: "Zurückgeben",
+  scenarioTitle: "Szenario",
+  scenarioHint:
+    "Ein Szenario ändert das Brett: Fischfang legt einen See aus, die Flüsse ziehen Wasser über die Insel, der Handelstross setzt Nomaden in die Mitte, der Barbarenüberfall baut die Insel neu, die Neue Welt macht eine Inselwelt daraus, und Entdecker & Piraten legt zwei Drittel davon verdeckt aus - in den Piratenlagern mit sechs Lagern darin.",
+  scenarioName: (scenario: string): string =>
+    scenario === "fischer"
+      ? "Fischfang auf Catan"
+      : scenario === "fluesse"
+        ? "Die Flüsse von Catan"
+        : scenario === "karawane"
+          ? "Der Handelstross"
+          : scenario === "barbaren"
+            ? "Der Barbarenüberfall"
+            : scenario === "handel"
+              ? "Händler & Barbaren"
+              : scenario === "neuewelt"
+                ? "Seefahrer: Neue Welt"
+                : scenario === "entdecker"
+                  ? "Entdecker & Piraten: Land in Sicht"
+                  : scenario === "piraten"
+                    ? "Entdecker & Piraten: Die Piratenlager"
+                    : "Ohne Szenario",
+  scenarioText: (scenario: string): string =>
+    scenario === "fischer"
+      ? "See, Fischgründe und Fischplättchen - und der Alte Schuh."
+      : scenario === "fluesse"
+        ? "Zwei Flüsse, Brücken und Gold - und die Plättchen für den Reichsten und die Armen."
+        : scenario === "karawane"
+          ? "Drei Handelstrosse, über die der Tisch abstimmt - bis 12 Siegpunkte."
+          : scenario === "barbaren"
+            ? "Barbaren an der Küste, Ritter aus der Burg, kein Räuber - bis 12 Siegpunkte."
+            : scenario === "handel"
+              ? "Trosswagen, Zielfelder und Wegzoll - bis 13 Siegpunkte."
+              : scenario === "neuewelt"
+                ? "Eine Inselwelt: Schiffe, Seeräuber und Goldflüsse - bis 12 Siegpunkte."
+                : scenario === "entdecker"
+                  ? "Fahrende Schiffe, ein unentdecktes Meer, Entdecker und Hafensiedlungen - bis 8 Siegpunkte."
+                  : scenario === "piraten"
+                    ? "Sechs Piratenlager, Einheiten, Piratenschiffe und die Missionsleiste - bis 12 Siegpunkte."
+                    : "Die Insel wie gedruckt.",
+  findTitle: "Entdecker & Piraten",
+  findGold: (count: number): string => `Gold: ${count}`,
+  findFleet: (boats: number, scouts: number, ports: number): string =>
+    `Vorrat: ${boats} Schiffe, ${scouts} Entdecker, ${ports} Hafensiedlungen`,
+  findBuild:
+    "Schiff 1 Holz + 1 Wolle · Entdecker 1 Lehm 1 Holz 1 Wolle 1 Getreide · Hafensiedlung 2 Getreide + 2 Erz",
+  findHelm: "Wähle ein Schiff, das fahren soll.",
+  findSail: (left: number): string =>
+    `Noch ${left} Bewegungspunkte - tippe die nächste Kante an.`,
+  findWind: "+2 Bewegungspunkte (1 Wolle)",
+  findFound: "Ein Entdeckerschiff kann hier eine Siedlung gründen.",
+  findNoBoat: "Keine Schiffe unterwegs.",
+  huntPirate: "Piratenschiff verjagen (Würfel: 6)",
+  corsairHint: "Setze dein Piratenschiff auf ein Meerfeld.",
+  campTitle: "Piratenlager",
+  campUnits: (left: number): string => `Einheiten im Vorrat: ${left}`,
+  campTaken: (taken: number, all: number): string =>
+    `Erobert: ${taken} von ${all} entdeckten Lagern`,
+  campMission: (step: number, points: number): string =>
+    `Missionsleiste: Feld ${step} (${points} Siegpunkte)`,
+  campCost: "Einheit 1 Wolle + 1 Erz - je 3 erobern ein Lager.",
+  findAfloat: (count: number): string => `${count} Schiff(e) unterwegs.`,
+  tableTitle: "Am Tisch",
+  tableUnknown: "Die gastgebende Person hat noch nichts eingestellt.",
+  seaTitle: "Seefahrt",
+  seaShips: (left: number): string => `Schiffe im Vorrat: ${left}`,
+  seaChips: (count: number): string => `Insel-Chips: ${count} (je 1 Siegpunkt)`,
+  seaMoved: "Ein Schiff ist diese Runde schon versetzt worden.",
+  seaPick: "Tippe eines deiner Schiffe an, um es zu versetzen.",
+  seaTo:
+    "Wohin? Überall dorthin, wo auch ein neues Schiff gebaut werden dürfte.",
+  seaHint: "Schiff bauen (1 Holz + 1 Wolle): Tippe eine Wasserkante an.",
+  pirateHint:
+    "Versetze den Seeräuber auf ein Meerfeld - oder den Räuber auf eine Landschaft.",
+  goldPickHint: "Goldfluss: Suche dir einen Rohstoff aus.",
+  goldPickWho: (name: string): string => `${name} wählt am Goldfluss.`,
+  haulTitle: "Trosswagen",
+  haulGold: (count: number): string => `Gold: ${count}`,
+  haulEmpty: "Keine Ladung - fahre zu einem Zielfeld.",
+  haulLoad: (ware: string, target: string): string =>
+    `Ladung: ${ware} → ${target}`,
+  haulDelivered: (count: number): string =>
+    `Abgeliefert: ${count} (je 1 Siegpunkt)`,
+  haulMoves: (count: number): string => `${count} Bewegungspunkte`,
+  haulBoost: "+2 für 1 Getreide",
+  haulStep: (step: number, all: number): string =>
+    `Wagen-Tableau: Stufe ${step} von ${all}`,
+  haulTableau: (moves: number, gold: number): string =>
+    `${moves} Bewegungspunkte, ${gold} Gold je Lieferung`,
+  haulFight: (numbers: string): string => `Barbar vertreiben bei ${numbers}`,
+  haulNoFight: "Barbaren vertreiben ab Stufe 2",
+  haulUpgrade: (price: string): string => `Ausbauen (${price})`,
+  haulCards: (count: number): string => `Entwicklungskarten (${count})`,
+  haulNoCards: "Keine Karten.",
+  driveHint: "Fahre den Trosswagen: Tippe eine Nachbarkreuzung an.",
+  shiftHint: "Setze den Barbaren auf einen Weg oder eine Straße.",
+  postCastle: "Setze einen Ritter auf einen freien Weg des Burgfeldes.",
+  postAnywhere: "Setze einen Ritter auf einen beliebigen freien Weg.",
+  barbTake: (count: number): string =>
+    `Nimm ${count} Barbar(en) von einem Küstenfeld.`,
+  barbPut: (count: number): string =>
+    `Setze ${count} Barbar(en) auf ein noch freies Küstenfeld.`,
+  rideHint: "Ritter bewegen: Wähle einen deiner Ritter.",
+  rideTo: "Wohin? Bis 3 Wege weit - oder 5 für 1 Getreide.",
+  rideFar: "Weit ziehen (1 Getreide)",
+  raidTitle: "Barbaren",
+  raidLeft: (count: number): string => `${count} Barbaren im Vorrat`,
+  raidCard: (name: string): string => `Karte: ${name}`,
+  knightsHeld: (count: number): string => `Ritter im Vorrat: ${count}`,
+  prisonersHeld: (count: number): string =>
+    `Gefangene: ${count} (je 2 = 1 Siegpunkt)`,
+  coastLost: (count: number): string => `${count} erobertes/e Küstenfeld(er)`,
+  voteTitle: "Abstimmung: Trosswagen",
+  voteHint: (spots: number): string =>
+    `Wolle und Getreide sind die Stimmen. ${spots} Position(en) stehen zur Wahl.`,
+  voteCards: (count: number): string =>
+    count === 0 ? "-" : `${count} Stimme(n)`,
+  voteWaiting: "Die Abstimmung läuft.",
+  voteWho: (name: string): string => `${name} ist an der Reihe.`,
+  voteOnBoard: "Tippe auf dem Brett die Position an, die du willst.",
+  wagonOnBoard: "Du entscheidest: Tippe an, wohin der Trosswagen kommt.",
+  layCards: (count: number): string => `${count} Karte(n) auslegen`,
+  layPass: "Nichts auslegen",
+  goldTitle: (count: number): string => `Gold (${count})`,
+  goldBuy: (what: string, price: number): string => `${what} (${price} Gold)`,
+  goldSell: (what: string, rate: number): string => `${rate} ${what} → 1 Gold`,
+  goldBuysLeft: (left: number): string =>
+    `Noch ${left} Kauf/Käufe in diesem Zug.`,
+  goldNone:
+    "Noch kein Gold. Straßen und Siedlungen am Fluss bringen welches ein.",
+  richestTile: "Reichster Cataner (+1)",
+  poorestTile: "Armer Cataner (−2)",
+  bridgeBuild: (left: number): string =>
+    `Brücke (2 Lehm, 1 Holz) - noch ${left}`,
+  bridgeHint:
+    "Eine Brücke geht nur auf einen der 7 Brückenbauplätze, muss an dein Netz anschließen und bringt 3 Gold.",
   modeTitle: "Spiel",
   modeHint:
     "Städte & Ritter ersetzt die Entwicklungskarten, würfelt mit drei Würfeln und geht bis 13 Siegpunkte.",
@@ -50,6 +185,12 @@ export const CATAN_TEXTS = {
     mode === "ritter"
       ? "Handelswaren, Stadtausbau, Ritter und die Barbaren."
       : "Das gedruckte Grundspiel.",
+  fishTitle: (total: number): string => `Fische (${total})`,
+  noFish: "Noch keine Fischplättchen.",
+  fishBuy: (what: string, price: number): string => `${what} (${price})`,
+  shoeHint: "Alten Schuh weitergeben an:",
+  shoeStuck: "Niemand liegt gleichauf oder vorn.",
+  faceDownCard: "verdeckt",
   buildWall: "Stadtmauer (2 Lehm)",
   wakeKnight: "Aktivieren",
   raiseKnight: "Aufwerten",
@@ -217,6 +358,14 @@ export const LAND_NAMES: Readonly<Record<string, string>> = {
   getreide: "Ackerland",
   erz: "Gebirge",
   wueste: "Wüste",
+  see: "See",
+  sumpf: "Sumpf",
+  wasserstelle: "Wasserstelle",
+  burg: "Burgfeld",
+  ziel: "Zielfeld",
+  meer: "Meer",
+  gold: "Goldfluss",
+  unbekannt: "Unentdecktes Feld",
 };
 
 /** What each development card is called. */

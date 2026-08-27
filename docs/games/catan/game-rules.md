@@ -95,12 +95,12 @@ Stadt 2. Das Feld unter dem Räuber bringt nichts.
 
 ## Baukosten
 
-| Was               | Kosten                                  | Punkte |
-| ----------------- | --------------------------------------- | ------ |
-| Straße            | 1 Lehm + 1 Holz                         | -      |
-| Siedlung          | 1 Lehm + 1 Holz + 1 Wolle + 1 Getreide  | 1      |
-| Stadt             | 2 Getreide + 3 Erz                      | 2      |
-| Entwicklungskarte | 1 Wolle + 1 Getreide + 1 Erz            | -      |
+| Was               | Kosten                                 | Punkte |
+| ----------------- | -------------------------------------- | ------ |
+| Straße            | 1 Lehm + 1 Holz                        | -      |
+| Siedlung          | 1 Lehm + 1 Holz + 1 Wolle + 1 Getreide | 1      |
+| Stadt             | 2 Getreide + 3 Erz                     | 2      |
+| Entwicklungskarte | 1 Wolle + 1 Getreide + 1 Erz           | -      |
 
 Eine Stadt entsteht nur aus einer eigenen Siedlung; die Siedlung geht zurück in
 den Vorrat.
@@ -206,13 +206,13 @@ der Abbildung laufen gegen den Uhrzeigersinn, wie im Grundspiel.
 Das ist die eigentliche Regeländerung, und sie ersetzt die frühere
 „Außerordentliche Bauphase":
 
-| | Stein 1 | Stein 2 |
-| --- | --- | --- |
-| Würfeln | ja, Pflicht | nein |
-| Handel mit den anderen | ja | **nein** |
-| Handel mit dem Vorrat | ja | ja |
-| Bauen und Entwicklungskarten kaufen | ja | ja |
-| 1 Entwicklungskarte ausspielen | ja, auch vor dem Würfeln | ja, danach |
+|                                     | Stein 1                  | Stein 2    |
+| ----------------------------------- | ------------------------ | ---------- |
+| Würfeln                             | ja, Pflicht              | nein       |
+| Handel mit den anderen              | ja                       | **nein**   |
+| Handel mit dem Vorrat               | ja                       | ja         |
+| Bauen und Entwicklungskarten kaufen | ja                       | ja         |
+| 1 Entwicklungskarte ausspielen      | ja, auch vor dem Würfeln | ja, danach |
 
 Stein 2 sitzt **3 Plätze links** von Stein 1. Nach beiden Hälften wandern beide
 Steine einen Platz nach links, der Abstand bleibt also immer drei.
@@ -318,7 +318,7 @@ halten, was die Anleitung ausdrücklich sagt.
 Ihre beiden Startsiedlungen stehen schon, bevor die Gründungsphase beginnt. Die
 Anleitung zeigt sie nur im Bild, auf dem festen Startaufbau: **oben und unten am
 Mittelfeld**, punktsymmetrisch zur Brettmitte. Weil hier variabel aufgebaut
-wird, ist daraus eine *Form* geworden statt zweier Kreuzungsnummern - die
+wird, ist daraus eine _Form_ geworden statt zweier Kreuzungsnummern - die
 oberste und unterste Ecke des mittleren Landschaftsfeldes. Das ist auch
 drehungssicher: Es fragt die Geometrie, wo oben ist, statt zu raten, welcher
 Eintrag von `corners` das gerade ist.
@@ -339,8 +339,8 @@ Abstandsregel erlaubt - und das ist für beide Farben dieselbe Menge, ein Tippen
 allein könnte also nie sagen, welche gemeint war.
 
 **Handelschips.** Fünf zum Start. Eine Aktion kostet 1 Chip, oder **2, solange
-man vorne liegt** - eine Aufholregel. Zwei Aktionen: *Zwangshandel* (2 Karten
-blind ziehen, 2 beliebige zurückgeben) und *Räuber in die Wüste* (ohne jemanden
+man vorne liegt** - eine Aufholregel. Zwei Aktionen: _Zwangshandel_ (2 Karten
+blind ziehen, 2 beliebige zurückgeben) und _Räuber in die Wüste_ (ohne jemanden
 zu bestehlen). Nachschub: einen ausgespielten Ritter abgeben (+2), eine Siedlung
 an der Küste (+1), an der Wüste (+2), an beidem (+3).
 
@@ -357,19 +357,21 @@ eine bewusst kurze oder lange Partie ihre Länge.
 
 ### Noch nicht umgesetzt
 
-Von den neun vorliegenden Anleitungen ist bisher der Varianten-Teil von
-Händler & Barbaren umgesetzt - alle vier Varianten. Offen sind:
+Umgesetzt sind: Händler & Barbaren ganz (vier Varianten, fünf Szenarien, auch
+zu fünft und sechst), Städte & Ritter, das Grundspiel zu fünft und sechst, von
+Seefahrer die allgemeinen Regeln samt freiem Spiel, und von Entdecker & Piraten
+die Grundregeln samt den ersten beiden Szenarien. Der Stand im Einzelnen:
 
-| Anleitung                      | Umfang                                | Stand    |
-| ------------------------------ | ------------------------------------- | -------- |
-| Händler & Barbaren, Varianten  | Freundlicher Räuber, Ereignisse auf Catan, Die Häfen | fertig |
-| Händler & Barbaren, Varianten  | CATAN für Zwei                        | fertig   |
-| Händler & Barbaren, Szenarien  | 5 Szenarien als Kampagne              | offen    |
-| Seefahrer                      | 8 Szenarien plus freies Spiel         | offen    |
-| Städte & Ritter                | Handelswaren, Ritter, Metropolen      | [fertig](staedte-und-ritter.md) |
-| Entdecker & Piraten            | 5 Szenarien auf eigenem Spielplan     | offen    |
-| 5-6 Personen, Grundspiel       | Stein 1 / Stein 2, 30 Felder          | fertig   |
-| 5-6 Personen, je Erweiterung   | Wagen 1 / Wagen 2 je Szenario         | offen    |
+| Anleitung                     | Umfang                                               | Stand                                       |
+| ----------------------------- | ---------------------------------------------------- | ------------------------------------------- |
+| Händler & Barbaren, Varianten | Freundlicher Räuber, Ereignisse auf Catan, Die Häfen | fertig                                      |
+| Händler & Barbaren, Varianten | CATAN für Zwei                                       | fertig                                      |
+| Händler & Barbaren, Szenarien | 5 Szenarien als Kampagne                             | **[alle 5](szenarien.md)**                  |
+| Seefahrer                     | Allgemeine Regeln plus freies Spiel                  | [Neue Welt fertig](seefahrer.md)            |
+| Städte & Ritter               | Handelswaren, Ritter, Metropolen                     | [fertig](staedte-und-ritter.md)             |
+| Entdecker & Piraten           | Grundregeln plus Szenarien 1 und 2                   | [Land in Sicht, Piratenlager](entdecker.md) |
+| 5-6 Personen, Grundspiel      | Stein 1 / Stein 2, 30 Felder                         | fertig                                      |
+| 5-6 Personen, je Erweiterung  | Wagen 1 / Wagen 2 je Szenario                        | [Händler & Barbaren fertig](szenarien.md)   |
 
 Die vier erweiterungseigenen 5-6-Hefte setzen jeweils das Grundspiel zu fünft
 und sechst voraus - das ist umgesetzt - und legen dann Szenariomaterial obendrauf.

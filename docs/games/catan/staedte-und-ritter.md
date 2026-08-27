@@ -324,6 +324,36 @@ Dazu die Anzeige:
 - **Online** sind Handelswaren und Fortschrittskarten geschwärzt; nur die
   beiden Siegpunktkarten bleiben offen, weil die Anleitung sie offen auslegt.
 
-Offen bleibt eine Kleinigkeit: Online setzt der Gastgeber bisher **überhaupt
-keine** Optionen - auch die Varianten nicht -, also gibt es dort noch keine
-Modusauswahl. Der Adapter nimmt sie entgegen; es fehlt die Bedienung dafür.
+### Online
+
+Der Gastgeber wählt Modus und Varianten jetzt **in der Lobby**. Vorher setzte
+`room.start()` gar keine Optionen - jedes Onlinespiel war also das gedruckte
+Grundspiel, und die Varianten aus *Händler & Barbaren* hatten seit jeher keinen
+Weg an einen Onlinetisch.
+
+Handelswaren und Fortschrittskarten sind geschwärzt. Der Platzhalter dafür ist
+**keine echte Karte**, sondern eine eigene Rückseite (`"verdeckt"`), und das ist
+mit Absicht: Eine echte Karte als Platzhalter - so wie es die
+Entwicklungskarten machen - würde „eine Bergbau-Karte" und „eine Karte, die ich
+nicht sehen darf" zum selben Wert machen. An genau einer Stelle fällt das auf,
+und ausgerechnet da wäre es fatal: **Spionage** zeigt die Handkarten einer
+anderen Person und lässt dich eine aussuchen.
+
+Der Typ trennt beides (`Progress` gegen `HeldCard`), und der Compiler hat dann
+selbst die zwei Stellen gezeigt, die Karten zeichnen.
+
+Die **Gäste** lesen mit. Der Gastgeber schreibt seine Auswahl als **eine Zeile**
+in den Raum - „CATAN - Das Spiel · Die Flüsse von Catan" -, und jeder Gast sieht
+sie in der Lobby unter „Am Tisch", bevor irgendetwas ausgeteilt ist.
+
+Als Text und nicht als Optionen-Objekt, denn die gemeinsame Online-Schicht kennt
+die Einstellungen keines einzelnen Spiels; ein ehrlicher Satz ist alles, was ein
+Gast vor dem Beitreten braucht. Der erste Entwurf zeigte den Gästen ihre
+**eigenen** Einstellungen unter der Überschrift des Tisches - das war schlechter
+als nichts zu zeigen -, der zweite zeigte ihnen gar nichts.
+
+Eine Grenze bleibt und steht so auch auf dem Bildschirm:
+
+- **Spionage** kann online nicht zeigen, was jemand hat - die Karte *erlaubt*
+  das Hinsehen, aber die echten Karten müssten dafür bis zum Spionierenden
+  reisen. Sie werden als Rückseiten gezeigt statt als frei erfundene Karten.

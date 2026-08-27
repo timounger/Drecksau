@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
-import { MODES, VARIANTS } from "@/games/catan/engine/state";
+import { MODES, SCENARIOS, VARIANTS } from "@/games/catan/engine/state";
 import { CATAN_TEXTS as T, VARIANT_TEXTS } from "@/games/catan/i18n/texts";
 import { PLAYER_COUNTS, TARGETS } from "@/games/catan/settings/app-settings";
 import {
@@ -149,6 +149,40 @@ export function CatanSettingsView(): ReactElement {
               <span className="font-semibold">{T.modeName(mode)}</span>
               <span className="block text-xs text-zinc-500 dark:text-zinc-400">
                 {T.modeText(mode)}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* The scenario changes the **board** - the fishing one takes the desert
+          away and lays a lake and six fishing grounds - which is why it is a
+          choice of its own rather than another tick beside the variants. */}
+      <section className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+        <div>
+          <h2 className="text-sm font-semibold">{T.scenarioTitle}</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {T.scenarioHint}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup">
+          {SCENARIOS.map((scenario) => (
+            <button
+              key={scenario}
+              type="button"
+              role="radio"
+              aria-checked={settings.scenario === scenario}
+              data-testid={`ct-scenario-${scenario}`}
+              onClick={() => updateSettings({ ...settings, scenario })}
+              className={`cursor-pointer rounded-lg border px-3 py-2 text-left text-sm ${
+                settings.scenario === scenario
+                  ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40"
+                  : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <span className="font-semibold">{T.scenarioName(scenario)}</span>
+              <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                {T.scenarioText(scenario)}
               </span>
             </button>
           ))}

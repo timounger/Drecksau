@@ -88,6 +88,41 @@ export const PROGRESS_CARDS: Readonly<Record<Progress, Printing>> = {
   verfassung: { track: "politik", count: 1 },
 };
 
+/**
+ * What a card looks like from the other side of the table.
+ *
+ * @remarks
+ * Not one of the twenty-five, on purpose. A real card as the stand-in - which
+ * is what the development cards do - would make "a Bergbau card" and "a card I
+ * am not allowed to see" the same value, and the one place that matters is
+ * **Spionage**, which shows somebody else's hand and asks you to pick from it.
+ * A screen that offers you a Bergbau that is not there is worse than one that
+ * says it cannot see.
+ */
+export const FACE_DOWN_CARD = "verdeckt";
+
+/**
+ * A card as it is **held** - either a real one, or a back.
+ *
+ * @remarks
+ * Apart from {@link Progress} on purpose. The twenty-five real cards each have
+ * a name, a text and a deck, and every one of those tables is complete; a back
+ * has none of them and belongs in none of them. Keeping it out of the union is
+ * what lets the tables stay exhaustive - and what makes the compiler point at
+ * every place that has to decide which of the two it is looking at.
+ */
+export type HeldCard = Progress | typeof FACE_DOWN_CARD;
+
+/** Whether this is a back rather than a card. */
+export function isFaceDownCard(card: HeldCard): card is typeof FACE_DOWN_CARD {
+  return card === FACE_DOWN_CARD;
+}
+
+/** Whether this is a real card the referee can act on. */
+export function isRealCard(card: HeldCard): card is Progress {
+  return card !== FACE_DOWN_CARD;
+}
+
 /** How many cards each deck holds - the same for all three. */
 export const DECK_SIZE = 18;
 
@@ -95,8 +130,8 @@ export const DECK_SIZE = 18;
 export const POINT_CARDS: readonly Progress[] = ["buchdruck", "verfassung"];
 
 /** Whether this card is a victory point rather than an action. */
-export function isPointCard(card: Progress): boolean {
-  return POINT_CARDS.includes(card);
+export function isPointCard(card: HeldCard): boolean {
+  return POINT_CARDS.includes(card as Progress);
 }
 
 /** What each card is called. */
@@ -195,8 +230,12 @@ export function trackOf(card: Progress): Track {
 }
 
 /** Every card name, for the guards that check a stored game. */
-export const PROGRESS_NAMES_LIST: readonly string[] =
-  Object.keys(PROGRESS_CARDS);
+export const PROGRESS_NAMES_LIST: readonly string[] = [
+  ...Object.keys(PROGRESS_CARDS),
+  // The stand-in travels in the same field, so a redacted snapshot has to pass
+  // the same guard the real one does.
+  FACE_DOWN_CARD,
+];
 
 /** Every track name, for the same. */
 export const TRACK_LIST: readonly string[] = [...TRACKS];

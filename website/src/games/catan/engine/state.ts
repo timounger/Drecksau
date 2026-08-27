@@ -21,13 +21,63 @@ import {
   type Tableau,
   type Track,
 } from "./knights";
-import { isPointCard, type Progress } from "./progress";
+import type { FishAction, Ground } from "./fischer";
+import {
+  overrun,
+  prisonerPoints,
+  raiding,
+  type Fort,
+  type RaidCard,
+} from "./barbaren";
+import { goldPoints, type Rivers } from "./fluesse";
+import {
+  findPoints,
+  finding,
+  missionPoints,
+  type Boat,
+  type Camp,
+  type Cargo,
+} from "./entdecker";
+import { islandPoints } from "./seefahrer";
+import {
+  HAUL_POINT_CARDS,
+  haulPoints,
+  hauling,
+  type Depot,
+  type HaulCard,
+  type Ware,
+} from "./handel";
+import { wagonPoints, type Caravan, type Trail, type Vote } from "./karawane";
+import { isPointCard, type HeldCard, type Progress } from "./progress";
 
 /** The five things the island produces. */
 export type Resource = "lehm" | "holz" | "wolle" | "getreide" | "erz";
 
-/** A landscape: one of the five, or the desert, which yields nothing. */
-export type Land = Resource | "wueste";
+/**
+ * A landscape: one of the five, the desert, or the lake.
+ *
+ * @remarks
+ * The lake belongs to *Fischfang auf Catan* and takes the desert's place there.
+ * Like the desert it grows nothing - but unlike it, it is a **fishing area**
+ * and pays fish on any of four numbers, which is why it is a landscape of its
+ * own rather than a desert with a note attached.
+ */
+export type Land =
+  | Resource
+  | "wueste"
+  | "see"
+  | "sumpf"
+  | "wasserstelle"
+  /** The castle knights are trained in. */
+  | "burg"
+  /** One of the three sites of Händler & Barbaren. */
+  | "ziel"
+  /** Open water, in Seefahrer. */
+  | "meer"
+  /** A Goldfluss, which pays a resource of the holder's own choosing. */
+  | "gold"
+  /** Still face down, in Entdecker & Piraten. */
+  | "unbekannt";
 
 /** Cards in hand, counted by sort. */
 export type Hand = Readonly<Record<Resource, number>>;
@@ -49,6 +99,19 @@ export const YIELD: Readonly<Record<Land, Resource | null>> = {
   getreide: "getreide",
   erz: "erz",
   wueste: null,
+  see: null,
+  // The marshes at the two river sources. Like the desert they grow nothing -
+  // and they carry no number chip either, so they never come up at all.
+  sumpf: null,
+  wasserstelle: null,
+  burg: null,
+  ziel: null,
+  meer: null,
+  // A Goldfluss pays a resource, but which one is the holder's choice - so
+  // there is nothing to look up here.
+  gold: null,
+  // Face down: nobody knows yet, and nothing pays out.
+  unbekannt: null,
 };
 
 /** An empty hand. */
@@ -83,6 +146,42 @@ export type Variant = "raeuber" | "ereignisse" | "haefen";
  * or the other for a whole game and there is nothing to combine.
  */
 export type Mode = "klassisch" | "ritter";
+
+/**
+ * Which scenario of *Händler & Barbaren* is on the table.
+ *
+ * @remarks
+ * A third axis beside {@link Mode} and {@link Variant}, and it is the one that
+ * changes the **board**: the fishing scenario replaces the desert with a lake
+ * and lays fishing grounds round the coast. One at a time - each brings its own
+ * material and its own map.
+ */
+export type Scenario =
+  | "keins"
+  | "fischer"
+  | "fluesse"
+  | "karawane"
+  | "barbaren"
+  | "handel"
+  /** *Seefahrer*, free game: an archipelago dealt at random. */
+  | "neuewelt"
+  /** *Entdecker & Piraten*, scenario 1: Land in Sicht. */
+  | "entdecker"
+  /** *Entdecker & Piraten*, scenario 2: Die Piratenlager. */
+  | "piraten";
+
+/** The scenarios, in the order the rulebook teaches them. */
+export const SCENARIOS: readonly Scenario[] = [
+  "keins",
+  "fischer",
+  "fluesse",
+  "karawane",
+  "barbaren",
+  "handel",
+  "neuewelt",
+  "entdecker",
+  "piraten",
+];
 
 /** The two games on offer, printed one first. */
 export const MODES: readonly Mode[] = ["klassisch", "ritter"];
@@ -145,6 +244,16 @@ export type Harbour = {
 export type Town = {
   readonly owner: number;
   readonly city: boolean;
+  /**
+   * *Entdecker & Piraten*: whether this is a Hafensiedlung.
+   *
+   * @remarks
+   * Its own flag rather than a third value of {@link Town.city}, because it is
+   * a different thing: a city doubles the yield, a Hafensiedlung does not -
+   * "für eine Hafensiedlung gibt es weiterhin nur 1 Rohstoff" - and it is worth
+   * two points where a city is worth two for a different reason.
+   */
+  readonly port?: boolean;
 };
 
 /** What one player owns and holds. */
@@ -227,8 +336,15 @@ export type CatanPlayer = {
   readonly tableau: Tableau;
   /** City walls standing, at most {@link MAX_WALLS}. */
   readonly walls: number;
-  /** Fortschrittskarten held face down, plus the face-up victory points. */
-  readonly progress: readonly Progress[];
+  /**
+   * Fortschrittskarten held face down, plus the face-up victory points.
+   *
+   * @remarks
+   * {@link HeldCard} rather than {@link Progress}: over the wire the cards of
+   * everybody but their owner are backs, and a back is not a card. The referee
+   * only ever works from the host's unredacted state, so it never meets one.
+   */
+  readonly progress: readonly HeldCard[];
   /**
    * Siegpunkt-Chips won by leading the defence against the barbarians.
    *
@@ -239,6 +355,62 @@ export type CatanPlayer = {
    * be written.
    */
   readonly victoryChips: number;
+  /**
+   * *Die Flüsse von Catan*: gold coins.
+   *
+   * @remarks
+   * Not a resource - "Gold zählt nicht als Rohstoff. Es darf daher beim
+   * Versetzen des Räubers nicht gestohlen werden." It is traded, spent two at a
+   * time for a resource from the bank, and it decides the two tiles.
+   */
+  readonly gold: number;
+  /** Bridges still in the box - three for the whole game. */
+  readonly bridgesLeft: number;
+  /**
+   * *Der Barbarenüberfall*: barbarians this seat has taken prisoner.
+   *
+   * @remarks
+   * "Jeweils 2 Gefangene zählen 1 Siegpunkt." Kept as a count rather than as
+   * pieces, because that is all the rulebook ever asks of them.
+   */
+  readonly prisoners: number;
+  /** *Händler & Barbaren*: where the Trosswagen stands, as a crossing. */
+  readonly wagon: number | null;
+  /** Which step of the Wagen-Tableau, counted from zero. */
+  readonly level: number;
+  /** The load on board, if there is one. */
+  readonly ware: Ware | null;
+  /** How many loads have been delivered - each is a victory point. */
+  readonly delivered: number;
+  /** Movement points left in the drive that is running. */
+  readonly moves: number;
+  /** Whether the Getreide has already been spent on this drive. */
+  readonly boosted: boolean;
+  /** This scenario's cards, which are held rather than played at once. */
+  readonly haul: readonly HaulCard[];
+  /** *Seefahrer*: ships still in the box. */
+  readonly shipsLeft: number;
+  /** The islands this seat founded on, which are never foreign to them. */
+  readonly homeIslands: readonly number[];
+  /** Siegpunkt-Chips for first settlements on foreign islands. */
+  readonly islandChips: number;
+  /** *Entdecker & Piraten*: ships still in the box. */
+  readonly boatsLeft: number;
+  /** Explorers still in the box. */
+  readonly scoutsLeft: number;
+  /** Harbour settlements still in the box. */
+  readonly portsLeft: number;
+  /** *Die Piratenlager*: units still in the box. */
+  readonly unitsLeft: number;
+  /**
+   * *Fischfang auf Catan*: the fish tiles in front of this player.
+   *
+   * @remarks
+   * Each entry is the number of fish on a tile. Face down at a table - "Fisch-
+   * plättchen legst du immer verdeckt vor dir ab" - and not resources: they do
+   * not count towards a seven and cannot be stolen or traded.
+   */
+  readonly fish: readonly number[];
 };
 
 /** An offer on the table during the trading phase. */
@@ -256,8 +428,15 @@ export type Founding = {
   /** Every seat in turn: once clockwise, then once back again. */
   readonly order: readonly number[];
   readonly step: number;
-  /** A settlement first, then the road beside it. */
-  readonly placing: "town" | "road";
+  /**
+   * A settlement first, then the road beside it.
+   *
+   * @remarks
+   * *Entdecker & Piraten* adds a third: the founding settlement is followed by
+   * a road **and** an Entdeckerschiff - "legt als Erstes eine Straße an ihre
+   * Siedlung an und setzt dann ein Entdeckerschiff ... ein".
+   */
+  readonly placing: "town" | "road" | "boat";
   /** The crossing just built on, which the road has to touch. */
   readonly lastTown: number | null;
 };
@@ -306,7 +485,125 @@ export type Phase =
   | "displaced"
   /** *Städte & Ritter*: a Fortschrittskarte is waiting for its choice. */
   | "progress"
+  /**
+   * *Der Handelstross*: the table is deciding where the next wagon goes.
+   *
+   * @remarks
+   * Its own phase because it happens **between** two turns and asks everybody,
+   * not just whoever is active: "beginnend mit der Person, die gerade an der
+   * Reihe war ..., dürfen alle nacheinander im Uhrzeigersinn offen eine oder
+   * mehrere Wolle- oder Getreidekarten auslegen". {@link CatanGame.vote} says
+   * how far the round has got.
+   */
+  | "vote"
+  /**
+   * *Der Barbarenüberfall*: a knight bought this turn is waiting for its path.
+   *
+   * @remarks
+   * "Kaufst du eine Entwicklungskarte, musst du sie sofort aufdecken und die
+   * Anweisungen der Karte ausführen" - so the card is not held, it is answered,
+   * and Ritterweihe and Starker Ritter both ask where.
+   */
+  | "posting"
+  /** *Der Barbarenüberfall*: Verrat or Gefangen is moving barbarians. */
+  | "barbarians"
+  /**
+   * *Der Barbarenüberfall*: the knights ride, at the end of the turn.
+   *
+   * @remarks
+   * "Am Ende deines Zuges, also nach der Handels- und Bauphase, darfst du jeden
+   * deiner Ritter bis zu 3 Wege weit bewegen." After the building, so it is a
+   * phase of its own rather than another thing the trade phase allows.
+   */
+  | "knights"
+  /**
+   * *Händler & Barbaren*: the Trosswagen drives.
+   *
+   * @remarks
+   * "Am Ende deines Zuges, also nach deiner Handels- und Bauphase, darfst du
+   * deinen Trosswagen bewegen." Its own phase, because it is a run of decisions
+   * - one step at a time, each with its own price - and not one move.
+   */
+  | "driving"
+  /** *Händler & Barbaren*: a barbarian has to be put somewhere. */
+  | "shifting"
+  /**
+   * *Seefahrer*: the Seeräuber is waiting for a sea field.
+   *
+   * @remarks
+   * Its own phase because a seven offers a **choice** here: "würfelst du eine
+   * '7', kannst du wählen, ob du entweder den Seeräuber versetzen willst oder
+   * den Räuber."
+   */
+  | "pirate"
+  /**
+   * *Entdecker & Piraten*: the ships sail, at the end of the turn.
+   *
+   * @remarks
+   * "Hast du deine Handels- und Bauphase abgeschlossen, beginnt deine
+   * Bewegungsphase ... Handeln und Bauen ist während oder nach dieser Phase
+   * nicht erlaubt." A phase of its own, and a one-way door.
+   */
+  | "sailing"
+  /**
+   * *Die Piratenlager*: a pirate ship has been driven off and yours goes down.
+   *
+   * @remarks
+   * "Anschliessend setzt du dein eigenes Piratenschiff auf einem beliebigen
+   * erlaubten Meerfeld ein. Jetzt ziehst du noch einen Rohstoff." Its own phase
+   * because it interrupts the movement, and the drive-off is what earned it.
+   */
+  | "corsair"
+  /**
+   * *Seefahrer*: a Goldfluss has paid and everybody owed picks their sort.
+   *
+   * @remarks
+   * "Die Rohstoffart dürfen sich alle selbst aussuchen" - so a gold river is a
+   * queue of choices, one per seat with a building at it, exactly the way an
+   * event card is answered.
+   */
+  | "goldPick"
   | "gameOver";
+
+/**
+ * Every phase there is.
+ *
+ * @remarks
+ * Written as a record rather than a list, because a record of `Phase` is
+ * **exhaustive**: a new phase that is not named here is a compile error. A
+ * plain list is not, and that is exactly how the reader of a saved game came to
+ * be missing eight of them at once - a session saved in any of those was
+ * silently thrown away. See {@link isCatanGame}.
+ */
+const PHASE_SET: Readonly<Record<Phase, true>> = {
+  founding: true,
+  roll: true,
+  discard: true,
+  robber: true,
+  steal: true,
+  trade: true,
+  monopol: true,
+  erfindung: true,
+  event: true,
+  neutral: true,
+  swap: true,
+  displaced: true,
+  progress: true,
+  vote: true,
+  posting: true,
+  barbarians: true,
+  knights: true,
+  driving: true,
+  shifting: true,
+  pirate: true,
+  sailing: true,
+  corsair: true,
+  goldPick: true,
+  gameOver: true,
+};
+
+/** The names of every phase, for anything that has to check one. */
+export const PHASES: readonly Phase[] = Object.keys(PHASE_SET) as Phase[];
 
 /** A whole game. */
 export type CatanGame = {
@@ -422,6 +719,154 @@ export type CatanGame = {
   readonly variants: readonly Variant[];
   /** Which game this is - see {@link Mode}. */
   readonly mode: Mode;
+  /** Which scenario, if any - see {@link Scenario}. */
+  readonly scenario: Scenario;
+  /**
+   * *Fischfang auf Catan*: the six fishing grounds round the coast.
+   *
+   * @remarks
+   * Worked out once when the board is laid and carried with it, because they
+   * are part of the map rather than of the rules - the same reason the harbours
+   * are stored rather than recomputed.
+   */
+  readonly grounds: readonly Ground[];
+  /**
+   * *Fischfang auf Catan*: the face-down fish tiles still to be drawn.
+   *
+   * @remarks
+   * Each entry is the number of fish on a tile; {@link OLD_SHOE} is the Alter
+   * Schuh. "Gibt es keine verdeckten Fischplättchen mehr, dreht ihr die offen
+   * liegenden Plättchen um, mischt sie und bildet damit den neuen Vorrat" - so
+   * the spent pile is kept and shuffled back rather than lost.
+   */
+  readonly fishPile: readonly number[];
+  readonly fishSpent: readonly number[];
+  /** Who holds the Alter Schuh, and so needs a point more to win. */
+  readonly shoe: number | null;
+  /** *Die Flüsse von Catan*: where the water runs and what it touches. */
+  readonly rivers: Rivers;
+  /** The bridges built, by path, or null where there is none. */
+  readonly bridges: readonly (number | null)[];
+  /** Who holds *Reichster Cataner*, or null while nobody leads alone. */
+  readonly richest: number | null;
+  /** Everybody holding *Armer Cataner* - possibly all of them. */
+  readonly poorest: readonly number[];
+  /** How many resources this turn has already been bought with gold. */
+  readonly goldBuys: number;
+  /** *Der Handelstross*: the watering hole and the three arrows. */
+  readonly trail: Trail;
+  /** The wagons on the board, by path: which caravan, or null. */
+  readonly wagons: readonly (number | null)[];
+  /** The three caravans, each with its head and its wagons. */
+  readonly caravans: readonly Caravan[];
+  /** Wagons still in the supply. */
+  readonly wagonsLeft: number;
+  /** The voting round on the table, or null. */
+  readonly vote: Vote | null;
+  /**
+   * Whether the active seat has built a settlement or a city this turn.
+   *
+   * @remarks
+   * "Baust du in deinem Zug eine oder mehrere Siedlungen oder baust eine oder
+   * mehrere Siedlungen zu einer Stadt aus, wird nach Beendigung deines Zuges
+   * genau 1 Trosswagen eingesetzt." One wagon however much was built, so this
+   * is a flag and not a count.
+   */
+  readonly built: boolean;
+  /** *Der Barbarenüberfall*: the castle, the desert and the coast. */
+  readonly fort: Fort;
+  /** How many barbarians stand on each landscape. */
+  readonly barbarians: readonly number[];
+  /** Barbarians still beside the board. */
+  readonly barbariansLeft: number;
+  /** The knights on the paths: the seat that owns one, or null. */
+  readonly guards: readonly (number | null)[];
+  /** The knights that have already ridden this turn, by path. */
+  readonly ridden: readonly number[];
+  /** This scenario's own development deck, top card first. */
+  readonly raidDeck: readonly RaidCard[];
+  /** The cards already played, which are shuffled back when the deck runs out. */
+  readonly raidUsed: readonly RaidCard[];
+  /** The card being answered, if one is. */
+  readonly raidCard: RaidCard | null;
+  /** Where a knight bought this turn may go. */
+  readonly posting: "castle" | "any" | null;
+  /** How many barbarians a card still has to take, and then to put down. */
+  readonly barbTake: number;
+  readonly barbPut: number;
+  /** Which orientation the colour die last cost everybody a knight on. */
+  readonly lastLie: number | null;
+  /** *Händler & Barbaren*: the three sites and their stacks. */
+  readonly depots: readonly Depot[];
+  /** The barbarians left over, by path. */
+  readonly raiders: readonly boolean[];
+  /** This scenario's own development deck, top card first. */
+  readonly haulDeck: readonly HaulCard[];
+  /** The cards played, shuffled back when the deck runs out. */
+  readonly haulUsed: readonly HaulCard[];
+  /**
+   * Whether a barbarian being shifted may take a card with it.
+   *
+   * @remarks
+   * A seven and the Ritter card both shift one and both draw; driving one off
+   * with the wagon shifts one and explicitly does **not** - "darfst du, im
+   * Gegensatz zum Fall einer gewürfelten '7', keine Rohstoffkarte ziehen".
+   */
+  readonly shiftDraws: boolean;
+  /** Whether the acting seat still owes a second drive from Gute Reise. */
+  readonly secondDrive: boolean;
+  /** *Seefahrer*: the ships on the board, by path, or null. */
+  readonly ships: readonly (number | null)[];
+  /** The ships built this turn, which may not be moved again in it. */
+  readonly freshShips: readonly number[];
+  /** Whether a ship has already been moved this turn. */
+  readonly shipMoved: boolean;
+  /** Which sea field the Seeräuber sits on, or -1. */
+  readonly pirate: number;
+  /** How many free resources each seat still has to pick from a Goldfluss. */
+  readonly goldOwed: readonly number[];
+  /** *Entdecker & Piraten*: the ships on the water. */
+  readonly boats: readonly Boat[];
+  /** What lies under each face-down field, and the chip that comes with it. */
+  readonly hidden: readonly Land[];
+  readonly hiddenChips: readonly number[];
+  /** The ship whose journey is running, by its place in {@link CatanGame.boats}. */
+  readonly sailing: number | null;
+  /** *Die Piratenlager*: the camps, by the field they sit on. */
+  readonly camps: Readonly<Record<number, Camp>>;
+  /**
+   * The one pirate ship on the board, and whose it is.
+   *
+   * @remarks
+   * "Es befindet sich somit immer nur ein Piratenschiff auf dem Spielfeld" -
+   * placing yours takes the other one off, so there is never a list of them.
+   */
+  readonly pirateShip: { readonly owner: number; readonly hex: number } | null;
+  /** The ships that have paid the pirate their tribute this turn. */
+  readonly tributes: readonly number[];
+  /** The ships that have already tried to drive the pirate off this turn. */
+  readonly chased: readonly number[];
+  /** How far along the mission track each seat has come. */
+  readonly mission: readonly number[];
+  /**
+   * What is waiting in each Hafensiedlung's basin, by crossing.
+   *
+   * @remarks
+   * On the board and not with the player, because that is where it stands: "eine
+   * Hafensiedlung besitzt ein Hafenbecken, in das 2 kleine Spielfiguren oder 1
+   * große hineinpassen", and a ship pointing at it can load from it.
+   */
+  readonly docks: Readonly<Record<number, readonly Cargo[]>>;
+  /**
+   * The paths already rolled against in the drive that is running.
+   *
+   * @remarks
+   * "Würfelst du eine andere Zahl, hast du den Barbaren nicht vertrieben und
+   * musst entweder auf der Kreuzung stehen bleiben oder in eine andere Richtung
+   * weiterziehen." One try, so a failed roll has to be remembered - otherwise
+   * the try is free and repeats until it works.
+   */
+  readonly shoved: readonly number[];
   /**
    * *Städte & Ritter*: the knights standing on the 54 crossings.
    *
@@ -432,8 +877,15 @@ export type CatanGame = {
    * share a crossing, which the referee checks in both directions.
    */
   readonly garrison: readonly (Knight | null)[];
-  /** The three Fortschrittskarten piles, top card first. */
-  readonly decks: Readonly<Record<Track, readonly Progress[]>>;
+  /**
+   * The three Fortschrittskarten piles, top card first.
+   *
+   * @remarks
+   * {@link HeldCard} for the same reason the players' cards are: what is still
+   * in a pile is nobody's business, so over the wire the piles are backs. Only
+   * the host draws from them, and it draws from the real ones.
+   */
+  readonly decks: Readonly<Record<Track, readonly HeldCard[]>>;
   /** How far the barbarian ship has sailed, 0 to {@link BARBARIAN_STEPS}. */
   readonly barbarian: number;
   /**
@@ -696,7 +1148,13 @@ export function hiddenPoints(player: CatanPlayer): number {
   // because this is where "a card that is a point" is counted, and openPoints
   // subtracts the whole of it. Laying them face up is a thing the screen does.
   const cards = player.progress.filter(isPointCard).length;
-  return dev + cards;
+  // The three of Händler & Barbaren are the same thing again: "decke diese
+  // Karte erst auf, wenn du mit ihr die zum Sieg erforderliche Anzahl
+  // Siegpunkte besitzt."
+  const hauled = player.haul.filter((card) =>
+    HAUL_POINT_CARDS.includes(card),
+  ).length;
+  return dev + cards + hauled;
 }
 
 /**
@@ -708,21 +1166,52 @@ export function hiddenPoints(player: CatanPlayer): number {
  * anything shown to the other players has to leave {@link hiddenPoints} out.
  */
 export function pointsOf(game: CatanGame, seat: number): number {
-  const built = game.towns.reduce(
-    (sum, town) =>
-      town !== null && town.owner === seat ? sum + (town.city ? 2 : 1) : sum,
-    0,
-  );
+  const built = finding(game)
+    ? // Entdecker & Piraten counts its own buildings - see findPoints - and a
+      // Hafensiedlung is worth two where a city is worth two for another
+      // reason. Counting both would count every building twice.
+      0
+    : game.towns.reduce(
+        (sum, town, at) =>
+          // "Gilt sie als erobert und zählt keinen Siegpunkt mehr."
+          town !== null && town.owner === seat && !overrun(game, at)
+            ? sum + (town.city ? 2 : 1)
+            : sum,
+        0,
+      );
   const tiles =
-    (game.longest === seat ? TILE_POINTS : 0) +
+    // "Den Räuber und die Längste Handelsroute gibt es in diesem Szenario
+    // nicht."
+    (game.longest === seat && !hauling(game) ? TILE_POINTS : 0) +
     // The Größte Rittermacht is not in a game of Städte & Ritter at all -
     // "die Sondersiegpunkttafel Größte Rittermacht lasst ihr in der Schachtel".
-    (!playingRitter(game) && game.army === seat ? TILE_POINTS : 0) +
+    // "Den Räuber und die Sondersiegpunkttafel Größte Rittermacht benötigt ihr
+    // nicht" - the barbarian scenario leaves it in the box too.
+    (!playingRitter(game) && !raiding(game) && game.army === seat
+      ? TILE_POINTS
+      : 0) +
     // Stärkste Häfen, when Die Häfen von Catan is switched on. Held at null
     // otherwise, so this costs nothing in a printed game.
     (game.harbourTile === seat ? TILE_POINTS : 0);
   return (
-    built + tiles + ritterPoints(game, seat) + hiddenPoints(game.players[seat])
+    built +
+    tiles +
+    ritterPoints(game, seat) +
+    // Reichster Cataner is one up, Armer Cataner two down.
+    goldPoints(game, seat) +
+    // One up for every settlement or city a caravan runs through.
+    wagonPoints(game, seat) +
+    // One up for every two barbarians taken prisoner.
+    prisonerPoints(game, seat) +
+    // One up for every delivered load, and one for the finished tableau.
+    haulPoints(game, seat) +
+    // One up for every foreign island settled first.
+    islandPoints(game, seat) +
+    // Entdecker & Piraten counts its own buildings: a Hafensiedlung is two.
+    findPoints(game, seat) +
+    // And the mission track, with its own victory point tile on top.
+    missionPoints(game, seat) +
+    hiddenPoints(game.players[seat])
   );
 }
 
@@ -849,6 +1338,27 @@ export type CatanMove =
   | { readonly kind: "march"; readonly from: number; readonly to: number }
   /** *Städte & Ritter*: chase the robber off with a knight. */
   | { readonly kind: "chase"; readonly at: number }
+  /**
+   * *Fischfang auf Catan*: hand fish tiles in for one of the five actions.
+   *
+   * @remarks
+   * `tiles` names them by their place in the hand rather than by value,
+   * because a hand of three ones and the intent to spend two of them cannot be
+   * said any other way.
+   */
+  | {
+      readonly kind: "fish";
+      readonly action: FishAction;
+      readonly tiles: readonly number[];
+    }
+  /** *Fischfang auf Catan*: pass the Alter Schuh to somebody not behind you. */
+  | { readonly kind: "shoe"; readonly seat: number }
+  /** *Die Flüsse von Catan*: build a bridge on one of the seven sites. */
+  | { readonly kind: "bridge"; readonly at: number }
+  /** *Die Flüsse von Catan*: two gold for a resource, twice a turn. */
+  | { readonly kind: "goldBuy"; readonly sort: Resource }
+  /** *Die Flüsse von Catan*: resources to the bank for one gold. */
+  | { readonly kind: "goldSell"; readonly sort: Resource }
   /** *Städte & Ritter*: play a Fortschrittskarte. */
   | { readonly kind: "progress"; readonly card: Progress }
   /**
@@ -873,6 +1383,80 @@ export type CatanMove =
       readonly goods?: Goods;
       readonly card?: Progress;
     }
+  /**
+   * *Der Handelstross*: laying wool and grain down as votes.
+   *
+   * @remarks
+   * An empty hand is a pass, which the rulebook allows and the voting round
+   * needs: "nur die Personen, die mindestens eine Karte ausgelegt haben,
+   * verhandeln untereinander".
+   */
+  | { readonly kind: "lay"; readonly cards: Hand }
+  /** *Der Handelstross*: putting all of one's votes on one position. */
+  | { readonly kind: "vote"; readonly at: number }
+  /** *Der Handelstross*: placing the wagon the table has decided on. */
+  | { readonly kind: "wagon"; readonly at: number }
+  /** *Der Barbarenüberfall*: where the knight a card just bought goes. */
+  | { readonly kind: "post"; readonly at: number }
+  /** *Der Barbarenüberfall*: which field a card takes a barbarian from or to. */
+  | { readonly kind: "barb"; readonly at: number }
+  /**
+   * *Der Barbarenüberfall*: one knight rides.
+   *
+   * @remarks
+   * `far` is the Getreide: "zahlst du 1 Getreide, darfst du 1 Ritter 2 Wege
+   * weiter ziehen", and it is paid per knight, so it rides with the move.
+   */
+  | {
+      readonly kind: "ride";
+      readonly from: number;
+      readonly to: number;
+      readonly far?: boolean;
+    }
+  /** *Die Piratenlager*: build a unit in a harbour basin or a waiting ship. */
+  | { readonly kind: "unit"; readonly at: number }
+  /** *Die Piratenlager*: set the ship's units down on a camp. */
+  | { readonly kind: "storm"; readonly at: number }
+  /** *Die Piratenlager*: roll one ship against the pirate ship. */
+  | { readonly kind: "hunt"; readonly boat: number }
+  /** *Die Piratenlager*: put one's own pirate ship on a sea field. */
+  | { readonly kind: "corsair"; readonly at: number }
+  /** *Entdecker & Piraten*: build a ship beside a harbour settlement. */
+  | { readonly kind: "boat"; readonly at: number }
+  /** *Entdecker & Piraten*: put an explorer into a harbour or a ship. */
+  | { readonly kind: "scout"; readonly at: number }
+  /** *Entdecker & Piraten*: grow a settlement into a harbour settlement. */
+  | { readonly kind: "port"; readonly at: number }
+  /** *Entdecker & Piraten*: pick the ship whose journey comes next. */
+  | { readonly kind: "helm"; readonly boat: number }
+  /** *Entdecker & Piraten*: sail the picked ship one sea path further. */
+  | { readonly kind: "sail2"; readonly at: number }
+  /** *Entdecker & Piraten*: one Wolle for two more movement points. */
+  | { readonly kind: "wind" }
+  /** *Entdecker & Piraten*: take an explorer aboard, or set one down. */
+  | { readonly kind: "load"; readonly at: number }
+  /** *Entdecker & Piraten*: found a settlement from an explorer ship. */
+  | { readonly kind: "landfall"; readonly at: number }
+  /** *Seefahrer*: build a ship on a water path. */
+  | { readonly kind: "ship"; readonly at: number }
+  /** *Seefahrer*: pick a front ship up and put it down again. */
+  | { readonly kind: "sail"; readonly from: number; readonly to: number }
+  /** *Seefahrer*: send the Seeräuber to a sea field. */
+  | { readonly kind: "pirate"; readonly at: number }
+  /** *Seefahrer*: which resource a Goldfluss pays this seat. */
+  | { readonly kind: "gold"; readonly sort: Resource }
+  /** *Händler & Barbaren*: the Trosswagen drives to a neighbouring crossing. */
+  | { readonly kind: "drive"; readonly at: number }
+  /** *Händler & Barbaren*: one Getreide for two more movement points. */
+  | { readonly kind: "boost" }
+  /** *Händler & Barbaren*: roll against the barbarian on this path. */
+  | { readonly kind: "shove"; readonly at: number }
+  /** *Händler & Barbaren*: put the lifted barbarian on this path. */
+  | { readonly kind: "shift"; readonly at: number }
+  /** *Händler & Barbaren*: take the next step of the Wagen-Tableau. */
+  | { readonly kind: "tableau" }
+  /** *Händler & Barbaren*: play one of the held cards. */
+  | { readonly kind: "haulCard"; readonly card: HaulCard }
   /** *CATAN für Zwei*: the two cards going back after a Zwangshandel. */
   | { readonly kind: "giveBack"; readonly cards: Hand }
   | { readonly kind: "endTurn" };

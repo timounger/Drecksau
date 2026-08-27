@@ -33,6 +33,7 @@ import {
   PROGRESS_NAMES,
   PROGRESS_TEXTS,
   isPointCard,
+  isRealCard,
   type Progress,
 } from "@/games/catan/engine/progress";
 import {
@@ -69,6 +70,7 @@ import {
   type Hand,
   type Resource,
 } from "@/games/catan/engine/state";
+import { chasers, movesLeft } from "@/games/catan/engine/entdecker";
 import { CATAN_TEXTS as T, SORT_NAMES } from "@/games/catan/i18n/texts";
 
 /** A button in the bar. */
@@ -675,19 +677,34 @@ function CardAsking({
       )}
       {card === "spionage" && (
         <span className="flex flex-wrap gap-1.5">
+          {/* Online these are backs, and a back cannot be picked: the card
+              lets you *look* at somebody's hand, and looking needs the real
+              cards to travel to you. Until the online layer can deliver a peek,
+              Spionage is a card that only fully works at a solo table - which
+              this says out loud rather than offering choices that are not
+              really there. */}
           {others.flatMap((at) =>
             game.players[at].progress
               .filter((each) => !isPointCard(each))
-              .map((each, index) => (
-                <Button
-                  key={`${at}-${each}-${index}`}
-                  label={`${game.players[at].name}: ${PROGRESS_NAMES[each]}`}
-                  testId={`ct-ask-spy-${at}`}
-                  onClick={() =>
-                    onMove({ kind: "answerCard", seat: at, card: each })
-                  }
-                />
-              )),
+              .map((each, index) =>
+                isRealCard(each) ? (
+                  <Button
+                    key={`${at}-${each}-${index}`}
+                    label={`${game.players[at].name}: ${PROGRESS_NAMES[each]}`}
+                    testId={`ct-ask-spy-${at}`}
+                    onClick={() =>
+                      onMove({ kind: "answerCard", seat: at, card: each })
+                    }
+                  />
+                ) : (
+                  <span
+                    key={`${at}-back-${index}`}
+                    className="rounded-lg border border-dashed border-zinc-400 px-2 py-1 text-xs opacity-60 dark:border-zinc-600"
+                  >
+                    {game.players[at].name}: {T.faceDownCard}
+                  </span>
+                ),
+              ),
           )}
         </span>
       )}
@@ -758,6 +775,7 @@ export function CatanActions({
   onNeutralColour,
   marching = null,
   onMarch,
+  riding = null,
 }: {
   readonly game: CatanGame;
   readonly mySeat: number;
@@ -767,6 +785,8 @@ export function CatanActions({
   readonly onNeutralColour?: (seat: number) => void;
   /** *Städte & Ritter*: the crossing of the knight picked to be marched. */
   readonly marching?: number | null;
+  /** *Der Barbarenüberfall*: the knight picked to ride, if one is. */
+  readonly riding?: number | null;
   readonly onMarch?: (at: number | null) => void;
 }): ReactElement | null {
   const turn = seatOnTurn(game);
@@ -783,6 +803,15 @@ export function CatanActions({
     game.phase !== "neutral" &&
     game.phase !== "swap" &&
     game.phase !== "displaced" &&
+    game.phase !== "posting" &&
+    game.phase !== "barbarians" &&
+    game.phase !== "knights" &&
+    game.phase !== "driving" &&
+    game.phase !== "shifting" &&
+    game.phase !== "sailing" &&
+    game.phase !== "corsair" &&
+    game.phase !== "pirate" &&
+    game.phase !== "goldPick" &&
     game.phase !== "progress";
 
   return empty ? null : (
@@ -836,6 +865,113 @@ export function CatanActions({
           <span className="text-sm font-semibold" data-testid="ct-hint">
             {T.retreatHint}
           </span>
+        )}
+        {game.phase === "corsair" && mine && (
+          <span className="text-sm font-semibold" data-testid="ct-hint">
+            {T.corsairHint}
+          </span>
+        )}
+        {game.phase === "sailing" &&
+          mine &&
+          chasers(game, mySeat).map((which) => (
+            <Button
+              key={`hunt-${which}`}
+              label={T.huntPirate}
+              testId={`ct-hunt-${which}`}
+              onClick={() => onMove({ kind: "hunt", boat: which })}
+            />
+          ))}
+        {game.phase === "sailing" && mine && (
+          <>
+            <span className="text-sm font-semibold" data-testid="ct-hint">
+              {game.sailing === null
+                ? T.findHelm
+                : T.findSail(movesLeft(game.boats[game.sailing]))}
+            </span>
+            {game.sailing !== null && (
+              <Button
+                label={T.findWind}
+                testId="ct-wind"
+                off={
+                  game.boats[game.sailing].boosted ||
+                  game.players[mySeat].hand.wolle === 0
+                }
+                onClick={() => onMove({ kind: "wind" })}
+              />
+            )}
+            <Button
+              label={T.endTurn}
+              strong
+              testId="ct-end"
+              onClick={() => onMove({ kind: "endTurn" })}
+            />
+          </>
+        )}
+        {game.phase === "pirate" && mine && (
+          <span className="text-sm font-semibold" data-testid="ct-hint">
+            {T.pirateHint}
+          </span>
+        )}
+        {game.phase === "goldPick" && mine && (
+          <div
+            className="flex flex-wrap items-center gap-2"
+            data-testid="ct-gold-pick"
+          >
+            <span className="text-sm font-semibold" data-testid="ct-hint">
+              {T.goldPickHint}
+            </span>
+            {RESOURCES.map((sort: Resource) => (
+              <Button
+                key={sort}
+                label={SORT_NAMES[sort]}
+                testId={`ct-goldsort-${sort}`}
+                onClick={() => onMove({ kind: "gold", sort })}
+              />
+            ))}
+          </div>
+        )}
+        {game.phase === "driving" && mine && (
+          <>
+            <span className="text-sm font-semibold" data-testid="ct-hint">
+              {T.driveHint}
+            </span>
+            <Button
+              label={T.endTurn}
+              strong
+              testId="ct-end"
+              onClick={() => onMove({ kind: "endTurn" })}
+            />
+          </>
+        )}
+        {game.phase === "shifting" && mine && (
+          <span className="text-sm font-semibold" data-testid="ct-hint">
+            {T.shiftHint}
+          </span>
+        )}
+        {game.phase === "posting" && mine && (
+          <span className="text-sm font-semibold" data-testid="ct-hint">
+            {game.posting === "castle" ? T.postCastle : T.postAnywhere}
+          </span>
+        )}
+        {game.phase === "barbarians" && mine && (
+          <span className="text-sm font-semibold" data-testid="ct-hint">
+            {game.barbTake > 0
+              ? T.barbTake(game.barbTake)
+              : T.barbPut(game.barbPut)}
+          </span>
+        )}
+        {game.phase === "knights" && mine && (
+          <>
+            <span className="text-sm font-semibold" data-testid="ct-hint">
+              {riding === null ? T.rideHint : T.rideTo}
+            </span>
+            <Button
+              label={T.endTurn}
+              strong
+              testId="ct-end"
+              onClick={() => onMove({ kind: "endTurn" })}
+            />
+          </>
         )}
         {game.phase === "trade" && mine && (
           <>

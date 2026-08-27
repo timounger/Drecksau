@@ -63,6 +63,14 @@ export type OnlineRoom<G, M, O> = {
   readonly error: string | null;
   /** Host only: deal the cards and begin. */
   readonly start: (choices: StartChoices<O>) => void;
+  /**
+   * Host only: say in one line what the table is set up to play.
+   *
+   * @remarks
+   * Published into the lobby so the guests can read it before the game starts.
+   * Does nothing for a guest, and nothing once the game is running.
+   */
+  readonly setNotice: (notice: string) => void;
   /** Host only: send a finished game back to the lobby for a rematch. */
   readonly newRound: () => void;
   /** Play a move - applied directly by the host, sent as an intent by a guest. */
@@ -94,6 +102,7 @@ const MAX_CHAT_MESSAGES = 100;
 /** The actions the async setup wires up, reached through a ref to stay fresh. */
 type RoomActions<M, O> = {
   start: (choices: StartChoices<O>) => void;
+  setNotice: (notice: string) => void;
   newRound: () => void;
   sendMove: (move: M) => void;
   sendChat: (text: string) => void;
@@ -172,6 +181,10 @@ export function useOnlineRoom<G, M, H, O>(
     actionsRef.current?.start(choices);
   }, []);
 
+  const setNotice = useCallback((notice: string) => {
+    actionsRef.current?.setNotice(notice);
+  }, []);
+
   const newRound = useCallback(() => {
     actionsRef.current?.newRound();
   }, []);
@@ -191,6 +204,7 @@ export function useOnlineRoom<G, M, H, O>(
     room,
     error,
     start,
+    setNotice,
     newRound,
     sendMove,
     messages,
@@ -420,6 +434,14 @@ async function installHost<G, M, H, O>(
         );
       }
     },
+    setNotice: (notice) => {
+      // Only while the lobby is open, and only when it actually changes -
+      // otherwise every render of the host's settings would publish the room
+      // again.
+      if (authoritative.phase === "lobby" && authoritative.notice !== notice) {
+        commit({ ...authoritative, notice });
+      }
+    },
     newRound: () => {
       if (authoritative.phase !== "lobby") {
         commit(returnToLobby(authoritative));
@@ -518,6 +540,9 @@ async function runGuest<G, M, H, O>(
   sinks.actionsRef.current = {
     start: () => {
       // Only the host may start; ignore if a guest's UI ever calls this.
+    },
+    setNotice: () => {
+      // The lobby line is the host's to write; a guest only reads it.
     },
     newRound: () => {
       // Only the host may open a rematch; a guest's UI never offers it.

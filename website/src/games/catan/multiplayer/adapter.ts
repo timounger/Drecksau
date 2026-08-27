@@ -38,7 +38,11 @@ import {
   type CatanSeat,
 } from "@/games/catan/engine/setup";
 import { NO_GOODS, type Goods } from "@/games/catan/engine/knights";
-import { isPointCard, type Progress } from "@/games/catan/engine/progress";
+import {
+  FACE_DOWN_CARD,
+  isPointCard,
+  type HeldCard,
+} from "@/games/catan/engine/progress";
 import {
   NO_CARDS,
   RESOURCES,
@@ -47,6 +51,7 @@ import {
   type DevKind,
   type Hand,
   type Mode,
+  type Scenario,
   type Variant,
 } from "@/games/catan/engine/state";
 import type { OnlineAdapter, SeatSetup } from "@/online/adapter";
@@ -65,16 +70,6 @@ export const CATAN_GAME_ID = "catan";
  */
 const FACE_DOWN: DevKind = "ritter";
 
-/**
- * What a Fortschrittskarte looks like from the other side of the table.
- *
- * @remarks
- * A real card rather than a ninth invented one, for the same reason as
- * {@link FACE_DOWN}: nothing downstream has to know about a card that is not in
- * the box. Nothing ever reads it - a redacted card is only ever counted.
- */
-const FACE_DOWN_CARD: Progress = "bergbau";
-
 /** What the host chose before dealing. */
 export type CatanOptions = {
   /** Siegpunkte needed to win; the printed game asks ten. */
@@ -83,6 +78,8 @@ export type CatanOptions = {
   readonly variants?: readonly Variant[];
   /** Which game the host chose - the printed one, or Städte & Ritter. */
   readonly mode?: Mode;
+  /** Which scenario of *Händler & Barbaren*, if any. */
+  readonly scenario?: Scenario;
 };
 
 /** What travels off the public snapshot. */
@@ -93,7 +90,7 @@ export type CatanHand = {
   readonly fresh?: readonly DevKind[];
   /** *Städte & Ritter*: the Handelswaren and Fortschrittskarten of one seat. */
   readonly goods?: Goods;
-  readonly progress?: readonly Progress[];
+  readonly progress?: readonly HeldCard[];
   /** The undrawn development cards - the host's vault. */
   readonly vault?: {
     readonly stack: readonly DevKind[];
@@ -122,6 +119,7 @@ export const catanAdapter: OnlineAdapter<
       options?.target,
       options?.variants ?? [],
       options?.mode ?? "klassisch",
+      options?.scenario ?? "keins",
     );
   },
 

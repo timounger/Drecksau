@@ -21,8 +21,15 @@ import {
   CatanHand,
   CatanStandings,
 } from "@/games/catan/components/catan-panels";
+import { CatanHaul } from "@/games/catan/components/catan-handel";
+import { CatanFind } from "@/games/catan/components/catan-entdecker";
+import { CatanSea } from "@/games/catan/components/catan-seefahrer";
+import { CatanRaid } from "@/games/catan/components/catan-barbaren";
+import { CatanGold } from "@/games/catan/components/catan-fluesse";
+import { CatanVote } from "@/games/catan/components/catan-tross";
 import {
   CatanBarbarians,
+  CatanFish,
   CatanProgress,
   CatanTableau,
 } from "@/games/catan/components/catan-ritter";
@@ -64,6 +71,8 @@ export function CatanGameScreen(): ReactElement {
   // Städte & Ritter: which knight is being sent somewhere. Screen state, like
   // the neutral colour - a half-made move nobody else needs to know about.
   const [marching, setMarching] = useState<number | null>(null);
+  const [riding, setRiding] = useState<number | null>(null);
+  const [sailingShip, setSailing] = useState<number | null>(null);
   const over = game.phase === "gameOver";
   const onTurn = game.players[actingSeat(game)];
 
@@ -129,6 +138,10 @@ export function CatanGameScreen(): ReactElement {
             onMove={play}
             neutralColour={neutralColour}
             marching={marching}
+            riding={riding}
+            onRide={setRiding}
+            sailingShip={sailingShip}
+            onSail={setSailing}
           />
           <CatanActions
             game={game}
@@ -138,11 +151,19 @@ export function CatanGameScreen(): ReactElement {
             onNeutralColour={setNeutralColour}
             marching={marching}
             onMarch={setMarching}
+            riding={riding}
           />
         </div>
         <aside className="flex w-full flex-col gap-3 xl:w-80">
           <CatanStandings game={game} mySeat={mySeat} />
           <CatanHand game={game} mySeat={mySeat} />
+          <CatanFish game={game} mySeat={mySeat} onMove={play} />
+          <CatanVote game={game} mySeat={mySeat} onMove={play} />
+          <CatanSea game={game} mySeat={mySeat} sailingShip={sailingShip} />
+          <CatanFind game={game} mySeat={mySeat} />
+          <CatanRaid game={game} mySeat={mySeat} />
+          <CatanHaul game={game} mySeat={mySeat} onMove={play} />
+          <CatanGold game={game} mySeat={mySeat} onMove={play} />
           <CatanBarbarians game={game} />
           <CatanTableau game={game} mySeat={mySeat} onMove={play} />
           <CatanProgress game={game} mySeat={mySeat} onMove={play} />

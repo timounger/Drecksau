@@ -41,6 +41,54 @@ export const SMALL_HEXES = 19;
 /** Landscapes once the 5-6 Personen Erweiterung is in. */
 export const LARGE_HEXES = 30;
 
+/**
+ * How many fields sit in each row of a Seefahrer board.
+ *
+ * @remarks
+ * *Neue Welt* counts out 42 fields - 19 Meer and 23 landscapes - laid inside a
+ * frame that the picture shows and the text does not describe. This lattice is
+ * the nearest shape it can be built from: seven rows, each one longer or
+ * shorter than the last by one, which is what a hex lattice needs to interlock.
+ * That comes to **44**, so the two fields over are sea; the landscapes stay
+ * exactly as the rulebook counts them.
+ */
+export const SEA_ROWS: readonly number[] = [5, 6, 7, 8, 7, 6, 5];
+
+/** Fields on a Seefahrer board. */
+export const SEA_HEXES = 44;
+
+/** Harbours around a Seefahrer board: "5 x Spezialhafen, 5 x 3:1 Hafen". */
+const SEA_HARBOURS = 10;
+
+/**
+ * How many fields sit in each row of an *Entdecker & Piraten* board.
+ *
+ * @remarks
+ * That board is three bands: an unknown region to the north, the **Startinsel**
+ * in the middle, and a second unknown region to the south. The rulebook counts
+ * the start island out exactly - "2x Hügelland, 4x Wald, 3x Weideland, 2x
+ * Ackerland und 3x Gebirge", fourteen fields - and gives each unknown region
+ * "6 Zahlenchips" beside its face-down tiles, so each holds six landscapes and
+ * some sea.
+ *
+ * Two rows of a hex lattice always sum to an odd number, so a region of eight
+ * cannot be two rows. Three-four-five over five-four-three gives regions of
+ * **seven** - six landscapes and one sea field each - and a middle band of
+ * **exactly fourteen**. The island comes out as printed and each region loses
+ * one of its two sea fields, which is the smallest adjustment the lattice
+ * allows.
+ */
+export const FIND_ROWS: readonly number[] = [3, 4, 5, 4, 5, 4, 3];
+
+/** Fields on an Entdecker & Piraten board. */
+export const FIND_HEXES = 28;
+
+/** Which rows make up the start island: the middle three. */
+export const FIND_ISLAND_ROWS: readonly number[] = [2, 3, 4];
+
+/** There are no harbours in this expansion at all. */
+const FIND_HARBOURS = 0;
+
 /** Harbours around the printed board. */
 const SMALL_HARBOURS = 9;
 
@@ -445,6 +493,8 @@ function buildIsland(rows: readonly number[], harbours: number): Island {
 
 const SMALL = buildIsland(SMALL_ROWS, SMALL_HARBOURS);
 const LARGE = buildIsland(LARGE_ROWS, LARGE_HARBOURS);
+const SEA = buildIsland(SEA_ROWS, SEA_HARBOURS);
+const FIND = buildIsland(FIND_ROWS, FIND_HARBOURS);
 
 /**
  * The board a game of this size is played on.
@@ -453,7 +503,13 @@ const LARGE = buildIsland(LARGE_ROWS, LARGE_HARBOURS);
  * @returns the printed board, or the bigger one for five and six players
  */
 export function islandOf(hexCount: number): Island {
-  return hexCount <= SMALL_HEXES ? SMALL : LARGE;
+  return hexCount <= SMALL_HEXES
+    ? SMALL
+    : hexCount === FIND_HEXES
+      ? FIND
+      : hexCount <= LARGE_HEXES
+        ? LARGE
+        : SEA;
 }
 
 /** How many landscapes a table of this size plays on. */

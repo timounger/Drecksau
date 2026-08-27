@@ -80,6 +80,18 @@ export type RoomState<G> = {
    * client can show that the computer took over.
    */
   readonly botSeatIds?: readonly SeatId[];
+  /**
+   * What the host has set up, in one line, while the room is still a lobby.
+   *
+   * @remarks
+   * A guest cannot otherwise see what they are about to play: the host's
+   * choices live in the host's own screen until the game is dealt, so a guest
+   * joining a room learns whether it is Städte & Ritter only once it has
+   * started. Published as **text** rather than as the game's own options
+   * object, because this layer knows nothing about any game's settings - and
+   * one honest sentence is all a guest needs before pressing join.
+   */
+  readonly notice?: string;
 };
 
 /** What a game needs to know about one seat to deal it in. */

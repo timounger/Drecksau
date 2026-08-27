@@ -37,8 +37,15 @@ import {
 import {
   PROGRESS_NAMES,
   PROGRESS_TEXTS,
+  isFaceDownCard,
   isPointCard,
 } from "@/games/catan/engine/progress";
+import {
+  FISH_ACTIONS,
+  FISH_ACTION_NAMES,
+  FISH_COST,
+  fishing,
+} from "@/games/catan/engine/fischer";
 import {
   barbarianFight,
   canImprove,
@@ -47,6 +54,8 @@ import {
 import { COLOUR_INK } from "@/games/catan/engine/setup";
 import {
   playingRitter,
+  pointsOf,
+  realSeats,
   type CatanGame,
   type CatanMove,
 } from "@/games/catan/engine/state";
@@ -243,7 +252,19 @@ export function CatanProgress({
       ) : (
         <div className="flex flex-wrap gap-1.5" data-testid="ct-progress">
           {held.map((card, index) =>
-            isPointCard(card) ? (
+            // A back, which online is what somebody else's card looks like -
+            // and, for a moment after joining, what your own look like until
+            // the private channel lands. Drawn as a back rather than as
+            // whichever card the placeholder happens to be.
+            isFaceDownCard(card) ? (
+              <span
+                key={`back-${index}`}
+                data-testid="ct-progress-back"
+                className="rounded-lg border border-dashed border-zinc-400 px-2 py-1 text-xs opacity-60 dark:border-zinc-600"
+              >
+                {T.faceDownCard}
+              </span>
+            ) : isPointCard(card) ? (
               <span
                 key={`${card}-${index}`}
                 title={PROGRESS_TEXTS[card]}
@@ -299,6 +320,147 @@ function KnightList({
           {knight.active ? T.knightAwake : T.knightAsleep}
         </span>
       ))}
+    </div>
+  );
+}
+
+/**
+ * *Fischfang auf Catan*: the fish tiles, and what they buy.
+ *
+ * @param props - the game, who is reading it and where moves go
+ * @returns the panel, or null outside the fishing scenario
+ * @remarks
+ * The tiles are shown face up **to their owner** - they lie face down at a
+ * table, and on a screen the only person looking at this panel is the one they
+ * belong to.
+ *
+ * Every action is listed with its price even while it cannot be paid, because
+ * the prices are the scenario: knowing that seven fish buy a development card
+ * is what makes somebody decide to hold rather than spend. The buttons pay
+ * from the largest tiles first and give **no change** - "gibst du mehr Fische
+ * aus, als die Aktion kostet, verfallen die überzähligen Fische" - so each one
+ * says what it will actually cost.
+ */
+export function CatanFish({
+  game,
+  mySeat,
+  onMove,
+}: {
+  readonly game: CatanGame;
+  readonly mySeat: number;
+  readonly onMove: (move: CatanMove) => void;
+}): ReactElement | null {
+  const held = game.players[mySeat].fish;
+  const total = held.reduce((sum, tile) => sum + tile, 0);
+  return !fishing(game) ? null : (
+    <section
+      className="flex flex-col gap-2 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+      data-testid="ct-fish"
+    >
+      <h2 className="text-sm font-semibold">{T.fishTitle(total)}</h2>
+      <div className="flex flex-wrap gap-1">
+        {held.length === 0 ? (
+          <span className="text-xs opacity-60">{T.noFish}</span>
+        ) : (
+          held.map((tile, index) => (
+            <span
+              key={index}
+              className="rounded-lg bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-900 dark:bg-sky-900 dark:text-sky-100"
+            >
+              {"🐟".repeat(tile)}
+            </span>
+          ))
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {FISH_ACTIONS.map((action) => {
+          const bundle = payFor(held, FISH_COST[action]);
+          return (
+            <Button
+              key={action}
+              label={T.fishBuy(FISH_ACTION_NAMES[action], FISH_COST[action])}
+              testId={`ct-fish-${action}`}
+              off={bundle === null || game.phase !== "trade"}
+              onClick={() =>
+                onMove({ kind: "fish", action, tiles: bundle ?? [] })
+              }
+            />
+          );
+        })}
+      </div>
+      {game.shoe === mySeat && (
+        <ShoePass game={game} mySeat={mySeat} onMove={onMove} />
+      )}
+    </section>
+  );
+}
+
+/**
+ * The tiles that pay a price, biggest first.
+ *
+ * @param held - the tiles in hand
+ * @param price - what has to be covered
+ * @returns their places in the hand, or null if they cannot cover it
+ * @remarks
+ * The same choice the computer makes, and for the same reason: biggest first
+ * reaches the price in the fewest tiles, which is what somebody means when they
+ * press a button that says what it costs.
+ */
+function payFor(
+  held: readonly number[],
+  price: number,
+): readonly number[] | null {
+  const order = held
+    .map((fish, at) => ({ fish, at }))
+    .sort((one, other) => other.fish - one.fish);
+  const picked: number[] = [];
+  let paid = 0;
+  for (const tile of order) {
+    if (paid >= price) {
+      break;
+    }
+    picked.push(tile.at);
+    paid += tile.fish;
+  }
+  return paid >= price ? picked : null;
+}
+
+/**
+ * Passing the Alter Schuh on.
+ *
+ * @remarks
+ * Only upwards - "an eine beliebige andere Person... die gleich viele oder mehr
+ * Siegpunkte als du besitzt" - so whoever is behind you is not offered.
+ */
+function ShoePass({
+  game,
+  mySeat,
+  onMove,
+}: {
+  readonly game: CatanGame;
+  readonly mySeat: number;
+  readonly onMove: (move: CatanMove) => void;
+}): ReactElement {
+  const mine = pointsOf(game, mySeat);
+  const takers = realSeats(game).filter(
+    (at) => at !== mySeat && pointsOf(game, at) >= mine,
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-1.5" data-testid="ct-shoe">
+      <span className="text-xs font-semibold">{T.shoeHint}</span>
+      {takers.length === 0 ? (
+        <span className="text-xs opacity-60">{T.shoeStuck}</span>
+      ) : (
+        takers.map((at) => (
+          <Button
+            key={at}
+            label={game.players[at].name}
+            testId={`ct-shoe-${at}`}
+            off={game.phase !== "trade"}
+            onClick={() => onMove({ kind: "shoe", seat: at })}
+          />
+        ))
+      )}
     </div>
   );
 }
