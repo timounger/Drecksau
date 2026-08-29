@@ -51,6 +51,8 @@ export const SELF_NAME = "Du";
 export function createGame(
   seats: readonly MonopolySeat[],
   seed: number,
+  parkingPot = true,
+  doubleGo = true,
 ): MonopolyGame {
   const count = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, seats.length));
   const random = createRandom(seed);
@@ -87,6 +89,9 @@ export function createGame(
     winners: [],
     rng: random.state(),
     seed,
+    pot: 0,
+    parkingPot,
+    doubleGo,
     log: [
       `${count} Spieler, je ${START_CASH} €. Zuerst sucht sich jeder eine Spielfigur.`,
     ],

@@ -36,11 +36,33 @@ export const PLAYER_COUNTS: readonly number[] = Array.from(
 export type MonopolySettings = {
   /** How many sit at the table, the human included. */
   readonly playerCount: number;
+  /**
+   * Whether fines and taxes pile up on Frei Parken.
+   *
+   * @remarks
+   * The best-known house rule of them all, and the rulebook argues against it:
+   * "Legen Sie niemals Geld in die Mitte des Spielplans: Sie erhalten keinen
+   * Bonus, wenn Sie auf Frei Parken landen!" It is a switch rather than a
+   * decision, because both games are somebody's Monopoly - and it starts on,
+   * because that is the game most tables actually play.
+   */
+  readonly parkingPot: boolean;
+  /**
+   * Whether landing right on LOS pays the salary twice.
+   *
+   * @remarks
+   * The other house rule everybody grew up with, and no more printed than the
+   * pot on Frei Parken: the rules pay for passing LOS and treat stopping on it
+   * as the same thing. On by default, for the same reason.
+   */
+  readonly doubleGo: boolean;
 };
 
 /** What a first-time visitor gets. */
 export const DEFAULT_SETTINGS: MonopolySettings = {
   playerCount: DEFAULT_PLAYER_COUNT,
+  parkingPot: true,
+  doubleGo: true,
 };
 
 /**
@@ -50,7 +72,11 @@ export const DEFAULT_SETTINGS: MonopolySettings = {
  */
 export function loadSettings(): MonopolySettings {
   const stored = readStored(SETTINGS_KEY, SETTINGS_VERSION, isPartialSettings);
-  return { playerCount: clampPlayers(stored?.playerCount) };
+  return {
+    playerCount: clampPlayers(stored?.playerCount),
+    parkingPot: stored?.parkingPot ?? true,
+    doubleGo: stored?.doubleGo ?? true,
+  };
 }
 
 /**
@@ -61,6 +87,8 @@ export function loadSettings(): MonopolySettings {
 export function saveSettings(settings: MonopolySettings): void {
   writeStored(SETTINGS_KEY, SETTINGS_VERSION, {
     playerCount: clampPlayers(settings.playerCount),
+    parkingPot: settings.parkingPot,
+    doubleGo: settings.doubleGo,
   });
 }
 

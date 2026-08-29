@@ -134,6 +134,110 @@ sie wählt, saß am Tisch ein Spieler namens Zylinder, der die Schubkarre schob.
 Ein Spieler hat einen Namen und eine Figur, und das sind zwei verschiedene
 Dinge.
 
+## Die Kasse auf Frei Parken
+
+Die bekannteste Hausregel überhaupt, und die Anleitung schreibt ausdrücklich
+dagegen an: „Legen Sie niemals Geld in die Mitte des Spielplans." Gespielt wird
+sie trotzdem fast überall - deshalb ist sie hier ein **Schalter** in den
+Einstellungen, und er steht auf an.
+
+Eingebaut ist sie an der einzigen Stelle, an der Geld verschwindet: `pay` kennt
+neben der Bank eine zweite Senke, `POT`, und in die zahlen **Kaution, beide
+Steuern, jede Bank-Zahlung einer Karte und die Straßenausbesserungen**. Käufe,
+Häuser, Hypothekenzinsen und Mieten nicht - ein Kauf ist keine Strafe, und Miete
+zahlt man einander. Wer auf Frei Parken landet, bekommt den ganzen Betrag, und
+das Feld zeigt ihn die ganze Zeit an; sonst müsste man ihn sich merken.
+
+Der Schalter reist auch online mit: Der Gastgeber stellt ihn ein, und die Runde
+spielt, was er eingestellt hat. Ausgeschaltet ist es das gedruckte Spiel - dann
+sammelt sich nichts, und das Feld zeigt auch nichts.
+
+## Doppeltes Gehalt auf LOS
+
+Die zweite Hausregel im selben Zuschnitt: Wer **genau** auf LOS landet, bekommt
+400 € statt 200 €. Sie steht ebenfalls in den Einstellungen und ebenfalls auf
+an, und der Gastgeber nimmt sie mit ins Online-Spiel.
+
+Gedruckt steht sie nirgends - die Anleitung zahlt für das _Vorübergehen_ und
+verliert über das Anhalten kein Wort, weil LOS für sie ein Feld wie jedes andere
+ist, über das man läuft.
+
+Im Code ist es eine einzige Frage, `salaryOn`: Was zahlt LOS an einen Zug, der
+auf diesem Feld zum Stehen kommt? Beide Wege dorthin zählen, der gewürfelte und
+die Karte „Rücke vor bis auf LOS", denn beide setzen den Zug genauso auf die
+Ecke. Damit man der Ecke ansieht, dass hier etwas anderes gilt als gedruckt,
+steht der Betrag auf dem Feld.
+
+Beim Prüfen dieser Regel fiel ein älterer Fehler auf: Das **erste** Spiel nach
+dem Öffnen der Seite entstand aus den Standardwerten, nicht aus den gespeicherten
+Einstellungen. Sechs eingestellte Spieler wurden zu vier. Die Einstellungen
+kommen über einen externen Store, den es nur im Browser gibt - beim ersten
+Commit nach der Hydration stand darin noch das, womit die Seite vorgerendert
+wurde. Der Effekt, der das Spiel anlegt, liest die Einstellungen jetzt selbst
+aus dem Speicher. Ausgerechnet der Fall ohne gespeicherte Partie ist der, in dem
+die Einstellungen zählen.
+
+## Eine Regel, ein Ort
+
+Beim Durchsehen des Moduls war die Halbpreis-Regel viermal aufgeschrieben:
+beim Hausverkauf, beim Bankrott, beim Ausrechnen dessen, was ein Spieler noch
+aufbringen kann, und auf der Beschriftung des Knopfes. Drei Gelegenheiten, dass
+der Knopf etwas verspricht, was der Schiedsrichter dann anders auszahlt. Jetzt
+gibt es `sellBackOf(at, count)` und `buildingsOn(estate)` in `state.ts`, und
+alle vier fragen dort nach. Die Zahlen ändern sich dabei nicht - nachgerechnet
+für jede Straße und jede Gebäudezahl, Summe 6875 € hier wie dort.
+
+Dazu zwei kleinere: `TYPICAL_ROLL` stand zweimal da (Ansicht und Computer) und
+steht jetzt einmal in `state.ts`, und die sechs Panels in der Brettmitte teilen
+sich `PanelProps`, statt dieselben drei Zeilen sechsmal auszuschreiben.
+
+## Das Hypotheken-Pingpong
+
+Eine Suche nach Fehlern im Endspiel förderte kein falsches Ergebnis zutage,
+aber eine schlechte Angewohnheit: Der Computergegner löste eine Hypothek
+zurück, sobald er 600 € über der Ablösesumme hatte - und musste dasselbe
+Grundstück nach der nächsten Miete wieder belasten. Über eine Partie ging
+dieselbe Straße bis zu **zehnmal** hin und her, jedes Mal 10 % Zinsen ärmer und
+zwei Denkpausen länger.
+
+Der Schwellenwert war blind für das Brett: Gegen unbebaute Straßen sind 600 €
+ein Vermögen, gegen ein Hotel auf der Schlossallee sind sie Kleingeld. Jetzt
+zählt `worstRent` die höchste Miete, die gerade jemand anders verlangen kann,
+und der Gegner löst erst aus, wenn danach noch zwei solche Treffer im
+Portemonnaie bleiben. Über zwanzig Partien: **120 Wechsel vorher, 50 nachher**,
+schlimmste Straße von zehn auf fünf.
+
+## Grün baut, Rot reißt ab
+
+In der Liste der eigenen Grundstücke stehen beide Knöpfe untereinander, und ihre
+Beschriftungen unterscheiden sich um ein einziges Wort: „Haus auf Badstraße"
+gegen „Haus auf Badstraße verkaufen". In einer Bauphase klickt man sich durch
+zehn solche Karten, und das Auge sucht dabei den Knopf, nicht den Satz. Also
+bekommen die beiden die Farben, die überall dasselbe bedeuten: **Bauen ist
+grün, Abreißen ist rot.**
+
+Hypothek und Auslösen bleiben grau, obwohl auch sie Geld bewegen. Sie bewegen
+keine Häuser - und eine dritte und vierte Farbe nähme dem Unterschied genau das
+wieder, wofür er da ist.
+
+## Ein Knopf zum Ausprobieren
+
+Oben neben „Neues Spiel" steht **+1000 € (Cheat)**. Ein Klick legt dir tausend
+Euro in die Kasse, und der Spielverlauf schreibt es mit: „Du: nimmt 1000 € aus
+der Bank (Cheat)."
+
+Der Grund ist derselbe wie bei den Levelknöpfen über dem Panzerkiste-Feld: Eine
+Partie Monopoly braucht eine Stunde, bis das Geld knapp wird - und erst dann
+fangen die Entscheidungen an, die man beim Bauen und Handeln prüfen will.
+
+Zwei Sachen daran sind Absicht:
+
+- **Es ist kein Zug.** Der Knopf greift in den eigenen Spielstand, statt einen
+  Zug an den Schiedsrichter zu geben. Ein Zug wäre eine Zugart, die es online
+  gäbe - und ein Tisch will keinen Knopf, der Geld druckt.
+- **Es gibt ihn nur hier.** Im Online-Spiel ist er nicht eingebaut; dort wird
+  der Spielstand vom Gastgeber geführt.
+
 ## Alles Geld geht durch eine Funktion
 
 Monopoly ist hauptsächlich Buchhaltung, und in der Buchhaltung geht es schief.

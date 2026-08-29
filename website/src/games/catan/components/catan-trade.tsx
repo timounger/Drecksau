@@ -30,11 +30,17 @@ import {
   actingSeat,
   covers,
   handSize,
+  playingRitter,
   type CatanGame,
   type CatanMove,
   type Hand,
   type Resource,
 } from "@/games/catan/engine/state";
+import {
+  COMMODITIES,
+  COMMODITY_NAMES,
+  type Commodity,
+} from "@/games/catan/engine/knights";
 import { CATAN_TEXTS as T, SORT_NAMES } from "@/games/catan/i18n/texts";
 
 /** The most of one sort an offer may name, so the pickers stay short. */
@@ -92,22 +98,36 @@ function BankTrade({
   readonly onMove: (move: CatanMove) => void;
 }): ReactElement {
   const hand = game.players[mySeat].hand;
-  const [give, setGive] = useState<Resource | null>(null);
-  const [want, setWant] = useState<Resource | null>(null);
+  const goods = game.players[mySeat].goods;
+  const [give, setGive] = useState<Resource | Commodity | null>(null);
+  const [want, setWant] = useState<Resource | Commodity | null>(null);
   const rate = give === null ? 0 : tradeRate(game, mySeat, give);
+  // "Die Handelsmöglichkeiten aus CATAN - Das Spiel ... gelten auch für die
+  // Handelswaren ... Ihr könnt in jede Richtung tauschen." So both rows carry
+  // the three Handelswaren as well, wherever they exist.
+  const wares: readonly Commodity[] = playingRitter(game) ? COMMODITIES : [];
+  const isWare = (sort: Resource | Commodity): sort is Commodity =>
+    (COMMODITIES as readonly string[]).includes(sort);
+  const held = (sort: Resource | Commodity): number =>
+    isWare(sort) ? goods[sort] : hand[sort];
+  const nameOf = (sort: Resource | Commodity): string =>
+    isWare(sort) ? COMMODITY_NAMES[sort] : SORT_NAMES[sort];
   const ready =
-    give !== null && want !== null && give !== want && hand[give] >= rate;
+    give !== null &&
+    want !== null &&
+    give !== want &&
+    held(give) >= tradeRate(game, mySeat, give);
 
   return (
     <div className="flex flex-col gap-1.5" data-testid="ct-bank">
       <span className="text-xs font-semibold opacity-70">{T.bankGive}</span>
       <div className="flex flex-wrap gap-1.5">
-        {RESOURCES.map((sort) => (
+        {[...RESOURCES, ...wares].map((sort) => (
           <Chip
             key={sort}
-            label={`${SORT_NAMES[sort]} ${T.bankRate(tradeRate(game, mySeat, sort))}`}
+            label={`${nameOf(sort)} ${T.bankRate(tradeRate(game, mySeat, sort))}`}
             on={give === sort}
-            off={hand[sort] < tradeRate(game, mySeat, sort)}
+            off={held(sort) < tradeRate(game, mySeat, sort)}
             testId={`ct-bank-give-${sort}`}
             onClick={() => setGive(sort)}
           />
@@ -115,10 +135,10 @@ function BankTrade({
       </div>
       <span className="text-xs font-semibold opacity-70">{T.bankWant}</span>
       <div className="flex flex-wrap gap-1.5">
-        {RESOURCES.map((sort) => (
+        {[...RESOURCES, ...wares].map((sort) => (
           <Chip
             key={sort}
-            label={SORT_NAMES[sort]}
+            label={nameOf(sort)}
             on={want === sort}
             off={give === sort}
             testId={`ct-bank-want-${sort}`}

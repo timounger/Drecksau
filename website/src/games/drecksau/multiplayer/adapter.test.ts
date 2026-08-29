@@ -36,7 +36,7 @@ function playingRoom(): RoomState<GameState> {
 }
 
 describe("redactHands", () => {
-  it("keeps every hand's size and card ids", () => {
+  it("keeps every hand's size and gives nothing else away", () => {
     const game = createGame(
       [
         { name: "A", isHuman: true },
@@ -48,8 +48,16 @@ describe("redactHands", () => {
 
     redacted.players.forEach((player, index) => {
       const original = game.players[index];
-      expect(player.hand.map((card) => card.id)).toEqual(
-        original.hand.map((card) => card.id),
+      // The size stays - everybody may count the cards - and nothing else: a
+      // card is called "rain-0" or "farmerScrubs-1", so a real id in a redacted
+      // hand would read out the card it is meant to hide.
+      expect(player.hand).toHaveLength(original.hand.length);
+      const real = new Set(original.hand.map((card) => card.id));
+      player.hand.forEach((card) => {
+        expect(real.has(card.id)).toBe(false);
+      });
+      expect(new Set(player.hand.map((card) => card.id)).size).toBe(
+        player.hand.length,
       );
     });
   });

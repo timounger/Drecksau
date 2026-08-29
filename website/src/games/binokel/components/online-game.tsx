@@ -61,9 +61,6 @@ import { OnlineBoard } from "./online-board";
 /** This game's id, for presence and matchmaking namespacing. */
 const GAME_ID = "binokel";
 
-/** Points that end a match, as in the local game. */
-const TARGET_SCORE = 1000;
-
 /** Milliseconds in a second, for the auto-play labels and countdowns. */
 const MS_PER_SECOND = 1000;
 
@@ -546,7 +543,6 @@ function OnlineLobby({ room, online, onLeave }: RoomViewProps): ReactElement {
                 withSevens,
                 withDabb,
                 teams: teamsAvailable && teams,
-                targetScore: TARGET_SCORE,
                 autoPlayMs: AUTO_PLAY_OPTIONS[autoPlayIndex].ms,
               })
             }
@@ -634,7 +630,6 @@ function SearchingLobby({
       withSevens: settings.withSevens,
       withDabb: settings.withDabb,
       teams: teamsOk && settings.teams,
-      targetScore: TARGET_SCORE,
       autoPlayMs: AUTO_MATCH_AUTOPLAY_MS,
     });
   }, [match.code, seats, start]);

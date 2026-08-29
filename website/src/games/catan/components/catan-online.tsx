@@ -1033,7 +1033,12 @@ function Playing({
             <CatanHand game={game} mySeat={mySeat} />
             <CatanFish game={game} mySeat={mySeat} onMove={room.sendMove} />
             <CatanVote game={game} mySeat={mySeat} onMove={room.sendMove} />
-            <CatanSea game={game} mySeat={mySeat} sailingShip={sailingShip} />
+            <CatanSea
+              game={game}
+              mySeat={mySeat}
+              sailingShip={sailingShip}
+              onMove={room.sendMove}
+            />
             <CatanFind game={game} mySeat={mySeat} />
             <CatanRaid game={game} mySeat={mySeat} />
             <CatanHaul game={game} mySeat={mySeat} onMove={room.sendMove} />

@@ -46,6 +46,29 @@ export const EXTRA_STEPS = 2;
 export const LOST_KNIGHT_GOLD = 3;
 export const NO_PRISONER_GOLD = 3;
 
+/**
+ * What a lost knight is worth at a table of two.
+ *
+ * @remarks
+ * "Als Entschädigung beim Verlust eines Ritters erhält man statt 3 Gold 2 Gold
+ * und 1 Handelschip." The chip is the more valuable half: gold only buys
+ * resources, a chip buys an action.
+ */
+export const LOST_KNIGHT_TWO_GOLD = 2;
+
+/** The Handelschip that comes with it. */
+export const LOST_KNIGHT_TWO_CHIP = 1;
+
+/**
+ * What the Fremder Ritter rolls when the prisoners are shared out.
+ *
+ * @remarks
+ * "Gibt es nach einem Sieg nicht genug Gefangene für alle Parteien und ist der
+ * Fremde Ritter am Sieg beteiligt, gilt für den Fremden Ritter immer das
+ * Würfelergebnis '3'. Es muss also nicht extra für ihn gewürfelt werden."
+ */
+export const STRANGER_ROLL = 3;
+
 /** How many prisoners make a victory point. */
 export const PRISONERS_PER_POINT = 2;
 

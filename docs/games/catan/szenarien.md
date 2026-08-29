@@ -451,12 +451,66 @@ genug Barbaren, nimm sie vom Vorrat" der Anleitung erledigt. Nachgezählt über
 fünf Partien: Alle 36 Barbaren sind zu jedem Zeitpunkt entweder im Vorrat, auf
 dem Brett oder gefangen.
 
-### Was noch offen ist
+Ein weiterer Fehler betraf dieses Szenario nur nebenbei, dafür gleich sechs
+Stellen im ganzen Spiel: Der **Ausbau des Wagen-Tableaus** und der **Kauf einer
+Entwicklungskarte** in Händler & Barbaren kosteten in Wahrheit nichts. Beide
+zahlten korrekt und schrieben danach den geänderten Spieler aus einer Kopie
+zurück, die noch die alte Hand hatte - die Rohstoffe waren damit wieder da.
+Dieselbe Verwechslung steckte in Entdecker & Piraten in Schiff, Hafensiedlung
+und Einheit und in der Handelsfahrt beim Kauf von Bewegungspunkten. Jetzt wird
+überall erst gebucht und dann bezahlt.
 
-Die **Kombination mit CATAN für Zwei** bringt in diesem Szenario eigene Regeln
-mit - einen „Fremden Ritter" in neutraler Farbe, den beide ziehen, und einen
-Barbaren, den man mit Handelschips versetzen darf. Zu zweit läuft das Szenario,
-aber ohne diese beiden Zusätze.
+Ein sechster Fehler kam erst am Bildschirm heraus, als der Handelschip einen
+Barbaren versetzen durfte: **Die Felder ließen sich gar nicht antippen.** Die
+Liste der Tipps, die einem _Feld_ gelten statt einer Kreuzung oder einer Kante,
+kannte den Räuber und die Piraten, aber nicht den Barbaren - also lag über den
+Feldern keine Trefferfläche, und _Verrat_ und _Gefangen_ waren am Tisch zu zweit
+wie zu sechst unbeantwortbar. Dieselbe Liste hatte das schon einmal mit dem
+Sturm auf ein Piratenlager getan; jetzt steht der Barbar mit darin.
+
+### Der Barbar vor dem Wagen war nicht anzutippen
+
+„Steht ein Barbar auf einem Weg, den du befahren willst, darfst du gegen ihn
+würfeln" - im Schiedsrichter stand dieser Zug, in der Anzeige nicht. Ein Mensch
+am Trosswagen konnte an einem Barbaren also weder vorbei noch gegen ihn
+antreten; der Computergegner konnte beides. Jetzt leuchten die Wege mit
+Barbaren vor dem eigenen Wagen wie jeder andere Zug auch, und ein Tipp würfelt.
+
+### Kombination mit CATAN für Zwei
+
+Das Heft hängt an dieses Szenario fünf eigene Regeln für den Tisch zu zweit, und
+alle fünf gelten hier:
+
+- **Der Fremde Ritter.** „Ein Ritter einer neutralen Farbe spielt als ‚Fremder
+  Ritter' mit und darf von beiden Personen genutzt werden. Sobald eine Person
+  ihren ersten Ritter baut, setzt sie den Fremden Ritter auf einem Weg des
+  Burgfelds ein." Er zählt bei jedem Sieg mit, egal wer ihn zuletzt gezogen hat.
+- **Er geht nie verloren.** Der Farbwürfel nimmt jeden Ritter der gewürfelten
+  Ausrichtung - ihn nicht: „Ein Fremder Ritter bleibt während des ganzen Spiels
+  auf dem Spielfeld."
+- **Bei zu wenigen Gefangenen würfelt er nicht.** „Gilt für den Fremden Ritter
+  immer das Würfelergebnis ‚3'." Er nimmt seinen Anteil, und die Gefangenen, die
+  er bekommt, sind für beide Personen verloren - er bekommt auch keine 3 Gold,
+  wenn er leer ausgeht.
+- **Ein Barbar statt des Räubers.** „Da es keinen Räuber gibt, darf man mit 1
+  Handelschip ... einen Barbaren auf ein anderes Küstenfeld versetzen." Der Chip
+  kostet wie jede Chip-Aktion 2, solange man vorne liegt, und der Knopf ersetzt
+  in diesem Szenario _Räuber in die Wüste_.
+- **Entschädigung.** „Als Entschädigung beim Verlust eines Ritters erhält man
+  statt 3 Gold 2 Gold und 1 Handelschip."
+
+Zwei Abweichungen, beide klein:
+
+1. Den Fremden Ritter setzt der **Schiedsrichter** auf den ersten freien Weg des
+   Burgfelds, nicht die Person, die ihren ersten Ritter baut. Alle sechs Wege
+   führen in dasselbe Land, und wer am Zug ist, muss ihn im selben Zug ohnehin
+   herunterziehen.
+2. „Ist eine Person am Zug, zieht sie zuerst ihre(n) Ritter und anschließend den
+   Fremden Ritter" ist eine **Reihenfolge, keine Einschränkung**, und der
+   Schiedsrichter erzwingt sie nicht. Er müsste sonst genau dann blockieren,
+   wenn ein eigener Ritter nicht ziehen will und der Fremde Ritter noch auf dem
+   Burgfeld steht, das er verlassen muss. Der Computergegner hält die
+   Reihenfolge ein.
 
 ## 5. Händler & Barbaren
 

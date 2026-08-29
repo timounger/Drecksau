@@ -34,11 +34,17 @@ import {
   findPoints,
   finding,
   missionPoints,
+  type Spice,
   type Boat,
   type Camp,
   type Cargo,
 } from "./entdecker";
-import { islandPoints } from "./seefahrer";
+import {
+  cloth,
+  clothPoints,
+  islandPoints,
+  overrunByPirates,
+} from "./seefahrer";
 import {
   HAUL_POINT_CARDS,
   haulPoints,
@@ -76,6 +82,25 @@ export type Land =
   | "meer"
   /** A Goldfluss, which pays a resource of the holder's own choosing. */
   | "gold"
+  /**
+   * A Fischfeld, in *Fische für Catan*.
+   *
+   * @remarks
+   * Water, not a landscape: nothing is built at it and no number chip lies on
+   * it. The die number printed on it belongs to {@link CatanGame.fish} and
+   * calls a shoal onto the water rather than a resource into a hand.
+   */
+  | "fisch"
+  /**
+   * A Gewürzfeld, in *Gewürze für Catan*.
+   *
+   * @remarks
+   * An island with a village on it. Land, but a strange sort: "du darfst erst
+   * dann eine Straße an den Wegen oder eine Siedlung auf den Kreuzungen eines
+   * Gewürzfelds bauen, wenn du eine Einheit auf dem Dorf des Felds abgesetzt
+   * hast" - the village has to be befriended first.
+   */
+  | "gewuerz"
   /** Still face down, in Entdecker & Piraten. */
   | "unbekannt";
 
@@ -90,6 +115,37 @@ export const RESOURCES: readonly Resource[] = [
   "getreide",
   "erz",
 ];
+
+/**
+ * Every kind of field there is.
+ *
+ * @remarks
+ * A record of `Land` rather than a list, for the reason {@link PHASES} gives:
+ * the type checker counts the entries, a reader of saved games cannot. The
+ * hand-written copy in the loader was missing "fisch" and threw away every
+ * saved game of *Fische für Catan*.
+ */
+const LAND_SET: Readonly<Record<Land, true>> = {
+  lehm: true,
+  holz: true,
+  wolle: true,
+  getreide: true,
+  erz: true,
+  wueste: true,
+  see: true,
+  sumpf: true,
+  wasserstelle: true,
+  burg: true,
+  ziel: true,
+  meer: true,
+  gold: true,
+  fisch: true,
+  gewuerz: true,
+  unbekannt: true,
+};
+
+/** The names of every kind of field, for anything that has to check one. */
+export const LAND_KINDS: readonly Land[] = Object.keys(LAND_SET) as Land[];
 
 /** What each landscape produces. */
 export const YIELD: Readonly<Record<Land, Resource | null>> = {
@@ -110,6 +166,10 @@ export const YIELD: Readonly<Record<Land, Resource | null>> = {
   // A Goldfluss pays a resource, but which one is the holder's choice - so
   // there is nothing to look up here.
   gold: null,
+  // A Fischfeld is water: its number calls a shoal, not a resource.
+  fisch: null,
+  // A Gewürzfeld pays spices, and those are not resource cards.
+  gewuerz: null,
   // Face down: nobody knows yet, and nothing pays out.
   unbekannt: null,
 };
@@ -168,7 +228,29 @@ export type Scenario =
   /** *Entdecker & Piraten*, scenario 1: Land in Sicht. */
   | "entdecker"
   /** *Entdecker & Piraten*, scenario 2: Die Piratenlager. */
-  | "piraten";
+  | "piraten"
+  /** *Entdecker & Piraten*, Szenario 3: Fische für Catan. */
+  | "fische"
+  /** *Entdecker & Piraten*, Szenario 4: Gewürze für Catan. */
+  | "gewuerze"
+  /** *Entdecker & Piraten*, Szenario 5: alle drei Missionen. */
+  | "finale"
+  /** *Seefahrer*, Szenario 1: Zu neuen Ufern. */
+  | "ufer"
+  /** *Seefahrer*, Szenario 2: Die vier Inseln. */
+  | "inseln"
+  /** *Seefahrer*, Szenario 3: Ozeanien. */
+  | "ozeanien"
+  /** *Seefahrer*, Szenario 4: Durch die Wüste. */
+  | "wuestengurt"
+  /** *Seefahrer*, Szenario 5: Der vergessene Stamm. */
+  | "stamm"
+  /** *Seefahrer*, Szenario 6: Stoffe für Catan. */
+  | "stoffe"
+  /** *Seefahrer*, Szenario 7: Die Pirateninseln. */
+  | "pirateninseln"
+  /** *Seefahrer*, Szenario 8: Die Catanischen Wunder. */
+  | "wunder";
 
 /** The scenarios, in the order the rulebook teaches them. */
 export const SCENARIOS: readonly Scenario[] = [
@@ -181,6 +263,17 @@ export const SCENARIOS: readonly Scenario[] = [
   "neuewelt",
   "entdecker",
   "piraten",
+  "fische",
+  "gewuerze",
+  "finale",
+  "ufer",
+  "inseln",
+  "ozeanien",
+  "wuestengurt",
+  "stamm",
+  "stoffe",
+  "pirateninseln",
+  "wunder",
 ];
 
 /** The two games on offer, printed one first. */
@@ -394,6 +487,14 @@ export type CatanPlayer = {
   readonly homeIslands: readonly number[];
   /** Siegpunkt-Chips for first settlements on foreign islands. */
   readonly islandChips: number;
+  /**
+   * *Stoffe für Catan*: how many bales of cloth this seat has gathered.
+   *
+   * @remarks
+   * "2 Stoffballen sind 1 Siegpunkt wert", so they are counted rather than
+   * converted: an odd one is worth nothing until its partner arrives.
+   */
+  readonly bales: number;
   /** *Entdecker & Piraten*: ships still in the box. */
   readonly boatsLeft: number;
   /** Explorers still in the box. */
@@ -604,6 +705,29 @@ const PHASE_SET: Readonly<Record<Phase, true>> = {
 
 /** The names of every phase, for anything that has to check one. */
 export const PHASES: readonly Phase[] = Object.keys(PHASE_SET) as Phase[];
+
+/**
+ * One of the five Catanian wonders.
+ *
+ * @remarks
+ * "Legt die 5 Wunderplättchen Große Mauer, Große Brücke, Monument, Großes
+ * Theater und Burg bereit."
+ */
+export type Wonder = "mauer" | "bruecke" | "monument" | "theater" | "burg";
+
+/**
+ * What lies as a gift on a coastline of *Der vergessene Stamm*.
+ *
+ * @remarks
+ * "Legt 8 Siegpunkt-Chips auf die markierten Küstenlinien. Mischt die 6 Häfen
+ * verdeckt und legt sie auf die markierten Plätze ... Nehmt die obersten 4
+ * Karten vom gemischten Stapel mit den Entwicklungskarten und legt diese
+ * verdeckt auf die markierten Plätze."
+ */
+export type Gift =
+  | { readonly kind: "chip" }
+  | { readonly kind: "card" }
+  | { readonly kind: "harbour"; readonly want: Resource | null };
 
 /** A whole game. */
 export type CatanGame = {
@@ -849,6 +973,132 @@ export type CatanGame = {
   /** How far along the mission track each seat has come. */
   readonly mission: readonly number[];
   /**
+   * *Fische für Catan*: the die number of each Fischfeld, by field.
+   *
+   * @remarks
+   * Kept apart from {@link CatanGame.chips} because it is not a chip: it is one
+   * die of 1 to 6, it pays nobody when the two dice come up, and it is read
+   * only by the roll that calls a shoal.
+   */
+  readonly fish: Readonly<Record<number, number>>;
+  /** The fields a shoal is lying on. */
+  readonly shoals: readonly number[];
+  /** How many of the six shoals are still in the supply. */
+  readonly shoalsLeft: number;
+  /** Whether this turn's one try at calling a shoal has been used. */
+  readonly cast: boolean;
+  /** How far along the fish mission's track each seat has come. */
+  readonly catches: readonly number[];
+  /**
+   * *Gewürze für Catan*: what each village is worth, by its field.
+   *
+   * @remarks
+   * The advantage itself is not stored per seat: it follows from
+   * {@link CatanGame.villages}, which says who has a unit standing where.
+   */
+  readonly spice: Readonly<Record<number, Spice>>;
+  /** Which seats have set a unit down on each village. */
+  readonly villages: Readonly<Record<number, readonly number[]>>;
+  /** How many spice sacks are still lying on each village. */
+  readonly sacks: Readonly<Record<number, number>>;
+  /** How far along the spice mission's track each seat has come. */
+  readonly spices: readonly number[];
+  /** How many resources this seat has sold for gold in this turn. */
+  readonly sold: number;
+  /**
+   * *Die Catanischen Wunder*: which wonder each seat is building, and how far.
+   *
+   * @remarks
+   * "Wer zuerst mit dem Bau eines Wunders beginnt, kann frei unter allen fünf
+   * Wundern auswählen. Wer erst später anfängt ..., muss mit den Wundern
+   * vorliebnehmen, die noch übrig sind" - so a wonder belongs to one colour
+   * from the moment it is claimed, and "nun musst du dieses Wunder auch bauen".
+   */
+  readonly wonders: readonly ({
+    readonly kind: Wonder;
+    readonly stage: number;
+  } | null)[];
+  /**
+   * *Die Pirateninseln*: the pirate fortresses, by the crossing they stand on.
+   *
+   * @remarks
+   * "Jede Piratenfestung besteht aus 3 gleichfarbigen Piratenfestungs-Chips,
+   * auf die jeweils 1 Siedlung derselben Farbe gesetzt wird." The settlement is
+   * there from the start and pays nothing while the chips are: "hat eine
+   * Piratenfestung alle 3 Chips verloren, sind die Piraten vertrieben und die
+   * Siedlung ist zurückerobert. Ab jetzt erhältst du die Erträge und den
+   * Siegpunkt für diese Siedlung."
+   */
+  readonly forts: Readonly<
+    Record<number, { readonly owner: number; readonly chips: number }>
+  >;
+  /** The crossing on the pirate islands each colour may build on. */
+  readonly marks: readonly number[];
+  /** Which sea paths carry a warship rather than an ordinary ship. */
+  readonly warships: readonly number[];
+  /** Where the pirate fleet stands on its round trip, as a step of the circuit. */
+  readonly armada: number;
+  /** Whether this turn's one attack on a fortress has been made. */
+  readonly stormed: boolean;
+  /**
+   * *Stoffe für Catan*: the villages of the tribe, by the crossing they sit on.
+   *
+   * @remarks
+   * "Auf die 4 kleinen Inseln legt ihr je 2 Zahlenchips, genau auf die Kreuzung
+   * (jeder Zahlenchip stellt ein Dorf dar). Zu jedem der 8 Dörfer werden 5
+   * Stoffballen gelegt." So a village is a number and a stock of cloth, and it
+   * stands on a crossing rather than on a field.
+   */
+  readonly villagesOf: Readonly<
+    Record<number, { readonly number: number; readonly bales: number }>
+  >;
+  /** Who has a trade relation with each village, by crossing. */
+  readonly traders: Readonly<Record<number, readonly number[]>>;
+  /** How many bales are left in the general supply. */
+  readonly baleStock: number;
+  /** The ships that belong to a closed trade line and may not be moved. */
+  readonly lockedShips: readonly number[];
+  /**
+   * *Der vergessene Stamm*: the gifts lying on the coastlines, by sea path.
+   *
+   * @remarks
+   * "Die Geschenke des fremden Volkes bestehen aus Siegpunkt-Chips,
+   * Entwicklungskarten und den offen ausliegenden Häfen." A ship built or moved
+   * onto such a path takes what lies there, and it is not replaced.
+   *
+   * Named `presents` because `gifts` is taken - by the resources an Erfindung
+   * card still owes.
+   */
+  readonly presents: Readonly<Record<number, Gift>>;
+  /**
+   * The harbours taken as gifts and not yet put anywhere, by seat.
+   *
+   * @remarks
+   * "Besitzt du keine Küstensiedlung, die für den Hafen in Frage kommt,
+   * bewahrst du ihn auf, bis du eine Küstensiedlung baust, die noch keinen
+   * Hafen hat."
+   */
+  readonly heldPorts: readonly (readonly (Resource | null)[])[];
+  /**
+   * Where the robber started, while it is still standing there.
+   *
+   * @remarks
+   * "Hat er die Startwüste verlassen, darf er nicht mehr dorthin zurückgesetzt
+   * werden" - so the field has to be remembered, not only the robber's place.
+   */
+  readonly robberHome: number | null;
+  /**
+   * The sea field the Catanischer Rat lies on, with its two harbours.
+   *
+   * @remarks
+   * "Das Feld Catanischer Rat zählt als Meerfeld, daher dürfen keine Straßen an
+   * seinen Meerwegen und keine Siedlungen an seinen Kreuzungen gebaut werden.
+   * Ausgenommen sind die beiden Ecken und der Meerweg, die an der Startinsel
+   * liegen." It is a sea field like any other, so those exceptions need no rule
+   * of their own: a crossing beside the island is beside a landscape too.
+   */
+  readonly council: number | null;
+  /**
    * What is waiting in each Hafensiedlung's basin, by crossing.
    *
    * @remarks
@@ -1013,9 +1263,18 @@ export function realSeats(game: CatanGame): readonly number[] {
     .filter((seat) => seat >= 0);
 }
 
-/** Whether this is a game of *CATAN für Zwei*. */
+/**
+ * Whether this is a game of *CATAN für Zwei*.
+ *
+ * @remarks
+ * The two neutral colours alone are not the variant. *Entdecker & Piraten* has
+ * them on the board as well and none of its rules: "die Figuren der nicht
+ * gewählten Farben bleiben auf der Startinsel als **Hindernis** stehen" - they
+ * stand in the way and do nothing else. No second roll, no Handelschips, no
+ * free neutral piece each turn.
+ */
 export function playingTwo(game: CatanGame): boolean {
-  return game.players.some((player) => player.neutral);
+  return !finding(game) && game.players.some((player) => player.neutral);
 }
 
 /**
@@ -1174,7 +1433,13 @@ export function pointsOf(game: CatanGame, seat: number): number {
     : game.towns.reduce(
         (sum, town, at) =>
           // "Gilt sie als erobert und zählt keinen Siegpunkt mehr."
-          town !== null && town.owner === seat && !overrun(game, at)
+          town !== null &&
+          town.owner === seat &&
+          !overrun(game, at) &&
+          // "Hat eine Piratenfestung alle 3 Chips verloren ... ab jetzt
+          // erhältst du die Erträge und den Siegpunkt für diese Siedlung" - so
+          // until then it counts nothing.
+          !overrunByPirates(game, at)
             ? sum + (town.city ? 2 : 1)
             : sum,
         0,
@@ -1182,7 +1447,11 @@ export function pointsOf(game: CatanGame, seat: number): number {
   const tiles =
     // "Den Räuber und die Längste Handelsroute gibt es in diesem Szenario
     // nicht."
-    (game.longest === seat && !hauling(game) ? TILE_POINTS : 0) +
+    // "Die Längste Handelsroute entfällt in diesem Szenario, die Größte
+    // Rittermacht könnt ihr jedoch weiterhin erlangen."
+    (game.longest === seat && !hauling(game) && !cloth(game)
+      ? TILE_POINTS
+      : 0) +
     // The Größte Rittermacht is not in a game of Städte & Ritter at all -
     // "die Sondersiegpunkttafel Größte Rittermacht lasst ihr in der Schachtel".
     // "Den Räuber und die Sondersiegpunkttafel Größte Rittermacht benötigt ihr
@@ -1207,6 +1476,8 @@ export function pointsOf(game: CatanGame, seat: number): number {
     haulPoints(game, seat) +
     // One up for every foreign island settled first.
     islandPoints(game, seat) +
+    // "2 Stoffballen sind 1 Siegpunkt wert."
+    clothPoints(game, seat) +
     // Entdecker & Piraten counts its own buildings: a Hafensiedlung is two.
     findPoints(game, seat) +
     // And the mission track, with its own victory point tile on top.
@@ -1289,7 +1560,22 @@ export type CatanMove =
   | { readonly kind: "buy" }
   | { readonly kind: "play"; readonly card: DevKind }
   | { readonly kind: "choose"; readonly sort: Resource }
-  | { readonly kind: "bank"; readonly give: Resource; readonly want: Resource }
+  | {
+      /**
+       * Trading with the bank or at a harbour.
+       *
+       * @remarks
+       * Both sides may be a Handelsware in Städte & Ritter: "Die
+       * Handelsmöglichkeiten aus CATAN - Das Spiel bleiben unverändert
+       * erhalten. Sie gelten auch für die Handelswaren ... Ihr könnt in jede
+       * Richtung tauschen: Handelswaren gegen Rohstoffe, Rohstoffe gegen
+       * Handelswaren, Handelswaren gegen Handelswaren, Rohstoffe gegen
+       * Rohstoffe."
+       */
+      readonly kind: "bank";
+      readonly give: Resource | Commodity;
+      readonly want: Resource | Commodity;
+    }
   | { readonly kind: "offer"; readonly give: Hand; readonly want: Hand }
   | { readonly kind: "answer"; readonly yes: boolean }
   | { readonly kind: "deal"; readonly seat: number }
@@ -1312,8 +1598,18 @@ export type CatanMove =
    * half the decision, and often the whole of it.
    */
   | { readonly kind: "neutral"; readonly seat: number; readonly at: number }
-  /** *CATAN für Zwei*: a Handelschip action. */
-  | { readonly kind: "chip"; readonly action: "swap" | "robber" }
+  /**
+   * *CATAN für Zwei*: a Handelschip action.
+   *
+   * @remarks
+   * Two of them at an ordinary table, and a third where *Der Barbarenüberfall*
+   * takes the robber out of the game: "da es keinen Räuber gibt, darf man mit 1
+   * Handelschip ... einen Barbaren auf ein anderes Küstenfeld versetzen."
+   */
+  | {
+      readonly kind: "chip";
+      readonly action: "swap" | "robber" | "barbarian";
+    }
   /** *CATAN für Zwei*: hand a played knight back in for two chips. */
   | { readonly kind: "knightIn" }
   /** *Städte & Ritter*: take the next step of one of the three city tracks. */
@@ -1421,8 +1717,33 @@ export type CatanMove =
   | { readonly kind: "hunt"; readonly boat: number }
   /** *Die Piratenlager*: put one's own pirate ship on a sea field. */
   | { readonly kind: "corsair"; readonly at: number }
+  /** *Gewürze für Catan*: set a unit down on a village and load a sack. */
+  | { readonly kind: "drop"; readonly at: number }
+  /** *Gewürze für Catan*: a Gutes-Gold village buys one resource. */
+  | { readonly kind: "sell"; readonly sort: Resource }
+  /** *Die Pirateninseln*: attack the fortress of one's own colour. */
+  | { readonly kind: "assault" }
+  /** *Die Catanischen Wunder*: claim a wonder, or build its next stage. */
+  | { readonly kind: "wonder"; readonly which: Wonder }
+  /** *Fische für Catan*: roll one die for a shoal. */
+  | { readonly kind: "cast" }
+  /** *Fische für Catan*: take the shoal off that field and into a ship. */
+  | { readonly kind: "catch"; readonly at: number }
+  /** *Fische für Catan*: unload a shoal at a harbour of the Catanischer Rat. */
+  | { readonly kind: "deliver"; readonly at: number }
   /** *Entdecker & Piraten*: build a ship beside a harbour settlement. */
   | { readonly kind: "boat"; readonly at: number }
+  /** *Entdecker & Piraten*: take one of one's own ships off the board again. */
+  | { readonly kind: "recall"; readonly boat: number }
+  /**
+   * *Entdecker & Piraten*: put one figure from a ship's hold back in the box.
+   *
+   * @remarks
+   * "Ihr dürft jederzeit Spielfiguren aus einem eurer Schiffe entfernen und zum
+   * Vorrat zurücklegen. Dies kann zum Beispiel sinnvoll sein, wenn ihr Platz
+   * für eine wertvollere Figur schaffen wollt."
+   */
+  | { readonly kind: "unload"; readonly boat: number; readonly cargo: Cargo }
   /** *Entdecker & Piraten*: put an explorer into a harbour or a ship. */
   | { readonly kind: "scout"; readonly at: number }
   /** *Entdecker & Piraten*: grow a settlement into a harbour settlement. */
@@ -1460,3 +1781,96 @@ export type CatanMove =
   /** *CATAN für Zwei*: the two cards going back after a Zwangshandel. */
   | { readonly kind: "giveBack"; readonly cards: Hand }
   | { readonly kind: "endTurn" };
+
+/**
+ * Every kind of move there is.
+ *
+ * @remarks
+ * Written out as a record so the compiler counts along: a move added to
+ * {@link CatanMove} and forgotten here is a type error rather than a move
+ * that quietly stops working. And it does stop working - this is the list an
+ * incoming move is checked against online, and it used to name the twenty moves
+ * of the base game and none of the expansions. A guest playing Städte & Ritter,
+ * Seefahrer or Entdecker & Piraten could roll, build and trade, and everything
+ * their expansion added was turned away at the door.
+ */
+const MOVE_KIND_SET: Readonly<Record<CatanMove["kind"], true>> = {
+  activate: true,
+  answer: true,
+  answerCard: true,
+  assault: true,
+  bank: true,
+  barb: true,
+  boat: true,
+  boost: true,
+  bridge: true,
+  buy: true,
+  cast: true,
+  catch: true,
+  chase: true,
+  chip: true,
+  choose: true,
+  city: true,
+  corsair: true,
+  deal: true,
+  deliver: true,
+  discard: true,
+  drive: true,
+  drop: true,
+  endTurn: true,
+  event: true,
+  fish: true,
+  giveBack: true,
+  gold: true,
+  goldBuy: true,
+  goldSell: true,
+  haulCard: true,
+  helm: true,
+  hunt: true,
+  improve: true,
+  knight: true,
+  knightIn: true,
+  landfall: true,
+  lay: true,
+  load: true,
+  march: true,
+  neutral: true,
+  offer: true,
+  pirate: true,
+  play: true,
+  port: true,
+  post: true,
+  progress: true,
+  recall: true,
+  unload: true,
+  repair: true,
+  ride: true,
+  road: true,
+  rob: true,
+  robber: true,
+  roll: true,
+  sail: true,
+  sail2: true,
+  scout: true,
+  sell: true,
+  shift: true,
+  ship: true,
+  shoe: true,
+  shove: true,
+  storm: true,
+  tableau: true,
+  town: true,
+  unit: true,
+  upgrade: true,
+  vote: true,
+  wagon: true,
+  wall: true,
+  wind: true,
+  withdraw: true,
+  wonder: true,
+};
+
+/** Every kind of move there is, as a list. */
+export const MOVE_KINDS: readonly CatanMove["kind"][] = Object.keys(
+  MOVE_KIND_SET,
+) as CatanMove["kind"][];

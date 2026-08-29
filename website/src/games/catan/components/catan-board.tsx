@@ -60,10 +60,16 @@ import {
   campAt,
   camping,
   campsFrom,
+  catchSpots,
+  councilDocks,
+  villageSpots,
+  type Spice,
+  landings,
+  shoalAt,
   pirateSeas,
   boatSpots,
   finding,
-  landfall,
+  landingSpots,
   lanesFrom,
   portShore,
   portsOf,
@@ -71,6 +77,8 @@ import {
 import { wagonSpots } from "@/games/catan/engine/karawane";
 import {
   SHIP_COST,
+  corsairs,
+  fleetRing,
   looseShips,
   pirateSpots,
   sailing,
@@ -81,6 +89,7 @@ import {
   TARGET_NAMES,
   TARGET_SHORT,
   driveSpots,
+  facingRaiders,
   hauling,
   raiderSpots,
 } from "@/games/catan/engine/handel";
@@ -102,6 +111,7 @@ import {
   type CatanGame,
   type CatanMove,
   type Land,
+  type Gift,
 } from "@/games/catan/engine/state";
 import { LAND_NAMES, SORT_NAMES } from "@/games/catan/i18n/texts";
 
@@ -145,6 +155,10 @@ const LAND_INK: Readonly<Record<Land, string>> = {
   meer: "#3f86bd",
   // A Goldfluss: sand with gold in it.
   gold: "#c9962b",
+  // A Fischfeld: darker water, so it stands out from the open sea around it.
+  fisch: "#2b6f9a",
+  // A Gewürzfeld: an island of its own, greener than the start island.
+  gewuerz: "#7a5a86",
   // Face down: the back of a tile, not a landscape.
   unbekannt: "#4a5a6b",
   wueste: "#e2d3a6",
@@ -165,12 +179,56 @@ const HOT_CHIPS: readonly number[] = [6, 8];
  */
 const TAP_AREA = 12;
 
+/** The taps that name a field rather than a crossing or an edge. */
+const HEX_SPOTS: readonly Spot["kind"][] = [
+  "robber",
+  "barb",
+  "pirateAt",
+  "stormAt",
+  "corsairAt",
+  "catchAt",
+  "dropAt",
+];
+
+/** How a fortress and the pirate fleet are drawn. */
+const FORT_WIDE = 20;
+const FORT_DROP = 9;
+const FORT_STEP = 4;
+const ARMADA_SIZE = 12;
+
+/** How big a village chip is. */
+const VILLAGE_CHIP = 12;
+
+/** How big a gift marker is. */
+const GIFT_SIZE = 9;
+
+/** What each village advantage is called on the board. */
+const SPICE_LABELS: Readonly<Record<Spice, string>> = {
+  fahrt: "+1 Fahrt",
+  pirat4: "Pirat 4",
+  pirat5: "Pirat 5",
+  gold: "Gold",
+};
+
+/** How a village is drawn. */
+const VILLAGE_WIDE = 40;
+const VILLAGE_HIGH = 22;
+const VILLAGE_DOT = 3;
+
+/** How a fish field, a shoal and the Catanischer Rat are drawn. */
+const FISH_DIE = 17;
+const FISH_LIFT = 13;
+const COUNCIL_SIZE = 15;
+const ANCHOR_SIZE = 7;
+
 /** How a pirate camp and a pirate ship are drawn. */
 const CAMP_WIDE = 26;
 const CAMP_HIGH = 9;
 const CAMP_DROP = 15;
 const CAMP_DOT = 3;
 const CORSAIR_SIZE = 11;
+// Clear of the die number of a Fischfeld, which a pirate ship may sit on.
+const CORSAIR_DROP = 8;
 
 /** How an Entdecker ship and its cargo are drawn. */
 const BOAT_HULL = 10;
@@ -254,6 +312,7 @@ type Spot = {
     | "drive"
     /** *Händler & Barbaren*: where the lifted barbarian goes. */
     | "shift"
+    | "shoveAt"
     /** *Seefahrer*: a water path for a new ship. */
     | "ship"
     /** *Seefahrer*: where the picked ship is put down again. */
@@ -277,7 +336,13 @@ type Spot = {
     /** *Die Piratenlager*: a camp to set units down on. */
     | "stormAt"
     /** *Die Piratenlager*: a sea field for one's own pirate ship. */
-    | "corsairAt";
+    | "corsairAt"
+    /** *Fische für Catan*: a shoal to take aboard. */
+    | "catchAt"
+    /** *Fische für Catan*: a harbour of the Catanischer Rat to unload at. */
+    | "deliverAt"
+    /** *Gewürze für Catan*: a village to set a unit down on. */
+    | "dropAt";
   readonly at: number;
   /**
    * Whose piece, where that is not simply the reader's own.
@@ -386,7 +451,7 @@ export function tappable(
     if (boat !== undefined && boat.owner === seat) {
       lanesFrom(game, boat).forEach((at) => spots.push({ kind: "sailTo", at }));
       if (boat.hold.includes("entdecker")) {
-        landfall(game, boat.at).forEach((at) =>
+        landingSpots(game, seat, boat.at).forEach((at) =>
           spots.push({ kind: "landAt", at }),
         );
       }
@@ -398,9 +463,24 @@ export function tappable(
           spots.push({ kind: "stormAt", at }),
         );
       }
+      catchSpots(game, seat)
+        .filter((each) => each.boat === game.sailing)
+        .forEach((each) => spots.push({ kind: "catchAt", at: each.hex }));
+      villageSpots(game, seat)
+        .filter((each) => each.boat === game.sailing)
+        .forEach((each) => spots.push({ kind: "dropAt", at: each.hex }));
+      landings(game, seat)
+        .filter((each) => each.boat === game.sailing)
+        .forEach((each) => spots.push({ kind: "deliverAt", at: each.at }));
     }
   } else if (mine && game.phase === "driving") {
     driveSpots(game, seat).forEach((at) => spots.push({ kind: "drive", at }));
+    // "Steht ein Barbar auf einem Weg, den du befahren willst, darfst du gegen
+    // ihn würfeln": the barbarians in front of the wagon are tapped like
+    // anything else on a path.
+    facingRaiders(game, seat).forEach((at) =>
+      spots.push({ kind: "shoveAt", at }),
+    );
   } else if (mine && game.phase === "shifting") {
     raiderSpots(game).forEach((at) => spots.push({ kind: "shift", at }));
   } else if (mine && game.phase === "posting" && game.posting !== null) {
@@ -600,6 +680,7 @@ function moveFor(spot: Spot): CatanMove {
     ride: { kind: "ride", from: spot.seat ?? 0, to: spot.at, far: spot.far },
     drive: { kind: "drive", at: spot.at },
     shift: { kind: "shift", at: spot.at },
+    shoveAt: { kind: "shove", at: spot.at },
     ship: { kind: "ship", at: spot.at },
     // The ship being moved travels in `seat`, the way a march and a ride do.
     sail: { kind: "sail", from: spot.seat ?? 0, to: spot.at },
@@ -613,6 +694,9 @@ function moveFor(spot: Spot): CatanMove {
     unitAt: { kind: "unit", at: spot.at },
     stormAt: { kind: "storm", at: spot.at },
     corsairAt: { kind: "corsair", at: spot.at },
+    catchAt: { kind: "catch", at: spot.at },
+    deliverAt: { kind: "deliver", at: spot.at },
+    dropAt: { kind: "drop", at: spot.at },
     wagon: { kind: "wagon", at: spot.at },
     city: { kind: "city", at: spot.at },
     robber: { kind: "robber", at: spot.at },
@@ -805,6 +889,9 @@ function Landscape({
       {/* A Goldfluss looks a lot like a wheat field at a glance, and it pays
           something else entirely - so it says so. */}
       {campAt(game, hex) !== null && <PirateCamp game={game} hex={hex} />}
+      {game.land[hex] === "fisch" && <FishGround game={game} hex={hex} />}
+      {game.land[hex] === "gewuerz" && <Village game={game} hex={hex} />}
+      {hex === game.council && <Council game={game} hex={hex} />}
       {game.land[hex] === "gold" && (
         <text
           x={px}
@@ -1637,7 +1724,9 @@ function Explorer({
           cx={-BOAT_HULL * 0.5}
           cy={2}
           r={HOLD_DOT}
-          fill="#f8f1de"
+          // A shoal fills the whole hold, so it is worth seeing which cargo a
+          // ship is carrying without counting anything.
+          fill={boat.hold.includes("fisch") ? "#8ecae6" : "#f8f1de"}
           stroke="#1f2937"
           strokeWidth={1.2}
         />
@@ -1726,16 +1815,406 @@ function Corsair({ game }: { readonly game: CatanGame }): ReactElement | null {
       <title>{`Piratenschiff ${game.players[ship.owner].name}`}</title>
       <circle
         cx={spot.px}
-        cy={spot.py}
+        cy={spot.py + CORSAIR_DROP}
         r={CORSAIR_SIZE}
         fill="#1f2937"
         stroke={COLOUR_INK[game.players[ship.owner].colour]}
         strokeWidth={3}
       />
       <path
-        d={`M ${spot.px - 5} ${spot.py + 3} l 10 0 M ${spot.px} ${spot.py - 6} l 0 9`}
+        d={`M ${spot.px - 5} ${spot.py + 3 + CORSAIR_DROP} l 10 0 M ${spot.px} ${spot.py - 6 + CORSAIR_DROP} l 0 9`}
         stroke="#f8f1de"
         strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </g>
+  );
+}
+
+/**
+ * A Fischfeld: the die number it answers to, and the shoal lying on it.
+ *
+ * @param props - the game and the field
+ * @returns the number and, when one is there, the shoal
+ * @remarks
+ * The number is drawn as a die pip square rather than as a chip, because that
+ * is what it is: one die of 1 to 6 called in the movement phase, not one of the
+ * two that pay resources. Confusing the two would be the whole misunderstanding
+ * of this mission.
+ */
+function FishGround({
+  game,
+  hex,
+}: {
+  readonly game: CatanGame;
+  readonly hex: number;
+}): ReactElement {
+  const board = islandOf(game.land.length);
+  const { px, py } = hexPoint(board, hex);
+  const number = game.fish[hex] ?? 0;
+  return (
+    <g pointerEvents="none" data-testid={`ct-fish-${hex}`}>
+      <title>{`Fischfeld ${number}`}</title>
+      <rect
+        x={px - FISH_DIE / 2}
+        y={py - FISH_DIE / 2 - FISH_LIFT}
+        width={FISH_DIE}
+        height={FISH_DIE}
+        rx={4}
+        fill="#f8f1de"
+        stroke="#1f2937"
+        strokeWidth={1.4}
+      />
+      <text
+        x={px}
+        y={py - FISH_LIFT}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={12}
+        fontWeight={700}
+        fill="#1f2937"
+      >
+        {number}
+      </text>
+      {shoalAt(game, hex) && <Shoal px={px} py={py + FISH_LIFT} />}
+    </g>
+  );
+}
+
+/** One shoal of fish, on the water or in a hold. */
+function Shoal({
+  px,
+  py,
+}: {
+  readonly px: number;
+  readonly py: number;
+}): ReactElement {
+  return (
+    <g pointerEvents="none">
+      <path
+        d={`M ${px - 9} ${py} q 9 -7 18 0 q -9 7 -18 0 Z`}
+        fill="#e8f4ff"
+        stroke="#123a52"
+        strokeWidth={1.4}
+      />
+      <path
+        d={`M ${px + 9} ${py} l 5 -4 l 0 8 Z`}
+        fill="#e8f4ff"
+        stroke="#123a52"
+        strokeWidth={1.2}
+      />
+    </g>
+  );
+}
+
+/**
+ * The Catanischer Rat, with an anchor at each of its two harbours.
+ *
+ * @param props - the game and the field
+ * @returns the base and its two anchors
+ */
+function Council({
+  game,
+  hex,
+}: {
+  readonly game: CatanGame;
+  readonly hex: number;
+}): ReactElement {
+  const board = islandOf(game.land.length);
+  const { px, py } = hexPoint(board, hex);
+  return (
+    <g pointerEvents="none" data-testid={`ct-council-${hex}`}>
+      <title>Catanischer Rat</title>
+      <circle
+        cx={px}
+        cy={py}
+        r={COUNCIL_SIZE}
+        fill="#cbb994"
+        stroke="#f4ecd6"
+        strokeWidth={2}
+      />
+      <text
+        x={px}
+        y={py}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={8}
+        fontWeight={700}
+        fill="#3b2b20"
+      >
+        Rat
+      </text>
+      {councilDocks(game).map((corner) => {
+        const spot = crossPoint(board, corner);
+        return (
+          <g key={corner}>
+            <circle
+              cx={spot.px}
+              cy={spot.py}
+              r={ANCHOR_SIZE}
+              fill="#f8f1de"
+              stroke="#123a52"
+              strokeWidth={1.6}
+            />
+            <path
+              d={`M ${spot.px} ${spot.py - 4} l 0 7 M ${spot.px - 3} ${spot.py + 1} l 6 0 M ${spot.px - 3} ${spot.py + 3} q 3 3 6 0`}
+              stroke="#123a52"
+              strokeWidth={1.3}
+              fill="none"
+              strokeLinecap="round"
+            />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/**
+ * A Gewürzfeld: its village, the sacks still lying there, and what it gives.
+ *
+ * @param props - the game and the field
+ * @returns the village, its stock and the units standing on it
+ * @remarks
+ * The advantage is written out rather than drawn as the printed symbol: three
+ * of them and two of each, and a player has to be able to tell at a glance
+ * which island is worth the voyage.
+ */
+function Village({
+  game,
+  hex,
+}: {
+  readonly game: CatanGame;
+  readonly hex: number;
+}): ReactElement {
+  const board = islandOf(game.land.length);
+  const { px, py } = hexPoint(board, hex);
+  const gift = game.spice[hex];
+  const left = game.sacks[hex] ?? 0;
+  const here = game.villages[hex] ?? [];
+  return (
+    <g pointerEvents="none" data-testid={`ct-village-${hex}`}>
+      <title>{`Gewürzfeld - ${gift === undefined ? "Dorf" : SPICE_LABELS[gift]}`}</title>
+      <rect
+        x={px - VILLAGE_WIDE / 2}
+        y={py - VILLAGE_HIGH / 2}
+        width={VILLAGE_WIDE}
+        height={VILLAGE_HIGH}
+        rx={3}
+        fill="#f4ecd6"
+        stroke="#3b2b20"
+        strokeWidth={1.6}
+      />
+      <text
+        x={px}
+        y={py - 4}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={8}
+        fontWeight={700}
+        fill="#3b2b20"
+      >
+        {gift === undefined ? "Dorf" : SPICE_LABELS[gift]}
+      </text>
+      <text
+        x={px}
+        y={py + 6}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={8}
+        fill="#3b2b20"
+      >
+        {`${left} Sack`}
+      </text>
+      {here.map((seat, at) => (
+        <circle
+          key={`${seat}-${at}`}
+          cx={px - VILLAGE_WIDE / 2 + 5 + at * VILLAGE_DOT * 2.4}
+          cy={py + VILLAGE_HIGH / 2 + VILLAGE_DOT + 1}
+          r={VILLAGE_DOT}
+          fill={COLOUR_INK[game.players[seat].colour]}
+          stroke="#f4ecd6"
+          strokeWidth={1}
+        />
+      ))}
+    </g>
+  );
+}
+
+/**
+ * A gift of the forgotten tribe, on the coastline it lies on.
+ *
+ * @param props - the game, the sea path and what lies there
+ * @returns the marker, with a letter for what it is
+ * @remarks
+ * Drawn on the path rather than beside it, because that is where it is taken
+ * from: a ship built or moved onto this very edge picks it up.
+ */
+function Present({
+  game,
+  path,
+  gift,
+}: {
+  readonly game: CatanGame;
+  readonly path: number;
+  readonly gift: Gift;
+}): ReactElement {
+  const board = islandOf(game.land.length);
+  const a = crossPoint(board, board.paths[path].ends[0]);
+  const b = crossPoint(board, board.paths[path].ends[1]);
+  const px = (a.px + b.px) / 2;
+  const py = (a.py + b.py) / 2;
+  const name =
+    gift.kind === "chip"
+      ? "Siegpunkt-Chip"
+      : gift.kind === "card"
+        ? "Entwicklungskarte"
+        : `Hafen ${gift.want === null ? "3:1" : `2:1 ${SORT_NAMES[gift.want]}`}`;
+  return (
+    <g pointerEvents="none" data-testid={`ct-gift-${path}`}>
+      <title>{`Geschenk: ${name}`}</title>
+      <circle
+        cx={px}
+        cy={py}
+        r={GIFT_SIZE}
+        fill="#f8f1de"
+        stroke="#7a5a86"
+        strokeWidth={2}
+      />
+      <text
+        x={px}
+        y={py}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={9}
+        fontWeight={700}
+        fill="#4a2f57"
+      >
+        {gift.kind === "chip" ? "SP" : gift.kind === "card" ? "EK" : "H"}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * A village of the forgotten tribe, on the crossing it stands on.
+ *
+ * @param props - the game, the crossing and the village
+ * @returns its number and how much cloth is left there
+ * @remarks
+ * "Auf die 4 kleinen Inseln legt ihr je 2 Zahlenchips, genau auf die Kreuzung
+ * (jeder Zahlenchip stellt ein Dorf dar)" - so it is drawn as a chip on a
+ * crossing, with the bales counted beneath it. An empty village keeps its
+ * number and pays nobody, which is why the count is worth seeing.
+ */
+function ClothVillage({
+  game,
+  at,
+  village,
+}: {
+  readonly game: CatanGame;
+  readonly at: number;
+  readonly village: { readonly number: number; readonly bales: number };
+}): ReactElement {
+  const board = islandOf(game.land.length);
+  const { px, py } = crossPoint(board, at);
+  return (
+    <g pointerEvents="none" data-testid={`ct-village-${at}`}>
+      <title>{`Dorf ${village.number} - ${village.bales} Stoffballen`}</title>
+      <circle
+        cx={px}
+        cy={py}
+        r={VILLAGE_CHIP}
+        fill="#f4ecd6"
+        stroke="#7a5a86"
+        strokeWidth={2}
+      />
+      <text
+        x={px}
+        y={py - 3}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={10}
+        fontWeight={700}
+        fill="#3b2b20"
+      >
+        {village.number}
+      </text>
+      <text
+        x={px}
+        y={py + 6}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={7}
+        fill={village.bales === 0 ? "#a13c3c" : "#4a2f57"}
+      >
+        {village.bales}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * A pirate fortress, with the chips it still stands on.
+ *
+ * @param props - the game, the crossing and the fortress
+ * @returns the marker, or nothing once the fortress has fallen
+ */
+function Fortress({
+  game,
+  at,
+  fort,
+}: {
+  readonly game: CatanGame;
+  readonly at: number;
+  readonly fort: { readonly owner: number; readonly chips: number };
+}): ReactElement | null {
+  const board = islandOf(game.land.length);
+  const { px, py } = crossPoint(board, at);
+  return fort.chips === 0 ? null : (
+    <g pointerEvents="none" data-testid={`ct-fort-${at}`}>
+      <title>{`Piratenfestung ${game.players[fort.owner].name} - ${fort.chips} Chips`}</title>
+      {Array.from({ length: fort.chips }, (unused, step) => (
+        <rect
+          key={step}
+          x={px - FORT_WIDE / 2}
+          y={py + FORT_DROP + step * FORT_STEP}
+          width={FORT_WIDE}
+          height={FORT_STEP - 1}
+          rx={1}
+          fill={COLOUR_INK[game.players[fort.owner].colour]}
+          stroke="#1f2937"
+          strokeWidth={1}
+        />
+      ))}
+    </g>
+  );
+}
+
+/** The pirate fleet, on the sea field of its circuit it has reached. */
+function Armada({ game }: { readonly game: CatanGame }): ReactElement | null {
+  const board = islandOf(game.land.length);
+  const ring = fleetRing(board);
+  const hex = ring[game.armada % ring.length];
+  if (hex === undefined) {
+    return null;
+  }
+  const { px, py } = hexPoint(board, hex);
+  return (
+    <g pointerEvents="none" data-testid="ct-armada">
+      <title>Piratenflotte</title>
+      <circle
+        cx={px}
+        cy={py}
+        r={ARMADA_SIZE}
+        fill="#1f2937"
+        stroke="#f8f1de"
+        strokeWidth={2}
+      />
+      <path
+        d={`M ${px - 6} ${py + 3} l 12 0 M ${px} ${py - 7} l 0 10`}
+        stroke="#f8f1de"
+        strokeWidth={2}
         strokeLinecap="round"
       />
     </g>
@@ -1845,11 +2324,12 @@ export function CatanBoard({
     sailingShip,
   );
   const loose = mySeat === null ? [] : looseShips(game, mySeat);
-  const litHex = new Set(
-    spots
-      .filter((s) => s.kind === "robber" || s.kind === "pirateAt")
-      .map((s) => s.at),
-  );
+  // Everything that is answered by tapping a **field** rather than a crossing
+  // or an edge - and through moveFor, like the other two, so a new one is
+  // taught in one place. Storming a camp and setting a pirate ship down were
+  // added without this and lit nothing at all.
+  const litFields = spots.filter((s) => HEX_SPOTS.includes(s.kind));
+  const litHex = new Map(litFields.map((s) => [s.at, s]));
   const litPaths = spots.filter(
     (s) =>
       s.kind === "road" ||
@@ -1861,6 +2341,7 @@ export function CatanBoard({
       s.kind === "post" ||
       s.kind === "ride" ||
       s.kind === "shift" ||
+      s.kind === "shoveAt" ||
       s.kind === "ship" ||
       s.kind === "sail" ||
       s.kind === "boatAt" ||
@@ -1874,6 +2355,7 @@ export function CatanBoard({
       s.kind === "drive" ||
       s.kind === "scoutAt" ||
       s.kind === "unitAt" ||
+      s.kind === "deliverAt" ||
       s.kind === "portAt" ||
       s.kind === "landAt" ||
       s.kind === "loadAt",
@@ -1906,7 +2388,7 @@ export function CatanBoard({
             lit={litHex.has(hex.id)}
             onTap={
               litHex.has(hex.id)
-                ? () => onMove({ kind: "robber", at: hex.id })
+                ? () => onMove(moveFor(litHex.get(hex.id) as Spot))
                 : null
             }
           />
@@ -2005,7 +2487,8 @@ export function CatanBoard({
               boat.owner === mySeat &&
               game.sailing !== which &&
               (lanesFrom(game, boat).length > 0 ||
-                landfall(game, boat.at).length > 0);
+                (boat.hold.includes("entdecker") &&
+                  landingSpots(game, mySeat, boat.at).length > 0));
             return (
               <g
                 key={`b-${which}`}
@@ -2027,6 +2510,31 @@ export function CatanBoard({
               </g>
             );
           })}
+        {Object.entries(game.forts).map(([at, fort]) => (
+          <Fortress
+            key={`fort-${at}`}
+            game={game}
+            at={Number(at)}
+            fort={fort}
+          />
+        ))}
+        {corsairs(game) && <Armada game={game} />}
+        {Object.entries(game.villagesOf).map(([at, village]) => (
+          <ClothVillage
+            key={`village-${at}`}
+            game={game}
+            at={Number(at)}
+            village={village}
+          />
+        ))}
+        {Object.entries(game.presents).map(([path, gift]) => (
+          <Present
+            key={`gift-${path}`}
+            game={game}
+            path={Number(path)}
+            gift={gift}
+          />
+        ))}
         {camping(game) && <Corsair game={game} />}
         {sailing(game) && game.pirate >= 0 && (
           <Pirate game={game} hex={game.pirate} />

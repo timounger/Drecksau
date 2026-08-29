@@ -14,10 +14,18 @@
 
 import { useState, type ReactElement } from "react";
 import {
+  canShiftBarbarian,
   discardCount,
   neutralSpots,
   seatOnTurn,
 } from "@/games/catan/engine/moves";
+import { raiding } from "@/games/catan/engine/barbaren";
+import {
+  atFort,
+  corsairs,
+  fortOf,
+  warshipsOf,
+} from "@/games/catan/engine/seefahrer";
 import {
   SWAP_CARDS,
   canHandKnightIn,
@@ -70,7 +78,14 @@ import {
   type Hand,
   type Resource,
 } from "@/games/catan/engine/state";
-import { chasers, movesLeft } from "@/games/catan/engine/entdecker";
+import {
+  BOAT_COST,
+  canCast,
+  chaseRolls,
+  chasers,
+  goldSales,
+  movesLeft,
+} from "@/games/catan/engine/entdecker";
 import { CATAN_TEXTS as T, SORT_NAMES } from "@/games/catan/i18n/texts";
 
 /** A button in the bar. */
@@ -442,12 +457,21 @@ function ChipActions({
         off={held < price}
         onClick={() => onMove({ kind: "chip", action: "swap" })}
       />
-      <Button
-        label={T.chipRobber(price)}
-        testId="ct-chip-robber"
-        off={held < price}
-        onClick={() => onMove({ kind: "chip", action: "robber" })}
-      />
+      {raiding(game) ? (
+        <Button
+          label={T.chipBarbarian(price)}
+          testId="ct-chip-barbarian"
+          off={held < price || !canShiftBarbarian(game)}
+          onClick={() => onMove({ kind: "chip", action: "barbarian" })}
+        />
+      ) : (
+        <Button
+          label={T.chipRobber(price)}
+          testId="ct-chip-robber"
+          off={held < price}
+          onClick={() => onMove({ kind: "chip", action: "robber" })}
+        />
+      )}
       {canHandKnightIn(game, mySeat) && (
         <Button
           label={T.knightIn}
@@ -677,12 +701,11 @@ function CardAsking({
       )}
       {card === "spionage" && (
         <span className="flex flex-wrap gap-1.5">
-          {/* Online these are backs, and a back cannot be picked: the card
-              lets you *look* at somebody's hand, and looking needs the real
-              cards to travel to you. Until the online layer can deliver a peek,
-              Spionage is a card that only fully works at a solo table - which
-              this says out loud rather than offering choices that are not
-              really there. */}
+          {/* Online the real cards travel down the private channel of whoever
+              plays the card - see CatanHand.spied - so these are the cards
+              themselves and can be picked. The face-down fallback stays for the
+              moment before that message has arrived: a back is shown as a back
+              rather than as a card that was never there. */}
           {others.flatMap((at) =>
             game.players[at].progress
               .filter((each) => !isPointCard(each))
@@ -871,12 +894,78 @@ export function CatanActions({
             {T.corsairHint}
           </span>
         )}
+        {mine &&
+          game.phase === "trade" &&
+          game.sold < goldSales(game, mySeat) &&
+          RESOURCES.filter((sort) => game.players[mySeat].hand[sort] > 0).map(
+            (sort) => (
+              <Button
+                key={`sell-${sort}`}
+                label={T.sellSpice(SORT_NAMES[sort])}
+                testId={`ct-sell-${sort}`}
+                onClick={() => onMove({ kind: "sell", sort })}
+              />
+            ),
+          )}
+        {mine &&
+          game.phase === "trade" &&
+          game.players[mySeat].boatsLeft === 0 &&
+          covers(game.players[mySeat].hand, BOAT_COST) &&
+          game.boats.map((boat, which) =>
+            boat.owner !== mySeat ? null : (
+              <Button
+                key={`recall-${which}`}
+                label={T.recallBoat(boat.hold.length > 0)}
+                testId={`ct-recall-${which}`}
+                onClick={() => onMove({ kind: "recall", boat: which })}
+              />
+            ),
+          )}
+        {mine &&
+          (game.phase === "trade" || game.phase === "sailing") &&
+          game.boats.flatMap((boat, which) =>
+            boat.owner !== mySeat
+              ? []
+              : [...new Set(boat.hold)].map((cargo) => (
+                  <Button
+                    key={`unload-${which}-${cargo}`}
+                    label={T.unloadCargo(T.cargoName(cargo))}
+                    testId={`ct-unload-${which}-${cargo}`}
+                    onClick={() =>
+                      onMove({ kind: "unload", boat: which, cargo })
+                    }
+                  />
+                )),
+          )}
+        {mine &&
+          game.phase === "trade" &&
+          corsairs(game) &&
+          !game.stormed &&
+          atFort(game, mySeat) &&
+          fortOf(game, mySeat) !== null && (
+            <Button
+              label={T.assaultFort(warshipsOf(game, mySeat))}
+              testId="ct-assault"
+              onClick={() => onMove({ kind: "assault" })}
+            />
+          )}
+        {canCast(game) && mine && (
+          <Button
+            label={T.castFish}
+            testId="ct-cast"
+            onClick={() => onMove({ kind: "cast" })}
+          />
+        )}
         {game.phase === "sailing" &&
           mine &&
           chasers(game, mySeat).map((which) => (
             <Button
               key={`hunt-${which}`}
-              label={T.huntPirate}
+              label={T.huntPirate(
+                [...chaseRolls(game, mySeat)]
+                  .sort((one, other) => one - other)
+                  .join(", "),
+              )}
               testId={`ct-hunt-${which}`}
               onClick={() => onMove({ kind: "hunt", boat: which })}
             />
@@ -886,7 +975,7 @@ export function CatanActions({
             <span className="text-sm font-semibold" data-testid="ct-hint">
               {game.sailing === null
                 ? T.findHelm
-                : T.findSail(movesLeft(game.boats[game.sailing]))}
+                : T.findSail(movesLeft(game, game.boats[game.sailing]))}
             </span>
             {game.sailing !== null && (
               <Button

@@ -341,8 +341,21 @@ allein könnte also nie sagen, welche gemeint war.
 **Handelschips.** Fünf zum Start. Eine Aktion kostet 1 Chip, oder **2, solange
 man vorne liegt** - eine Aufholregel. Zwei Aktionen: _Zwangshandel_ (2 Karten
 blind ziehen, 2 beliebige zurückgeben) und _Räuber in die Wüste_ (ohne jemanden
-zu bestehlen). Nachschub: einen ausgespielten Ritter abgeben (+2), eine Siedlung
-an der Küste (+1), an der Wüste (+2), an beidem (+3).
+zu bestehlen); im _Barbarenüberfall_, wo es keinen Räuber gibt, versetzt die
+zweite Aktion stattdessen einen **Barbaren**. Nachschub: einen ausgespielten
+Ritter abgeben (+2), eine Siedlung an der Küste (+1), an der Wüste (+2), an
+beidem (+3).
+
+**Zwei Sonderfälle.** Neutrale Farben auf dem Brett heißen nicht immer, dass
+diese Variante gespielt wird:
+
+- **Entdecker & Piraten** hat eine eigene Zweipersonenregel und keine von dieser
+  hier: Die Figuren der ungenutzten Farben stehen als **Hindernis** auf der
+  Startinsel und tun sonst nichts - siehe
+  [Entdecker & Piraten](entdecker.md#zu-zweit).
+- **Der Barbarenüberfall** spielt sie mit fünf eigenen Regeln, vom „Fremden
+  Ritter" bis zur Entschädigung - siehe
+  [Die Szenarien](szenarien.md#kombination-mit-catan-für-zwei).
 
 #### Die Häfen von Catan
 
@@ -359,23 +372,99 @@ eine bewusst kurze oder lange Partie ihre Länge.
 
 Umgesetzt sind: Händler & Barbaren ganz (vier Varianten, fünf Szenarien, auch
 zu fünft und sechst), Städte & Ritter, das Grundspiel zu fünft und sechst, von
-Seefahrer die allgemeinen Regeln samt freiem Spiel, und von Entdecker & Piraten
-die Grundregeln samt den ersten beiden Szenarien. Der Stand im Einzelnen:
+Seefahrer die allgemeinen Regeln samt freiem Spiel und allen acht Szenarien, und von Entdecker & Piraten
+die Grundregeln samt allen fünf Szenarien. Der Stand im Einzelnen:
 
-| Anleitung                     | Umfang                                               | Stand                                       |
-| ----------------------------- | ---------------------------------------------------- | ------------------------------------------- |
-| Händler & Barbaren, Varianten | Freundlicher Räuber, Ereignisse auf Catan, Die Häfen | fertig                                      |
-| Händler & Barbaren, Varianten | CATAN für Zwei                                       | fertig                                      |
-| Händler & Barbaren, Szenarien | 5 Szenarien als Kampagne                             | **[alle 5](szenarien.md)**                  |
-| Seefahrer                     | Allgemeine Regeln plus freies Spiel                  | [Neue Welt fertig](seefahrer.md)            |
-| Städte & Ritter               | Handelswaren, Ritter, Metropolen                     | [fertig](staedte-und-ritter.md)             |
-| Entdecker & Piraten           | Grundregeln plus Szenarien 1 und 2                   | [Land in Sicht, Piratenlager](entdecker.md) |
-| 5-6 Personen, Grundspiel      | Stein 1 / Stein 2, 30 Felder                         | fertig                                      |
-| 5-6 Personen, je Erweiterung  | Wagen 1 / Wagen 2 je Szenario                        | [Händler & Barbaren fertig](szenarien.md)   |
+| Anleitung                     | Umfang                                               | Stand                           |
+| ----------------------------- | ---------------------------------------------------- | ------------------------------- |
+| Händler & Barbaren, Varianten | Freundlicher Räuber, Ereignisse auf Catan, Die Häfen | fertig                          |
+| Händler & Barbaren, Varianten | CATAN für Zwei                                       | fertig                          |
+| Händler & Barbaren, Szenarien | 5 Szenarien als Kampagne                             | **[alle 5](szenarien.md)**      |
+| Seefahrer                     | Allgemeine Regeln, freies Spiel, alle 8 Szenarien    | **[alle 8](seefahrer.md)**      |
+| Städte & Ritter               | Handelswaren, Ritter, Metropolen                     | [fertig](staedte-und-ritter.md) |
+| Entdecker & Piraten           | Grundregeln und alle 5 Szenarien                     | **[alle 5](entdecker.md)**      |
+| 5-6 Personen, Grundspiel      | Stein 1 / Stein 2, 30 Felder                         | fertig                          |
+| 5-6 Personen, je Erweiterung  | Wagen 1 / Wagen 2 je Szenario                        | **[alle](five-six.md)**         |
 
-Die vier erweiterungseigenen 5-6-Hefte setzen jeweils das Grundspiel zu fünft
-und sechst voraus - das ist umgesetzt - und legen dann Szenariomaterial obendrauf.
-Sie kommen mit den jeweiligen Erweiterungen.
+Die vier erweiterungseigenen 5-6-Hefte sind umgesetzt: der geteilte Spielzug
+gilt überall, Seefahrer bringt seine sechste Piratenfestung mit, und Entdecker &
+Piraten spielt ab fünf Personen auf dem größeren Brett - Startinsel 22, Gebiete
+je 9. Nachzulesen in [zu fünft und zu sechst](five-six.md).
+
+## Die Größte Rittermacht spielt mit
+
+Zwei Siegpunkte liegen in der Hand: „Wer als Erste:r 3 Ritterkarten offen vor
+sich liegen hat, erhält die Sondertafel." Der Computergegner spielte seine
+Ritter aber nur, wenn der **Räuber** auf einem eigenen Feld saß - und wenn der
+woanders stand, blieben sie liegen. Eine Partie _Zu neuen Ufern_ endete
+deshalb nicht: Eine Farbe saß bei dreizehn von vierzehn Punkten mit **neun
+Ritterkarten** auf der Hand und ohne einen freien Bauplatz. Drei davon wären das
+Spiel gewesen.
+
+Jetzt zählt er, was in der Hand steckt: Reichen die Ritter, die er hat und noch
+hat, um die Tafel zu holen, spielt er sie - einen pro Zug, wie es die Regel
+erlaubt.
+
+## Wenn zwei Erweiterungen zusammenkommen
+
+Die Einstellungen lassen jede Mischung zu: Modus, drei Varianten, zwanzig
+Szenarien, fünf Tischgrößen - 4800 Kombinationen. Die Anleitung von Händler &
+Barbaren sagt dazu selbst: „Theoretisch sind verschiedene Szenarien dieser
+Kampagne ... auch mit Seefahrer-Szenarien, Entdecker & Piraten und Städte &
+Ritter kombinierbar. Eine Beschreibung jeder Kombinationsmöglichkeit würde den
+Rahmen dieser Anleitung sprengen." Wo zwei Regeln sich in die Quere kommen,
+steht die Entscheidung deshalb hier.
+
+**Ereignisse auf Catan und Städte & Ritter.** „Statt zu würfeln, deckt ihr eine
+Ereigniskarte auf" - die Karte ersetzt die **Zahl**, und sonst nichts. Städte &
+Ritter würfelt aber mit **drei** Würfeln, und der dritte ist der
+Ereigniswürfel: Er schickt das Barbarenschiff los und teilt die
+Fortschrittskarten aus. Eine Variante, die den stillschweigend mit abschaltet,
+nimmt diesem Spiel zwei seiner drei Motoren - im Selbstspiel saß ein Tisch nach
+sechstausend Zügen bei dreizehn von vierzehn Punkten, mit allen Leisten am
+Anschlag, allem gebaut und einem Barbarenschiff, das sich nie bewegt hatte.
+
+Deshalb wird der Ereigniswürfel weiter geworfen und **zuerst** abgehandelt, wie
+es die Reihenfolge der drei Würfel vorgibt; die Ereigniskarte kommt danach an
+die Stelle des Zahlenwurfs.
+
+**Der Räuber zieht in Städte & Ritter auch Handelswaren.** „Anschließend ziehst
+du eine verdeckte Karte aus der **Kartenhand** dieser Person": in Städte &
+Ritter liegen Papier, Tuch und Münzen in derselben Hand, sie zählen bei der
+Sieben mit, und sie werden auch gezogen. Vorher zählte nur, wer Rohstoffe hielt
+- wer nur Handelswaren hatte, war unantastbar, und ein Ereignis, das jemanden
+ziehen lässt, fand niemanden zum Ziehen und wartete für immer.
+
+**Ein Ereignis, das niemand beantworten kann, verfällt.** Genau wie „Kein Ritter
+frei - die Karte verfällt" bei den Barbaren: Wer gefragt wird, muss auch
+antworten können - eine Karte in der Hand, eine Straße auf dem Brett, jemanden
+zum Ziehen, jemanden zum Beschenken. Sonst wird der Platz übersprungen, und ist
+niemand mehr übrig, ist die Karte vorbei.
+
+## Wenn nichts mehr geht
+
+Catan endet, wenn jemand das Ziel erreicht - und die Anleitung fragt nirgends,
+was passiert, wenn das niemand mehr kann. Am Tisch fragt das auch niemand: Man
+sieht es und hört auf. Ein Bildschirm sieht es nicht und würfelt weiter, und
+genau das ist im Selbstspiel passiert - Partien über neuntausend Züge, bei denen
+sich seit dem tausendsten nichts mehr geändert hat.
+
+Deshalb zwei Abbruchregeln. Beide sind **Zusätze**, und beide fragen so streng,
+dass eine lebende Partie sie nicht auslösen kann - ein freier Bauplatz, eine
+Karte im Spiel, und es geht weiter:
+
+- **Alles gebaut.** Keine Farbe hat mehr einen Platz für Siedlung, Stadt, Straße
+  oder Schiff, kein Schiff lässt sich mehr versetzen, der Entwicklungsstapel ist
+  leer und niemand hält noch eine Karte, die etwas ändern könnte. Dann zählt der
+  Schiedsrichter die Punkte, und wer vorn liegt, gewinnt. Das gilt nur für das
+  Grundspiel und die Seefahrer-Szenarien: Die anderen Erweiterungen bringen
+  eigene Figuren und eigene Missionen mit und beenden sich selbst.
+- **Keine Festung mehr zu erobern.** In _Die Pirateninseln_ gewinnt nur, wer
+  seine Festung erobert **und** zehn Punkte hat. Kriegsschiffe kommen allein aus
+  dem Entwicklungsstapel, und der wird nicht nachgemischt. Kann keine Farbe mehr
+  auf die zwei Kriegsschiffe kommen, die ein Kampf mindestens braucht, oder
+  keine ihre Linie noch bis zur Festung bauen, dann stehen die Festungen für
+  immer - und die Partie wird nach Punkten entschieden.
 
 ## Was am Bildschirm anders läuft
 
@@ -442,3 +531,25 @@ Das Brett ist öffentlich, die Hände sind es nicht - genau wie am Tisch.
 
 Am Spielende wird **nichts mehr verdeckt** - das ist die Regel selbst: „Du
 deckst sie erst auf, wenn du mindestens 10 Punkte erreicht hast."
+
+### Die Liste der erlaubten Züge
+
+Alles, was ein Gast schickt, wird beim Ankommen geprüft - unter anderem gegen
+eine Liste der Zugarten, die es in diesem Spiel gibt. Diese Liste nannte die
+**zwanzig Züge des Grundspiels** und keinen einzigen aus einer Erweiterung: Wer
+online Städte & Ritter, Seefahrer oder Entdecker & Piraten spielte, konnte
+würfeln, bauen und handeln, und alles, was seine Erweiterung dazubringt - Ritter
+aufstellen, Schiffe fahren, eine Stadt ausbauen, ein Lager stürmen -, wurde an
+der Tür abgewiesen.
+
+Jetzt steht die Liste dort, wo die Züge selbst stehen, und ist ein
+`Record<CatanMove["kind"], true>`: Wer einen Zug hinzufügt und die Liste
+vergisst, bekommt einen **Typfehler** statt eines Zuges, der offline geht und
+online nicht. Dieselbe Form haben aus demselben Grund schon die Phasen, die
+Landschaften, die Szenarien und die Brettgrößen.
+
+Gefunden hat das eine Probe über die ganze Sammlung: Jedes Spiel wird an jedem
+Tisch dreimal von den Computergegnern durchgespielt, und **jeder Zug und jeder
+Spielstand muss dabei durch dieselbe Prüfung passen, die online davorsteht**.
+Ein Zug, den die eigene Prüfung ablehnt, ist ein Zug, den es online nicht
+gibt.

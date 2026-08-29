@@ -15,6 +15,7 @@
  * normalen Regeln von CATAN - Das Spiel. Hinzu kommen folgende Änderungen."
  */
 import { islandOf } from "./board";
+import { clothIsle, tribe, tribeIsle } from "./seefahrer";
 import { openPoints, playing, type CatanGame } from "./state";
 
 /**
@@ -139,9 +140,18 @@ export function robberSpots(game: CatanGame, from: number): readonly number[] {
   const others = islandOf(game.land.length)
     .hexes.filter((hex) => hex.id !== from)
     .map((hex) => hex.id);
-  const allowed = playing(game, "raeuber")
+  const welcome = playing(game, "raeuber")
     ? others.filter((hex) => robberWelcome(game, hex))
     : others;
+  // "Der Räuber darf nicht auf die kleinen Inseln versetzt werden. Hat er die
+  // Startwüste verlassen, darf er nicht mehr dorthin zurückgesetzt werden."
+  const allowed = welcome.filter(
+    (hex) =>
+      !tribeIsle(game, hex) &&
+      // "Er darf jedoch die Inseln des Vergessenen Stammes nicht betreten."
+      !clothIsle(game, hex) &&
+      !(tribe(game) && hex === game.robberHome && game.robber !== hex),
+  );
   const desert = game.land.indexOf("wueste");
   return allowed.length > 0 ? allowed : [desert];
 }

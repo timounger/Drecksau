@@ -34,7 +34,25 @@ import type { OnlineAdapter, SeatSetup } from "@/online/adapter";
 export const MONOPOLY_GAME_ID = "monopoly";
 
 /** Monopoly has nothing to choose before a game. */
-export type MonopolyOptions = object;
+export type MonopolyOptions = {
+  /**
+   * Whether fines and taxes pile up on Frei Parken - the host's setting.
+   *
+   * @remarks
+   * Optional, so a room opened by an older client still starts: the rule then
+   * falls back to the house rule everybody plays, which is what the setting
+   * defaults to as well.
+   */
+  readonly parkingPot?: boolean;
+  /**
+   * Whether landing right on LOS pays double - the host's setting.
+   *
+   * @remarks
+   * Optional for the same reason as {@link MonopolyOptions.parkingPot}: a room
+   * opened by an older client simply gets the rule the setting defaults to.
+   */
+  readonly doubleGo?: boolean;
+};
 
 /** What travels off the public snapshot: the two piles, host-only. */
 export type MonopolyHand = {
@@ -66,12 +84,17 @@ export const monopolyAdapter: OnlineAdapter<
   minPlayers: MIN_PLAYERS,
   maxPlayers: MAX_PLAYERS,
 
-  createGame(seats: readonly SeatSetup[], _options, seed): MonopolyGame {
+  createGame(seats: readonly SeatSetup[], options, seed): MonopolyGame {
     const table: MonopolySeat[] = seats.map((seat) => ({
       name: seat.name,
       isBot: false,
     }));
-    return createGame(table, seed);
+    return createGame(
+      table,
+      seed,
+      options?.parkingPot ?? true,
+      options?.doubleGo ?? true,
+    );
   },
 
   seatIndexOnTurn(game): number | null {

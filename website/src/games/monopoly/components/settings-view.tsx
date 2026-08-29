@@ -17,6 +17,35 @@ import {
 } from "@/games/monopoly/settings/settings-store";
 
 /**
+ * The two house rules, as the page lists them.
+ *
+ * @remarks
+ * A list rather than two hand-written sections, so a third one is a line here
+ * and nothing else. Both start switched on: they are what most tables play, and
+ * the box says otherwise - the reasoning sits on the fields themselves, in
+ * {@link MONOPOLY_TEXTS.parkingHint} and {@link MONOPOLY_TEXTS.goHint}.
+ */
+const HOUSE_RULES: readonly {
+  readonly key: "parkingPot" | "doubleGo";
+  readonly testId: string;
+  readonly label: string;
+  readonly hint: string;
+}[] = [
+  {
+    key: "parkingPot",
+    testId: "mo-parking-switch",
+    label: T.parkingLabel,
+    hint: T.parkingHint,
+  },
+  {
+    key: "doubleGo",
+    testId: "mo-double-go-switch",
+    label: T.goLabel,
+    hint: T.goHint,
+  },
+];
+
+/**
  * Renders the settings page.
  *
  * @returns the page element
@@ -59,7 +88,9 @@ export function MonopolySettingsView(): ReactElement {
               role="radio"
               aria-checked={count === settings.playerCount}
               data-testid={`mo-players-${count}`}
-              onClick={() => updateSettings({ playerCount: count })}
+              onClick={() =>
+                updateSettings({ ...settings, playerCount: count })
+              }
               className={`h-10 w-10 cursor-pointer rounded-lg border text-sm font-semibold tabular-nums ${
                 count === settings.playerCount
                   ? "border-indigo-500 bg-indigo-600 text-white"
@@ -69,6 +100,50 @@ export function MonopolySettingsView(): ReactElement {
               {count}
             </button>
           ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+        <div>
+          <h2 className="text-sm font-semibold">{T.houseRules}</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {T.houseRulesHint}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {HOUSE_RULES.map((rule) => {
+            const on = settings[rule.key];
+            return (
+              <button
+                key={rule.key}
+                type="button"
+                role="switch"
+                aria-checked={on}
+                data-testid={rule.testId}
+                onClick={() => updateSettings({ ...settings, [rule.key]: !on })}
+                className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-left ${
+                  on
+                    ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40"
+                    : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`mt-0.5 inline-block h-4 w-4 shrink-0 rounded border ${
+                    on ? "border-indigo-500 bg-indigo-500" : "border-zinc-400"
+                  }`}
+                />
+                <span>
+                  <span className="block text-sm font-semibold">
+                    {rule.label}
+                  </span>
+                  <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                    {rule.hint}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 

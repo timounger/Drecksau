@@ -49,8 +49,8 @@ export type BinokelOptions = {
   readonly withDabb?: boolean;
   /** Whether two teams play (four or six players). Defaults to false. */
   readonly teams?: boolean;
-  /** Points that end the match. */
-  readonly targetScore: number;
+  /** Points that end the match. Defaults to the engine's own target. */
+  readonly targetScore?: number;
 };
 
 /** A player action, sent by a guest and refereed by the host. */
@@ -72,9 +72,22 @@ const DECOY_RANK = "sieben" as const;
 /** The suits a value may name as trump. */
 const SUIT_SET: ReadonlySet<string> = new Set(SUITS);
 
-/** Replaces a card with a face-down decoy, keeping its id so it stays unique. */
-function decoy(card: Card): Card {
-  return { id: card.id, suit: DECOY_SUIT, rank: DECOY_RANK };
+/**
+ * Replaces a card with a face-down decoy.
+ *
+ * @param unused - the card being hidden
+ * @param at - where it lies, which is all a decoy is allowed to say
+ * @param where - what pile it is in, so two decoys never share an id
+ * @returns a card that says nothing about itself
+ * @remarks
+ * The id goes with the suit and the rank. A Binokel card is called
+ * `herz-zehn-1`, so a decoy that keeps its id is no decoy at all: the whole
+ * hand can be read straight off the shared snapshot. The place in the pile is
+ * all that is left, and that is public anyway - everybody can count the cards
+ * in a hand.
+ */
+function decoy(unused: Card, at: number, where = "hand"): Card {
+  return { id: `verdeckt-${where}-${at}`, suit: DECOY_SUIT, rank: DECOY_RANK };
 }
 
 /** Checks a single card of a private hand. */
@@ -308,12 +321,12 @@ export const binokelAdapter: OnlineAdapter<
     }
     return {
       ...game,
-      players: game.players.map((player) => ({
+      players: game.players.map((player, seat) => ({
         ...player,
-        hand: player.hand.map(decoy),
+        hand: player.hand.map((card, at) => decoy(card, at, `hand-${seat}`)),
       })),
       // Face down on the table until somebody wins the bidding: still secret.
-      dabb: game.dabb.map(decoy),
+      dabb: game.dabb.map((card, at) => decoy(card, at, "dabb")),
       // Turned face up the moment the declarer takes it, so it is **not**
       // hidden - at a real table everybody watches those cards go over. It goes
       // out truthfully even though the same cards now sit in the declarer's

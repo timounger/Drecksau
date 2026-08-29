@@ -1,11 +1,12 @@
-# Flash Point: Fire Rescue - Spezifikation (in Arbeit)
+# Flash Point: Fire Rescue - Spezifikation
 
 Kooperatives Brettspiel von Kevin Lanzing. Quelle: die deutsche Anleitung als
 Bild-PDF (`flash-point-fire-rescue.pdf`, 10 Seiten, kein eingebetteter Text) -
 Seite für Seite gerendert und gelesen.
 
-**Stand:** Regeln vollständig erfasst, Grundriss noch nicht. Siehe
-[Was noch fehlt](#was-noch-fehlt).
+**Stand:** vollständig - Regeln und [Grundriss](#der-grundriss). Die einzige
+Stelle, die eine Lesart ist und keine Tatsache, sind drei der elf Türen, die der
+Scan zeigt und die Anleitung nicht zählt; sie stehen dort als offene Durchgänge.
 
 Umgesetzt werden sollen die **Regeln für Anfänger** (Seite 2 bis 6). Auf Seite 6
 steht ausdrücklich „Hier hören die Regeln für Anfänger auf"; alles danach -

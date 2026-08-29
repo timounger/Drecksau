@@ -85,6 +85,26 @@ export const MONOPOLY_TEXTS = {
 
   players: "Spieler",
   cash: (amount: number): string => `${amount} €`,
+  /** The test button over the board, and what it is for. */
+  /** The house-rule section on the settings page. */
+  houseRules: "Hausregeln",
+  houseRulesHint:
+    "Beides steht so nicht in der Anleitung, und beides wird an fast jedem Tisch gespielt - deshalb zum Abwählen statt zum Entdecken. Online gilt, was der Gastgeber eingestellt hat.",
+  /** The Frei-Parken switch on the settings page. */
+  parkingLabel: "Kasse auf Frei Parken",
+  parkingHint:
+    "Die bekannteste Hausregel: Kaution, Einkommen- und Zusatzsteuer und jede Zahlung an die Bank aus einer Ereignis- oder Gemeinschaftskarte kommen in die Mitte. Wer auf Frei Parken landet, bekommt alles. Die Anleitung rät ausdrücklich davon ab - deshalb der Schalter.",
+  /** How much is lying on Frei Parken right now. */
+  parkingPot: (amount: number): string => `${amount} €`,
+  /** The LOS switch on the settings page. */
+  goLabel: "Doppeltes Gehalt auf LOS",
+  goHint:
+    'Die zweite bekannte Hausregel: Wer genau auf LOS landet, zieht 400 € statt 200 € ein - egal ob gewürfelt oder mit „Rücke vor bis auf LOS". Wer nur darüber geht, bekommt wie immer 200 €. In der Anleitung steht auch das nicht.',
+  /** The marker on the LOS field while the house rule is on. */
+  goDouble: "genau: 400 €",
+  testCash: "+1000 € (Cheat)",
+  testCashTitle:
+    "Zum Ausprobieren: legt dir 1000 € in die Kasse. Nur im Spiel gegen den Computer.",
   worth: (amount: number): string => `Vermögen ${amount} €`,
   inJail: "im Gefängnis",
   outOfGame: "raus",

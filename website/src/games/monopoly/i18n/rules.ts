@@ -72,20 +72,31 @@ export const MONOPOLY_RULES: GameRules = {
       title: "Die Aktionsfelder",
       table: [
         ["Feld", "Was passiert"],
-        ["LOS", "200 € - auch im Vorübergehen"],
+        ["LOS", "200 € - auch im Vorübergehen, genau darauf 400 €"],
         ["Ereignis / Gemeinschaft", "Oberste Karte ziehen und ausführen"],
         ["Einkommensteuer", "200 € an die Bank"],
         ["Zusatzsteuer", "100 € an die Bank"],
         ["Gehen Sie ins Gefängnis", "Sofort dorthin, ohne 200 € für LOS"],
-        ["Frei Parken", "Gar nichts"],
+        [
+          "Frei Parken",
+          "Nach Anleitung nichts - mit Kasse alles aus der Mitte",
+        ],
         ["Nur zu Besuch", "Gar nichts"],
       ],
     },
     {
-      title: "Frei Parken bringt nichts",
+      title: "Doppeltes Gehalt auf LOS",
       body: [
-        'Das ist keine Vergesslichkeit, sondern steht als Supertipp in der Anleitung: „Legen Sie niemals Geld in die Mitte des Spielplans: Sie erhalten keinen Bonus, wenn Sie auf Frei Parken landen!"',
-        "Die anderen Supertipps: auf Hausregeln verzichten, immer versteigern lassen, sich untereinander kein Geld leihen und nicht auf Mietzahlungen verzichten. Alles vier hält diese Umsetzung ein.",
+        'Die zweite Hausregel, ebenfalls als Schalter und ebenfalls eingeschaltet: Wer seinen Zug genau auf LOS stehen lässt, zieht 400 € statt 200 € ein. Ob gewürfelt oder mit „Rücke vor bis auf LOS" - genau ist genau.',
+        "Wer nur darüber hinweggeht, bekommt wie immer 200 €. Aus: dann bringt LOS immer 200 €, und das ist die gedruckte Regel - die Anleitung kennt nur das Vorübergehen und sagt zum Anhalten gar nichts.",
+      ],
+    },
+    {
+      title: "Frei Parken: die Kasse in der Mitte",
+      body: [
+        'Die Anleitung ist eindeutig, und zwar dagegen: „Legen Sie niemals Geld in die Mitte des Spielplans: Sie erhalten keinen Bonus, wenn Sie auf Frei Parken landen!"',
+        "Gespielt wird es trotzdem fast überall so - deshalb steht es in den Einstellungen als Schalter, und er ist eingeschaltet: Kaution, Einkommensteuer, Zusatzsteuer und jede Zahlung an die Bank aus einer Ereignis- oder Gemeinschaftskarte kommen in die Mitte. Wer auf Frei Parken landet, nimmt alles. Auf dem Feld steht, wie viel gerade drin liegt.",
+        "Aus: Dann geht dieses Geld an die Bank und Frei Parken bringt nichts - das gedruckte Spiel. Die anderen Supertipps hält diese Umsetzung ohnehin ein: immer versteigern lassen, sich untereinander kein Geld leihen und nicht auf Mietzahlungen verzichten.",
       ],
     },
     {

@@ -50,7 +50,8 @@ import {
   MORTGAGE_INTEREST,
   OPENING_BID,
   SALARY,
-  SELL_BACK,
+  buildingsOn,
+  sellBackOf,
   estateAt,
   freeTokens,
   holdsGroup,
@@ -64,6 +65,29 @@ import {
 
 /** The bank, wherever a seat number is expected. */
 const BANK = -1;
+
+/**
+ * Where a fine goes when Frei Parken collects it.
+ *
+ * @remarks
+ * The house rule: Kaution, both taxes and every "zahle an die Bank" of a card
+ * land in the middle of the board, and whoever lands on Frei Parken takes the
+ * lot. Not the printed rule - "Legen Sie niemals Geld in die Mitte des
+ * Spielplans" - which is why {@link MonopolyGame.parkingPot} decides, and with
+ * it off this sink is the bank like any other.
+ *
+ * A sink and not a seat: nobody owns the pot, so a debt to it is settled the
+ * way a debt to the bank is - see {@link intoBank}.
+ */
+const POT = -2;
+
+/** What the house rule pays for landing right on LOS: the salary, twice. */
+const DOUBLE = 2;
+
+/** Whether this creditor is the bank, in the sense that no seat is paid. */
+function intoBank(to: number): boolean {
+  return to === BANK || to === POT;
+}
 
 /**
  * Applies a move, or refuses it.
@@ -323,7 +347,7 @@ function outOfJail(
         `${name(game, seat)}: dritter Fehlversuch - ${BAIL} € Kaution fällig.`,
       ),
       seat,
-      BANK,
+      POT,
       BAIL,
       "Kaution",
     );
@@ -409,6 +433,25 @@ function toJail(game: MonopolyGame, seat: number): MonopolyGame {
 
 /* ---------------------------------------------------------------- moving */
 
+/**
+ * What crossing LOS pays a token that comes to rest on the given field.
+ *
+ * @remarks
+ * The printed answer is always {@link SALARY}. The house rule doubles it for
+ * landing right on the corner - which the rules never mention, because to them
+ * LOS is a field you walk over and stopping there is the same walk.
+ *
+ * Whichever way the token got there counts, the "Rücke vor bis auf LOS" cards
+ * included: they land on it as squarely as a die does.
+ *
+ * @param game - the game, for whether the house rule is on
+ * @param to - the field the token comes to rest on
+ * @returns what to credit
+ */
+function salaryOn(game: MonopolyGame, to: number): number {
+  return game.doubleGo && to === GO_AT ? SALARY * DOUBLE : SALARY;
+}
+
 /** Walks a token forwards, paying the salary on the way past LOS. */
 function walk(game: MonopolyGame, seat: number, steps: number): MonopolyGame {
   const from = game.players[seat].at;
@@ -427,10 +470,13 @@ function land(
     ...game,
     players: withPlayer(game, seat, { at: to }),
   };
+  const wage = salaryOn(game, to);
   const paid = salary
     ? note(
-        credit(moved, seat, SALARY),
-        `${name(game, seat)}: über LOS, ${SALARY} € Gehalt.`,
+        credit(moved, seat, wage),
+        wage === SALARY
+          ? `${name(game, seat)}: über LOS, ${SALARY} € Gehalt.`
+          : `${name(game, seat)}: genau auf LOS, ${wage} € Gehalt.`,
       )
     : moved;
   return resolve(paid, seat);
@@ -451,7 +497,7 @@ function resolve(game: MonopolyGame, seat: number): MonopolyGame {
       next = pay(
         note(game, `${name(game, seat)}: ${field.name}, ${field.tax} €.`),
         seat,
-        BANK,
+        POT,
         field.tax ?? 0,
         field.name,
       );
@@ -464,6 +510,20 @@ function resolve(game: MonopolyGame, seat: number): MonopolyGame {
       break;
     case "goToJail":
       next = toJail(note(game, `${name(game, seat)}: ab ins Gefängnis.`), seat);
+      break;
+    case "parking":
+      // The printed game says this field does nothing. With the pot switched
+      // on it does the one thing everybody remembers it for: "wer auf Frei
+      // Parken landet, bekommt das Geld aus der Mitte."
+      next =
+        game.parkingPot && game.pot > 0
+          ? settled(
+              note(
+                { ...credit(game, seat, game.pot), pot: 0 },
+                `${name(game, seat)}: Frei Parken - ${game.pot} € aus der Mitte.`,
+              ),
+            )
+          : settled(game);
       break;
     default:
       next = settled(game);
@@ -643,7 +703,7 @@ function carryOut(
       next =
         effect.amount >= 0
           ? settled(credit(game, seat, effect.amount))
-          : pay(game, seat, BANK, -effect.amount, "Ereignis");
+          : pay(game, seat, POT, -effect.amount, "Ereignis");
       break;
     case "each":
       next = payEach(game, seat, effect.amount);
@@ -735,10 +795,11 @@ function passing(game: MonopolyGame, seat: number, to: number): MonopolyGame {
     ...game,
     players: withPlayer(game, seat, { at: to }),
   };
+  const wage = salaryOn(game, to);
   return to < from || (to === GO_AT && from !== GO_AT)
     ? note(
-        credit(moved, seat, SALARY),
-        `${name(game, seat)}: über LOS, ${SALARY} €.`,
+        credit(moved, seat, wage),
+        `${name(game, seat)}: über LOS, ${wage} €.`,
       )
     : moved;
 }
@@ -793,7 +854,7 @@ function repairs(
     }
   }
   const due = houses * perHouse + hotels * perHotel;
-  return due > 0 ? pay(game, seat, BANK, due, "Reparaturen") : settled(game);
+  return due > 0 ? pay(game, seat, POT, due, "Reparaturen") : settled(game);
 }
 
 /* ----------------------------------------------------------------- money */
@@ -851,6 +912,10 @@ function hand(
     for (const other of share) {
       next = credit(next, other, each);
     }
+  } else if (to === POT) {
+    // "Alle Zahlungen an die Bank kommen in die Mitte" - and if that rule is
+    // off, the money is simply gone, exactly as the printed game says.
+    next = next.parkingPot ? { ...next, pot: next.pot + amount } : next;
   } else if (to !== BANK) {
     next = credit(next, to, amount);
   }
@@ -1032,7 +1097,7 @@ function sellBuilding(
   let next: MonopolyGame | null = null;
   if (canSell(game, seat, at)) {
     const wasHotel = estate.houses === HOTEL;
-    const back = Math.floor((field.houseCost ?? 0) * SELL_BACK);
+    const back = sellBackOf(at);
     next = note(
       {
         ...credit(game, seat, back),
@@ -1352,24 +1417,21 @@ function goBankrupt(
   let next = game;
   for (const at of mine) {
     const estate = estateAt(next, at);
-    const count = estate.houses === HOTEL ? MAX_HOUSES + 1 : estate.houses;
+    const count = buildingsOn(estate);
     if (count > 0) {
       next = {
-        ...credit(
-          next,
-          seat,
-          Math.floor(count * (fieldAt(at).houseCost ?? 0) * SELL_BACK),
-        ),
+        ...credit(next, seat, sellBackOf(at, count)),
         estates: { ...next.estates, [at]: { ...estate, houses: 0 } },
         houses: next.houses + (estate.houses === HOTEL ? 0 : estate.houses),
         hotels: next.hotels + (estate.houses === HOTEL ? 1 : 0),
       };
     }
   }
-  next =
-    creditor === BANK
-      ? toTheBank(next, seat, mine)
-      : toAPlayer(next, seat, creditor, mine);
+  // A debt to the pot is a debt to nobody, so the estates go back to the bank
+  // and are auctioned - see intoBank.
+  next = intoBank(creditor)
+    ? toTheBank(next, seat, mine)
+    : toAPlayer(next, seat, creditor, mine);
   const out = endGameIfOver(
     note(
       {

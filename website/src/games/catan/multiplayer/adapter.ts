@@ -40,12 +40,16 @@ import {
 import { NO_GOODS, type Goods } from "@/games/catan/engine/knights";
 import {
   FACE_DOWN_CARD,
+  type Progress,
   isPointCard,
   type HeldCard,
 } from "@/games/catan/engine/progress";
 import {
+  DEV_DECK,
+  MOVE_KINDS,
   NO_CARDS,
   RESOURCES,
+  actingSeat,
   type CatanGame,
   type CatanMove,
   type DevKind,
@@ -95,6 +99,24 @@ export type CatanHand = {
   readonly vault?: {
     readonly stack: readonly DevKind[];
   };
+  /**
+   * What one seat is allowed to look at while a card says so.
+   *
+   * @remarks
+   * *Spionage* - "sieh dir die Fortschrittskarten einer anderen Person an und
+   * nimm dir 1 davon" - and *Abgaben*, which does the same with resources and
+   * Handelswaren. Both **are** the looking, so a table online has to send the
+   * cards to the one person playing the card, and only for as long as the card
+   * is on the table. It travels on that seat's own private channel, like every
+   * other secret in this game, and it holds only what the card allows: the
+   * cards of the seats that may be chosen from, at the moment of choosing.
+   */
+  readonly spied?: readonly {
+    readonly seat: number;
+    readonly progress?: readonly HeldCard[];
+    readonly hand?: Hand;
+    readonly goods?: Goods;
+  }[];
 };
 
 /** The adapter the online layer drives the game through. */
@@ -178,21 +200,53 @@ export const catanAdapter: OnlineAdapter<
   },
 
   privateHands(game): readonly CatanHand[] {
-    return game.players.map((player) => ({
+    const looking = spying(game);
+    return game.players.map((player, seat) => ({
       hand: player.hand,
       deck: player.deck,
       fresh: player.fresh,
       goods: player.goods,
       progress: player.progress,
+      // The one exception to "everybody sees only their own": while Spionage or
+      // Abgaben is being answered, the person answering sees what the card
+      // shows them - and nobody else does.
+      spied:
+        looking === null || looking.seat !== seat
+          ? undefined
+          : game.players.flatMap((other, at) =>
+              at === seat
+                ? []
+                : [
+                    looking.card === "spionage"
+                      ? { seat: at, progress: other.progress }
+                      : { seat: at, hand: other.hand, goods: other.goods },
+                  ],
+            ),
     }));
   },
 
   withOwnHand(game, seatIndex, hand): CatanGame {
+    const seen = (hand.spied ?? []).reduce(
+      (next, look) => ({
+        ...next,
+        players: next.players.map((player, at) =>
+          at === look.seat
+            ? {
+                ...player,
+                progress: look.progress ?? player.progress,
+                hand: look.hand ?? player.hand,
+                goods: look.goods ?? player.goods,
+              }
+            : player,
+        ),
+      }),
+      game,
+    );
     return hand.hand === undefined
-      ? game
+      ? seen
       : {
-          ...game,
-          players: game.players.map((player, at) =>
+          ...seen,
+          players: seen.players.map((player, at) =>
             at === seatIndex
               ? {
                   ...player,
@@ -248,34 +302,15 @@ export const catanAdapter: OnlineAdapter<
   },
 };
 
-/** The move kinds a client may send - this game's own, and no others. */
-const MOVE_KINDS: readonly string[] = [
-  "town",
-  "road",
-  "city",
-  "roll",
-  "discard",
-  "robber",
-  "rob",
-  "buy",
-  "play",
-  "choose",
-  "bank",
-  "offer",
-  "answer",
-  "deal",
-  "withdraw",
-  "endTurn",
-];
-
-/** The development cards a client may name. */
-const CARD_KINDS: readonly string[] = [
-  "ritter",
-  "siegpunkt",
-  "monopol",
-  "strassenbau",
-  "erfindung",
-];
+/**
+ * The development cards a client may name in a hand or a vault.
+ *
+ * @remarks
+ * Read off {@link DEV_DECK} rather than written out again: that record already
+ * names every card and how many there are, and a list that repeats it is a list
+ * that can fall behind it.
+ */
+const CARD_KINDS: readonly string[] = Object.keys(DEV_DECK);
 
 /** Checks an untrusted value is a move. */
 function isCatanMove(value: unknown): value is CatanMove {
@@ -294,10 +329,14 @@ function isCatanMove(value: unknown): value is CatanMove {
     typeof value === "object" &&
     value !== null &&
     typeof move.kind === "string" &&
-    MOVE_KINDS.includes(move.kind) &&
+    (MOVE_KINDS as readonly string[]).includes(move.kind) &&
     (move.at === undefined || Number.isInteger(move.at)) &&
     (move.seat === undefined || Number.isInteger(move.seat)) &&
-    (move.card === undefined || CARD_KINDS.includes(move.card as string)) &&
+    // Every card this game names travels here: development cards,
+    // Fortschrittskarten, the cards of Händler & Barbaren and of the
+    // Barbarenüberfall. Which of them belongs to which move is the referee's
+    // question, and it asks it of every move anyway.
+    (move.card === undefined || typeof move.card === "string") &&
     (move.sort === undefined || isSort(move.sort)) &&
     (move.yes === undefined || typeof move.yes === "boolean") &&
     (move.cards === undefined || isHand(move.cards)) &&
@@ -346,6 +385,7 @@ function isCatanHand(value: unknown): value is CatanHand {
     deck?: unknown;
     fresh?: unknown;
     vault?: unknown;
+    spied?: unknown;
   };
   return (
     typeof value === "object" &&
@@ -353,7 +393,51 @@ function isCatanHand(value: unknown): value is CatanHand {
     (held.hand === undefined || isHand(held.hand)) &&
     (held.deck === undefined || isCardList(held.deck)) &&
     (held.fresh === undefined || isCardList(held.fresh)) &&
-    (held.vault === undefined || isVault(held.vault))
+    (held.vault === undefined || isVault(held.vault)) &&
+    (held.spied === undefined || isSpied(held.spied))
+  );
+}
+
+/**
+ * Who is being allowed to look at somebody else's cards, and with which card.
+ *
+ * @param game - the game as the host holds it
+ * @returns the seat and the card, or null when nobody is looking
+ * @remarks
+ * Only while the card is actually on the table: {@link CatanGame.playing} is
+ * set from the moment it is played until it has been answered, and the seat is
+ * whoever has to answer it.
+ */
+function spying(
+  game: CatanGame,
+): { readonly seat: number; readonly card: Progress } | null {
+  const card = game.playing;
+  return game.phase === "progress" &&
+    (card === "spionage" || card === "abgaben")
+    ? { seat: actingSeat(game), card }
+    : null;
+}
+
+/** Whether this is what one seat is allowed to look at. */
+function isSpied(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every((look) => {
+      const one = look as {
+        seat?: unknown;
+        progress?: unknown;
+        hand?: unknown;
+        goods?: unknown;
+      };
+      return (
+        typeof look === "object" &&
+        look !== null &&
+        Number.isInteger(one.seat) &&
+        (one.progress === undefined || Array.isArray(one.progress)) &&
+        (one.hand === undefined || isHand(one.hand)) &&
+        (one.goods === undefined || typeof one.goods === "object")
+      );
+    })
   );
 }
 

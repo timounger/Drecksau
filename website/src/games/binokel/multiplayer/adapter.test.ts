@@ -95,14 +95,25 @@ describe("redaction and the Dabb vault", () => {
     7,
   );
 
-  it("hides every hand and the Dabb, keeping ids and counts", () => {
+  it("hides every hand and the Dabb, keeping only the counts", () => {
     const redacted = binokelAdapter.redact(game);
 
     redacted.players.forEach((player, index) => {
-      expect(player.hand.map((card) => card.id)).toEqual(
-        game.players[index].hand.map((card) => card.id),
-      );
+      // The count is public, the ids are not: a card is called "herz-zehn-1",
+      // so keeping the id would hand the whole hand to anybody reading the
+      // shared snapshot.
+      expect(player.hand).toHaveLength(game.players[index].hand.length);
+      const real = new Set(game.players[index].hand.map((card) => card.id));
+      player.hand.forEach((card) => {
+        expect(real.has(card.id)).toBe(false);
+      });
     });
+    // And no two decoys share an id, or a list could not key them apart.
+    const ids = [
+      ...redacted.players.flatMap((player) => player.hand),
+      ...redacted.dabb,
+    ].map((card) => card.id);
+    expect(new Set(ids).size).toBe(ids.length);
     // Nothing about the real cards leaks: one decoy face for all of them.
     const faces = new Set(
       [...redacted.players.flatMap((p) => p.hand), ...redacted.dabb].map(

@@ -106,16 +106,35 @@ Im Gefängnis kassiert man weiter Miete, baut, beleiht, ersteigert und handelt.
 
 | Feld                    | Wirkung                                           |
 | ----------------------- | ------------------------------------------------- |
-| LOS                     | 200 €, auch im Vorübergehen                       |
+| LOS                     | 200 €, auch im Vorübergehen (genau darauf: 400 €) |
 | Ereignis / Gemeinschaft | Oberste Karte ziehen, ausführen, unter den Stapel |
 | Einkommensteuer         | 200 €                                             |
 | Zusatzsteuer            | 100 €                                             |
 | Gehen Sie ins Gefängnis | Sofort dorthin, kein Gehalt                       |
-| Frei Parken             | **nichts**                                        |
+| Frei Parken             | **nichts** (mit Kasse: alles aus der Mitte)       |
 | Nur zu Besuch           | nichts                                            |
 
-Frei Parken bringt ausdrücklich nichts: _„Legen Sie niemals Geld in die Mitte des
-Spielplans: Sie erhalten keinen Bonus, wenn Sie auf ‚Frei Parken' landen!"_
+Frei Parken bringt nach der Anleitung ausdrücklich nichts: _„Legen Sie niemals
+Geld in die Mitte des Spielplans: Sie erhalten keinen Bonus, wenn Sie auf ‚Frei
+Parken' landen!"_
+
+**Die Hausregel ist trotzdem eingebaut** - als Schalter in den Einstellungen,
+und er steht auf **an**, weil an den meisten Tischen so gespielt wird. Dann
+kommt in die Mitte, was sonst die Bank bekäme: die **Kaution** (50 €),
+**Einkommensteuer** und **Zusatzsteuer**, jede Zahlung **an die Bank** aus einer
+Ereignis- oder Gemeinschaftskarte und die Straßenausbesserungen. Wer auf Frei
+Parken landet, nimmt den ganzen Betrag; auf dem Feld steht, wie viel gerade drin
+liegt. Nicht in die Mitte gehen Käufe, Häuser, Hypothekenzinsen und Mieten -
+Miete zahlt man einander, und ein Kauf ist keine Strafe.
+
+Ausgeschaltet spielt sich das gedruckte Spiel: Alles davon geht an die Bank und
+Frei Parken bringt nichts.
+
+**Doppeltes Gehalt auf LOS** ist die zweite Hausregel und der zweite Schalter,
+ebenfalls auf **an**: Wer seinen Zug genau auf LOS beendet, zieht **400 €** ein
+statt 200 €, gewürfelt wie gezogen („Rücke vor bis auf LOS"). Wer nur darüber
+hinweggeht, bekommt 200 €. Gedruckt ist auch das nicht - die Anleitung zahlt für
+das Vorübergehen und sagt zum Anhalten nichts.
 
 ## Handeln
 

@@ -80,6 +80,8 @@ import {
   neutralSeats,
   owesRoll,
   rollStands,
+  strangerAt,
+  strangerSeat,
 } from "./two";
 import {
   BRIDGE_PRICE,
@@ -107,7 +109,10 @@ import {
   EXTRA_STEPS,
   KNIGHT_STEPS,
   LOST_KNIGHT_GOLD,
+  LOST_KNIGHT_TWO_CHIP,
+  LOST_KNIGHT_TWO_GOLD,
   NO_PRISONER_GOLD,
+  STRANGER_ROLL,
   RAID_CARD_NAMES,
   RAID_ROLLS,
   SEVEN,
@@ -128,8 +133,23 @@ import {
 } from "./barbaren";
 import {
   CAMP_GOLD,
+  SELL_GOLD,
+  besideVillage,
+  chaseRolls,
+  goldSales,
+  laneVillage,
+  spicing,
+  villageSpots,
+  type Cargo,
+  type Spice,
+  FISH_SIDES,
+  bigCargo,
+  canCast,
+  catchSpots,
+  fishField,
+  landings,
+  shoalAt,
   CAMP_UNITS,
-  CHASE_ROLL,
   GOLD_YIELD,
   MISSION_STEPS,
   TRIBUTE,
@@ -154,20 +174,50 @@ import {
   PORT_COST,
   SCOUT_COST,
   besideUnknown,
+  crowded,
+  foundingShore,
   boatSpots,
   finding,
   findReward,
-  landfall,
+  landingSpots,
+  laneCosts,
   lanesFrom,
   laneUnknown,
   pointsAt,
-  portShore,
   portsOf,
   seaLane,
   unknown as faceDown,
 } from "./entdecker";
 import {
+  CLOTH_LAST_VILLAGES,
+  DUNE_MAIN,
   SHIP_COST,
+  cloth,
+  onClothIsle,
+  WONDERS,
+  WONDER_STAGES,
+  atFort,
+  corsairs,
+  wonderFree,
+  wonderOpen,
+  wonderStage,
+  wonders,
+  onCorsairIsle,
+  overrunByPirates,
+  dunes,
+  fleetRing,
+  fortOf,
+  shipLine,
+  shipSpots,
+  tradesOf,
+  warshipsOf,
+  foggy,
+  reachedVillages,
+  onTribeIsle,
+  tribe,
+  fogging,
+  mainIsland,
+  shores,
   canShip,
   landCrossing,
   landPath,
@@ -231,6 +281,7 @@ import {
   cityCount,
   cityYield,
   freeCityFor,
+  hasBenefit,
   improvePrice,
   keepLimit,
   knightReady,
@@ -274,6 +325,7 @@ import {
   type Hand,
   type Phase,
   type Resource,
+  type Wonder,
 } from "./state";
 
 /** How many sides each of the two dice has. */
@@ -294,6 +346,8 @@ const LAND_LOG_NAMES: Readonly<Record<Land, string>> = {
   ziel: "Zielfeld",
   meer: "Meer",
   gold: "Goldfluss",
+  fisch: "Fischfeld",
+  gewuerz: "Gewürzfeld",
   unbekannt: "unentdecktes Feld",
 };
 
@@ -314,6 +368,16 @@ const ANY_HARBOUR_RATE = 3;
 
 /** What a harbour of the matching sort charges. */
 const OWN_HARBOUR_RATE = 2;
+
+/**
+ * What a Handelsware costs at the Gilde.
+ *
+ * @remarks
+ * "Ab sofort darfst du Handelswaren im Verhältnis 2:1 tauschen!" - the third
+ * step of Handel, and the only rate a Handelsware ever gets below the generic
+ * harbour's three.
+ */
+const WARE_RATE = 2;
 
 /** Roads a Straßenbau card pays for. */
 const FREE_ROADS = 2;
@@ -546,6 +610,10 @@ export function canRoad(game: CatanGame, seat: number, at: number): boolean {
   if (laneCamp(game, at)) {
     return false;
   }
+  // And the same for a village nobody of this colour has befriended yet.
+  if (laneVillage(game, seat, at)) {
+    return false;
+  }
   // At sea a road wants land on one side at least, and a path with a ship on it
   // is taken: "auf Wegen an der Küste entweder 1 Schiff oder 1 Straße".
   if (!landPath(game, at) || game.ships[at] !== null) {
@@ -613,10 +681,29 @@ export function canTown(
     !siteGate(game, at) &&
     // Nobody settles on open water.
     landCrossing(game, at) &&
+    // "Ihr gruendet eure ersten beiden Siedlungen ... auf der grossen Insel":
+    // in Zu neuen Ufern the small islands are what the ships are for, and a
+    // colour that started on one would have skipped the whole scenario.
+    (!founding || (!shores(game) && !dunes(game)) || onMainIsland(game, at)) &&
     // "... Siedlungen nicht auf Kreuzungen, die an unentdeckte Sechseckfelder
     // grenzen", and none on the crossings of a camp's field either.
-    !besideUnknown(game, at) &&
-    !besideCamp(game, at)
+    // "Auf den kleinen Inseln rundum darf niemals eine Siedlung gegründet
+    // werden, sie werfen auch keine Erträge ab."
+    !onTribeIsle(game, at) &&
+    // "Ihr dürft nur auf markierten Kreuzungen auf den Pirateninseln bauen",
+    // and the founding settlements go "auf der östlichen Insel" - so the west
+    // is closed except for the one crossing that carries a colour's own chip.
+    (!corsairs(game) || !onCorsairIsle(game, at) || game.marks.includes(at)) &&
+    (!founding || !corsairs(game) || !onCorsairIsle(game, at)) &&
+    // "Auf den 4 kleinen Inseln in der Mitte dürft ihr keine Siedlungen
+    // gründen."
+    !onClothIsle(game, at) &&
+    // Beside a face-down field only when the founding phase has nowhere else
+    // to go - see crowded.
+    (!besideUnknown(game, at) ||
+      (founding && crowded(game, (each) => !besideUnknown(game, each)))) &&
+    !besideCamp(game, at) &&
+    !besideVillage(game, seat, at)
   );
 }
 
@@ -697,8 +784,27 @@ export function citySpots(game: CatanGame, seat: number): readonly number[] {
 export function tradeRate(
   game: CatanGame,
   seat: number,
-  sort: Resource,
+  sort: Resource | Commodity,
 ): number {
+  // A Handelsware has no harbour of its own - the special ones name a resource
+  // - but the generic 3:1 does take it: "Mit einem 3:1-Hafen: 3 Münzen -> 1
+  // Tuch". And the Gilde, the third step of Handel, halves it again: "Ab sofort
+  // darfst du Handelswaren im Verhältnis 2:1 tauschen!"
+  if ((COMMODITIES as readonly string[]).includes(sort)) {
+    const board = islandOf(game.land.length);
+    const generic = game.harbours.some(
+      (harbour) =>
+        harbour.want === null &&
+        board.paths[harbour.path].ends.some(
+          (end) => game.towns[end]?.owner === seat && !overrun(game, end),
+        ),
+    );
+    return hasBenefit(game, seat, "handel")
+      ? WARE_RATE
+      : generic
+        ? ANY_HARBOUR_RATE
+        : BANK_RATE;
+  }
   // "Es gibt in dieser Erweiterung keine Häfen. Stattdessen könnt ihr generell
   // Rohstoffe im Verhältnis 3:1 mit dem Vorrat tauschen."
   if (finding(game)) {
@@ -845,12 +951,42 @@ function awardTiles(game: CatanGame): CatanGame {
  * exactly that rule: Stein 1 acts first and wins the moment it gets there, so
  * Stein 2 never comes round.
  */
+/**
+ * Whether this seat may already win.
+ *
+ * @param game - the game
+ * @param seat - whose points have just changed
+ * @returns whether the scenario lets the points end it
+ * @remarks
+ * "Wer zuerst die Piratenfestung erobert **und** 10 Siegpunkte besitzt,
+ * gewinnt" - the points alone are not enough in Die Pirateninseln.
+ */
+function mayWin(game: CatanGame, seat: number): boolean {
+  return !corsairs(game) || fortOf(game, seat) === null;
+}
+
 function checkWinner(game: CatanGame): CatanGame {
+  // "Oder sobald sich nur noch in 3 Dörfern Stoffballen-Chips befinden, endet
+  // das Spiel. Es gewinnt, wer am meisten Siegpunkte erreicht hat."
+  if (game.winner === null && clothRunOut(game)) {
+    const won = clothWinner(game);
+    return note(
+      { ...game, phase: "gameOver", winner: won, offer: null },
+      `${nameOf(game, won)}: gewinnt - in nur noch ${CLOTH_LAST_VILLAGES} Dörfern liegen Stoffballen.`,
+    );
+  }
   const seat = actingSeat(game);
   // targetFor rather than game.target: the Alter Schuh moves the finish line
   // for whoever is holding it, and only for them.
   const done =
-    game.phase !== "founding" && pointsOf(game, seat) >= targetFor(game, seat);
+    game.phase !== "founding" &&
+    // Once, and only once: a conquest pays several seats one after the other,
+    // and each of those steps used to announce the same winner again.
+    game.winner === null &&
+    mayWin(game, seat) &&
+    (wonders(game)
+      ? wonderWon(game, seat)
+      : pointsOf(game, seat) >= targetFor(game, seat));
   return done
     ? note(
         { ...game, phase: "gameOver", winner: seat, offer: null },
@@ -885,7 +1021,13 @@ function payout(game: CatanGame, hex: number): readonly Taking[] {
       // "Für die Siedlungen in den neutralen Farben werden keine Erträge
       // ausgeschüttet." They stand on the board and take up the crossing; they
       // do not earn.
-      if (town !== null && !game.players[town.owner].neutral) {
+      // "Ab jetzt erhältst du die Erträge ... für diese Siedlung" - not before
+      // the fortress on it has fallen.
+      if (
+        town !== null &&
+        !game.players[town.owner].neutral &&
+        !overrunByPirates(game, corner)
+      ) {
         // A city on Wald, Weideland or Gebirge pays one resource **and** one
         // Handelsware rather than two of the resource. Everywhere else, and in
         // the printed game, a city pays double as before.
@@ -966,6 +1108,19 @@ function produce(game: CatanGame, rolled: number, plague = false): CatanGame {
         handSize(hands[seat]) === handSize(player.hand) ? DRY_GOLD : 0,
       )
     : game.players.map(() => 0);
+  // "Ab sofort darfst du dir einen beliebigen Rohstoff nehmen, wenn du in der
+  // Ertragsphase leer ausgehst! Ausnahme: '7' gewürfelt." That is the Aquädukt,
+  // the third step of Wissenschaft - and it is asked for the same way a
+  // Goldfluss asks, because it is the same question: which card do you want.
+  // The seven never reaches this function, so its exception keeps itself.
+  game.players.forEach((player, seat) => {
+    const nothing =
+      handSize(hands[seat]) === handSize(player.hand) &&
+      goodsSize(goods[seat]) === goodsSize(player.goods);
+    if (nothing && hasBenefit(game, seat, "wissenschaft")) {
+      owed[seat] += 1;
+    }
+  });
   const paid: CatanGame = {
     ...game,
     players: game.players.map((player, seat) => ({
@@ -1153,7 +1308,7 @@ function doNeutral(
 function doChip(
   game: CatanGame,
   seat: number,
-  action: "swap" | "robber",
+  action: "swap" | "robber" | "barbarian",
 ): CatanGame | null {
   const price = chipCost(game, seat);
   const other = realSeats(game).find((at) => at !== seat);
@@ -1161,7 +1316,11 @@ function doChip(
   if (
     playingTwo(game) &&
     game.players[seat].chips >= price &&
-    other !== undefined
+    other !== undefined &&
+    // *Der Barbarenüberfall* has no robber, and every other table has no
+    // barbarians: the two actions never stand side by side.
+    (action !== "robber" || !raiding(game)) &&
+    (action !== "barbarian" || canShiftBarbarian(game))
   ) {
     const paid = withPlayer(game, seat, {
       ...game.players[seat],
@@ -1170,9 +1329,32 @@ function doChip(
     next =
       action === "robber"
         ? chipRobber(paid, seat)
-        : chipSwap(paid, seat, other);
+        : action === "barbarian"
+          ? askBarbarians(paid, 1, 1)
+          : chipSwap(paid, seat, other);
   }
   return next;
+}
+
+/**
+ * Whether a Handelschip could move a barbarian right now.
+ *
+ * @param game - the game
+ * @returns true when there is one to take and somewhere to put it
+ * @remarks
+ * "Da es keinen Räuber gibt, darf man mit 1 Handelschip ... einen Barbaren auf
+ * ein anderes Küstenfeld versetzen." The chip is only spent when the move can
+ * actually be made, and only in the building phase: taking and putting is a
+ * little phase of its own, and it comes back to the table rather than to a roll
+ * that has not happened yet.
+ */
+export function canShiftBarbarian(game: CatanGame): boolean {
+  return (
+    raiding(game) &&
+    game.phase === "trade" &&
+    takeSpots(game).length > 0 &&
+    putSpots(game).length > 0
+  );
 }
 
 /**
@@ -1336,14 +1518,49 @@ function placeRobber(game: CatanGame, seat: number, at: number): CatanGame {
 
 /** Takes one card at random out of a hand. */
 function rob(game: CatanGame, thief: number, victim: number): CatanGame {
+  // "Anschließend ziehst du eine verdeckte Karte aus der Kartenhand dieser
+  // Person": in Städte & Ritter that hand holds Handelswaren too - they are
+  // dealt into it and they count towards the seven, so they can be drawn out of
+  // it as well. Without them a seat holding nothing but Papier und Tuch was
+  // safe from the robber, and an event asking somebody to draw a card could
+  // find no one to ask at all.
   const cards = spread(game.players[victim].hand);
+  const goods = playingRitter(game)
+    ? COMMODITIES.flatMap((sort) =>
+        Array.from(
+          { length: game.players[victim].goods[sort] },
+          () => sort as Commodity,
+        ),
+      )
+    : [];
+  const pool: readonly (Resource | Commodity)[] = [...cards, ...goods];
+  if (pool.length === 0) {
+    return game;
+  }
   const random = createRandom(game.seed);
-  const taken = cards[randomInt(random, cards.length)];
-  const moved = withHand(
-    withHand(game, victim, withCard(game.players[victim].hand, taken, -1)),
-    thief,
-    withCard(game.players[thief].hand, taken),
-  );
+  const taken = pool[randomInt(random, pool.length)];
+  const ware = (COMMODITIES as readonly string[]).includes(taken);
+  const moved = ware
+    ? withPlayer(
+        withPlayer(game, victim, {
+          ...game.players[victim],
+          goods: withGood(game.players[victim].goods, taken as Commodity, -1),
+        }),
+        thief,
+        {
+          ...game.players[thief],
+          goods: withGood(game.players[thief].goods, taken as Commodity),
+        },
+      )
+    : withHand(
+        withHand(
+          game,
+          victim,
+          withCard(game.players[victim].hand, taken as Resource, -1),
+        ),
+        thief,
+        withCard(game.players[thief].hand, taken as Resource),
+      );
   return note(
     { ...moved, seed: random.state() },
     `${nameOf(game, thief)}: zieht eine Karte von ${nameOf(game, victim)}.`,
@@ -1411,6 +1628,9 @@ function nextTurn(game: CatanGame): CatanGame {
         built: false,
         ridden: [],
         shoved: [],
+        stormed: false,
+        cast: false,
+        sold: 0,
         tributes: [],
         chased: [],
         freshShips: [],
@@ -1476,6 +1696,20 @@ function seven(game: CatanGame): CatanGame {
       ? { ...game, phase: after }
       : { ...game, phase: "discard", owing };
   }
+  // "Es gibt keinen Räuber. Wird eine '7' gewürfelt, müssen alle die Hälfte
+  // ihrer Karten abgeben, die mehr als 7 Rohstoffkarten besitzen. Anschließend
+  // darf die Person, die gewürfelt hat, bei einer beliebigen Person 1 Karte
+  // stehlen."
+  if (corsairs(game)) {
+    const holders = anybodyHolding(game, actingSeat(game));
+    return owing.length === 0
+      ? {
+          ...game,
+          phase: holders.length > 0 ? "steal" : "trade",
+          targets: holders,
+        }
+      : { ...game, phase: "discard", owing };
+  }
   const targets = raiding(game) ? anybodyHolding(game, actingSeat(game)) : [];
   // Nobody to draw from is not a phase: the seven simply passes.
   const after: Phase = raiding(game)
@@ -1494,7 +1728,18 @@ function seven(game: CatanGame): CatanGame {
 function doRoll(game: CatanGame): CatanGame {
   let next: CatanGame;
   if (playing(game, "ereignisse")) {
-    next = drawEvent(game);
+    // "Statt zu würfeln, deckt ihr eine Ereigniskarte auf": the card takes the
+    // place of the **number**, and of nothing else. In Städte & Ritter the roll
+    // carries a second job - the event die, which sails the barbarian ship and
+    // hands out the Fortschrittskarten - and a variant that quietly switched
+    // that off would take two of that game's three engines with it: a
+    // self-played table sat at thirteen of fourteen points with every track
+    // maxed, every piece built and a barbarian ship that had never moved.
+    // So the die is rolled first and the card turned over after, in the order
+    // the rulebook gives the three dice.
+    const random = createRandom(game.seed);
+    const before = playingRitter(game) ? eventDieStep(game, random) : game;
+    next = drawEvent(before);
   } else {
     // In CATAN für Zwei the second roll may not repeat the first, and a repeat
     // is thrown away rather than reported: "wird er wiederholt - so lange, bis
@@ -1521,10 +1766,13 @@ function doRoll(game: CatanGame): CatanGame {
     // second. Not a detail: the barbarians land before the income, so a city
     // lost to them earns nothing that turn.
     const after = playingRitter(thrown) ? eventDieStep(thrown, random) : thrown;
+    // The villages of Stoffe für Catan pay on their own number, and a seven is
+    // not their business: they are no landscapes and no robber stands on them.
+    const paid = payVillages(sailArmada(after, dice), rolled);
     next =
       rolled === ROBBER_ROLL
-        ? seven(after)
-        : afterYield(fishOut(produce(after, rolled), rolled));
+        ? seven(paid)
+        : afterYield(fishOut(produce(paid, rolled), rolled));
   }
   return next;
 }
@@ -1864,7 +2112,12 @@ function startEvent(game: CatanGame, card: EventCard): CatanGame {
       card.number === null ? "" : ` (${card.number})`
     }.`,
   );
-  const asks = eventAsks(shown, card.kind);
+  // Only seats that could actually answer: "Kein Ritter frei - die Karte
+  // verfällt" is the shape every ask in this game has, and an ask that waits
+  // for an answer nobody can give waits for ever.
+  const asks = eventAsks(shown, card.kind).filter((seat) =>
+    canAnswer(shown, seat, card.kind),
+  );
   let next: CatanGame;
   if (card.kind === "raeuberueberfall") {
     next = seven({ ...shown, after: null });
@@ -1948,10 +2201,42 @@ function doEvent(
 
 /** Drops a seat off the queue, and closes the card when the last one is in. */
 function stepOn(game: CatanGame, seat: number): CatanGame {
-  const rest = game.owed.filter((at) => at !== seat);
+  const kind = game.drawn?.kind;
+  // Asked again after every answer: the answer itself can take the last card
+  // out of somebody's hand, and then the next seat has nothing to draw either.
+  const rest = game.owed.filter(
+    (at) => at !== seat && (kind === undefined || canAnswer(game, at, kind)),
+  );
   return rest.length === 0
     ? closeEvent({ ...game, owed: [] })
     : { ...game, owed: rest };
+}
+
+/**
+ * Whether this seat could answer the card in front of it.
+ *
+ * @param game - the game
+ * @param seat - the seat being asked
+ * @param kind - the event card
+ * @returns whether any answer to it exists
+ * @remarks
+ * Each of the four asks needs something: a card in one's own hand, a road on
+ * the board, somebody holding a card to draw from, or both a card and somebody
+ * poorer to give it to. Where that something is missing the card does nothing -
+ * which is what every other ask in this game does too, rather than waiting.
+ */
+function canAnswer(game: CatanGame, seat: number, kind: EventKind): boolean {
+  const ask = EVENT_ASK[kind];
+  const holds = handSize(game.players[seat].hand) > 0;
+  return ask === null
+    ? false
+    : ask === "sort"
+      ? !fromOwnHand(kind) || holds
+      : ask === "road"
+        ? game.roads.some((owner) => owner === seat)
+        : ask === "victim"
+          ? anybodyHolding(game, seat).length > 0
+          : holds && poorerThan(game, seat).length > 0;
 }
 
 /** Naming a resource - out of the supply, or out of your own hand. */
@@ -2137,7 +2422,13 @@ function doRoad(game: CatanGame, seat: number, at: number): CatanGame | null {
     );
     next = owedNeutral(
       checkWinner(
-        awardTiles(note(charged, `${nameOf(game, seat)}: baut eine Straße.`)),
+        awardTiles(
+          liftFog(
+            note(charged, `${nameOf(game, seat)}: baut eine Straße.`),
+            seat,
+            at,
+          ),
+        ),
       ),
       seat,
       "road",
@@ -2193,9 +2484,15 @@ function doTown(game: CatanGame, seat: number, at: number): CatanGame | null {
     next = owedNeutral(
       checkWinner(
         awardTiles(
-          note(
-            founding ? paidChips : afterBuilding(withBuilt(paidChips), seat),
-            `${nameOf(game, seat)}: baut eine Siedlung.`,
+          // A harbour won as a gift and kept for want of a coast goes up as
+          // soon as there is one: "bewahrst du ihn auf, bis du eine
+          // Küstensiedlung baust, die noch keinen Hafen hat".
+          layHeldPorts(
+            note(
+              founding ? paidChips : afterBuilding(withBuilt(paidChips), seat),
+              `${nameOf(game, seat)}: baut eine Siedlung.`,
+            ),
+            seat,
           ),
         ),
       ),
@@ -2282,6 +2579,13 @@ function doBuy(game: CatanGame, seat: number): CatanGame | null {
  * Three guards, all from page 10: only one card a turn, never one bought this
  * turn - which is what `fresh` keeps separate from `deck` - and the Siegpunkt
  * cards are never played at all, they simply count.
+ *
+ * *Die Pirateninseln* turns both of those last two on their head: "Siegpunkt-
+ * karten und Ritter aus dem Entwicklungskartenstapel bekommen in diesem
+ * Szenario eine neue Funktion und können nicht als Siegpunkte bzw. Ritter
+ * gespielt werden" - each of them arms one ship instead. So a Siegpunktkarte
+ * **is** played there, and it stops being a point the moment it is; and a
+ * knight played there is not a knight, so it counts for no Größte Rittermacht.
  */
 function doPlay(
   game: CatanGame,
@@ -2290,7 +2594,8 @@ function doPlay(
 ): CatanGame | null {
   const player = game.players[seat];
   const holds = player.deck.includes(card);
-  const allowed = holds && !game.playedDev && card !== "siegpunkt";
+  const allowed =
+    holds && !game.playedDev && (card !== "siegpunkt" || corsairs(game));
   let next: CatanGame | null = null;
   if (allowed) {
     const at = player.deck.indexOf(card);
@@ -2298,23 +2603,37 @@ function doPlay(
       withPlayer({ ...game, playedDev: true }, seat, {
         ...player,
         deck: player.deck.filter((unused, index) => index !== at),
-        knights: player.knights + (card === "ritter" ? 1 : 0),
+        knights:
+          player.knights + (card === "ritter" && !corsairs(game) ? 1 : 0),
       }),
       `${nameOf(game, seat)}: spielt ${CARD_NAMES[card]}.`,
     );
-    next = checkWinner(awardTiles(startCard(played, card)));
+    next = checkWinner(awardTiles(startCard(played, card, seat)));
   }
   return next;
 }
 
 /** What each development card sets in motion. */
-function startCard(game: CatanGame, card: DevKind): CatanGame {
+function startCard(game: CatanGame, card: DevKind, seat: number): CatanGame {
   const effects: Readonly<Record<DevKind, () => CatanGame>> = {
-    ritter: () => ({ ...game, phase: "robber" }),
+    // "Siegpunktkarten und Ritter aus dem Entwicklungskartenstapel bekommen in
+    // diesem Szenario eine neue Funktion und können nicht als Siegpunkte bzw.
+    // Ritter gespielt werden": in Die Pirateninseln a knight card arms a ship,
+    // and there is no robber to move at all.
+    ritter: () =>
+      corsairs(game) ? armShip(game, seat) : { ...game, phase: "robber" },
     strassenbau: () => ({ ...game, freeRoads: FREE_ROADS }),
     monopol: () => ({ ...game, phase: "monopol" }),
     erfindung: () => ({ ...game, phase: "erfindung", gifts: GIFTS }),
-    siegpunkt: () => game,
+    // "Deckst du eine Ritterkarte (im Spiel zu viert auch Siegpunktkarte) auf,
+    // darfst du jeweils das hinterste 'normale' Schiff deiner Schiffslinie in
+    // ein Kriegsschiff umwandeln." The rulebook names the table of four,
+    // because that is the table this scenario is printed for - and the reason
+    // is the same at every other one: the stack is the only source of warships
+    // there is, and "ist der Stapel mit den Entwicklungskarten leer, können
+    // keine neuen Entwicklungskarten mehr gekauft werden". Without the second
+    // half a fortress can stand for ever behind a line of one warship.
+    siegpunkt: () => (corsairs(game) ? armShip(game, seat) : game),
   };
   return effects[card]();
 }
@@ -2359,21 +2678,44 @@ function doChoose(
 function doBank(
   game: CatanGame,
   seat: number,
-  give: Resource,
-  want: Resource,
+  give: Resource | Commodity,
+  want: Resource | Commodity,
 ): CatanGame | null {
+  const player = game.players[seat];
+  const ware = (sort: Resource | Commodity): boolean =>
+    (COMMODITIES as readonly string[]).includes(sort);
+  // Handelswaren only exist in Städte & Ritter; anywhere else the two sides can
+  // only be resources.
+  if ((ware(give) || ware(want)) && !playingRitter(game)) {
+    return null;
+  }
   const rate = tradeRate(game, seat, give);
-  const allowed = give !== want && game.players[seat].hand[give] >= rate;
-  return allowed
-    ? note(
-        withHand(
-          game,
-          seat,
-          withCard(withCard(game.players[seat].hand, give, -rate), want),
-        ),
-        `${nameOf(game, seat)}: tauscht ${rate} ${SORT_NAMES[give]} gegen 1 ${SORT_NAMES[want]}.`,
-      )
-    : null;
+  const held = ware(give)
+    ? player.goods[give as Commodity]
+    : player.hand[give as Resource];
+  if (give === want || held < rate) {
+    return null;
+  }
+  const paid = ware(give)
+    ? withPlayer(game, seat, {
+        ...player,
+        goods: withGood(player.goods, give as Commodity, -rate),
+      })
+    : withHand(game, seat, withCard(player.hand, give as Resource, -rate));
+  const taken = ware(want)
+    ? withPlayer(paid, seat, {
+        ...paid.players[seat],
+        goods: withGood(paid.players[seat].goods, want as Commodity),
+      })
+    : withHand(paid, seat, withCard(paid.players[seat].hand, want as Resource));
+  const name = (sort: Resource | Commodity): string =>
+    ware(sort)
+      ? COMMODITY_NAMES[sort as Commodity]
+      : SORT_NAMES[sort as Resource];
+  return note(
+    taken,
+    `${nameOf(game, seat)}: tauscht ${rate} ${name(give)} gegen 1 ${name(want)}.`,
+  );
 }
 
 /** Puts an offer on the table. */
@@ -2545,7 +2887,11 @@ function doFounding(
     founding.placing === "town"
   ) {
     const built = doTown(game, seat, move.at);
-    const second = founding.step >= realSeats(game).length;
+    // The last round of the founding phase - the second everywhere, the third
+    // in Stoffe für Catan: "für eure 3. Siedlung erhaltet ihr die
+    // Startrohstoffe".
+    const second =
+      founding.step >= founding.order.length - realSeats(game).length;
     // "Statt der zweiten Siedlung setzen alle eine Stadt ein." The opening
     // income is unchanged by it: "nehmt euch nun für jedes Landschaftsfeld, das
     // an eure Stadt grenzt, **einen** entsprechenden Rohstoff" - one card per
@@ -2593,7 +2939,7 @@ function doFounding(
       // The first piece is a Hafensiedlung and needs a shore; the second is an
       // ordinary settlement and brings a road and a ship with it.
       next =
-        next === null || (!second && !portShore(game, move.at))
+        next === null || (!second && !foundingShore(game, move.at))
           ? null
           : second
             ? next
@@ -3393,10 +3739,13 @@ function alchemy(
       `${nameOf(game, actingSeat(game))}: bestimmt mit Alchemie eine ${rolled}.`,
     );
     const after = eventDieStep(thrown, random);
+    // The villages of Stoffe für Catan pay on their own number, and a seven is
+    // not their business: they are no landscapes and no robber stands on them.
+    const paid = payVillages(sailArmada(after, dice), rolled);
     next =
       rolled === ROBBER_ROLL
-        ? seven(after)
-        : afterYield(fishOut(produce(after, rolled), rolled));
+        ? seven(paid)
+        : afterYield(fishOut(produce(paid, rolled), rolled));
   }
   return next;
 }
@@ -4580,7 +4929,22 @@ function applyTurnMove(
       move.kind === "giveBack" ? doGiveBack(game, seat, move.cards) : null,
     endTurn: () => endOfTurn(game, seat, rolled),
     boat: () => (move.kind === "boat" ? doBoat(game, seat, move.at) : null),
+    unload: () =>
+      move.kind === "unload"
+        ? doUnload(game, seat, move.boat, move.cargo)
+        : null,
+    recall: () =>
+      move.kind === "recall" ? doRecall(game, seat, move.boat) : null,
     unit: () => (move.kind === "unit" ? doUnit(game, seat, move.at) : null),
+    cast: () => (move.kind === "cast" ? doCast(game, seat) : null),
+    assault: () => doAssault(game, seat),
+    wonder: () =>
+      move.kind === "wonder" ? doWonder(game, seat, move.which) : null,
+    drop: () => (move.kind === "drop" ? doDrop(game, seat, move.at) : null),
+    sell: () => (move.kind === "sell" ? doSell(game, seat, move.sort) : null),
+    catch: () => (move.kind === "catch" ? doCatch(game, seat, move.at) : null),
+    deliver: () =>
+      move.kind === "deliver" ? doDeliver(game, seat, move.at) : null,
     storm: () => (move.kind === "storm" ? doStorm(game, seat, move.at) : null),
     hunt: () => (move.kind === "hunt" ? doHunt(game, seat, move.boat) : null),
     corsair: () =>
@@ -5021,8 +5385,8 @@ function endOfTurn(
   return next;
 }
 
-/** Whether this seat has a knight that could still ride this turn. */
-function ridesLeft(game: CatanGame, seat: number): boolean {
+/** Whether this seat has a knight of its own that could still ride. */
+function ownRides(game: CatanGame, seat: number): boolean {
   return (
     raiding(game) &&
     game.guards.some(
@@ -5034,8 +5398,34 @@ function ridesLeft(game: CatanGame, seat: number): boolean {
   );
 }
 
+/** Whether the Fremder Ritter still has a ride in him this turn. */
+function strangerRides(game: CatanGame): boolean {
+  const at = strangerAt(game);
+  return (
+    at !== null &&
+    !game.ridden.includes(at) &&
+    rideSpots(game, at, KNIGHT_STEPS).length > 0
+  );
+}
+
+/** Whether a ride could still be made this turn - one's own or the stranger's. */
+function ridesLeft(game: CatanGame, seat: number): boolean {
+  return ownRides(game, seat) || strangerRides(game);
+}
+
 /** The turn passing, with whatever the scenario puts in its way. */
 function passTurn(game: CatanGame): CatanGame {
+  // Once a turn, not once a move: both questions walk the whole board for every
+  // seat, and neither of them can become true in the middle of a turn without
+  // becoming true at the end of it as well.
+  const stuck = game.winner !== null ? null : deadEnd(game);
+  if (stuck !== null) {
+    const won = clothWinner(game);
+    return note(
+      { ...game, phase: "gameOver", winner: won, offer: null },
+      `${nameOf(game, won)}: gewinnt - ${stuck}`,
+    );
+  }
   // "Nach Beendigung deines Zuges wird genau 1 Trosswagen eingesetzt." At a
   // table of two the Zug is both stones, so the vote waits for the second one
   // rather than coming between them.
@@ -5231,19 +5621,50 @@ function doPost(game: CatanGame, seat: number, at: number): CatanGame | null {
   return where !== null &&
     game.phase === "posting" &&
     postSpots(game, where).includes(at)
-    ? note(
+    ? withStranger(
+        note(
+          {
+            ...game,
+            guards: game.guards.map((owner, path) =>
+              path === at ? seat : owner,
+            ),
+            phase: "trade",
+            posting: null,
+            raidCard: null,
+          },
+          `${nameOf(game, seat)}: setzt einen Ritter ein.`,
+        ),
+      )
+    : null;
+}
+
+/**
+ * Puts the Fremder Ritter out, the first time anybody trains a knight.
+ *
+ * @param game - the game, with that knight already standing
+ * @returns the game with the neutral knight beside it, or unchanged
+ * @remarks
+ * "Sobald eine Person ihren ersten Ritter baut, setzt sie den Fremden Ritter
+ * auf einem Weg des Burgfelds ein." The rulebook lets that person choose the
+ * path; here the referee takes the first free one, the way it places every
+ * other piece that belongs to nobody. The choice is small - all six castle
+ * paths lead into the same country, and whoever is on turn moves him off it
+ * before the turn ends anyway.
+ */
+function withStranger(game: CatanGame): CatanGame {
+  const seat = strangerSeat(game);
+  const free = postSpots(game, "castle");
+  return seat === null || strangerAt(game) !== null || free.length === 0
+    ? game
+    : note(
         {
           ...game,
           guards: game.guards.map((owner, path) =>
-            path === at ? seat : owner,
+            path === free[0] ? seat : owner,
           ),
-          phase: "trade",
-          posting: null,
-          raidCard: null,
         },
-        `${nameOf(game, seat)}: setzt einen Ritter ein.`,
-      )
-    : null;
+        "Der Fremde Ritter kommt ins Spiel.",
+      );
 }
 
 /** The fields a card may take a barbarian from. */
@@ -5384,9 +5805,21 @@ function doRide(
   far: boolean,
 ): CatanGame | null {
   const steps = KNIGHT_STEPS + (far ? EXTRA_STEPS : 0);
+  const rider = game.guards[from];
+  // "Ein Ritter einer neutralen Farbe spielt als 'Fremder Ritter' mit und darf
+  // von beiden Personen genutzt werden": whoever is on turn moves him, and he
+  // keeps his own colour while they do.
+  //
+  // "Ist eine Person am Zug, zieht sie zuerst ihre(n) Ritter und anschließend
+  // den Fremden Ritter" is an order and not a restriction - it decides nothing
+  // that the rides themselves do not - so the referee does not hold him back
+  // until the own knights are done. It would only ever be a deadlock: a knight
+  // that does not want to move would keep the Fremder Ritter standing on the
+  // castle path he has to leave.
+  const stranger = rider !== null && rider === strangerSeat(game);
   const allowed =
     game.phase === "knights" &&
-    game.guards[from] === seat &&
+    (rider === seat || stranger) &&
     !game.ridden.includes(from) &&
     (!far || game.players[seat].hand.getreide > 0) &&
     rideSpots(game, from, steps).includes(to);
@@ -5395,11 +5828,11 @@ function doRide(
         {
           ...(far ? spend(game, seat, GRAIN_COST) : game),
           guards: game.guards.map((owner, path) =>
-            path === from ? null : path === to ? seat : owner,
+            path === from ? null : path === to ? rider : owner,
           ),
           ridden: [...game.ridden, to],
         },
-        `${nameOf(game, seat)}: zieht einen Ritter${far ? " weit" : ""}.`,
+        `${nameOf(game, seat)}: zieht ${stranger ? "den Fremden Ritter" : "einen Ritter"}${far ? " weit" : ""}.`,
       )
     : null;
 }
@@ -5414,13 +5847,20 @@ function doRide(
  * trained this turn and has not left.
  */
 function ridesOwed(game: CatanGame, seat: number): boolean {
+  // The Fremder Ritter comes out onto a castle path as well, and the person on
+  // turn is the one who has to take him off it. An empty path is nobody's, so
+  // the neutral colour has to be asked for as a colour and not as "not mine":
+  // at any table but the one of two there is none, and an empty castle path
+  // would then have been owed for ever.
+  const stranger = strangerSeat(game);
+  const owed = (at: number): boolean =>
+    game.guards[at] === seat ||
+    (stranger !== null && game.guards[at] === stranger);
   return (
     raiding(game) &&
-    game.fort.gates.some((at) => game.guards[at] === seat) &&
+    game.fort.gates.some((at) => owed(at)) &&
     game.fort.gates.some(
-      (at) =>
-        game.guards[at] === seat &&
-        rideSpots(game, at, KNIGHT_STEPS).length > 0,
+      (at) => owed(at) && rideSpots(game, at, KNIGHT_STEPS).length > 0,
     )
   );
 }
@@ -5473,14 +5913,16 @@ function winCoast(game: CatanGame, hex: number): CatanGame {
   const shared =
     helpers.length === 1
       ? helpers.map(() => count)
-      : shareOut(random, helpers, count, owners);
+      : shareOut(random, helpers, count, owners, strangerSeat(game));
   helpers.forEach((seat, at) => {
     const won = shared[at];
     next = withPlayer(next, seat, {
       ...next.players[seat],
       prisoners: next.players[seat].prisoners + won,
     });
-    if (won === 0) {
+    // The Fremder Ritter takes his share of the prisoners and is paid nothing
+    // for going without: the gold is a consolation, and he has no use for one.
+    if (won === 0 && !next.players[seat].neutral) {
       next = withGold(next, seat, NO_PRISONER_GOLD);
     }
   });
@@ -5511,6 +5953,7 @@ function shareOut(
   helpers: readonly number[],
   count: number,
   owners: readonly number[],
+  stranger: number | null = null,
 ): readonly number[] {
   const share = helpers.map(() => 0);
   let left = count;
@@ -5520,11 +5963,23 @@ function shareOut(
     });
     left -= helpers.length;
   } else {
-    // Not enough for everybody: the dice pick who goes without.
-    const drawn = [...helpers.keys()].sort(
-      () => randomInt(random, DIE_SIDES) - randomInt(random, DIE_SIDES),
-    );
-    drawn.slice(0, left).forEach((at) => {
+    // Not enough for everybody: the dice pick who goes without, and the Fremder
+    // Ritter is not rolled for - "gilt für den Fremden Ritter immer das
+    // Würfelergebnis '3'".
+    const drawn = [...helpers.keys()]
+      .map((at) => ({
+        at,
+        roll:
+          helpers[at] === stranger
+            ? STRANGER_ROLL
+            : randomInt(random, DIE_SIDES) + 1,
+      }))
+      .sort(
+        (one, other) =>
+          other.roll - one.roll ||
+          randomInt(random, DIE_SIDES) - randomInt(random, DIE_SIDES),
+      );
+    drawn.slice(0, left).forEach(({ at }) => {
       share[at] = 1;
     });
     left = 0;
@@ -5566,25 +6021,42 @@ function colourDie(game: CatanGame, random: Random): CatanGame {
   const board = islandOf(game.land.length);
   const gate = game.fort.gates[randomInt(random, game.fort.gates.length)];
   const lie = lieOf(board, gate);
+  // "Ein Fremder Ritter bleibt während des ganzen Spiels auf dem Spielfeld. Er
+  // geht nicht verloren, auch wenn bei einem Sieg über die Barbaren der Weg, auf
+  // dem er steht, ausgewürfelt wird."
+  const struck = (owner: number | null, at: number): boolean =>
+    owner !== null && owner !== strangerSeat(game) && lieOf(board, at) === lie;
+  const two = playingTwo(game);
   let next: CatanGame = {
     ...game,
     seed: random.state(),
     lastLie: lie,
-    guards: game.guards.map((owner, at) =>
-      owner !== null && lieOf(board, at) === lie ? null : owner,
-    ),
+    guards: game.guards.map((owner, at) => (struck(owner, at) ? null : owner)),
   };
   game.guards.forEach((owner, at) => {
-    if (owner !== null && lieOf(board, at) === lie) {
-      next = withGold(next, owner, LOST_KNIGHT_GOLD);
+    if (struck(owner, at) && owner !== null) {
+      // "Als Entschädigung beim Verlust eines Ritters erhält man statt 3 Gold 2
+      // Gold und 1 Handelschip."
+      const paid = withGold(
+        next,
+        owner,
+        two ? LOST_KNIGHT_TWO_GOLD : LOST_KNIGHT_GOLD,
+      );
+      next = two
+        ? withPlayer(paid, owner, {
+            ...paid.players[owner],
+            chips: paid.players[owner].chips + LOST_KNIGHT_TWO_CHIP,
+          })
+        : paid;
     }
   });
-  const lost = game.guards.filter(
-    (owner, at) => owner !== null && lieOf(board, at) === lie,
-  ).length;
+  const lost = game.guards.filter((owner, at) => struck(owner, at)).length;
   return lost === 0
     ? next
-    : note(next, `Der Farbwürfel kostet ${lost} Ritter (je 3 Gold).`);
+    : note(
+        next,
+        `Der Farbwürfel kostet ${lost} Ritter (je ${two ? "2 Gold und 1 Handelschip" : "3 Gold"}).`,
+      );
 }
 
 /**
@@ -5769,11 +6241,15 @@ function doBoost(game: CatanGame, seat: number): CatanGame | null {
     !player.boosted &&
     player.hand.getreide > 0
     ? note(
-        withPlayer(spend(game, seat, GRAIN_COST), seat, {
-          ...player,
-          moves: player.moves + GRAIN_MOVE,
-          boosted: true,
-        }),
+        spend(
+          withPlayer(game, seat, {
+            ...player,
+            moves: player.moves + GRAIN_MOVE,
+            boosted: true,
+          }),
+          seat,
+          GRAIN_COST,
+        ),
         `${nameOf(game, seat)}: kauft 2 Bewegungspunkte für 1 Getreide.`,
       )
     : null;
@@ -5884,10 +6360,14 @@ function doTableau(game: CatanGame, seat: number): CatanGame | null {
     covers(game.players[seat].hand, price)
     ? checkWinner(
         note(
-          withPlayer(spend(game, seat, price), seat, {
-            ...game.players[seat],
-            level: game.players[seat].level + 1,
-          }),
+          spend(
+            withPlayer(game, seat, {
+              ...game.players[seat],
+              level: game.players[seat].level + 1,
+            }),
+            seat,
+            price,
+          ),
           `${nameOf(game, seat)}: baut den Trosswagen aus (Stufe ${game.players[seat].level + 2}).`,
         ),
       )
@@ -5913,14 +6393,17 @@ function drawHaulCard(game: CatanGame, seat: number): CatanGame | null {
     ? null
     : checkWinner(
         note(
-          withPlayer(
-            spend(
+          spend(
+            withPlayer(
               { ...game, haulDeck: deck.slice(1), haulUsed: used },
               seat,
-              DEV_COST,
+              {
+                ...game.players[seat],
+                haul: [...game.players[seat].haul, card],
+              },
             ),
             seat,
-            { ...game.players[seat], haul: [...game.players[seat].haul, card] },
+            DEV_COST,
           ),
           `${nameOf(game, seat)}: kauft eine Entwicklungskarte.`,
         ),
@@ -6072,9 +6555,20 @@ function doShip(game: CatanGame, seat: number, at: number): CatanGame | null {
     );
     next = checkWinner(
       awardTiles(
-        note(
-          free ? built : spend(built, seat, SHIP_COST),
-          `${nameOf(game, seat)}: baut ein Schiff.`,
+        openTrades(
+          takeGift(
+            liftFog(
+              note(
+                free ? built : spend(built, seat, SHIP_COST),
+                `${nameOf(game, seat)}: baut ein Schiff.`,
+              ),
+              seat,
+              at,
+            ),
+            seat,
+            at,
+          ),
+          seat,
         ),
       ),
     );
@@ -6117,26 +6611,48 @@ function doSail(
   return allowed
     ? checkWinner(
         awardTiles(
-          note(
-            withPlayer(
-              {
-                ...lifted,
-                ships: lifted.ships.map((owner, path) =>
-                  path === to ? seat : owner,
+          openTrades(
+            takeGift(
+              note(
+                withPlayer(
+                  {
+                    ...lifted,
+                    ships: lifted.ships.map((owner, path) =>
+                      path === to ? seat : owner,
+                    ),
+                    shipMoved: true,
+                  },
+                  seat,
+                  {
+                    ...lifted.players[seat],
+                    shipsLeft: lifted.players[seat].shipsLeft - 1,
+                  },
                 ),
-                shipMoved: true,
-              },
+                `${nameOf(game, seat)}: versetzt ein Schiff.`,
+              ),
               seat,
-              {
-                ...lifted.players[seat],
-                shipsLeft: lifted.players[seat].shipsLeft - 1,
-              },
+              to,
             ),
-            `${nameOf(game, seat)}: versetzt ein Schiff.`,
+            seat,
           ),
         ),
       )
     : null;
+}
+
+/**
+ * Whether this seat may send the Seeräuber anywhere at all.
+ *
+ * @param game - the game
+ * @param seat - who wants to move it
+ * @returns whether the scenario lets them
+ * @remarks
+ * "Der Seeräuber darf nur von Personen versetzt werden, die mindestens 1 Dorf
+ * mit einer Schiffslinie erreicht haben." Only in *Stoffe für Catan*;
+ * everywhere else anybody may move it.
+ */
+function mayPirate(game: CatanGame, seat: number): boolean {
+  return !cloth(game) || tradesOf(game, seat).length > 0;
 }
 
 /**
@@ -6152,22 +6668,70 @@ function doSail(
  * robber: move first, then draw from somebody who is there.
  */
 function doPirate(game: CatanGame, seat: number, at: number): CatanGame | null {
-  const allowed = game.phase === "pirate" && pirateSpots(game).includes(at);
+  const allowed =
+    game.phase === "pirate" &&
+    pirateSpots(game).includes(at) &&
+    mayPirate(game, seat);
   let next: CatanGame | null = null;
   if (allowed) {
     const moved = note(
       { ...game, pirate: at },
       `${nameOf(game, seat)}: versetzt den Seeräuber.`,
     );
-    const targets = pirateTargets(moved, seat).filter(
-      (other) => handSize(game.players[other].hand) > 0,
-    );
+    // "Versetzt du den Seeräuber, darfst du wahlweise 1 Rohstoffkarte ziehen
+    // oder einen Stoffballen von einer Person rauben, die an dem Feld mit dem
+    // Seeräuber ein Schiff stehen hat." The bale is taken where there is one to
+    // take - it is a victory point in the making and worth more than a card -
+    // and otherwise the card is drawn.
+    const robbed = cloth(moved) ? robBale(moved, seat) : moved;
+    const targets = cloth(moved)
+      ? []
+      : pirateTargets(moved, seat).filter(
+          (other) => handSize(game.players[other].hand) > 0,
+        );
     next =
       targets.length === 0
-        ? { ...moved, phase: "trade", targets: [] }
-        : { ...moved, phase: "steal", targets };
+        ? { ...robbed, phase: "trade", targets: [] }
+        : { ...robbed, phase: "steal", targets };
   }
   return next;
+}
+
+/**
+ * What moving the Seeräuber pays in *Stoffe für Catan*.
+ *
+ * @param game - the game, with the pirate already moved
+ * @param seat - who moved it
+ * @returns the game with a bale robbed, or a resource drawn
+ */
+function robBale(game: CatanGame, seat: number): CatanGame {
+  const victim = pirateTargets(game, seat).find(
+    (other) => game.players[other].bales > 0,
+  );
+  if (victim === undefined) {
+    // A card from the supply instead, which is the other half of the choice.
+    const random = createRandom(game.seed);
+    const sort = RESOURCES[randomInt(random, RESOURCES.length)];
+    return note(
+      withHand(
+        { ...game, seed: random.state() },
+        seat,
+        withCard(game.players[seat].hand, sort, 1),
+      ),
+      `${nameOf(game, seat)}: zieht dafür 1 ${SORT_NAMES[sort]}.`,
+    );
+  }
+  return note(
+    withPlayer(
+      withPlayer(game, victim, {
+        ...game.players[victim],
+        bales: game.players[victim].bales - 1,
+      }),
+      seat,
+      { ...game.players[seat], bales: game.players[seat].bales + 1 },
+    ),
+    `${nameOf(game, seat)}: raubt ${nameOf(game, victim)} einen Stoffballen.`,
+  );
 }
 
 /**
@@ -6231,10 +6795,17 @@ function doGoldPick(
             seat,
             withCard(game.players[seat].hand, sort),
           ),
-          `${nameOf(game, seat)}: nimmt ${SORT_NAMES[sort]} vom Goldfluss.`,
+          hasBenefit(game, seat, "wissenschaft") && !paysAnyGold(game)
+            ? `${nameOf(game, seat)}: nimmt ${SORT_NAMES[sort]} aus dem Aquädukt.`
+            : `${nameOf(game, seat)}: nimmt ${SORT_NAMES[sort]} vom Goldfluss.`,
         ),
       )
     : null;
+}
+
+/** Whether any Goldfluss lies on this board at all. */
+function paysAnyGold(game: CatanGame): boolean {
+  return islandOf(game.land.length).hexes.some((hex) => paysGold(game, hex.id));
 }
 
 /** Closes the gold river once nobody is owed anything. */
@@ -6272,8 +6843,8 @@ function doBoat(game: CatanGame, seat: number, at: number): CatanGame | null {
     covers(player.hand, BOAT_COST) &&
     boatSpots(game, seat).includes(at)
     ? note(
-        withPlayer(
-          spend(
+        spend(
+          withPlayer(
             {
               ...game,
               boats: [
@@ -6289,10 +6860,10 @@ function doBoat(game: CatanGame, seat: number, at: number): CatanGame | null {
               ],
             },
             seat,
-            BOAT_COST,
+            { ...player, boatsLeft: player.boatsLeft - 1 },
           ),
           seat,
-          { ...player, boatsLeft: player.boatsLeft - 1 },
+          BOAT_COST,
         ),
         `${nameOf(game, seat)}: baut ein Schiff.`,
       )
@@ -6385,8 +6956,8 @@ function doPort(game: CatanGame, seat: number, at: number): CatanGame | null {
     covers(game.players[seat].hand, PORT_COST)
     ? checkWinner(
         note(
-          withPlayer(
-            spend(
+          spend(
+            withPlayer(
               {
                 ...game,
                 towns: game.towns.map((each, crossing) =>
@@ -6396,14 +6967,14 @@ function doPort(game: CatanGame, seat: number, at: number): CatanGame | null {
                 ),
               },
               seat,
-              PORT_COST,
+              {
+                ...game.players[seat],
+                portsLeft: game.players[seat].portsLeft - 1,
+                settlements: game.players[seat].settlements + 1,
+              },
             ),
             seat,
-            {
-              ...game.players[seat],
-              portsLeft: game.players[seat].portsLeft - 1,
-              settlements: game.players[seat].settlements + 1,
-            },
+            PORT_COST,
           ),
           `${nameOf(game, seat)}: baut eine Hafensiedlung.`,
         ),
@@ -6480,6 +7051,14 @@ function discover(game: CatanGame, seat: number, which: number): CatanGame {
         camping(game) && kind === "gold"
           ? { ...game.camps, [hex]: { units: [], taken: false } }
           : game.camps,
+      // "Anschliessend legst du so viele Gewuerzsaecke aus dem Vorrat auf das
+      // Dorf des Gewuerzfelds, wie Personen am Spiel teilnehmen" - one for each
+      // seat, because each seat may fetch exactly one. Six villages at four
+      // seats is the whole supply of 24, so it never runs out.
+      sacks:
+        spicing(game) && kind === "gewuerz"
+          ? { ...game.sacks, [hex]: game.players.length }
+          : game.sacks,
     };
     next = note(
       reward === null
@@ -6544,8 +7123,7 @@ function doLoad(game: CatanGame, seat: number, at: number): CatanGame | null {
     if (boat.hold.length === 0 && dock.length > 0) {
       // As much as fits: a hold takes "zwei kleine Spielfiguren oder eine
       // große", so two units go aboard together and an explorer alone.
-      const taking =
-        dock[0] === "entdecker" ? 1 : Math.min(dock.length, HOLD_SMALL);
+      const taking = bigCargo(dock[0]) ? 1 : Math.min(dock.length, HOLD_SMALL);
       next = {
         ...game,
         boats: game.boats.map((each, index) =>
@@ -6586,18 +7164,13 @@ function doLandfall(
 ): CatanGame | null {
   const which = game.sailing;
   const boat = which === null ? undefined : game.boats[which];
-  const board = islandOf(game.land.length);
   const allowed =
     which !== null &&
     boat !== undefined &&
     boat.owner === seat &&
     game.phase === "sailing" &&
     boat.hold.includes("entdecker") &&
-    landfall(game, boat.at).includes(at) &&
-    game.towns[at] === null &&
-    board.crossings[at].next.every((near) => game.towns[near] === null) &&
-    !besideUnknown(game, at) &&
-    game.players[seat].settlements > 0;
+    landingSpots(game, seat, boat.at).includes(at);
   return allowed && which !== null
     ? checkWinner(
         note(
@@ -6634,7 +7207,8 @@ function sailsLeft(game: CatanGame, seat: number): boolean {
         boat.owner === seat &&
         !boat.done &&
         (lanesFrom(game, boat).length > 0 ||
-          landfall(game, boat.at).length > 0),
+          (boat.hold.includes("entdecker") &&
+            landingSpots(game, seat, boat.at).length > 0)),
     )
   );
 }
@@ -6671,8 +7245,10 @@ function startSailing(game: CatanGame): CatanGame {
 function doUnit(game: CatanGame, seat: number, at: number): CatanGame | null {
   const player = game.players[seat];
   const board = islandOf(game.land.length);
+  // Units are the mission's own figures: they storm the camps of scenario 2
+  // and befriend the villages of scenario 4.
   const ready =
-    camping(game) &&
+    (camping(game) || spicing(game)) &&
     game.phase === "trade" &&
     player.unitsLeft > 0 &&
     covers(player.hand, UNIT_COST);
@@ -6712,10 +7288,14 @@ function doUnit(game: CatanGame, seat: number, at: number): CatanGame | null {
   return next === null
     ? null
     : note(
-        withPlayer(spend(next, seat, UNIT_COST), seat, {
-          ...player,
-          unitsLeft: player.unitsLeft - 1,
-        }),
+        spend(
+          withPlayer(next, seat, {
+            ...player,
+            unitsLeft: player.unitsLeft - 1,
+          }),
+          seat,
+          UNIT_COST,
+        ),
         `${nameOf(game, seat)}: baut eine Einheit.`,
       );
 }
@@ -6892,7 +7472,7 @@ function doHunt(game: CatanGame, seat: number, boat: number): CatanGame | null {
     `${nameOf(game, seat)}: wuerfelt ${die} gegen das Piratenschiff.`,
   );
   const beaten: CatanGame = { ...rolled, pirateShip: null };
-  return die === CHASE_ROLL
+  return chaseRolls(game, seat).includes(die)
     ? // "Anschliessend setzt du dein eigenes Piratenschiff auf einem beliebigen
       // erlaubten Meerfeld ein." Unless there is none yet, and then the sea
       // simply stays free.
@@ -6928,9 +7508,19 @@ function doCorsair(
         .map((boat) => boat.owner),
     ),
   ];
+  // "Wird ein Piratenschiff auf einem Fischfeld mit einem Fischschwarm
+  // platziert, kommt der Fischschwarm zurück in den Vorrat."
+  const scared = shoalAt(game, at);
   const placed = note(
-    { ...game, pirateShip: { owner: seat, hex: at } },
-    `${nameOf(game, seat)}: setzt sein Piratenschiff ein.`,
+    {
+      ...game,
+      pirateShip: { owner: seat, hex: at },
+      shoals: game.shoals.filter((hex) => hex !== at),
+      shoalsLeft: game.shoalsLeft + (scared ? 1 : 0),
+    },
+    scared
+      ? `${nameOf(game, seat)}: setzt sein Piratenschiff ein und verscheucht einen Fischschwarm.`
+      : `${nameOf(game, seat)}: setzt sein Piratenschiff ein.`,
   );
   const holding = around.filter(
     (other) => handSize(game.players[other].hand) > 0,
@@ -6993,14 +7583,1157 @@ function sailStep(
         `${nameOf(game, seat)}: zahlt 1 Gold Tribut an die Piraten.`,
       )
     : game;
+  // A step across a jam costs a point for every lane it crosses - see
+  // laneCosts.
+  const price = laneCosts(game, game.boats[which]).get(at) ?? 1;
   return discover(
     {
       ...paid,
       boats: paid.boats.map((each, index) =>
-        index === which ? { ...each, at, spent: each.spent + 1 } : each,
+        index === which ? { ...each, at, spent: each.spent + price } : each,
       ),
     },
     seat,
     which,
+  );
+}
+
+/**
+ * Rolls one die for a shoal.
+ *
+ * @param game - the game
+ * @param seat - whose turn it is
+ * @returns the game after the roll, or null when the try is not open
+ * @remarks
+ * "Würfle mit einem Würfel. Würfelst du die Zahl eines Fischfelds, nimmst du dir
+ * einen Fischschwarm aus dem Vorrat und legst ihn auf dieses Feld." A miss is a
+ * result too, and it uses the one try up all the same.
+ */
+function doCast(game: CatanGame, seat: number): CatanGame | null {
+  if (!canCast(game)) {
+    return null;
+  }
+  const random = createRandom(game.seed);
+  const die = randomInt(random, FISH_SIDES) + 1;
+  const hex = fishField(game, die);
+  const rolled: CatanGame = { ...game, seed: random.state(), cast: true };
+  return hex === null
+    ? note(rolled, `${nameOf(game, seat)}: würfelt ${die} - kein Fischschwarm.`)
+    : note(
+        {
+          ...rolled,
+          shoals: [...rolled.shoals, hex],
+          shoalsLeft: rolled.shoalsLeft - 1,
+        },
+        `${nameOf(game, seat)}: würfelt ${die} - ein Fischschwarm zieht auf.`,
+      );
+}
+
+/**
+ * Takes a shoal aboard.
+ *
+ * @param game - the game
+ * @param seat - whose ship
+ * @param at - the field the shoal is lying on
+ * @returns the game after it, or null
+ * @remarks
+ * "Nimm den Fischschwarm vom Feld und lege ihn in dein Schiff ... Hast du ein
+ * Schiff zu einem Fischschwarm gezogen und diesen gefangen, darfst du mit dem
+ * Schiff weiterziehen" - lifting it costs no movement point and does not end
+ * the voyage.
+ */
+function doCatch(game: CatanGame, seat: number, at: number): CatanGame | null {
+  const spot = catchSpots(game, seat).find((each) => each.hex === at);
+  return spot === undefined
+    ? null
+    : note(
+        {
+          ...game,
+          shoals: game.shoals.filter((hex) => hex !== at),
+          boats: game.boats.map((each, index) =>
+            index === spot.boat ? { ...each, hold: ["fisch"] } : each,
+          ),
+        },
+        `${nameOf(game, seat)}: fängt einen Fischschwarm.`,
+      );
+}
+
+/**
+ * Unloads a shoal at the Catanischer Rat.
+ *
+ * @param game - the game
+ * @param seat - whose ship
+ * @param at - the harbour of the council it points at
+ * @returns the game after it, or null
+ * @remarks
+ * "Der Fischschwarm kommt zurück in den Vorrat. Anschließend rückst du mit
+ * deinem Markierungsstein auf der Missionsleiste Fische für Catan 1 Feld vor."
+ */
+function doDeliver(
+  game: CatanGame,
+  seat: number,
+  at: number,
+): CatanGame | null {
+  const spot = landings(game, seat).find((each) => each.at === at);
+  const boat = spot === undefined ? undefined : game.boats[spot.boat];
+  if (spot === undefined || boat === undefined) {
+    return null;
+  }
+  const shoals = boat.hold.filter((cargo) => cargo === "fisch").length;
+  const sacks = boat.hold.filter((cargo) => cargo === "gewuerz").length;
+  const step = (track: readonly number[], by: number): readonly number[] =>
+    track.map((each, who) =>
+      who === seat ? Math.min(each + by, MISSION_STEPS.length - 1) : each,
+    );
+  return checkWinner(
+    note(
+      {
+        ...game,
+        shoalsLeft: game.shoalsLeft + shoals,
+        boats: game.boats.map((each, index) =>
+          index === spot.boat ? { ...each, hold: [] } : each,
+        ),
+        catches: step(game.catches, shoals),
+        // "Anschliessend rueckst du deinen Markierungsstein fuer jeden
+        // abgelieferten Gewuerzsack ein Feld ... weiter" - two sacks, two
+        // fields, which is what makes carrying two worth the trip.
+        spices: step(game.spices, sacks),
+      },
+      `${nameOf(game, seat)}: liefert beim Catanischen Rat ab (${shoals} Fisch, ${sacks} Gewürz).`,
+    ),
+  );
+}
+
+/**
+ * Sets a unit down on a village and takes a sack of spices aboard.
+ *
+ * @param game - the game
+ * @param seat - whose unit
+ * @param at - the Gewürzfeld
+ * @returns the game after it, or null
+ * @remarks
+ * "Im Gegenzug belädst du das Schiff mit einem Gewürzsack. Außerdem erhältst du
+ * von da an einen permanenten Vorteil im Spiel." The unit stays for good: "eine
+ * abgesetzte Einheit darf das Gewürzfeld nicht mehr verlassen."
+ */
+function doDrop(game: CatanGame, seat: number, at: number): CatanGame | null {
+  const spot = villageSpots(game, seat).find((each) => each.hex === at);
+  const boat = spot === undefined ? undefined : game.boats[spot.boat];
+  if (spot === undefined || boat === undefined) {
+    return null;
+  }
+  const hold: readonly Cargo[] = [
+    ...boat.hold.filter((cargo) => cargo !== "einheit"),
+    "gewuerz",
+  ];
+  // A hold takes two small figures, and a unit has just left it - so the sack
+  // always fits, but a second sack from another village might not.
+  return holdRoom(
+    boat.hold.filter((cargo) => cargo !== "einheit"),
+    false,
+  )
+    ? note(
+        {
+          ...game,
+          villages: {
+            ...game.villages,
+            [at]: [...(game.villages[at] ?? []), seat],
+          },
+          sacks: { ...game.sacks, [at]: (game.sacks[at] ?? 0) - 1 },
+          boats: game.boats.map((each, index) =>
+            index === spot.boat ? { ...each, hold } : each,
+          ),
+        },
+        `${nameOf(game, seat)}: setzt eine Einheit im Dorf ab und lädt einen Gewürzsack (${SPICE_NAMES[game.spice[at] ?? "gold"]}).`,
+      )
+    : null;
+}
+
+/**
+ * Sells one resource to a Gutes-Gold village.
+ *
+ * @param game - the game
+ * @param seat - who is selling
+ * @param sort - which resource
+ * @returns the game after it, or null
+ * @remarks
+ * "Bist du mit einem der beiden Dörfer befreundet, darfst du 1-mal in der
+ * Handels- und Bauphase deines Zuges 1 beliebigen Rohstoff gegen 1 Gold
+ * eintauschen. Bist du mit beiden Dörfern befreundet, ... 2-mal."
+ */
+function doSell(
+  game: CatanGame,
+  seat: number,
+  sort: Resource,
+): CatanGame | null {
+  return game.phase === "trade" &&
+    game.sold < goldSales(game, seat) &&
+    game.players[seat].hand[sort] > 0
+    ? note(
+        withGold(
+          withHand(
+            { ...game, sold: game.sold + 1 },
+            seat,
+            withCard(game.players[seat].hand, sort, -1),
+          ),
+          seat,
+          SELL_GOLD,
+        ),
+        `${nameOf(game, seat)}: verkauft 1 ${SORT_NAMES[sort]} für 1 Gold ins Dorf.`,
+      )
+    : null;
+}
+
+/** What each village advantage is called in the log. */
+const SPICE_NAMES: Readonly<Record<Spice, string>> = {
+  fahrt: "Schnelle Fahrt",
+  pirat4: "Piratenbonus 4",
+  pirat5: "Piratenbonus 5",
+  gold: "Gutes Gold",
+};
+
+/**
+ * Whether a crossing lies on the island the scenario founds on.
+ *
+ * @param game - the game
+ * @param at - the crossing
+ * @returns whether a founding settlement may go there
+ * @remarks
+ * *Zu neuen Ufern* founds "auf der großen Insel", *Durch die Wüste* "auf der
+ * größeren Hauptinsel - rechts bzw. unterhalb des Wüstengürtels". Both keep the
+ * rest of the board for the ships, and for the two victory-point chips a first
+ * settlement out there is worth.
+ */
+function onMainIsland(game: CatanGame, at: number): boolean {
+  const board = islandOf(game.land.length);
+  const main = dunes(game) ? DUNE_MAIN : mainIsland(board);
+  return board.crossings[at].hexes.some((hex) => main.includes(hex));
+}
+
+/**
+ * Lifts the fog from every field at the ends of a path just built on.
+ *
+ * @param game - the game
+ * @param seat - who built
+ * @param at - the path the road or ship went on
+ * @returns the game with whatever was under the fog turned face up
+ * @remarks
+ * "Setzt ihr ein Schiff oder eine Straße auf einen Weg, an dessen Ende ein
+ * Nebelfeld liegt, dreht ihr es um und entdeckt, was darunter verborgen ist.
+ * Handelt es sich um Meer, passiert nichts weiter. Verbirgt sich hier jedoch
+ * ein Landschaftsfeld, legt ihr den obersten Zahlenchip vom verdeckten Stapel
+ * darauf. Wer das Landschaftsfeld entdeckt hat, erhält sofort eine
+ * Rohstoffkarte dieses Landschaftsfelds."
+ */
+function liftFog(game: CatanGame, seat: number, at: number): CatanGame {
+  if (!fogging(game)) {
+    return game;
+  }
+  const board = islandOf(game.land.length);
+  const lifting = [
+    ...new Set(
+      board.paths[at].ends.flatMap((end) => board.crossings[end].hexes),
+    ),
+  ].filter((hex) => foggy(game, hex));
+  return lifting.reduce((next, hex) => {
+    const kind = next.hidden[hex];
+    const turned: CatanGame = {
+      ...next,
+      land: next.land.map((each, index) => (index === hex ? kind : each)),
+      chips: next.chips.map((each, index) =>
+        index === hex ? next.hiddenChips[hex] : each,
+      ),
+    };
+    const reward = YIELD[kind];
+    return note(
+      reward === null
+        ? turned
+        : withHand(
+            turned,
+            seat,
+            withCard(turned.players[seat].hand, reward, 1),
+          ),
+      reward === null
+        ? `${nameOf(next, seat)}: lichtet den Nebel - Meer.`
+        : `${nameOf(next, seat)}: lichtet den Nebel - ${LAND_LOG_NAMES[kind]}, dafür 1 ${SORT_NAMES[reward]}.`,
+    );
+  }, game);
+}
+
+/**
+ * Takes the gift a ship has just reached.
+ *
+ * @param game - the game
+ * @param seat - whose ship
+ * @param at - the sea path it went on
+ * @returns the game after the gift has changed hands
+ * @remarks
+ * "Wer zuerst eine kleine Insel erreicht und ein Schiff auf einer Kante mit
+ * einem Siegpunkt-Chip baut oder an eine solche Kante versetzt, darf den Chip
+ * nehmen ... Ist ein Chip erbeutet, wird er nicht nachgefüllt." The same for
+ * the development cards - "sie zählt wie eine in diesem Zug erworbene
+ * Entwicklungskarte" - and for the harbours.
+ */
+function takeGift(game: CatanGame, seat: number, at: number): CatanGame {
+  const gift = game.presents[at];
+  if (!tribe(game) || gift === undefined) {
+    return game;
+  }
+  const taken: CatanGame = {
+    ...game,
+    presents: Object.fromEntries(
+      Object.entries(game.presents).filter(([path]) => Number(path) !== at),
+    ),
+  };
+  if (gift.kind === "chip") {
+    return note(
+      withPlayer(taken, seat, {
+        ...taken.players[seat],
+        islandChips: taken.players[seat].islandChips + 1,
+      }),
+      `${nameOf(game, seat)}: findet einen Siegpunkt-Chip.`,
+    );
+  }
+  if (gift.kind === "card") {
+    const card = taken.stack[0];
+    return card === undefined
+      ? taken
+      : note(
+          withPlayer({ ...taken, stack: taken.stack.slice(1) }, seat, {
+            ...taken.players[seat],
+            // "Sie zählt wie eine in diesem Zug erworbene Entwicklungskarte":
+            // fresh, so it cannot be played before the next turn.
+            fresh: [...taken.players[seat].fresh, card],
+          }),
+          `${nameOf(game, seat)}: findet eine Entwicklungskarte.`,
+        );
+  }
+  return note(
+    layPort(taken, seat, gift.want),
+    `${nameOf(game, seat)}: findet einen Hafen.`,
+  );
+}
+
+/**
+ * Puts a harbour won as a gift beside one of this seat's settlements.
+ *
+ * @param game - the game
+ * @param seat - who won it
+ * @param want - what the harbour trades, or null for a 3:1
+ * @returns the game with the harbour placed, or kept for later
+ * @remarks
+ * "Besitzt du eine Küstensiedlung ohne Hafen, musst du den Hafen sofort an
+ * diese anlegen. Hast du mehrere eigene Küstensiedlungen, darfst du selbst
+ * wählen ... An eine Küstensiedlung darf nur 1 Hafen angelegt werden. Besitzt
+ * du keine Küstensiedlung, die für den Hafen in Frage kommt, bewahrst du ihn
+ * auf." The choice between several own settlements is made here rather than
+ * asked: the first one on the coast takes it, and which one that is changes
+ * nothing about what the harbour does.
+ */
+function layPort(
+  game: CatanGame,
+  seat: number,
+  want: Resource | null,
+): CatanGame {
+  const board = islandOf(game.land.length);
+  const spot = board.crossings.find(
+    (crossing) =>
+      game.towns[crossing.id]?.owner === seat &&
+      crossing.paths.some((path) => seaPath(game, path)) &&
+      !game.harbours.some((harbour) =>
+        board.paths[harbour.path].ends.includes(crossing.id),
+      ),
+  );
+  return spot === undefined
+    ? {
+        ...game,
+        heldPorts: game.heldPorts.map((held, who) =>
+          who === seat ? [...held, want] : held,
+        ),
+      }
+    : {
+        ...game,
+        harbours: [
+          ...game.harbours,
+          {
+            path:
+              spot.paths.find((path) => seaPath(game, path)) ?? spot.paths[0],
+            want,
+          },
+        ],
+      };
+}
+
+/** Lays out whatever harbours a seat is still carrying, if it now can. */
+function layHeldPorts(game: CatanGame, seat: number): CatanGame {
+  return game.heldPorts[seat].reduce((next, want) => {
+    const placed = layPort(
+      {
+        ...next,
+        heldPorts: next.heldPorts.map((held, who) =>
+          who === seat ? held.slice(1) : held,
+        ),
+      },
+      seat,
+      want,
+    );
+    return placed;
+  }, game);
+}
+
+/**
+ * Opens the trade relations a ship has just made, and pays their first bale.
+ *
+ * @param game - the game
+ * @param seat - whose ship
+ * @returns the game with the new relations and their cloth
+ * @remarks
+ * "Sobald du eine Schiffslinie zwischen einer eigenen Siedlung und einem Dorf
+ * des Vergessenen Stammes hergestellt hast, unterhältst du eine
+ * Handelsbeziehung zu diesem Dorf ... darfst du dir sofort 1 Stoffballen vom
+ * Vorrat dieses Dorfes nehmen." And the line is then shut: "aus dieser
+ * Schiffslinie darf kein Schiff mehr versetzt werden."
+ */
+function openTrades(game: CatanGame, seat: number): CatanGame {
+  if (!cloth(game)) {
+    return game;
+  }
+  return reachedVillages(game, seat)
+    .filter((each) => !(game.traders[each.at] ?? []).includes(seat))
+    .reduce((next, each) => {
+      const village = next.villagesOf[each.at];
+      const opened: CatanGame = {
+        ...next,
+        traders: {
+          ...next.traders,
+          [each.at]: [...(next.traders[each.at] ?? []), seat],
+        },
+        lockedShips: [...new Set([...next.lockedShips, ...each.line])],
+      };
+      return note(
+        village === undefined || village.bales === 0
+          ? opened
+          : takeBale(opened, seat, each.at),
+        `${nameOf(next, seat)}: schließt eine Handelsbeziehung zu einem Dorf.`,
+      );
+    }, game);
+}
+
+/**
+ * Hands one bale of cloth from a village to a seat.
+ *
+ * @param game - the game
+ * @param seat - who takes it
+ * @param at - the village
+ * @returns the game after it
+ * @remarks
+ * "Reicht der Stoffballenvorrat eines Dorfes nicht für alle Beteiligten aus,
+ * werden die fehlenden Stoffballen aus dem allgemeinen Vorrat entnommen. Wird
+ * die Zahl eines Dorfes gewürfelt, dessen Stoffballen bereits aufgebraucht
+ * sind, erhält niemand mehr Stoffballen von diesem Dorf - auch nicht aus dem
+ * allgemeinen Vorrat."
+ */
+function takeBale(game: CatanGame, seat: number, at: number): CatanGame {
+  const village = game.villagesOf[at];
+  if (village === undefined || village.bales === 0) {
+    return game;
+  }
+  return withPlayer(
+    {
+      ...game,
+      villagesOf: {
+        ...game.villagesOf,
+        [at]: { ...village, bales: village.bales - 1 },
+      },
+    },
+    seat,
+    { ...game.players[seat], bales: game.players[seat].bales + 1 },
+  );
+}
+
+/**
+ * Pays out the villages whose number has just come up.
+ *
+ * @param game - the game
+ * @param rolled - what the dice showed
+ * @returns the game with the cloth handed out
+ * @remarks
+ * "Wird im weiteren Spielverlauf die Zahl des Dorfes gewürfelt, darfst du dir 1
+ * weiteren Stoffballen nehmen. Haben 2 oder mehr Personen eine
+ * Handelsbeziehung zum gleichen Dorf geschlossen, dürfen sich alle 1
+ * Stoffballen nehmen, die an das Dorf angeschlossen sind."
+ */
+function payVillages(game: CatanGame, rolled: number): CatanGame {
+  if (!cloth(game)) {
+    return game;
+  }
+  return Object.entries(game.villagesOf)
+    .filter(([, village]) => village.number === rolled)
+    .reduce((next, [at]) => {
+      const village = Number(at);
+      return (next.traders[village] ?? []).reduce(
+        (paid, seat) => takeBale(paid, seat, village),
+        next,
+      );
+    }, game);
+}
+
+/**
+ * Whether the cloth has run out in all but three villages.
+ *
+ * @param game - the game
+ * @returns whether the second ending has come
+ * @remarks
+ * "Sobald sich nur noch in 3 Dörfern Stoffballen-Chips befinden, endet das
+ * Spiel. Es gewinnt, wer am meisten Siegpunkte erreicht hat. Bei Gleichstand
+ * gewinnt, wer mehr Stoffballen besitzt."
+ */
+function clothRunOut(game: CatanGame): boolean {
+  return (
+    cloth(game) &&
+    Object.values(game.villagesOf).filter((village) => village.bales > 0)
+      .length <= CLOTH_LAST_VILLAGES
+  );
+}
+
+/** Who has won when the cloth runs out. */
+function clothWinner(game: CatanGame): number {
+  const best = Math.max(
+    ...game.players.map((unused, at) => pointsOf(game, at)),
+  );
+  const front = game.players
+    .map((unused, at) => at)
+    .filter((at) => pointsOf(game, at) === best);
+  return [...front].sort(
+    (one, other) => game.players[other].bales - game.players[one].bales,
+  )[0];
+}
+
+/**
+ * The fewest warships that can win a fight.
+ *
+ * @remarks
+ * "Ist die Anzahl deiner Kriegsschiffe größer als die gewürfelte Zahl, hast du
+ * gewonnen" - and the die is at least a one, so one warship never wins.
+ */
+const FIGHT_LEAST = 2;
+
+/**
+ * Whether no fortress in *Die Pirateninseln* can ever be taken again.
+ *
+ * @param game - the game
+ * @returns true when the scenario has run out of ways to end itself
+ * @remarks
+ * Winning here needs a conquered fortress, a fortress needs warships, and
+ * warships come from one place only: "deckst du eine Ritterkarte (im Spiel zu
+ * viert auch Siegpunktkarte) auf, darfst du ... ein Kriegsschiff umwandeln",
+ * out of a stack that is not reshuffled - "ist der Stapel mit den
+ * Entwicklungskarten leer, können keine neuen Entwicklungskarten mehr gekauft
+ * werden".
+ *
+ * So once the stack is empty, nobody holds a card that arms a ship, and no
+ * colour has the two warships a fight needs, the fortresses stand for ever and
+ * the game cannot end at all. A table would stop there and count the points;
+ * this does the same. Every part of that has to hold at once: one colour with
+ * two warships, or one card still in a hand, and the game is alive.
+ */
+function fortsSafe(game: CatanGame): boolean {
+  return (
+    corsairs(game) &&
+    game.stack.length === 0 &&
+    !realSeats(game).some((seat) => canConquer(game, seat))
+  );
+}
+
+/**
+ * Whether this seat could still take its fortress.
+ *
+ * @param game - the game
+ * @param seat - whose fortress
+ * @returns whether any road to a conquest is left
+ * @remarks
+ * Asked cheapest first, because it walks the whole sea and is asked at the end
+ * of every turn: a fortress already taken or two warships on the water answer
+ * it without looking at anything else.
+ */
+function canConquer(game: CatanGame, seat: number): boolean {
+  const player = game.players[seat];
+  if (fortOf(game, seat) === null) {
+    return false;
+  }
+  const holds = [...player.deck, ...player.fresh].some(
+    (card) => card === "ritter" || card === "siegpunkt",
+  );
+  if (!holds && warshipsOf(game, seat) < FIGHT_LEAST) {
+    return false;
+  }
+  if (warshipsOf(game, seat) >= FIGHT_LEAST) {
+    // Strong enough to fight - so it is only over if the line can never reach
+    // the fortress at all.
+    return atFort(game, seat) || lineCanGrow(game, seat);
+  }
+  // A card only arms a ship that is there and still plain, and the line it
+  // would come from cannot grow once it has reached the fortress: "die
+  // Schiffslinie darf ... nicht über die Piratenfestung hinaus gebaut werden".
+  // A hand full of knights beside a line of one armed ship is a hand that can
+  // do nothing at all.
+  return (
+    shipLine(game, seat).some((path) => !game.warships.includes(path)) ||
+    (!atFort(game, seat) &&
+      player.shipsLeft > 0 &&
+      shipSpots(game, seat).length > 0)
+  );
+}
+
+/**
+ * Why this game cannot go on, if it cannot.
+ *
+ * @param game - the game at the end of a turn
+ * @returns what to say about it, or null while there is still something to do
+ */
+function deadEnd(game: CatanGame): string | null {
+  if (fortsSafe(game)) {
+    return "die Piratenfestungen sind nicht mehr zu erobern.";
+  }
+  // In Die Pirateninseln a colour that has taken its fortress can still win on
+  // points alone - so there the built-out board only ends the game once nobody
+  // can conquer anything either.
+  const conquering =
+    corsairs(game) && realSeats(game).some((seat) => canConquer(game, seat));
+  return !conquering && boardSpent(game)
+    ? "es ist alles gebaut, was zu bauen war."
+    : null;
+}
+
+/**
+ * Whether the board has nothing left to build and the table nothing left to buy.
+ *
+ * @param game - the game
+ * @returns true when no move anybody makes could change the score again
+ * @remarks
+ * Catan ends when somebody reaches the target, and the rulebook never asks what
+ * happens if nobody can. On a small board with many colours that does happen:
+ * every crossing is taken or blocked, every road and every ship is placed or
+ * has nowhere to go, and "ist der Stapel mit den Entwicklungskarten leer,
+ * können keine neuen Entwicklungskarten mehr gekauft werden". From there the
+ * dice can roll for ever and nothing moves - a self-played table sat at twelve
+ * of thirteen points for nine thousand turns.
+ *
+ * So the referee counts the points and the game is over, which is what a table
+ * would do. Every part has to hold at once, and all of it is asked of the same
+ * lists the building itself uses: one free crossing, one road, one ship, one
+ * card anywhere, and the game goes on.
+ *
+ * Only where this list is the **whole** list: the expansions bring their own
+ * pieces - knights, wagons, ships with cargo, missions - and a game of theirs
+ * that looks spent may still have a camp to storm or a fish to land. Those
+ * scenarios end themselves; see the ships and the fortresses above.
+ */
+function boardSpent(game: CatanGame): boolean {
+  return (
+    game.phase !== "founding" &&
+    !finding(game) &&
+    !raiding(game) &&
+    !hauling(game) &&
+    game.mode !== "ritter" &&
+    game.stack.length === 0 &&
+    realSeats(game).every((seat) => {
+      const player = game.players[seat];
+      // A card counts only while it could still change something. Outside Die
+      // Pirateninseln that is the knight, which carries the Größte Rittermacht;
+      // a Siegpunktkarte is a point in the hand already, and Monopol,
+      // Erfindung and Straßenbau only hand out what there is nowhere left to
+      // build with. In Die Pirateninseln both knight and Siegpunktkarte arm a
+      // ship - and neither is worth anything once that colour's fortress has
+      // already fallen.
+      const inHand = [...player.deck, ...player.fresh];
+      const knights =
+        player.knights + inHand.filter((card) => card === "ritter").length;
+      const most =
+        game.army === null ? ARMY_MIN - 1 : game.players[game.army].knights;
+      const useful = corsairs(game)
+        ? inHand.some(
+            (card) =>
+              (card === "ritter" || card === "siegpunkt") &&
+              fortOf(game, seat) !== null,
+          )
+        : // A knight is only worth something while it could still take the
+          // Größte Rittermacht: one card against seven played ones changes
+          // nothing, and neither does another card for whoever already holds
+          // the tile.
+          game.army !== seat && knights > most;
+      return (
+        !useful &&
+        townSpots(game, seat).length === 0 &&
+        citySpots(game, seat).length === 0 &&
+        roadSpots(game, seat).length === 0 &&
+        (!sailing(game) || !shipHelps(game, seat))
+      );
+    })
+  );
+}
+
+/**
+ * Whether this seat's ship line could still be made any longer.
+ *
+ * @param game - the game
+ * @param seat - whose line
+ * @returns whether there is a place for one more ship
+ * @remarks
+ * "Sie muss auf dem kürzesten Weg gebaut werden und darf andere Schiffslinien
+ * nicht blockieren" - and the other way round too: a line can be shut in by
+ * everybody else's. Then it never reaches its fortress, and its colour can
+ * never win however many points it has: one self-played table sat there with
+ * fifteen ships, six warships and fifteen points.
+ *
+ * Only **building** lengthens a line. Versetzen does not: lifting the ship at
+ * the front takes away the very thing the next place would have to connect to,
+ * so a fleet with an empty supply can shuffle but never advance.
+ */
+function lineCanGrow(game: CatanGame, seat: number): boolean {
+  return shipSpots(game, seat).length > 0;
+}
+
+/**
+ * Whether moving one ship could still change anything for this seat.
+ *
+ * @param game - the game
+ * @param seat - whose fleet
+ * @returns whether one move would open a building spot or take a gift
+ * @remarks
+ * "Du darfst pro Zug 1 Schiff versetzen." With nothing left to build, that is
+ * the last thing a fleet can do - and it is worth something only where the ship
+ * lands on a crossing that opens a settlement, or on one of the gifts of *Der
+ * vergessene Stamm*. Anything else is the same fleet in a different place.
+ *
+ * One move deep, and that is enough: without a supply the line cannot advance
+ * (see {@link lineCanGrow}), so what one move cannot reach, ten cannot either.
+ */
+function shipHelps(game: CatanGame, seat: number): boolean {
+  const opens = (before: CatanGame, at: number): boolean => {
+    if (game.presents[at] !== undefined) {
+      return true;
+    }
+    const built: CatanGame = {
+      ...before,
+      ships: before.ships.map((owner, path) => (path === at ? seat : owner)),
+    };
+    return townSpots(built, seat).length > 0;
+  };
+  // A ship out of the supply first: that is the ordinary way a line grows.
+  if (shipSpots(game, seat).some((at) => opens(game, at))) {
+    return true;
+  }
+  return looseShips(game, seat).some((from) => {
+    const lifted: CatanGame = {
+      ...game,
+      ships: game.ships.map((owner, path) => (path === from ? null : owner)),
+      players: game.players.map((player, at) =>
+        at === seat ? { ...player, shipsLeft: player.shipsLeft + 1 } : player,
+      ),
+    };
+    return shipSpots(lifted, seat).some(
+      (to) => to !== from && opens(lifted, to),
+    );
+  });
+}
+
+/**
+ * Sails the pirate fleet, and lets it raid what it comes to.
+ *
+ * @param game - the game, with the dice already thrown
+ * @param dice - the two dice
+ * @returns the game after the fleet has moved and raided
+ * @remarks
+ * "Immer, wenn jemand würfelt, wird zuerst die Piratenflotte bewegt. Die
+ * Zugweite entspricht dem Würfel mit der niedrigeren Augenzahl ... Erst danach
+ * nehmt ihr euch eure Rohstofferträge." And where it stops: "endet der Zug der
+ * Piratenflotte auf einem Meerfeld, an das eine Siedlung/Stadt grenzt, wird
+ * diese Siedlung/Stadt sofort überfallen."
+ */
+function sailArmada(game: CatanGame, dice: readonly number[]): CatanGame {
+  if (!corsairs(game)) {
+    return game;
+  }
+  const board = islandOf(game.land.length);
+  const ring = fleetRing(board);
+  const strength = Math.min(dice[0], dice[1]);
+  const moved: CatanGame = {
+    ...game,
+    armada: (game.armada + strength) % ring.length,
+  };
+  const at = ring[moved.armada];
+  const raided = board.hexes[at].corners
+    .map((corner) => moved.towns[corner])
+    .reduce<readonly number[]>(
+      (list, town) =>
+        town === null || list.includes(town.owner)
+          ? list
+          : [...list, town.owner],
+      [],
+    );
+  return note(
+    raided.reduce((next, seat) => plunder(next, seat, strength), moved),
+    `Die Piratenflotte zieht ${strength} Felder weiter.`,
+  );
+}
+
+/**
+ * One raid of the pirate fleet on one seat.
+ *
+ * @param game - the game
+ * @param seat - whose settlement is beside the fleet
+ * @param strength - the lower die
+ * @returns the game after the raid
+ * @remarks
+ * "Ist der Pirat stärker, verliert die Person 1 Rohstoffkarte und 1 weitere für
+ * jede Stadt, die sie besitzt ... Ist die überfallene Person stärker, darf sie
+ * sich eine beliebige Rohstoffkarte vom Vorrat nehmen. Bei Gleichstand
+ * geschieht nichts."
+ */
+function plunder(game: CatanGame, seat: number, strength: number): CatanGame {
+  const ships = warshipsOf(game, seat);
+  if (ships === strength) {
+    return game;
+  }
+  const random = createRandom(game.seed);
+  if (ships > strength) {
+    const sort = RESOURCES[randomInt(random, RESOURCES.length)];
+    return note(
+      withHand(
+        { ...game, seed: random.state() },
+        seat,
+        withCard(game.players[seat].hand, sort, 1),
+      ),
+      `${nameOf(game, seat)}: schlägt die Piratenflotte zurück und nimmt 1 ${SORT_NAMES[sort]}.`,
+    );
+  }
+  // One card, and one more for every city: "1 weitere für jede Stadt".
+  const cities = game.towns.filter(
+    (town) => town !== null && town.owner === seat && town.city,
+  ).length;
+  let next: CatanGame = { ...game, seed: random.state() };
+  for (let taken = 0; taken <= cities; taken += 1) {
+    const hand = next.players[seat].hand;
+    const held = RESOURCES.filter((sort) => hand[sort] > 0);
+    if (held.length === 0) {
+      break;
+    }
+    const sort = held[randomInt(random, held.length)];
+    next = withHand(
+      { ...next, seed: random.state() },
+      seat,
+      withCard(hand, sort, -1),
+    );
+  }
+  return note(
+    next,
+    `${nameOf(game, seat)}: wird von der Piratenflotte überfallen.`,
+  );
+}
+
+/**
+ * Turns the rearmost ordinary ship of a line into a warship.
+ *
+ * @param game - the game
+ * @param seat - whose line
+ * @returns the game with one more warship, or unchanged
+ * @remarks
+ * "Deckst du eine Ritterkarte auf, darfst du jeweils das hinterste 'normale'
+ * Schiff deiner Schiffslinie in ein Kriegsschiff umwandeln. Die aufgedeckte
+ * Entwicklungskarte kommt auf einen Ablagestapel."
+ */
+function armShip(game: CatanGame, seat: number): CatanGame {
+  const plain = shipLine(game, seat).find(
+    (path) => !game.warships.includes(path),
+  );
+  return plain === undefined
+    ? game
+    : note(
+        { ...game, warships: [...game.warships, plain] },
+        `${nameOf(game, seat)}: rüstet ein Schiff zum Kriegsschiff um.`,
+      );
+}
+
+/**
+ * Attacks the fortress of one's own colour.
+ *
+ * @param game - the game
+ * @param seat - who is attacking
+ * @returns the game after the fight, or null when there is nothing to attack
+ * @remarks
+ * "Ermittle mit einem Würfel die Stärke der Piraten. Ist die Anzahl deiner
+ * Kriegsschiffe größer als die gewürfelte Zahl, hast du gewonnen und darfst
+ * einen Chip unter der Piratenfestung entfernen. Ist die Anzahl deiner
+ * Kriegsschiffe kleiner, verlierst du den Kampf und entfernst deine beiden
+ * vordersten Schiffe. Bei einem Unentschieden verlierst du dein vorderstes
+ * Schiff. Nach einem Kampf ist dein Zug beendet."
+ */
+function doAssault(game: CatanGame, seat: number): CatanGame | null {
+  const fort = fortOf(game, seat);
+  if (
+    !corsairs(game) ||
+    game.phase !== "trade" ||
+    game.stormed ||
+    fort === null ||
+    !atFort(game, seat)
+  ) {
+    return null;
+  }
+  const random = createRandom(game.seed);
+  const die = randomInt(random, DIE_SIDES) + 1;
+  const ships = warshipsOf(game, seat);
+  const rolled: CatanGame = { ...game, seed: random.state(), stormed: true };
+  if (ships > die) {
+    const left = game.forts[fort].chips - 1;
+    const won: CatanGame = {
+      ...rolled,
+      forts: { ...rolled.forts, [fort]: { owner: seat, chips: left } },
+    };
+    return checkWinner(
+      note(
+        won,
+        left === 0
+          ? `${nameOf(game, seat)}: würfelt ${die} gegen ${ships} Kriegsschiffe - die Festung ist erobert!`
+          : `${nameOf(game, seat)}: würfelt ${die} gegen ${ships} Kriegsschiffe und nimmt der Festung einen Chip.`,
+      ),
+    );
+  }
+  // The front of the line is its far end: the last ship the walk reaches.
+  const line = [...shipLine(rolled, seat)].reverse();
+  const lost = line.slice(0, ships < die ? 2 : 1);
+  return note(
+    withPlayer(
+      {
+        ...rolled,
+        ships: rolled.ships.map((owner, path) =>
+          lost.includes(path) ? null : owner,
+        ),
+        warships: rolled.warships.filter((path) => !lost.includes(path)),
+      },
+      seat,
+      {
+        ...rolled.players[seat],
+        shipsLeft: rolled.players[seat].shipsLeft + lost.length,
+      },
+    ),
+    `${nameOf(game, seat)}: würfelt ${die} gegen ${ships} Kriegsschiffe und verliert ${lost.length} Schiff(e).`,
+  );
+}
+
+/**
+ * Claims a wonder, or builds its next stage.
+ *
+ * @param game - the game
+ * @param seat - who is building
+ * @param which - the wonder
+ * @returns the game after it, or null
+ * @remarks
+ * "Hast du die Bedingung für ein Wunder erfüllt, legst du den Chip in deiner
+ * Spielfarbe auf das entsprechende Wunderplättchen ... Nun musst du dieses
+ * Wunder auch bauen. Jedes Wunder gliedert sich in vier Stufen. Jede Stufe
+ * kostet die auf dem entsprechenden Wunderplättchen angegebenen 5 Rohstoffe ...
+ * Verfügst du über genügend Rohstoffe, kannst du während deines Zuges auch
+ * mehrere Stufen deines Wunders bauen."
+ */
+function doWonder(
+  game: CatanGame,
+  seat: number,
+  which: Wonder,
+): CatanGame | null {
+  const mine = game.wonders[seat];
+  const tile = WONDERS[which];
+  const allowed =
+    wonders(game) &&
+    game.phase === "trade" &&
+    covers(game.players[seat].hand, tile.cost) &&
+    (mine === null
+      ? wonderFree(game, which) && wonderOpen(game, seat, which)
+      : mine.kind === which && mine.stage < WONDER_STAGES);
+  if (!allowed) {
+    return null;
+  }
+  const stage = (mine?.stage ?? 0) + 1;
+  return checkWinner(
+    note(
+      spend(
+        {
+          ...game,
+          wonders: game.wonders.map((each, who) =>
+            who === seat ? { kind: which, stage } : each,
+          ),
+        },
+        seat,
+        tile.cost,
+      ),
+      stage === WONDER_STAGES
+        ? `${nameOf(game, seat)}: vollendet ${tile.name}!`
+        : `${nameOf(game, seat)}: baut ${tile.name}, Stufe ${stage}.`,
+    ),
+  );
+}
+
+/**
+ * Whether a seat has won *Die Catanischen Wunder*.
+ *
+ * @param game - the game
+ * @param seat - whose turn it is
+ * @returns whether either of the two endings has come
+ * @remarks
+ * "Sobald jemand ein Catanisches Wunder vollendet (Stufe 4 gebaut) oder wenn
+ * jemand an der Reihe ist, 10 Siegpunkte besitzt und eine höhere Stufe beim Bau
+ * des Catanischen Wunders erreicht hat als die anderen."
+ */
+function wonderWon(game: CatanGame, seat: number): boolean {
+  const mine = wonderStage(game, seat);
+  const best = Math.max(
+    0,
+    ...game.wonders.map((unused, who) =>
+      who === seat ? 0 : wonderStage(game, who),
+    ),
+  );
+  return (
+    mine >= WONDER_STAGES ||
+    (pointsOf(game, seat) >= targetFor(game, seat) && mine > best)
+  );
+}
+
+/**
+ * Takes one of this seat's ships off the water so it can be built again.
+ *
+ * @param game - the game
+ * @param seat - whose ship
+ * @param which - the ship, by its place in {@link CatanGame.boats}
+ * @returns the game without it, or null
+ * @remarks
+ * "Möchtest du ein neues Schiff bauen und alle deine Schiffe sind schon auf dem
+ * Spielfeld, darfst du ein beliebiges deiner Schiffe vom Spielfeld entfernen
+ * und an deiner Hafensiedlung für 1 Holz und 1 Wolle neu bauen. Sollte das
+ * entfernte Schiff beladen gewesen sein, musst du die Ladung in den Vorrat
+ * zurücklegen, sie ist verloren."
+ *
+ * Two moves rather than one, because taking it off and building it again are
+ * two decisions: the ship comes back into the stock here, and the ordinary
+ * {@link doBoat} then puts it wherever the harbour settlements allow. Only with
+ * the stock empty, which is the whole condition the rule names.
+ */
+function doRecall(
+  game: CatanGame,
+  seat: number,
+  which: number,
+): CatanGame | null {
+  const boat = game.boats[which];
+  const player = game.players[seat];
+  if (
+    !finding(game) ||
+    game.phase !== "trade" ||
+    boat === undefined ||
+    boat.owner !== seat ||
+    player.boatsLeft > 0 ||
+    !covers(player.hand, BOAT_COST)
+  ) {
+    return null;
+  }
+  // The cargo is lost, and the pieces go back where they came from - an
+  // explorer to its stock, a unit to its own, and a shoal or a sack to the
+  // supply they were taken from.
+  const scouts = boat.hold.filter((cargo) => cargo === "entdecker").length;
+  const units = boat.hold.filter((cargo) => cargo === "einheit").length;
+  const shoals = boat.hold.filter((cargo) => cargo === "fisch").length;
+  return note(
+    withPlayer(
+      {
+        ...game,
+        boats: game.boats.filter((unused, index) => index !== which),
+        sailing: game.sailing === which ? null : game.sailing,
+        shoalsLeft: game.shoalsLeft + shoals,
+      },
+      seat,
+      {
+        ...player,
+        boatsLeft: player.boatsLeft + 1,
+        scoutsLeft: player.scoutsLeft + scouts,
+        unitsLeft: player.unitsLeft + units,
+      },
+    ),
+    boat.hold.length === 0
+      ? `${nameOf(game, seat)}: räumt ein Schiff ab.`
+      : `${nameOf(game, seat)}: räumt ein beladenes Schiff ab - die Ladung ist verloren.`,
+  );
+}
+
+/** What a ship can carry, for the log. */
+const CARGO_LOG_NAMES: Readonly<Record<Cargo, string>> = {
+  entdecker: "einen Entdecker",
+  einheit: "eine Einheit",
+  fisch: "einen Fischschwarm",
+  gewuerz: "einen Gewürzsack",
+};
+
+/**
+ * Puts one figure out of a ship's hold back in the box.
+ *
+ * @param game - the game
+ * @param seat - whose ship
+ * @param which - the ship, by its place in {@link CatanGame.boats}
+ * @param cargo - which figure to take out
+ * @returns the game with the hold that much emptier, or null
+ * @remarks
+ * "Ihr dürft jederzeit Spielfiguren aus einem eurer Schiffe entfernen und zum
+ * Vorrat zurücklegen. Dies kann zum Beispiel sinnvoll sein, wenn ihr Platz für
+ * eine wertvollere Figur schaffen wollt." Free of movement points - "das Be-
+ * und Entladen von Schiffen kostet keine Bewegungspunkte" - and free of a turn:
+ * jederzeit means in the building phase as well as on the water.
+ *
+ * Where the figure goes is where it came from: an explorer and a unit back to
+ * their own stock, a Fischschwarm to the supply of shoals. A Gewürzsack has no
+ * supply to go back to - it was taken out of a village and is simply gone,
+ * which is the price of the room it frees.
+ *
+ * Without this a fleet can strand itself: eleven ships each carrying an
+ * explorer that no longer has a coast to found on, and not one hold free for
+ * the fish that were still swimming. That game had no move left that changed
+ * anything.
+ */
+function doUnload(
+  game: CatanGame,
+  seat: number,
+  which: number,
+  cargo: Cargo,
+): CatanGame | null {
+  const boat = game.boats[which];
+  if (
+    !finding(game) ||
+    boat === undefined ||
+    boat.owner !== seat ||
+    !boat.hold.includes(cargo) ||
+    (game.phase !== "trade" && game.phase !== "sailing")
+  ) {
+    return null;
+  }
+  const at = boat.hold.indexOf(cargo);
+  const player = game.players[seat];
+  return note(
+    withPlayer(
+      {
+        ...game,
+        boats: game.boats.map((each, index) =>
+          index === which
+            ? {
+                ...each,
+                hold: each.hold.filter((unused, spot) => spot !== at),
+              }
+            : each,
+        ),
+        shoalsLeft: game.shoalsLeft + (cargo === "fisch" ? 1 : 0),
+      },
+      seat,
+      {
+        ...player,
+        scoutsLeft: player.scoutsLeft + (cargo === "entdecker" ? 1 : 0),
+        unitsLeft: player.unitsLeft + (cargo === "einheit" ? 1 : 0),
+      },
+    ),
+    `${nameOf(game, seat)}: räumt ${CARGO_LOG_NAMES[cargo]} aus einem Schiff.`,
   );
 }

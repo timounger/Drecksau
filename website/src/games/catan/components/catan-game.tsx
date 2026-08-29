@@ -159,7 +159,12 @@ export function CatanGameScreen(): ReactElement {
           <CatanHand game={game} mySeat={mySeat} />
           <CatanFish game={game} mySeat={mySeat} onMove={play} />
           <CatanVote game={game} mySeat={mySeat} onMove={play} />
-          <CatanSea game={game} mySeat={mySeat} sailingShip={sailingShip} />
+          <CatanSea
+            game={game}
+            mySeat={mySeat}
+            sailingShip={sailingShip}
+            onMove={play}
+          />
           <CatanFind game={game} mySeat={mySeat} />
           <CatanRaid game={game} mySeat={mySeat} />
           <CatanHaul game={game} mySeat={mySeat} onMove={play} />

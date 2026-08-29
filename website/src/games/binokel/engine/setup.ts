@@ -28,11 +28,23 @@ export type GameOptions = {
   readonly withDabb?: boolean;
   /** Whether two teams play (only for four or six players). Defaults to false. */
   readonly teams?: boolean;
-  /** Points that end the match. */
-  readonly targetScore: number;
+  /** Points that end the match. Defaults to {@link TARGET_SCORE}. */
+  readonly targetScore?: number;
   /** Who deals; bidding starts to their right. Defaults to 0. */
   readonly dealerIndex?: number;
 };
+
+/**
+ * Points that end the match.
+ *
+ * @remarks
+ * „Gespielt wird bis 1000 Punkte." One place rather than three: the number used
+ * to stand in the game screen **and** in the online screen, and nowhere in the
+ * engine - so a game built without it had no finish line at all and simply went
+ * on dealing. A self-play run over the whole collection found exactly that:
+ * three colours at 72250, 68460 and 68020 points after thirty thousand moves.
+ */
+export const TARGET_SCORE = 1000;
 
 /** Fewest players Binokel supports. */
 export const MIN_PLAYERS = 3;
@@ -154,7 +166,7 @@ export function createGame(
     withSevens: options.withSevens,
     withDabb,
     teams,
-    targetScore: options.targetScore,
+    targetScore: options.targetScore ?? TARGET_SCORE,
     dealerIndex,
     phase: "bidding",
     dabb,

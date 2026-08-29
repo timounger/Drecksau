@@ -18,7 +18,10 @@ import {
   MISSION_STEPS,
   camping,
   finding,
-  missionPoints,
+  friends,
+  shoaling,
+  spicing,
+  trackPoints,
 } from "@/games/catan/engine/entdecker";
 import { CATAN_TEXTS as T } from "@/games/catan/i18n/texts";
 import type { CatanGame } from "@/games/catan/engine/state";
@@ -65,10 +68,44 @@ export function CatanFind({
           <span>
             {T.campMission(
               Math.min(game.mission[mySeat] ?? 0, MISSION_STEPS.length - 1),
-              missionPoints(game, mySeat),
+              trackPoints(game.mission, mySeat),
             )}
           </span>
           <span className="opacity-60">{T.campCost}</span>
+        </>
+      )}
+      {shoaling(game) && (
+        <>
+          <h2 className="mt-1 text-sm font-semibold">{T.shoalTitle}</h2>
+          <span>{T.shoalStock(game.shoalsLeft, game.shoals.length)}</span>
+          <span>
+            {T.shoalTrack(
+              Math.min(game.catches[mySeat] ?? 0, MISSION_STEPS.length - 1),
+              trackPoints(game.catches, mySeat),
+            )}
+          </span>
+          <span className="opacity-60">{T.shoalHow}</span>
+        </>
+      )}
+      {spicing(game) && (
+        <>
+          <h2 className="mt-1 text-sm font-semibold">{T.spiceTitle}</h2>
+          <span>
+            {T.spiceTrack(
+              Math.min(game.spices[mySeat] ?? 0, MISSION_STEPS.length - 1),
+              trackPoints(game.spices, mySeat),
+            )}
+          </span>
+          <span>
+            {friends(game, mySeat).length === 0
+              ? T.spiceNone
+              : T.spiceFriends(
+                  friends(game, mySeat)
+                    .map((gift) => T.spiceGift(gift))
+                    .join(" · "),
+                )}
+          </span>
+          <span className="opacity-60">{T.spiceHow}</span>
         </>
       )}
     </section>

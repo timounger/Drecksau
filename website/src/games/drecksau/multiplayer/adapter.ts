@@ -39,12 +39,32 @@ export type DrecksauOptions = {
  * The card type a hidden card is shown as.
  *
  * @remarks
- * A redacted hand keeps each card's id (so references like the Glücksvogel's
- * pending ids stay valid) but replaces its type with this decoy. Opponents'
- * hands are only ever rendered as a count, never as cards, so the decoy is
- * never seen; it exists so the redacted card still passes {@link isGameState}.
+ * Opponents' hands are only ever rendered as a count, never as cards, so the
+ * decoy is never seen; it exists so the redacted card still passes
+ * {@link isGameState}.
  */
 const DECOY_CARD_TYPE = "mud";
+
+/**
+ * The id a hidden card is shown under.
+ *
+ * @param seat - whose hand it is in
+ * @param at - where in the hand it lies
+ * @returns an id that says nothing about the card
+ * @remarks
+ * The id has to go as well as the type: a card is called `rain-0` or
+ * `farmerScrubs-1`, so a hand whose types are decoys but whose **ids** are real
+ * is a hand anybody can read off the shared snapshot. Hiding one and leaving
+ * the other hides nothing.
+ *
+ * A place instead of a name: unique inside the snapshot, so it can key a list,
+ * and it tells the reader only what they may see anyway - how many cards
+ * somebody holds. Whoever the hand belongs to gets the real cards, ids and all,
+ * on their own private channel.
+ */
+function hiddenId(seat: number, at: number): string {
+  return `verdeckt-${seat}-${at}`;
+}
 
 /**
  * Redacts every player's hand down to its size.
@@ -55,9 +75,12 @@ const DECOY_CARD_TYPE = "mud";
 export function redactHands(state: GameState): GameState {
   return {
     ...state,
-    players: state.players.map((player) => ({
+    players: state.players.map((player, seat) => ({
       ...player,
-      hand: player.hand.map((card) => ({ id: card.id, type: DECOY_CARD_TYPE })),
+      hand: player.hand.map((unused, at) => ({
+        id: hiddenId(seat, at),
+        type: DECOY_CARD_TYPE,
+      })),
     })),
   };
 }

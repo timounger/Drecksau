@@ -30,9 +30,17 @@
  * end. See {@link proposeTrade}.
  */
 import { GROUPS, OWNABLE, fieldAt, fieldsIn, type GroupId } from "./board";
-import { canBuild, canMortgage, canSell, nextBid, redemptionOf } from "./moves";
+import {
+  canBuild,
+  canMortgage,
+  canSell,
+  nextBid,
+  redemptionOf,
+  rentOn,
+} from "./moves";
 import {
   BAIL,
+  TYPICAL_ROLL,
   estateAt,
   freeTokens,
   holdsGroup,
@@ -53,6 +61,9 @@ const BUILD_RESERVE = 180;
 
 /** Cash above which it is worth paying a mortgage back. */
 const RICH = 600;
+
+/** How many of the worst rent on the board to keep before lifting a mortgage. */
+const SAFE_HITS = 2;
 
 /** Houses per street it builds to before starting the next group. */
 const BUILD_TO = 3;
@@ -316,6 +327,29 @@ function raiseSomething(game: MonopolyGame, seat: number): MonopolyMove | null {
 }
 
 /**
+ * The biggest rent anybody else can charge right now.
+ *
+ * @remarks
+ * What a flat threshold cannot see. Against undeveloped streets 600 EUR spare
+ * is a fortune; against a hotel on Schlossallee it is small change, and lifting
+ * a mortgage with it means mortgaging the same street back a turn later, ten
+ * euros poorer for the interest each time. Late games used to shuffle the same
+ * two properties in and out for a dozen turns that way.
+ *
+ * @param game - the game
+ * @param seat - whose turn it is
+ * @returns the highest rent an opponent could charge on their next landing
+ */
+function worstRent(game: MonopolyGame, seat: number): number {
+  return OWNABLE.reduce((most, at) => {
+    const estate = estateAt(game, at);
+    return estate.owner >= 0 && estate.owner !== seat && !estate.mortgaged
+      ? Math.max(most, rentOn(game, at, TYPICAL_ROLL))
+      : most;
+  }, 0);
+}
+
+/**
  * What to do with money before ending the turn.
  *
  * @remarks
@@ -326,10 +360,12 @@ function raiseSomething(game: MonopolyGame, seat: number): MonopolyMove | null {
  */
 function managing(game: MonopolyGame, seat: number): MonopolyMove | null {
   const buildable = whereToBuild(game, seat);
+  // Keep enough for what the board can charge, not a fixed sum: see worstRent.
+  const keep = Math.max(RICH, worstRent(game, seat) * SAFE_HITS);
   const mortgaged = ownedBy(game, seat).find(
     (at) =>
       estateAt(game, at).mortgaged &&
-      game.players[seat].cash >= redemptionOf(at) + RICH,
+      game.players[seat].cash >= redemptionOf(at) + keep,
   );
   let move: MonopolyMove | null = null;
   if (buildable !== null) {

@@ -18,8 +18,8 @@ export type PlayerSetup = {
 export type GameOptions = {
   /** Seed of the shuffle; the same seed replays the same game. */
   readonly seed: number;
-  /** True to play with the Sauschön expansion. */
-  readonly withExpansion: boolean;
+  /** True to play with the Sauschön expansion. Defaults to false. */
+  readonly withExpansion?: boolean;
   /** True to add the "Drecksau total" defence cards. */
   readonly withDefense?: boolean;
   /** Index of the player who moves first; defaults to 0 (the human). */
@@ -99,11 +99,16 @@ export function createGame(
     );
   }
 
+  // Defaulted like withDefense beside it: a game built without the flag would
+  // carry an undefined into the state, and the game's own wire guard turns such
+  // a state away - an online room that cannot be read is worse than one without
+  // Sauschön.
+  const expansion = options.withExpansion ?? false;
   const shuffled = shuffle(
-    createDeck(options.withExpansion, options.withDefense ?? false),
+    createDeck(expansion, options.withDefense ?? false),
     createRandom(options.seed),
   );
-  const dealt = dealPlayers(setups, shuffled.items, options.withExpansion);
+  const dealt = dealPlayers(setups, shuffled.items, expansion);
 
   return {
     players: dealt.players,
@@ -115,7 +120,7 @@ export function createGame(
     log: [],
     nextLogId: 0,
     pendingCardIds: [],
-    hasExpansion: options.withExpansion,
+    hasExpansion: expansion,
   };
 }
 

@@ -21,6 +21,7 @@
  * them through the ordinary code. The rulebook wants exactly that - "in einer
  * neutralen Farbe kann aber durchaus die Längste Handelsroute entstehen".
  */
+import { raiding } from "./barbaren";
 import { islandOf } from "./board";
 import { SKIP_CHIPS } from "./handel";
 import {
@@ -172,3 +173,38 @@ export function canHandKnightIn(game: CatanGame, seat: number): boolean {
 
 /** What handing a knight in is worth. */
 export const KNIGHT_CHIPS = CHIPS_PER_KNIGHT;
+
+/**
+ * The colour the Fremder Ritter rides for.
+ *
+ * @param game - the game
+ * @returns the neutral seat that owns it, or null at any other table
+ * @remarks
+ * "Ein Ritter einer neutralen Farbe spielt als 'Fremder Ritter' mit und darf
+ * von beiden Personen genutzt werden." Only where *Der Barbarenüberfall* and
+ * *CATAN für Zwei* meet, and only ever one of him - so one of the two neutral
+ * colours holds him and the other never has a knight.
+ */
+export function strangerSeat(game: CatanGame): number | null {
+  return raiding(game) && playingTwo(game)
+    ? (neutralSeats(game)[0] ?? null)
+    : null;
+}
+
+/**
+ * Where the Fremder Ritter stands.
+ *
+ * @param game - the game
+ * @returns the path, or null while he is still beside the board
+ * @remarks
+ * Read off the board rather than remembered, and that is safe because he never
+ * leaves it: "ein Fremder Ritter bleibt während des ganzen Spiels auf dem
+ * Spielfeld. Er geht nicht verloren, auch wenn bei einem Sieg über die Barbaren
+ * der Weg, auf dem er steht, ausgewürfelt wird."
+ */
+export function strangerAt(game: CatanGame): number | null {
+  const seat = strangerSeat(game);
+  const at =
+    seat === null ? -1 : game.guards.findIndex((owner) => owner === seat);
+  return at < 0 ? null : at;
+}

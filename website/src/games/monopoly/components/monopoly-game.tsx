@@ -46,13 +46,26 @@ export function MonopolyGameScreen(): ReactElement {
     getSettingsSnapshot,
     getServerSettingsSnapshot,
   );
-  const { game, mySeat, play, newGame } = useMonopolyGame(settings);
+  const { game, mySeat, play, newGame, testCash } = useMonopolyGame(settings);
   const [picked, setPicked] = useState<number | null>(null);
   const over = game.phase === "gameOver";
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4">
       <GameHeader title={T.title} subtitle={T.tagline} rules={MONOPOLY_RULES}>
+        {/* Zum Ausprobieren: eine Partie Monopoly braucht eine Stunde, bis das
+            Geld knapp wird - und dann fangen die interessanten Entscheidungen
+            erst an. Der Knopf steht nur hier; online gibt es ihn nicht, denn er
+            ist kein Zug, sondern ein Griff in den eigenen Spielstand. */}
+        <button
+          type="button"
+          data-testid="mo-test-cash"
+          onClick={testCash}
+          title={T.testCashTitle}
+          className="cursor-pointer rounded-lg border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+        >
+          {T.testCash}
+        </button>
         <button
           type="button"
           data-testid="mo-new"

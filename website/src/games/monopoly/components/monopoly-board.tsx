@@ -47,6 +47,7 @@ import type { ReactElement } from "react";
 import {
   BOARD_SIZE,
   JAIL_AT,
+  GO_AT,
   PARKING_AT,
   TO_JAIL_AT,
   fieldAt,
@@ -61,6 +62,7 @@ import {
   type Estate,
   type MonopolyGame,
 } from "@/games/monopoly/engine/state";
+import { MONOPOLY_TEXTS as T } from "@/games/monopoly/i18n/texts";
 
 /** The board's own colours, which do not follow the page's theme. */
 const FELT = "#cfe4d3";
@@ -321,6 +323,27 @@ function Cell({
       {field.price !== undefined && (
         <span className="text-[7px] tabular-nums opacity-70">
           {field.price}
+        </span>
+      )}
+      {/* Was auf Frei Parken liegt, steht auf Frei Parken - sonst müsste man
+          es sich merken, und gerade dieser Betrag ist der Grund, warum jemand
+          dorthin will. */}
+      {/* Und auf LOS steht, was genau zu treffen wert ist - sonst sieht man
+          der Ecke nicht an, dass hier eine andere Regel gilt als gedruckt. */}
+      {at === GO_AT && game.doubleGo && (
+        <span
+          data-testid="mo-double-go"
+          className="text-[7px] font-bold tabular-nums text-emerald-800 dark:text-emerald-700"
+        >
+          {T.goDouble}
+        </span>
+      )}
+      {at === PARKING_AT && game.parkingPot && (
+        <span
+          data-testid="mo-parking-pot"
+          className="mt-1 text-[13px] leading-none font-bold tabular-nums text-emerald-800 dark:text-emerald-700"
+        >
+          {T.parkingPot(game.pot)}
         </span>
       )}
       <Buildings at={at} houses={estate.houses} />

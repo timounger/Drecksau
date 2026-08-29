@@ -86,6 +86,50 @@ export const FIND_HEXES = 28;
 /** Which rows make up the start island: the middle three. */
 export const FIND_ISLAND_ROWS: readonly number[] = [2, 3, 4];
 
+/**
+ * The lattice of *Fische für Catan*, scenario 3 - and of everything after it.
+ *
+ * @remarks
+ * Two missions do not fit into the board of scenario 2. Its regions hold seven
+ * fields each, of which scenario 3 owes ten to the mission alone - five
+ * Goldflussfelder with a camp on each and five Fischfelder - and that leaves
+ * three landscapes on the whole board to settle. Self-play showed what that
+ * means: every ship built, every harbour settlement built, and 15 points still
+ * out of reach after 3699 turns.
+ *
+ * So the regions grow instead. **5-4** over the island and **4-5** under it
+ * keeps the middle band at exactly fourteen and gives each region **nine**
+ * fields - still fewer than the seventeen the printed regions hold, but enough
+ * that the mission and the countryside both fit. The outer rows are five wide,
+ * which is what the camps need: a camp is only reachable from the frame lane,
+ * and three of them have to stand on one row.
+ */
+export const FISH_ROWS: readonly number[] = [5, 4, 5, 4, 5, 4, 5];
+
+/** Fields on a board of scenario 3. */
+export const FISH_HEXES = 32;
+
+/**
+ * The lattice of the finale, scenario 5.
+ *
+ * @remarks
+ * The last scenario puts **all three** missions on the board at once: "3
+ * Goldflussfelder, 3 Fischfelder, 3 Gewürzfelder" out of each pile, plus a sea
+ * field. That is ten of the thirteen fields a region holds here - and the three
+ * that are left have to be landscapes, because a mission field is not a place
+ * anybody settles. Scenario 3's regions of nine leave none at all, and a board
+ * where nothing new can be built cannot reach seventeen points: self-play sat
+ * at 16 of 17 with every unit spent and every crossing taken.
+ *
+ * So the regions get a third row: **4-5-4** above the island and below it, with
+ * the printed middle band of fourteen in between. Forty fields, thirteen to a
+ * region, and the mission material fits exactly as the rulebook deals it.
+ */
+export const FINAL_ROWS: readonly number[] = [4, 5, 4, 5, 4, 5, 4, 5, 4];
+
+/** Fields on a board of scenario 5. */
+export const FINAL_HEXES = 40;
+
 /** There are no harbours in this expansion at all. */
 const FIND_HARBOURS = 0;
 
@@ -495,6 +539,25 @@ const SMALL = buildIsland(SMALL_ROWS, SMALL_HARBOURS);
 const LARGE = buildIsland(LARGE_ROWS, LARGE_HARBOURS);
 const SEA = buildIsland(SEA_ROWS, SEA_HARBOURS);
 const FIND = buildIsland(FIND_ROWS, FIND_HARBOURS);
+const FISH = buildIsland(FISH_ROWS, FIND_HARBOURS);
+const FINAL = buildIsland(FINAL_ROWS, FIND_HARBOURS);
+
+/**
+ * Every board size the code can build.
+ *
+ * @remarks
+ * Named here, beside the lattices themselves, so that a new board is allowed
+ * into a saved game by adding it in one place. The reader of saved games had
+ * its own copy of this list, and a game of scenario 3 was thrown away by it.
+ */
+export const BOARD_SIZES: readonly number[] = [
+  SMALL_HEXES,
+  LARGE_HEXES,
+  SEA_HEXES,
+  FIND_HEXES,
+  FISH_HEXES,
+  FINAL_HEXES,
+];
 
 /**
  * The board a game of this size is played on.
@@ -507,9 +570,13 @@ export function islandOf(hexCount: number): Island {
     ? SMALL
     : hexCount === FIND_HEXES
       ? FIND
-      : hexCount <= LARGE_HEXES
-        ? LARGE
-        : SEA;
+      : hexCount === FISH_HEXES
+        ? FISH
+        : hexCount === FINAL_HEXES
+          ? FINAL
+          : hexCount <= LARGE_HEXES
+            ? LARGE
+            : SEA;
 }
 
 /** How many landscapes a table of this size plays on. */

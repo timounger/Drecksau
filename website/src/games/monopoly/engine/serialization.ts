@@ -78,6 +78,12 @@ export function isMonopolyGame(value: unknown): value is MonopolyGame {
     game.winners.every((seat) => isSeat(seat, seats)) &&
     Number.isFinite(game.rng) &&
     Number.isFinite(game.seed) &&
+    // Both came later than the first saved games, so a state without them is
+    // still a state - the screen that loads it fills them in. Turning an older
+    // save away would lose it.
+    (game.pot === undefined || Number.isFinite(game.pot)) &&
+    (game.parkingPot === undefined || typeof game.parkingPot === "boolean") &&
+    (game.doubleGo === undefined || typeof game.doubleGo === "boolean") &&
     Array.isArray(game.log)
   );
 }

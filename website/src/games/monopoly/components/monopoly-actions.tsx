@@ -47,13 +47,24 @@ import { TradeSummary } from "./monopoly-trade";
  */
 const RAISE_STEP = 10;
 
-/** Props of {@link MonopolyCentre}. */
-export type MonopolyCentreProps = {
+/**
+ * What every panel in the middle of the board needs.
+ *
+ * @remarks
+ * The same three were written out six times, once per panel, and a seventh
+ * would have been written out again. They are one shape because they answer one
+ * question: what is on the table, who is reading, and how a decision gets back
+ * to the referee.
+ */
+type PanelProps = {
   readonly game: MonopolyGame;
   /** The seat the reader plays, or null while only watching. */
   readonly mySeat: number | null;
   readonly onMove: (move: MonopolyMove) => void;
 };
+
+/** Props of {@link MonopolyCentre}. */
+export type MonopolyCentreProps = PanelProps;
 
 /**
  * Renders the middle of the board.
@@ -92,15 +103,7 @@ function Dice({ game }: { readonly game: MonopolyGame }): ReactElement | null {
 }
 
 /** Whatever the game is waiting for. */
-function Prompt({
-  game,
-  mySeat,
-  onMove,
-}: {
-  readonly game: MonopolyGame;
-  readonly mySeat: number | null;
-  readonly onMove: (move: MonopolyMove) => void;
-}): ReactElement {
+function Prompt({ game, mySeat, onMove }: PanelProps): ReactElement {
   const mine = mySeat !== null;
   let body: ReactElement;
   if (game.phase === "gameOver") {
@@ -135,15 +138,7 @@ function Prompt({
  * see, because a piece you cannot make out is a piece you will not find on the
  * board later either.
  */
-function TokenPicker({
-  game,
-  mySeat,
-  onMove,
-}: {
-  readonly game: MonopolyGame;
-  readonly mySeat: number | null;
-  readonly onMove: (move: MonopolyMove) => void;
-}): ReactElement {
+function TokenPicker({ game, mySeat, onMove }: PanelProps): ReactElement {
   const free = freeTokens(game);
   const mine = mySeat !== null && game.active === mySeat;
   const takenBy = (token: number) =>
@@ -196,15 +191,7 @@ function TokenPicker({
 }
 
 /** The card that was just turned over. */
-function CardFace({
-  game,
-  mySeat,
-  onMove,
-}: {
-  readonly game: MonopolyGame;
-  readonly mySeat: number | null;
-  readonly onMove: (move: MonopolyMove) => void;
-}): ReactElement {
+function CardFace({ game, mySeat, onMove }: PanelProps): ReactElement {
   const drawn = game.drawn;
   const card = drawn === null ? null : cardAt(drawn.card);
   return (
@@ -233,15 +220,7 @@ function CardFace({
 }
 
 /** The bidding. */
-function Bidding({
-  game,
-  mySeat,
-  onMove,
-}: {
-  readonly game: MonopolyGame;
-  readonly mySeat: number | null;
-  readonly onMove: (move: MonopolyMove) => void;
-}): ReactElement {
+function Bidding({ game, mySeat, onMove }: PanelProps): ReactElement {
   const running = game.auction;
   const least = nextBid(game);
   const mine = running !== null && running.turn === mySeat;
@@ -378,15 +357,7 @@ function BidBox({
 }
 
 /** Somebody owes more than they hold. */
-function Owing({
-  game,
-  mySeat,
-  onMove,
-}: {
-  readonly game: MonopolyGame;
-  readonly mySeat: number | null;
-  readonly onMove: (move: MonopolyMove) => void;
-}): ReactElement {
+function Owing({ game, mySeat, onMove }: PanelProps): ReactElement {
   const owing = game.debt;
   const mine = owing !== null && owing.who === mySeat;
   const missing = shortfall(game);

@@ -38,6 +38,7 @@ export const CATAN_TEXTS = {
   chipsHeld: (count: number): string => `Handelschips: ${count}`,
   chipSwap: (price: number): string => `Zwangshandel (${price})`,
   chipRobber: (price: number): string => `Räuber in die Wüste (${price})`,
+  chipBarbarian: (price: number): string => `Barbar versetzen (${price})`,
   knightIn: "Ritter abgeben (+2 Chips)",
   giveBackHint: (count: number): string => `Gib ${count} Karte(n) zurück.`,
   giveBack: "Zurückgeben",
@@ -61,7 +62,29 @@ export const CATAN_TEXTS = {
                   ? "Entdecker & Piraten: Land in Sicht"
                   : scenario === "piraten"
                     ? "Entdecker & Piraten: Die Piratenlager"
-                    : "Ohne Szenario",
+                    : scenario === "fische"
+                      ? "Entdecker & Piraten: Fische für Catan"
+                      : scenario === "gewuerze"
+                        ? "Entdecker & Piraten: Gewürze für Catan"
+                        : scenario === "finale"
+                          ? "Entdecker & Piraten: Das Finale"
+                          : scenario === "ufer"
+                            ? "Seefahrer: Zu neuen Ufern"
+                            : scenario === "inseln"
+                              ? "Seefahrer: Die vier Inseln"
+                              : scenario === "ozeanien"
+                                ? "Seefahrer: Ozeanien"
+                                : scenario === "wuestengurt"
+                                  ? "Seefahrer: Durch die Wüste"
+                                  : scenario === "stamm"
+                                    ? "Seefahrer: Der vergessene Stamm"
+                                    : scenario === "stoffe"
+                                      ? "Seefahrer: Stoffe für Catan"
+                                      : scenario === "pirateninseln"
+                                        ? "Seefahrer: Die Pirateninseln"
+                                        : scenario === "wunder"
+                                          ? "Seefahrer: Die Catanischen Wunder"
+                                          : "Ohne Szenario",
   scenarioText: (scenario: string): string =>
     scenario === "fischer"
       ? "See, Fischgründe und Fischplättchen - und der Alte Schuh."
@@ -79,7 +102,29 @@ export const CATAN_TEXTS = {
                   ? "Fahrende Schiffe, ein unentdecktes Meer, Entdecker und Hafensiedlungen - bis 8 Siegpunkte."
                   : scenario === "piraten"
                     ? "Sechs Piratenlager, Einheiten, Piratenschiffe und die Missionsleiste - bis 12 Siegpunkte."
-                    : "Die Insel wie gedruckt.",
+                    : scenario === "fische"
+                      ? "Zwei Missionen: Piratenlager und Fischschwärme für den Catanischen Rat - bis 15 Siegpunkte."
+                      : scenario === "gewuerze"
+                        ? "Fische und Gewürze: sechs Dörfer mit dauerhaften Vorteilen - bis 15 Siegpunkte."
+                        : scenario === "finale"
+                          ? "Alle drei Missionen: Piratenlager, Fische und Gewürze - bis 17 Siegpunkte."
+                          : scenario === "ufer"
+                            ? "Eine große Insel, kleine Inseln mit Gold: die erste Siedlung auf jeder zählt 3 - bis 14 Siegpunkte."
+                            : scenario === "inseln"
+                              ? "Vier gleich große Inseln, überall gegründet: jede fremde Insel zählt 3 - bis 13 Siegpunkte."
+                              : scenario === "ozeanien"
+                                ? "Zwei Startinseln und ein Nebelmeer: Straßen und Schiffe lichten den Nebel - bis 12 Siegpunkte."
+                                : scenario === "wuestengurt"
+                                  ? "Ein Wüstengürtel trennt einen Landstreifen ab, im Osten warten Goldinseln - bis 14 Siegpunkte."
+                                  : scenario === "stamm"
+                                    ? "Bewohnte Inseln voller Geschenke: Chips, Karten und Häfen an ihren Küsten - bis 13 Siegpunkte."
+                                    : scenario === "stoffe"
+                                      ? "Acht Dörfer handeln Stoff: Schiffslinien hinschicken, je 2 Ballen sind 1 Punkt - bis 14 Siegpunkte."
+                                      : scenario === "pirateninseln"
+                                        ? "Eine Piratenflotte kreist, Ritterkarten werden Kriegsschiffe: Festung erobern und 10 Siegpunkte."
+                                        : scenario === "wunder"
+                                          ? "Fünf Bauwerke in je vier Stufen: wer eines vollendet, gewinnt sofort."
+                                          : "Die Insel wie gedruckt.",
   findTitle: "Entdecker & Piraten",
   findGold: (count: number): string => `Gold: ${count}`,
   findFleet: (boats: number, scouts: number, ports: number): string =>
@@ -92,7 +137,8 @@ export const CATAN_TEXTS = {
   findWind: "+2 Bewegungspunkte (1 Wolle)",
   findFound: "Ein Entdeckerschiff kann hier eine Siedlung gründen.",
   findNoBoat: "Keine Schiffe unterwegs.",
-  huntPirate: "Piratenschiff verjagen (Würfel: 6)",
+  huntPirate: (rolls: string): string =>
+    `Piratenschiff verjagen (Würfel: ${rolls})`,
   corsairHint: "Setze dein Piratenschiff auf ein Meerfeld.",
   campTitle: "Piratenlager",
   campUnits: (left: number): string => `Einheiten im Vorrat: ${left}`,
@@ -101,12 +147,67 @@ export const CATAN_TEXTS = {
   campMission: (step: number, points: number): string =>
     `Missionsleiste: Feld ${step} (${points} Siegpunkte)`,
   campCost: "Einheit 1 Wolle + 1 Erz - je 3 erobern ein Lager.",
+  assaultFort: (guns: number): string =>
+    `Piratenfestung angreifen (${guns} Kriegsschiff${guns === 1 ? "" : "e"})`,
+  wonderStart: (name: string): string => `${name} beginnen`,
+  wonderNext: (name: string, stage: number): string =>
+    `${name}: ${stage}. Stufe bauen`,
+  unloadCargo: (cargo: string): string => `${cargo} abräumen`,
+  cargoName: (cargo: string): string =>
+    cargo === "entdecker"
+      ? "Entdecker"
+      : cargo === "einheit"
+        ? "Einheit"
+        : cargo === "fisch"
+          ? "Fischschwarm"
+          : "Gewürzsack",
+  recallBoat: (loaded: boolean): string =>
+    loaded
+      ? "Beladenes Schiff abräumen (Ladung verloren)"
+      : "Schiff abräumen und neu bauen",
+  castFish: "Fischschwarm einwürfeln (1 Würfel)",
+  shoalTitle: "Fische für Catan",
+  shoalStock: (left: number, water: number): string =>
+    `Fischschwärme: ${left} im Vorrat, ${water} auf dem Wasser`,
+  shoalTrack: (step: number, points: number): string =>
+    `Missionsleiste Fische: Feld ${step} (${points} Siegpunkte)`,
+  sellSpice: (what: string): string => `${what} ins Dorf verkaufen (1 Gold)`,
+  spiceTitle: "Gewürze für Catan",
+  spiceTrack: (step: number, points: number): string =>
+    `Missionsleiste Gewürze: Feld ${step} (${points} Siegpunkte)`,
+  spiceFriends: (what: string): string => `Befreundete Dörfer: ${what}`,
+  spiceNone: "Noch kein Dorf befreundet.",
+  spiceHow:
+    "Einheit mit einem Schiff an einem Dorf absetzen: dafür 1 Gewürzsack und den Vorteil des Dorfes - abliefern beim Catanischen Rat.",
+  spiceGift: (gift: string): string =>
+    gift === "fahrt"
+      ? "Schnelle Fahrt (+1 Bewegungspunkt)"
+      : gift === "pirat4"
+        ? "Piratenbonus (verjagt auch mit 4)"
+        : gift === "pirat5"
+          ? "Piratenbonus (verjagt auch mit 5)"
+          : "Gutes Gold (1 Rohstoff → 1 Gold je Zug)",
+  shoalHow:
+    "Schwarm mit einem Schiff aufnehmen (belegt das ganze Schiff) und an einem Anker des Catanischen Rats abliefern.",
   findAfloat: (count: number): string => `${count} Schiff(e) unterwegs.`,
   tableTitle: "Am Tisch",
   tableUnknown: "Die gastgebende Person hat noch nichts eingestellt.",
   seaTitle: "Seefahrt",
   seaShips: (left: number): string => `Schiffe im Vorrat: ${left}`,
-  seaChips: (count: number): string => `Insel-Chips: ${count} (je 1 Siegpunkt)`,
+  wonderNone: "Noch kein Catanisches Wunder begonnen.",
+  wonderMine: (name: string, stage: number, all: number): string =>
+    `${name}: Stufe ${stage} von ${all}`,
+  wonderOpen: (list: string): string => `Noch frei: ${list}`,
+  wonderHow:
+    "Eine Stufe kostet 5 Rohstoffe; die vierte gewinnt sofort. Wer 10 Siegpunkte hat und weiter gebaut hat als alle anderen, gewinnt ebenfalls.",
+  seaCloth: (count: number, points: number): string =>
+    `Stoffballen: ${count} (${points} Siegpunkt${points === 1 ? "" : "e"})`,
+  seaVillages: (mine: number, left: number): string =>
+    `Handelsbeziehungen: ${mine} · Dörfer mit Ballen: ${left}`,
+  seaClothHow:
+    "Eine Schiffslinie von einer eigenen Siedlung zu einem Dorf bringt sofort 1 Ballen und bei jedem Wurf der Dorfzahl 1 weiteren.",
+  seaChips: (count: number, worth: number): string =>
+    `Insel-Chips: ${count} (je ${worth} Siegpunkt${worth === 1 ? "" : "e"})`,
   seaMoved: "Ein Schiff ist diese Runde schon versetzt worden.",
   seaPick: "Tippe eines deiner Schiffe an, um es zu versetzen.",
   seaTo:

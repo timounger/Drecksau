@@ -410,6 +410,56 @@ einzutragen. Zum Aendern einfach die Datei ersetzen.
 und moderne Browser bevorzugen dann das SVG - das `favicon.ico` erscheint nicht
 mehr. Also entweder `favicon.ico` **oder** die `icon.*`-Variante verwenden.
 
+## Selbstspiel ueber die ganze Sammlung
+
+Jedes Spiel haengt ueber denselben Adapter am Online-Layer, und der Adapter
+kann alles, was eine Probe braucht: ein Spiel aufbauen, sagen wer am Zug ist,
+einen Computerzug holen, ihn anwenden und melden, ob Schluss ist. Damit laesst
+sich **jedes** Spiel gleich pruefen - zwanzig Spiele an jeder Tischgroesse mit
+je drei Startaufstellungen, 273 Partien.
+
+Geprueft wird fuenferlei, und alles davon sind Fehler, die man im Spiel selbst
+kaum bemerkt:
+
+1. **Endet die Partie?** Eine Partie, die nie endet, ist der schlimmste Fehler
+   dieser Sammlung - niemand verliert, niemand gewinnt, und der Bildschirm sieht
+   normal aus.
+2. **Kommt jeder Zug durch die Online-Pruefung?** Was ein Gast schickt, wird
+   beim Ankommen geprueft. Ein Zug, den die eigene Pruefung ablehnt, ist ein Zug,
+   den es online nicht gibt.
+3. **Kommt jeder Spielstand durch?** Derselbe Test fuer den Stand, hin und
+   zurueck durch JSON - genau der Weg, den er zwischen Host und Gast nimmt.
+4. **Kommt zweimal dasselbe heraus?** Gleicher Seed, gleiche Zugfolge, gleicher
+   Stand - und kein Zug veraendert den Stand, aus dem er gerechnet wurde. Beides
+   muss stimmen, sonst laufen Host und Gast auseinander.
+5. **Bleibt geheim, was geheim ist?** Eine Hand wird umsortiert und der geteilte
+   Schnappschuss noch einmal gebildet: Sieht er anders aus, steckt in ihm etwas,
+   das niemand sehen darf.
+
+Fuenf Sachen kamen dabei heraus:
+
+- **CATAN liess online nur das Grundspiel zu.** Die Liste der erlaubten
+  Zugarten nannte zwanzig Zuege und keinen aus einer Erweiterung. Sie steht
+  jetzt als `Record<CatanMove["kind"], true>` neben den Zuegen selbst, also
+  meldet der Compiler den naechsten vergessenen Zug.
+- **Binokel hatte keine Ziellinie im Regelwerk.** Die 1000 Punkte standen in
+  zwei Bildschirmen und nirgends in der Engine; ohne sie spielte eine Partie
+  ewig weiter (drei Farben bei 72250, 68460 und 68020 Punkten nach dreissigtausend
+  Zuegen). Jetzt steht die Zahl in der Engine und gilt als Vorgabe.
+- **Drecksau baute ohne Erweiterungs-Schalter einen Stand, den seine eigene
+  Pruefung ablehnt.** Der Schalter hat jetzt eine Vorgabe, wie der daneben.
+- **Drecksau und Binokel verrieten online jede Handkarte.** Beide ersetzen die
+  Karten der anderen im geteilten Schnappschuss durch Attrappen - Binokel durch
+  eine Eichel-Sieben, Drecksau durch eine Schlammkarte -, liessen dabei aber die
+  **Id** der echten Karte stehen. Die Id ist der Name: `herz-zehn-1`,
+  `farmerScrubs-1`. Wer den Schnappschuss lesen konnte, konnte jede Hand lesen.
+  Jetzt tragen verdeckte Karten eine Id, die nur ihren Platz nennt
+  (`verdeckt-hand-0-3`) - eindeutig genug fuer eine Liste, stumm genug fuer den
+  Rest. Die eigene Hand kommt weiterhin echt ueber den privaten Kanal.
+- **Determinismus und Unveraenderlichkeit stimmen ueberall**: kein Spiel wuerfelt
+  ausserhalb seines Seeds, und kein Zug fasst den Stand an, aus dem er gerechnet
+  wurde.
+
 ## Deployment (GitHub Pages)
 
 Ein Push auf `main` baut und veroeffentlicht die Seite automatisch

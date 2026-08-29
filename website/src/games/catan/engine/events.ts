@@ -23,7 +23,8 @@
 /* eslint-disable @typescript-eslint/no-magic-numbers -- the deck is printed data */
 
 import { islandOf } from "./board";
-import { openPoints, type CatanGame } from "./state";
+import { goodsSize } from "./knights";
+import { openPoints, playingRitter, type CatanGame } from "./state";
 
 /** The eleven events, and the card that carries none. */
 export type EventKind =
@@ -134,7 +135,7 @@ function everySeat(game: CatanGame): readonly number[] {
 
 /** Everybody holding at least one card. */
 function holdingCards(game: CatanGame): readonly number[] {
-  return everySeat(game).filter((seat) => game.players[seat].cards > 0);
+  return everySeat(game).filter((seat) => holdsCards(game, seat));
 }
 
 /** Everybody with a road that is not already turned sideways. */
@@ -197,7 +198,7 @@ function richestInPoints(game: CatanGame): readonly number[] {
   return !poorer
     ? []
     : everySeat(game).filter(
-        (seat) => points[seat] === best && game.players[seat].cards > 0,
+        (seat) => points[seat] === best && holdsCards(game, seat),
       );
 }
 
@@ -213,8 +214,28 @@ export function anybodyHolding(
   seat: number,
 ): readonly number[] {
   return everySeat(game).filter(
-    (other) => other !== seat && game.players[other].cards > 0,
+    (other) => other !== seat && holdsCards(game, other),
   );
+}
+
+/**
+ * Whether this seat holds a card that could be drawn from it.
+ *
+ * @param game - the game
+ * @param seat - whose hand
+ * @returns true while there is anything in it
+ * @remarks
+ * "Anschließend ziehst du eine verdeckte Karte aus der **Kartenhand** dieser
+ * Person": in Städte & Ritter that hand holds Handelswaren as well as
+ * resources - they are dealt into it, they count towards the seven, and they
+ * are drawn from it like everything else. Counting only the resources made a
+ * seat with nothing but Papier und Tuch untouchable, and worse: an event that
+ * asks somebody to draw a card then had nobody to ask, and the card could never
+ * be answered. Three of two hundred settings ran into exactly that.
+ */
+export function holdsCards(game: CatanGame, seat: number): boolean {
+  const player = game.players[seat];
+  return player.cards + (playingRitter(game) ? goodsSize(player.goods) : 0) > 0;
 }
 
 /** What kind of answer an event wants from the seat it is asking. */

@@ -29,7 +29,8 @@ import {
 import {
   HOTEL,
   MAX_HOUSES,
-  SELL_BACK,
+  TYPICAL_ROLL,
+  sellBackOf,
   estateAt,
   holdsGroup,
   ownedBy,
@@ -39,9 +40,6 @@ import {
   type MonopolyMove,
 } from "@/games/monopoly/engine/state";
 import { MONOPOLY_TEXTS as T } from "@/games/monopoly/i18n/texts";
-
-/** The roll a rent preview assumes, for the two utilities. */
-const TYPICAL_ROLL = 7;
 
 /** Props of {@link MonopolyPlayers}. */
 export type MonopolyPlayersProps = {
@@ -186,7 +184,7 @@ function Deed({
   const group = field.group === undefined ? null : groupOf(field.group);
   const whole =
     field.group !== undefined && holdsGroup(game, mySeat, field.group);
-  const back = Math.floor((field.houseCost ?? 0) * SELL_BACK);
+  const back = sellBackOf(at);
   const hotelNext = estate.houses === MAX_HOUSES;
 
   return (
@@ -232,6 +230,7 @@ function Deed({
             }
             onClick={() => onMove({ kind: "build", at })}
             testId={`mo-build-${at}`}
+            tone="build"
           />
         )}
         {canSell(game, mySeat, at) && (
@@ -243,6 +242,7 @@ function Deed({
             }
             onClick={() => onMove({ kind: "sell", at })}
             testId={`mo-sell-${at}`}
+            tone="tear"
           />
         )}
         {canMortgage(game, mySeat, at) && (
@@ -265,21 +265,48 @@ function Deed({
 }
 
 /** One small action button. */
+/** What a small button does to the board, in colour. */
+type Tone = "plain" | "build" | "tear";
+
+/**
+ * The three looks of a small button.
+ *
+ * @remarks
+ * Building and tearing down sit side by side in the same list, they read almost
+ * alike - "Haus auf Badstraße" against "Haus auf Badstraße verkaufen" - and
+ * during a building round the eye goes for the button, not the sentence. So the
+ * two get the colours everything else uses for the same idea: green adds,
+ * red takes away. Everything else stays quiet, because a button that shouts is
+ * only useful while the others do not.
+ *
+ * Hypothek and Auslösen stay plain on purpose: they move money, not houses, and
+ * a third and fourth colour would take the difference away again.
+ */
+const TONES: Record<Tone, string> = {
+  plain:
+    "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800",
+  build:
+    "border-emerald-700 bg-emerald-600 font-semibold text-white hover:bg-emerald-700",
+  tear: "border-rose-700 bg-rose-600 font-semibold text-white hover:bg-rose-700",
+};
+
 function Small({
   label,
   onClick,
   testId,
+  tone = "plain",
 }: {
   readonly label: string;
   readonly onClick: () => void;
   readonly testId: string;
+  readonly tone?: Tone;
 }): ReactElement {
   return (
     <button
       type="button"
       onClick={onClick}
       data-testid={testId}
-      className="cursor-pointer rounded border border-zinc-300 px-1.5 py-0.5 text-[11px] hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+      className={`cursor-pointer rounded border px-1.5 py-0.5 text-[11px] ${TONES[tone]}`}
     >
       {label}
     </button>

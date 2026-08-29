@@ -43,6 +43,7 @@ import {
 import {
   DEFAULT_PLAYER_COUNT,
   PLAYER_COUNTS,
+  loadSettings,
 } from "@/games/monopoly/settings/app-settings";
 import {
   loadMatchCount,
@@ -543,7 +544,12 @@ function SearchingLobby({
     }
     startedRef.current = true;
     void clearMatch(database(), GAME_ID, match.code);
-    start({ autoPlayMs: AUTO_PLAY_MS });
+    const house = loadSettings();
+    start({
+      autoPlayMs: AUTO_PLAY_MS,
+      parkingPot: house.parkingPot,
+      doubleGo: house.doubleGo,
+    });
   }, [match.code, start]);
 
   // Advertise the open room, and keep the entry alive while waiting.
@@ -691,7 +697,13 @@ function Lobby({
           <button
             type="button"
             disabled={!enough}
-            onClick={() => room.start({ autoPlayMs: AUTO_PLAY_MS })}
+            onClick={() =>
+              room.start({
+                autoPlayMs: AUTO_PLAY_MS,
+                parkingPot: loadSettings().parkingPot,
+                doubleGo: loadSettings().doubleGo,
+              })
+            }
             className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {L.startGame}

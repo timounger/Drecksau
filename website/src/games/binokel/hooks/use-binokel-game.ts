@@ -65,9 +65,6 @@ function buildSetups(playerCount: number, seed: number): PlayerSetup[] {
 /** Fixed seed of the first deal - server and client render it alike. */
 const INITIAL_SEED = 20260718;
 
-/** Points that end the match. */
-const TARGET_SCORE = 1000;
-
 /** Pause before a computer acts, so its turn is watchable. */
 const AI_DELAY_MS = 750;
 
@@ -191,7 +188,6 @@ export function useBinokelGame(): BinokelGame {
     createGame(buildSetups(MIN_PLAYERS, INITIAL_SEED), {
       seed: INITIAL_SEED,
       withSevens: true,
-      targetScore: TARGET_SCORE,
     }),
   );
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -211,7 +207,6 @@ export function useBinokelGame(): BinokelGame {
       createGame(buildSetups(MIN_PLAYERS, seed), {
         seed,
         withSevens: true,
-        targetScore: TARGET_SCORE,
       }),
     );
   }, []);
@@ -268,7 +263,6 @@ export function useBinokelGame(): BinokelGame {
         withSevens: settings.withSevens,
         withDabb: settings.withDabb,
         teams: settings.teams,
-        targetScore: TARGET_SCORE,
       }),
     );
   }, []);

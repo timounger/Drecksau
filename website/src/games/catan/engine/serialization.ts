@@ -14,29 +14,40 @@
  * them by number, and a short array reads as `undefined` for a whole crossing
  * rather than failing where the mistake happened.
  */
-import {
-  FIND_HEXES,
-  LARGE_HEXES,
-  SEA_HEXES,
-  SMALL_HEXES,
-  islandOf,
-} from "./board";
+import { BOARD_SIZES, islandOf } from "./board";
 import { OFF_BOARD } from "./fischer";
 import { BRIDGES_EACH, NO_RIVERS } from "./fluesse";
 import { NO_FORT, RAID_CARD_NAMES } from "./barbaren";
-import { BOATS_EACH, PORTS_EACH, SCOUTS_EACH, UNITS_EACH } from "./entdecker";
-import { SHIPS_EACH } from "./seefahrer";
+import {
+  BOATS_EACH,
+  CARGO_KINDS,
+  FISH_SIDES,
+  SPICE_KINDS,
+  PORTS_EACH,
+  SCOUTS_EACH,
+  SHOALS,
+  UNITS_EACH,
+  type Cargo,
+  type Spice,
+} from "./entdecker";
+import { CLOTH_SUPPLY, SHIPS_EACH, WONDER_KINDS } from "./seefahrer";
 import { HAUL_CARD_NAMES, TARGETS, WARES } from "./handel";
 import { MOST_CARAVANS, NO_TRAIL } from "./karawane";
 import { COMMODITIES, NO_GOODS, NO_TABLEAU, type Knight } from "./knights";
 import { PROGRESS_NAMES_LIST, TRACK_LIST, buildDecks } from "./progress";
 import {
+  LAND_KINDS,
   PHASES,
   RESOURCES,
+  SCENARIOS,
   type CatanGame,
   type CatanPlayer,
   type Hand,
+  type Land,
   type Phase,
+  type Resource,
+  type Scenario,
+  type Wonder,
 } from "./state";
 
 /** The variants a stored game may claim to be playing. */
@@ -51,29 +62,6 @@ const WARE_LIST: readonly string[] = WARES;
 const HAUL_CARD_LIST: readonly string[] = Object.keys(HAUL_CARD_NAMES);
 
 /** The landscapes a stored game may claim to have. */
-const LANDS: readonly string[] = [
-  "lehm",
-  "holz",
-  "wolle",
-  "getreide",
-  "erz",
-  "wueste",
-  // The lake of Fischfang auf Catan, which takes the desert's place there.
-  "see",
-  // The marshes at the sources of the two rivers.
-  "sumpf",
-  // The watering hole the nomads camp at.
-  "wasserstelle",
-  // The castle the knights are trained in.
-  "burg",
-  // The three sites of Händler & Barbaren.
-  "ziel",
-  // Seefahrer: open water, and the Goldfluss.
-  "meer",
-  "gold",
-  // Entdecker & Piraten: a field still face down.
-  "unbekannt",
-];
 
 /** The development cards a stored game may claim to hold. */
 const CARDS: readonly string[] = [
@@ -142,16 +130,11 @@ export function isCatanGame(value: unknown): value is CatanGame {
       game.swapWith === null ||
       Number.isInteger(game.swapWith)) &&
     (game.knightGiven === undefined || typeof game.knightGiven === "boolean") &&
+    // Asked of the one list there is, rather than written out again here: a
+    // scenario missing from a hand-written copy would throw away every session
+    // saved in it, which is exactly what happened to the phases.
     (game.scenario === undefined ||
-      game.scenario === "keins" ||
-      game.scenario === "fischer" ||
-      game.scenario === "fluesse" ||
-      game.scenario === "karawane" ||
-      game.scenario === "barbaren" ||
-      game.scenario === "handel" ||
-      game.scenario === "neuewelt" ||
-      game.scenario === "entdecker" ||
-      game.scenario === "piraten") &&
+      SCENARIOS.includes(game.scenario as Scenario)) &&
     (game.grounds === undefined || isGrounds(game.grounds, game.land.length)) &&
     (game.fishPile === undefined || isFish(game.fishPile)) &&
     (game.fishSpent === undefined || isFish(game.fishSpent)) &&
@@ -250,6 +233,93 @@ export function isCatanGame(value: unknown): value is CatanGame {
     (game.mission === undefined ||
       (Array.isArray(game.mission) &&
         game.mission.every((step) => Number.isInteger(step)))) &&
+    (game.catches === undefined ||
+      (Array.isArray(game.catches) &&
+        game.catches.every((step) => Number.isInteger(step)))) &&
+    (game.fish === undefined || isFishFields(game.fish, game.land.length)) &&
+    (game.spice === undefined || isVillages(game.spice, game.land.length)) &&
+    (game.villages === undefined ||
+      (isObject(game.villages) &&
+        Object.values(game.villages as Record<string, unknown>).every(
+          (list) =>
+            Array.isArray(list) && list.every((who) => isSeat(who, seats)),
+        ))) &&
+    (game.sacks === undefined ||
+      (isObject(game.sacks) &&
+        Object.values(game.sacks as Record<string, unknown>).every((left) =>
+          Number.isInteger(left),
+        ))) &&
+    (game.spices === undefined ||
+      (Array.isArray(game.spices) &&
+        game.spices.every((step) => Number.isInteger(step)))) &&
+    (game.sold === undefined || Number.isInteger(game.sold)) &&
+    (game.shoals === undefined ||
+      (Array.isArray(game.shoals) &&
+        game.shoals.every((hex) => isHex(hex, game.land.length)))) &&
+    (game.shoalsLeft === undefined || Number.isInteger(game.shoalsLeft)) &&
+    (game.cast === undefined || typeof game.cast === "boolean") &&
+    (game.wonders === undefined ||
+      (Array.isArray(game.wonders) &&
+        game.wonders.every((each) => {
+          const one = each as Record<string, unknown> | null;
+          return (
+            each === null ||
+            (isObject(each) &&
+              WONDER_KINDS.includes(one?.kind as Wonder) &&
+              Number.isInteger(one?.stage))
+          );
+        }))) &&
+    (game.forts === undefined ||
+      (isObject(game.forts) &&
+        Object.values(game.forts as Record<string, unknown>).every((fort) => {
+          const one = fort as Record<string, unknown>;
+          return (
+            isObject(fort) &&
+            isSeat(one.owner, seats) &&
+            Number.isInteger(one.chips)
+          );
+        }))) &&
+    (game.marks === undefined ||
+      (Array.isArray(game.marks) &&
+        game.marks.every((at) => Number.isInteger(at)))) &&
+    (game.warships === undefined ||
+      (Array.isArray(game.warships) &&
+        game.warships.every((path) => Number.isInteger(path)))) &&
+    (game.armada === undefined || Number.isInteger(game.armada)) &&
+    (game.stormed === undefined || typeof game.stormed === "boolean") &&
+    (game.villagesOf === undefined ||
+      (isObject(game.villagesOf) &&
+        Object.values(game.villagesOf as Record<string, unknown>).every(
+          (village) =>
+            isObject(village) &&
+            Number.isInteger((village as { number?: unknown }).number) &&
+            Number.isInteger((village as { bales?: unknown }).bales),
+        ))) &&
+    (game.traders === undefined ||
+      (isObject(game.traders) &&
+        Object.values(game.traders as Record<string, unknown>).every(
+          (list) =>
+            Array.isArray(list) && list.every((who) => isSeat(who, seats)),
+        ))) &&
+    (game.baleStock === undefined || Number.isInteger(game.baleStock)) &&
+    (game.lockedShips === undefined ||
+      (Array.isArray(game.lockedShips) &&
+        game.lockedShips.every((path) => Number.isInteger(path)))) &&
+    (game.presents === undefined ||
+      isPresents(game.presents, game.land.length)) &&
+    (game.heldPorts === undefined ||
+      (Array.isArray(game.heldPorts) &&
+        game.heldPorts.every(
+          (held) =>
+            Array.isArray(held) &&
+            held.every((want) => want === null || RESOURCES.includes(want)),
+        ))) &&
+    (game.robberHome === undefined ||
+      game.robberHome === null ||
+      isHex(game.robberHome, game.land.length)) &&
+    (game.council === undefined ||
+      game.council === null ||
+      isHex(game.council, game.land.length)) &&
     // Städte & Ritter. All optional, so a game stored before it existed still
     // loads; reviveCatanGame is what fills them in afterwards.
     (game.mode === undefined ||
@@ -326,6 +396,7 @@ function isPlayer(value: unknown): value is CatanPlayer {
     (player.scoutsLeft === undefined || Number.isInteger(player.scoutsLeft)) &&
     (player.portsLeft === undefined || Number.isInteger(player.portsLeft)) &&
     (player.unitsLeft === undefined || Number.isInteger(player.unitsLeft)) &&
+    (player.bales === undefined || Number.isInteger(player.bales)) &&
     (player.bridgesLeft === undefined ||
       Number.isInteger(player.bridgesLeft)) &&
     (player.progress === undefined ||
@@ -538,14 +609,62 @@ function isBoats(value: unknown, seats: number, hexes: number): boolean {
         (one.at as number) >= 0 &&
         (one.at as number) < board.paths.length &&
         Array.isArray(one.hold) &&
-        one.hold.every(
-          (cargo) => cargo === "entdecker" || cargo === "einheit",
-        ) &&
+        one.hold.every((cargo) => CARGO_KINDS.includes(cargo as Cargo)) &&
         Number.isInteger(one.spent) &&
         typeof one.boosted === "boolean" &&
         typeof one.done === "boolean"
       );
     })
+  );
+}
+
+/** Whether these are the die numbers of the fish fields, keyed by field. */
+function isFishFields(value: unknown, hexes: number): boolean {
+  return (
+    isObject(value) &&
+    Object.entries(value as Record<string, unknown>).every(
+      ([hex, number]) =>
+        isHex(Number(hex), hexes) &&
+        Number.isInteger(number) &&
+        (number as number) > 0 &&
+        (number as number) <= FISH_SIDES,
+    )
+  );
+}
+
+/** Whether these are the gifts of the forgotten tribe, keyed by sea path. */
+function isPresents(value: unknown, hexes: number): boolean {
+  return (
+    isObject(value) &&
+    Object.entries(value as Record<string, unknown>).every(([path, gift]) => {
+      const one = gift as Record<string, unknown>;
+      return (
+        Number.isInteger(Number(path)) &&
+        Number(path) >= 0 &&
+        // A path, not a field - there are more of them than of the fields, and
+        // the exact count belongs to the board rather than to this check.
+        Number(path) < hexes * PATHS_PER_HEX &&
+        isObject(gift) &&
+        (one.kind === "chip" ||
+          one.kind === "card" ||
+          (one.kind === "harbour" &&
+            (one.want === null || RESOURCES.includes(one.want as Resource))))
+      );
+    })
+  );
+}
+
+/** At most six paths to a field, which bounds their number. */
+const PATHS_PER_HEX = 6;
+
+/** Whether these are the village advantages, keyed by the field they sit on. */
+function isVillages(value: unknown, hexes: number): boolean {
+  return (
+    isObject(value) &&
+    Object.entries(value as Record<string, unknown>).every(
+      ([hex, gift]) =>
+        isHex(Number(hex), hexes) && SPICE_KINDS.includes(gift as Spice),
+    )
   );
 }
 
@@ -572,7 +691,7 @@ function isDocks(value: unknown): boolean {
     Object.values(value as Record<string, unknown>).every(
       (hold) =>
         Array.isArray(hold) &&
-        hold.every((cargo) => cargo === "entdecker" || cargo === "einheit"),
+        hold.every((cargo) => CARGO_KINDS.includes(cargo as Cargo)),
     )
   );
 }
@@ -739,13 +858,11 @@ function isHex(value: unknown, hexes: number): boolean {
 function isLand(value: unknown): boolean {
   return (
     Array.isArray(value) &&
-    // The three boards the box can make: the printed nineteen, the thirty of
-    // the 5-6 Erweiterung, and the forty-four of a Seefahrer archipelago.
-    (value.length === SMALL_HEXES ||
-      value.length === LARGE_HEXES ||
-      value.length === SEA_HEXES ||
-      value.length === FIND_HEXES) &&
-    value.every((land) => LANDS.includes(land))
+    // Both lists are asked of the code that builds them - the boards of
+    // board.ts and the field kinds of state.ts - rather than copied out here,
+    // because a copy falls behind and a saved game is what pays for it.
+    BOARD_SIZES.includes(value.length) &&
+    value.every((land) => LAND_KINDS.includes(land as Land))
   );
 }
 
@@ -942,6 +1059,30 @@ export function reviveCatanGame(game: CatanGame): CatanGame {
     tributes: game.tributes ?? [],
     chased: game.chased ?? [],
     mission: game.mission ?? game.players.map(() => 0),
+    catches: game.catches ?? game.players.map(() => 0),
+    fish: game.fish ?? {},
+    spice: game.spice ?? {},
+    villages: game.villages ?? {},
+    sacks: game.sacks ?? {},
+    spices: game.spices ?? game.players.map(() => 0),
+    sold: game.sold ?? 0,
+    shoals: game.shoals ?? [],
+    shoalsLeft: game.shoalsLeft ?? SHOALS,
+    cast: game.cast ?? false,
+    council: game.council ?? null,
+    presents: game.presents ?? {},
+    villagesOf: game.villagesOf ?? {},
+    wonders: game.wonders ?? game.players.map(() => null),
+    forts: game.forts ?? {},
+    marks: game.marks ?? [],
+    warships: game.warships ?? [],
+    armada: game.armada ?? 0,
+    stormed: game.stormed ?? false,
+    traders: game.traders ?? {},
+    baleStock: game.baleStock ?? CLOTH_SUPPLY,
+    lockedShips: game.lockedShips ?? [],
+    heldPorts: game.heldPorts ?? game.players.map(() => []),
+    robberHome: game.robberHome ?? null,
     fleet: game.fleet ?? null,
     players: game.players.map((player) => ({
       ...player,
@@ -971,6 +1112,7 @@ export function reviveCatanGame(game: CatanGame): CatanGame {
       portsLeft: player.portsLeft ?? PORTS_EACH,
       unitsLeft: player.unitsLeft ?? UNITS_EACH,
       bridgesLeft: player.bridgesLeft ?? BRIDGES_EACH,
+      bales: player.bales ?? 0,
     })),
   };
 }

@@ -269,6 +269,31 @@ export type MonopolyGame = {
   readonly winners: readonly number[];
   readonly rng: number;
   readonly seed: number;
+  /**
+   * What lies on Frei Parken.
+   *
+   * @remarks
+   * The house rule everybody knows and the rulebook warns about: "Legen Sie
+   * niemals Geld in die Mitte des Spielplans: Sie erhalten keinen Bonus, wenn
+   * Sie auf Frei Parken landen!" Kept as a number on the game rather than in a
+   * screen, because whoever lands there is paid by the referee.
+   *
+   * Zero while {@link MonopolyGame.parkingPot} is off, and then nothing ever
+   * lands in it.
+   */
+  readonly pot: number;
+  /** Whether fines and taxes go to Frei Parken instead of into the bank. */
+  readonly parkingPot: boolean;
+  /**
+   * Whether landing right on LOS pays the salary twice.
+   *
+   * @remarks
+   * The second house rule everybody has played, and as unofficial as the pot on
+   * Frei Parken: the rules pay the salary for passing LOS and say nothing at
+   * all about stopping there. Off, hitting the corner exactly is worth what
+   * walking over it is worth - which is the printed game.
+   */
+  readonly doubleGo: boolean;
   readonly log: readonly string[];
 };
 
@@ -286,6 +311,15 @@ export const SALARY = 200;
 
 /** What buying your way out of jail costs. */
 export const BAIL = 50;
+
+/**
+ * The roll a rent is judged by, where no dice have been thrown.
+ *
+ * @remarks
+ * Seven, the most likely one. Only the two Werke charge by the dice, so this is
+ * what a rent preview and the computer's arithmetic assume for them.
+ */
+export const TYPICAL_ROLL = 7;
 
 /** How many turns you may sit in jail before paying up. */
 export const JAIL_TURNS = 3;
@@ -429,6 +463,33 @@ export function buildingsOf(
 }
 
 /**
+ * How many buildings stand on one street, a hotel counting as the five it is.
+ *
+ * @param estate - the paperwork of one street
+ * @returns the number of buildings the bank would take back
+ */
+export function buildingsOn(estate: Estate): number {
+  return estate.houses === HOTEL ? MAX_HOUSES + 1 : estate.houses;
+}
+
+/**
+ * What the bank pays for buildings coming off a street.
+ *
+ * @remarks
+ * Half of what they cost, and the one place that says so. It used to be written
+ * out in four - selling a house, going bankrupt, counting what a seat could
+ * raise, and the label on the button - which is three chances for the button to
+ * promise something the referee then does not pay.
+ *
+ * @param at - the street
+ * @param count - how many buildings come off, one by default
+ * @returns what the bank hands over
+ */
+export function sellBackOf(at: number, count = 1): number {
+  return Math.floor(count * (fieldAt(at).houseCost ?? 0) * SELL_BACK);
+}
+
+/**
  * What one seat could raise if they sold and mortgaged everything.
  *
  * @param game - the game
@@ -446,8 +507,7 @@ export function raisable(game: MonopolyGame, seat: number): number {
   for (const at of ownedBy(game, seat)) {
     const estate = estateAt(game, at);
     const field = fieldAt(at);
-    const buildings = estate.houses === HOTEL ? MAX_HOUSES + 1 : estate.houses;
-    total += buildings * (field.houseCost ?? 0) * SELL_BACK;
+    total += sellBackOf(at, buildingsOn(estate));
     if (!estate.mortgaged) {
       total += field.mortgage ?? 0;
     }
@@ -472,8 +532,7 @@ export function worthOf(game: MonopolyGame, seat: number): number {
     const estate = estateAt(game, at);
     const field = fieldAt(at);
     total += estate.mortgaged ? (field.mortgage ?? 0) : (field.price ?? 0);
-    const buildings = estate.houses === HOTEL ? MAX_HOUSES + 1 : estate.houses;
-    total += buildings * (field.houseCost ?? 0);
+    total += buildingsOn(estate) * (field.houseCost ?? 0);
   }
   return total;
 }

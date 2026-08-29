@@ -167,6 +167,33 @@ Gespielt wird **nach** dem Würfelwurf, beliebig viele pro Zug. Einzige Ausnahme
 | Verrat | 2 | Eine Person nimmt einen eigenen Ritter vom Feld; du stellst einen eigenen derselben Stufe und desselben Status auf. |
 | Verfassung | 1 | Siegpunkt, wird sofort offen ausgelegt. |
 
+## Handelswaren sind Handkarten
+
+„Die Handelsmöglichkeiten aus CATAN - Das Spiel bleiben unverändert erhalten.
+Sie gelten auch für die Handelswaren ... Ihr könnt in jede Richtung tauschen:
+Handelswaren gegen Rohstoffe, Rohstoffe gegen Handelswaren, Handelswaren gegen
+Handelswaren, Rohstoffe gegen Rohstoffe." Das Beispiel der Anleitung: **4 Wolle
+→ 1 Papier**, und **mit einem 3:1-Hafen: 3 Münzen → 1 Tuch**.
+
+Das fehlte: Der Tauschbildschirm kannte nur die fünf Rohstoffe, und Papier, Tuch
+und Münzen kamen ausschließlich aus den eigenen Städten. Jetzt stehen sie in
+beiden Reihen. Ein Spezialhafen (2:1) gilt weiter nur für seinen Rohstoff - er
+nennt einen -, der 3:1-Hafen gilt für alles, und die **Gilde** (Handel, dritte
+Stufe) macht daraus 2:1 für Handelswaren.
+
+Aus demselben Satz folgt noch etwas: Der Räuber zieht in dieser Erweiterung auch
+**Handelswaren** aus der Hand, denn sie liegen in derselben Hand und zählen bei
+der Sieben mit. Vorher war jemand, der nur Papier und Tuch hielt, unantastbar -
+und ein Ereignis, das jemanden ziehen lässt, fand niemanden.
+
+## Das Aquädukt zahlt aus
+
+„Ab sofort darfst du dir einen beliebigen Rohstoff nehmen, wenn du in der
+Ertragsphase leer ausgehst! Ausnahme: '7' gewürfelt." Die dritte Stufe der
+Wissenschaft war gebaut, gezeichnet und ohne Wirkung. Jetzt fragt sie dasselbe
+wie ein Goldflussfeld - welche Karte hättest du gern? -, und die Ausnahme ergibt
+sich von selbst: Bei einer Sieben gibt es keine Ertragsphase.
+
 ## Ritter
 
 Drei Stufen, je **2 pro Person**: Einfacher (1 Stärke), Starker (2), Mächtiger
@@ -352,8 +379,11 @@ Gast vor dem Beitreten braucht. Der erste Entwurf zeigte den Gästen ihre
 **eigenen** Einstellungen unter der Überschrift des Tisches - das war schlechter
 als nichts zu zeigen -, der zweite zeigte ihnen gar nichts.
 
-Eine Grenze bleibt und steht so auch auf dem Bildschirm:
-
-- **Spionage** kann online nicht zeigen, was jemand hat - die Karte *erlaubt*
-  das Hinsehen, aber die echten Karten müssten dafür bis zum Spionierenden
-  reisen. Sie werden als Rückseiten gezeigt statt als frei erfundene Karten.
+**Spionage** und **Abgaben** sind die eine Karte, die genau davon lebt: Die
+Karte *ist* das Hinsehen. Damit sie online etwas zeigt, reisen die echten Karten
+bis zur Person, die sie ausspielt - über deren **eigenen** privaten Kanal, den
+Weg, den jede Handkarte hier nimmt (`CatanHand.spied`). Der Gastgeber legt sie
+nur dann hinein, wenn die Karte auf dem Tisch liegt und diese Person sie
+beantworten muss, und nur, was die Karte erlaubt: Spionage die
+Fortschrittskarten, Abgaben Hand und Handelswaren. Danach ist der Kanal wieder
+leer, und alle anderen sehen die ganze Zeit nichts.

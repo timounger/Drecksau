@@ -29,7 +29,10 @@ import {
   soloSeats,
 } from "@/games/monopoly/engine/setup";
 import type { MonopolyGame, MonopolyMove } from "@/games/monopoly/engine/state";
-import type { MonopolySettings } from "@/games/monopoly/settings/app-settings";
+import {
+  loadSettings,
+  type MonopolySettings,
+} from "@/games/monopoly/settings/app-settings";
 import type { GameId } from "@/games/registry";
 import {
   clearSession,
@@ -67,6 +70,9 @@ const INITIAL_SEED = 20240823;
 /** Opponents the prerendered placeholder table shows. */
 const DEFAULT_PARTNERS = 3;
 
+/** What the test button pays out. */
+const TEST_CASH = 1000;
+
 /** The bookkeeping that travels with a saved game. */
 type SessionMeta = {
   startedAt: number;
@@ -82,6 +88,18 @@ export type MonopolySession = {
   readonly play: (move: MonopolyMove) => void;
   /** Shuffles a fresh game with the settings as they stand. */
   readonly newGame: () => void;
+  /**
+   * Pays the human {@link TEST_CASH} out of nowhere - for testing.
+   *
+   * @remarks
+   * A game of Monopoly takes an hour to reach the interesting decisions, and
+   * every one of them is about money. This is the shortcut to them, the way the
+   * level buttons over the Panzerkiste field are: it belongs to the screen you
+   * play against the computer on, and to nothing else. It is deliberately not
+   * a move - a move would travel to the other seats online, and no table wants
+   * a button that prints money.
+   */
+  readonly testCash: () => void;
 };
 
 /**
@@ -132,14 +150,29 @@ export function useMonopolyGame(settings: MonopolySettings): MonopolySession {
   }, []);
 
   // Pull in the saved game once, after the first render matched the HTML.
+  //
+  // Setting state from an effect is what this one is for: the game on screen
+  // during the prerender is a placeholder, and the real one lives in storage,
+  // which exists only here. The rule cannot tell that apart, and the ref guard
+  // keeps it to a single run.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isReady.current) {
       isReady.current = true;
+      // Read storage rather than the ref. This runs during the very first
+      // commit, and the settings arrive through an external store whose values
+      // exist only in the browser: at this moment the ref may still hold the
+      // defaults the prerender rendered with. A table set to six seats would
+      // then deal four, and both house rules would come up switched on however
+      // they were left. Every later game goes through the ref as before.
+      const house = loadSettings();
       const saved = loadSession(GAME_ID, isMonopolyGame);
       if (saved === null) {
         const fresh = createGame(
-          soloSeats(HUMAN_NAME, settingsRef.current.playerCount - 1),
+          soloSeats(HUMAN_NAME, house.playerCount - 1),
           Date.now() >>> 0,
+          house.parkingPot,
+          house.doubleGo,
         );
         beginGame(fresh);
         setGame(fresh);
@@ -151,12 +184,21 @@ export function useMonopolyGame(settings: MonopolySettings): MonopolySession {
         };
         activeSince.current =
           saved.state.phase === "gameOver" ? null : Date.now();
-        setGame(saved.state);
+        // A game saved before the house rules existed carries none of these
+        // fields; the settings fill them in, so an older state keeps
+        // everything it does have and plays on under the rules on offer now.
+        setGame({
+          ...saved.state,
+          pot: saved.state.pot ?? 0,
+          parkingPot: saved.state.parkingPot ?? house.parkingPot,
+          doubleGo: saved.state.doubleGo ?? house.doubleGo,
+        });
       }
     }
     // Runs once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Save after every change, and count the outcome exactly once.
   useEffect(() => {
@@ -217,16 +259,37 @@ export function useMonopolyGame(settings: MonopolySettings): MonopolySession {
     setGame((current) => applyMove(current, MY_SEAT, move) ?? current);
   }, []);
 
+  const testCash = useCallback(() => {
+    setGame((current) =>
+      current.phase === "gameOver"
+        ? current
+        : {
+            ...current,
+            players: current.players.map((player, seat) =>
+              seat === MY_SEAT
+                ? { ...player, cash: player.cash + TEST_CASH }
+                : player,
+            ),
+            log: [
+              ...current.log,
+              `${current.players[MY_SEAT].name}: nimmt ${TEST_CASH} € aus der Bank (Cheat).`,
+            ],
+          },
+    );
+  }, []);
+
   const newGame = useCallback(() => {
     flushPlayTime(Date.now());
     clearSession(GAME_ID);
     const fresh = createGame(
       soloSeats(HUMAN_NAME, settingsRef.current.playerCount - 1),
       Date.now() >>> 0,
+      settingsRef.current.parkingPot,
+      settingsRef.current.doubleGo,
     );
     beginGame(fresh);
     setGame(fresh);
   }, [flushPlayTime, beginGame]);
 
-  return { game, mySeat: MY_SEAT, play, newGame };
+  return { game, mySeat: MY_SEAT, play, newGame, testCash };
 }

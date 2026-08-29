@@ -31,6 +31,7 @@ import {
   discardCount,
   openRoads,
   neutralSpots,
+  canShiftBarbarian,
   postSpots,
   putSpots,
   takeSpots,
@@ -43,10 +44,12 @@ import {
   BARBARIAN_STEPS,
   COMMODITIES,
   METRO_LEVEL,
+  TOP_LEVEL,
   goodsSize,
   type Commodity,
   NO_GOODS,
   TRACKS,
+  TRACK_GOODS,
   withGood,
   type Goods,
   type Track,
@@ -55,6 +58,7 @@ import { FISH_ACTIONS, FISH_COST, fishing } from "./fischer";
 import { BRIDGE_PRICE, BUYS_PER_TURN, GOLD_PER_BUY, rivers } from "./fluesse";
 import {
   EXTRA_STEPS,
+  FULL_FIELD,
   KNIGHT_STEPS,
   guardsAt,
   raiding,
@@ -73,30 +77,55 @@ import {
 } from "./handel";
 import {
   BOAT_COST,
+  CAMP_UNITS,
+  HOLD_SMALL,
   PORT_COST,
   SCOUT_COST,
   UNIT_COST,
   camping,
+  type Cargo,
   campsFrom,
   chasers,
   pirateSeas,
   boatSpots,
   finding,
   portShore,
-  landfall,
+  landingSpots,
+  canCast,
+  councilDocks,
+  MISSION_STEPS,
+  holdRoom,
   lanesFrom,
+  goldSales,
+  reaches,
+  shoaling,
+  spicing,
+  villageSpots,
   pointsAt,
   portsOf,
   seaLane as findLane,
 } from "./entdecker";
 import {
   SHIP_COST,
+  WONDERS,
+  WONDER_KINDS,
+  atFort,
+  cloth,
+  corsairs,
+  tribe,
+  wonderFree,
+  wonderOpen,
+  wonders,
+  fortOf,
   landCrossing,
+  shipLine,
+  warshipsOf,
   newIsland,
   pirateSpots,
   sailing,
   seaPath,
   shipSpots,
+  looseShips,
 } from "./seefahrer";
 import { BALLOT, wagonSpots } from "./karawane";
 import { isPointCard, isRealCard, type Progress } from "./progress";
@@ -109,13 +138,14 @@ import {
   canKnight,
   canUpgrade,
   canWall,
+  cityCount,
   improvePrice,
   knightReady,
   knightsLeft,
   marchSpots,
   retreatSpots,
 } from "./ritter";
-import { SWAP_CARDS, canHandKnightIn, chipCost } from "./two";
+import { SWAP_CARDS, canHandKnightIn, chipCost, strangerAt } from "./two";
 import { robberSpots as legalRobberSpots } from "./variants";
 import {
   ARMY_MIN,
@@ -237,9 +267,99 @@ function bestFirst(
 }
 
 /** How badly the seat wants one more of each sort, for building's sake. */
+/**
+ * What an ordinary game is saving up for.
+ *
+ * @param game - the game
+ * @param seat - whose hand
+ * @returns the price it is trying to reach
+ * @remarks
+ * A city where there is a settlement to raise, otherwise a settlement - and at
+ * sea, where there is nowhere left to put one, the **ship** that would open a
+ * new shore. Saving for a settlement with no crossing to build it on is saving
+ * for nothing at all: two self-played Seefahrer tables traded through the bank
+ * for ten thousand turns with their island built out and their fleet in the
+ * box.
+ */
+function cityGoal(game: CatanGame, seat: number): Hand {
+  if (citySpots(game, seat).length > 0) {
+    return CITY_COST;
+  }
+  return sailing(game) &&
+    game.players[seat].shipsLeft > 0 &&
+    townSpots(game, seat).length === 0 &&
+    shipSpots(game, seat).length > 0
+    ? SHIP_COST
+    : TOWN_COST;
+}
+
+/**
+ * What *Entdecker & Piraten* is saving up for.
+ *
+ * @param game - the game
+ * @param seat - whose hand
+ * @returns the price it is trying to reach
+ * @remarks
+ * There are no cities here, and the settlement is not what a turn is spent on:
+ * a **Hafensiedlung** is worth two points and holds cargo, a ship is what
+ * reaches anything at all, and a unit is what a mission is made of. Asking for
+ * a settlement regardless is what a self-played finale did - it bought Lehm
+ * with its gold for a hundred turns while it needed Getreide and Erz.
+ */
+function findGoal(game: CatanGame, seat: number): Hand {
+  const player = game.players[seat];
+  const board = islandOf(game.land.length);
+  // Only a settlement that could actually **become** a Hafensiedlung: one on
+  // the coast. Asking for two Getreide and two Erz for an inland settlement is
+  // a goal that never arrives - three of eight self-played games stopped with
+  // every colour hoarding for a port it could not build and no wood for a ship.
+  const grown = game.towns.some(
+    (town, at) =>
+      town !== null &&
+      town.owner === seat &&
+      town.port !== true &&
+      board.crossings[at].paths.some((path) => findLane(game, path)),
+  );
+  const wantsUnit =
+    player.unitsLeft > 0 &&
+    ((camping(game) && Object.values(game.camps).some((camp) => !camp.taken)) ||
+      villagesLeft(game, seat) > 0);
+  return player.portsLeft > 0 && grown
+    ? PORT_COST
+    : player.boatsLeft > 0
+      ? BOAT_COST
+      : wantsUnit
+        ? UNIT_COST
+        : TOWN_COST;
+}
+
 function wants(game: CatanGame, seat: number): Hand {
   const hand = game.players[seat].hand;
-  const goal = citySpots(game, seat).length > 0 ? CITY_COST : TOWN_COST;
+  // In Die Pirateninseln the line comes first, then the cards that arm it, then
+  // the buildings that make the points the win also needs - but only while a
+  // ship is any use at all. With the fortress already taken, or with no place
+  // left to put a ship, saving wood and wool is saving for nothing: one colour
+  // sat at nine of ten points with four free building spots, traded fifteen
+  // thousand cards through the bank for a ship it could not build, and never
+  // once asked for the Lehm that would have won it the game.
+  const sailingOn =
+    corsairs(game) &&
+    fortOf(game, seat) !== null &&
+    game.players[seat].shipsLeft > 0 &&
+    shipSpots(game, seat).length > 0;
+  const goal = finding(game)
+    ? findGoal(game, seat)
+    : sailingOn
+      ? !atFort(game, seat)
+        ? SHIP_COST
+        : shipLine(game, seat).length - warshipsOf(game, seat) < STORM_FODDER
+          ? // The line is at the fortress but has nothing to lose in front:
+            // ships again, and they are what a lost fight is paid with.
+            SHIP_COST
+          : warshipsOf(game, seat) < STORM_GUNS
+            ? DEV_COST
+            : cityGoal(game, seat)
+      : cityGoal(game, seat);
   const short = RESOURCES.reduce(
     (need, sort) => withCard(need, sort, Math.max(0, goal[sort] - hand[sort])),
     NO_CARDS,
@@ -389,6 +509,27 @@ function bankTrades(game: CatanGame, seat: number): readonly CatanMove[] {
       }
     });
   });
+  // Städte & Ritter is paid for in Handelswaren, and the bank sells those too:
+  // "Ihr könnt in jede Richtung tauschen." A track that is one Papier short is
+  // the cheapest step on the board, so it is worth four Lehm.
+  if (playingRitter(game)) {
+    TRACKS.forEach((track) => {
+      const player = game.players[seat];
+      const ware = TRACK_GOODS[track];
+      const missing =
+        improvePrice(game, seat, track) > player.goods[ware] &&
+        player.tableau[track] < TOP_LEVEL &&
+        cityCount(game, seat) > 0;
+      if (missing) {
+        RESOURCES.forEach((give) => {
+          const rate = tradeRate(game, seat, give);
+          if (hand[give] - rate >= need[give]) {
+            moves.push({ kind: "bank", give, want: ware });
+          }
+        });
+      }
+    });
+  }
   return moves.sort(
     (a, b) =>
       tradeRate(game, seat, (a as { give: Resource }).give) -
@@ -445,6 +586,18 @@ function likesOffer(game: CatanGame, seat: number): boolean {
 function buildingMoves(game: CatanGame, seat: number): readonly CatanMove[] {
   const hand = game.players[seat].hand;
   const moves: CatanMove[] = [];
+  // In Die Pirateninseln a development card is not a side dish: the knights in
+  // it are the only way to a warship, and warships are the only way to the
+  // fortress. So the card comes before the buildings, as long as the fleet is
+  // still too small to fight.
+  if (
+    corsairs(game) &&
+    covers(hand, DEV_COST) &&
+    atFort(game, seat) &&
+    warshipsOf(game, seat) < STORM_GUNS
+  ) {
+    moves.push({ kind: "buy" });
+  }
   if (covers(hand, CITY_COST)) {
     bestFirst(game, citySpots(game, seat)).forEach((at) =>
       moves.push({ kind: "city", at }),
@@ -566,6 +719,63 @@ function candidates(game: CatanGame, seat: number): readonly CatanMove[] {
     freeRoadMoves(game, seat).forEach((move) => moves.push(move));
     fishMoves(game, seat).forEach((move) => moves.push(move));
     haulMoves(game, seat).forEach((move) => moves.push(move));
+    // A wonder is the shortest way to the end of Die Catanischen Wunder: one
+    // that is finished wins on the spot, so it comes before the buildings.
+    if (wonders(game)) {
+      const mine = game.wonders[seat];
+      const wanted =
+        mine === null
+          ? WONDER_KINDS.filter(
+              (which) =>
+                wonderFree(game, which) && wonderOpen(game, seat, which),
+            )
+          : [mine.kind];
+      wanted
+        .filter((which) => covers(game.players[seat].hand, WONDERS[which].cost))
+        .forEach((which) => moves.push({ kind: "wonder", which }));
+    }
+    // "Erreichst du mit deiner Schiffslinie die Piratenfestung in deiner Farbe,
+    // kannst du sie angreifen" - and there is no reason to wait: a fortress
+    // with no chips left is what this scenario is won with.
+    // Only with a fleet worth the risk: the pirates roll one die, and a fight
+    // lost costs two ships. Four warships win half the time, and the last chip
+    // of a fortress is worth taking a worse chance for.
+    const guns = warshipsOf(game, seat);
+    const fodder = shipLine(game, seat).length - guns;
+    const fort = fortOf(game, seat);
+    const left = fort === null ? 0 : game.forts[fort].chips;
+    if (
+      corsairs(game) &&
+      !game.stormed &&
+      atFort(game, seat) &&
+      // A lost fight takes the two ships at the **front** of the line, and the
+      // warships are made at its back - so a line wants a couple of ordinary
+      // ships out in front to lose. Attacking without them burns the fleet
+      // itself, which is how a self-played table ended with one warship each
+      // and an empty card stack.
+      // As many warships as the line can ever hold: a line that has reached the
+      // fortress is as long as it will get, so waiting for a fourth ship on a
+      // line of two is waiting for ever. Two is the fewest that can beat the
+      // die at all, so that is the floor - and a lost fight sends the ships
+      // back into the supply, which is more than standing still ever gives.
+      guns >=
+        Math.max(
+          STORM_LEAST,
+          Math.min(
+            STORM_GUNS - (left === 1 || game.stack.length === 0 ? 1 : 0),
+            shipLine(game, seat).length,
+          ),
+        ) &&
+      // With nothing left to build the fleet is as big as it will get, and
+      // waiting for fodder that cannot come only makes the game longer. A line
+      // that has arrived cannot grow either: "die Schiffslinie darf ... nicht
+      // über die Piratenfestung hinaus gebaut werden."
+      (fodder >= STORM_FODDER ||
+        atFort(game, seat) ||
+        shipSpots(game, seat).length === 0)
+    ) {
+      moves.push({ kind: "assault" });
+    }
     shipMoves(game, seat).forEach((move) => moves.push(move));
     findMoves(game, seat).forEach((move) => moves.push(move));
     goldMoves(game, seat).forEach((move) => moves.push(move));
@@ -1130,17 +1340,156 @@ function findMoves(game: CatanGame, seat: number): readonly CatanMove[] {
     if (player.boatsLeft > 0 && covers(player.hand, BOAT_COST)) {
       boatSpots(game, seat).forEach((at) => moves.push({ kind: "boat", at }));
     }
-    // A unit is only worth building while there is a camp left to storm.
+    // "Möchtest du ein neues Schiff bauen und alle deine Schiffe sind schon auf
+    // dem Spielfeld, darfst du ein beliebiges deiner Schiffe vom Spielfeld
+    // entfernen und an deiner Hafensiedlung neu bauen." Worth it for a ship
+    // that is stuck: one with nowhere left to sail and nothing in its hold.
+    if (player.boatsLeft === 0 && covers(player.hand, BOAT_COST)) {
+      game.boats.forEach((boat, which) => {
+        // And only when it could then be built somewhere **else**: rebuilding
+        // it on the same dead-end lane is the same ship in the same place, and
+        // a self-played game did exactly that for tens of thousands of moves.
+        const after = {
+          ...game,
+          boats: game.boats.filter((unused, index) => index !== which),
+          players: game.players.map((each, at) =>
+            at === seat ? { ...each, boatsLeft: 1 } : each,
+          ),
+        };
+        if (
+          boat.owner === seat &&
+          boat.hold.length === 0 &&
+          lanesFrom(game, boat).length === 0 &&
+          landingSpots(game, seat, boat.at).length === 0 &&
+          boatSpots(after, seat).some((spot) => spot !== boat.at)
+        ) {
+          moves.push({ kind: "recall", boat: which });
+        }
+      });
+    }
+    // A unit is worth building while there is a camp left to storm or a
+    // village left to befriend - and worth nothing at all once there is not.
+    const wanted =
+      (camping(game) &&
+        Object.values(game.camps).some((camp) => !camp.taken)) ||
+      villagesLeft(game, seat) > 0;
+    // And only while there is not already a shipload of them standing about:
+    // a unit in a basin is a unit out of the box, and a self-played finale had
+    // thirteen of them waiting in harbours while every colour had none left to
+    // build and two camps stood half taken.
+    const idle =
+      portsOf(game, seat).reduce(
+        (sum, at) =>
+          sum + (game.docks[at] ?? []).filter((c) => c === "einheit").length,
+        0,
+      ) +
+      game.boats.reduce(
+        (sum, boat) =>
+          sum +
+          (boat.owner === seat
+            ? boat.hold.filter((cargo) => cargo === "einheit").length
+            : 0),
+        0,
+      );
     if (
-      camping(game) &&
+      wanted &&
+      idle < HOLD_SMALL &&
       player.unitsLeft > 0 &&
-      covers(player.hand, UNIT_COST) &&
-      Object.values(game.camps).some((camp) => !camp.taken)
+      covers(player.hand, UNIT_COST)
     ) {
       portsOf(game, seat).forEach((at) => moves.push({ kind: "unit", at }));
     }
   }
+  // "1 beliebigen Rohstoff gegen 1 Gold" - worth doing with whatever there is
+  // most of, and only ever after the building, which is why it comes last.
+  if (game.sold < goldSales(game, seat)) {
+    const hand = game.players[seat].hand;
+    const spare = [...RESOURCES].sort(
+      (one, other) => hand[other] - hand[one],
+    )[0];
+    if (hand[spare] > 0) {
+      moves.push({ kind: "sell", sort: spare });
+    }
+  }
   return moves.slice(0, PORT_WORTH * 2);
+}
+
+/**
+ * How far every crossing is from a village this seat does not yet trade with.
+ *
+ * @param game - the game
+ * @param seat - whose ships
+ * @returns steps over the water, for the crossings within reach
+ */
+function clothWanted(game: CatanGame, seat: number): Map<number, number> {
+  const board = islandOf(game.land.length);
+  const best = new Map<number, number>();
+  let edge: number[] = [];
+  Object.keys(game.villagesOf)
+    .map(Number)
+    .filter((at) => !(game.traders[at] ?? []).includes(seat))
+    .forEach((at) => {
+      best.set(at, 0);
+      edge.push(at);
+    });
+  for (let step = 1; step <= SEA_HORIZON && edge.length > 0; step++) {
+    const next: number[] = [];
+    for (const at of edge) {
+      for (const path of board.crossings[at].paths) {
+        if (!seaPath(game, path)) {
+          continue;
+        }
+        for (const end of board.paths[path].ends) {
+          if (!best.has(end)) {
+            best.set(end, step);
+            next.push(end);
+          }
+        }
+      }
+    }
+    edge = next;
+  }
+  return best;
+}
+
+/**
+ * How far every crossing is from this seat's own pirate fortress.
+ *
+ * @param game - the game
+ * @param seat - whose fortress
+ * @returns steps over the water, for the crossings within reach
+ * @remarks
+ * The same backwards walk the other scenarios use, from the one crossing that
+ * matters here: a line that does not head for the fortress is a line that
+ * never fights.
+ */
+function fortWanted(game: CatanGame, seat: number): Map<number, number> {
+  const board = islandOf(game.land.length);
+  const fort = fortOf(game, seat);
+  const best = new Map<number, number>();
+  if (fort === null) {
+    return best;
+  }
+  best.set(fort, 0);
+  let edge = [fort];
+  for (let step = 1; step <= SEA_HORIZON && edge.length > 0; step++) {
+    const next: number[] = [];
+    for (const at of edge) {
+      for (const path of board.crossings[at].paths) {
+        if (!seaPath(game, path)) {
+          continue;
+        }
+        for (const end of board.paths[path].ends) {
+          if (!best.has(end)) {
+            best.set(end, step);
+            next.push(end);
+          }
+        }
+      }
+    }
+    edge = next;
+  }
+  return best;
 }
 
 /**
@@ -1159,69 +1508,348 @@ function voyageMoves(game: CatanGame, seat: number): readonly CatanMove[] {
   const which = game.sailing;
   const boat = which === null ? undefined : game.boats[which];
   const moves: CatanMove[] = [];
-  if (boat === undefined || boat.owner !== seat) {
-    // Nobody at the helm: take one.
-    // Driving a pirate ship off is free and only ever helps, so it comes first.
-    chasers(game, seat).forEach((which) =>
-      moves.push({ kind: "hunt", boat: which }),
+  if (canCast(game)) {
+    // One try a turn and it costs nothing, so there is never a reason to keep
+    // it: more shoals on the water is more for everybody to fetch, and this
+    // seat is the one whose ships are about to move.
+    moves.push({ kind: "cast" });
+  }
+  // Only what the referee would actually allow: a move that is offered and
+  // then refused would still count as something for this ship to do, and the
+  // next ship would never get the helm.
+  const helming =
+    which !== null && boat !== undefined && boat.owner === seat && !boat.done
+      ? boatMoves(game, seat, which).filter(
+          (move) => applyMove(game, seat, move) !== null,
+        )
+      : [];
+  helming.forEach((move) => moves.push(move));
+  if (helming.length === 0) {
+    // The ship at the helm has nothing left to do, so the next one may go:
+    // "du musst die Bewegung eines Schiffes erst beenden, bevor du das nächste
+    // bewegen darfst." Driving a pirate ship off is free, so it comes first.
+    chasers(game, seat).forEach((each) =>
+      moves.push({ kind: "hunt", boat: each }),
     );
+    // A ship is worth taking the helm of exactly when it would have something
+    // to do - asked of the same list that would then be played, so the two can
+    // never disagree. They did once, and two spent ships passed the helm back
+    // and forth between them until the game stopped.
     game.boats.forEach((each, index) => {
       if (
         each.owner === seat &&
         !each.done &&
-        (lanesFrom(game, each).length > 0 || landfall(game, each.at).length > 0)
+        index !== which &&
+        boatMoves(game, seat, index).some(
+          (move) => applyMove({ ...game, sailing: index }, seat, move) !== null,
+        )
       ) {
         moves.push({ kind: "helm", boat: index });
       }
     });
-  } else {
-    const board = islandOf(game.land.length);
-    // Units go ashore on a camp the moment they can: that is what they are for.
-    if (boat.hold.includes("einheit")) {
-      campsFrom(game, boat.at).forEach((at) =>
-        moves.push({ kind: "storm", at }),
-      );
-    }
-    // An explorer that can land does so: that is the point of carrying one.
-    if (boat.hold.includes("entdecker")) {
-      landfall(game, boat.at).forEach((at) =>
-        moves.push({ kind: "landfall", at }),
-      );
-    }
-    // Otherwise pick up an explorer that is waiting in a harbour.
-    if (boat.hold.length === 0) {
-      islandOf(game.land.length)
-        .paths[boat.at].ends.filter((end) => (game.docks[end] ?? []).length > 0)
-        .forEach((at) => moves.push({ kind: "load", at }));
-    }
-    // Three things a ship can be sailing towards, and it wants the nearest of
-    // whichever applies: a camp with units aboard, its own harbour when there
-    // is cargo waiting there, and otherwise the unknown.
-    const waiting = portsOf(game, seat).filter(
-      (at) => (game.docks[at] ?? []).length > 0,
-    );
-    const near = boat.hold.includes("einheit")
-      ? campWanted(game)
-      : boat.hold.length === 0 && waiting.length > 0
-        ? dockWanted(game, waiting)
-        : seaWanted(game);
-    const worth = (at: number): number =>
-      (boat.hold.includes("einheit")
-        ? campsFrom(game, at).length * LANDFALL_WORTH
-        : boat.hold.length === 0 && waiting.length > 0
-          ? board.paths[at].ends.some((end) => waiting.includes(end))
-            ? LANDFALL_WORTH
-            : 0
-          : pointsAt(game, at) === null
-            ? 0
-            : LANDFALL_WORTH) - (near.get(at) ?? SHIP_REACH);
-    [...lanesFrom(game, boat)]
-      .sort((one, other) => worth(other) - worth(one))
-      .slice(0, 1)
-      .forEach((at) => moves.push({ kind: "sail2", at }));
   }
   return moves;
 }
+
+/**
+ * What one ship of this seat could do next.
+ *
+ * @param game - the game
+ * @param seat - whose ship
+ * @param which - the ship, by its place in {@link CatanGame.boats}
+ * @returns its moves, best first - empty when it is finished
+ * @remarks
+ * Loading, landing and fishing cost no movement points, so a ship with none
+ * left is not finished: it can still put its explorer ashore, set units down on
+ * a camp, take a shoal aboard or land one. Only sailing needs points.
+ */
+function boatMoves(
+  game: CatanGame,
+  seat: number,
+  which: number,
+): readonly CatanMove[] {
+  const boat = game.boats[which];
+  const board = islandOf(game.land.length);
+  const moves: CatanMove[] = [];
+  if (boat === undefined || boat.owner !== seat || boat.done) {
+    return moves;
+  }
+  // A shoal in the hold is worth a point at the council and nothing anywhere
+  // else, so landing it comes before everything.
+  if (boat.hold.includes("fisch") || boat.hold.includes("gewuerz")) {
+    councilDocks(game)
+      .filter((at) => board.paths[boat.at].ends.includes(at))
+      .forEach((at) => moves.push({ kind: "deliver", at }));
+  }
+  if (worthFishing(game, seat) && holdRoom(boat.hold, true)) {
+    game.shoals
+      .filter((hex) => reaches(board, boat.at, hex))
+      .forEach((hex) => moves.push({ kind: "catch", at: hex }));
+  }
+  // Units go ashore on a camp the moment they can: that is what they are for.
+  if (boat.hold.includes("einheit")) {
+    // Only a camp this seat could actually finish. Units left on one that never
+    // falls are gone for good, and so is everything they could have bought.
+    const carried = boat.hold.filter((cargo) => cargo === "einheit").length;
+    campsFrom(game, boat.at)
+      .filter(
+        (at) =>
+          (game.camps[at]?.units.length ?? 0) +
+            carried +
+            game.players[seat].unitsLeft >=
+          CAMP_UNITS,
+      )
+      .forEach((at) => moves.push({ kind: "storm", at }));
+    // A unit set down in a village never comes back, and a camp needs three of
+    // them at once. So the last three stay in the box while a camp still
+    // stands: a finale played them all into villages and then sat forever with
+    // two units on a camp and none left to send after them.
+    if (sparesUnits(game, seat)) {
+      villageSpots(game, seat)
+        .filter((each) => each.boat === which)
+        .forEach((each) => moves.push({ kind: "drop", at: each.hex }));
+    }
+  }
+  // "Ihr dürft jederzeit Spielfiguren aus einem eurer Schiffe entfernen und zum
+  // Vorrat zurücklegen. Dies kann zum Beispiel sinnvoll sein, wenn ihr Platz
+  // für eine wertvollere Figur schaffen wollt." A figure with nowhere left to
+  // go is worth less than the room it takes: eleven ships once carried an
+  // explorer that had no coast left to found on, and not one hold was free for
+  // the fish that were still swimming.
+  if (
+    worthFishing(game, seat) &&
+    game.shoals.length > 0 &&
+    !holdRoom(boat.hold, true)
+  ) {
+    [...new Set(boat.hold)].forEach((cargo) => {
+      if (deadCargo(game, seat, cargo)) {
+        moves.push({ kind: "unload", boat: which, cargo });
+      }
+    });
+  }
+  // An explorer that can land does so: that is the point of carrying one - and
+  // only where it really can, or the ship counts as busy and its whole fleet
+  // stands still. See landingSpots.
+  if (boat.hold.includes("entdecker")) {
+    landingSpots(game, seat, boat.at).forEach((at) =>
+      moves.push({ kind: "landfall", at }),
+    );
+  }
+  // Otherwise pick up what is waiting in a harbour.
+  if (boat.hold.length === 0) {
+    board.paths[boat.at].ends
+      .filter((end) => (game.docks[end] ?? []).length > 0)
+      .forEach((at) => moves.push({ kind: "load", at }));
+  }
+  // Four things a ship sails towards, and it wants the nearest of whichever
+  // applies: the council with a shoal aboard, a camp with units aboard, a shoal
+  // while the fish track still pays, its own harbour when cargo waits there -
+  // and otherwise the unknown.
+  const waiting = portsOf(game, seat).filter(
+    (at) => (game.docks[at] ?? []).length > 0,
+  );
+  const fishy =
+    worthFishing(game, seat) &&
+    game.shoals.length > 0 &&
+    boat.hold.length === 0;
+  const fetching = boat.hold.length === 0 && waiting.length > 0;
+  // A unit waiting in a basin is worth more than a shoal on the water: it is
+  // what a camp and a village are taken with, and where it stands it does
+  // nothing at all. Self-play left five colours with units in eight harbours
+  // while every empty ship went fishing.
+  const fetchFirst =
+    fetching &&
+    (villagesLeft(game, seat) > 0 ||
+      (camping(game) &&
+        Object.values(game.camps).some((camp) => !camp.taken))) &&
+    waiting.some((at) =>
+      (game.docks[at] ?? []).some((cargo) => cargo === "einheit"),
+    );
+  const homing = boat.hold.includes("fisch") || boat.hold.includes("gewuerz");
+  const exploring = boat.hold.includes("entdecker");
+  const wanted = homing
+    ? fishWanted(game, true)
+    : boat.hold.includes("einheit")
+      ? // Both at once, by whichever is nearer: a camp is worth two gold and a
+        // step on its track, a village a sack and an advantage, and which of
+        // them a loaded ship should make for is a question of distance. Asking
+        // for the villages first meant the camps were never stormed at all -
+        // ten finales, one camp taken between them.
+        nearest(campWanted(game), villageWanted(game, seat))
+      : exploring
+        ? // An explorer sails towards the unknown - and, once there is none
+          // left, towards the nearest coast it could still found on. Without
+          // the second half nine explorer ships rowed in circles on a board
+          // that was turned up but not built up, and three colours sat on
+          // fourteen of seventeen points for a thousand turns.
+          nearest(seaWanted(game), landWanted(game, seat))
+        : fetchFirst
+          ? dockWanted(game, waiting)
+          : fishy
+            ? fishWanted(game, false)
+            : fetching
+              ? dockWanted(game, waiting)
+              : seaWanted(game);
+  // Nothing of that kind within reach: then the unknown will do. A map with no
+  // entry at all is a flat one, and on a flat map every step looks the same -
+  // which is how ships end up sailing back and forth on the spot.
+  const near = wanted.size > 0 ? wanted : seaWanted(game);
+  const docks = councilDocks(game);
+  const worth = (at: number): number =>
+    (homing
+      ? board.paths[at].ends.filter((end) => docks.includes(end)).length *
+        LANDFALL_WORTH
+      : boat.hold.includes("einheit")
+        ? (campsFrom(game, at).length + villagesFrom(game, seat, at).length) *
+          LANDFALL_WORTH
+        : exploring
+          ? (landingSpots(game, seat, at).length > 0 ? LANDFALL_WORTH : 0) +
+            (pointsAt(game, at) === null ? 0 : LANDFALL_WORTH)
+          : fetchFirst
+            ? board.paths[at].ends.some((end) => waiting.includes(end))
+              ? LANDFALL_WORTH
+              : 0
+            : fishy
+              ? game.shoals.filter((hex) => reaches(board, at, hex)).length *
+                LANDFALL_WORTH
+              : fetching
+                ? board.paths[at].ends.some((end) => waiting.includes(end))
+                  ? LANDFALL_WORTH
+                  : 0
+                : pointsAt(game, at) === null
+                  ? 0
+                  : LANDFALL_WORTH) - (near.get(at) ?? SEA_HORIZON);
+  [...lanesFrom(game, boat)]
+    .sort((one, other) => worth(other) - worth(one))
+    .slice(0, 1)
+    .forEach((at) => moves.push({ kind: "sail2", at }));
+  return moves;
+}
+
+/**
+ * Whether a figure in a hold has anywhere left to go.
+ *
+ * @param game - the game
+ * @param seat - whose ship
+ * @param cargo - what it is carrying
+ * @returns true when nothing on the board could still use it
+ * @remarks
+ * An explorer wants a coast with room for a settlement, a unit wants a camp or
+ * a village. A shoal and a sack always have the Catanischer Rat, so they are
+ * never dead weight.
+ */
+function deadCargo(game: CatanGame, seat: number, cargo: Cargo): boolean {
+  const board = islandOf(game.land.length);
+  if (cargo === "entdecker") {
+    return !board.paths.some(
+      (path) => landingSpots(game, seat, path.id).length > 0,
+    );
+  }
+  if (cargo === "einheit") {
+    return (
+      !(
+        camping(game) && Object.values(game.camps).some((camp) => !camp.taken)
+      ) && villagesLeft(game, seat) === 0
+    );
+  }
+  return false;
+}
+
+/**
+ * Whether a unit may be spent on a village without stranding the camps.
+ *
+ * @param game - the game
+ * @param seat - whose units
+ * @returns whether a village may have one
+ * @remarks
+ * Only once this seat has actually put a unit on a camp: from then on the three
+ * that camp needs stay in the box. Reserving them from the start instead is
+ * worse than the problem - the spice mission then never gets a unit at all, and
+ * a self-played finale ran 2651 turns without one.
+ */
+function sparesUnits(game: CatanGame, seat: number): boolean {
+  const invested =
+    camping(game) &&
+    Object.values(game.camps).some(
+      (camp) => !camp.taken && camp.units.includes(seat),
+    );
+  return !invested || game.players[seat].unitsLeft > CAMP_UNITS;
+}
+
+/**
+ * Whether a shoal is still worth fetching for this seat.
+ *
+ * @param game - the game
+ * @param seat - whose track
+ * @returns whether the fish track can still pay
+ * @remarks
+ * The track is finite, and a marker on its last field earns nothing more. A
+ * self-played game found out what forgetting that costs: ships fished 907
+ * shoals in and never sailed north again, so half the region stayed face down,
+ * nobody had anywhere left to build, and three seats sat on 13 points of 15.
+ */
+function worthFishing(game: CatanGame, seat: number): boolean {
+  return shoaling(game) && (game.catches[seat] ?? 0) < MISSION_STEPS.length - 1;
+}
+
+/**
+ * How far every sea path is from one worth reaching.
+ *
+ * @param game - the game
+ * @param wanted - which paths are the destination
+ * @returns steps over the water, for the paths within reach
+ * @remarks
+ * A breadth-first walk backwards from the paths that are already there, so one
+ * pass answers the question for every ship at once. The four things a ship
+ * sails towards - the unknown, a camp, a shoal, its own loaded harbour - differ
+ * only in that first step, so they share the walk.
+ */
+function wantedFrom(
+  game: CatanGame,
+  wanted: (path: number) => boolean,
+): Map<number, number> {
+  const board = islandOf(game.land.length);
+  const best = new Map<number, number>();
+  let edge: number[] = [];
+  // Occupied lanes count as water here, and rightly so: a ship may cross one -
+  // "du darfst dein Schiff über ein oder zwei nebeneinanderstehende Schiffe
+  // hinwegziehen" - and crossing costs exactly the point that walking it would.
+  const open = (path: number): boolean => findLane(game, path);
+  board.paths.forEach((path) => {
+    if (open(path.id) && wanted(path.id)) {
+      best.set(path.id, 0);
+      edge.push(path.id);
+    }
+  });
+  for (let step = 1; step <= SEA_HORIZON && edge.length > 0; step++) {
+    const next: number[] = [];
+    for (const at of edge) {
+      for (const end of board.paths[at].ends) {
+        for (const near of board.crossings[end].paths) {
+          if (open(near) && !best.has(near)) {
+            best.set(near, step);
+            next.push(near);
+          }
+        }
+      }
+    }
+    edge = next;
+  }
+  return best;
+}
+
+/**
+ * How far a ship of Entdecker & Piraten looks ahead.
+ *
+ * @remarks
+ * Not a move budget - a horizon. It has to span the whole board, because what
+ * it feeds is a gradient: a path that knows how far it is from the nearest
+ * unknown field tells a ship which way to go. Where the gradient stops, every
+ * step looks the same and ships wander on the spot - which is what happened
+ * with a horizon of six on the wider board of scenario 3: half the northern
+ * region was still face down after three and a half thousand turns.
+ */
+const SEA_HORIZON = 30;
 
 /**
  * How far every sea path is from one of this seat's loaded harbours.
@@ -1239,32 +1867,9 @@ function dockWanted(
   ports: readonly number[],
 ): Map<number, number> {
   const board = islandOf(game.land.length);
-  const best = new Map<number, number>();
-  let edge: number[] = [];
-  board.paths.forEach((path) => {
-    if (
-      findLane(game, path.id) &&
-      path.ends.some((end) => ports.includes(end))
-    ) {
-      best.set(path.id, 0);
-      edge.push(path.id);
-    }
-  });
-  for (let step = 1; step <= SHIP_REACH && edge.length > 0; step++) {
-    const next: number[] = [];
-    for (const at of edge) {
-      for (const end of board.paths[at].ends) {
-        for (const near of board.crossings[end].paths) {
-          if (findLane(game, near) && !best.has(near)) {
-            best.set(near, step);
-            next.push(near);
-          }
-        }
-      }
-    }
-    edge = next;
-  }
-  return best;
+  return wantedFrom(game, (path) =>
+    board.paths[path].ends.some((end) => ports.includes(end)),
+  );
 }
 
 /**
@@ -1273,35 +1878,11 @@ function dockWanted(
  * @param game - the game
  * @returns steps over the water, for the paths within reach
  * @remarks
- * The same backwards walk as {@link seaWanted}, from the paths that already
- * touch a camp still standing. Without it a loaded ship wanders: every single
- * step looks the same, and a landing is a run of them.
+ * Without it a loaded ship wanders: every single step looks the same, and a
+ * landing is a run of them.
  */
 function campWanted(game: CatanGame): Map<number, number> {
-  const board = islandOf(game.land.length);
-  const best = new Map<number, number>();
-  let edge: number[] = [];
-  board.paths.forEach((path) => {
-    if (findLane(game, path.id) && campsFrom(game, path.id).length > 0) {
-      best.set(path.id, 0);
-      edge.push(path.id);
-    }
-  });
-  for (let step = 1; step <= SHIP_REACH && edge.length > 0; step++) {
-    const next: number[] = [];
-    for (const at of edge) {
-      for (const end of board.paths[at].ends) {
-        for (const near of board.crossings[end].paths) {
-          if (findLane(game, near) && !best.has(near)) {
-            best.set(near, step);
-            next.push(near);
-          }
-        }
-      }
-    }
-    edge = next;
-  }
-  return best;
+  return wantedFrom(game, (path) => campsFrom(game, path).length > 0);
 }
 
 /**
@@ -1309,35 +1890,100 @@ function campWanted(game: CatanGame): Map<number, number> {
  *
  * @param game - the game
  * @returns steps over the water, for the paths within reach
- * @remarks
- * A breadth-first walk backwards from the paths that already point at something
- * face down, so one pass answers the question for every ship at once.
  */
 function seaWanted(game: CatanGame): Map<number, number> {
+  return wantedFrom(game, (path) => pointsAt(game, path) !== null);
+}
+
+/**
+ * How many villages this seat could still befriend.
+ *
+ * @param game - the game
+ * @param seat - whose units
+ * @returns the villages with a sack left that this seat has no unit on
+ * @remarks
+ * One unit each and one sack each: once a seat has visited every village that
+ * has come to light, another unit buys it nothing.
+ */
+function villagesLeft(game: CatanGame, seat: number): number {
+  return spicing(game)
+    ? Object.entries(game.sacks).filter(
+        ([hex, left]) =>
+          left > 0 && !(game.villages[Number(hex)] ?? []).includes(seat),
+      ).length
+    : 0;
+}
+
+/** The villages a ship on this path could set a unit down on. */
+function villagesFrom(
+  game: CatanGame,
+  seat: number,
+  at: number,
+): readonly number[] {
   const board = islandOf(game.land.length);
-  const best = new Map<number, number>();
-  let edge: number[] = [];
-  board.paths.forEach((path) => {
-    if (findLane(game, path.id) && pointsAt(game, path.id) !== null) {
-      best.set(path.id, 0);
-      edge.push(path.id);
+  return Object.keys(game.sacks)
+    .map(Number)
+    .filter(
+      (hex) =>
+        (game.sacks[hex] ?? 0) > 0 &&
+        !(game.villages[hex] ?? []).includes(seat) &&
+        reaches(board, at, hex),
+    );
+}
+
+/** The nearer of two goals, path by path. */
+function nearest(
+  one: Map<number, number>,
+  other: Map<number, number>,
+): Map<number, number> {
+  const both = new Map(one);
+  other.forEach((steps, path) => {
+    const known = both.get(path);
+    if (known === undefined || steps < known) {
+      both.set(path, steps);
     }
   });
-  for (let step = 1; step <= SHIP_REACH && edge.length > 0; step++) {
-    const next: number[] = [];
-    for (const at of edge) {
-      for (const end of board.paths[at].ends) {
-        for (const near of board.crossings[end].paths) {
-          if (findLane(game, near) && !best.has(near)) {
-            best.set(near, step);
-            next.push(near);
-          }
-        }
-      }
-    }
-    edge = next;
-  }
-  return best;
+  return both;
+}
+
+/**
+ * How far every sea path is from one an explorer could go ashore from.
+ *
+ * @param game - the game
+ * @param seat - whose explorer
+ * @returns steps over the water, for the paths within reach
+ * @remarks
+ * The unknown is what an explorer ship is for, but the unknown runs out - and
+ * then the only thing left worth sailing to is a coast with room for a
+ * settlement. See {@link landingSpots} for what "room" means.
+ */
+function landWanted(game: CatanGame, seat: number): Map<number, number> {
+  return wantedFrom(game, (path) => landingSpots(game, seat, path).length > 0);
+}
+
+/** How far every sea path is from a village this seat has not visited. */
+function villageWanted(game: CatanGame, seat: number): Map<number, number> {
+  return wantedFrom(game, (path) => villagesFrom(game, seat, path).length > 0);
+}
+
+/**
+ * How far every sea path is from a shoal, or from the Catanischer Rat.
+ *
+ * @param game - the game
+ * @param home - whether the ship is carrying a shoal home
+ * @returns steps over the water, for the paths within reach
+ * @remarks
+ * A shoal is only worth a point once it has been landed, so a loaded ship wants
+ * the council and an empty one wants the water the fish are in.
+ */
+function fishWanted(game: CatanGame, home: boolean): Map<number, number> {
+  const board = islandOf(game.land.length);
+  const docks = councilDocks(game);
+  return wantedFrom(game, (path) =>
+    home
+      ? board.paths[path].ends.some((end) => docks.includes(end))
+      : game.shoals.some((hex) => reaches(board, path, hex)),
+  );
 }
 
 /**
@@ -1369,6 +2015,21 @@ function corsairMoves(game: CatanGame, seat: number): readonly CatanMove[] {
 /** How the computer weighs the sea. */
 const SHIP_WORTH = 3;
 const SHIP_REACH = 6;
+
+/** How many warships the computer wants before it storms a fortress. */
+const STORM_GUNS = 3;
+
+/** How many ordinary ships stay in front of them, to be lost instead. */
+const STORM_FODDER = 2;
+
+/**
+ * The fewest warships worth attacking with.
+ *
+ * @remarks
+ * The pirates roll one die and win a tie: one warship can never take a chip, so
+ * an attack with one is a ship thrown away. Two can.
+ */
+const STORM_LEAST = 2;
 const LANDFALL_WORTH = 9;
 
 /**
@@ -1429,10 +2090,40 @@ function wantedSort(game: CatanGame, seat: number): Resource {
  */
 function shipMoves(game: CatanGame, seat: number): readonly CatanMove[] {
   const moves: CatanMove[] = [];
-  if (sailing(game) && covers(game.players[seat].hand, SHIP_COST)) {
+  if (sailing(game)) {
     const board = islandOf(game.land.length);
-    const wanted = shoreWanted(game, seat);
+    // In Die Pirateninseln a ship line has exactly one destination, and it is
+    // not a shore: "diese beginnt an deiner Küstensiedlung ... und führt ...
+    // zur Piratenfestung in deiner Farbe".
+    // Only while there is a fortress left to reach: once it has fallen, the
+    // line has done its work and the ships are worth what they are worth in
+    // the free game - a new shore. A colour that had taken its fortress went on
+    // steering for it, found no gradient anywhere, and stopped building at nine
+    // of ten points.
+    const chasing = corsairs(game) && fortOf(game, seat) !== null;
+    const wanted = chasing
+      ? fortWanted(game, seat)
+      : tribe(game)
+        ? // "Erreichst du mit deiner Schiffslinie eine der markierten
+          // Kreuzungen, erhältst du das Geschenk": a Siegpunkt-Chip is a point,
+          // and a point is the thing this game is about. Without it the gifts
+          // were only ever found by accident on the way to a shore - a
+          // self-played table of six sat on twelve of thirteen points with five
+          // chips lying on the water.
+          nearest(shoreWanted(game, seat), giftWanted(game))
+        : cloth(game)
+          ? // In Stoffe für Catan a ship line has one purpose: "sobald du eine
+            // Schiffslinie zwischen einer eigenen Siedlung und einem Dorf ...
+            // hergestellt hast, unterhältst du eine Handelsbeziehung". Aiming at
+            // shores instead leaves the fleet at home once the coast is built up
+            // - at five colours a self-played table made no single trade.
+            clothWanted(game, seat)
+          : shoreWanted(game, seat);
+    // Two scenarios put their prize right across the board - the fortress and
+    // the gifts - so their gradient has to reach that far.
+    const far = chasing || tribe(game);
     const worth = (at: number): number =>
+      (game.presents[at] === undefined ? 0 : LANDFALL_WORTH) +
       board.paths[at].ends.reduce((sum, end) => {
         const landing =
           landCrossing(game, end) &&
@@ -1445,17 +2136,135 @@ function shipMoves(game: CatanGame, seat: number): readonly CatanMove[] {
           sum +
           (landing && newIsland(game, seat, end) ? LANDFALL_WORTH : 0) +
           (landing ? SHIP_WORTH : 0) +
-          Math.max(0, SHIP_REACH - (wanted.get(end) ?? SHIP_REACH))
+          // The fortress is the length of the board away, so the gradient has
+          // to reach that far: a horizon of six leaves a line stranded halfway
+          // with nothing looking better than anything else.
+          Math.max(
+            0,
+            (far ? SEA_HORIZON : SHIP_REACH) -
+              (wanted.get(end) ?? (far ? SEA_HORIZON : SHIP_REACH)),
+          )
         );
       }, 0);
-    const ranked = [...shipSpots(game, seat)].sort(
-      (one, other) => worth(other) - worth(one),
-    );
+    // "Du darfst in diesem Szenario nur 1 Schiffslinie zu den westlichen Inseln
+    // bauen." So every ship goes on the one line: the first anywhere it may,
+    // each later one on an end of what is already there. Building elsewhere is
+    // how a colour ended up with fifteen ships in four little heaps, one of
+    // them at its fortress, and no way to ever arm a second one.
+    const attaches = (at: number): boolean => {
+      if (!chasing) {
+        return true;
+      }
+      const line = shipLine(game, seat);
+      // On an end of the line, or at one of this seat's own settlements, which
+      // is where a line starts: "diese beginnt an deiner Küstensiedlung".
+      return board.paths[at].ends.some(
+        (end) =>
+          game.towns[end]?.owner === seat ||
+          line.some((path) => board.paths[path].ends.includes(end)),
+      );
+    };
+    const ranked = covers(game.players[seat].hand, SHIP_COST)
+      ? [...shipSpots(game, seat)]
+          .filter(attaches)
+          .sort((one, other) => worth(other) - worth(one))
+      : [];
     if (ranked.length > 0 && worth(ranked[0]) > 0) {
       moves.push({ kind: "ship", at: ranked[0] });
     }
+    // "Du darfst pro Zug 1 Schiff versetzen." Only once the supply is empty:
+    // while there is a ship left to build, building one is strictly better than
+    // moving one, and moving is what the fleet has instead of growing.
+    //
+    // Without it a colour that had spread its ships over the wrong water was
+    // finished for the rest of the game. Die Pirateninseln showed it worst:
+    // fifteen ships on the board, one of them at the fortress, no way to ever
+    // get a second one there - and the game cannot end at all until a fortress
+    // falls, whatever anybody's points say.
+    // Moving costs nothing, so it is not asked of the hand: a colour with no
+    // wood and no wool still has a fleet, and a fleet that may not be moved is
+    // a fleet that cannot answer anything the board does.
+    if (
+      !game.shipMoved &&
+      (game.players[seat].shipsLeft === 0 || ranked.length === 0)
+    ) {
+      const best = looseShips(game, seat).reduce<{
+        from: number;
+        to: number;
+        gain: number;
+      } | null>((found, from) => {
+        const lifted: CatanGame = {
+          ...game,
+          ships: game.ships.map((owner, path) =>
+            path === from ? null : owner,
+          ),
+          players: game.players.map((player, at) =>
+            at === seat
+              ? { ...player, shipsLeft: player.shipsLeft + 1 }
+              : player,
+          ),
+        };
+        return shipSpots(lifted, seat).reduce((better, to) => {
+          const gain = worth(to) - worth(from);
+          return to !== from &&
+            gain > 0 &&
+            (better === null || gain > better.gain)
+            ? { from, to, gain }
+            : better;
+        }, found);
+      }, null);
+      if (best !== null) {
+        moves.push({ kind: "sail", from: best.from, to: best.to });
+      }
+    }
   }
   return moves;
+}
+
+/**
+ * How far every crossing is from a gift still lying on the water.
+ *
+ * @param game - the game
+ * @returns steps over the water, for the crossings within reach
+ * @remarks
+ * *Der vergessene Stamm* hangs its points on the crossings of the tribe's
+ * island: "Erreichst du mit deiner Schiffslinie eine der markierten Kreuzungen,
+ * erhältst du das Geschenk, das dort liegt." Five of the eight are
+ * Siegpunkt-Chips, so a fleet that does not steer for them is a fleet that
+ * leaves the game unwinnable once the coast is built up.
+ */
+function giftWanted(game: CatanGame): Map<number, number> {
+  const board = islandOf(game.land.length);
+  const best = new Map<number, number>();
+  let edge: number[] = [];
+  Object.keys(game.presents).forEach((path) => {
+    board.paths[Number(path)].ends.forEach((end) => {
+      if (!best.has(end)) {
+        best.set(end, 0);
+        edge.push(end);
+      }
+    });
+  });
+  // As far as the board is wide, like the fortress in Die Pirateninseln: the
+  // gifts lie on the little islands all around, and a horizon of six leaves a
+  // fleet halfway there with nothing looking better than anything else.
+  for (let step = 1; step <= SEA_HORIZON && edge.length > 0; step++) {
+    const next: number[] = [];
+    for (const at of edge) {
+      for (const path of board.crossings[at].paths) {
+        if (seaPath(game, path)) {
+          const ends = board.paths[path].ends;
+          const to = ends[0] === at ? ends[1] : ends[0];
+          if (!best.has(to)) {
+            best.set(to, step);
+            next.push(to);
+          }
+        }
+      }
+    }
+    edge = next;
+  }
+  return best;
 }
 
 /** The board with one more ship of this seat's on it. */
@@ -1750,6 +2559,32 @@ function rideMoves(game: CatanGame, seat: number): readonly CatanMove[] {
       }
     }
   });
+  // "Ist eine Person am Zug, zieht sie zuerst ihre(n) Ritter und anschließend
+  // den Fremden Ritter" - so his ride is looked for only once every knight of
+  // one's own has moved, which is what the referee allows anyway.
+  const stranger = strangerAt(game);
+  const own = game.guards.some(
+    (owner, at) =>
+      owner === seat &&
+      !game.ridden.includes(at) &&
+      rideSpots(game, at, KNIGHT_STEPS).length > 0,
+  );
+  const owedHim = stranger !== null && game.fort.gates.includes(stranger);
+  if (
+    stranger !== null &&
+    !game.ridden.includes(stranger) &&
+    (!own || owedHim)
+  ) {
+    const near = bestRide(game, seat, stranger, KNIGHT_STEPS);
+    // A knight on a castle path has to leave it whatever lies outside, and
+    // that holds for the Fremder Ritter the turn he comes out.
+    if (
+      near !== null &&
+      (owedHim || near.worth > pathWorth(game, seat, stranger))
+    ) {
+      moves.push({ kind: "ride", from: stranger, to: near.at });
+    }
+  }
   // The castle first: that ride is owed, the others are only worth making.
   const owed = moves.filter((move) =>
     move.kind === "ride" ? game.fort.gates.includes(move.from) : false,
@@ -1978,8 +2813,23 @@ function chipMoves(game: CatanGame, seat: number): readonly CatanMove[] {
     const robbed = (
       islandOf(game.land.length).hexes[game.robber]?.corners ?? []
     ).some((corner) => game.towns[corner]?.owner === seat);
-    if (held >= price && robbed) {
+    if (held >= price && robbed && !raiding(game)) {
       moves.push({ kind: "chip", action: "robber" });
+    }
+    // The barbarians take the place of the robber in that scenario, and a
+    // chip is worth spending on a field that is one barbarian from falling.
+    if (held >= price && canShiftBarbarian(game)) {
+      const board = islandOf(game.land.length);
+      const nearly = game.fort.coast.some(
+        (hex) =>
+          (game.barbarians[hex] ?? 0) >= FULL_FIELD - 1 &&
+          board.hexes[hex].corners.some(
+            (corner) => game.towns[corner]?.owner === seat,
+          ),
+      );
+      if (nearly) {
+        moves.push({ kind: "chip", action: "barbarian" });
+      }
     }
     if (
       held >= price &&
@@ -2080,8 +2930,51 @@ function knightFirst(game: CatanGame, seat: number): readonly CatanMove[] {
     islandOf(game.land.length).hexes[game.robber]?.corners ?? []
   ).some((at: number) => game.towns[at]?.owner === seat);
   const holds = game.players[seat].deck.includes("ritter");
-  return holds && !game.playedDev && blocked
-    ? [{ kind: "play", card: "ritter" }]
+  // In Die Pirateninseln a knight is not a robber at all: it arms a ship, and
+  // an unarmed line never takes a fortress. So it is played the moment there is
+  // a ship to arm - a self-played table sat on twelve knight cards each with
+  // the deck empty and one warship between them.
+  // Armed while there is still something to lose in front: the two ships a
+  // lost fight takes are the ones at the far end, and a line of nothing but
+  // warships loses them instead.
+  const line = corsairs(game) ? shipLine(game, seat) : [];
+  const arming =
+    corsairs(game) &&
+    line.some((path) => !game.warships.includes(path)) &&
+    // Fodder in front only while the line can still grow. It cannot grow once
+    // it has arrived - "die Schiffslinie darf sich nicht verzweigen und auch
+    // nicht über die Piratenfestung hinaus gebaut werden" - and it cannot grow
+    // with nowhere left to build. Then an unarmed ship is worth nothing at all:
+    // a self-played table sat at the fortress with a line of two, ten knight
+    // cards in hand, and waited for a third ship that the rules forbid.
+    (line.length - warshipsOf(game, seat) > STORM_FODDER ||
+      atFort(game, seat) ||
+      shipSpots(game, seat).length === 0);
+  // A Siegpunktkarte arms a ship here as well, and that is worth a point when
+  // the alternative is a fortress that can never fall: two warships are the
+  // fewest that can ever beat the die, and once the stack is empty no knight
+  // is ever coming.
+  const spare =
+    corsairs(game) &&
+    !holds &&
+    game.players[seat].deck.includes("siegpunkt") &&
+    warshipsOf(game, seat) < STORM_GUNS - 1;
+  // The Größte Rittermacht is two points, and two points win games: a knight is
+  // worth playing the moment it would take the tile or keep it. Without this a
+  // colour sat on nine knight cards at thirteen of fourteen points with nothing
+  // left to build - the tile alone would have ended the game.
+  // Counted over the whole hand, not the next card: the tile wants three, and a
+  // rule that only plays the knight that takes it never plays the first two.
+  const inHand = game.players[seat].deck.filter(
+    (card) => card === "ritter",
+  ).length;
+  const reach = game.players[seat].knights + inHand;
+  const most =
+    game.army === null ? ARMY_MIN - 1 : game.players[game.army].knights;
+  const army = holds && !raiding(game) && game.army !== seat && reach > most;
+  return !game.playedDev &&
+    (holds ? blocked || arming || army : spare && arming)
+    ? [{ kind: "play", card: holds ? "ritter" : "siegpunkt" }]
     : [];
 }
 
