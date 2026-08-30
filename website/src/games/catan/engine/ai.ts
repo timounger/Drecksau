@@ -544,13 +544,24 @@ function bankTrades(game: CatanGame, seat: number): readonly CatanMove[] {
  * Only ever one card for one card, and only when a single sort stands between
  * the computer and a building. Anything bigger is a negotiation, and a
  * negotiation needs a table.
+ *
+ * And only for a card somebody actually holds. At a real table you ask blindly
+ * because you cannot see the other hands; the computer can, and an offer
+ * nobody is able to take is a question asked for nothing - it spends the one
+ * offer this turn allows and puts a dialogue in front of players whose only
+ * answer is no.
  */
 function offerMove(game: CatanGame, seat: number): readonly CatanMove[] {
   const hand = game.players[seat].hand;
   const need = wants(game, seat);
   const missing = RESOURCES.filter((sort) => need[sort] > 0);
   const spare = RESOURCES.filter((sort) => hand[sort] > need[sort] + 1);
-  return game.offers === 0 && missing.length === 1 && spare.length > 0
+  const anybodyHasIt =
+    missing.length === 1 &&
+    game.players.some(
+      (player, at) => at !== seat && player.hand[missing[0]] > 0,
+    );
+  return anybodyHasIt && game.offers === 0 && spare.length > 0
     ? [
         {
           kind: "offer",

@@ -57,6 +57,21 @@ function spell(hand: Hand): string {
   return parts.length === 0 ? "nichts" : parts.join(", ");
 }
 
+/**
+ * What is still missing from a hand for a bundle of cards.
+ *
+ * @param hand - what the player holds
+ * @param want - what the offer asks for
+ * @returns the shortfall, card by card
+ */
+function missing(hand: Hand, want: Hand): Hand {
+  const short = { ...NO_CARDS };
+  for (const sort of RESOURCES) {
+    short[sort] = Math.max(0, want[sort] - hand[sort]);
+  }
+  return short;
+}
+
 /** A small chip that can be picked. */
 function Chip({
   label,
@@ -239,6 +254,7 @@ function OpenOffer({
   if (offer !== null) {
     const mine = offer.from === mySeat;
     const asked = offer.answers[mySeat] === null && !mine;
+    const canPay = covers(game.players[mySeat].hand, offer.want);
     const open = offer.answers.some((answer) => answer === null);
     const takers = offer.answers.reduce<number[]>(
       (list, answer, seat) => (answer === true ? [...list, seat] : list),
@@ -256,20 +272,37 @@ function OpenOffer({
             : T.offerFor(spell(offer.want), spell(offer.give))}
         </span>
         {asked && (
-          <span className="flex gap-1.5">
-            <Button
-              label={T.offerYes}
-              strong
-              off={!covers(game.players[mySeat].hand, offer.want)}
-              testId="ct-offer-yes"
-              onClick={() => onMove({ kind: "answer", yes: true })}
-            />
-            <Button
-              label={T.offerNo}
-              testId="ct-offer-no"
-              onClick={() => onMove({ kind: "answer", yes: false })}
-            />
-          </span>
+          <>
+            <span className="flex gap-1.5">
+              <Button
+                label={T.offerYes}
+                strong
+                off={!canPay}
+                testId="ct-offer-yes"
+                onClick={() => onMove({ kind: "answer", yes: true })}
+              />
+              <Button
+                label={T.offerNo}
+                testId="ct-offer-no"
+                onClick={() => onMove({ kind: "answer", yes: false })}
+              />
+            </span>
+            {/* Why "Annehmen" is grey. The referee no longer asks anybody who
+                cannot pay, so this is the safety net for the offers that were
+                already on the table when that changed - a game saved mid-offer,
+                or an online room in play. A button that cannot be pressed and
+                does not say why reads as a broken screen. */}
+            {!canPay && (
+              <span
+                data-testid="ct-offer-short"
+                className="text-xs text-amber-700 dark:text-amber-300"
+              >
+                {T.offerShort(
+                  spell(missing(game.players[mySeat].hand, offer.want)),
+                )}
+              </span>
+            )}
+          </>
         )}
         {mine && open && thinking >= 0 && (
           <span className="text-xs opacity-70">

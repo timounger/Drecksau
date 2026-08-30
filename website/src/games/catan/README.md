@@ -117,6 +117,63 @@ seinen eigenen Platz aus - online schickt also der Client der spielenden Person
 den Zug, genau als hätte sie selbst gedrückt. Der Knopf bleibt sichtbar: Wer
 schneller ist als die Pause, drückt ihn.
 
+## Handelschips: nur die Aktionen, die es gerade gibt
+
+Beide Chip-Aktionen ließen sich immer anklicken - auch dann, wenn sie nichts
+bewirken konnten. Der Chip war trotzdem bezahlt:
+
+- **Räuber in die Wüste**, wenn er längst dort steht. Der Chip kauft, ihn von
+  einem eigenen Feld wegzubekommen; wo er schon steht, steht er.
+- **Zwangshandel** gegen eine leere Hand. Gezogen wird nichts, zurückgegeben
+  werden trotzdem zwei Karten - ein Chip für ein Geschenk.
+
+Jetzt sind beide an eine Bedingung geknüpft, und zwar an zwei Stellen: Der
+Schiedsrichter lehnt den Zug ab (`canChipRobber`, `canChipSwap`), und die
+Ansicht zeigt den Knopf gar nicht erst. Der zu teure Chip bleibt dagegen
+sichtbar und grau - der Preis, einer beim Gleichstand und zwei in Führung, ist
+die Regel, die man sich merken soll.
+
+## Der Zwangshandel, der den Zug anhielt
+
+Die Rückgabe nach einem Zwangshandel war nicht bedienbar: Das Plus war bei
+jeder Sorte aus, die Anzeige rührte sich nicht, „Zurückgeben" blieb grau - und
+weil der Zug ohne diese Rückgabe nicht weitergeht, hing die Partie fest.
+
+Eine falsche Zeile: Der Kartenwähler bekam die **Hand** als Wert und dieselbe
+Hand als Obergrenze. Damit stand jede Sorte schon am Anschlag, das Plus war
+folgerichtig aus, und die Anzeige zeigte die eigenen Karten statt der
+gewählten. Alle anderen Wähler im Spiel - Abwerfen nach der Sieben, beide
+Seiten eines Angebots - übergeben die _Auswahl_ als Wert; nur dieser eine
+nicht.
+
+Dass tausend Selbstspiel-Partien das nie bemerkt haben, liegt in der Natur der
+Sache: Der Computer spielt gegen die Regeln, nicht gegen den Bildschirm. Der
+Schiedsrichter war hier auch nie kaputt.
+
+Und wer nicht mehr Karten hat, als er schuldet, hat nichts zu wählen: Dann sind
+sie beim Öffnen schon ausgewählt und es fehlt nur der Klick auf „Zurückgeben".
+Eine Auswahl, die nur eine Möglichkeit hat, ist keine Auswahl.
+
+## Gefragt wird, wer zahlen kann - wenn der Computer bietet
+
+Ein Handelsangebot kann nur annehmen, wer die verlangten Karten hat. Wer sie
+nicht hat, bekam trotzdem die Frage gestellt und einen grauen „Annehmen"-Knopf
+dazu: eine Frage mit genau einer möglichen Antwort.
+
+Wer gefragt wird, hängt jetzt davon ab, **wer bietet**:
+
+- **Der Computer** sieht die Hände ohnehin. Er bietet gar nicht erst eine Karte
+  an, die niemand hält, und wer nicht zahlen kann, wird nicht gefragt. Das
+  verrät nichts, was der Rechner nicht schon wüsste.
+- **Ein Mensch** bietet blind, und darum wird jede und jeder gefragt. Ein
+  sofortiges Nein wäre sonst der Beweis, dass die Karte fehlt - und das ist
+  etwas, was am Tisch niemand erfährt: Dort sagt man nur nein, und keiner weiß,
+  ob aus Mangel oder aus Absicht.
+
+Für die Angebote, die beim Umbau schon auf dem Tisch lagen - ein gespeicherter
+Spielstand, ein laufender Online-Raum -, steht unter dem grauen Knopf jetzt der
+Grund: „Annehmen geht nicht - dir fehlt: 1 Wolle, 1 Erz."
+
 ## Der Computergegner rechnet in Augen, nicht in Zahlen
 
 [engine/ai.ts](engine/ai.ts) sucht nicht, er sortiert: Jede Lage erzeugt eine

@@ -131,7 +131,11 @@ export function CatanSettingsView(): ReactElement {
             {T.modeHint}
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup">
+        {/* Untereinander, nicht umbrechend: Jeder Eintrag ist Name plus
+            Erklärzeile, also ein Block. Nebeneinander landeten die beiden
+            kurzen Namen zufällig in einer Zeile und der Rest darunter, was wie
+            eine Gruppierung aussah, die es nicht gibt. */}
+        <div className="flex flex-col gap-1.5" role="radiogroup">
           {MODES.map((mode) => (
             <button
               key={mode}
@@ -165,7 +169,7 @@ export function CatanSettingsView(): ReactElement {
             {T.scenarioHint}
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup">
+        <div className="flex flex-col gap-1.5" role="radiogroup">
           {SCENARIOS.map((scenario) => (
             <button
               key={scenario}

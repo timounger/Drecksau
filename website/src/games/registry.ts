@@ -35,7 +35,8 @@ export type GameId =
   | "risiko"
   | "monopoly"
   | "catan"
-  | "bohnanza";
+  | "bohnanza"
+  | "arschloch";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -267,6 +268,15 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/flip-7",
     category: "karten",
     addedOn: "2026-08-20",
+  },
+  {
+    id: "arschloch",
+    name: "Arschloch",
+    tagline: "Karten loswerden - der Letzte ist es.",
+    emoji: "\u{1F0CF}",
+    href: "/arschloch",
+    category: "karten",
+    addedOn: "2026-08-30",
   },
   {
     id: "the-game",

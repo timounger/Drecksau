@@ -397,6 +397,8 @@ export const CATAN_TEXTS = {
   offerFor: (give: string, want: string): string => `${give} gegen ${want}`,
   offerYes: "Annehmen",
   offerNo: "Ablehnen",
+  offerShort: (cards: string): string =>
+    `Annehmen geht nicht - dir fehlt: ${cards}.`,
   offerWithdraw: "Zurückziehen",
   offerWaiting: (name: string): string => `Warte auf ${name}.`,
   offerTakers: "Angenommen von:",

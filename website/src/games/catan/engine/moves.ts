@@ -1319,7 +1319,8 @@ function doChip(
     other !== undefined &&
     // *Der Barbarenüberfall* has no robber, and every other table has no
     // barbarians: the two actions never stand side by side.
-    (action !== "robber" || !raiding(game)) &&
+    (action !== "robber" || (!raiding(game) && canChipRobber(game))) &&
+    (action !== "swap" || canChipSwap(game, seat)) &&
     (action !== "barbarian" || canShiftBarbarian(game))
   ) {
     const paid = withPlayer(game, seat, {
@@ -1334,6 +1335,38 @@ function doChip(
           : chipSwap(paid, seat, other);
   }
   return next;
+}
+
+/**
+ * Whether a Handelschip could send the robber to the desert right now.
+ *
+ * @param game - the game
+ * @returns true when there is a desert and the robber is not already on it
+ * @remarks
+ * The chip buys getting the robber **off** something of yours. Standing where
+ * it already stands is not that, and paying for it would be paying for nothing
+ * - so the move is turned down and the button is not offered.
+ */
+export function canChipRobber(game: CatanGame): boolean {
+  const desert = game.land.findIndex((kind) => kind === "wueste");
+  return desert >= 0 && game.robber !== desert;
+}
+
+/**
+ * Whether a Handelschip could force a trade right now.
+ *
+ * @param game - the game
+ * @param seat - who would pay the chip
+ * @returns true when the other player holds at least one card
+ * @remarks
+ * "Du darfst 2 Karten aus der Hand der anderen Person ziehen. Dafür musst du
+ * ihr 2 beliebige Karten zurückgeben." With an empty hand across the table
+ * there is nothing to pull and two cards still to hand over: a chip spent to
+ * make a present.
+ */
+export function canChipSwap(game: CatanGame, seat: number): boolean {
+  const other = realSeats(game).find((at) => at !== seat);
+  return other !== undefined && handSize(game.players[other].hand) > 0;
 }
 
 /**
@@ -2740,8 +2773,22 @@ function doOffer(
             from: seat,
             give,
             want,
-            answers: game.players.map((unused, at) =>
-              at === seat ? false : null,
+            // Bietet der Computer, wird nur gefragt, wer auch zahlen könnte:
+            // Wer die verlangten Karten nicht hat, kann ohnehin nur ablehnen,
+            // und eine Frage mit genau einer möglichen Antwort ist keine
+            // Frage, sondern ein grauer Knopf. Der Computer sieht die Hände
+            // ohnehin, er erfährt dadurch also nichts Neues.
+            //
+            // Bietet ein Mensch, wird jeder gefragt - auch wer nicht zahlen
+            // kann. Ein sofortiges Nein wäre sonst der Beweis, dass die Karte
+            // fehlt, und das ist etwas, was am Tisch niemand erfährt: Dort
+            // sagt man nur nein, und niemand weiß, ob aus Mangel oder aus
+            // Absicht.
+            answers: game.players.map((player, at) =>
+              at === seat ||
+              (game.players[seat].bot && !covers(player.hand, want))
+                ? false
+                : null,
             ),
           },
         },

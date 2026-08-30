@@ -8,6 +8,7 @@ jedes Spiel hat seine eigene Seite.
 
 | Spiel                                                              | Beschreibung                                                                                             | Modus                |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------- |
+| [Arschloch](website/src/games/arschloch/README.md)                 | Karten loswerden - wer als Letzter noch welche haelt, ist es.                                            | Computer + Online    |
 | [Bohnanza](website/src/games/bohnanza/README.md)                   | Anbauen, handeln, ernten - wer die meisten Bohnentaler hat, gewinnt.                                     | Computer + Online    |
 | [Binokel](website/src/games/binokel/README.md)                     | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online    |
 | [Camel Up](website/src/games/camel-up/README.md)                   | Fuenf Kamele, ein Stapel - wer getragen wird, liegt vorn.                                                | Computer + Online    |

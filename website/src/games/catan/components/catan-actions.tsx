@@ -14,6 +14,8 @@
 
 import { useState, type ReactElement } from "react";
 import {
+  canChipRobber,
+  canChipSwap,
   canShiftBarbarian,
   discardCount,
   neutralSpots,
@@ -148,8 +150,11 @@ export function CardPicker({
           >
             -
           </button>
+          {/* Gewählt und höchstens möglich, "Holz 2/4": Ohne die zweite Zahl
+              sieht man dem grauen Plus nicht an, ob die Sorte alle ist oder
+              der Wähler klemmt. */}
           <span className="tabular-nums">
-            {SORT_NAMES[sort]} {hand[sort]}
+            {SORT_NAMES[sort]} {hand[sort]}/{limit[sort]}
           </span>
           <button
             type="button"
@@ -451,12 +456,19 @@ function ChipActions({
       data-testid="ct-chips"
     >
       <span className="text-xs font-semibold">{T.chipsHeld(held)}</span>
-      <Button
-        label={T.chipSwap(price)}
-        testId="ct-chip-swap"
-        off={held < price}
-        onClick={() => onMove({ kind: "chip", action: "swap" })}
-      />
+      {/* Nur die Aktionen, die es gerade gibt: ein Zwangshandel mit einer
+          leeren Hand gegenüber und ein Räuber, der schon in der Wüste steht,
+          sind keine Wahl, sondern zwei Wege, einen Chip zu verlieren. Der zu
+          teure Chip bleibt dagegen sichtbar und grau - der Preis ist die
+          Regel, die man sich merken soll. */}
+      {canChipSwap(game, mySeat) && (
+        <Button
+          label={T.chipSwap(price)}
+          testId="ct-chip-swap"
+          off={held < price}
+          onClick={() => onMove({ kind: "chip", action: "swap" })}
+        />
+      )}
       {raiding(game) ? (
         <Button
           label={T.chipBarbarian(price)}
@@ -465,12 +477,14 @@ function ChipActions({
           onClick={() => onMove({ kind: "chip", action: "barbarian" })}
         />
       ) : (
-        <Button
-          label={T.chipRobber(price)}
-          testId="ct-chip-robber"
-          off={held < price}
-          onClick={() => onMove({ kind: "chip", action: "robber" })}
-        />
+        canChipRobber(game) && (
+          <Button
+            label={T.chipRobber(price)}
+            testId="ct-chip-robber"
+            off={held < price}
+            onClick={() => onMove({ kind: "chip", action: "robber" })}
+          />
+        )
       )}
       {canHandKnightIn(game, mySeat) && (
         <Button
@@ -499,14 +513,24 @@ function GivingBack({
   readonly mySeat: number;
   readonly onMove: (move: CatanMove) => void;
 }): ReactElement {
-  const [picked, setPicked] = useState<Hand>(NO_CARDS);
-  const owed = Math.min(SWAP_CARDS, handSize(game.players[mySeat].hand));
+  const hand = game.players[mySeat].hand;
+  // Wer nicht mehr hat, als er schuldet, hat nichts zu wählen: Dann liegt die
+  // Auswahl schon fertig da und es fehlt nur noch der Klick auf Zurückgeben.
+  const [picked, setPicked] = useState<Hand>(() =>
+    handSize(hand) <= SWAP_CARDS ? hand : NO_CARDS,
+  );
+  const owed = Math.min(SWAP_CARDS, handSize(hand));
   return (
     <div className="flex flex-col gap-2" data-testid="ct-giveback">
       <span className="text-sm font-semibold">{T.giveBackHint(owed)}</span>
+      {/* Was gewählt ist, nicht was auf der Hand liegt. Mit der Hand als
+          Wert *und* als Grenze stand jede Sorte schon am Anschlag: Das Plus
+          war überall aus, die Anzeige rührte sich nicht, und weil damit nie
+          genau zwei Karten gewählt waren, blieb auch "Zurückgeben" grau - der
+          Zug ließ sich nicht beenden. */}
       <CardPicker
-        hand={game.players[mySeat].hand}
-        limit={game.players[mySeat].hand}
+        hand={picked}
+        limit={hand}
         onChange={setPicked}
         testId="ct-giveback-pick"
       />
