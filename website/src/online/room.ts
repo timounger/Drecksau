@@ -152,6 +152,29 @@ export function markSeatsAsBots<G>(
 }
 
 /**
+ * Gives seats back to the players who are sitting on them again.
+ *
+ * @param room - the room
+ * @param seatIds - the seats whose players are present once more
+ * @returns the room with those seats human again, or the same room
+ * @remarks
+ * The counterpart to {@link markSeatsAsBots}, and the reason a seat id is the
+ * player's own id rather than a number: whoever comes back through a reload, a
+ * new tab or a tunnel comes back as the same seat, so the room can simply hand
+ * it over without anybody having to claim anything.
+ */
+export function clearBotSeats<G>(
+  room: RoomState<G>,
+  seatIds: readonly SeatId[],
+): RoomState<G> {
+  const current = room.botSeatIds ?? [];
+  const left = current.filter((seatId) => !seatIds.includes(seatId));
+  return left.length === current.length
+    ? room
+    : bump({ ...room, botSeatIds: left });
+}
+
+/**
  * Tells whether a seat is played by the computer.
  *
  * @param room - the room

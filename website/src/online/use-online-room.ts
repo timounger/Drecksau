@@ -22,6 +22,7 @@ import { createFirebaseTransport } from "./firebase-transport";
 import { createWireGuards } from "./online-state";
 import {
   applySeatMove,
+  clearBotSeats,
   createRoom,
   isBotSeat,
   markSeatsAsBots,
@@ -92,6 +93,19 @@ const JOIN_TIMEOUT_MS = 12_000;
 
 /** Pause before the computer plays a taken-over seat, so it stays watchable. */
 const BOT_MOVE_DELAY_MS = 900;
+
+/**
+ * How long a seat is held for a player who has dropped off.
+ *
+ * @remarks
+ * Losing the connection is not the same as leaving the table, and most of the
+ * time it lasts seconds: a reload, a lift, a train. Handing the seat to the
+ * computer the instant the presence entry vanishes would cost that player a
+ * turn for a hiccup, so the room waits this long first. Long enough for a
+ * reload and a tunnel, short enough that a table is not left staring at an
+ * empty chair.
+ */
+const TAKEOVER_GRACE_MS = 12_000;
 
 /** Longest chat line accepted, in characters. */
 const MAX_CHAT_LENGTH = 300;
@@ -322,6 +336,12 @@ async function installHost<G, M, H, O>(
   // The turn the running timer belongs to, so a move inside the same turn does
   // not hand its player a fresh timeout.
   let armedFor: string | null = null;
+  // Who is at the table right now, and the timer that hands the empty seats to
+  // the computer once the grace period is up.
+  let presentIds: ReadonlySet<SeatId> = new Set(
+    initialRoom.seats.map((each) => each.id),
+  );
+  let takeoverTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Stores, publishes and shows a new authoritative room. */
   const commit = (next: RoomState<G>) => {
@@ -419,6 +439,28 @@ async function installHost<G, M, H, O>(
     }
   };
 
+  /**
+   * Arms the hand-over of the seats nobody is sitting on any more.
+   *
+   * @remarks
+   * Which seats those are is decided when the timer fires, not when it is set:
+   * whoever is back by then keeps their seat, and one timer covers however many
+   * dropped off at once.
+   */
+  const scheduleTakeover = () => {
+    clearTimeout(takeoverTimer);
+    takeoverTimer = setTimeout(() => {
+      takeoverTimer = undefined;
+      const gone = authoritative.seats
+        .filter((s) => !presentIds.has(s.id))
+        .map((s) => s.id);
+      const next = markSeatsAsBots(authoritative, gone);
+      if (!sinks.cancelled() && next !== authoritative) {
+        commit(next);
+      }
+    }, TAKEOVER_GRACE_MS);
+  };
+
   sinks.actionsRef.current = {
     start: (choices) => {
       if (authoritative.phase === "lobby") {
@@ -467,14 +509,23 @@ async function installHost<G, M, H, O>(
         version: authoritative.version + 1,
       });
     } else {
-      const present = new Set(members.map((member) => member.id));
-      const gone = authoritative.seats
-        .filter((s) => !present.has(s.id))
-        .map((s) => s.id);
-      const next = markSeatsAsBots(authoritative, gone);
-      if (next !== authoritative) {
-        commit(next);
+      presentIds = new Set(members.map((member) => member.id));
+      // Back at the table: the seat is theirs again at once, and no button is
+      // needed for it - the room can see them.
+      const back = (authoritative.botSeatIds ?? []).filter((seatId) =>
+        presentIds.has(seatId),
+      );
+      const handedBack = clearBotSeats(authoritative, back);
+      if (handedBack !== authoritative) {
+        // The computer may already be armed for this very turn. Disarm it, or
+        // the guard in scheduleAiTurn would take the pending timer for this
+        // turn's budget and play the move the player just came back for.
+        clearTimeout(aiTimer);
+        aiTimer = undefined;
+        armedFor = null;
+        commit(handedBack);
       }
+      scheduleTakeover();
     }
   });
 

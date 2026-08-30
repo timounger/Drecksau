@@ -6,7 +6,8 @@
  * @remarks
  * Layout under `rooms/{gameId}-{code}` (the game prefix keeps the games apart
  * within one database without a rule change):
- * - `members/{seatId}` - who is present; removed automatically on disconnect.
+ * - `members/{seatId}` - who is present; removed automatically on disconnect
+ *   and written again by the client itself on every reconnect.
  * - `shared` - the authoritative room, hands redacted, written by the host.
  * - `hands/{seatId}` - one player's real cards, written by the host, read only
  *   by that player.
@@ -78,6 +79,26 @@ export function createFirebaseTransport<G, M, H>(
     // Remove the presence the moment this tab drops off the network.
     await onDisconnect(memberRef).remove();
     await set(memberRef, JSON.stringify(member));
+    // And write it again on every reconnect.
+    //
+    // Losing the connection is what the removal above is for, but coming back
+    // is not its mirror image: the write that put this seat in the room
+    // succeeded long ago and is not repeated by itself, so after a tunnel the
+    // player would sit at a table that no longer lists them - watching the
+    // computer play their seat with no way back in. `.info/connected` is the
+    // one place that hears about the return, so the presence is re-armed and
+    // re-written from there, every time.
+    const stop = onValue(ref(database, ".info/connected"), (snapshot) => {
+      if (snapshot.val() === true && ownMemberPath !== null) {
+        const back = ref(database, ownMemberPath);
+        void onDisconnect(back)
+          .remove()
+          .then(() =>
+            set(back, JSON.stringify({ ...member, joinedAt: member.joinedAt })),
+          );
+      }
+    });
+    unsubscribes.push(stop);
   };
 
   const onMembers = (

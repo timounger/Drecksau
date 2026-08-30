@@ -317,9 +317,11 @@ function Cell({
           under the markers on either edge: a flex item defaults to
           min-width:auto and so refuses to shrink below its own text, and the
           field's overflow-hidden then simply cut "Bahnhofstraße" in half. */}
-      <span className="mt-1.5 w-full min-w-0 text-[7px] font-semibold break-words">
-        {labelOf(at)}
-      </span>
+      {at !== JAIL_AT && (
+        <span className="mt-1.5 w-full min-w-0 text-[7px] font-semibold break-words">
+          {labelOf(at)}
+        </span>
+      )}
       {field.price !== undefined && (
         <span className="text-[7px] tabular-nums opacity-70">
           {field.price}
@@ -330,6 +332,7 @@ function Cell({
           dorthin will. */}
       {/* Und auf LOS steht, was genau zu treffen wert ist - sonst sieht man
           der Ecke nicht an, dass hier eine andere Regel gilt als gedruckt. */}
+      <FieldArt at={at} />
       {at === GO_AT && game.doubleGo && (
         <span
           data-testid="mo-double-go"
@@ -347,12 +350,21 @@ function Cell({
         </span>
       )}
       <Buildings at={at} houses={estate.houses} />
-      {here.length > 0 && (
-        <span className="mt-0.5 flex flex-wrap justify-center gap-px">
-          {here.map((seat) => (
-            <Piece key={seat} game={game} seat={seat} mine={seat === mySeat} />
-          ))}
-        </span>
+      {at === JAIL_AT ? (
+        <JailPieces game={game} here={here} mySeat={mySeat} />
+      ) : (
+        here.length > 0 && (
+          <span className="relative mt-0.5 flex flex-wrap justify-center gap-px">
+            {here.map((seat) => (
+              <Piece
+                key={seat}
+                game={game}
+                seat={seat}
+                mine={seat === mySeat}
+              />
+            ))}
+          </span>
+        )
       )}
     </button>
   );
@@ -584,6 +596,424 @@ function Hotel(): ReactElement {
       {[4.5, 8, 11.5, 15].map((x) => (
         <rect key={x} x={x} y="6.4" width="2" height="2" fill="#ffe9e6" />
       ))}
+    </svg>
+  );
+}
+
+/**
+ * The picture a field carries, the way the printed board carries one.
+ *
+ * @remarks
+ * Streets have none, and that is the printed board's own answer: their colour
+ * bar already says everything a street says. Everything else gets the drawing
+ * it has on the board, so a field can be found without being read - which is
+ * how anybody who has played this game finds the station.
+ *
+ * @param at - the position
+ * @returns the drawing, or null where the board has none
+ */
+function FieldArt({ at }: { readonly at: number }): ReactElement | null {
+  const field = fieldAt(at);
+  const corner = at % (SIDE + 1) === 0;
+  const size = corner ? "h-8 w-8" : "h-5 w-5";
+  let art: ReactElement | null;
+  switch (field.kind) {
+    case "go":
+      art = <GoArrow />;
+      break;
+    case "jail":
+      art = <JailArt />;
+      break;
+    case "goToJail":
+      art = <PoliceArt />;
+      break;
+    case "parking":
+      art = <ParkingCar />;
+      break;
+    case "chest":
+      art = <ChestArt size={size} />;
+      break;
+    case "chance":
+      art = <ChanceMark />;
+      break;
+    case "station":
+      art = <TrainArt size={size} />;
+      break;
+    case "utility":
+      art =
+        field.name === "Wasserwerk" ? (
+          <TapArt size={size} />
+        ) : (
+          <BulbArt size={size} />
+        );
+      break;
+    case "tax":
+      art =
+        field.tax === undefined || field.tax > TAX_RING ? (
+          <CoinArt size={size} />
+        ) : (
+          <RingArt size={size} />
+        );
+      break;
+    default:
+      art = null;
+  }
+  return art;
+}
+
+/** Below this the tax is the luxury one, and the board draws a ring for it. */
+const TAX_RING = 100;
+
+/** The blue chest of the Gemeinschaftsfelder, lid, band and lock. */
+function ChestArt({ size }: { readonly size: string }): ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" className={size} aria-hidden>
+      <path d="M2.5 10c0-4.2 4.3-6.5 9.5-6.5s9.5 2.3 9.5 6.5z" fill="#2f7fc1" />
+      <rect x="2.5" y="10" width="19" height="9" rx="1" fill="#1f5f97" />
+      <rect x="2.5" y="9.2" width="19" height="2" fill="#f2c14e" />
+      <rect x="10.4" y="8" width="3.2" height="6" rx="0.8" fill="#f2c14e" />
+      <circle cx="12" cy="12.6" r="1" fill="#1f5f97" />
+    </svg>
+  );
+}
+
+/** The question mark of the Ereignisfelder, in the board's own orange. */
+function ChanceMark(): ReactElement {
+  return (
+    <span
+      aria-hidden
+      className="text-[15px] leading-none font-black text-[#e2571e]"
+    >
+      ?
+    </span>
+  );
+}
+
+/** A locomotive for the four stations. */
+function TrainArt({ size }: { readonly size: string }): ReactElement {
+  return (
+    <svg viewBox="0 0 26 24" className={size} aria-hidden>
+      {/* Kessel vorn mit Schornstein darüber, Führerhaus dahinter - so
+          herum steht die Lok auf dem gedruckten Feld. */}
+      <rect x="2" y="10" width="13" height="6.5" rx="0.8" fill="#1c1c1c" />
+      <rect x="3.4" y="5.6" width="3" height="4.6" rx="0.5" fill="#1c1c1c" />
+      <path d="M15 6.4h7.5v10H15z" fill="#1c1c1c" />
+      <rect x="16.4" y="8" width="4.6" height="3.4" fill="#f3e7d8" />
+      <rect x="0.8" y="16.6" width="24" height="1.8" fill="#1c1c1c" />
+      <circle cx="19" cy="20.4" r="3" fill="#1c1c1c" />
+      <circle cx="9.5" cy="20.6" r="2.2" fill="#1c1c1c" />
+      <circle cx="4.5" cy="20.6" r="2.2" fill="#1c1c1c" />
+    </svg>
+  );
+}
+
+/** The bulb of the Elektrizitätswerk. */
+function BulbArt({ size }: { readonly size: string }): ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" className={size} aria-hidden>
+      <path
+        d="M12 2.5a6.5 6.5 0 0 0-3.6 11.9V17h7.2v-2.6A6.5 6.5 0 0 0 12 2.5z"
+        fill="#f7d046"
+        stroke="#8a6d1b"
+        strokeWidth="1"
+      />
+      <rect x="8.8" y="17.4" width="6.4" height="1.6" fill="#8a8a8a" />
+      <rect x="9.4" y="19.6" width="5.2" height="1.6" rx="0.8" fill="#8a8a8a" />
+    </svg>
+  );
+}
+
+/** The tap of the Wasserwerk, with its drop. */
+function TapArt({ size }: { readonly size: string }): ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" className={size} aria-hidden>
+      <rect x="2.5" y="6" width="7" height="4" rx="1" fill="#8a8a8a" />
+      <rect x="9.5" y="7" width="9" height="2.4" fill="#8a8a8a" />
+      <rect x="15.6" y="9" width="2.8" height="5" fill="#8a8a8a" />
+      <rect x="4.6" y="3" width="2.8" height="3" fill="#8a8a8a" />
+      <path d="M17 16.5c1.6 2 1.6 4.5 0 4.5s-1.6-2.5 0-4.5z" fill="#3aa0d8" />
+    </svg>
+  );
+}
+
+/** Coins for the Einkommensteuer: what leaves the table. */
+function CoinArt({ size }: { readonly size: string }): ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" className={size} aria-hidden>
+      {/* Drei Münzen mit Rand: übereinandergelegte Ellipsen ohne Kante
+          verschmelzen bei zwanzig Pixeln zu einem Klumpen. */}
+      {[18, 13, 8].map((y) => (
+        <g key={y}>
+          <rect x="3.5" y={y - 2.4} width="17" height="2.8" fill="#d9a52f" />
+          <ellipse
+            cx="12"
+            cy={y - 2.6}
+            rx="8.5"
+            ry="2.8"
+            fill="#f7d046"
+            stroke="#8a6d1b"
+            strokeWidth="0.9"
+          />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** The ring of the Zusatzsteuer, as the board draws the luxury. */
+function RingArt({ size }: { readonly size: string }): ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" className={size} aria-hidden>
+      <path d="M8.5 5.5h7l2.5 3-6 3-6-3z" fill="#7fd4f5" />
+      <path d="M9.5 8.5 12 11.5l2.5-3z" fill="#39a9d8" />
+      <circle
+        cx="12"
+        cy="16"
+        r="5.2"
+        fill="none"
+        stroke="#f2c14e"
+        strokeWidth="2.2"
+      />
+    </svg>
+  );
+}
+
+/** The red car parked in the corner. */
+function ParkingCar(): ReactElement {
+  return (
+    <svg viewBox="0 0 32 20" className="h-6 w-9" aria-hidden>
+      <path d="M4 13c0-2 1.5-3 3.5-3h17c2 0 3.5 1 3.5 3v2H4z" fill="#c0392b" />
+      <path d="M9 10 11.5 5.6h9L23 10z" fill="#c0392b" />
+      <path d="M11 9.4 12.8 6.4h6.4L21 9.4z" fill="#f3e7d8" />
+      <circle cx="10" cy="15.5" r="2.6" fill="#1c1c1c" />
+      <circle cx="22" cy="15.5" r="2.6" fill="#1c1c1c" />
+      <circle cx="10" cy="15.5" r="1" fill="#c9c9c9" />
+      <circle cx="22" cy="15.5" r="1" fill="#c9c9c9" />
+    </svg>
+  );
+}
+
+/**
+ * The tokens on the jail corner, each one where it belongs.
+ *
+ * @remarks
+ * Two things happen on this field and the board keeps them apart, so the
+ * tokens have to as well: whoever is serving their turns stands **in the
+ * cell**, on the barred window, and whoever merely rolled onto the corner
+ * stands **on the band outside**, next to "Nur zu Besuch". Everywhere else a
+ * field is a field and the tokens simply queue up in the middle.
+ *
+ * @param game - the game
+ * @param here - the seats standing on this corner
+ * @param mySeat - the seat the reader plays, or null
+ * @returns the two groups of tokens
+ */
+function JailPieces({
+  game,
+  here,
+  mySeat,
+}: {
+  readonly game: MonopolyGame;
+  readonly here: readonly number[];
+  readonly mySeat: number | null;
+}): ReactElement {
+  const inside = here.filter((seat) => game.players[seat].jailTurns !== null);
+  const outside = here.filter((seat) => game.players[seat].jailTurns === null);
+  return (
+    <>
+      {inside.length > 0 && (
+        <span className="absolute top-[40%] left-[64%] flex max-w-[46px] -translate-x-1/2 -translate-y-1/2 flex-wrap justify-center gap-px">
+          {inside.map((seat) => (
+            <Piece key={seat} game={game} seat={seat} mine={seat === mySeat} />
+          ))}
+        </span>
+      )}
+      {outside.length > 0 && (
+        <span className="absolute bottom-0.5 left-0.5 flex max-w-[34px] flex-wrap justify-start gap-px">
+          {outside.map((seat) => (
+            <Piece key={seat} game={game} seat={seat} mine={seat === mySeat} />
+          ))}
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
+ * The whole jail corner, drawn the way the board draws it.
+ *
+ * @remarks
+ * Not an icon in a field but the field itself: the orange square with the
+ * tilted barred window, "IM GEFÄNGNIS" around it, and the band along the two
+ * outer edges that says "NUR ZU BESUCH". The printed corner says two things at
+ * once - you are in the cell or you are walking past it - and only the layout
+ * tells them apart. So the layout is the picture.
+ *
+ * It fills the cell absolutely and the tokens sit on top; the field's own name
+ * is left off, because the drawing already carries it twice.
+ */
+function JailArt(): ReactElement {
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      className="absolute inset-0 h-full w-full"
+      aria-hidden
+    >
+      {/* Das orange Innenfeld, außen bleibt die Bande frei. */}
+      <rect x="24" y="0" width="76" height="76" fill="#f0932b" />
+      <rect
+        x="24"
+        y="0"
+        width="76"
+        height="76"
+        fill="none"
+        stroke="#1c1c1c"
+        strokeWidth="1.6"
+      />
+      <text
+        x="12"
+        y="40"
+        fill="#1c1c1c"
+        fontSize="11"
+        fontWeight="700"
+        textAnchor="middle"
+        transform="rotate(90 12 40)"
+      >
+        NUR
+      </text>
+      <text
+        x="62"
+        y="92"
+        fill="#1c1c1c"
+        fontSize="11"
+        fontWeight="700"
+        textAnchor="middle"
+      >
+        ZU BESUCH
+      </text>
+      {/* Die ganze Zelle steht quer: erst die Wörter, die das Gitter
+          einfassen - "GEFÄNGNIS" links unten, "IM" rechts oben, beide um
+          eine Achteldrehung gekippt. */}
+      <text
+        x="39"
+        y="58"
+        fill="#1c1c1c"
+        fontSize="7.4"
+        fontWeight="700"
+        textAnchor="middle"
+        transform="rotate(45 39 58)"
+      >
+        GEFÄNGNIS
+      </text>
+      <text
+        x="81"
+        y="21"
+        fill="#1c1c1c"
+        fontSize="10"
+        fontWeight="700"
+        textAnchor="middle"
+        transform="rotate(45 81 21)"
+      >
+        IM
+      </text>
+      {/* Der Gefangene liegt in derselben Achteldrehung wie die Wörter und
+          wird an den Fensterkanten beschnitten, damit nichts über den Rahmen
+          läuft. */}
+      <defs>
+        <clipPath id="mo-jail-cell">
+          <rect
+            x="48"
+            y="24"
+            width="32"
+            height="32"
+            transform="rotate(45 64 40)"
+          />
+        </clipPath>
+      </defs>
+      <rect
+        x="48"
+        y="24"
+        width="32"
+        height="32"
+        fill="#f7f3e8"
+        transform="rotate(45 64 40)"
+      />
+      <g clipPath="url(#mo-jail-cell)" transform="rotate(45 64 40)">
+        <path
+          d="M58.4 36.4c0-3.6 2.6-5.8 5.6-5.8s5.6 2.2 5.6 5.8z"
+          fill="#1c1c1c"
+        />
+        <circle cx="64" cy="38.8" r="6" fill="#e8b98a" />
+        <rect
+          x="60.4"
+          y="40.2"
+          width="7.2"
+          height="1.6"
+          rx="0.8"
+          fill="#1c1c1c"
+        />
+        <path
+          d="M56.5 52c0-4 3.4-6.6 7.5-6.6s7.5 2.6 7.5 6.6z"
+          fill="#2b4f8a"
+        />
+      </g>
+      <g transform="rotate(45 64 40)">
+        {[55, 64, 73].map((x) => (
+          <rect key={x} x={x} y="24" width="2.2" height="32" fill="#1c1c1c" />
+        ))}
+        <rect
+          x="48"
+          y="24"
+          width="32"
+          height="32"
+          fill="none"
+          stroke="#1c1c1c"
+          strokeWidth="2.8"
+        />
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * The policeman who sends you off: cap, whistle, and an arm that means it.
+ */
+function PoliceArt(): ReactElement {
+  return (
+    <svg viewBox="0 0 32 24" className="h-8 w-10" aria-hidden>
+      {/* Mütze und Schirm, dann das Gesicht darunter, dann Schultern - in
+          dieser Reihenfolge, sonst verdeckt das eine das andere. */}
+      <path d="M5.6 8c0-3.3 2.4-5.4 5.4-5.4s5.4 2.1 5.4 5.4z" fill="#1f3a68" />
+      <rect x="10.2" y="3.6" width="1.7" height="2.6" fill="#f2c14e" />
+      <rect x="4.4" y="7.7" width="13.2" height="2" rx="1" fill="#12264a" />
+      <circle cx="11" cy="12.6" r="3.6" fill="#e8b98a" />
+      <path d="M4.5 24c0-4.7 2.9-7.2 6.5-7.2s6.5 2.5 6.5 7.2z" fill="#2b4f8a" />
+      <circle cx="7.8" cy="21" r="1" fill="#f2c14e" />
+      {/* Der ausgestreckte Arm samt Richtung. */}
+      <path
+        d="M15.5 18.6 24 15.4"
+        stroke="#e8b98a"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+      />
+      <circle cx="25" cy="15" r="1.9" fill="#e8b98a" />
+      <path d="M27.2 12.6 31 15l-3.8 2.4z" fill="#c0392b" />
+    </svg>
+  );
+}
+
+/**
+ * The red arrow on LOS, pointing the way the tokens travel.
+ *
+ * @remarks
+ * Leftwards, because that is where field 1 is: the numbers run left along the
+ * bottom of this board - see {@link cellOf}. An arrow pointing the other way
+ * would be a drawing that lies.
+ */
+function GoArrow(): ReactElement {
+  return (
+    <svg viewBox="0 0 40 20" className="h-4 w-9" aria-hidden>
+      <path d="M2 10 14 1v6h24v6H14v6z" fill="#c0392b" />
     </svg>
   );
 }

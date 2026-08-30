@@ -177,6 +177,84 @@ wurde. Der Effekt, der das Spiel anlegt, liest die Einstellungen jetzt selbst
 aus dem Speicher. Ausgerechnet der Fall ohne gespeicherte Partie ist der, in dem
 die Einstellungen zählen.
 
+## Jedes Feld trägt sein Bild
+
+Der Spielplan erkennt man nicht am Lesen, sondern am Hinsehen: Wer Monopoly
+kennt, findet den Bahnhof an der Lok und das Ereignisfeld am Fragezeichen. Also
+trägt jetzt jedes Feld, das auf dem gedruckten Plan ein Bild hat, auch hier
+eines:
+
+| Feld              | Bild                                 |
+| ----------------- | ------------------------------------ |
+| LOS               | roter Richtungspfeil                 |
+| Gefängnis         | das ganze Eckfeld, nach dem Original |
+| Frei Parken       | rotes Auto                           |
+| Ins Gefängnis     | Polizist, der die Richtung weist     |
+| Bahnhöfe          | Dampflok                             |
+| Ereignisfeld      | Fragezeichen in Orange               |
+| Gemeinschaftsfeld | blaue Truhe                          |
+| Elektrizitätswerk | Glühbirne                            |
+| Wasserwerk        | Wasserhahn mit Tropfen               |
+| Einkommensteuer   | Münzstapel                           |
+| Zusatzsteuer      | Brillantring                         |
+
+Straßen bekommen keines - das ist die Antwort des gedruckten Bretts selbst:
+Ihr Farbbalken sagt schon alles, was eine Straße zu sagen hat.
+
+Alles als SVG im Bauteil, wie Haus und Hotel es schon waren: zehn Zeilen pro
+Bild, keine Datei, kein Ladevorgang, keine zweite Fassung für den dunklen
+Modus. In den Ecken 32 Pixel, an den Seiten 20 - für jedes der vierzig Felder
+nachgemessen, dass mit vier Figuren und Hotels darauf nichts überläuft.
+
+Zwei Bilder brauchten einen zweiten Anlauf, und beide aus demselben Grund -
+was bei 200 Pixeln stimmt, ist bei zwanzig ein Fleck. Der Münzstapel war ohne
+Kanten ein Klumpen und hat jetzt drei sichtbare Ränder; die Lok stand
+verkehrt herum, Schornstein über dem Führerhaus statt über dem Kessel.
+
+## Das Gefängnis ist kein Bild im Feld, sondern das Feld
+
+Diese Ecke sagt zwei Dinge gleichzeitig - du sitzt drin, oder du gehst daran
+vorbei -, und nur die Anordnung hält sie auseinander. Also ist hier die
+Anordnung das Bild: das orange Innenfeld mit schwarzem Rahmen, darin das schräg
+liegende Gitterfenster mit dem Gefangenen, „IM" schräg rechts oben und
+„GEFÄNGNIS" schräg links unten, und außen an den beiden Rändern zum
+Spielfeldrand hin die Bande „NUR" und „ZU BESUCH".
+
+Die Zelle steht auf der Ecke: ein Quadrat mit gleichen Seiten, um eine
+Achteldrehung gekippt, sodass es als Raute im orangen Feld liegt - und
+Gefangener wie Schrift sind um dasselbe Maß gekippt, damit die Ecke aus einem
+Guss ist. Übereinander liegen drei Lagen: Fensterfläche,
+Figur, dann Stäbe und Rahmen darüber. Erst diese Reihenfolge macht aus einem
+Mann vor einem Gitter einen hinter Gittern, und eine Maske hält ihn innerhalb
+des Fensters.
+
+Deshalb ist es das einzige Feld ohne Textzeile darüber: Der Name steht zweimal
+in der Zeichnung selbst. Die Figuren liegen darüber - `absolute` malt sonst
+über alles, was danach kommt, also ist die Figurenzeile jetzt `relative`.
+
+Und weil die Ecke zwei Dinge sagt, stehen die Figuren auch an zwei Orten: Wer
+seine Züge absitzt, steht **in der Zelle** auf dem Gitterfenster; wer nur
+daraufgewürfelt hat, steht **draußen auf der Bande** in der Ecke neben „Zu
+Besuch". Das Spiel weiß das ohnehin - `jailTurns` ist für Besucher `null` -,
+und es hier nicht zu zeigen hieße, eine Information wegzuwerfen, die auf dem
+gedruckten Brett jeder sieht.
+
+## Die Ecken sehen aus wie die Ecken
+
+Drei der vier Ecken tragen jetzt ihr Bild vom gedruckten Brett: das
+**Gefängnis** (siehe unten), der
+**Polizist**, der einen ins Gefängnis weist, und der **rote Pfeil** auf LOS.
+
+Gezeichnet als SVG im Bauteil selbst, wie Haus und Hotel es schon sind - ein
+Bild aus zehn Zeilen braucht keine Datei, keinen Ladevorgang und kein zweites
+Bild für den dunklen Modus. Der Pfeil zeigt nach links, weil dort Feld 1 liegt:
+Die Zahlen laufen unten nach links (siehe `cellOf`), und ein Pfeil, der in die
+andere Richtung zeigt, wäre eine Zeichnung, die lügt.
+
+Beim Polizisten steckte die ganze Arbeit in der Reihenfolge: Mütze, dann
+Gesicht, dann Schultern, und der Arm geht von der Schulter weg. Vorher lag er
+quer über dem Gesicht, und aus zwei Metern war die Ecke ein blauer Fleck.
+
 ## Eine Regel, ein Ort
 
 Beim Durchsehen des Moduls war die Halbpreis-Regel viermal aufgeschrieben:
