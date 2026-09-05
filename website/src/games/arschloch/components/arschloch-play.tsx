@@ -106,6 +106,21 @@ export function PlayArea({
     setPicked([]);
   };
 
+  // Eine Auswahl gehört zu genau einer Lage. Ändert sich die - der Stapel, die
+  // Phase, wer dran ist, oder die eigene Hand -, ist sie hinfällig: Wer eine
+  // Karte gewählt hatte, die inzwischen weg ist (weggespielt, oder vom
+  // Präsidenten weggewünscht), konnte sonst nichts mehr legen. Der Knopf blieb
+  // grau, egal was man anklickte, und das Spiel sah kaputt aus.
+  // Was davon wirklich auf dem Tisch liegen kann: eine Auswahl, die auf Karten
+  // zeigt, die niemand mehr hält, ist keine.
+  const held = picked.filter((id) => hand.some((card) => card.id === id));
+  const now = situation(game, seat);
+  const [was, setWas] = useState(now);
+  if (was !== now) {
+    setWas(now);
+    setPicked([]);
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <Seats game={game} mySeat={seat} />
@@ -121,8 +136,8 @@ export function PlayArea({
       {(mine || step !== null) && (
         <Hand
           cards={hand}
-          picked={picked}
-          dimmed={dimmedIds(game, seat, onTurn, step, picked)}
+          picked={held}
+          dimmed={dimmedIds(game, seat, onTurn, step, held)}
           onPick={pick}
         />
       )}
@@ -130,8 +145,8 @@ export function PlayArea({
         {step !== null ? (
           <button
             type="button"
-            onClick={() => send({ kind: step.kind, cards: picked })}
-            disabled={picked.length !== wanted}
+            onClick={() => send({ kind: step.kind, cards: held })}
+            disabled={held.length !== wanted}
             data-testid={`ar-${step.kind}`}
             className={STRONG}
           >
@@ -141,12 +156,12 @@ export function PlayArea({
           <>
             <button
               type="button"
-              onClick={() => send({ kind: "play", cards: picked })}
-              disabled={!onTurn || !canPlay(game, seat, picked)}
+              onClick={() => send({ kind: "play", cards: held })}
+              disabled={!onTurn || !canPlay(game, seat, held)}
               data-testid="ar-play"
               className={STRONG}
             >
-              {picked.length === 0 ? T.play : T.playCount(picked.length)}
+              {held.length === 0 ? T.play : T.playCount(held.length)}
             </button>
             <button
               type="button"
@@ -265,6 +280,30 @@ function dimmedIds(
     );
   }
   return new Set(dimmed.map((card) => card.id));
+}
+
+/**
+ * What makes one situation different from the next.
+ *
+ * @param game - the game
+ * @param seat - the seat the reader plays
+ * @returns a key that changes whenever a selection would be stale
+ * @remarks
+ * The pile, the phase, whose turn it is, which step is open and how many cards
+ * this seat holds. Anything that changes one of those changes what a chosen
+ * card would mean - so the choice is dropped and made again.
+ */
+function situation(game: ArschlochGame, seat: number): string {
+  const owed = game.owed[0];
+  const hand = game.players[seat]?.hand ?? [];
+  return [
+    game.phase,
+    game.round,
+    game.active,
+    game.pile.map((card) => card.id).join("+"),
+    owed === undefined ? "" : `${owed.kind}${owed.from}${owed.to}${owed.count}`,
+    hand.length,
+  ].join("|");
 }
 
 /** The rank of what is picked, if anything is. */

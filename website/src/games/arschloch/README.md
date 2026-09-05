@@ -113,6 +113,27 @@ Wer **ausspielt**, tippt wieder einzeln - dort ist die Anzahl ja gerade die
 Entscheidung. Und beim Zurückgeben nach dem Kartentausch wird gar nichts
 ausgegraut: Da darf alles zurück, und es muss nicht zusammenpassen.
 
+## Eine Auswahl gehört zu einer Lage
+
+Der Bildschirm hielt fest, was man angeklickt hatte - auch dann noch, wenn die
+Lage längst eine andere war. Wer eine Karte gewählt hatte und sie danach
+verlor, weil der Präsident sie sich wünschte oder weil sie schon gespielt war,
+klickte ins Leere: Der Legen-Knopf blieb grau, gleich was man noch anfasste,
+und das Spiel sah kaputt aus.
+
+Zwei Sicherungen, nicht eine:
+
+1. **Die Auswahl fällt mit der Lage.** `situation` fasst zusammen, was eine
+   Wahl bedeutet - Stapel, Phase, wer dran ist, welcher Schritt offen ist, wie
+   viele Karten man hält. Ändert sich davon etwas, ist die Auswahl leer.
+2. **Gewählt ist nur, was man hält.** Was auf eine Karte zeigt, die nicht mehr
+   da ist, zählt gar nicht erst mit.
+
+Gefunden hat das nicht der Motor, sondern eine Partie, die vollständig über den
+Bildschirm gespielt wurde - Klick für Klick, bis der Sieger feststand. Der
+Schiedsrichter war die ganze Zeit in Ordnung: Er lässt einen Ausspieler nie
+ohne spielbare Karte dastehen, und das ist in 40 Partien nachgezählt.
+
 ## Punkte statt Titel-Tabelle
 
 Pro Runde gibt es einen Punkt für jede Person, die man hinter sich lässt. Das
