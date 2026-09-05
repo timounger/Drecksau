@@ -3,19 +3,26 @@
  *
  * @module
  * @remarks
- * "Die Kartenanzahl muss ein Vielfaches der Spieleranzahl sein" - a Skat pack
- * divides evenly among four and among nobody else at this table, so for three,
- * five and six the two weakest cards stay in the box. Which two is written
- * down rather than picked at random: a player who counts the Siebenen should
- * find the same two missing every time.
+ * The whole pack is dealt, all thirty-two of it. Only at four does it divide
+ * evenly; everywhere else there are cards over, and they go to **the middle
+ * seat** - the Buerger, the one the round before put in the middle - who then
+ * puts as many away again before play starts. Two cards looked at and the two
+ * worst gone: a small consolation for the seat that won nothing and lost
+ * nothing.
  */
-import { DECK_SIZE, createDeck, sortHand, type Card } from "./cards";
+import { createDeck, sortHand, type Card } from "./cards";
 import { createRandom, randomInt } from "./random";
 import {
   MIN_PLAYERS,
+  givesTo,
+  owesCards,
+  seatWith,
   titleFor,
+  wishableIds,
   type ArschlochGame,
   type ArschlochPlayer,
+  type Handover,
+  type Title,
 } from "./state";
 
 /** A seat as the table hands it in. */
@@ -24,20 +31,33 @@ export type ArschlochSeat = {
   readonly isBot: boolean;
 };
 
-/** The cards that stay in the box when the pack does not divide evenly. */
-const SET_ASIDE: readonly string[] = ["karo-sieben", "herz-sieben"];
+/**
+ * The pack a round is dealt from.
+ *
+ * @returns all thirty-two cards
+ * @remarks
+ * Kept as a function because the referee counts against it - see `beatable` -
+ * and because it once returned something smaller. What is dealt unevenly is
+ * dealt anyway: {@link dealRound} hands the leftovers to the middle seat.
+ */
+export function packFor(): readonly Card[] {
+  return createDeck();
+}
 
 /**
- * The pack this many players are dealt from.
+ * The seat that is dealt the leftovers of an uneven pack.
  *
- * @param seats - how many are playing
- * @returns the cards in play, all thirty-two or the thirty that divide
+ * @param players - the seats, with the titles of the round before
+ * @returns the middle seat
+ * @remarks
+ * The Buerger, and if the table has two of them the first. In the very first
+ * round nobody holds a title yet, and then the middle chair does: it is a seat
+ * everybody can point at, which is what "the middle player" means before there
+ * is a ranking.
  */
-export function packFor(seats: number): readonly Card[] {
-  const full = createDeck();
-  return DECK_SIZE % seats === 0
-    ? full
-    : full.filter((card) => !SET_ASIDE.includes(card.id));
+export function middleSeat(players: readonly ArschlochPlayer[]): number {
+  const buerger = players.findIndex((player) => player.title === "buerger");
+  return buerger >= 0 ? buerger : Math.floor(players.length / 2);
 }
 
 /**
@@ -54,15 +74,21 @@ export function packFor(seats: number): readonly Card[] {
  */
 export function dealRound(game: ArschlochGame): ArschlochGame {
   const random = createRandom(game.rng);
-  const pack = [...packFor(game.players.length)];
+  const pack = [...packFor()];
   for (let at = pack.length - 1; at > 0; at -= 1) {
     const other = randomInt(random, at + 1);
     [pack[at], pack[other]] = [pack[other], pack[at]];
   }
-  const each = pack.length / game.players.length;
+  const each = Math.floor(pack.length / game.players.length);
+  const over = pack.length - each * game.players.length;
+  const middle = middleSeat(game.players);
   const players = game.players.map((player, seat) => ({
     ...player,
-    hand: sortHand(pack.slice(seat * each, seat * each + each)),
+    hand: sortHand([
+      ...pack.slice(seat * each, seat * each + each),
+      // The cards that do not divide, all to one seat.
+      ...(seat === middle ? pack.slice(pack.length - over) : []),
+    ]),
     passed: false,
   }));
   const arsch = players.findIndex((player) => player.title === "arschloch");
@@ -71,6 +97,7 @@ export function dealRound(game: ArschlochGame): ArschlochGame {
     players,
     active: arsch >= 0 ? arsch : startsFirstRound(players),
     pile: [],
+    seen: [],
     lead: null,
     out: [],
     owed: [],
@@ -78,7 +105,9 @@ export function dealRound(game: ArschlochGame): ArschlochGame {
     log: [
       ...game.log,
       `Runde ${game.round}: je ${each} Karten${
-        pack.length === DECK_SIZE ? "" : " (zwei Siebenen bleiben im Karton)"
+        over === 0
+          ? ""
+          : ` (${players[middle].name} bekommt ${over} übrige und legt ${over} ab)`
       }.`,
     ],
   };
@@ -138,6 +167,7 @@ export function createGame(
     players,
     active: 0,
     pile: [],
+    seen: [],
     lead: null,
     out: [],
     round: 1,
@@ -148,7 +178,71 @@ export function createGame(
     seed,
     log: [],
   };
-  return dealRound(empty);
+  return openRound(empty);
+}
+
+/** The titles that owe cards, worst first. */
+const LOW_TITLES: readonly Title[] = ["arschloch", "vizearsch"];
+
+/**
+ * Works out what has to happen before the cards are played.
+ *
+ * @param game - a freshly dealt round
+ * @returns the game waiting for the first of those steps, or playing at once
+ * @remarks
+ * Three kinds of step, in the order a table would do them: the middle seat puts
+ * the leftovers of the deal away, then the Praesident wishes two cards out of
+ * the loser hand and hands two back, then the Vizepraesident does the same with
+ * one. The first round has no titles yet, so there only the leftovers happen.
+ */
+export function openRound(before: ArschlochGame): ArschlochGame {
+  const game = dealRound(before);
+  const owed: Handover[] = [...dropStep(game)];
+  for (const title of LOW_TITLES) {
+    owed.push(...wishSteps(game, title));
+  }
+  return { ...game, owed, phase: owed.length > 0 ? "passing" : "playing" };
+}
+
+/** The leftovers of an uneven deal, if there are any. */
+function dropStep(game: ArschlochGame): readonly Handover[] {
+  const seats = game.players.length;
+  const each = Math.floor(packFor().length / seats);
+  const middle = game.players.findIndex((player) => player.hand.length > each);
+  return middle < 0
+    ? []
+    : [
+        {
+          kind: "drop",
+          from: middle,
+          to: middle,
+          count: game.players[middle].hand.length - each,
+        },
+      ];
+}
+
+/**
+ * The wish and the handover one title owes the other.
+ *
+ * @remarks
+ * Nothing is owed when the loser holds nothing that may be wished for - three
+ * of a rank are safe, and a hand that is nothing but such sets cannot be asked
+ * for anything. The handover falls away with it: what goes back is the price of
+ * what came, and nothing came.
+ */
+function wishSteps(game: ArschlochGame, title: Title): readonly Handover[] {
+  const loser = seatWith(game, title);
+  const winnerTitle = givesTo(title);
+  const winner = winnerTitle === null ? null : seatWith(game, winnerTitle);
+  const wanted = owesCards(title);
+  const may = loser === null ? 0 : wishableIds(game, loser).length;
+  const count = Math.min(wanted, may);
+  return loser === null || winner === null || count === 0
+    ? []
+    : [
+        { kind: "wish", from: winner, to: loser, count },
+        { kind: "give", from: winner, to: loser, count },
+      ];
 }
 
 /**

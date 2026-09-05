@@ -17,10 +17,9 @@ zwei Karten weniger, die etwas taugen.
 
 ## Material
 
-| Teil        | Anzahl                                    |
-| ----------- | ----------------------------------------- |
-| Skatblatt   | 32 Karten, vier Farben zu je acht Werten  |
-| Aus dem Spiel bei 3, 5 und 6 Spielern | Karo 7 und Herz 7 |
+| Teil      | Anzahl                                   |
+| --------- | ---------------------------------------- |
+| Skatblatt | 32 Karten, vier Farben zu je acht Werten |
 
 ## Rangfolge
 
@@ -35,10 +34,11 @@ Die Farbe entscheidet nie etwas.
 
 ## Austeilen
 
-Alle Karten werden gleichmäßig verteilt: zu viert acht Karten je Person. Weil
-„die Kartenanzahl ein Vielfaches der Spieleranzahl sein muss", bleiben zu dritt,
-zu fünft und zu sechst zwei Siebenen im Karton - dann sind es 30 Karten und
-damit 10, 6 beziehungsweise 5 je Person.
+Verteilt wird das ganze Blatt. Zu viert sind das acht Karten je Person; sonst
+geht es nicht auf, und **die übrigen Karten bekommt der mittlere Spieler** - der
+Bürger der Runde davor, in der ersten Runde der mittlere Stuhl. Er legt vor dem
+ersten Stich genauso viele Karten verdeckt ab, sodass alle gleich viele halten.
+Die abgelegten Karten sind für diese Runde aus dem Spiel.
 
 Die erste Runde eröffnet, wer die schwächste Karte im Spiel hält. Jede weitere
 Runde eröffnet das Arschloch.
@@ -78,11 +78,15 @@ weiter.
 
 Vor jeder weiteren Runde:
 
-- Das **Arschloch** gibt seine **zwei besten** Karten an den Präsidenten.
-- Das **Vizearschloch** gibt seine **beste** an den Vizepräsidenten.
+- Der **Präsident** wünscht sich **zwei Karten** aus der Hand des Arschlochs.
+- Der **Vizepräsident** wünscht sich **eine** aus der des Vizearschlochs.
+- Dafür wird die Hand des Verlierers gezeigt - nur dem, der wünscht.
+- **Geschützt** ist jede Sorte, von der der Verlierer **drei oder mehr** hält:
+  Einen Drilling muss er nicht hergeben. Bleibt danach nichts übrig, fällt der
+  Tausch aus.
 - Zurück kommen genauso viele Karten - **frei gewählt** von Präsident und Vize.
 
-Abgeben muss man also das Beste, zurückgeben darf man das Schlechteste.
+Wünschen darf man sich also das Beste, zurückgeben das Schlechteste.
 
 ## Punkte und Spielende
 
@@ -93,10 +97,18 @@ Vizearschloch, keinen für das Arschloch.
 Gespielt werden 3, 5, 7 oder 10 Runden (einstellbar, voreingestellt 5). Danach
 gewinnt, wer die meisten Punkte hat; bei Gleichstand gewinnen mehrere.
 
-## Was hier nicht umgesetzt ist
+## Was diese Umsetzung anders macht
 
-Der Artikel erwähnt eine Reihe verbreiteter Zusatzregeln, die hier bewusst
-fehlen, weil jede das Grundspiel deutlich verändert:
+Kein Teil der Regeln, sondern eine Bequemlichkeit dieser Fassung: **Wer
+nachweislich nicht antworten kann, wird übersprungen** statt gefragt.
+Nachweislich heißt aus den gespielten Karten ableitbar, also für alle am Tisch
+nachzählbar - wer weniger Karten hält, als der Stapel verlangt, und ein Stapel,
+den nach den gespielten Karten niemand mehr überbieten kann. In die Hände sieht
+das Spiel dabei nicht: Ein Pass soll offenlassen, ob jemand nicht konnte oder
+nicht wollte. Warum eine Runde ausfiel, steht im Spielverlauf.
+
+Der Artikel erwähnt außerdem eine Reihe verbreiteter Zusatzregeln, die hier
+bewusst fehlen, weil jede das Grundspiel deutlich verändert:
 
 - **Bomben** (ein Vierling schlägt alles)
 - **Revolution** (die Rangfolge dreht sich um)

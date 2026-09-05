@@ -21,26 +21,40 @@ etwas, was man einer Karte ansieht.
 Die Farbe entscheidet nie etwas. Sie steht auf der Karte, damit man zwei Damen
 auseinanderhalten kann - mehr nicht.
 
-## Zwei Siebenen bleiben im Karton
+## Die übrigen Karten gehen in die Mitte
 
-„Die Kartenanzahl muss ein Vielfaches der Spieleranzahl sein." 32 geht durch 4,
-sonst durch keine Tischgröße dieses Spiels. Zu dritt, zu fünft und zu sechst
-bleiben deshalb **Karo 7 und Herz 7** liegen, und 30 Karten gehen durch 3, 5 und
-6 auf.
+Verteilt wird das ganze Blatt. Nur zu viert geht es auf; sonst bleiben Karten
+übrig, und die bekommt **der mittlere Spieler** - der Bürger der Runde davor -
+auf die Hand. Vor dem ersten Stich legt er genauso viele wieder verdeckt ab.
 
-Welche zwei, ist aufgeschrieben (`SET_ASIDE`) und nicht ausgewürfelt: Wer die
-Siebenen zählt, soll jedes Mal dieselben zwei vermissen.
+Das ist ein kleiner Trost für den Platz, der weder gewonnen noch verloren hat:
+zwei Karten mehr gesehen, die zwei schlechtesten los. In der ersten Runde gibt
+es noch keine Titel, dann bekommt sie der mittlere Stuhl (`middleSeat`) - ein
+Platz, auf den jeder zeigen kann, solange es keine Rangfolge gibt.
 
-## Der Kartentausch ist zwei Sachen, nicht eine
+Die abgelegten Karten sind aus der Runde raus und bleiben verdeckt. Für
+`beatable` heißt das: Sie zählen als ungesehen, und die Rechnung bleibt damit
+vorsichtig - sie sagt eher „könnte noch überboten werden" als umgekehrt.
 
-Das Abgeben ist keine Entscheidung: Das Arschloch gibt seine **zwei besten**
-Karten ab, das Vizearschloch seine beste. Das erledigt der Schiedsrichter selbst,
-sobald ausgeteilt ist.
+## Der Kartentausch: wünschen statt abliefern
 
-Das Zurückgeben ist eine Entscheidung, also ein Zug: Präsident und Vize suchen
-aus, was zurückwandert - und suchen sich naturgemäß den Müll aus. Genau darin
-liegt die Härte des Spiels, und genau deshalb sind es im Code zwei getrennte
-Schritte (`takeTribute` und der Zug `give`).
+Der Präsident **wünscht sich** zwei Karten aus der Hand des Arschlochs, der Vize
+eine aus der des Vizearschlochs - und bekommt diese Hand dafür gezeigt. Beide
+geben danach genauso viele Karten zurück, ihrer Wahl.
+
+Geschützt ist, was **dreimal oder öfter** da ist (`PROTECTED_COUNT`,
+`wishableIds`). Ein Drilling ist in diesem Spiel keine Sammlung gleicher Karten,
+sondern eine Waffe: Er zwingt den ganzen Tisch, zu dritt zu antworten. Eine
+davon herauszunehmen würde nicht eine Karte kosten, sondern den Drilling.
+
+Hat der Verlierer nichts Ungeschütztes, fällt der Tausch ganz aus - und mit ihm
+die Rückgabe: Was zurückgeht, ist der Preis für das Gewünschte, und es kam
+nichts.
+
+Im Code sind das drei Schritte einer Liste (`owed`), die der Reihe nach
+abgearbeitet wird: `drop`, dann je `wish` und `give`. Wer dran ist, steht in
+`from` - beim Wunsch ist das der Gewinner, und `to` ist die Hand, aus der
+gewählt wird.
 
 ## Der Stich, der niemandem gehörte
 
@@ -57,6 +71,48 @@ Partie stand.
 Jetzt werden erst die Pässe gelöscht und dann der Ausspieler gesucht: Wer noch
 mitspielt, ist eine Frage an den **neuen** Stich, nicht an den alten.
 
+## Gefragt wird nur, wer antworten könnte
+
+Zwei Fälle, in denen die Frage „legen oder passen?" keine Frage ist - und beide
+lassen sich **allein aus den gespielten Karten** ableiten:
+
+1. **Zu wenige Karten.** Auf ein Paar kann niemand antworten, der eine einzelne
+   Karte hält. Wie viele Karten jemand hält, steht ohnehin an seinem Platz.
+2. **Unschlagbarer Stapel.** Vier Damen gibt es im Blatt; sind drei gespielt,
+   existiert kein Damenpaar mehr. `beatable` zählt dafür die gesehenen Karten
+   gegen das Blatt dieser Tischgröße - und schließt den Stich sofort.
+
+Was der Schiedsrichter dabei **nicht** tut, ist in die Hände zu sehen. Er würde
+sonst jemanden aus einem Grund überspringen, den die anderen nicht nachprüfen
+können, und das Passen ist eine Information, die dem Tisch zusteht: Ob jemand
+nicht kann oder nicht will, unterscheidet ein Pass gerade nicht.
+
+Deshalb liegen die gespielten Karten als `seen` im Zustand - öffentlich, wie sie
+in der Mitte lagen, als sie gespielt wurden. In 60 Selbstspiel-Partien sparte
+das 329 Übersprungene und 601 vorzeitig geschlossene Stiche, bei 5945 echten
+Fragen.
+
+## Die Hand ist die Bedienung
+
+Zwei Regeln stecken darin, und beide zeigt die Hand, statt sie zu erklären:
+
+**Ausgegraut ist, was nicht geht** - und zwar aus beiden Gründen. Nicht nur die
+zu niedrigen Karten, sondern auch die zu hohen, von denen zu wenige da sind:
+Gegen ein Paar ist ein einzelner König so unspielbar wie eine Sieben. Das macht
+`playableIds`, und es prüft beides, weil ein Bildschirm, der nur die niedrigen
+Karten grau macht, die halbe Regel erzählt.
+
+**Angetippt wird die Gruppe, nicht die Karte.** Liegt ein Paar, wählt ein Tipp
+auf eine Dame beide Damen; ein zweiter Tipp legt sie wieder zurück. Einzeln
+wählen ginge sowieso nicht - die Anzahl gibt der Tisch vor. Welche zwei von drei
+Assen mitkommen, ist keine Entscheidung (die Farbe schlägt nie etwas), also
+nimmt das Spiel ein Fenster benachbarter Karten: Was sich hebt, liegt
+nebeneinander.
+
+Wer **ausspielt**, tippt wieder einzeln - dort ist die Anzahl ja gerade die
+Entscheidung. Und beim Zurückgeben nach dem Kartentausch wird gar nichts
+ausgegraut: Da darf alles zurück, und es muss nicht zusammenpassen.
+
 ## Punkte statt Titel-Tabelle
 
 Pro Runde gibt es einen Punkt für jede Person, die man hinter sich lässt. Das
@@ -71,6 +127,13 @@ fremde Karte durch eine Platzhalterkarte (`FACE_DOWN`), deren Id `"verdeckt"`
 heißt - so bleibt die **Anzahl** sichtbar, und das ist die eine Zahl, auf die
 am Tisch alle schauen. Einen Nachziehstapel gibt es nicht, also bleibt der
 Wirts-Tresor leer.
+
+Eine Ausnahme gibt es doch: **Beim Wünschen sieht der Gewinner die Hand des
+Verlierers** - und nur er. Diese Karten reisen auf seinem privaten Kanal mit
+(`shown`), solange der Schritt offen ist, und werden danach nicht mehr
+geschickt. Nachgemessen: Der Wünschende sieht zwei Hände offen, alle anderen nur
+ihre eigene, und im öffentlichen Schnappschuss steht auch beim Verlierer nur
+`verdeckt`.
 
 Der Zug „Nächste Runde" ist der einzige, der keinem Sitz gehört: Die Runde ist
 vorbei, niemand ist im Wortsinn am Zug, und wer zuerst nach den Karten greift,
@@ -94,3 +157,8 @@ darf geben.
 80 Partien, von drei bis sechs Spielern, alle beendet: 151 bis 267 Züge je
 Partie. Keine Karte doppelt, keine Karte verschwunden, kein Stapel mit
 gemischten Werten, jede Runde mit vollständigen Titeln - und danach ein Sieger.
+
+Nach dem Umbau auf Ablegen und Wünschen noch einmal 48 Partien: alle beendet,
+kein abgelehnter Zug, und **kein einziger Wunsch auf eine geschützte Karte**.
+Zu viert gab es keine Ablage (das Blatt geht auf), an allen anderen Tischen eine
+pro Runde.

@@ -23,9 +23,7 @@ export const ARSCHLOCH_TEXTS = {
   tagline: "Karten loswerden - der Letzte ist es.",
   newGame: "Neues Spiel",
   online: "Online spielen",
-  settings: "Einstellungen",
-  stats: "Statistik",
-  back: "Zurück zur Spielesammlung",
+  settingsTitle: "Arschloch - Einstellungen",
 
   yourTurn: "Du bist dran",
   waitingFor: (name: string): string => `${name} ist dran`,
@@ -43,6 +41,17 @@ export const ARSCHLOCH_TEXTS = {
   cards: (count: number): string =>
     count === 1 ? "1 Karte" : `${count} Karten`,
 
+  dropHint: (count: number): string =>
+    count === 1
+      ? "Du hast eine Karte zu viel bekommen - lege eine ab."
+      : `Du hast ${count} Karten zu viel bekommen - lege ${count} ab.`,
+  dropButton: "Ablegen",
+  wishHint: (count: number, name: string): string =>
+    count === 1
+      ? `Wünsch dir eine Karte aus der Hand von ${name}.`
+      : `Wünsch dir ${count} Karten aus der Hand von ${name}.`,
+  wishProtected: "Was dreimal oder öfter da ist, bleibt beim Besitzer.",
+  wishButton: "Wünschen",
   giveTitle: "Kartentausch",
   giveHint: (count: number, name: string): string =>
     count === 1
@@ -63,7 +72,7 @@ export const ARSCHLOCH_TEXTS = {
 
   players: "Spieler",
   playersHint:
-    "Zu dritt, zu fünft und zu sechst bleiben zwei Siebenen im Karton - sonst ginge das Blatt nicht auf.",
+    "Alle 32 Karten werden verteilt. Geht das Blatt nicht auf, bekommt der mittlere Spieler die übrigen Karten und legt genauso viele wieder ab.",
   roundsLabel: "Runden",
   roundsHint:
     "So viele Runden werden gespielt, danach gewinnt, wer die meisten Punkte hat. Pro Runde gibt es einen Punkt für jeden, den man hinter sich lässt.",

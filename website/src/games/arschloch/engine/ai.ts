@@ -12,7 +12,12 @@
  */
 import { sortHand, strengthOf, type Card, type Rank } from "./cards";
 import { canPass, canPlay, seatOnTurn } from "./moves";
-import { isOut, type ArschlochGame, type ArschlochMove } from "./state";
+import {
+  isOut,
+  wishableIds,
+  type ArschlochGame,
+  type ArschlochMove,
+} from "./state";
 
 /** How long the computer appears to think, in milliseconds. */
 const THINK_MS = 700;
@@ -45,7 +50,7 @@ export function aiMove(
   if (seatOnTurn(game) === seat) {
     switch (game.phase) {
       case "passing":
-        move = { kind: "give", cards: worstCards(game, seat) };
+        move = beforeRound(game, seat);
         break;
       case "roundOver":
         move = { kind: "next" };
@@ -61,18 +66,62 @@ export function aiMove(
 }
 
 /**
- * The cards a title hands back down.
+ * The three things that happen before a round is played.
  *
  * @remarks
- * The weakest it holds, which is what the exchange is for: "Spieler niedriger
- * Raenge geben ihre hoechsten Karten an hoehere Raenge ab und erhalten dafuer
- * niedrigere Karten zurueck." Giving anything better away would be a present.
+ * All three are the same decision seen from different sides: keep the good
+ * cards. Dropped and handed back go the weakest, wished for the strongest the
+ * other hand still has to offer.
  */
-function worstCards(game: ArschlochGame, seat: number): readonly string[] {
+function beforeRound(game: ArschlochGame, seat: number): ArschlochMove {
   const owed = game.owed[0];
   const count = owed === undefined ? 0 : owed.count;
+  let move: ArschlochMove;
+  if (owed === undefined) {
+    move = { kind: "pass" };
+  } else if (owed.kind === "wish") {
+    move = { kind: "wish", cards: bestOf(game, owed.to, count) };
+  } else {
+    move = { kind: owed.kind, cards: worstCards(game, seat, count) };
+  }
+  return move;
+}
+
+/**
+ * The weakest cards of a hand.
+ *
+ * @remarks
+ * What goes away when something has to: the leftovers of the deal, and the
+ * cards handed back to the loser. Giving anything better away would be a
+ * present, and this game has no room for those.
+ */
+function worstCards(
+  game: ArschlochGame,
+  seat: number,
+  count: number,
+): readonly string[] {
   return sortHand(game.players[seat].hand)
     .slice(0, count)
+    .map((card) => card.id);
+}
+
+/**
+ * The best cards a wish may take out of somebody else hand.
+ *
+ * @remarks
+ * Only what the rules leave open: three of a rank are safe, and the referee
+ * turns a wish for them down. What is left, the computer takes the top of -
+ * this is the one moment in the game where it may simply help itself.
+ */
+function bestOf(
+  game: ArschlochGame,
+  seat: number,
+  count: number,
+): readonly string[] {
+  const may = new Set(wishableIds(game, seat));
+  return sortHand(game.players[seat].hand)
+    .filter((card) => may.has(card.id))
+    .slice(-count)
     .map((card) => card.id);
 }
 

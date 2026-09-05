@@ -16,6 +16,11 @@
  *
  * The pile on the table is public and stays public - it is lying face up in the
  * middle - and so are the titles, the scores and whose turn it is.
+ *
+ * **One hand is shown to one other player, and only then.** A wish is picked
+ * out of the loser's hand, so while that step is open those cards ride along on
+ * the wisher's private channel - see {@link ArschlochHand.shown}. Nobody else
+ * gets them, and the moment the wish is made they stop being sent.
  */
 import { aiMove } from "@/games/arschloch/engine/ai";
 import { applyMove, seatOnTurn } from "@/games/arschloch/engine/moves";
@@ -52,7 +57,17 @@ export type ArschlochOptions = {
 
 /** What travels off the public snapshot: one seat's cards. */
 export type ArschlochHand = {
+  /** This seat's own cards. */
   readonly cards?: readonly Card[];
+  /**
+   * Somebody else's cards, while this seat is allowed to look at them.
+   *
+   * @remarks
+   * Only during a wish, only the hand being wished from, and only to the seat
+   * doing the wishing. It carries the seat number with it so the client knows
+   * whose hand it is holding.
+   */
+  readonly shown?: { readonly seat: number; readonly cards: readonly Card[] };
 };
 
 /**
@@ -123,17 +138,31 @@ export const arschlochAdapter: OnlineAdapter<
   },
 
   privateHands(game): readonly ArschlochHand[] {
-    return game.players.map((player) => ({ cards: player.hand }));
+    const wish = game.phase === "passing" ? game.owed[0] : undefined;
+    return game.players.map((player, seat) => ({
+      cards: player.hand,
+      ...(wish !== undefined && wish.kind === "wish" && wish.from === seat
+        ? { shown: { seat: wish.to, cards: game.players[wish.to].hand } }
+        : {}),
+    }));
   },
 
   withOwnHand(game, seatIndex, hand): ArschlochGame {
+    const shown = hand.shown;
     return hand.cards === undefined
       ? game
       : {
           ...game,
-          players: game.players.map((player, at) =>
-            at === seatIndex ? { ...player, hand: hand.cards ?? [] } : player,
-          ),
+          players: game.players.map((player, at) => {
+            let next = player;
+            if (at === seatIndex) {
+              next = { ...player, hand: hand.cards ?? [] };
+            } else if (shown !== undefined && at === shown.seat) {
+              // The hand being wished from, face up for this one reader.
+              next = { ...player, hand: shown.cards };
+            }
+            return next;
+          }),
         };
   },
 
@@ -172,14 +201,36 @@ export const arschlochAdapter: OnlineAdapter<
 
 /** Checks an untrusted value is one seat's hand. */
 function isHand(value: unknown): value is ArschlochHand {
-  const hand = value as { cards?: unknown };
+  const hand = value as { cards?: unknown; shown?: unknown };
   return (
     typeof value === "object" &&
     value !== null &&
-    (hand.cards === undefined ||
-      (Array.isArray(hand.cards) &&
-        hand.cards.every((card) => isCardish(card))))
+    (hand.cards === undefined || areCards(hand.cards)) &&
+    (hand.shown === undefined || isShown(hand.shown))
   );
+}
+
+/**
+ * Checks a shown hand names a seat and carries cards.
+ *
+ * @remarks
+ * It is read on arrival and painted into somebody else's hand, so it is checked
+ * like anything else off the wire: a client that made one up would otherwise be
+ * making up what another player is holding on this screen.
+ */
+function isShown(value: unknown): boolean {
+  const shown = value as { seat?: unknown; cards?: unknown };
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Number.isInteger(shown.seat) &&
+    areCards(shown.cards)
+  );
+}
+
+/** Whether this is a list of cards. */
+function areCards(value: unknown): boolean {
+  return Array.isArray(value) && value.every((card) => isCardish(card));
 }
 
 /** Whether a value has the shape of a card. */

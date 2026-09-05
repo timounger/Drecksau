@@ -17,7 +17,7 @@ export const ARSCHLOCH_RULES: GameRules = {
       body: [
         "Ein Skatblatt mit 32 Karten. Von schwach nach stark: 7, 8, 9, Bube, Dame, König, 10, Ass - die Zehn steht also zwischen König und Ass, wie beim Skat.",
         "Die Farbe zählt nie. Sie ist nur dazu da, zwei Damen auseinanderzuhalten.",
-        "Zu viert bekommt jeder acht Karten. Zu dritt, zu fünft und zu sechst bleiben zwei Siebenen im Karton, damit das Blatt aufgeht - alle bekommen gleich viele.",
+        "Alle 32 Karten werden verteilt. Zu viert sind das acht je Person; sonst geht das Blatt nicht auf, und die übrigen Karten bekommt der mittlere Spieler - der Bürger aus der Runde davor. Er sieht sie an und legt genauso viele wieder verdeckt ab, bevor gespielt wird.",
       ],
     },
     {
@@ -38,8 +38,9 @@ export const ARSCHLOCH_RULES: GameRules = {
     {
       title: "Der Kartentausch",
       body: [
-        "Vor jeder weiteren Runde gibt das Arschloch seine zwei besten Karten an den Präsidenten, das Vizearschloch seine beste an den Vizepräsidenten.",
-        "Zurück kommen genauso viele Karten - aber die dürfen sich Präsident und Vize aussuchen. Genau darin liegt der Unterschied: Abgeben muss man das Beste, zurückgeben darf man das Schlechteste.",
+        "Vor jeder weiteren Runde darf sich der Präsident zwei Karten aus der Hand des Arschlochs wünschen, der Vizepräsident eine aus der Hand des Vizearschlochs. Dafür wird ihm diese Hand gezeigt - nur ihm.",
+        "Geschützt ist, was dreimal oder öfter da ist: Einen Drilling muss niemand hergeben. Hat der Verlierer nichts anderes, fällt der Tausch ganz aus.",
+        "Zurück kommen genauso viele Karten - die dürfen sich Präsident und Vize aussuchen. Darin liegt die Härte: Wünschen darf man sich das Beste, zurückgeben das Schlechteste.",
         "Das Arschloch spielt die nächste Runde aus.",
       ],
     },
@@ -51,9 +52,10 @@ export const ARSCHLOCH_RULES: GameRules = {
       ],
     },
     {
-      title: "Was hier nicht gilt",
+      title: "Was diese Umsetzung anders macht",
       body: [
         "Die Anleitung kennt eine Menge Hausregeln - Bomben, Revolution, gleiche Karte legt nach. Hier ist keine davon eingebaut: Das Grundspiel steht zuerst, und jede Sonderregel ändert es kräftig.",
+        "Und einen Klick spart sich das Spiel: Wer nachweislich nicht antworten kann, wird übersprungen, statt passen zu müssen - weil er weniger Karten hält, als der Stapel verlangt, oder weil nach den gespielten Karten niemand mehr überbieten kann. Am Tisch würde man auch diese Runde fragen; hier steht im Spielverlauf, warum sie ausfiel.",
       ],
     },
   ],

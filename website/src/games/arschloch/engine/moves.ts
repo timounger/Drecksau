@@ -8,20 +8,25 @@
  * not carried in the state, so the same move on the same game gives the same
  * result on every device in an online room.
  */
-import { beats, sortHand, type Card, type Rank } from "./cards";
-import { dealRound } from "./setup";
 import {
-  givesTo,
+  RANKS,
+  beats,
+  sortHand,
+  strengthOf,
+  type Card,
+  type Rank,
+} from "./cards";
+import { openRound, packFor } from "./setup";
+import {
   isOut,
-  owesCards,
   pointsFor,
-  seatWith,
+  wishableIds,
   stillIn,
   titleFor,
   type ArschlochGame,
   type ArschlochMove,
   type ArschlochPlayer,
-  type Handover,
+  type HandoverKind,
   type Title,
 } from "./state";
 
@@ -71,6 +76,12 @@ export function applyMove(
       case "pass":
         next = doPass(game, seat);
         break;
+      case "drop":
+        next = doDrop(game, seat, move.cards);
+        break;
+      case "wish":
+        next = doWish(game, seat, move.cards);
+        break;
       case "give":
         next = doGive(game, seat, move.cards);
         break;
@@ -118,6 +129,37 @@ export function canPlay(
 }
 
 /**
+ * The cards of a hand that could go on the table right now.
+ *
+ * @param game - the game
+ * @param seat - whose hand to look at
+ * @returns the ids that are part of at least one legal play
+ * @remarks
+ * Two conditions, not one. A card has to **beat** the pile, and the hand has to
+ * hold **as many of that rank** as the pile is deep: against a pair, a single
+ * Koenig is as unplayable as a Sieben, and a screen that greys out only the low
+ * cards tells half the rule.
+ *
+ * On an empty table everything is playable - that is what leading means.
+ */
+export function playableIds(
+  game: ArschlochGame,
+  seat: number,
+): readonly string[] {
+  const hand = game.players[seat].hand;
+  const need = game.pile.length;
+  const enough = (rank: Rank): boolean =>
+    hand.filter((card) => card.rank === rank).length >= need;
+  return (
+    need === 0
+      ? hand
+      : hand.filter(
+          (card) => beats(card.rank, game.pile[0].rank) && enough(card.rank),
+        )
+  ).map((card) => card.id);
+}
+
+/**
  * Whether passing is allowed right now.
  *
  * @param game - the game
@@ -158,7 +200,12 @@ function doPlay(
       game.players[seat].hand.filter((card) => !ids.has(card.id)),
     );
     const laid = note(
-      { ...withoutThem, pile: played, lead: seat },
+      {
+        ...withoutThem,
+        pile: played,
+        seen: [...(game.seen ?? []), ...played],
+        lead: seat,
+      },
       `${nameOf(game, seat)}: legt ${spell(played)}.`,
     );
     next = afterMove(finishIfEmpty(laid, seat));
@@ -206,12 +253,13 @@ function finishIfEmpty(game: ArschlochGame, seat: number): ArschlochGame {
  * gone out with it, the lead moves on to the next one still holding cards,
  * because a table cannot wait for somebody who has left it.
  */
-function afterMove(game: ArschlochGame): ArschlochGame {
+function afterMove(before: ArschlochGame): ArschlochGame {
+  const game = skipHopeless(before);
   const playing = game.players.filter((unused, seat) => !isOut(game, seat));
   let next: ArschlochGame;
   if (playing.length <= 1) {
     next = endRound(game);
-  } else if (answerers(game) === 0) {
+  } else if (answerers(game) === 0 || !beatable(game)) {
     // Clear the passes first, then look for the opener: who is still in is a
     // question about the new trick, not the old one. Read off the old trick,
     // everybody counts as out at the end of it, and the lead fell to the one
@@ -224,12 +272,79 @@ function afterMove(game: ArschlochGame): ArschlochGame {
         : nextSeat(cleared, leader);
     next = note(
       { ...cleared, active: opener },
-      `${nameOf(game, opener)}: bekommt den Stich und spielt aus.`,
+      beatable(game)
+        ? `${nameOf(game, opener)}: bekommt den Stich und spielt aus.`
+        : `Das kann niemand mehr überbieten - ${nameOf(game, opener)} spielt aus.`,
     );
   } else {
     next = { ...game, active: nextSeat(game, game.active) };
   }
   return next;
+}
+
+/**
+ * Whether anybody at all could still beat what lies on the table.
+ *
+ * @param game - the game
+ * @returns true while a set that beats the pile could still be held
+ * @remarks
+ * Read off the played cards and nothing else. Four Damen are in the pack; if
+ * three of them have been played, no pair of Damen exists any more, and a table
+ * that has been paying attention knows it. Asking everybody to pass on a pile
+ * that provably cannot be beaten is asking a question with one answer.
+ *
+ * What it deliberately does **not** do is look into anybody's hand. That would
+ * skip a player for a reason the others cannot check, and the pass a player
+ * makes is information the table is entitled to see them make.
+ */
+export function beatable(game: ArschlochGame): boolean {
+  const pile = game.pile;
+  const size = pile.length;
+  return (
+    size === 0 ||
+    RANKS.slice(strengthOf(pile[0].rank) + 1).some(
+      (rank) => unseenOf(game, rank) >= size,
+    )
+  );
+}
+
+/** How many cards of one rank nobody has seen yet. */
+function unseenOf(game: ArschlochGame, rank: Rank): number {
+  const inPack = packFor().filter((card) => card.rank === rank).length;
+  const played = (game.seen ?? []).filter((card) => card.rank === rank).length;
+  return inPack - played;
+}
+
+/**
+ * Sits out everybody who provably cannot answer the pile.
+ *
+ * @param game - the game
+ * @returns the game with those seats passed
+ * @remarks
+ * The one thing about a hand that is public is **its size**, and it decides
+ * this on its own: a pair on the table cannot be answered by somebody holding a
+ * single card, and everybody at the table can count that card. Being asked
+ * anyway is a click for nothing.
+ */
+function skipHopeless(game: ArschlochGame): ArschlochGame {
+  const size = game.pile.length;
+  return size === 0
+    ? game
+    : game.players.reduce(
+        (next, player, seat) =>
+          stillIn(next, seat) && seat !== next.lead && player.hand.length < size
+            ? note(
+                withPlayer(next, seat, { passed: true }),
+                `${nameOf(next, seat)}: kann nicht mithalten - ${cardsLeft(player.hand.length)}.`,
+              )
+            : next,
+        game,
+      );
+}
+
+/** How a hand size reads in the log. */
+function cardsLeft(count: number): string {
+  return count === 1 ? "nur noch 1 Karte" : `nur noch ${count} Karten`;
 }
 
 /** How many seats could still answer the pile on the table. */
@@ -328,38 +443,10 @@ function bestScores(players: readonly ArschlochPlayer[]): readonly number[] {
  * and it is why one half happens here and the other half is a move.
  */
 function doNext(game: ArschlochGame): ArschlochGame | null {
-  let next: ArschlochGame | null = null;
-  if (game.phase === "roundOver") {
-    const dealt = takeTribute(dealRound({ ...game, round: game.round + 1 }));
-    next = { ...dealt, phase: dealt.owed.length > 0 ? "passing" : "playing" };
-  }
-  return next;
+  return game.phase === "roundOver"
+    ? openRound({ ...game, round: game.round + 1 })
+    : null;
 }
-
-/** Moves the highest cards of the low titles to the high ones. */
-function takeTribute(game: ArschlochGame): ArschlochGame {
-  const owed: Handover[] = [];
-  let next = game;
-  for (const title of LOW_TITLES) {
-    const from = seatWith(next, title);
-    const toTitle = givesTo(title);
-    const to = toTitle === null ? null : seatWith(next, toTitle);
-    const count = owesCards(title);
-    if (from !== null && to !== null && count > 0) {
-      const hand = sortHand(next.players[from].hand);
-      const best = hand.slice(hand.length - count);
-      next = note(
-        give(next, from, to, best),
-        `${nameOf(next, from)}: gibt ${spell(best)} an ${nameOf(next, to)}.`,
-      );
-      owed.push({ from: to, to: from, count });
-    }
-  }
-  return { ...next, owed };
-}
-
-/** The titles that owe cards, worst first. */
-const LOW_TITLES: readonly Title[] = ["arschloch", "vizearsch"];
 
 /** Hands cards from one seat to another. */
 function give(
@@ -390,38 +477,153 @@ export function canGive(
   seat: number,
   cards: readonly string[],
 ): boolean {
+  return isStep(game, seat, "give") && holdsExactly(game, seat, cards);
+}
+
+/**
+ * Whether these cards may be put away.
+ *
+ * @param game - the game
+ * @param seat - the seat that was dealt the leftovers
+ * @param cards - the card ids
+ * @returns true when they are held and there are as many as were over
+ */
+export function canDrop(
+  game: ArschlochGame,
+  seat: number,
+  cards: readonly string[],
+): boolean {
+  return isStep(game, seat, "drop") && holdsExactly(game, seat, cards);
+}
+
+/**
+ * Whether these cards may be wished for.
+ *
+ * @param game - the game
+ * @param seat - the seat doing the wishing
+ * @param cards - the card ids, out of the other hand
+ * @returns true when the other seat holds them and none of them is protected
+ */
+export function canWish(
+  game: ArschlochGame,
+  seat: number,
+  cards: readonly string[],
+): boolean {
   const owed = game.owed[0];
-  const held = heldCards(game, seat, cards);
+  const may = new Set(owed === undefined ? [] : wishableIds(game, owed.to));
+  return (
+    isStep(game, seat, "wish") &&
+    owed !== undefined &&
+    cards.length === owed.count &&
+    new Set(cards).size === cards.length &&
+    cards.every((id) => may.has(id))
+  );
+}
+
+/** Whether the step the table is waiting for is this seat and this kind. */
+function isStep(
+  game: ArschlochGame,
+  seat: number,
+  kind: HandoverKind,
+): boolean {
+  const owed = game.owed[0];
   return (
     game.phase === "passing" &&
     owed !== undefined &&
-    owed.from === seat &&
+    owed.kind === kind &&
+    owed.from === seat
+  );
+}
+
+/** Whether a seat holds exactly the cards the step asks for. */
+function holdsExactly(
+  game: ArschlochGame,
+  seat: number,
+  cards: readonly string[],
+): boolean {
+  const owed = game.owed[0];
+  const held = heldCards(game, seat, cards);
+  return (
+    owed !== undefined &&
     held.length === owed.count &&
     held.length === cards.length
   );
 }
 
-/** Hands the chosen cards back, and starts the round once nothing is owed. */
+/** Hands the chosen cards back. */
 function doGive(
   game: ArschlochGame,
   seat: number,
   cards: readonly string[],
 ): ArschlochGame | null {
+  const owed = game.owed[0];
+  const chosen = heldCards(game, seat, cards);
+  return canGive(game, seat, cards) && owed !== undefined
+    ? afterStep(
+        note(
+          give(game, seat, owed.to, chosen),
+          `${nameOf(game, seat)}: gibt ${spell(chosen)} zurück an ${nameOf(game, owed.to)}.`,
+        ),
+      )
+    : null;
+}
+
+/** Puts the leftovers of the deal away, out of the round. */
+function doDrop(
+  game: ArschlochGame,
+  seat: number,
+  cards: readonly string[],
+): ArschlochGame | null {
   let next: ArschlochGame | null = null;
-  if (canGive(game, seat, cards)) {
-    const owed = game.owed[0];
-    const chosen = heldCards(game, seat, cards);
-    const moved = note(
-      give(game, seat, owed.to, chosen),
-      `${nameOf(game, seat)}: gibt ${spell(chosen)} zurück an ${nameOf(game, owed.to)}.`,
+  if (canDrop(game, seat, cards)) {
+    const ids = new Set(cards);
+    const dropped = withHand(
+      game,
+      seat,
+      game.players[seat].hand.filter((card) => !ids.has(card.id)),
     );
-    const rest = game.owed.slice(1);
-    next =
-      rest.length > 0
-        ? { ...moved, owed: rest }
-        : { ...moved, owed: [], phase: "playing" };
+    next = afterStep(
+      note(
+        dropped,
+        `${nameOf(game, seat)}: legt ${cardCount(cards.length)} verdeckt ab.`,
+      ),
+    );
   }
   return next;
+}
+
+/** Takes the wished cards out of the other hand. */
+function doWish(
+  game: ArschlochGame,
+  seat: number,
+  cards: readonly string[],
+): ArschlochGame | null {
+  const owed = game.owed[0];
+  let next: ArschlochGame | null = null;
+  if (canWish(game, seat, cards) && owed !== undefined) {
+    const ids = new Set(cards);
+    const taken = game.players[owed.to].hand.filter((card) => ids.has(card.id));
+    next = afterStep(
+      note(
+        give(game, owed.to, seat, taken),
+        `${nameOf(game, seat)}: wünscht sich ${spell(taken)} von ${nameOf(game, owed.to)}.`,
+      ),
+    );
+  }
+  return next;
+}
+
+/** Moves on to the next step before the round, or starts playing. */
+function afterStep(game: ArschlochGame): ArschlochGame {
+  const rest = game.owed.slice(1);
+  return rest.length > 0
+    ? { ...game, owed: rest }
+    : { ...game, owed: [], phase: "playing" };
+}
+
+/** How a number of cards reads in the log. */
+function cardCount(count: number): string {
+  return count === 1 ? "1 Karte" : `${count} Karten`;
 }
 
 /* ---------------------------------------------------------------- helpers */
@@ -480,10 +682,29 @@ function nameOf(game: ArschlochGame, seat: number): string {
   return game.players[seat].name;
 }
 
-/** Cards as words, for the log. */
+/**
+ * Cards as words, for the log.
+ *
+ * @remarks
+ * A play is always one rank and reads as "2x Koenig". A wish need not be - two
+ * cards taken out of a hand may be a Koenig and an Ass - so mixed cards are
+ * named one by one rather than counted under the first one.
+ */
 function spell(cards: readonly Card[]): string {
-  const rank = cards.length > 0 ? RANK_WORDS[cards[0].rank] : "";
-  return cards.length === 1 ? rank : `${cards.length}x ${rank}`;
+  const first = cards[0];
+  const alike =
+    first !== undefined && cards.every((card) => card.rank === first.rank);
+  let text: string;
+  if (first === undefined) {
+    text = "nichts";
+  } else if (cards.length === 1) {
+    text = RANK_WORDS[first.rank];
+  } else if (alike) {
+    text = `${cards.length}x ${RANK_WORDS[first.rank]}`;
+  } else {
+    text = cards.map((card) => RANK_WORDS[card.rank]).join(" und ");
+  }
+  return text;
 }
 
 /**

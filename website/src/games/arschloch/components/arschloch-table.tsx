@@ -206,13 +206,13 @@ export function Seats({
 export function Hand({
   cards,
   picked,
-  playableRank,
+  dimmed,
   onPick,
 }: {
   readonly cards: readonly Card[];
   readonly picked: readonly string[];
-  /** The rank already picked, so everything else is shown as unavailable. */
-  readonly playableRank: Rank | null;
+  /** The cards that cannot be part of a play right now. */
+  readonly dimmed: ReadonlySet<string>;
   readonly onPick: (id: string) => void;
 }): ReactElement {
   return (
@@ -225,7 +225,7 @@ export function Hand({
           key={card.id}
           card={card}
           picked={picked.includes(card.id)}
-          dimmed={playableRank !== null && card.rank !== playableRank}
+          dimmed={dimmed.has(card.id)}
           onClick={() => onPick(card.id)}
         />
       ))}

@@ -53,13 +53,43 @@ export type ArschlochPlayer = {
 
 /** What one seat owes another at the start of a round. */
 export type Handover = {
-  /** Who has to choose the cards going back. */
+  /** What kind of step it is. */
+  readonly kind: HandoverKind;
+  /** Who chooses the cards. */
   readonly from: number;
-  /** Who gets them. */
+  /**
+   * The seat on the other side of it.
+   *
+   * @remarks
+   * For a wish the hand the cards are taken **from**, for a handover the seat
+   * they go **to**, and for the deal's leftovers the discarding seat itself -
+   * cards nobody gets are still cards somebody puts down.
+   */
   readonly to: number;
-  /** How many. */
+  /** How many cards. */
   readonly count: number;
 };
+
+/**
+ * The three things that happen before a round is played.
+ *
+ * @remarks
+ * - `drop`: the seat that was dealt the leftovers puts as many cards away.
+ * - `wish`: the Praesident (two) or the Vizepraesident (one) picks cards out
+ *   of the loser's hand, which they get to see for it.
+ * - `give`: the same seat hands as many cards back, its own choice.
+ */
+export type HandoverKind = "drop" | "wish" | "give";
+
+/**
+ * From this many of one rank on, a card is safe from a wish.
+ *
+ * @remarks
+ * "Ausser der Spieler hat 3 oder mehr von der Sorte" - a set of three is worth
+ * more than its cards, and taking one of them would be taking the set. The
+ * loser keeps those; everything else is fair game.
+ */
+export const PROTECTED_COUNT = 3;
 
 /** A whole game. */
 export type ArschlochGame = {
@@ -69,6 +99,16 @@ export type ArschlochGame = {
   readonly active: number;
   /** The cards on the table, all of one rank. */
   readonly pile: readonly Card[];
+  /**
+   * Every card played this round, the pile included.
+   *
+   * @remarks
+   * Public knowledge: it lay face up in the middle when it was played, and
+   * anybody at the table could have counted it. It is kept because counting is
+   * exactly what the referee does with it - see {@link beatable} - and asking
+   * a table to hold thirty cards in their heads is asking for a different game.
+   */
+  readonly seen: readonly Card[];
   /** Who put them there. */
   readonly lead: number | null;
   /** The seats that have run out, in the order they did. */
@@ -92,6 +132,10 @@ export type ArschlochMove =
   | { readonly kind: "play"; readonly cards: readonly string[] }
   /** Leave the pile alone and sit out the rest of this trick. */
   | { readonly kind: "pass" }
+  /** Put the leftovers of the deal away, face down. */
+  | { readonly kind: "drop"; readonly cards: readonly string[] }
+  /** Take these cards out of the loser's hand. */
+  | { readonly kind: "wish"; readonly cards: readonly string[] }
   /** Hand the cards back that a title owes. */
   | { readonly kind: "give"; readonly cards: readonly string[] }
   /** Deal the next round. */
@@ -101,6 +145,8 @@ export type ArschlochMove =
 const MOVE_SET: Readonly<Record<ArschlochMove["kind"], true>> = {
   play: true,
   pass: true,
+  drop: true,
+  wish: true,
   give: true,
   next: true,
 };
@@ -237,6 +283,30 @@ export function givesTo(title: Title | null): Title | null {
 export function seatWith(game: ArschlochGame, title: Title): number | null {
   const at = game.players.findIndex((player) => player.title === title);
   return at < 0 ? null : at;
+}
+
+/**
+ * The cards of a hand that a wish may take.
+ *
+ * @param game - the game
+ * @param seat - whose hand is being looked at
+ * @returns the ids that are not part of a set of three or more
+ * @remarks
+ * "Ausser der Spieler hat 3 oder mehr von der Sorte, dann muss er sie nicht
+ * abgeben." Three of a kind is a weapon in this game - it forces everybody to
+ * answer with three - and handing one over would not cost a card but the set.
+ */
+export function wishableIds(
+  game: ArschlochGame,
+  seat: number,
+): readonly string[] {
+  const hand = game.players[seat].hand;
+  return hand
+    .filter(
+      (card) =>
+        hand.filter((each) => each.rank === card.rank).length < PROTECTED_COUNT,
+    )
+    .map((card) => card.id);
 }
 
 /**

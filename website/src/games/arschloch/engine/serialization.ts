@@ -35,6 +35,10 @@ export function isArschlochGame(value: unknown): value is ArschlochGame {
     isSeat(game.active, seats) &&
     Array.isArray(game.pile) &&
     game.pile.every((card) => isCard(card)) &&
+    // Came later than the first saved games: a state without it is a state in
+    // which nothing has been counted yet, which is no reason to turn it away.
+    (game.seen === undefined ||
+      (Array.isArray(game.seen) && game.seen.every((card) => isCard(card)))) &&
     (game.lead === null || isSeat(game.lead, seats)) &&
     Array.isArray(game.out) &&
     game.out.every((seat) => isSeat(seat, seats)) &&
@@ -62,6 +66,8 @@ export function isArschlochMove(value: unknown): value is ArschlochMove {
     isObject(value) &&
     MOVE_KINDS.includes(move.kind) &&
     (move.kind !== "play" || areIds(move.cards)) &&
+    (move.kind !== "drop" || areIds(move.cards)) &&
+    (move.kind !== "wish" || areIds(move.cards)) &&
     (move.kind !== "give" || areIds(move.cards))
   );
 }
@@ -92,11 +98,15 @@ function isCard(value: unknown): value is Card {
   );
 }
 
+/** The steps a stored game may be waiting for. */
+const HANDOVER_KINDS: readonly string[] = ["drop", "wish", "give"];
+
 /** Whether this is a handover that names two seats. */
 function isHandover(value: unknown, seats: number): value is Handover {
   const owed = value as Handover;
   return (
     isObject(value) &&
+    HANDOVER_KINDS.includes(owed.kind) &&
     isSeat(owed.from, seats) &&
     isSeat(owed.to, seats) &&
     Number.isInteger(owed.count) &&

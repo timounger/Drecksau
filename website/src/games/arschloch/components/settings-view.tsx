@@ -32,7 +32,7 @@ export function ArschlochSettingsView(): ReactElement {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{T.settings}</h1>
+        <h1 className="text-2xl font-bold">{T.settingsTitle}</h1>
         <Link
           href="/arschloch"
           className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"

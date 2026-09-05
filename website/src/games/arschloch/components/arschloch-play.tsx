@@ -10,11 +10,19 @@
 "use client";
 
 import { useState, type ReactElement } from "react";
-import { cardById, type Rank } from "@/games/arschloch/engine/cards";
-import { canPass, canPlay, seatOnTurn } from "@/games/arschloch/engine/moves";
-import type {
-  ArschlochGame,
-  ArschlochMove,
+import { sortHand, type Card, type Rank } from "@/games/arschloch/engine/cards";
+import {
+  canPass,
+  canPlay,
+  playableIds,
+  seatOnTurn,
+} from "@/games/arschloch/engine/moves";
+import {
+  wishableIds,
+  type ArschlochGame,
+  type ArschlochMove,
+  type Handover,
+  type HandoverKind,
 } from "@/games/arschloch/engine/state";
 import { ARSCHLOCH_TEXTS as T } from "@/games/arschloch/i18n/texts";
 import { Hand, Seats, TablePile } from "./arschloch-table";
@@ -48,19 +56,49 @@ export function PlayArea({
   const mine = mySeat !== null;
   const onTurn = mine && seatOnTurn(game) === seat;
   const owed = game.owed[0];
-  const giving =
+  // The step the table is waiting for, if it is this reader's to make.
+  const step =
     onTurn &&
     game.phase === "passing" &&
     owed !== undefined &&
-    owed.from === seat;
-  const hand = mine ? game.players[seat].hand : [];
+    owed.from === seat
+      ? owed
+      : null;
+  // Wishing means picking out of somebody else hand; everything else is your
+  // own. Which hand is on screen follows from that, and so does what a tap
+  // means - see setOf, which only groups cards while a pile is being answered.
+  const hand =
+    step?.kind === "wish"
+      ? game.players[step.to].hand
+      : mine
+        ? game.players[seat].hand
+        : [];
+  // How many cards a play has to be. Zero means the table is free and the set
+  // is the leader's own choice, so the cards are picked one at a time.
+  const need = game.phase === "playing" ? game.pile.length : 0;
+  const wanted = step === null ? 0 : step.count;
 
+  /**
+   * Picking a card up or putting it down again.
+   *
+   * @remarks
+   * Following somebody else's set, a single card is not a choice: a pair is
+   * answered with a pair or not at all. So the whole set comes along, and goes
+   * again in one piece. Leading, and handing cards back after a Zwangshandel,
+   * are the two moments where a card really is picked one at a time.
+   */
   const pick = (id: string) => {
-    setPicked((current) =>
-      current.includes(id)
-        ? current.filter((each) => each !== id)
-        : [...current, id],
-    );
+    if (need === 0) {
+      setPicked((current) =>
+        current.includes(id)
+          ? current.filter((each) => each !== id)
+          : [...current, id],
+      );
+    } else {
+      setPicked((current) =>
+        current.includes(id) ? [] : setOf(hand, id, need),
+      );
+    }
   };
 
   const send = (move: ArschlochMove) => {
@@ -72,32 +110,32 @@ export function PlayArea({
     <div className="flex flex-col gap-3">
       <Seats game={game} mySeat={seat} />
       <TablePile game={game} />
-      {giving && (
+      {step !== null && (
         <p
-          data-testid="ar-give-hint"
+          data-testid="ar-step-hint"
           className="text-center text-sm font-semibold text-amber-700 dark:text-amber-300"
         >
-          {T.giveHint(owed.count, game.players[owed.to].name)}
+          {stepHint(game, step)}
         </p>
       )}
-      {mine && (
+      {(mine || step !== null) && (
         <Hand
           cards={hand}
           picked={picked}
-          playableRank={rankOf(picked)}
+          dimmed={dimmedIds(game, seat, onTurn, step, picked)}
           onPick={pick}
         />
       )}
       <div className="flex flex-wrap justify-center gap-1.5">
-        {giving ? (
+        {step !== null ? (
           <button
             type="button"
-            onClick={() => send({ kind: "give", cards: picked })}
-            disabled={picked.length !== owed.count}
-            data-testid="ar-give"
+            onClick={() => send({ kind: step.kind, cards: picked })}
+            disabled={picked.length !== wanted}
+            data-testid={`ar-${step.kind}`}
             className={STRONG}
           >
-            {T.giveButton}
+            {STEP_BUTTONS[step.kind]}
           </button>
         ) : (
           <>
@@ -136,8 +174,101 @@ export function PlayArea({
   );
 }
 
-/** The rank of the picked cards, so the rest of the hand can be dimmed. */
-function rankOf(picked: readonly string[]): Rank | null {
-  const first = picked.length > 0 ? cardById(picked[0]) : null;
-  return first === null ? null : first.rank;
+/**
+ * The set a tap on one card stands for.
+ *
+ * @param hand - the cards held
+ * @param id - the card that was tapped
+ * @param need - how many the pile asks for
+ * @returns that many neighbouring cards of the tapped rank
+ * @remarks
+ * Which of the equal cards go is not a decision - the suit never beats
+ * anything - so the choice is made for looks: the set is taken as a window of
+ * neighbours that contains the tapped card, and the cards that lift out of the
+ * hand are the ones lying side by side.
+ */
+function setOf(
+  hand: readonly Card[],
+  id: string,
+  need: number,
+): readonly string[] {
+  const sorted = sortHand(hand);
+  const tapped = sorted.find((card) => card.id === id);
+  const same =
+    tapped === undefined
+      ? []
+      : sorted.filter((card) => card.rank === tapped.rank);
+  const at = same.findIndex((card) => card.id === id);
+  const from = Math.max(0, Math.min(at, same.length - need));
+  return same.length < need
+    ? []
+    : same.slice(from, from + need).map((card) => card.id);
+}
+
+/** What the button under the hand says, per step. */
+const STEP_BUTTONS: Readonly<Record<HandoverKind, string>> = {
+  drop: T.dropButton,
+  wish: T.wishButton,
+  give: T.giveButton,
+};
+
+/** The line above the hand while a step before the round is being made. */
+function stepHint(game: ArschlochGame, step: Handover): string {
+  let hint: string;
+  if (step.kind === "drop") {
+    hint = T.dropHint(step.count);
+  } else if (step.kind === "wish") {
+    hint = `${T.wishHint(step.count, game.players[step.to].name)} ${T.wishProtected}`;
+  } else {
+    hint = T.giveHint(step.count, game.players[step.to].name);
+  }
+  return hint;
+}
+
+/**
+ * The cards to show as unavailable.
+ *
+ * @param game - the game
+ * @param seat - the seat the reader plays
+ * @param onTurn - whether it is their turn at all
+ * @param step - the step before the round, if one is theirs to make
+ * @param picked - what is picked right now
+ * @returns the ids to grey out
+ * @remarks
+ * Three different questions, and only two of them have unplayable cards in
+ * them. While playing it is what cannot answer the pile; while wishing it is
+ * what the loser is allowed to keep - three of a rank. Dropping and handing
+ * back grey out nothing: anything may go, and it need not match.
+ *
+ * And nothing at all on somebody else turn: a greyed out hand would say "you
+ * cannot" when the real answer is "not yet".
+ */
+function dimmedIds(
+  game: ArschlochGame,
+  seat: number,
+  onTurn: boolean,
+  step: Handover | null,
+  picked: readonly string[],
+): ReadonlySet<string> {
+  const hand = game.players[seat]?.hand ?? [];
+  let dimmed: readonly Card[] = [];
+  if (step?.kind === "wish") {
+    const may = new Set(wishableIds(game, step.to));
+    dimmed = game.players[step.to].hand.filter((card) => !may.has(card.id));
+  } else if (onTurn && step === null && game.phase === "playing") {
+    const playable = new Set(playableIds(game, seat));
+    // While leading, the first card picked settles the rank: a set is one rank,
+    // and the rest of the hand is no longer part of this play.
+    const rank = game.pile.length === 0 ? rankOf(hand, picked) : null;
+    dimmed = hand.filter(
+      (card) => !playable.has(card.id) || (rank !== null && card.rank !== rank),
+    );
+  }
+  return new Set(dimmed.map((card) => card.id));
+}
+
+/** The rank of what is picked, if anything is. */
+function rankOf(hand: readonly Card[], picked: readonly string[]): Rank | null {
+  const first = hand.find((card) => picked.includes(card.id));
+  return first === undefined ? null : first.rank;
 }
