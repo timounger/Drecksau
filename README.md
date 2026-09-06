@@ -9,29 +9,30 @@ jedes Spiel hat seine eigene Seite.
 | Spiel                                                              | Beschreibung                                                                                             | Modus                |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------- |
 | [Arschloch](website/src/games/arschloch/README.md)                 | Karten loswerden - wer als Letzter noch welche haelt, ist es.                                            | Computer + Online    |
-| [Bohnanza](website/src/games/bohnanza/README.md)                   | Anbauen, handeln, ernten - wer die meisten Bohnentaler hat, gewinnt.                                     | Computer + Online    |
 | [Binokel](website/src/games/binokel/README.md)                     | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online    |
+| [Bohnanza](website/src/games/bohnanza/README.md)                   | Anbauen, handeln, ernten - wer die meisten Bohnentaler hat, gewinnt.                                     | Computer + Online    |
 | [Camel Up](website/src/games/camel-up/README.md)                   | Fuenf Kamele, ein Stapel - wer getragen wird, liegt vorn.                                                | Computer + Online    |
+| [CATAN](website/src/games/catan/README.md)                         | Siedeln, handeln, bauen - und die Insel unter euch aufteilen.                                            | Computer + Online    |
 | [Codenames](website/src/games/codenames/README.md)                 | Ein Wort, eine Zahl - und der Attentaeter wartet.                                                        | Computer + Online    |
 | [Das politische Talent](website/src/games/politik/README.md)       | Wahlkampf, Koalitionen, Wahlversprechen - wer regiert und liefert, gewinnt.                              | Computer + Online    |
 | [Drecksau](website/src/games/drecksau/README.md)                   | Kosmos-Kartenspiel: wer zuerst nur noch Drecksaeue hat, gewinnt.                                         | Computer + Online    |
-| [Jammerlappen](website/src/games/jammerlappen/README.md)           | Werd alle Karten los - wer als Letzter drauf sitzt, ist der Jammerlappen.                                | Computer + Online    |
 | [Exploding Kittens](website/src/games/exploding-kittens/README.md) | Zieh keine Bombe - wer als Letzter uebrig ist, gewinnt.                                                  | Computer + Online    |
-| [Flip 7](website/src/games/flip-7/README.md)                       | Sieben verschiedene Zahlen - oder eine zu viel.                                                          | Computer + Online    |
-| [Sky Team](website/src/games/sky-team/README.md)                   | Landet das Flugzeug zu zweit - und schweigt dabei.                                                       | Computer + Online    |
 | [Flash Point](website/src/games/flash-point/README.md)             | Rettet die Opfer, bevor das Haus einstuerzt.                                                             | Computer + Online    |
-| [The Game](website/src/games/the-game/README.md)                   | 98 Karten auf vier Reihen - und keiner darf Zahlen nennen.                                               | Computer + Online    |
-| [Risiko](website/src/games/risiko/README.md)                       | Gebiet fuer Gebiet die Welt erobern.                                                                     | Computer + Online    |
-| [Monopoly](website/src/games/monopoly/README.md)                   | Kaufen, bauen, kassieren - bis nur noch einer zahlen kann.                                               | Computer + Online    |
-| [CATAN](website/src/games/catan/README.md)                         | Siedeln, handeln, bauen - und die Insel unter euch aufteilen.                                            | Computer + Online    |
+| [Flip 7](website/src/games/flip-7/README.md)                       | Sieben verschiedene Zahlen - oder eine zu viel.                                                          | Computer + Online    |
+| [GTA](website/src/games/gta/README.md)                             | Los Santos von oben - fahren, liefern und der Polizei entkommen.                                         | Einzelspieler        |
 | [Heckmeck am Bratwurmeck](website/src/games/heckmeck/README.md)    | Acht Wuerfel, sechzehn Chips - ohne Wurm zaehlt nichts.                                                  | Computer + Online    |
+| [Jammerlappen](website/src/games/jammerlappen/README.md)           | Werd alle Karten los - wer als Letzter drauf sitzt, ist der Jammerlappen.                                | Computer + Online    |
 | [Kniffel](website/src/games/kniffel/README.md)                     | Fuenf Wuerfel, drei Wuerfe, dreizehn Felder - jedes nur einmal.                                          | Computer + Online    |
-| [Kuhle Kuehe](website/src/games/kuhle-kuehe/README.md)             | Baut aus Koepfen, Mittelteilen und Hinterteilen die laengsten Kuehe und die groesste Herde.              | Computer + Online    |
 | [Krakel Orakel](website/src/games/krakel/README.md)                | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online           |
+| [Kuhle Kuehe](website/src/games/kuhle-kuehe/README.md)             | Baut aus Koepfen, Mittelteilen und Hinterteilen die laengsten Kuehe und die groesste Herde.              | Computer + Online    |
+| [Monopoly](website/src/games/monopoly/README.md)                   | Kaufen, bauen, kassieren - bis nur noch einer zahlen kann.                                               | Computer + Online    |
 | [Panzerkiste](website/src/games/panzerkiste/README.md)             | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Allein + Koop-Online |
 | [Qwixx](website/src/games/qwixx/README.md)                         | Wuerfeln und ankreuzen - was du ueberspringst, ist weg.                                                  | Computer + Online    |
+| [Risiko](website/src/games/risiko/README.md)                       | Gebiet fuer Gebiet die Welt erobern.                                                                     | Computer + Online    |
 | [RV There Yet?](website/src/games/rv-there-yet/README.md)          | Seitenansicht: das Wohnmobil ueber den Berg bringen - notfalls mit der Seilwinde.                        | Allein + Koop-Online |
+| [Sky Team](website/src/games/sky-team/README.md)                   | Landet das Flugzeug zu zweit - und schweigt dabei.                                                       | Computer + Online    |
 | [Skyjo](website/src/games/skyjo/README.md)                         | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online    |
+| [The Game](website/src/games/the-game/README.md)                   | 98 Karten auf vier Reihen - und keiner darf Zahlen nennen.                                               | Computer + Online    |
 | [The Mind](website/src/games/the-mind/README.md)                   | Kooperativ: gemeinsam aufsteigend ablegen - ohne ein Wort.                                               | Nur Online           |
 
 Weitere Spiele docken ueber die Registry an (siehe

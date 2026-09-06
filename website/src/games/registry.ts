@@ -36,7 +36,8 @@ export type GameId =
   | "monopoly"
   | "catan"
   | "bohnanza"
-  | "arschloch";
+  | "arschloch"
+  | "gta";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -268,6 +269,15 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/flip-7",
     category: "karten",
     addedOn: "2026-08-20",
+  },
+  {
+    id: "gta",
+    name: "GTA",
+    tagline: "Los Santos von oben - fahren, liefern, abhauen.",
+    emoji: "\u{1F697}",
+    href: "/gta",
+    category: "action",
+    addedOn: "2026-09-06",
   },
   {
     id: "arschloch",
