@@ -6,15 +6,20 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactElement } from "react";
+import { useRef, type ReactElement } from "react";
+import { useFullscreen } from "@/lib/screen/use-fullscreen";
+import { useShotRatio } from "@/lib/screen/use-shot-ratio";
 import { GameHeader } from "@/components/game-header";
 import { useGtaGame, type Heads } from "@/games/gta/hooks/use-gta-game";
 import { GTA_RULES } from "@/games/gta/i18n/rules";
 import { GTA_TEXTS as T } from "@/games/gta/i18n/texts";
-import { MAX_STARS } from "@/games/gta/engine/types";
+import { CATCHES, MAX_STARS } from "@/games/gta/engine/types";
 import { VIEW_HEIGHT, VIEW_WIDTH } from "@/games/gta/components/projection";
 import { DISTRICTS } from "@/games/gta/engine/setup";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
+
+/** Which mouse button puts a charge down. */
+const RIGHT_BUTTON = 2;
 
 /** The look of a link in the header. */
 const LINK =
@@ -31,13 +36,22 @@ export function GtaScreen(): ReactElement {
     attach,
     onPointer,
     onFire,
+    onPlant,
     turbo,
     toggleTurbo,
     god,
     toggleGod,
     restart,
     carryOn,
+    escape,
   } = useGtaGame();
+
+  // The picture, on its own, is what fills the screen: the ticker and the
+  // list of keys underneath are of no use to a thumb.
+  const stage = useRef<HTMLDivElement>(null);
+  const shot = useRef<HTMLCanvasElement>(null);
+  const fullscreen = useFullscreen(stage);
+  useShotRatio(shot, stage);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
@@ -84,6 +98,16 @@ export function GtaScreen(): ReactElement {
         >
           {T.god}
         </button>
+        {fullscreen.supported && (
+          <button
+            type="button"
+            data-testid="gta-fullscreen"
+            onClick={fullscreen.toggle}
+            className={LINK}
+          >
+            {fullscreen.active ? T.fullscreenExit : T.fullscreen}
+          </button>
+        )}
         <Link href="/gta/einstellungen" className={LINK}>
           {COLLECTION_TEXTS.settings}
         </Link>
@@ -94,25 +118,54 @@ export function GtaScreen(): ReactElement {
 
       <HeadsUp heads={heads} />
 
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-300 dark:border-zinc-700">
+      <div
+        ref={stage}
+        className="game-fullscreen relative overflow-hidden rounded-2xl border border-zinc-300 dark:border-zinc-700"
+      >
         <canvas
-          ref={attach}
+          ref={(box) => {
+            shot.current = box;
+            attach(box);
+          }}
           width={VIEW_WIDTH}
           height={VIEW_HEIGHT}
           data-testid="gta-canvas"
           onPointerMove={onPointer}
           onPointerDown={(event) => {
             onPointer(event);
-            onFire(true);
+            // Left sets things off, right puts them down. The context menu is
+            // already off below, or the second half of the Fernzünder would be
+            // a browser menu.
+            if (event.button === RIGHT_BUTTON) {
+              onPlant();
+            } else {
+              onFire(true);
+            }
           }}
           onPointerUp={() => onFire(false)}
           onPointerLeave={() => onFire(false)}
           onContextMenu={(event) => event.preventDefault()}
-          className="block w-full cursor-crosshair bg-zinc-900"
+          // touch-none: a thumb on the stick must drive the game, not scroll
+          // the page out from under it.
+          className="block w-full touch-none cursor-crosshair bg-zinc-900"
           style={{ aspectRatio: `${VIEW_WIDTH} / ${VIEW_HEIGHT}` }}
         />
-        {heads.phase !== "playing" && (
-          <Overlay heads={heads} onCarryOn={carryOn} onRestart={restart} />
+        {fullscreen.active && (
+          <button
+            type="button"
+            onClick={fullscreen.toggle}
+            className="absolute top-3 left-3 z-50 cursor-pointer rounded-lg bg-black/60 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
+          >
+            {T.fullscreenExit}
+          </button>
+        )}
+        {heads.phase !== "playing" && heads.phase !== "prison" && (
+          <Overlay
+            heads={heads}
+            onCarryOn={carryOn}
+            onRestart={restart}
+            onEscape={escape}
+          />
         )}
       </div>
 
@@ -144,6 +197,16 @@ export function GtaScreen(): ReactElement {
               <b>Maus</b>: zu Fuß schaust du dorthin - <b>Klick</b> schießt
             </li>
             <li>
+              <b>Fernzünder</b>: <b>Rechtsklick</b> legt einen Zünder ab (bis zu
+              zehn), <b>Linksklick</b> jagt alle auf einmal hoch
+            </li>
+            <li>
+              <b>Am Handy</b>: linke Bildhälfte ist der Stick zum Laufen und
+              Fahren, rechte Bildhälfte zielt und schießt. Die drei Knöpfe unten
+              rechts sind <b>Auto</b> (ein- und aussteigen), <b>Waffe</b>{" "}
+              (wechseln) und <b>Zünder</b> (ablegen).
+            </li>
+            <li>
               <b>Mausrad</b>: Waffe wechseln. Zu Beginn nur die Faust - alles
               andere liegt in der Stadt herum
             </li>
@@ -155,6 +218,11 @@ export function GtaScreen(): ReactElement {
             <li>
               <b>Shift</b> halten oder der Knopf <b>{T.turbo}</b> oben: zu Fuß
               zehnfach, im Auto dreifach
+            </li>
+            <li>
+              Im <b>{T.escapeTitle}</b>: laufen mit W A S D, und die{" "}
+              <b>Maus gedrückt halten</b>, um zu schrauben, zu lösen und das
+              Fenster zu öffnen. Den Kegeln der Wärter aus dem Weg gehen.
             </li>
           </ul>
         </section>
@@ -200,6 +268,19 @@ function HeadsUp({ heads }: { readonly heads: Heads }): ReactElement {
       <span className="text-zinc-500 dark:text-zinc-400">
         {heads.inCar ? T.driving : T.onFoot}
       </span>
+      {heads.escape !== null && (
+        <span
+          data-testid="gta-escape"
+          className="flex flex-wrap items-center gap-2 text-amber-700 dark:text-amber-300"
+        >
+          <b>{T.escapeTitle}:</b>
+          <span>{heads.escape.task}</span>
+          <span>{T.escapeCaught(CATCHES - heads.escape.caught)}</span>
+          {heads.escape.mates > 0 && (
+            <span>{T.escapeMates(heads.escape.mates)}</span>
+          )}
+        </span>
+      )}
       <span className="ml-auto flex items-center gap-2">
         <span data-testid="gta-job" className="font-semibold">
           {heads.jobText === "" ? T.noJob : heads.jobText}
@@ -222,18 +303,17 @@ function Overlay({
   heads,
   onCarryOn,
   onRestart,
+  onEscape,
 }: {
   readonly heads: Heads;
   readonly onCarryOn: () => void;
   readonly onRestart: () => void;
+  readonly onEscape: () => void;
 }): ReactElement {
   const won = heads.phase === "won";
-  const title = won ? T.won : heads.phase === "busted" ? T.busted : T.wasted;
-  const text = won
-    ? T.wonText
-    : heads.phase === "busted"
-      ? T.bustedText
-      : T.wastedText;
+  const jailed = heads.phase === "busted";
+  const title = won ? T.won : jailed ? T.busted : T.wasted;
+  const text = won ? T.wonText : jailed ? T.bustedText : T.wastedText;
   return (
     <div
       data-testid="gta-overlay"
@@ -241,14 +321,26 @@ function Overlay({
     >
       <h2 className="text-3xl font-black tracking-wide">{title}</h2>
       <p className="max-w-md text-sm">{text}</p>
-      <button
-        type="button"
-        data-testid="gta-carry-on"
-        onClick={won ? onRestart : onCarryOn}
-        className="cursor-pointer rounded-lg bg-white px-5 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-200"
-      >
-        {won ? T.newGame : T.carryOn}
-      </button>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <button
+          type="button"
+          data-testid="gta-carry-on"
+          onClick={won ? onRestart : onCarryOn}
+          className="cursor-pointer rounded-lg bg-white px-5 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-200"
+        >
+          {won ? T.newGame : jailed ? T.serve : T.carryOn}
+        </button>
+        {jailed && (
+          <button
+            type="button"
+            data-testid="gta-break-out"
+            onClick={onEscape}
+            className="cursor-pointer rounded-lg bg-amber-400 px-5 py-2 text-sm font-semibold text-zinc-900 hover:bg-amber-300"
+          >
+            {T.breakOut}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

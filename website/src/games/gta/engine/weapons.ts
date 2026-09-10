@@ -20,10 +20,18 @@ export type WeaponKind =
   | "mg"
   | "flamer"
   | "rpg"
-  | "grenade";
+  | "grenade"
+  | "remote";
 
-/** How a weapon reaches what it is aimed at. */
-export type WeaponWay = "swing" | "shot" | "flame" | "blast";
+/**
+ * How a weapon reaches what it is aimed at.
+ *
+ * @remarks
+ * `planted` is the odd one: it does not reach anything when it leaves the
+ * hand. It is put down where the player stands and waits there until the
+ * button is pressed - the aim has nothing to do with it.
+ */
+export type WeaponWay = "swing" | "shot" | "flame" | "blast" | "planted";
 
 /** One weapon, as numbers. */
 export type Weapon = {
@@ -59,6 +67,7 @@ export const WEAPON_ORDER: readonly WeaponKind[] = [
   "flamer",
   "rpg",
   "grenade",
+  "remote",
 ];
 
 /** How much of a blast something at the very centre of it takes. */
@@ -167,6 +176,21 @@ export const WEAPONS: Readonly<Record<WeaponKind, Weapon>> = {
     speed: 240,
     spread: 0,
     rounds: 5,
+  },
+  remote: {
+    kind: "remote",
+    name: "Fernzünder",
+    way: "planted",
+    // The wait between two presses of the button, not between two charges:
+    // putting them down is the right button and has its own pace.
+    reload: 0.5,
+    // What a single charge does is CHARGE_FORCE in ./types - this row is only
+    // what the belt needs to know. Nothing is fired, so nothing reaches.
+    damage: 0,
+    range: 0,
+    speed: 0,
+    spread: 0,
+    rounds: 10,
   },
 };
 

@@ -38,7 +38,16 @@ export const GTA_TEXTS = {
   noJob: "Kein Auftrag",
   busted: "Verhaftet",
   bustedText:
-    "Die Streife hatte dich. Kaution bezahlt, Wagen weg - aber du bist wieder draußen.",
+    "Die Streife hatte dich. Jetzt hast du die Wahl: die Strafe absitzen und die Kaution zahlen - oder ausbrechen.",
+  serve: "Strafe absitzen",
+  breakOut: "Ausbrechen",
+  escapeTitle: "Ausbruch",
+  escapeTask: "Auftrag",
+  escapeCaught: (left: number): string => `${left} Versuche übrig`,
+  escapeMates: (count: number): string =>
+    count === 1
+      ? "1 Mitgefangener folgt dir"
+      : `${count} Mitgefangene folgen dir`,
   wasted: "Krankenhaus",
   wastedText:
     "Das war zu viel. Die Rechnung ist bezahlt, und du stehst wieder auf der Straße.",
@@ -46,6 +55,8 @@ export const GTA_TEXTS = {
   wonText:
     "Alle vier Viertel übernommen. Mehr Respekt geht in dieser Stadt nicht.",
   carryOn: "Weiter",
+  fullscreen: "Vollbild",
+  fullscreenExit: "Vollbild verlassen",
   controls: "Steuerung",
   log: "Was passiert ist",
 } as const;

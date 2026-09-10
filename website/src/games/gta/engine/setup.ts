@@ -239,6 +239,7 @@ export function createGame(seed: number): GameState {
       starAt: 0,
       floorUntil: 0,
       movedAt: 0,
+      striped: false,
       heat: 0,
       car: null,
       safeUntil: 0,
@@ -269,6 +270,8 @@ export function createGame(seed: number): GameState {
     heli: null,
     feud: { mine: false, rival: false },
     patrolAt: 0,
+    prison: null,
+    charges: [],
     log: ["Los Santos. Klau dir was und fang an."],
   };
 }
@@ -298,6 +301,9 @@ const LYING_ABOUT: readonly {
   { holds: "mg", many: 1, again: false },
   { holds: "flamer", many: 1, again: false },
   { holds: "rpg", many: 1, again: false },
+  // One box of charges in the whole city, and it does not come back. It is the
+  // answer to a tank, and an answer one can pick up twice a minute is not one.
+  { holds: "remote", many: 1, again: false },
 ];
 
 /** Nobody owns anything yet. */

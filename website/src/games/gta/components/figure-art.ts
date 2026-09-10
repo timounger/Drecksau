@@ -60,7 +60,7 @@ export type ArmPose = "swing" | "hold" | "punch";
 
 /** The sorts of people the city draws. */
 export type FigureStyle =
-  "plain" | "posh" | "bum" | "night" | "gang" | "cop" | "player";
+  "plain" | "posh" | "bum" | "night" | "gang" | "cop" | "player" | "convict";
 
 /** How many poses of the arm swing are kept. */
 export const SWING_FRAMES = 6;
@@ -341,6 +341,15 @@ function paintLegs(
     ctx.lineWidth = PEN;
     ctx.fill(leg);
     ctx.stroke(leg);
+    if (look.style === "convict") {
+      // Two bands per leg, so that the stripes do not stop at the waist.
+      ctx.fillStyle = "#1c1917";
+      for (const at of [-1.6, 0.8]) {
+        const band = new Path2D();
+        band.rect(reach + at, aside - 1.6, 0.9, 3.2);
+        ctx.fill(band);
+      }
+    }
     if (look.style === "night") {
       // Boots to the knee: the leg itself is light, so the boot has to be the
       // dark part rather than a dot on the end.
@@ -709,6 +718,17 @@ function extras(ctx: CanvasRenderingContext2D, look: FigureLook): void {
     ctx.fillStyle = "#292524";
     ctx.fill(radio);
     ctx.stroke(radio);
+  } else if (look.style === "convict") {
+    // Prison stripes: dark bands across a white suit. Across rather than down,
+    // because from above that is what one sees of a striped jumper - and it is
+    // the one outfit in this game that has to be readable at a glance from the
+    // far side of a yard.
+    ctx.fillStyle = "#1c1917";
+    for (const at of [-2.6, -0.8, 1, 2.8]) {
+      const band = new Path2D();
+      band.rect(at, -3.6, 1, 7.2);
+      ctx.fill(band);
+    }
   } else if (look.style === "gang" || look.style === "player") {
     // An open jacket over the shirt: two panels with a gap down the middle.
     ctx.globalAlpha = 0.3;

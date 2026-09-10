@@ -18,6 +18,12 @@ import {
   type PointerEvent,
 } from "react";
 import { draw } from "@/games/gta/components/render";
+import { drawPrison } from "@/games/gta/components/prison-render";
+import {
+  createTouchControls,
+  drawTouchControls,
+  type TouchControls,
+} from "@/games/gta/components/touch-controls";
 import {
   VIEW_HEIGHT,
   VIEW_WIDTH,
@@ -28,7 +34,8 @@ import {
   getSettingsSnapshot,
   subscribeSettings,
 } from "@/games/gta/settings/settings-store";
-import { respawn, step } from "@/games/gta/engine/engine";
+import { breakOut, respawn, step } from "@/games/gta/engine/engine";
+import { taskLine } from "@/games/gta/engine/prison";
 import { DISTRICTS, createGame } from "@/games/gta/engine/setup";
 import { DISTRICT_NAMES } from "@/games/gta/i18n/texts";
 import {
@@ -61,6 +68,16 @@ const PLAY_TICK_MS = 5000;
 /** Milliseconds in a second, for turning frame times into game seconds. */
 const MS_PER_SECOND = 1000;
 
+/**
+ * How far the thumb stick has to be pushed for a direction to count.
+ *
+ * @remarks
+ * The engine takes four keys, not an axis, so somewhere the one has to become
+ * the other. A third of the way out: less than that and a thumb resting on the
+ * stick walks, more and a phone feels slow to turn.
+ */
+const STICK_GATE = 0.34;
+
 /** What the screen needs to know about the city. */
 export type Heads = {
   readonly phase: Phase;
@@ -75,6 +92,18 @@ export type Heads = {
   /** One line per quarter of town: what it is called and how it stands. */
   readonly quarters: readonly Quarter[];
   readonly log: readonly string[];
+  /** How the escape stands, or null whenever the city is being played. */
+  readonly escape: Escape | null;
+};
+
+/** What the screen shows while the player is inside the jail. */
+export type Escape = {
+  /** What to do next, in one line. */
+  readonly task: string;
+  /** How often a warder has taken the player back to the cell. */
+  readonly caught: number;
+  /** How many prisoners are coming along. */
+  readonly mates: number;
 };
 
 /** How one district stands, for the bar under the city. */
@@ -94,6 +123,8 @@ export type GtaSession = {
   readonly onPointer: (event: PointerEvent<HTMLCanvasElement>) => void;
   /** The mouse button, down and up. */
   readonly onFire: (down: boolean) => void;
+  /** The right button, once per press: one charge on the ground. */
+  readonly onPlant: () => void;
   /** Whether the debug turbo is on right now - held or latched. */
   readonly turbo: boolean;
   /** Latches the turbo on or off, for anyone whose Shift never arrives. */
@@ -107,6 +138,8 @@ export type GtaSession = {
   readonly restart: () => void;
   /** Back on the street after hospital or the cells. */
   readonly carryOn: () => void;
+  /** The other way out of the cells: through the wall. */
+  readonly escape: () => void;
 };
 
 /**
@@ -187,6 +220,16 @@ export function useGtaGame(): GtaSession {
   // times a second and must not wait on a render to see them.
   const pointer = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const firing = useRef(false);
+  // A click can go down and up between two pictures. The held flag alone would
+  // lose it, so the press is also remembered until one frame has spent it.
+  const fireEdge = useRef(false);
+  // The thumbs, on a phone. Made when the canvas first turns up and taken down
+  // with the loop; on a keyboard it stays idle and draws nothing.
+  const touch = useRef<TouchControls | null>(null);
+  const touched = useRef<HTMLCanvasElement | null>(null);
+  // The right button is an edge, not a state: one press, one charge on the
+  // ground - see layCharge in the engine.
+  const plantEdge = useRef(false);
   // The turbo has two switches: Shift, held, and a button that stays on. Both
   // feed the same flag, and the screen shows what the flag says - a cheat you
   // cannot see is a cheat you cannot tell from a broken one.
@@ -253,6 +296,12 @@ export function useGtaGame(): GtaSession {
   /** The wheel over the canvas: one notch, one weapon. */
   /** Follows the mouse over the canvas, in view pixels. */
   const onPointer = useCallback((event: PointerEvent<HTMLCanvasElement>) => {
+    // A finger is handled by the touch controller, which knows about sticks
+    // and buttons. Letting the pointer events through as well would mean every
+    // tap on the stick also swung the fist.
+    if (event.pointerType === "touch") {
+      return;
+    }
     const rect = event.currentTarget.getBoundingClientRect();
     pointer.current = {
       x: ((event.clientX - rect.left) / rect.width) * VIEW_WIDTH,
@@ -263,6 +312,12 @@ export function useGtaGame(): GtaSession {
   /** The trigger. */
   const onFire = useCallback((down: boolean) => {
     firing.current = down;
+    fireEdge.current = fireEdge.current || down;
+  }, []);
+
+  /** The other button: put one down. */
+  const onPlant = useCallback(() => {
+    plantEdge.current = true;
   }, []);
 
   const restart = useCallback(() => {
@@ -275,6 +330,11 @@ export function useGtaGame(): GtaSession {
 
   const carryOn = useCallback(() => {
     world.current = respawn(world.current);
+    setHeads(headsOf(world.current));
+  }, []);
+
+  const escape = useCallback(() => {
+    world.current = breakOut(world.current);
     setHeads(headsOf(world.current));
   }, []);
 
@@ -359,23 +419,48 @@ export function useGtaGame(): GtaSession {
       // city. The picture is tilted, so that is the projection run backwards -
       // the same one the renderer uses, or the shot would miss the crosshair.
       const box = canvas.current;
+      // The thumbs live on the canvas, so they are made as soon as there is
+      // one - and made again if React ever hands us a different one.
+      if (box !== null && touched.current !== box) {
+        touch.current?.dispose();
+        touch.current = createTouchControls(box);
+        touched.current = box;
+      }
+      const finger = touch.current?.sample() ?? null;
+      const looking = finger?.aim ?? null;
+      const point =
+        finger !== null && finger.engaged && looking !== null
+          ? looking
+          : pointer.current;
       const aim = worldAt(
         world.current.player,
         VIEW_WIDTH,
         VIEW_HEIGHT,
-        pointer.current.x,
-        pointer.current.y,
+        point.x,
+        point.y,
         zoom.current,
       );
+      const push = finger?.move ?? { x: 0, y: 0 };
       const input: Input = {
         ...keys.current,
-        use: useEdge.current,
+        up: keys.current.up || push.y < -STICK_GATE,
+        down: keys.current.down || push.y > STICK_GATE,
+        left: keys.current.left || push.x < -STICK_GATE,
+        right: keys.current.right || push.x > STICK_GATE,
+        use: useEdge.current || (touch.current?.consumeUse() ?? false),
+        plant: plantEdge.current || (touch.current?.consumePlant() ?? false),
         aim,
-        fire: firing.current,
-        wheel: wheel.current,
+        fire:
+          firing.current ||
+          fireEdge.current ||
+          (finger?.firing ?? false) ||
+          (touch.current?.consumeTap() ?? false),
+        wheel: wheel.current + (touch.current?.consumeWheel() ?? 0),
         god: godOn.current,
       };
       useEdge.current = false;
+      plantEdge.current = false;
+      fireEdge.current = false;
       wheel.current = 0;
       world.current = step(world.current, input, dt);
       const ctx = box?.getContext("2d") ?? null;
@@ -390,7 +475,16 @@ export function useGtaGame(): GtaSession {
         // however many real pixels the display has to offer.
         const sharpness = box.width / VIEW_WIDTH;
         ctx.setTransform(sharpness, 0, 0, sharpness, 0, 0);
-        draw(ctx, world.current, VIEW_WIDTH, VIEW_HEIGHT, zoom.current);
+        // Two worlds, two pictures. The jail shares the projection and the
+        // figures with the city and nothing else - see ./prison-render.
+        if (world.current.phase === "prison") {
+          drawPrison(ctx, world.current, VIEW_WIDTH, VIEW_HEIGHT, zoom.current);
+        } else {
+          draw(ctx, world.current, VIEW_WIDTH, VIEW_HEIGHT, zoom.current);
+        }
+        if (finger !== null) {
+          drawTouchControls(ctx, finger);
+        }
       }
       const next = headsOf(world.current);
       setHeads((current) => (same(current, next) ? current : next));
@@ -411,7 +505,12 @@ export function useGtaGame(): GtaSession {
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      touch.current?.dispose();
+      touch.current = null;
+      touched.current = null;
+    };
   }, []);
 
   return {
@@ -419,12 +518,14 @@ export function useGtaGame(): GtaSession {
     attach,
     onPointer,
     onFire,
+    onPlant,
     turbo,
     toggleTurbo,
     god,
     toggleGod,
     restart,
     carryOn,
+    escape,
   };
 }
 
@@ -454,6 +555,14 @@ function headsOf(state: GameState): Heads {
       owned: state.districts[district].owned,
     })),
     log: state.log,
+    escape:
+      state.prison === null
+        ? null
+        : {
+            task: taskLine(state.prison),
+            caught: state.prison.caught,
+            mates: state.prison.mates.length,
+          },
   };
 }
 
@@ -489,6 +598,9 @@ function same(a: Heads, b: Heads): boolean {
         quarter.done === b.quarters[at]?.done &&
         quarter.owned === b.quarters[at]?.owned,
     ) &&
+    a.escape?.task === b.escape?.task &&
+    a.escape?.caught === b.escape?.caught &&
+    a.escape?.mates === b.escape?.mates &&
     a.log === b.log
   );
 }

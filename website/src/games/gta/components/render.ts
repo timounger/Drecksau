@@ -36,6 +36,7 @@ import {
   type Bullet,
   type Car,
   type Cell,
+  type Charge,
   type Animal,
   type Cop,
   type GameState,
@@ -267,7 +268,9 @@ export function draw(
   drawGround(ctx, state, view, seen);
   drawMarkers(ctx, state, view);
   drawPickups(ctx, state, view, seen);
+  drawCharges(ctx, state, view);
   drawScene(ctx, state, view, seen);
+  drawChargeLights(ctx, state, view);
   drawBlasts(ctx, state, view);
   ctx.restore();
   drawMinimap(ctx, state, height);
@@ -1428,7 +1431,142 @@ const KIT: Readonly<
     ctx.lineWidth = 1.2;
     ctx.stroke(pin);
   },
+
+  // The handset, not the charge: a black box with a red button under the
+  // thumb and a stub of aerial. What one carries is the button - the charges
+  // are what one leaves behind, and they are drawn where they lie.
+  remote: (ctx) => {
+    const aerial = new Path2D();
+    aerial.moveTo(3.4, -3.6);
+    aerial.lineTo(7.4, -8.4);
+    ctx.strokeStyle = "#0f172a";
+    ctx.lineWidth = 1.3;
+    ctx.stroke(aerial);
+    const knob = new Path2D();
+    knob.ellipse(7.6, -8.8, 1.2, 1.2, 0, 0, Math.PI * 2);
+    part(ctx, knob, "#94a3b8", 0.8);
+    const box = new Path2D();
+    box.roundRect(-5.4, -4.4, 10.8, 9.6, 1.6);
+    part(ctx, box, "#1f2937");
+    const face = new Path2D();
+    face.roundRect(-3.8, -2.8, 7.6, 3, 0.8);
+    part(ctx, face, "#334155", 0.7);
+    const button = new Path2D();
+    button.ellipse(0, 2.4, 2.4, 2.2, 0, 0, Math.PI * 2);
+    part(ctx, button, "#dc2626", 0.9);
+    const shine = new Path2D();
+    shine.ellipse(-0.7, 1.7, 0.9, 0.7, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#fca5a5";
+    ctx.fill(shine);
+  },
 };
+
+/**
+ * The charges lying about, each with its light going.
+ *
+ * @remarks
+ * Painted with the pickups rather than with everything that stands up: a
+ * charge is flat on the road, and a thing on the road that a car can drive
+ * over has to be drawn under the car. The blinking red light is the whole of
+ * its interface - it is what tells you the line you laid is still live.
+ */
+function drawCharges(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+): void {
+  for (const charge of state.charges) {
+    const spot = project(view, charge.x, charge.y);
+    ctx.save();
+    ctx.translate(spot.x, spot.y);
+    ctx.scale(1, DEPTH);
+    const box = new Path2D();
+    box.roundRect(-5, -3.4, 10, 6.8, 1.4);
+    ctx.fillStyle = "#1c1917";
+    ctx.strokeStyle = "#0f172a";
+    ctx.lineWidth = 1;
+    ctx.fill(box);
+    ctx.stroke(box);
+    const tape = new Path2D();
+    tape.rect(-5, -1.2, 10, 2.4);
+    ctx.fillStyle = "#b45309";
+    ctx.fill(tape);
+    const lit = chargeLit(state, charge);
+    ctx.fillStyle = lit ? "#ef4444" : "#7f1d1d";
+    ctx.beginPath();
+    ctx.arc(3, -2.4, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    if (lit) {
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.arc(3, -2.4, 3.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+}
+
+/**
+ * Whether a charge's light is on this frame.
+ *
+ * @remarks
+ * Two rhythms out of one clock. A charge just put down blinks quickly for a
+ * second - that is the receipt for the button press - and after that it falls
+ * in with all the others: the slow blink runs off the world clock rather than
+ * off each charge's own, so a line of them pulses as one thing. They are one
+ * weapon, and they should look like one.
+ */
+function chargeLit(state: GameState, charge: Charge): boolean {
+  const since = state.time - charge.at;
+  return since < FRESH_CHARGE
+    ? since % QUICK_BLINK < QUICK_BLINK / 2
+    : state.time % SLOW_BLINK < SLOW_BLINK / 2;
+}
+
+/** How long a charge blinks quickly after being put down, in seconds. */
+const FRESH_CHARGE = 1;
+
+/** That quick blink, in seconds. */
+const QUICK_BLINK = 0.24;
+
+/** And the slow one they all share afterwards. */
+const SLOW_BLINK = 1;
+
+/**
+ * The lights of the charges, over everything else.
+ *
+ * @remarks
+ * The charge itself is drawn on the road and a car parked on it hides it -
+ * which is exactly what one wants of a trap. The light is drawn over the top
+ * of the whole picture instead, because the one thing the player must never
+ * lose is the answer to "where did I put them".
+ */
+function drawChargeLights(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+): void {
+  for (const charge of state.charges) {
+    if (chargeLit(state, charge)) {
+      const spot = project(view, charge.x, charge.y);
+      ctx.save();
+      ctx.translate(spot.x, spot.y);
+      ctx.scale(1, DEPTH);
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = "#ef4444";
+      ctx.beginPath();
+      ctx.arc(0, 0, 4.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#fca5a5";
+      ctx.beginPath();
+      ctx.arc(0, 0, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
 
 /* ------------------------------------------------------- cars and people */
 
@@ -1813,6 +1951,9 @@ function outfit(person: Person): {
     rival: ["#ea580c", "#7c2d12"],
     posh: ["#1e293b", "#0f172a"],
     bum: ["#78716c", "#57534e"],
+    // The same white suit they had on inside - the stripes are drawn on by
+    // the figure style, not by the colour.
+    convict: ["#f8fafc", "#eceae7"],
     // A bikini in deep rose over bare skin - deep rose rather than the pink in
     // the shirt palette, because two people in the same colour would be two of
     // the same person, and this one is meant to be recognised.
@@ -1842,6 +1983,7 @@ function styleOf(kind: Person["kind"]): FigureStyle {
     night: "night",
     mine: "gang",
     rival: "gang",
+    convict: "convict",
   };
   return styles[kind] ?? "plain";
 }
@@ -2085,9 +2227,11 @@ function drawWalker(
     player,
     {
       // A lighter green than the gang's, so that at a glance the bright one in
-      // the middle of the screen is you and the darker ones are your people.
-      shirt: "#4ade80",
-      trousers: "#1e293b",
+      // the middle of the screen is you and the darker ones are your people -
+      // unless you have just come over a prison wall, in which case you are
+      // wearing what you came over it in.
+      shirt: player.striped ? "#f8fafc" : "#4ade80",
+      trousers: player.striped ? "#eceae7" : "#1e293b",
       skin: "#f2c9a0",
       hair: "#1c1917",
       // The body turns with the mouse, the legs go where the keys send them.
@@ -2101,7 +2245,7 @@ function drawWalker(
       // carries it.
       hand:
         player.weapon === "fist" && player.punches % 2 === 1 ? "left" : "right",
-      style: "player",
+      style: player.striped ? "convict" : "player",
       holds: player.weapon,
     },
     fade,
@@ -2109,7 +2253,15 @@ function drawWalker(
 }
 
 /** How a figure is dressed, which way it is pointed, and where in its step. */
-type Figure = {
+/**
+ * Everything the picture needs about one person on their feet.
+ *
+ * @remarks
+ * Exported because the jail draws its people with the same three sprites - see
+ * ./prison-render. The city and the jail share no state at all, but a warder
+ * walks the same way a policeman does, and that is worth one type.
+ */
+export type Figure = {
   readonly shirt: string;
   readonly trousers: string;
   readonly skin: string;
@@ -2169,8 +2321,14 @@ const FOOTPRINT = 4.6;
  * Two sprites rather than one, because they sit at different heights: shoulders
  * at {@link SHOULDER}, the head at {@link PERSON_HEIGHT}. That gap is what
  * makes a figure stand up in a tilted picture instead of lying on the road.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param at - where they stand, in city pixels
+ * @param look - who they are and what their arms are doing
+ * @param fade - how solid to paint them, from zero to one
  */
-function drawFigure(
+export function drawFigure(
   ctx: CanvasRenderingContext2D,
   view: View,
   at: Vec,
@@ -2446,8 +2604,18 @@ function boxCorners(
   ];
 }
 
-/** The dark patch a thing throws on the road under it. */
-function shadow(
+/**
+ * The dark patch a thing throws on the road under it.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param at - the point on the road it stands on
+ * @param halfLong - half the patch along its heading
+ * @param halfWide - half the patch across it
+ * @param angle - which way the thing points
+ * @param fade - how solid to paint it, from zero to one
+ */
+export function shadow(
   ctx: CanvasRenderingContext2D,
   view: View,
   at: Vec,
@@ -2617,6 +2785,21 @@ function drawStatus(
   // a number that never falls.
   const endless = rounds < 0 || player.god;
   ctx.fillText(endless ? "∞" : String(rounds), left + 31, top + 68);
+  // How many charges are lying out there, on the corner of the weapon box.
+  // The number under it is what is left in the pouch; this one is what is
+  // still live, and while any of it is, that is the number that matters.
+  const live = player.weapon === "remote" ? state.charges.length : 0;
+  if (live > 0) {
+    ctx.fillStyle = "#dc2626";
+    ctx.beginPath();
+    ctx.arc(left + 50, top + 12, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fef2f2";
+    ctx.font = "bold 11px system-ui, sans-serif";
+    ctx.fillText(String(live), left + 50, top + 16);
+  }
+  ctx.fillStyle = "#e2e8f0";
+  ctx.font = "bold 11px system-ui, sans-serif";
 
   // Health, vest, and - while driving - what is left of the bodywork. Three
   // bars in the order they matter: you, your vest, your way out.

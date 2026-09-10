@@ -226,8 +226,15 @@ export type Feud = {
   readonly rival: boolean;
 };
 
-/** How far the simulation has got. */
-export type Phase = "playing" | "busted" | "wasted" | "won";
+/**
+ * How far the simulation has got.
+ *
+ * @remarks
+ * `prison` is the odd one out: the city stands still while it lasts and the
+ * player is somewhere else entirely - inside the jail, on foot, with a screw
+ * and a plan. See {@link PrisonState}.
+ */
+export type Phase = "playing" | "busted" | "wasted" | "won" | "prison";
 
 /** The whole city, at one moment. */
 export type GameState = {
@@ -246,6 +253,8 @@ export type GameState = {
   readonly blasts: readonly Blast[];
   /** Weapons and vests lying about the city. */
   readonly pickups: readonly Pickup[];
+  /** The charges the player has put down and not yet set off. */
+  readonly charges: readonly Charge[];
   readonly job: Job | null;
   readonly districts: Districts;
   /** Where the spray shop is - drive in and the stars go. */
@@ -265,6 +274,17 @@ export type GameState = {
   /** Simulation time the next patrol car may be sent, so they arrive one by
    * one rather than all at once. */
   readonly patrolAt: number;
+  /**
+   * The escape, while one is under way - null whenever the city is being
+   * played.
+   *
+   * @remarks
+   * A whole second world, and deliberately beside the city rather than folded
+   * into it: nothing inside the jail has a car, a wanted level or a district,
+   * and nothing in the city has a cell door. Keeping it here means the city is
+   * still standing when one comes back out of the wall.
+   */
+  readonly prison: PrisonState | null;
   /** The newest lines of what happened, newest last. */
   readonly log: readonly string[];
 };
@@ -308,6 +328,15 @@ export type Player = {
    * be a different game.
    */
   readonly movedAt: number;
+  /**
+   * Whether the player is still in the striped suit he broke out in.
+   *
+   * @remarks
+   * A man who has just come over a prison wall is wearing what he came over it
+   * in, and everybody in the street can see it. It goes when the search does:
+   * with the last star, he has found something else to put on.
+   */
+  readonly striped: boolean;
   /**
    * Simulation time the star count last went up at.
    *
@@ -394,6 +423,15 @@ export type Input = {
   readonly right: boolean;
   /** True on the frame the player gets in or out of a car. */
   readonly use: boolean;
+  /**
+   * True on the frame the right button goes down: one charge on the ground.
+   *
+   * @remarks
+   * Its own flag rather than a second meaning for {@link Input.fire}, because
+   * the two are opposite halves of the same weapon - the right button puts
+   * charges down, the left one sets every one of them off.
+   */
+  readonly plant: boolean;
   /** Where the mouse points, in city pixels - what the player faces. */
   readonly aim: Vec;
   /** True while the mouse button is down. */
@@ -413,6 +451,7 @@ export const IDLE_INPUT: Input = {
   left: false,
   right: false,
   use: false,
+  plant: false,
   aim: { x: 0, y: 0 },
   fire: false,
   boost: false,
@@ -970,8 +1009,225 @@ export type Pickup = {
   readonly again: boolean;
 };
 
+/**
+ * One remote charge, lying where it was put down.
+ *
+ * @remarks
+ * It does nothing at all until the button is pressed - no fuse, no clock, no
+ * trigger of its own. That is the whole point of it: everything else in the
+ * belt goes off when the player is looking at the target, and this one goes
+ * off when the target is standing on it. It is how a tank is taken apart.
+ */
+export type Charge = {
+  readonly id: number;
+  readonly x: number;
+  readonly y: number;
+  /** Simulation time it was put down, which is what makes its light blink. */
+  readonly at: number;
+};
+
+/** How many charges may lie about at once. */
+export const CHARGE_MAX = 10;
+
+/**
+ * What one of them takes off at the very centre.
+ *
+ * @remarks
+ * Well over a grenade, and deliberately: three of them under the same tank are
+ * more than its four hundred of bodywork, which is the one honest way of
+ * taking one apart on foot. Anything less and the answer to a tank would still
+ * be "run".
+ */
+export const CHARGE_FORCE = 150;
+
 /** How many stars shooting somebody costs. */
 export const SHOT_STARS = 2;
 
 /** How many lines of the log are kept. */
 export const LOG_LINES = 6;
+
+/* ------------------------------------------------------------ the prison */
+
+/**
+ * What one square of the jail is.
+ *
+ * @remarks
+ * The jail is a fixed plan rather than a generated one, for the same reason
+ * the city is fixed: an escape is a route learned by heart, and a route that
+ * reshuffles itself is a maze, not a plan. See the plan in ./prison.
+ */
+export type Slab =
+  | "wall"
+  | "floor"
+  | "cell"
+  | "bars"
+  | "gate"
+  | "yard"
+  | "bench"
+  | "loo"
+  | "myLoo"
+  | "bunk"
+  | "stones"
+  | "tunnel"
+  | "ward"
+  | "window"
+  | "cable"
+  | "tower"
+  | "free";
+
+/** How far along the escape the player has got. */
+export type PrisonStage =
+  /** Out in the yard, after a screw off one of the benches. */
+  | "screw"
+  /** Back in the cell, with the screw: the pan comes off the floor. */
+  | "loo"
+  /** The stones round the drain, one by one. */
+  | "stones"
+  /** Through the wall and along the passage behind the cells. */
+  | "tunnel"
+  /** Out in the sick bay: the window, and the cable behind it. */
+  | "window"
+  /** Hand over hand along the cable, over the wall. */
+  | "cable"
+  /** Outside. */
+  | "out";
+
+/** Anybody inside the jail: the player, a warder, a fellow prisoner. */
+export type Inmate = {
+  readonly x: number;
+  readonly y: number;
+  /** Which way they face, in radians. */
+  readonly heading: number;
+  /** How far they have walked, which is the clock of the step. */
+  readonly walked: number;
+};
+
+/**
+ * A warder on his round.
+ *
+ * @remarks
+ * Every one of them walks a fixed line and turns round at the end of it, so
+ * that watching a warder for a few seconds tells you exactly when he will be
+ * looking the other way. That is the whole game with them: an escape is a
+ * question of timing, not of luck.
+ */
+export type Warder = Inmate & {
+  /** The two ends of his round, in jail pixels. */
+  readonly from: Vec;
+  readonly to: Vec;
+  /** Whether he is on his way to {@link Warder.to} or back. */
+  readonly onward: boolean;
+  /** Simulation time he stands still until, at the end of his round. */
+  readonly waitUntil: number;
+  /** How far this one sees, in jail pixels. */
+  readonly range: number;
+  /**
+   * Whether he is up on the watchtower.
+   *
+   * @remarks
+   * Two things follow from it, and both are what a tower is for: he looks over
+   * the walls instead of along them, and he is drawn up on his platform. The
+   * cable over the wall runs right through his beat - which is why the last
+   * stretch of the escape is a matter of waiting for him to turn.
+   */
+  readonly high: boolean;
+};
+
+/**
+ * The escape, at one moment.
+ *
+ * @remarks
+ * Its own little world beside the city: a floor of {@link Slab}s, a handful of
+ * people on it, and one ladder of tasks. Nothing here knows about cars, money
+ * or stars - what the jail hands back to the city is one thing, whether the
+ * player got out.
+ */
+export type PrisonState = {
+  /** Seconds since the cell door was unlocked for the day. */
+  readonly time: number;
+  /** How far along the escape the player is. */
+  readonly stage: PrisonStage;
+  /** The player, on foot. */
+  readonly hero: Inmate;
+  /** The warders on their rounds. */
+  readonly warders: readonly Warder[];
+  /** The prisoners coming along, once the wall is open. */
+  readonly mates: readonly Inmate[];
+  /** Where the player has been, newest first: what the followers walk. */
+  readonly trail: readonly Vec[];
+  /** The men who stay behind: leaning about the yard and the cells. */
+  readonly idle: readonly Inmate[];
+  /** How far the job in hand has got, from zero to one. */
+  readonly work: number;
+  /** Whether the screw off the bench is in the player's pocket. */
+  readonly screw: boolean;
+  /** How often a warder has taken the player back to the cell. */
+  readonly caught: number;
+  /** Simulation time the warders look past the player until, after a catch. */
+  readonly graceUntil: number;
+};
+
+/** How many jail pixels one square of the plan is. */
+export const SLAB = 40;
+
+/**
+ * How close one has to stand to work on something, in jail pixels.
+ *
+ * @remarks
+ * A little more than one square of the plan, so that standing in the square
+ * next to a thing is close enough to work on it. Less than that and the game
+ * would be about shuffling into a pixel-perfect spot, which is not the game.
+ */
+export const REACH = 46;
+
+/** How far a warder sees, in jail pixels. */
+export const WATCH_RANGE = 190;
+
+/** How wide his look is to each side, in radians. */
+export const WATCH_WIDE = 0.62;
+
+/** How fast a warder walks his round, in pixels per second. */
+export const WARDER_SPEED = 62;
+
+/** How long he stands at the end of it, in seconds. */
+export const WARDER_TURN = 1.4;
+
+/** How many steps of the player's way the followers walk behind. */
+export const TRAIL_STEPS = 90;
+
+/** How far apart two points of that trail are, in jail pixels. */
+export const TRAIL_GAP = 14;
+
+/** How many prisoners come along once the wall is open. */
+export const MATE_COUNT = 5;
+
+/** How often a warder may take you back before the escape is over. */
+export const CATCHES = 3;
+
+/** How long the warders look past you after one, in seconds. */
+export const GRACE_SECONDS = 2.5;
+
+/** How far the man on the tower sees, in jail pixels. */
+export const TOWER_RANGE = 320;
+
+/** How high his platform stands over the ground, in screen pixels. */
+export const TOWER_HEIGHT = 78;
+
+/**
+ * How hard they look for somebody who went over the wall.
+ *
+ * @remarks
+ * Three stars: cars and bikes, no helicopter. Getting out of the jail is not
+ * the end of the escape - the way it ends is a chase through Los Santos, and
+ * a chase one cannot lose is not a chase.
+ */
+export const ESCAPE_STARS = 3;
+
+/** How many of the others make it out of the wall with the player. */
+export const ESCAPE_MATES = MATE_COUNT;
+
+/** How fast the player crosses the cable, as a share of walking pace. */
+export const CABLE_PACE = 0.55;
+
+/** How high over the ground the cable hangs, in pixels. */
+export const CABLE_HEIGHT = 46;

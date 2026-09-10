@@ -25,6 +25,32 @@ darin drei Aufträge abgeliefert hast.
 | E oder Enter              | einsteigen     | aussteigen               |
 | Shift (Cheat)             | zehnfach       | dreifach                 |
 
+**Rechtsklick** legt einen Zünder ab, wenn du den **Fernzünder** in der Hand
+hast - siehe unten. Sonst tut er nichts.
+
+### Am Handy
+
+Das Spiel lässt sich mit den Daumen spielen; die Bedienelemente tauchen erst
+auf, sobald du den Bildschirm einmal berührst.
+
+| Wo                 | Was                                                    |
+| ------------------ | ------------------------------------------------------ |
+| linke Bildhälfte   | Stick zum Laufen und Fahren - er erscheint unter dem Daumen |
+| rechte Bildhälfte  | schauen und schießen; im Gefängnis ist es das Arbeiten  |
+| Knopf **Auto**     | ein- und aussteigen                                    |
+| Knopf **Waffe**    | eine Waffe weiter                                      |
+| Knopf **Zünder**   | einen Fernzünder ablegen                               |
+
+Die drei Knöpfe stehen unten rechts und bleiben, wo sie sind.
+
+### Vollbild
+
+Oben steht der Knopf **Vollbild**: dann füllt nur noch das Spielbild den
+Schirm, ohne Kopfzeile, Ticker und Tastenliste. Am Handy lohnt sich dazu das
+**Querformat** - hochkant bleibt oben und unten ein schwarzer Streifen, weil das
+Bild breiter als hoch ist. Zurück geht es mit dem Knopf oben links oder mit
+Escape.
+
 Zu Fuß sind die vier Tasten Himmelsrichtungen: W geht nach oben, gleich wohin
 die Figur schaut. Geschaut - und geschossen - wird dorthin, wo die Maus steht.
 
@@ -159,6 +185,7 @@ derselben Stelle zurück.
 | Flammenwerfer     | Feuer     | 3 je Zunge | 120 px  | 200              |
 | Panzerfaust       | Explosion | 90      | 900 px     | 3                |
 | Granate           | Explosion | 80      | 260 px     | 5                |
+| Fernzünder        | Explosion | 150 je Zünder | dort, wo er liegt | 10        |
 
 Gewechselt wird mit dem **Mausrad**; leere Fächer werden übersprungen.
 Explosionen treffen alles im Umkreis von 90 Pixeln - auch dich.
@@ -166,9 +193,30 @@ Explosionen treffen alles im Umkreis von 90 Pixeln - auch dich.
 Die **Granate fliegt dorthin, wo du hinklickst**, und geht dort hoch - weiter
 als 260 Pixel wirfst du sie allerdings nicht, dann landet sie eben kurz davor.
 
-**In der Stadt liegt wenig herum:** achtzehn Fundstücke insgesamt. Vom
-Maschinengewehr, vom Flammenwerfer und von der Panzerfaust liegt **je genau
-eines** in ganz Los Santos, und was davon einmal aufgehoben ist, kommt nicht
+### Der Fernzünder
+
+Die einzige Waffe, die nicht dorthin geht, wo du hinzeigst, sondern dorthin,
+wo du **stehst**:
+
+- **Rechtsklick legt einen Zünder ab**, genau unter deinen Füßen. Es dürfen bis
+  zu **zehn** gleichzeitig liegen; jeder blinkt rot, und man sieht das Licht
+  auch dann noch, wenn ein Auto darübersteht.
+- **Linksklick jagt alle auf einmal hoch** - nicht einen nach dem anderen. Eine
+  Reihe Zünder unter einem Panzer ist eine Entscheidung, nicht zehn.
+- Der Vorrat zählt nur, was du noch in der Tasche hast. Solange draußen noch
+  etwas liegt, bleibt der Zünder im Gürtel und der Knopf funktioniert - sonst
+  hättest du zehn scharfe Ladungen auf der Straße und nichts, um sie
+  auszulösen. Die Zahl im roten Kreis oben ist, wie viele gerade liegen.
+- Nach Krankenhaus oder Zelle liegt nichts mehr: die Straße wird geräumt.
+
+**Damit macht man Panzer kaputt.** Ein Panzer hat 400 Blech, und Granaten
+nehmen davon pro Stück kaum siebzig. Drei Zünder direkt darunter reichen: 150,
+150, 150 - und der Panzer ist hin. Der Weg dahin ist der Reiz an der Sache -
+Zünder legen, in Deckung gehen und den Panzer darüberfahren lassen.
+
+**In der Stadt liegt wenig herum:** neunzehn Fundstücke insgesamt. Vom
+Maschinengewehr, vom Flammenwerfer, von der Panzerfaust und vom Fernzünder
+liegt **je genau eines** in ganz Los Santos, und was davon einmal aufgehoben ist, kommt nicht
 wieder. Die Alltagssachen - Rüstung, Schlagring, Schlagstock, Messer, Pistole -
 tauchen nach vierzig Sekunden wieder auf.
 
@@ -357,11 +405,100 @@ hineinfährst, weiß hinterher, welche Farbe der Wagen jetzt hat.
   dieselbe Waffe den vollen Schaden. Die Tabelle sagt, was eine Waffe kann;
   dieser Anteil sagt, wie hart die Stadt ist, und das sind zwei Fragen.
 - Stirbst du, landest du im **Krankenhaus**: 200 €.
-- Erwischt dich die Polizei, ist es die **Zelle**: 300 € Kaution.
+- Erwischt dich die Polizei, ist es die **Zelle**. Die Kaution von 300 € wird
+  aber erst fällig, wenn du die Strafe auch absitzt - siehe unten.
 - Beides ist kein Spielende - danach stehst du ohne Sterne wieder auf der
   Straße, und zwar **dort, wo du herauskommst**: nach dem Tod vor dem nächsten
   Krankenhaus, nach der Haft vor dem Gefängnis, aus dem sie dich entlassen
   haben.
+
+## Im Gefängnis
+
+Verhaftet zu werden ist ab jetzt eine Frage: **Strafe absitzen** oder
+**Ausbrechen**. Beides steht als Knopf auf dem Bild.
+
+- **Absitzen** kostet die Kaution von 300 € und stellt dich vor das Gefängnis.
+  Fertig.
+- **Ausbrechen** bringt dich in den Knast selbst - eine eigene Karte, von schräg
+  oben wie die Stadt. Schaffst du es hinaus, hast du **keine Kaution bezahlt**.
+
+### Der Weg nach draußen
+
+Du sitzt in der westlichen Zelle. Der Block hat fünf Zellen mit Gittern zum
+Gang, davor liegt der **Hof**, dahinter - noch weiß niemand davon - ein alter
+**Gang** zur **Krankenstation**. Fünf Schritte, immer der gleiche Weg:
+
+1. **Im Hof:** an einer der Bänke die **Schraube abdrehen**. Maus gedrückt
+   halten, bis der Balken voll ist.
+2. **In deiner Zelle:** mit der Schraube die **Kloschüssel abschrauben**.
+   Darunter kommt der Abfluss zum Vorschein.
+3. **Die Steine** rundherum lösen - das dauert am längsten. Danach ist die Wand
+   offen, und **fünf Mitgefangene schließen sich dir an**. Sie laufen hinter dir
+   her, wohin du gehst - durch die Wand, durch den Gang und über das Kabel.
+4. **Durch die Wand** und den Gang dahinter entlang, quer unter dem Zellenblock
+   hindurch. Er endet in der **Krankenstation**.
+5. **Am Fenster** der Krankenstation das Gitter auf und das **Kabel** greifen,
+   das von dort über die Gefängnismauer führt. Daran hangelst du dich hinüber -
+   langsamer als du läufst - und stehst draußen.
+
+**Auf dem Kabel bist du zu sehen.** Auf der Mauer steht ein **Wachturm**, und
+der Wärter darauf geht seine paar Schritte hin und her: schaut er nach Westen,
+liegt sein Kegel genau auf dem Kabel; dreht er sich nach Osten, ist der Weg
+frei. Er sieht **über** die Mauern hinweg und deutlich weiter als die anderen -
+ein Turm ist zum Drüberschauen da. Er schaut ungefähr so lange in die eine wie
+in die andere Richtung, und hinüber bist du in gut zwei Sekunden: **abwarten,
+bis er sich umdreht, dann los.**
+
+Was gerade dran ist, steht in der Leiste unten im Bild, und der **gelbe Ring**
+zeigt die Stelle. Der Balken darunter füllt sich, solange du die Maus hältst;
+lässt du los, bleibt er stehen, wo er war.
+
+### Was alle anhaben
+
+Drinnen trägt jeder dasselbe: **weiß-schwarz gestreifte Sträflingskleidung**,
+du wie die anderen. Die Wärter tragen dunkle Uniform mit Mütze - daran erkennt
+man aus jeder Ecke des Hofes, wer wer ist.
+
+### Die Wärter
+
+Vier Wärter gehen ihre Runden: einer durch den Gang, zwei über den Hof, einer in
+der Krankenstation. Jeder läuft eine feste Strecke und dreht am Ende um -
+**wer einen Wärter ein paar Sekunden beobachtet, weiß, wann er wegschaut.**
+
+Was sie sehen, steht als heller Kegel auf dem Boden. **Gesehen zu werden ist
+nicht selbst verboten**: im Hof bist du einer von vielen. Gefährlich wird es
+erst, wenn du
+
+- die Schraube dabei hast,
+- gerade an etwas arbeitest, oder
+- hinter der Wand bist, also im Gang, in der Krankenstation oder am Kabel.
+
+Dann färbt sich der Kegel **rot** - und wer hineinläuft, wird zurück in die
+Zelle gebracht. Die Schraube ist weg, das Loch in der Wand finden sie nicht.
+**Dreimal** dürfen sie dich haben; beim dritten Mal ist der Ausbruch vorbei und
+du sitzt die Strafe eben doch ab. Wie viele Versuche noch übrig sind, sagen die
+drei Punkte rechts in der Leiste.
+
+Im **Unsterblich-Cheat** sieht dich kein Wärter.
+
+### Draußen geht es weiter
+
+Über der Mauer ist der Ausbruch nicht vorbei, er fängt erst an: Du stehst mit
+**drei Sternen** auf der Straße, die Streifen sind schon unterwegs, und die
+fünf, die mit dir rausgekommen sind, rennen in alle Richtungen davon - in
+derselben gestreiften Kluft, die auch **du** noch anhast. Genau die ist es, die
+jede vorbeifahrende Streife sofort weiß, wen sie vor sich hat.
+
+Die Fahndung wird man los wie jede andere: aus der Sicht der Polizei
+verschwinden und warten. **Mit dem letzten Stern ist auch die Sträflingskluft
+weg** - dann bist du wieder nur einer von vielen. Und die Kaution hast du nie
+bezahlt.
+
+### Steuerung im Knast
+
+W A S D laufen, **Maus gedrückt halten** arbeitet. Autos, Waffen und Sterne gibt
+es hier nicht - und die Stadt draußen bleibt genau so stehen, wie du sie
+verlassen hast.
 
 ## Was hier nicht drin ist
 

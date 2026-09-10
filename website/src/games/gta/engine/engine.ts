@@ -13,10 +13,15 @@
  * changing hands.
  */
 import { districtAt, doorsOf, isOpen, isRoadAt, nearestCrossing } from "./city";
+import { advance, enterPrison } from "./prison";
 import { nextInt, nextRandom, type RandomState } from "./random";
 import { DISTRICTS, far, jobDeadline, pickJob } from "./setup";
 import {
   BUSTED_COST,
+  CHARGE_FORCE,
+  CHARGE_MAX,
+  ESCAPE_MATES,
+  ESCAPE_STARS,
   CAR_ACCEL,
   CAR_BRAKE,
   CAR_DRAG,
@@ -111,6 +116,7 @@ import {
   type Person,
   type Pickup,
   type Player,
+  type PrisonState,
   type Heli,
   type Vec,
 } from "./types";
@@ -134,6 +140,7 @@ import {
   firedOne,
   fullBelt,
   nextWeapon,
+  slotOf,
   tookUp,
   type Weapon,
   type WeaponKind,
@@ -155,6 +162,7 @@ export function step(state: GameState, input: Input, dt: number): GameState {
     next = godMode({ ...state, time }, input);
     next = drivePlayer(next, input, slice);
     next = switchWeapon(next, input);
+    next = layCharge(next, input);
     next = shoot(next, input, slice);
     next = moveTraffic(next, slice);
     next = movePeople(next, slice);
@@ -174,8 +182,128 @@ export function step(state: GameState, input: Input, dt: number): GameState {
     next = runJob(next);
     next = checkGarage(next);
     next = checkEnd(next);
+  } else if (state.phase === "prison" && state.prison !== null) {
+    next = doTime(state, state.prison, input, dt);
   }
   return next;
+}
+
+/**
+ * One step inside the jail, and what it means for the city.
+ *
+ * @remarks
+ * The city itself does not move while this runs. Nothing out there is waiting
+ * for the player - the traffic, the gangs and the search are exactly as they
+ * were when the door shut, which is the point of keeping the escape in a world
+ * of its own. What comes back is one of three answers, and two of them put the
+ * player back on the pavement.
+ */
+function doTime(
+  state: GameState,
+  prison: PrisonState,
+  input: Input,
+  dt: number,
+): GameState {
+  const turn = advance(prison, input, dt);
+  const told = turn.lines.reduce((log, line) => note(log, line), state.log);
+  let next: GameState;
+  switch (turn.done) {
+    case "out":
+      next = onTheRun(onStreet({ ...state, prison: null, log: told }, false));
+      break;
+    case "back":
+      next = onStreet({ ...state, prison: null, log: told }, true);
+      break;
+    default:
+      next = { ...state, prison: turn.prison, log: told };
+  }
+  return next;
+}
+
+/**
+ * Out of the wall and straight into a chase.
+ *
+ * @remarks
+ * Getting over the wall is not the end of the escape. Nobody walks away from a
+ * prison break: the search is on from the first step, and the men who came
+ * through the hole scatter into the streets in the same striped suits, which
+ * is what tells a passing patrol what it is looking at.
+ */
+function onTheRun(state: GameState): GameState {
+  const runners = Array.from({ length: ESCAPE_MATES }, (unused, at) => {
+    const way = (at / ESCAPE_MATES) * Math.PI * 2;
+    return convict(state, at, way);
+  });
+  return {
+    ...state,
+    player: {
+      ...state.player,
+      stars: ESCAPE_STARS,
+      heat: 0,
+      // Still in what he came over the wall in, and that is half the reason
+      // the city is looking at him.
+      striped: true,
+      // The clock for losing a star starts now. Without this it still holds
+      // whatever time the last chase left in it, and the search one has just
+      // earned would fall apart on the first frame outside.
+      coolAt: state.time + COOL_SECONDS,
+    },
+    people: [...state.people, ...runners],
+    log: note(
+      state.log,
+      `Draußen. ${ESCAPE_MATES} sind mit dir raus - und die Fahndung läuft.`,
+    ),
+  };
+}
+
+/** One escaped man, put down beside the player and already running. */
+function convict(state: GameState, at: number, way: number): Person {
+  const out = ESCAPE_SPREAD + (at % 2) * ESCAPE_SPREAD;
+  return {
+    id:
+      state.people.reduce((most, each) => Math.max(most, each.id), 0) + 1 + at,
+    x: state.player.x + Math.cos(way) * out,
+    y: state.player.y + Math.sin(way) * out,
+    heading: way,
+    turnAt: 0,
+    mood: "walking",
+    stillUntil: 0,
+    // Frightened from the first frame, which in this city is what running is.
+    scaredAt: state.time + ESCAPE_PANIC,
+    look: at,
+    walked: 0,
+    kind: "convict",
+    holds: null,
+    health: KINDS.convict.health,
+    reloadAt: 0,
+    home: null,
+  };
+}
+
+/** How far from the player the others come out of the wall, in pixels. */
+const ESCAPE_SPREAD = 26;
+
+/** How long they keep running for, in seconds. */
+const ESCAPE_PANIC = 30;
+
+/**
+ * Into the jail, with the day ahead and a plan.
+ *
+ * @param state - the game, just after an arrest
+ * @returns the escape, at the moment the cell door is unlocked
+ */
+export function breakOut(state: GameState): GameState {
+  return state.phase === "busted"
+    ? {
+        ...state,
+        phase: "prison",
+        prison: enterPrison(state.time),
+        log: note(
+          state.log,
+          "Zelle 1. Der Hof ist offen - und an den Bänken sitzen Schrauben.",
+        ),
+      }
+    : state;
 }
 
 /* ------------------------------------------------------------------ player */
@@ -705,7 +833,10 @@ function shoot(state: GameState, input: Input, dt: number): GameState {
   const gun = WEAPONS[player.weapon];
   const seat = carOf(state);
   const turret = seat !== null && VEHICLES[seat.body].gun;
-  const armed = player.car === null && carried(player.ammo, player.weapon);
+  // The detonator counts as loaded while anything of its is still lying about:
+  // the last charge one puts down must not be the one that takes the button
+  // out of one's hand.
+  const armed = player.car === null && carried(beltOf(state), player.weapon);
   const ready =
     input.fire &&
     state.time >= player.reloadAt &&
@@ -718,6 +849,13 @@ function shoot(state: GameState, input: Input, dt: number): GameState {
     next = {
       ...next,
       player: { ...next.player, reloadAt: state.time + SHELL_RELOAD },
+    };
+  } else if (ready && gun.way === "planted") {
+    // The left button on this one sets off what is already lying about, and
+    // costs no round: the charges were paid for when they were put down.
+    next = {
+      ...setOff(state),
+      player: { ...state.player, reloadAt: state.time + gun.reload },
     };
   } else if (ready) {
     next =
@@ -2561,11 +2699,7 @@ function switchWeapon(state: GameState, input: Input): GameState {
         ...state,
         player: {
           ...state.player,
-          weapon: nextWeapon(
-            state.player.ammo,
-            state.player.weapon,
-            input.wheel,
-          ),
+          weapon: nextWeapon(beltOf(state), state.player.weapon, input.wheel),
         },
       };
 }
@@ -2730,12 +2864,27 @@ function coolDown(state: GameState): GameState {
     const stars = state.player.stars - 1;
     next = {
       ...state,
-      player: { ...state.player, stars, coolAt: state.time + COOL_SECONDS },
+      player: {
+        ...state.player,
+        stars,
+        coolAt: state.time + COOL_SECONDS,
+        // With the last star the suit goes too: whoever is not being looked
+        // for any more has had time to find a jacket.
+        striped: stars === 0 ? false : state.player.striped,
+      },
       cars:
         stars === 0
           ? state.cars.filter((car) => car.kind !== "police")
           : state.cars,
-      log: stars === 0 ? note(state.log, "Die Luft ist rein.") : state.log,
+      log:
+        stars === 0
+          ? note(
+              state.log,
+              state.player.striped
+                ? "Die Luft ist rein - und die Sträflingskluft ist weg."
+                : "Die Luft ist rein.",
+            )
+          : state.log,
     };
   }
   return next;
@@ -2750,12 +2899,14 @@ function busted(state: GameState): GameState {
       ...state.player,
       stars: 0,
       heat: 0,
-      money: Math.max(0, state.player.money - BUSTED_COST),
       car: null,
       safeUntil: state.time + SAFE_SECONDS,
     },
     cops: [],
-    log: note(state.log, `Verhaftet. ${BUSTED_COST} € Kaution.`),
+    // The fine is not taken here. What happens next is a choice - sit it out
+    // and pay, or go through the wall and pay nothing - and a bill settled
+    // before the choice is made would decide it in advance.
+    log: note(state.log, "Verhaftet. Absitzen oder ausbrechen?"),
   };
 }
 
@@ -2906,6 +3057,91 @@ function watched(state: GameState): boolean {
   );
 }
 
+/**
+ * The belt, with the charges on the ground counted in.
+ *
+ * @remarks
+ * The pouch and the ground are one supply as far as the belt is concerned. Ten
+ * charges put down empty the pouch, and a wheel that then skipped the
+ * detonator - or a button that no longer worked - would leave ten live charges
+ * in the street with nothing to set them off with.
+ */
+function beltOf(state: GameState): readonly number[] {
+  const slot = slotOf("remote");
+  return state.charges.length === 0
+    ? state.player.ammo
+    : state.player.ammo.map((left, at) =>
+        at === slot && left === 0 ? state.charges.length : left,
+      );
+}
+
+/**
+ * The right button: one charge, put down where the player stands.
+ *
+ * @remarks
+ * On foot only, and never more than {@link CHARGE_MAX} of them at once. Where
+ * they go is where you are rather than where you point, which is what makes
+ * this a trap rather than a gun: you walk the line, then you walk away from it.
+ */
+function layCharge(state: GameState, input: Input): GameState {
+  const player = state.player;
+  const enough =
+    input.plant &&
+    player.weapon === "remote" &&
+    player.car === null &&
+    state.time >= player.floorUntil &&
+    carried(player.ammo, "remote") &&
+    state.charges.length < CHARGE_MAX;
+  return enough
+    ? {
+        ...state,
+        charges: [
+          ...state.charges,
+          {
+            id:
+              state.charges.reduce((most, each) => Math.max(most, each.id), 0) +
+              1,
+            x: player.x,
+            y: player.y,
+            at: state.time,
+          },
+        ],
+        player: { ...player, ammo: firedOne(player.ammo, "remote") },
+        log: note(
+          state.log,
+          `Zünder gelegt (${String(state.charges.length + 1)}/${String(CHARGE_MAX)}).`,
+        ),
+      }
+    : state;
+}
+
+/**
+ * The left button: every charge at once, and the ground where they lay.
+ *
+ * @remarks
+ * All of them together rather than one per press. A line of charges under a
+ * tank is one decision, and pressing the button five times while the tank
+ * drives on would only be a way of getting it wrong.
+ */
+function setOff(state: GameState): GameState {
+  let next = state;
+  for (const charge of state.charges) {
+    next = blast(next, charge, CHARGE_FORCE);
+  }
+  return state.charges.length === 0
+    ? next
+    : {
+        ...next,
+        charges: [],
+        log: note(
+          next.log,
+          state.charges.length === 1
+            ? "Zünder ausgelöst."
+            : `${String(state.charges.length)} Zünder ausgelöst.`,
+        ),
+      };
+}
+
 /* -------------------------------------------------------------------- ends */
 
 /** Whether the day is over, one way or the other. */
@@ -2942,36 +3178,57 @@ function checkEnd(state: GameState): GameState {
  * @returns the game playing again, the player on foot and clean
  */
 export function respawn(state: GameState): GameState {
-  // Out of the door of whichever building took you in: the hospital after a
-  // death, the prison after a stretch. Waking up on the spot where it happened
-  // never said where you had been, and the two buildings are on the map
-  // already - this is what they are for.
-  const gate = doorsOf(state.phase === "busted" ? "prison" : "hospital");
-  const out = nearest(gate, state.player);
   return state.phase === "busted" || state.phase === "wasted"
-    ? {
-        ...state,
-        phase: "playing",
-        player: {
-          ...state.player,
-          x: out.x,
-          y: out.y,
-          health: PLAYER_HEALTH,
-          // The vest does not survive the hospital, the guns do. Losing the
-          // belt on every death would make the city's kit a chore to re-walk.
-          armour: 0,
-          stars: 0,
-          heat: 0,
-          car: null,
-          floorUntil: 0,
-          safeUntil: state.time + SAFE_SECONDS,
-        },
-        cars: state.cars.filter((car) => car.kind !== "police"),
-        cops: [],
-        heli: null,
-        feud: { mine: false, rival: false },
-      }
+    ? onStreet(state, state.phase === "busted")
     : state;
+}
+
+/**
+ * Back on the pavement, clean, outside whichever building let you go.
+ *
+ * @param state - the game, in whichever phase it ended
+ * @param pays - whether this way out costs the bail
+ * @returns the city playing again
+ * @remarks
+ * Out of the door of the building that took you in: the hospital after a
+ * death, the prison after a stretch or a hole in a wall. Waking up on the spot
+ * where it happened never said where you had been, and both buildings are on
+ * the map already - this is what they are for.
+ */
+function onStreet(state: GameState, pays: boolean): GameState {
+  const gate = doorsOf(state.phase === "wasted" ? "hospital" : "prison");
+  const out = nearest(gate, state.player);
+  return {
+    ...state,
+    phase: "playing",
+    player: {
+      ...state.player,
+      x: out.x,
+      y: out.y,
+      health: PLAYER_HEALTH,
+      // The vest does not survive the hospital, the guns do. Losing the belt
+      // on every death would make the city's kit a chore to re-walk.
+      armour: 0,
+      stars: 0,
+      heat: 0,
+      striped: false,
+      money: pays
+        ? Math.max(0, state.player.money - BUSTED_COST)
+        : state.player.money,
+      car: null,
+      floorUntil: 0,
+      safeUntil: state.time + SAFE_SECONDS,
+    },
+    cars: state.cars.filter((car) => car.kind !== "police"),
+    cops: [],
+    heli: null,
+    feud: { mine: false, rival: false },
+    // Whatever was lying in the street waiting for a button stays where it
+    // was in the story, but not in the game: coming back from the cells with
+    // ten live charges scattered over town is a trap for the player himself.
+    charges: [],
+    log: pays ? note(state.log, `Kaution: ${BUSTED_COST} €.`) : state.log,
+  };
 }
 
 /**

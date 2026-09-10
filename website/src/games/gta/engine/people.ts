@@ -16,7 +16,8 @@
 import type { WeaponKind } from "./weapons";
 
 /** What sort of person somebody is. */
-export type PersonKind = "bum" | "plain" | "posh" | "night" | "mine" | "rival";
+export type PersonKind =
+  "bum" | "plain" | "posh" | "night" | "mine" | "rival" | "convict";
 
 /** Whose side somebody is on, if anybody's. */
 export type Side = "none" | "mine" | "rival";
@@ -110,6 +111,20 @@ export const KINDS: Readonly<Record<PersonKind, Kind>> = {
     health: 40,
     armed: true,
     side: "rival",
+    sits: false,
+    walksDogs: false,
+  },
+  convict: {
+    kind: "convict",
+    name: "Ausbrecher",
+    // The fastest walk in the city, because nobody in it has a better reason
+    // to be somewhere else. They are not in IN_THE_STREET: an escaped man is
+    // not a sort of passer-by the city deals out, he is what comes out of a
+    // hole in a prison wall.
+    walk: 62,
+    health: 20,
+    armed: false,
+    side: "none",
     sits: false,
     walksDogs: false,
   },

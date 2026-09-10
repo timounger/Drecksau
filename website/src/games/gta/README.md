@@ -141,6 +141,38 @@ das Messer kommt durch Aufheben dorthin. Das Mausrad überspringt leere Fächer,
 denn ein Rad, das auf etwas Unbenutzbarem stehen bleibt, muss zweimal gedreht
 werden.
 
+## Der Fernzünder ist zwei Knöpfe, nicht einer
+
+Die neunte Waffe passt in keine der vier Arten, wie etwas die Hand verlässt -
+also gibt es eine fünfte: `planted`. Was sie ausmacht, steht in zwei Sätzen im
+Code und beschreibt das ganze Spielzeug:
+
+- **Rechts legt ab, links löst aus.** `Input.plant` ist eine eigene Flanke und
+  keine zweite Bedeutung von `Input.fire`, weil die beiden Hälften derselben
+  Waffe entgegengesetzt sind. `layCharge()` legt eine Ladung **dorthin, wo der
+  Spieler steht** - nicht, wohin er zeigt -, und das macht aus einer Waffe eine
+  Falle: Man legt die Reihe, und dann geht man weg von ihr.
+- **Alle auf einmal.** `setOff()` zündet jede liegende Ladung im selben Bild.
+  Eine Reihe unter einem Panzer ist eine Entscheidung; zehnmal drücken, während
+  der Panzer weiterfährt, wäre nur eine Art, sie falsch zu treffen.
+- **Der Gürtel zählt den Boden mit.** `beltOf()` setzt für das Fach des
+  Fernzünders die Zahl der liegenden Ladungen ein, sobald die Tasche leer ist.
+  Ohne das wäre die zehnte gelegte Ladung diejenige, die einem den Knopf aus der
+  Hand nimmt: `carried()` sagt Nein, das Mausrad überspringt das Fach, und zehn
+  scharfe Ladungen liegen ohne Auslöser in der Stadt.
+- **Das Licht liegt über allem, die Ladung darunter.** Gezeichnet wird die
+  Ladung mit den Fundstücken auf der Straße - ein Auto, das darüber parkt,
+  verdeckt sie, und genau das will man von einer Falle. Das blinkende rote
+  Licht kommt danach noch einmal über das ganze Bild, weil die einzige Frage,
+  die der Spieler nie verlieren darf, "wo habe ich sie hingelegt" ist. Der
+  langsame Takt läuft über die Weltuhr statt über die eigene, damit eine Reihe
+  wie **ein** Ding pulst; die erste Sekunde blinkt jede schnell, und das ist die
+  Quittung für den Knopfdruck.
+- **Warum 150.** Ein Panzer hat 400 Blech, eine Granate nimmt ihm knapp 70.
+  Drei Ladungen darunter sind 450 - also genau das Werkzeug, mit dem man zu Fuß
+  einen Panzer auseinandernimmt, und kein zweites, das alles andere auch schon
+  könnte.
+
 ## Drei Tabellen statt drei Sonderfällen
 
 Waffen, Leute, Fahrzeuge und Häuser sind jeweils **eine Tabelle**, und der
@@ -363,6 +395,125 @@ Wo man danach steht, entscheidet `respawn()` über `nearest()`: nach dem Tod die
 nächste Tür von `doorsOf("hospital")`, nach der Haft die von `doorsOf("prison")`.
 Die Stadt steht fest, also gibt es diese Türen ohne Suche - man wacht dort auf,
 wo man herausgekommen wäre.
+
+## Der Knast ist eine zweite Welt, keine Ecke der Stadt
+
+Verhaftet zu werden endet nicht mehr in einem Knopf, sondern in einer Frage -
+absitzen oder ausbrechen -, und der Ausbruch spielt in einem eigenen kleinen
+Spiel: `engine/prison.ts` mit `components/prison-render.ts`.
+
+**Warum daneben und nicht darin.** Im Gefängnis gibt es kein Auto, keine
+Fahndung, kein Viertel und keine Waffe; in der Stadt gibt es keine Zellentür.
+Hätte man den Knast in die Stadt gelegt, müsste jede Regel dort ab sofort
+fragen, ob sie gerade drinnen oder draußen gilt. Stattdessen hält
+`GameState.prison` einen eigenen Zustand, und `step()` schickt die Bilder
+dorthin, solange die Phase `prison` ist. Die Stadt steht derweil **still** -
+wer aus der Wand kommt, findet sie genau so vor, wie er sie verlassen hat.
+
+**Was zwischen beiden Welten läuft, ist eine Antwort.** `advance()` kennt
+`GameState` nicht und gibt einen `PrisonTurn` zurück: den Knast einen Schritt
+weiter, die Zeilen für den Ticker und eines von drei Enden - `on`, `out`,
+`back`. Die Stadt übersetzt das in `doTime()`, und beide Ausgänge landen in
+derselben Funktion wie das Krankenhaus (`onStreet`). Deshalb gibt es die
+Kaution auch nur an einer Stelle: **wer absitzt, zahlt** - beim Ausbruch wird
+nichts abgebucht, und beim Verhaften selbst auch noch nicht, weil sonst die
+Wahl schon vor der Wahl entschieden wäre.
+
+**Der Grundriss ist ein Bild.** Der Knast steht als Buchstabengitter im Code -
+`#` Mauer, `|` Gitter, `w` die eigene Kloschüssel, `X` die losen Steine, `~` der
+Gang, `I` die Krankenstation, `=` das Kabel. Ein Plan, den man lesen kann,
+während man ihn ändert, ist mehr wert als eine Liste von Rechtecken; und fest
+ist er aus demselben Grund wie die Stadt: Ein Ausbruch ist ein auswendig
+gelernter Weg, und ein Weg, der sich jedes Mal neu mischt, ist ein Labyrinth.
+
+**Eine Leiter statt einer Handvoll Flaggen.** Wie weit der Ausbruch ist, steht
+in genau einem Feld (`PrisonStage`), und die Reihenfolge in `LADDER`. Alles
+andere fragt danach: welche Stelle der Ring zeigt (`markOf`), was die Leiste
+sagt (`taskLine`), ob ein Quadrat noch zu ist (`solid` - die Steine öffnen sich
+nach `stones`, das Fenster und das Kabel nach `window`, und die eigene
+Kloschüssel wird begehbar, sobald sie ab ist, weil man in genau der Ecke kniet).
+
+**Gesehen zu werden ist erst dann etwas.** `hunting()` beantwortet die eine
+Frage, die drinnen zählt: Schraube dabei, gerade am Arbeiten, oder schon hinter
+der Wand. Nur dann greift ein Wärterkegel zu - und derselbe Aufruf färbt den
+Kegel im Bild rot. Ein Kegel, den man fürchten muss, und einer, durch den man
+laufen darf, dürfen nicht gleich aussehen.
+
+**Die Mitgefangenen laufen keinen eigenen Weg.** Sie folgen einer Spur von
+Brotkrumen, die der Spieler alle `TRAIL_GAP` Pixel fallen lässt. Drei eigene
+Wegfindungen durch ein Loch in einer Wand wären dieselbe Schlange, nur teurer
+und gelegentlich falsch.
+
+**Der Mann auf dem Turm ist die eine Ausnahme von der Mauer.** Jeder Wärter
+hat seine eigene Sichtweite (`Warder.range`), und einer davon steht oben:
+`Warder.high` heißt zweierlei, und beides ist, wofür ein Turm da ist - er sieht
+**über** die Mauern statt an ihnen entlang (`sees()` überspringt für ihn die
+Sichtlinie), und gezeichnet wird er um `TOWER_HEIGHT` angehoben auf seiner
+Plattform. Sein Weg liegt neben dem Kabel, sodass die letzte Etappe kein Laufen
+mehr ist, sondern Warten: Er schaut je zur Hälfte in die eine und die andere
+Richtung, und hinüber ist man in gut zwei Sekunden.
+
+**Höhe ist in diesem Bild eine Verschiebung nach oben, sonst nichts.** Deshalb
+zieht sich das Hängen am Kabel und das Stehen auf dem Turm auf dasselbe Feld
+zusammen (`PrisonFolk.lift`): ein `translate`, kein zweiter Zeichenweg. Und weil
+es pro Person gilt statt nur für den Spieler, hängt die ganze Schlange am Kabel
+und nicht nur ihr erster.
+
+**Die Sträflingskluft ist ein Figurenstil, keine Farbe.** `figure-art` kennt
+jetzt `convict` und malt die schwarzen Streifen quer über Rumpf und Beine; die
+Farbe darunter bleibt weiß. Denselben Stil trägt der Spieler in der Stadt,
+solange `Player.striped` gesetzt ist - das ist genau die Zeit zwischen dem
+Sprung von der Mauer und dem letzten Stern. Ein Ausbrecher, den man an der
+Kleidung erkennt, macht aus der Fahndung eine Erklärung statt einer Strafe.
+
+**Draußen ist der Ausbruch nicht zu Ende.** `onTheRun()` setzt `ESCAPE_STARS`,
+stellt die Uhr fürs Abkühlen neu (ohne das fiele die eben verdiente Fahndung im
+ersten Bild wieder auseinander) und setzt fünf `convict`-Passanten neben den
+Spieler, alle mit gesetztem `scaredAt` - in dieser Stadt ist Angst das, was
+Rennen bedeutet. `convict` ist bewusst **nicht** in `IN_THE_STREET`: Ein
+Ausbrecher ist keine Sorte Passant, die die Stadt austeilt, sondern das, was aus
+einem Loch in einer Gefängnismauer kommt.
+
+**Durchsichtig wird eine Wand auch für die Aufgabe.** Die Schüssel und das Loch
+stehen an der Südwand des Blocks, und in dieser Schrägsicht deckt eine Wand
+alles zu, was nördlich davor liegt. Deshalb prüft `hides()` nicht nur den
+Spieler, sondern auch den Punkt, den der Ring zeigt - sonst spielte die Mitte
+des Ausbruchs hinter einem grauen Balken.
+
+## Daumen statt Maus, und ein Bild ohne Seite drumherum
+
+Auf einem Telefon gibt es weder Tastatur noch Maus noch zweite Maustaste. Die
+Antwort darauf ist dieselbe wie bei Panzerkiste - und zwar bewusst dieselbe,
+weil zwei Spiele derselben Sammlung sich nicht unterschiedlich anfühlen sollen:
+
+- **`components/touch-controls.ts`** hört zu und merkt sich, mehr nicht. Der
+  linke Daumen setzt einen Stick dorthin, wo er landet, der rechte schaut und
+  schießt, und drei runde Knöpfe unten rechts sind das, wofür am Rechner Maus
+  und Tastatur da sind: **Auto** (ein- und aussteigen), **Waffe** (eine weiter)
+  und **Zünder** (ablegen). Der Hook nimmt einmal je Bild eine Probe und faltet
+  sie in denselben `Input`, den Tastatur und Maus erzeugen - die Simulation
+  erfährt nie, womit gespielt wird.
+- **Alles darin rechnet in Ansichtspixeln**, denselben, in denen der Renderer
+  zeichnet. Ein Knopf liegt damit genau dort, wo er aussieht, egal wie fein der
+  Bildschirm ist und wie groß die Leinwand gerade skaliert wird.
+- **Der Stick ist eine Achse, die Simulation kennt vier Tasten.** Umgerechnet
+  wird an genau einer Stelle im Hook, an `STICK_GATE`. Ein Daumen, der auf dem
+  Stick liegt, soll nicht loslaufen; ein Telefon, das erst bei ganz
+  durchgedrücktem Stick reagiert, fühlt sich träge an.
+- **Finger werden nicht zweimal gezählt.** `onPointer` steigt bei
+  `pointerType === "touch"` sofort aus, sonst würde jeder Tipper auf den Stick
+  zusätzlich als Mausklick ankommen und die Faust schwingen.
+- **Ein Klick kann zwischen zwei Bilder fallen.** Der Abzug ist ein gehaltener
+  Zustand, aber ein Tipp von zehn Millisekunden wäre damit verloren. Deshalb
+  merken sich Hook und Controller den Druck zusätzlich als Flanke und geben ihn
+  genau ein Bild lang aus - ein Tipp, ein Schuss.
+- **Vollbild** ist der gemeinsame `useFullscreen`-Hook aus `lib/screen` auf dem
+  Rahmen um die Leinwand, plus `useShotRatio`, damit die CSS-Regel
+  `.game-fullscreen:fullscreen` das Bild skalieren kann, ohne es zu verzerren.
+  Der Rahmen enthält bewusst nur das Bild und die Overlays: Ticker und
+  Tastenliste haben im Vollbild nichts verloren, und was der Spieler wirklich
+  braucht - Geld, Leben, Waffe, Sterne, Karte, Auftragszeile - malt der
+  Renderer ohnehin in die Ecken der Leinwand.
 
 ## Das Mausrad und die passive Zuhörer-Falle
 
@@ -718,3 +869,41 @@ Die letzten Regeln noch einmal gemessen, mit demselben Verfahren:
   beim Aufschlag.
 - Nach 90 Sekunden bei drei Sternen sind es 2 Streifen und 4 Mann zu Fuß, nicht
   mehr.
+
+Am Telefon nachgemessen (Chromium, 412x915, echte Touch-Ereignisse):
+
+- Der Stick fährt: nach einer Sekunde Schub steht die Figur zwei Straßen
+  weiter.
+- Die Knöpfe kommen an: neunmal **Waffe** landet auf dem Fernzünder, **Zünder**
+  meldet „Zünder gelegt (1/10)" und „(2/10)", ein Tipp rechts löst beide aus,
+  **Auto** meldet „Eingestiegen." und die Kopfzeile sagt „am Steuer".
+- **Vollbild** wird angeboten und geht an.
+
+Der Fernzünder, gemessen:
+
+- Ein Fund gibt zehn Ladungen. Zwölf Rechtsklicks ergeben trotzdem zehn
+  liegende und eine leere Tasche.
+- Ein Linksklick löst alle zehn im selben Bild aus und kostet keine Munition.
+- Unter einem Panzer: eine Ladung 400 -> 250, zwei -> 100, drei -> hin. Eine
+  Granate an derselben Stelle nimmt ihm 66.
+- Nach der Zelle liegt nichts mehr auf der Straße.
+
+Und der Ausbruch, einmal ganz durchgespielt (ohne Wärter, mit einem Automaten
+am Steuer):
+
+- Schraube, Schüssel, Steine, Gang, Fenster, Kabel - alle sechs Schritte gehen
+  auf, zusammen knapp **56 Sekunden** reiner Weg.
+- Nach den Steinen hängen **drei Mitgefangene** dran und sind am Ende noch da.
+- Mit der Schraube mitten im Gang stehen bleiben: nach **2,1 Sekunden**
+  erwischt, zurück in der Zelle, Schraube weg. Ohne Schraube an derselben
+  Stelle **30 Sekunden** lang: nichts.
+- Beim dritten Mal endet der Ausbruch mit `back`.
+- Ausbrechen kostet nichts, Absitzen 300 € - beides stellt einen vor das
+  Gefängnistor.
+- Der Turmwärter: Sichtweite 320, sieht über Mauern. Am Kabel, während er nach
+  Westen schaut: **sofort** erwischt. Dreht er nach Osten: in drei Sekunden
+  nicht gesehen. Im Hof, weit weg vom Turm: sieht er einen nicht. In 20
+  Sekunden schaut er 10,2 s nach Westen und 9,8 s nach Osten.
+- Nach den Steinen laufen **fünf** mit.
+- Draußen: drei Sterne, fünf gestreifte Ausbrecher auf der Straße, alle in
+  Panik - und die Sterne bleiben auch zehn Sekunden später noch stehen.
