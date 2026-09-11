@@ -36,7 +36,11 @@ export const GTA_RULES: GameRules = {
       title: "Fahrzeuge",
       body: [
         "Sechs Sorten: Wagen, Taxi, Geländewagen, Motorrad, Fahrrad und Panzer. Sie unterscheiden sich in Tempo, Beschleunigung, Wendigkeit und Blech - ein Fahrrad ist langsam und aus Papier, ein Geländewagen träge und zäh.",
-        "Der Panzer steht irgendwo herum, ist kaum kaputtzukriegen und hat als einziges Fahrzeug eine Kanone: Aus ihm heraus wird geschossen, und zwar dorthin, wo er zeigt.",
+        "Auf dem Militärgelände steht außerdem ein Hubschrauber, den man fliegen kann: E steigt ein, Leertaste steigt, W fliegt. Rings um den Zaun stehen vier Luftabwehrstellungen, die auf alles schießen, was dort in der Luft ist.",
+        "Oben links liegt Bauernland mit Feldern, Scheunen und Traktoren - der Traktor hat eine Anhängerkupplung und kann andere Fahrzeuge abschleppen. Unten links steht ein Berg, auf den ein Feldweg hinaufführt.",
+        "Tag und Nacht sind standardmäßig aus. In den Einstellungen kann man sie anschalten - dann läuft oben rechts eine Uhr, nachts wird es dunkel, und zum Sonnenauf- und -untergang liegt die Stadt in Orange. Ein ganzer Tag dauert 24 Minuten.",
+        "Wer umkommt, lässt sein Geld liegen - vom Passanten 60 Euro, vom Snob 260. Penner haben nichts, Polizisten tragen keins bei sich.",
+        "Der Panzer ist kaum kaputtzukriegen und hat als einziges Fahrzeug eine Kanone: Aus ihm heraus wird geschossen, und zwar dorthin, wo er zeigt. Es gibt genau einen, und der steht hinter dem Zaun des Militärgeländes in der Wüste - wer dort hineingeht, hat sofort sechs Sterne und zehn bewaffnete Wachen am Hals. Der andere Weg zu einem Panzer ist, ihn der Polizei wegzunehmen, die bei sechs Sternen selbst einen schickt.",
       ],
     },
     {
@@ -92,8 +96,8 @@ export const GTA_RULES: GameRules = {
         "Das Vorbild ist ein 3D-Spiel von 2004 mit einer Geschichte, Waffen und einem halben Bundesstaat. Hier ist es eine Stadt von schräg oben, in der das übrig bleibt, was ein Browserspiel tragen kann: fahren, ausweichen, abliefern, abhauen.",
         "Die Ansicht ist gekippt wie bei Panzerkiste: Häuser, Autos und Leute haben ein Dach und eine Wand, die zu dir zeigt. Gerechnet wird trotzdem flach von oben. Verstecken tut die Ansicht nichts: Sobald jemand hinter einem Haus steht - du, ein Auto, ein Passant -, wird dieses Haus durchsichtig, und der Verdeckte wird oben drauf gezeichnet.",
         "Geschossen wird zu Fuß, und zurück schießt niemand: Die Polizei drängt dich ab und rammt. Die Spannung kommt aus dem Verkehr, der Uhr und den Sternen im Rückspiegel.",
-        "Shift halten ist ein Cheat: zu Fuß zehnfaches Tempo, im Auto dreifaches. Wem die Taste zu unbequem ist oder wem das System sie wegschluckt, der drückt oben den Knopf Turbo (Cheat) - der bleibt an, bis er wieder gedrückt wird.",
-        "Der zweite Knopf, Unsterblich (Cheat), nimmt dir jeden Schaden ab und legt alle Waffen in den Gürtel - die Munitionsanzeige steht dann auf dem Unendlichkeitszeichen. Zum Ausprobieren gedacht, nicht zum Gewinnen.",
+        "Shift halten heißt rennen: zu Fuß dreifaches Tempo, im Auto anderthalbfaches.",
+        "Der Knopf Cheat-Modus nimmt dir jeden Schaden ab, legt alle Waffen in den Gürtel und den Jetpack auf den Rücken - die Munitionsanzeige steht dann auf dem Unendlichkeitszeichen. Solange er an ist, wird aus Shift der alte Turbo: zehnfach zu Fuß, dreifach im Auto. Zum Ausprobieren gedacht, nicht zum Gewinnen.",
       ],
     },
   ],

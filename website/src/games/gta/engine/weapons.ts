@@ -195,6 +195,56 @@ export const WEAPONS: Readonly<Record<WeaponKind, Weapon>> = {
 };
 
 /**
+ * What the gun shop charges, and what the vest costs.
+ *
+ * @remarks
+ * Set against what the city pays: a job is worth two to four hundred, so a
+ * pistol is an afternoon's work and the rocket launcher is a week of them. The
+ * fist is free because nobody sells one, and the shop shows it as owned.
+ */
+export const PRICES: Readonly<Record<WeaponKind | "armour", number>> = {
+  fist: 0,
+  knuckles: 150,
+  baton: 220,
+  knife: 260,
+  pistol: 600,
+  mg: 1500,
+  flamer: 2200,
+  rpg: 4200,
+  grenade: 900,
+  remote: 2600,
+  armour: 400,
+};
+
+/**
+ * What it costs to fill a weapon back up, as a share of buying it.
+ *
+ * @remarks
+ * A quarter. Somebody who has the rocket launcher should be able to keep it
+ * fed without buying it again, and somebody who has not should still want to.
+ */
+const REFILL_SHARE = 0.25;
+
+/**
+ * What a shop charges to fill one weapon up again.
+ *
+ * @param kind - the weapon in question
+ * @returns the price of one more pickup's worth of rounds
+ */
+export function refillPrice(kind: WeaponKind): number {
+  return Math.round(PRICES[kind] * REFILL_SHARE);
+}
+
+/**
+ * Which weapons a shop keeps on the wall.
+ *
+ * @returns everything that can be bought, in the order of the belt
+ */
+export function forSale(): readonly WeaponKind[] {
+  return WEAPON_ORDER.filter((kind) => PRICES[kind] > 0);
+}
+
+/**
  * Where a weapon sits in the belt.
  *
  * @param kind - the weapon

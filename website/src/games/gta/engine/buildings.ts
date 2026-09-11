@@ -13,6 +13,8 @@
  * grid of blocks into somewhere you can give directions in.
  */
 
+import { AIRPORT, BLOCK_TILES, CITY_TILES, ISLANDS, type Vec } from "./types";
+
 /** What kind of building fills a block. */
 export type BuildingKind =
   | "house"
@@ -20,6 +22,8 @@ export type BuildingKind =
   | "terrace"
   | "tower"
   | "bank"
+  | "guns"
+  | "mint"
   | "fire"
   | "hospital"
   | "police"
@@ -97,6 +101,27 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     shape: "one",
     rise: 1.3,
     sign: "#facc15",
+  },
+  mint: {
+    kind: "mint",
+    // The one building in Los Santos that makes money instead of keeping it:
+    // grey walls, a long hall, and gold over the door. The sign is long enough
+    // that {@link signOver} shrinks it, which is the point of that loop.
+    name: "LA CASA DE PAPEL",
+    roof: "#3f3f46",
+    wall: "#52525b",
+    shape: "one",
+    rise: 1.15,
+    sign: "#eab308",
+  },
+  guns: {
+    kind: "guns",
+    name: "WAFFEN",
+    roof: "#44403c",
+    wall: "#57534e",
+    shape: "one",
+    rise: 0.85,
+    sign: "#b91c1c",
   },
   fire: {
     kind: "fire",
@@ -196,6 +221,14 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
  * @remarks
  * Two thirds ordinary housing, one third places with a name. The list is the
  * mix: the more often a sort appears in it, the more of them the city has.
+ *
+ * The place in the row counts too. The block hash is quick rather than perfectly
+ * flat - some rows come up four times as often as others - so the named places
+ * are sorted into it on purpose: the barber in a thin row, the gun shops in a
+ * fat one. A rare barber is a curiosity; a gun shop nobody can find is a shop
+ * that is not there.
+ *
+ * Two of them are not drawn from this at all. See {@link ONE_ONLY}.
  */
 export const THE_BLOCKS: readonly BuildingKind[] = [
   "house",
@@ -212,17 +245,19 @@ export const THE_BLOCKS: readonly BuildingKind[] = [
   "terrace",
   "tower",
   "tower",
-  "bank",
-  "fire",
-  "hospital",
+  "hall",
+  "mint",
   "police",
   "barber",
   "restaurant",
   "casino",
-  "hall",
-  "market",
   "club",
+  "fire",
+  "guns",
+  "bank",
+  "hospital",
   "prison",
+  "market",
 ];
 
 /**
@@ -252,8 +287,150 @@ export function blockAt(roll: number): Building {
  * what is on a corner.
  */
 export function buildingAt(blockX: number, blockY: number): Building {
-  return blockAt(roll(blockY + SHIFT_DOWN, blockX - SHIFT_ACROSS));
+  const drawn = rawKindAt(blockX, blockY);
+  const spare = ONE_ONLY.includes(drawn) && !isTheOne(drawn, blockX, blockY);
+  return BUILDINGS[spare ? "house" : drawn];
 }
+
+/**
+ * The two there is exactly one of in Los Santos.
+ *
+ * @remarks
+ * A bank on every third corner is a cash machine; one bank is a place. The same
+ * goes double for the printing works, which is the biggest job in the city and
+ * has to be a landmark rather than a chain. Wherever else the plan would have
+ * put one, an ordinary house goes up instead - so the city keeps its shape and
+ * only the sign over one door is different.
+ *
+ * Both are marked on the map, because a single building in four thousand blocks
+ * that one has to stumble over is a building nobody ever finds.
+ */
+const ONE_ONLY: readonly BuildingKind[] = ["bank", "mint"];
+
+/**
+ * Whether a block is a green one rather than houses.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the block, down
+ * @returns true where a park goes
+ * @remarks
+ * Every third block on a rhythm, so that the city has lungs without anybody
+ * having to place them. It lives here rather than in ./city because it answers
+ * the same question the table above does - what is in this block - and the two
+ * must not be able to disagree. The floor asks it to lay out grass; the sign
+ * over the door asks it because a name on an empty lawn is a name on nothing.
+ */
+export function greenBlock(blockX: number, blockY: number): boolean {
+  return (
+    (blockX + blockY * 2) % PARK_EVERY === 0 && (blockX + blockY) % 2 === 0
+  );
+}
+
+/** Every third block is a park rather than houses, on this rhythm. */
+const PARK_EVERY = 3;
+
+/**
+ * Whether a square is on land at all.
+ *
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns true inside one of the three cities
+ * @remarks
+ * The floor asks it to decide between tarmac and sea; the table above asks it
+ * because a block in the water holds nothing - and a night club out there
+ * would put its whole queue in the sea.
+ */
+export function inCity(col: number, row: number): boolean {
+  // The airfield is inside Los Santos and is not part of it: a terminal with
+  // a row of terraced houses down the middle of the runway is not an airport.
+  const flying =
+    col >= AIRPORT.left &&
+    col <= AIRPORT.right &&
+    row >= AIRPORT.top &&
+    row <= AIRPORT.bottom;
+  return (
+    !flying &&
+    ISLANDS.some(
+      (isle) =>
+        col >= isle.left &&
+        col <= isle.right &&
+        row >= isle.top &&
+        row <= isle.bottom,
+    )
+  );
+}
+
+/**
+ * Whether anything is built on a block at all.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the block, down
+ * @returns false for the parks and for the sand and water along the south edge
+ * @remarks
+ * The plan deals a sort of building to every block in the grid, including the
+ * ones that turn out to be a lawn or a beach. Whoever wants a door has to ask
+ * this first: a quarter of the addresses in town are otherwise a name on a
+ * piece of grass, and standing in front of one used to open a gun shop.
+ */
+export function builtBlock(blockX: number, blockY: number): boolean {
+  const left = blockX * BLOCK_TILES;
+  const top = blockY * BLOCK_TILES;
+  const dry =
+    inCity(left, top) && inCity(left + BLOCK_TILES - 1, top + BLOCK_TILES - 1);
+  return !greenBlock(blockX, blockY) && dry;
+}
+
+/** What the plan would put on a block, before the two rare ones are thinned. */
+function rawKindAt(blockX: number, blockY: number): BuildingKind {
+  return blockAt(roll(blockY + SHIFT_DOWN, blockX - SHIFT_ACROSS)).kind;
+}
+
+/** Whether this block is the one that keeps its sign. */
+function isTheOne(kind: BuildingKind, blockX: number, blockY: number): boolean {
+  const one = theOne(kind);
+  return one !== null && one.x === blockX && one.y === blockY;
+}
+
+/**
+ * Which block keeps it: the one nearest the middle of town.
+ *
+ * @param kind - one of {@link ONE_ONLY}
+ * @returns the block, or null if the plan drew none at all
+ * @remarks
+ * Nearest the middle rather than first in reading order, so that the one bank
+ * in the city is somewhere one passes anyway - and only where there is anything
+ * built at all: the plan draws blocks for the parks and the beach as well, and
+ * a sign over a door needs a door under it. Worked out once and remembered; it
+ * is the same city every time, and the map asks on every frame.
+ */
+function theOne(kind: BuildingKind): Vec | null {
+  const known = ONLY_BLOCKS.get(kind);
+  if (known !== undefined) {
+    return known;
+  }
+  const blocks = CITY_TILES / BLOCK_TILES;
+  const middle = blocks / 2;
+  let best: Vec | null = null;
+  let bestAway = Number.POSITIVE_INFINITY;
+  for (let blockY = 0; blockY < blocks; blockY += 1) {
+    for (let blockX = 0; blockX < blocks; blockX += 1) {
+      const away = Math.hypot(blockX - middle, blockY - middle);
+      if (
+        rawKindAt(blockX, blockY) === kind &&
+        builtBlock(blockX, blockY) &&
+        away < bestAway
+      ) {
+        best = { x: blockX, y: blockY };
+        bestAway = away;
+      }
+    }
+  }
+  ONLY_BLOCKS.set(kind, best);
+  return best;
+}
+
+/** The answers to {@link theOne}, once each. */
+const ONLY_BLOCKS = new Map<BuildingKind, Vec | null>();
 
 /* The block is asked twice about itself - once for what it is, once for how
    tall it builds - and the two answers must not be the same draw. Shifting the

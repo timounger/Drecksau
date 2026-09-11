@@ -17,7 +17,28 @@ import type { WeaponKind } from "./weapons";
 
 /** What sort of person somebody is. */
 export type PersonKind =
-  "bum" | "plain" | "posh" | "night" | "mine" | "rival" | "convict";
+  "bum" | "plain" | "posh" | "night" | "mine" | "rival" | "convict" | "robber";
+
+/**
+ * What one of them has in his pocket, in euros.
+ *
+ * @remarks
+ * Whoever goes down leaves it lying there. It is not a reward for killing -
+ * the police come either way and the money is small - it is what makes a body
+ * a thing that happened rather than a thing that vanished. The beggar has
+ * nothing, which is what makes him a beggar, and policemen are not in this
+ * table at all: they carry a warrant card and a radio.
+ */
+export const PURSE: Readonly<Record<PersonKind, number>> = {
+  bum: 0,
+  plain: 60,
+  night: 120,
+  posh: 260,
+  mine: 90,
+  rival: 110,
+  robber: 180,
+  convict: 40,
+};
 
 /** Whose side somebody is on, if anybody's. */
 export type Side = "none" | "mine" | "rival";
@@ -111,6 +132,20 @@ export const KINDS: Readonly<Record<PersonKind, Kind>> = {
     health: 40,
     armed: true,
     side: "rival",
+    sits: false,
+    walksDogs: false,
+  },
+  robber: {
+    kind: "robber",
+    name: "Maskierter",
+    // The same pace as the men who came over a prison wall, and for the same
+    // reason: whoever has just come up out of a tunnel is not strolling.
+    walk: 54,
+    health: 40,
+    // They went in armed and they came out armed - but what they are doing is
+    // running, and a robber who stopped to fight would not be running.
+    armed: false,
+    side: "none",
     sits: false,
     walksDogs: false,
   },

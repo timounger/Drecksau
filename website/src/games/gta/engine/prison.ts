@@ -18,7 +18,7 @@
 import {
   CABLE_PACE,
   CATCHES,
-  CHEAT_WALK,
+  RUN_WALK,
   GRACE_SECONDS,
   MATE_COUNT,
   MAX_STEP,
@@ -467,7 +467,7 @@ function walkHero(prison: PrisonState, input: Input, dt: number): PrisonState {
   const length = Math.hypot(dx, dy);
   const hanging = slabUnder(hero.x, hero.y) === "cable";
   const pace =
-    WALK_SPEED * (input.boost ? CHEAT_WALK : 1) * (hanging ? CABLE_PACE : 1);
+    WALK_SPEED * (input.boost ? RUN_WALK : 1) * (hanging ? CABLE_PACE : 1);
   const step = length === 0 ? 0 : (pace * dt) / length;
   // One axis at a time, so a shoulder against a wall slides along it instead
   // of stopping the whole walk.

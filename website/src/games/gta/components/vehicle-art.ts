@@ -81,9 +81,22 @@ const TIERS: Readonly<Record<VehicleBody, VehicleTiers>> = {
     cabinWide: 27.6,
   },
   taxi: { tall: 13, belt: 8, cabinBack: -10, cabinFront: 8.2, cabinWide: 23 },
+  // Low, and low again: the roof of this one is about chest height, which is
+  // the whole reason a DMC-12 looks like nothing else in the street. The cabin
+  // is barely three pixels of glass on top of five of body.
+  dmc: { tall: 8.6, belt: 5.4, cabinBack: -10, cabinFront: 6, cabinWide: 22 },
   bike: { tall: 14, belt: 8, cabinBack: -5, cabinFront: 3.5, cabinWide: 14 },
   cycle: { tall: 14, belt: 8, cabinBack: -4.5, cabinFront: 3, cabinWide: 12 },
   tank: { tall: 19, belt: 12, cabinBack: -14, cabinFront: 10, cabinWide: 34 },
+  // Tall and narrow: a tractor is mostly cab, and the cab sits over the back
+  // axle rather than in the middle.
+  tractor: {
+    tall: 26,
+    belt: 13,
+    cabinBack: -16,
+    cabinFront: 2,
+    cabinWide: 24,
+  },
 };
 
 /**
@@ -238,6 +251,10 @@ function paintVehicle(
     paintTwoWheeler(ctx, body, paint, police);
   } else if (body === "tank") {
     paintTank(ctx);
+  } else if (body === "dmc") {
+    paintDelorean(ctx);
+  } else if (body === "tractor") {
+    paintTractor(ctx, paint);
   } else {
     paintCar(ctx, body, paint, police);
   }
@@ -377,6 +394,113 @@ function paintCar(
     ctx.fillRect(-0.9, -2.2, 1.8, 4.4);
   }
 }
+
+/**
+ * The DMC-12, from above.
+ *
+ * @remarks
+ * Its own drawing rather than a dial on {@link paintCar}, because nothing about
+ * it is a saloon: the nose is a wedge, the flanks carry a black band all the
+ * way round, the doors open upwards - so the seam runs along the roof instead
+ * of down the side - and the engine sits behind the cabin under a bonnet full
+ * of slats. And it is never painted. Bare stainless steel is the car.
+ */
+function paintDelorean(ctx: CanvasRenderingContext2D): void {
+  const shape = VEHICLES.dmc;
+  const long = shape.length / 2;
+  const wide = shape.width / 2;
+
+  wheels(ctx, long, wide, 3.2, 2.4);
+
+  // The shell: broad across the rear wheels, tapering to a flat nose.
+  const shell = new Path2D();
+  shell.moveTo(long, -wide * 0.62);
+  shell.lineTo(long, wide * 0.62);
+  shell.lineTo(long * 0.35, wide);
+  shell.lineTo(-long + 2, wide * 0.94);
+  shell.quadraticCurveTo(-long - 1, 0, -long + 2, -wide * 0.94);
+  shell.lineTo(long * 0.35, -wide);
+  shell.closePath();
+  ctx.fillStyle = STEEL;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN;
+  ctx.fill(shell);
+  ctx.stroke(shell);
+
+  // The black band along the sills, which is what one sees of it side-on.
+  ctx.fillStyle = "#1c1917";
+  for (const side of [-1, 1]) {
+    ctx.fillRect(-long * 0.75, side * wide - side * 1.4, long * 1.5, 1.4);
+  }
+
+  // The cabin: a dark wedge of glass with the roof seam of the two gullwings
+  // running down the middle of it.
+  const cabin = new Path2D();
+  cabin.moveTo(long * 0.12, -wide * 0.78);
+  cabin.lineTo(-long * 0.46, -wide * 0.84);
+  cabin.lineTo(-long * 0.46, wide * 0.84);
+  cabin.lineTo(long * 0.12, wide * 0.78);
+  cabin.closePath();
+  ctx.fillStyle = "#6b7280";
+  ctx.fill(cabin);
+  ctx.stroke(cabin);
+  ctx.strokeStyle = "#0f172a";
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(long * 0.12, 0);
+  ctx.lineTo(-long * 0.46, 0);
+  ctx.stroke();
+
+  // The louvres over the engine, at the back.
+  ctx.strokeStyle = "#334155";
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  for (let at = -long * 0.9; at < -long * 0.5; at += 1.6) {
+    ctx.moveTo(at, -wide * 0.7);
+    ctx.lineTo(at, wide * 0.7);
+  }
+  ctx.stroke();
+
+  // The black nose, with the lamps in it.
+  ctx.fillStyle = "#1c1917";
+  const nose = new Path2D();
+  nose.rect(long - 3.4, -wide * 0.62, 3.4, wide * 1.24);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.7;
+  ctx.fill(nose);
+  ctx.stroke(nose);
+  ctx.fillStyle = LAMP;
+  for (const side of [-1, 1]) {
+    const lamp = new Path2D();
+    lamp.roundRect(long - 3, side * wide * 0.36 - 1, 2.2, 2, 0.5);
+    ctx.fill(lamp);
+    ctx.stroke(lamp);
+  }
+  ctx.fillStyle = TAIL;
+  for (const side of [-1, 1]) {
+    const lamp = new Path2D();
+    lamp.roundRect(-long + 0.8, side * wide * 0.45 - 1, 1.6, 2, 0.5);
+    ctx.fill(lamp);
+    ctx.stroke(lamp);
+  }
+  // Mirrors, which on this car stand well forward.
+  ctx.fillStyle = "#1c1917";
+  for (const side of [-1, 1]) {
+    const mirror = new Path2D();
+    mirror.rect(long * 0.16, side * (wide + 0.2) - 0.5, 2, 1.2);
+    ctx.fill(mirror);
+    ctx.stroke(mirror);
+  }
+}
+
+/**
+ * What a DMC-12 is made of: brushed stainless steel, never paint.
+ *
+ * @remarks
+ * Exported because the city picks the colour of every car before it asks for a
+ * sprite, and this one has no colour to pick - it left the factory unpainted.
+ */
+export const STEEL = "#b9bec6";
 
 /** Four wheels, standing a little proud of the flanks. */
 function wheels(
@@ -518,46 +642,74 @@ function paintTank(ctx: CanvasRenderingContext2D): void {
   const long = shape.length / 2;
   const wide = shape.width / 2;
 
-  // The tracks.
+  // The tracks, with the drive sprocket at the back and the idler at the nose.
   ctx.fillStyle = "#292524";
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
   for (const side of [-1, 1]) {
     const track = new Path2D();
-    track.roundRect(-long, side * wide - 5.5, long * 2, 5.5, 1.4);
+    track.roundRect(-long, side * wide - 6.5, long * 2, 6.5, 1.4);
     ctx.fill(track);
     ctx.stroke(track);
   }
   ctx.fillStyle = "#44403c";
-  for (let link = -long + 2; link < long - 2; link += 5) {
+  for (let link = -long + 2; link < long - 2; link += 4) {
     for (const side of [-1, 1]) {
-      ctx.fillRect(link, side * wide - 4.6, 2.4, 3.8);
+      ctx.fillRect(link, side * wide - 5.6, 2, 4.8);
     }
   }
+  // Side skirts over the top run of each track: the flat grey slabs that are
+  // the first thing one recognises a Leopard by from above.
+  ctx.fillStyle = TANK_SKIRT;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.8;
+  for (const side of [-1, 1]) {
+    const skirt = new Path2D();
+    skirt.rect(-long + 6, side * wide - 7.4, long * 2 - 12, 3.4);
+    ctx.fill(skirt);
+    ctx.stroke(skirt);
+  }
 
-  // The hull, with a plate at the front.
+  // The hull: a long sloped glacis at the front, square at the back.
   const hull = new Path2D();
-  hull.moveTo(long - 2, -wide + 6);
-  hull.lineTo(long + 1, 0);
-  hull.lineTo(long - 2, wide - 6);
-  hull.lineTo(-long + 1, wide - 6);
-  hull.lineTo(-long + 1, -wide + 6);
+  hull.moveTo(long - 9, -wide + 7);
+  hull.lineTo(long + 1, -wide + 11);
+  hull.lineTo(long + 1, wide - 11);
+  hull.lineTo(long - 9, wide - 7);
+  hull.lineTo(-long + 1, wide - 7);
+  hull.lineTo(-long + 1, -wide + 7);
   hull.closePath();
-  ctx.fillStyle = "#4d7c0f";
+  ctx.fillStyle = TANK_GREEN;
   ctx.lineWidth = PEN;
   ctx.fill(hull);
   ctx.stroke(hull);
-  ctx.strokeStyle = "#3f6212";
-  ctx.lineWidth = 0.6;
+  // The two-tone NATO camouflage: a couple of brown patches, nothing clever.
+  ctx.fillStyle = TANK_BROWN;
   ctx.beginPath();
-  ctx.moveTo(long * 0.3, -wide + 6.5);
-  ctx.lineTo(long * 0.3, wide - 6.5);
+  ctx.ellipse(-long * 0.45, -wide * 0.3, 7, 4, 0.4, 0, Math.PI * 2);
+  ctx.ellipse(long * 0.2, wide * 0.35, 8, 3.6, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  // The engine deck at the back, with its louvres.
+  ctx.fillStyle = "#3f4f22";
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.7;
+  const deck = new Path2D();
+  deck.rect(-long + 3, -wide + 8, 13, (wide - 8) * 2);
+  ctx.fill(deck);
+  ctx.stroke(deck);
+  ctx.strokeStyle = "#1c1917";
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  for (let louvre = -long + 5; louvre < -long + 15; louvre += 2.6) {
+    ctx.moveTo(louvre, -wide + 9.5);
+    ctx.lineTo(louvre, wide - 9.5);
+  }
   ctx.stroke();
 
   // The ring the turret sits in. The turret itself is a picture of its own:
   // it turns with the mouse, and the hull turns with the tracks.
   const ring = new Path2D();
-  ring.ellipse(-2, 0, 8.6, 8, 0, 0, Math.PI * 2);
+  ring.ellipse(2, 0, 9.6, 9, 0, 0, Math.PI * 2);
   ctx.fillStyle = "#3f6212";
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
@@ -565,32 +717,146 @@ function paintTank(ctx: CanvasRenderingContext2D): void {
   ctx.stroke(ring);
 }
 
+/** The green a tank is painted in. */
+const TANK_GREEN = "#4d5d29";
+
+/** And the brown of the patches on it. */
+const TANK_BROWN = "#6b5433";
+
+/** The grey of the skirts down its sides. */
+const TANK_SKIRT = "#57534e";
+
+/**
+ * A tractor, from above.
+ *
+ * @remarks
+ * Two big wheels at the back, two small ones at the front, a bonnet with the
+ * exhaust standing up out of it and a cab over the rear axle - and a tow bar
+ * behind, which is the entire reason this vehicle is in the game.
+ */
+function paintTractor(ctx: CanvasRenderingContext2D, paint: string): void {
+  const shape = VEHICLES.tractor;
+  const long = shape.length / 2;
+  const wide = shape.width / 2;
+
+  // The wheels: the back pair wide and deep, the front pair small.
+  ctx.fillStyle = "#1c1917";
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.8;
+  for (const side of [-1, 1]) {
+    const back = new Path2D();
+    back.roundRect(-long + 4, side * wide - 7, 18, 7, 2);
+    ctx.fill(back);
+    ctx.stroke(back);
+    const front = new Path2D();
+    front.roundRect(long - 14, side * (wide - 2) - 4.5, 10, 4.5, 1.5);
+    ctx.fill(front);
+    ctx.stroke(front);
+  }
+
+  // The body: a narrow bonnet up front, widening into the cab.
+  const body = new Path2D();
+  body.moveTo(long - 2, -wide + 9);
+  body.lineTo(long - 2, wide - 9);
+  body.lineTo(-long + 6, wide - 5);
+  body.lineTo(-long + 6, -wide + 5);
+  body.closePath();
+  ctx.fillStyle = paint;
+  ctx.lineWidth = PEN;
+  ctx.fill(body);
+  ctx.stroke(body);
+
+  // The cab, glazed all round, over the back axle.
+  const cab = new Path2D();
+  cab.roundRect(-long + 5, -wide + 4, 17, (wide - 4) * 2, 2.5);
+  ctx.fillStyle = shade(paint);
+  ctx.fill(cab);
+  ctx.stroke(cab);
+  const glass = new Path2D();
+  glass.roundRect(-long + 7.5, -wide + 6, 12, (wide - 6) * 2, 2);
+  ctx.fillStyle = "#1e293b";
+  ctx.lineWidth = PEN * 0.7;
+  ctx.fill(glass);
+  ctx.stroke(glass);
+
+  // The exhaust stack beside the bonnet, and the tow bar behind.
+  ctx.fillStyle = "#44403c";
+  const stack = new Path2D();
+  stack.ellipse(long - 9, -wide + 6, 2.6, 2.6, 0, 0, Math.PI * 2);
+  ctx.fill(stack);
+  ctx.stroke(stack);
+  const bar = new Path2D();
+  bar.rect(-long - 4, -3, 8, 6);
+  ctx.fillStyle = "#57534e";
+  ctx.fill(bar);
+  ctx.stroke(bar);
+}
+
 /** The turret: a squat block, the hatch behind it, and the gun out in front. */
 function paintTurret(ctx: CanvasRenderingContext2D): void {
+  // The wedge: flat sides sloping in to a narrow, heavily armoured face, with
+  // a squared-off bustle behind. Seen from above that outline is the whole of
+  // what says Leopard rather than tank.
   const turret = new Path2D();
-  turret.ellipse(-2, 0, 8, 7.4, 0, 0, Math.PI * 2);
-  ctx.fillStyle = "#3f6212";
+  turret.moveTo(12, -4.2);
+  turret.lineTo(12, 4.2);
+  turret.lineTo(-2, 9.5);
+  turret.lineTo(-13, 9.5);
+  turret.lineTo(-13, -9.5);
+  turret.lineTo(-2, -9.5);
+  turret.closePath();
+  ctx.fillStyle = TURRET_GREEN;
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
   ctx.fill(turret);
   ctx.stroke(turret);
-  const hatch = new Path2D();
-  hatch.ellipse(-5, 0, 2.6, 2.4, 0, 0, Math.PI * 2);
-  ctx.fillStyle = "#365314";
+  // A stowage basket across the back of the bustle.
+  ctx.fillStyle = "#3f4f22";
   ctx.lineWidth = PEN * 0.7;
+  const basket = new Path2D();
+  basket.rect(-17, -8, 4.5, 16);
+  ctx.fill(basket);
+  ctx.stroke(basket);
+  // Commander's sight and the loader's hatch.
+  const sight = new Path2D();
+  sight.roundRect(-8, -7.5, 5, 5, 1.2);
+  ctx.fillStyle = "#57534e";
+  ctx.fill(sight);
+  ctx.stroke(sight);
+  const hatch = new Path2D();
+  hatch.ellipse(-7, 4, 3, 2.8, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#365314";
   ctx.fill(hatch);
   ctx.stroke(hatch);
+  // Smoke dischargers, four a side, angled forward.
+  ctx.fillStyle = "#1c1917";
+  for (const side of [-1, 1]) {
+    for (let tube = 0; tube < 4; tube += 1) {
+      ctx.fillRect(2 - tube * 2.6, side * 6.5, 1.8, side * 2.6);
+    }
+  }
+  // The gun: a long barrel with the thermal sleeve over the breech half and a
+  // muzzle brake at the end.
   const gun = new Path2D();
-  gun.rect(4, -1.8, 31, 3.6);
+  gun.rect(10, -1.7, 32, 3.4);
   ctx.fillStyle = "#1c1917";
   ctx.lineWidth = PEN * 0.7;
   ctx.fill(gun);
   ctx.stroke(gun);
+  const sleeve = new Path2D();
+  sleeve.rect(11, -2.6, 13, 5.2);
+  ctx.fillStyle = "#44403c";
+  ctx.fill(sleeve);
+  ctx.stroke(sleeve);
   const muzzle = new Path2D();
-  muzzle.rect(34, -2.4, 2.4, 4.8);
+  muzzle.rect(39, -2.8, 4, 5.6);
+  ctx.fillStyle = "#1c1917";
   ctx.fill(muzzle);
   ctx.stroke(muzzle);
 }
+
+/** The turret is a shade darker than the hull under it. */
+const TURRET_GREEN = "#44521f";
 
 /**
  * A darker version of a colour, for a roof against its own flanks.
@@ -682,8 +948,243 @@ function paintWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
     tankWall(ctx, job);
   } else if (job.body === "bike" || job.body === "cycle") {
     rideWall(ctx, job);
+  } else if (job.body === "tractor") {
+    tractorWall(ctx, job);
+  } else if (job.body === "dmc") {
+    dmcWall(ctx, job);
   } else {
     carWall(ctx, job);
+  }
+}
+
+/**
+ * The DMC-12, from the side and from the ends.
+ *
+ * @remarks
+ * Its own set of walls rather than the saloon with different numbers, because
+ * three things about this car are not a saloon at all: the black band that runs
+ * round the whole lower body, the single long door whose cut goes up **over**
+ * the roof - that is what a gullwing is, and from the side it is the only way
+ * to show one - and a windscreen that lies down rather than standing up.
+ */
+function dmcWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
+  const flank = job.face === "flank";
+  if (job.upper && flank) {
+    dmcGlassFlank(ctx, job);
+  } else if (job.upper) {
+    dmcGlassEnd(ctx, job);
+  } else if (flank) {
+    dmcFlank(ctx, job);
+  } else {
+    dmcEnd(ctx, job);
+  }
+}
+
+/** The long side: steel above, black below, one very large door. */
+function dmcFlank(ctx: CanvasRenderingContext2D, job: WallJob): void {
+  const long = job.span / 2;
+  const high = job.high;
+  const tyre = high * 0.42;
+  const axle = long * 0.62;
+
+  const shell = new Path2D();
+  shell.moveTo(-long, SILL);
+  shell.lineTo(-long, high - 0.8);
+  shell.quadraticCurveTo(-long, high, -long + 1, high);
+  shell.lineTo(long - 2.6, high);
+  // The nose drops away: a wedge, not a bonnet.
+  shell.lineTo(long, high - 1.8);
+  shell.lineTo(long, SILL);
+  shell.closePath();
+  ctx.fillStyle = STEEL;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN;
+  ctx.fill(shell);
+  ctx.stroke(shell);
+
+  // The black band along the whole lower body - the one thing everybody
+  // remembers about the car after the doors.
+  ctx.fillStyle = "#18181b";
+  ctx.fillRect(-long, SILL, long * 2, high * 0.34);
+
+  // The wheel arches, and the wheels in them.
+  for (const at of [axle, -axle]) {
+    const arch = new Path2D();
+    arch.moveTo(at - tyre - 0.6, 0);
+    arch.lineTo(at - tyre - 0.6, tyre * 0.5);
+    arch.quadraticCurveTo(at, tyre * 2.2, at + tyre + 0.6, tyre * 0.5);
+    arch.lineTo(at + tyre + 0.6, 0);
+    arch.closePath();
+    ctx.fillStyle = "#0f172a";
+    ctx.lineWidth = PEN * 0.7;
+    ctx.fill(arch);
+    ctx.stroke(arch);
+    wheelAt(ctx, at, tyre);
+  }
+
+  // The door: one cut, from the sill up and over the top edge, because the
+  // hinge is on the roof. The little bulge at the top is where it swings.
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.6;
+  const door = new Path2D();
+  door.moveTo(long * 0.34, SILL);
+  door.lineTo(long * 0.3, high * 0.62);
+  door.quadraticCurveTo(long * 0.24, high, long * 0.02, high);
+  door.lineTo(-long * 0.42, high);
+  door.quadraticCurveTo(-long * 0.5, high * 0.7, -long * 0.46, SILL);
+  ctx.stroke(door);
+  // The handle, which on this car sits high and flat.
+  ctx.fillStyle = RIM;
+  ctx.fillRect(-long * 0.12, high * 0.64, 2.2, 0.7);
+
+  // And the slats over the engine, at the back.
+  ctx.strokeStyle = "#334155";
+  ctx.lineWidth = PEN * 0.5;
+  ctx.beginPath();
+  for (let at = -long * 0.92; at < -long * 0.6; at += 1.1) {
+    ctx.moveTo(at, high * 0.45);
+    ctx.lineTo(at, high - 0.4);
+  }
+  ctx.stroke();
+
+  // A bumper at each end, black like the band.
+  ctx.fillStyle = "#18181b";
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.7;
+  for (const side of [-1, 1]) {
+    const bumper = new Path2D();
+    bumper.roundRect(
+      side === 1 ? long - 1.8 : -long,
+      SILL * 0.5,
+      1.8,
+      high * 0.36,
+      0.5,
+    );
+    ctx.fill(bumper);
+    ctx.stroke(bumper);
+  }
+}
+
+/** The nose or the tail: wide, low, and black along the bottom. */
+function dmcEnd(ctx: CanvasRenderingContext2D, job: WallJob): void {
+  const half = job.span / 2;
+  const high = job.high;
+  const nose = job.face === "nose";
+  const tyre = high * 0.42;
+
+  ctx.fillStyle = RUBBER;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.7;
+  for (const side of [-1, 1]) {
+    const wheel = new Path2D();
+    wheel.rect(side * (half - 1.6) - 0.9, 0, 1.8, tyre * 1.5);
+    ctx.fill(wheel);
+    ctx.stroke(wheel);
+  }
+
+  const shell = new Path2D();
+  shell.moveTo(-half, SILL);
+  shell.lineTo(-half, high - 1);
+  shell.quadraticCurveTo(-half, high, -half + 1, high);
+  shell.lineTo(half - 1, high);
+  shell.quadraticCurveTo(half, high, half, high - 1);
+  shell.lineTo(half, SILL);
+  shell.closePath();
+  ctx.fillStyle = STEEL;
+  ctx.lineWidth = PEN;
+  ctx.fill(shell);
+  ctx.stroke(shell);
+
+  // The black bumper across the bottom, and the lamps above it.
+  ctx.fillStyle = "#18181b";
+  ctx.fillRect(-half, SILL, half * 2, high * 0.42);
+  ctx.fillStyle = nose ? LAMP : TAIL;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.6;
+  for (const side of [-1, 1]) {
+    const lamp = new Path2D();
+    lamp.roundRect(side * half * 0.55 - 1.6, high * 0.5, 3.2, high * 0.3, 0.4);
+    ctx.fill(lamp);
+    ctx.stroke(lamp);
+  }
+}
+
+/** The glasshouse from the side: long, low, and lying down at the front. */
+function dmcGlassFlank(ctx: CanvasRenderingContext2D, job: WallJob): void {
+  const half = job.span / 2;
+  const high = job.high;
+
+  const shell = new Path2D();
+  // The windscreen lies almost flat; the rear window drops away just as far.
+  shell.moveTo(-half, 0);
+  shell.lineTo(-half + 2.6, high);
+  shell.lineTo(half - 5.4, high);
+  shell.lineTo(half, 0);
+  shell.closePath();
+  ctx.fillStyle = STEEL;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN;
+  ctx.fill(shell);
+  ctx.stroke(shell);
+
+  // One side window, with the black pillar behind it.
+  ctx.fillStyle = GLASS;
+  ctx.lineWidth = PEN * 0.5;
+  const pane = new Path2D();
+  pane.moveTo(-half + 2.9, 0.4);
+  pane.lineTo(-half + 4.2, high - 0.5);
+  pane.lineTo(half - 5.8, high - 0.5);
+  pane.lineTo(half - 1.4, 0.4);
+  pane.closePath();
+  ctx.fill(pane);
+  ctx.stroke(pane);
+  // The roof seam of the gullwing: the cut runs along the top of the cabin.
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(-half + 2.8, high - 0.3);
+  ctx.lineTo(half - 5.6, high - 0.3);
+  ctx.stroke();
+}
+
+/** The windscreen head on: nearly the whole width, and nearly lying down. */
+function dmcGlassEnd(ctx: CanvasRenderingContext2D, job: WallJob): void {
+  const half = job.span / 2;
+  const high = job.high;
+
+  const shell = new Path2D();
+  shell.moveTo(-half, 0);
+  shell.lineTo(-half + 0.5, high);
+  shell.lineTo(half - 0.5, high);
+  shell.lineTo(half, 0);
+  shell.closePath();
+  ctx.fillStyle = STEEL;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN;
+  ctx.fill(shell);
+  ctx.stroke(shell);
+
+  const glass = new Path2D();
+  glass.moveTo(-half + 0.8, 0.4);
+  glass.lineTo(-half + 1.2, high - 0.6);
+  glass.lineTo(half - 1.2, high - 0.6);
+  glass.lineTo(half - 0.8, 0.4);
+  glass.closePath();
+  ctx.fillStyle = GLASS;
+  ctx.lineWidth = PEN * 0.5;
+  ctx.fill(glass);
+  ctx.stroke(glass);
+  if (job.face === "tail") {
+    // The louvres over the rear window, which is what one actually sees of the
+    // back of this car.
+    ctx.strokeStyle = "#1c1917";
+    ctx.lineWidth = PEN * 0.7;
+    ctx.beginPath();
+    for (let at = 0.6; at < high - 0.6; at += 0.9) {
+      ctx.moveTo(-half + 1, at);
+      ctx.lineTo(half - 1, at);
+    }
+    ctx.stroke();
   }
 }
 
@@ -1129,6 +1630,75 @@ function riderEnd(ctx: CanvasRenderingContext2D, job: WallJob): void {
   ctx.lineWidth = PEN * 0.7;
   ctx.fill(head);
   ctx.stroke(head);
+}
+
+/**
+ * A tractor from the side or the end: it is mostly wheel.
+ *
+ * @remarks
+ * The one thing that has to read at a glance is the pair of wheel sizes. A
+ * flank shows both; from the front or the back only one pair is in the way,
+ * and which one depends on which end is being looked at.
+ */
+function tractorWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
+  const high = job.high;
+  const across = job.span;
+  ctx.fillStyle = job.paint;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN;
+  // The body, and the cab standing up out of the back half of it.
+  const flank = job.face === "flank";
+  const body = new Path2D();
+  body.rect(0, high * 0.45, across, high * 0.3);
+  ctx.fill(body);
+  ctx.stroke(body);
+  const cab = new Path2D();
+  cab.rect(
+    flank ? across * 0.08 : across * 0.12,
+    high * 0.05,
+    flank ? across * 0.42 : across * 0.76,
+    high * 0.42,
+  );
+  ctx.fillStyle = shade(job.paint);
+  ctx.fill(cab);
+  ctx.stroke(cab);
+  const glass = new Path2D();
+  glass.rect(
+    flank ? across * 0.12 : across * 0.18,
+    high * 0.1,
+    flank ? across * 0.34 : across * 0.64,
+    high * 0.26,
+  );
+  ctx.fillStyle = "#1e293b";
+  ctx.lineWidth = PEN * 0.7;
+  ctx.fill(glass);
+  ctx.stroke(glass);
+  // And the wheels along the bottom.
+  ctx.fillStyle = "#1c1917";
+  ctx.lineWidth = PEN * 0.8;
+  const wheels = flank
+    ? [
+        { at: across * 0.2, size: high * 0.5 },
+        { at: across * 0.82, size: high * 0.3 },
+      ]
+    : [
+        { at: across * 0.12, size: high * 0.42 },
+        { at: across * 0.88, size: high * 0.42 },
+      ];
+  for (const wheel of wheels) {
+    const tyre = new Path2D();
+    tyre.ellipse(
+      wheel.at,
+      high - wheel.size / 2,
+      wheel.size / 2,
+      wheel.size / 2,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill(tyre);
+    ctx.stroke(tyre);
+  }
 }
 
 /** The tank: tracks and hull below, turret above. */

@@ -18,6 +18,9 @@ import {
   type PointerEvent,
 } from "react";
 import { draw } from "@/games/gta/components/render";
+import { actionAt } from "@/games/gta/components/gta-actions";
+import { drawBank } from "@/games/gta/components/bank-render";
+import { drawMint } from "@/games/gta/components/mint-render";
 import { drawPrison } from "@/games/gta/components/prison-render";
 import {
   createTouchControls,
@@ -34,17 +37,46 @@ import {
   getSettingsSnapshot,
   subscribeSettings,
 } from "@/games/gta/settings/settings-store";
-import { breakOut, respawn, step } from "@/games/gta/engine/engine";
+import {
+  breakOut,
+  counterAt,
+  crewHere,
+  hirePrice,
+  hireable,
+  respawn,
+  step,
+  type Counter,
+} from "@/games/gta/engine/engine";
+import { leftInBank } from "@/games/gta/engine/bank";
+import {
+  gateName,
+  lit,
+  manned,
+  taskLine as worksTask,
+} from "@/games/gta/engine/mint";
 import { taskLine } from "@/games/gta/engine/prison";
 import { DISTRICTS, createGame } from "@/games/gta/engine/setup";
+import {
+  autoSave,
+  dropSave,
+  listSaves,
+  loadSave,
+  readAuto,
+  saveAs,
+  type SaveSlot,
+} from "@/games/gta/storage/saves";
 import { DISTRICT_NAMES } from "@/games/gta/i18n/texts";
 import {
+  CITY_SEED,
   IDLE_INPUT,
   JOBS_PER_DISTRICT,
   type GameState,
   type Input,
+  type Order,
   type Phase,
+  type Vec,
 } from "@/games/gta/engine/types";
+import { carried, type WeaponKind } from "@/games/gta/engine/weapons";
 import type { GameId } from "@/games/registry";
 import {
   recordGameFinished,
@@ -56,8 +88,8 @@ import { invalidateStats } from "@/lib/stats/stats-store";
 /** This game's id for the statistics. */
 const GAME_ID: GameId = "gta";
 
-/** The deal the very first render uses, so the prerender matches. */
-const INITIAL_SEED = 20260906;
+/** How often the game writes itself to disk while it runs, in milliseconds. */
+const KEEP_EVERY_MS = 6000;
 
 /** Longest slice of real time one frame may stand for, in seconds. */
 const MAX_FRAME = 0.05;
@@ -94,6 +126,78 @@ export type Heads = {
   readonly log: readonly string[];
   /** How the escape stands, or null whenever the city is being played. */
   readonly escape: Escape | null;
+  /** Which counter the player is standing at, or null for none. */
+  readonly counter: Counter;
+  /** How many men the player has taken on. */
+  readonly crew: number;
+  /** How many of them are standing with him. */
+  readonly crewHere: number;
+  /** Whoever is standing near enough to be taken on, or null. */
+  readonly hire: Hire | null;
+  /** How the job in the printing works stands, or null out in the city. */
+  readonly works: Works | null;
+  /** What is in the player's hand. */
+  readonly weapon: WeaponKind;
+  /** Whether that weapon has anything in it. */
+  readonly armed: boolean;
+  /** How many rounds of each weapon the belt holds. */
+  readonly ammo: readonly number[];
+  /** What is in the bag from a robbery and not yet safe. */
+  readonly loot: number;
+  /** How the hold-up stands, or null while nobody is inside a bank. */
+  readonly raid: Robbery | null;
+};
+
+/** What the screen shows while a bank is being held up. */
+export type Robbery = {
+  /** What is in the bag. */
+  readonly taken: number;
+  /** Whether the silent alarm has gone. */
+  readonly alarm: boolean;
+  /** Seconds until the police walk in. */
+  readonly left: number;
+  /** How many of the clerks still have their hands down. */
+  readonly loose: number;
+};
+
+/** Somebody on a corner who would come along. */
+export type Hire = {
+  /** What he wants for the day, in euros - nothing, for your own. */
+  readonly price: number;
+  /** Whether he is one of yours. */
+  readonly own: boolean;
+};
+
+/** What the screen shows while the printing works is being held. */
+export type Works = {
+  /** What the presses have run off so far. */
+  readonly printed: number;
+  /** How far the tunnel has got, from zero to one. */
+  readonly tunnel: number;
+  /** How many machines are running. */
+  readonly presses: number;
+  /** How many of the people in there have been taken. */
+  readonly hostages: number;
+  /** The three ways in, worst first. */
+  readonly gates: readonly GateHead[];
+  /** What to do next, in one line. */
+  readonly task: string;
+  /** Whether the lights - and the presses - are off. */
+  readonly dark: boolean;
+  /** Whether the mains have already been cut once. */
+  readonly cut: boolean;
+};
+
+/** One of the three ways in, as the panel shows it. */
+export type GateHead = {
+  /** What it is called, in German. */
+  readonly name: string;
+  /** What is piled against it, from zero to one. */
+  readonly barricade: number;
+  /** How far they have got through it, from zero to one. */
+  readonly push: number;
+  /** Whether a squad is on it this moment. */
+  readonly busy: boolean;
 };
 
 /** What the screen shows while the player is inside the jail. */
@@ -125,10 +229,7 @@ export type GtaSession = {
   readonly onFire: (down: boolean) => void;
   /** The right button, once per press: one charge on the ground. */
   readonly onPlant: () => void;
-  /** Whether the debug turbo is on right now - held or latched. */
-  readonly turbo: boolean;
-  /** Latches the turbo on or off, for anyone whose Shift never arrives. */
-  readonly toggleTurbo: () => void;
+
   /** Whether the other cheat is on: no damage, and one of everything. */
   readonly god: boolean;
   /** Switches that one. */
@@ -140,6 +241,22 @@ export type GtaSession = {
   readonly carryOn: () => void;
   /** The other way out of the cells: through the wall. */
   readonly escape: () => void;
+  /** The named games on disk, newest first. */
+  readonly saves: readonly SaveSlot[];
+  /** Writes the game as it stands under a name. */
+  readonly save: (name: string) => void;
+  /** Picks one of them up again. */
+  readonly load: (at: number) => void;
+  /** And throws one away. */
+  readonly forget: (at: number) => void;
+  /** What the player pressed at a counter - bought, refilled, robbed, ran. */
+  readonly order: (order: Order) => void;
+  /**
+   * A press on the picture: a button if it hit one, the trigger otherwise.
+   *
+   * @returns true when a button took it, so the caller leaves the gun alone
+   */
+  readonly onPress: (event: PointerEvent<HTMLCanvasElement>) => boolean;
 };
 
 /**
@@ -151,7 +268,7 @@ export type GtaSession = {
  * browser, and reading it out of a ref while rendering is exactly what React
  * asks nobody to do.
  */
-const START = createGame(INITIAL_SEED);
+const START = createGame(CITY_SEED);
 
 /** What the heads-up display shows before the first frame. */
 const START_HEADS = headsOf(START);
@@ -203,6 +320,9 @@ const KEYS: Readonly<Record<string, keyof Input>> = {
   ArrowRight: "right",
   Enter: "use",
   KeyE: "use",
+  // The jetpack has no trigger and nothing to select: holding the space bar is
+  // the whole of it.
+  Space: "lift",
 };
 
 /**
@@ -212,6 +332,7 @@ const KEYS: Readonly<Record<string, keyof Input>> = {
  */
 export function useGtaGame(): GtaSession {
   const world = useRef<GameState>(START);
+  const [saves, setSaves] = useState<readonly SaveSlot[]>([]);
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const keys = useRef<Input>(IDLE_INPUT);
   const useEdge = useRef(false);
@@ -230,12 +351,12 @@ export function useGtaGame(): GtaSession {
   // The right button is an edge, not a state: one press, one charge on the
   // ground - see layCharge in the engine.
   const plantEdge = useRef(false);
-  // The turbo has two switches: Shift, held, and a button that stays on. Both
-  // feed the same flag, and the screen shows what the flag says - a cheat you
-  // cannot see is a cheat you cannot tell from a broken one.
+  // What was pressed in the panel at a counter, spent by the next frame.
+  const pending = useRef<Order | null>(null);
+  // Shift, held. There is no button for it any more: a key one holds is not a
+  // mode one switches on, and the page had two cheat buttons where one would
+  // do.
   const held = useRef(false);
-  const latched = useRef(false);
-  const [turbo, setTurbo] = useState(false);
   // The other cheat, and the wheel. The wheel is counted up between frames and
   // spent by the loop, so a flick of it is never lost between two pictures.
   const godOn = useRef(false);
@@ -245,6 +366,9 @@ export function useGtaGame(): GtaSession {
   // the loop reads it every frame, so moving the slider on the settings page
   // shows up in the next picture rather than the next game.
   const zoom = useRef(DEFAULT_ZOOM);
+  // Whether the day runs at all - read from the settings the same way the zoom
+  // is, so switching it on shows up in the next frame.
+  const daylight = useRef(false);
   const [heads, setHeads] = useState<Heads>(START_HEADS);
   const started = useRef(false);
   const counted = useRef(false);
@@ -274,18 +398,10 @@ export function useGtaGame(): GtaSession {
     [onWheel],
   );
 
-  /** Hands the two switches to the loop, and to the screen. */
-  const applyTurbo = useCallback(() => {
-    const on = held.current || latched.current;
-    keys.current = { ...keys.current, boost: on };
-    setTurbo((was) => (was === on ? was : on));
+  /** Hands Shift to the loop. */
+  const applyRun = useCallback(() => {
+    keys.current = { ...keys.current, boost: held.current };
   }, []);
-
-  /** The button: turbo on until it is pressed again. */
-  const toggleTurbo = useCallback(() => {
-    latched.current = !latched.current;
-    applyTurbo();
-  }, [applyTurbo]);
 
   /** The other button: nothing hurts, and the belt is full. */
   const toggleGod = useCallback(() => {
@@ -320,8 +436,61 @@ export function useGtaGame(): GtaSession {
     plantEdge.current = true;
   }, []);
 
+  /** Something pressed at a counter: it rides along with the next frame. */
+  const order = useCallback((asked: Order) => {
+    pending.current = asked;
+  }, []);
+
+  /**
+   * A press on the picture.
+   *
+   * @remarks
+   * The buttons are drawn into the picture, so they have to be taken out of it
+   * again before the press reaches the weapon. Whoever presses "Pistole 600 €"
+   * is buying a pistol, not swinging at the shopkeeper.
+   */
+  const pressAt = useCallback((at: Vec): boolean => {
+    const hit = actionAt(world.current, VIEW_WIDTH, VIEW_HEIGHT, at);
+    if (hit !== null) {
+      pending.current = hit;
+    }
+    return hit !== null;
+  }, []);
+
+  /** The same, for a mouse: the event carries the place. */
+  const onPress = useCallback(
+    (event: PointerEvent<HTMLCanvasElement>): boolean => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      return pressAt({
+        x: ((event.clientX - rect.left) / rect.width) * VIEW_WIDTH,
+        y: ((event.clientY - rect.top) / rect.height) * VIEW_HEIGHT,
+      });
+    },
+    [pressAt],
+  );
+
+  /** Writes the game under a name, and shows the new list. */
+  const save = useCallback((name: string) => {
+    setSaves(saveAs(name, world.current));
+  }, []);
+
+  /** Reads one back and carries on from it. */
+  const load = useCallback((at: number) => {
+    const game = loadSave(at);
+    if (game !== null) {
+      world.current = game;
+      setHeads(headsOf(game));
+      autoSave(game);
+    }
+  }, []);
+
+  /** Throws one away. */
+  const forget = useCallback((at: number) => {
+    setSaves(dropSave(at));
+  }, []);
+
   const restart = useCallback(() => {
-    world.current = createGame(Date.now() >>> 0);
+    world.current = createGame(CITY_SEED);
     counted.current = false;
     setHeads(headsOf(world.current));
     recordGameStarted(GAME_ID, Date.now());
@@ -347,7 +516,7 @@ export function useGtaGame(): GtaSession {
     const onDown = (event: KeyboardEvent) => {
       const key = KEYS[event.code];
       held.current = event.shiftKey;
-      applyTurbo();
+      applyRun();
       if (key !== undefined) {
         event.preventDefault();
         if (key === "use" && !keys.current.use) {
@@ -359,16 +528,15 @@ export function useGtaGame(): GtaSession {
     const onUp = (event: KeyboardEvent) => {
       const key = KEYS[event.code];
       held.current = event.shiftKey;
-      applyTurbo();
+      applyRun();
       if (key !== undefined) {
         keys.current = { ...keys.current, [key]: false };
       }
     };
-    // Alt-tabbing away with Shift held would otherwise leave the turbo on -
-    // the latch is not touched, because that one was asked for.
+    // Alt-tabbing away with Shift held would otherwise leave the run on.
     const onBlur = () => {
       held.current = false;
-      applyTurbo();
+      applyRun();
     };
     const onResize = () => {
       const box = canvas.current;
@@ -386,21 +554,24 @@ export function useGtaGame(): GtaSession {
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("resize", onResize);
     };
-  }, [applyTurbo]);
+  }, [applyRun]);
 
   // The camera setting, now and whenever it changes - here and in other tabs.
   useEffect(() => {
-    zoom.current = getSettingsSnapshot().zoom;
-    return subscribeSettings(() => {
-      zoom.current = getSettingsSnapshot().zoom;
-    });
+    const read = () => {
+      const settings = getSettingsSnapshot();
+      zoom.current = settings.zoom;
+      daylight.current = settings.dayNight;
+    };
+    read();
+    return subscribeSettings(read);
   }, []);
 
   // The loop itself.
   useEffect(() => {
     if (!started.current) {
       started.current = true;
-      world.current = createGame(Date.now() >>> 0);
+      world.current = createGame(CITY_SEED);
       recordGameStarted(GAME_ID, Date.now());
       invalidateStats();
     }
@@ -408,7 +579,19 @@ export function useGtaGame(): GtaSession {
     let frames = 0;
     let last = performance.now();
     let played = last;
+    let kept = played;
+    let first = true;
     const tick = (now: number) => {
+      if (first) {
+        first = false;
+        // Whatever was last played, picked up here rather than during the
+        // render: the page is prerendered and the server has no disk to read.
+        const saved = readAuto();
+        if (saved !== null) {
+          world.current = saved;
+        }
+        setSaves(listSaves());
+      }
       const dt = Math.min(MAX_FRAME, (now - last) / MS_PER_SECOND);
       last = now;
       frames += 1;
@@ -423,7 +606,7 @@ export function useGtaGame(): GtaSession {
       // one - and made again if React ever hands us a different one.
       if (box !== null && touched.current !== box) {
         touch.current?.dispose();
-        touch.current = createTouchControls(box);
+        touch.current = createTouchControls(box, pressAt);
         touched.current = box;
       }
       const finger = touch.current?.sample() ?? null;
@@ -457,7 +640,9 @@ export function useGtaGame(): GtaSession {
           (touch.current?.consumeTap() ?? false),
         wheel: wheel.current + (touch.current?.consumeWheel() ?? 0),
         god: godOn.current,
+        order: pending.current,
       };
+      pending.current = null;
       useEdge.current = false;
       plantEdge.current = false;
       fireEdge.current = false;
@@ -479,8 +664,19 @@ export function useGtaGame(): GtaSession {
         // figures with the city and nothing else - see ./prison-render.
         if (world.current.phase === "prison") {
           drawPrison(ctx, world.current, VIEW_WIDTH, VIEW_HEIGHT, zoom.current);
+        } else if (world.current.phase === "mint") {
+          drawMint(ctx, world.current, VIEW_WIDTH, VIEW_HEIGHT, zoom.current);
+        } else if (world.current.phase === "bank") {
+          drawBank(ctx, world.current, VIEW_WIDTH, VIEW_HEIGHT, zoom.current);
         } else {
-          draw(ctx, world.current, VIEW_WIDTH, VIEW_HEIGHT, zoom.current);
+          draw(
+            ctx,
+            world.current,
+            VIEW_WIDTH,
+            VIEW_HEIGHT,
+            zoom.current,
+            daylight.current,
+          );
         }
         if (finger !== null) {
           drawTouchControls(ctx, finger);
@@ -488,6 +684,11 @@ export function useGtaGame(): GtaSession {
       }
       const next = headsOf(world.current);
       setHeads((current) => (same(current, next) ? current : next));
+      if (now - kept > KEEP_EVERY_MS) {
+        // The city keeps itself: closing the tab is not losing the afternoon.
+        autoSave(world.current);
+        kept = now;
+      }
       if (now - played > PLAY_TICK_MS) {
         recordPlayTime(GAME_ID, now - played, Date.now());
         invalidateStats();
@@ -506,12 +707,16 @@ export function useGtaGame(): GtaSession {
     };
     frame = requestAnimationFrame(tick);
     return () => {
+      autoSave(world.current);
       cancelAnimationFrame(frame);
       touch.current?.dispose();
       touch.current = null;
       touched.current = null;
     };
-  }, []);
+    // pressAt never changes - it is a callback with no dependencies - but the
+    // loop uses it to build the touch controls, so it is listed rather than
+    // silenced.
+  }, [pressAt]);
 
   return {
     heads,
@@ -519,13 +724,17 @@ export function useGtaGame(): GtaSession {
     onPointer,
     onFire,
     onPlant,
-    turbo,
-    toggleTurbo,
     god,
     toggleGod,
     restart,
     carryOn,
     escape,
+    order,
+    onPress,
+    saves,
+    save,
+    load,
+    forget,
   };
 }
 
@@ -555,6 +764,41 @@ function headsOf(state: GameState): Heads {
       owned: state.districts[district].owned,
     })),
     log: state.log,
+    counter: counterAt(state),
+    crew: state.crew.length,
+    crewHere: crewHere(state),
+    hire: hireOf(state),
+    works:
+      state.mint === null
+        ? null
+        : {
+            printed: Math.round(state.mint.printed),
+            tunnel: state.mint.tunnel,
+            presses: manned(state.mint),
+            hostages: state.mint.staff.filter((one) => one.taken).length,
+            gates: state.mint.gates.map((gate) => ({
+              name: gateName(gate.kind),
+              barricade: gate.barricade,
+              push: gate.push,
+              busy: gate.busy,
+            })),
+            task: worksTask(state.mint),
+            dark: !lit(state.mint),
+            cut: state.mint.cut,
+          },
+    weapon: state.player.weapon,
+    armed: carried(state.player.ammo, state.player.weapon),
+    ammo: state.player.ammo,
+    loot: state.player.loot,
+    raid:
+      state.bank === null
+        ? null
+        : {
+            taken: Math.round(state.bank.taken),
+            alarm: state.bank.alarm,
+            left: Math.ceil(leftInBank(state.bank)),
+            loose: state.bank.staff.filter((one) => !one.held).length,
+          },
     escape:
       state.prison === null
         ? null
@@ -565,6 +809,56 @@ function headsOf(state: GameState): Heads {
           },
   };
 }
+
+/** Whoever is within reach to be taken on, and what he wants. */
+function hireOf(state: GameState): Hire | null {
+  const man = hireable(state);
+  return man === null
+    ? null
+    : { price: hirePrice(man), own: man.kind === "mine" };
+}
+
+/**
+ * Whether two pictures of the printing works would look the same.
+ *
+ * @param a - one of them
+ * @param b - the other
+ * @returns true when nothing the panel shows has moved
+ * @remarks
+ * Rounded, because everything in there is a rate: the printed pile grows by a
+ * hundred and fifty a second and the doors by hundredths, and a panel that were
+ * rebuilt on every frame would be a panel nobody could read.
+ */
+function sameWorks(a: Works | null, b: Works | null): boolean {
+  return (
+    a?.printed === b?.printed &&
+    steps(a?.tunnel, TUNNEL_STEPS) === steps(b?.tunnel, TUNNEL_STEPS) &&
+    a?.presses === b?.presses &&
+    a?.hostages === b?.hostages &&
+    a?.task === b?.task &&
+    a?.dark === b?.dark &&
+    a?.cut === b?.cut &&
+    (a?.gates ?? []).every(
+      (gate, at) =>
+        gate.busy === b?.gates[at]?.busy &&
+        steps(gate.push, GATE_STEPS) ===
+          steps(b?.gates[at]?.push, GATE_STEPS) &&
+        steps(gate.barricade, GATE_STEPS) ===
+          steps(b?.gates[at]?.barricade, GATE_STEPS),
+    )
+  );
+}
+
+/** A share of one, in however many steps the panel shows it. */
+function steps(share: number | undefined, over: number): number {
+  return Math.round((share ?? 0) * over);
+}
+
+/** How finely the tunnel bar is read: whole per cent. */
+const TUNNEL_STEPS = 100;
+
+/** And the doors, which are short bars and need less. */
+const GATE_STEPS = 50;
 
 /** What the job bar says. */
 function jobLine(
@@ -598,6 +892,20 @@ function same(a: Heads, b: Heads): boolean {
         quarter.done === b.quarters[at]?.done &&
         quarter.owned === b.quarters[at]?.owned,
     ) &&
+    a.counter === b.counter &&
+    a.crew === b.crew &&
+    a.crewHere === b.crewHere &&
+    a.hire?.price === b.hire?.price &&
+    a.hire?.own === b.hire?.own &&
+    sameWorks(a.works, b.works) &&
+    a.weapon === b.weapon &&
+    a.armed === b.armed &&
+    a.loot === b.loot &&
+    a.ammo === b.ammo &&
+    a.raid?.taken === b.raid?.taken &&
+    a.raid?.alarm === b.raid?.alarm &&
+    a.raid?.left === b.raid?.left &&
+    a.raid?.loose === b.raid?.loose &&
     a.escape?.task === b.escape?.task &&
     a.escape?.caught === b.escape?.caught &&
     a.escape?.mates === b.escape?.mates &&

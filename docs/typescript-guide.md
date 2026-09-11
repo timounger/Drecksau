@@ -112,7 +112,8 @@ let map: Record<string, number>; // Objekt mit dynamischen Keys
 ```ts
 let dir: "links" | "rechts"; // nur diese zwei Strings erlaubt
 let bit: 0 | 1;
-type Lang = "Deutsch" | "English"; // so in types.ts dieses Projekts
+// so in games/gta/engine/types.ts dieses Projekts:
+type Phase = "playing" | "busted" | "wasted" | "won";
 ```
 
 ### 5. Zusammengesetzte Typen
@@ -126,12 +127,12 @@ type I = A & B; // Intersection: A UND B kombiniert
 
 ```ts
 // type-Alias: flexibel (auch Unions, Primitive, Tupel, Funktionen)
-type OrderLine = { name: string; price: number; qty: number; taxGroup: number };
+type Vec = { x: number; y: number };
 
 // interface: nur Objekte/Klassen, von außen erweiterbar
-interface BonPrinterAppProps {
-  articles: ArticleGrid;
-  onContext?: (ctx: PosContext) => void;
+interface CounterProps {
+  heads: Heads;
+  onOrder?: (order: Order) => void;
 }
 ```
 
@@ -141,6 +142,11 @@ interface BonPrinterAppProps {
   Fehlermeldungen).
 - `type` für alles andere - Unions (`"a" | "b"`), Primitive-Aliase, Tupel,
   Funktionssignaturen.
+
+**In diesem Projekt** kommt `interface` allerdings nirgends vor: Auch Props sind
+durchgehend `type`-Aliase (`export type CounterProps = { ... }`). Wer neuen Code
+schreibt, bleibt bei `type` - eine Datei mit `interface` mitten in 111 Dateien
+mit `type` wäre der eigentliche Stilbruch.
 
 ## Generics
 
@@ -171,15 +177,17 @@ Record<K, V>; // Objekt mit Keys K und Werten V
 
 ## Warum eigene Typen?
 
-- **Single Source of Truth:** Ein Typ wie `Article` einmal definiert, überall
-  identisch genutzt (Loader, Komponente, Sortierung).
-- **Refactoring-Sicherheit:** Ergänzt man ein Feld (z. B. `taxGroup`), zeigt der
-  Compiler sofort jede Stelle, die noch fehlt.
-- **Lesbarkeit:** `OrderLine` sagt mehr als ein überall hinkopiertes
-  `{ name: string; price: number; qty: number; taxGroup: number }`.
+- **Single Source of Truth:** Ein Typ wie `GameState` einmal definiert, überall
+  identisch genutzt (Motor, Hook, Renderer, Online-Adapter).
+- **Refactoring-Sicherheit:** Ergänzt man ein Feld (z. B. `crew`), zeigt der
+  Compiler sofort jede Stelle, die es noch nicht setzt.
+- **Lesbarkeit:** `Vec` sagt mehr als ein überall hinkopiertes
+  `{ x: number; y: number }`.
 
 Eigene Typen sind also kein "schlechter Stil", sondern der eigentliche Zweck von
-TypeScript. In diesem Projekt sieht man das in `features/pos-demo/types.ts`.
+TypeScript. In diesem Projekt sieht man das in
+`website/src/games/gta/engine/types.ts`: Ein Spiel besteht dort aus einem
+Zustandstyp und den Funktionen, die ihn weiterdrehen.
 
 ## Compiler und Konfiguration
 

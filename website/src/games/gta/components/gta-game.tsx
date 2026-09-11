@@ -6,16 +6,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 import { useFullscreen } from "@/lib/screen/use-fullscreen";
 import { useShotRatio } from "@/lib/screen/use-shot-ratio";
 import { GameHeader } from "@/components/game-header";
 import { useGtaGame, type Heads } from "@/games/gta/hooks/use-gta-game";
+import { MAX_SAVES, type SaveSlot } from "@/games/gta/storage/saves";
 import { GTA_RULES } from "@/games/gta/i18n/rules";
 import { GTA_TEXTS as T } from "@/games/gta/i18n/texts";
 import { CATCHES, MAX_STARS } from "@/games/gta/engine/types";
 import { VIEW_HEIGHT, VIEW_WIDTH } from "@/games/gta/components/projection";
-import { DISTRICTS } from "@/games/gta/engine/setup";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 
 /** Which mouse button puts a charge down. */
@@ -35,15 +35,18 @@ export function GtaScreen(): ReactElement {
     heads,
     attach,
     onPointer,
+    onPress,
     onFire,
     onPlant,
-    turbo,
-    toggleTurbo,
     god,
     toggleGod,
     restart,
     carryOn,
     escape,
+    saves,
+    save,
+    load,
+    forget,
   } = useGtaGame();
 
   // The picture, on its own, is what fills the screen: the ticker and the
@@ -66,28 +69,12 @@ export function GtaScreen(): ReactElement {
         </button>
         <button
           type="button"
-          data-testid="gta-turbo"
-          aria-pressed={turbo}
-          onClick={(event) => {
-            toggleTurbo();
-            // Off the button again, or Enter would toggle instead of getting
-            // the player out of the car.
-            event.currentTarget.blur();
-          }}
-          className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-            turbo
-              ? "border-amber-500 bg-amber-100 font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
-              : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          }`}
-        >
-          {T.turbo}
-        </button>
-        <button
-          type="button"
           data-testid="gta-god"
           aria-pressed={god}
           onClick={(event) => {
             toggleGod();
+            // Off the button again, or Enter would toggle it instead of
+            // getting the player out of the car.
             event.currentTarget.blur();
           }}
           className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
@@ -133,6 +120,11 @@ export function GtaScreen(): ReactElement {
           onPointerMove={onPointer}
           onPointerDown={(event) => {
             onPointer(event);
+            // A button drawn into the picture takes the press first: buying a
+            // pistol must not also swing a fist at the shopkeeper.
+            if (onPress(event)) {
+              return;
+            }
             // Left sets things off, right puts them down. The context menu is
             // already off below, or the second half of the Fernzünder would be
             // a browser menu.
@@ -159,31 +151,20 @@ export function GtaScreen(): ReactElement {
             {T.fullscreenExit}
           </button>
         )}
-        {heads.phase !== "playing" && heads.phase !== "prison" && (
-          <Overlay
-            heads={heads}
-            onCarryOn={carryOn}
-            onRestart={restart}
-            onEscape={escape}
-          />
-        )}
+        {heads.phase !== "playing" &&
+          heads.phase !== "prison" &&
+          heads.phase !== "mint" &&
+          heads.phase !== "bank" && (
+            <Overlay
+              heads={heads}
+              onCarryOn={carryOn}
+              onRestart={restart}
+              onEscape={escape}
+            />
+          )}
       </div>
 
-      <div data-testid="gta-quarters" className="flex flex-wrap gap-2 text-xs">
-        {heads.quarters.map((quarter) => (
-          <span
-            key={quarter.name}
-            className={`rounded-lg border px-2 py-1 ${
-              quarter.owned
-                ? "border-emerald-500 bg-emerald-50 font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
-                : "border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400"
-            }`}
-          >
-            {quarter.name}{" "}
-            {quarter.owned ? T.ownedMark : `${quarter.done}/${quarter.needed}`}
-          </span>
-        ))}
-      </div>
+      <Saves saves={saves} onSave={save} onLoad={load} onForget={forget} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <section className="rounded-2xl border border-zinc-200 p-3 text-xs dark:border-zinc-800">
@@ -216,13 +197,19 @@ export function GtaScreen(): ReactElement {
             <li>Gelber Ring: abholen. Grüner Ring: abliefern.</li>
             <li>Blauer Ring: Lackiererei - Fahndung weg, kostet Geld.</li>
             <li>
-              <b>Shift</b> halten oder der Knopf <b>{T.turbo}</b> oben: zu Fuß
-              zehnfach, im Auto dreifach
+              <b>Shift</b> halten: rennen (dreifach), im Auto anderthalbfach.
+              Mit <b>{T.god}</b> wird daraus zehnfach zu Fuß und dreifach im
+              Auto
             </li>
             <li>
               Im <b>{T.escapeTitle}</b>: laufen mit W A S D, und die{" "}
               <b>Maus gedrückt halten</b>, um zu schrauben, zu lösen und das
               Fenster zu öffnen. Den Kegeln der Wärter aus dem Weg gehen.
+            </li>
+            <li>
+              In der <b>{T.worksTitle}</b>: dieselbe <b>gehaltene Maus</b> nimmt
+              Geiseln, schaufelt am Tunnel und verbarrikadiert die Türen - je
+              nachdem, wovor du stehst.
             </li>
           </ul>
         </section>
@@ -268,6 +255,22 @@ function HeadsUp({ heads }: { readonly heads: Heads }): ReactElement {
       <span className="text-zinc-500 dark:text-zinc-400">
         {heads.inCar ? T.driving : T.onFoot}
       </span>
+      {heads.crew > 0 && (
+        <span
+          data-testid="gta-crew"
+          className="font-semibold text-lime-700 dark:text-lime-300"
+        >
+          {T.crew(heads.crew)}
+        </span>
+      )}
+      {heads.loot > 0 && (
+        <span
+          data-testid="gta-bag"
+          className="font-semibold text-rose-700 dark:text-rose-300"
+        >
+          {T.loot(heads.loot)}
+        </span>
+      )}
       {heads.escape !== null && (
         <span
           data-testid="gta-escape"
@@ -290,13 +293,110 @@ function HeadsUp({ heads }: { readonly heads: Heads }): ReactElement {
             {T.jobLeft(heads.jobLeft)}
           </span>
         )}
-        <span className="text-zinc-500 dark:text-zinc-400">
-          {T.districts(heads.owned, DISTRICTS.length)}
-        </span>
       </span>
     </div>
   );
 }
+
+/**
+ * The saved games: one line to write a new one, and the ten that are there.
+ *
+ * @param props - the list and the three things one can do to it
+ * @returns the panel
+ * @remarks
+ * On the page rather than in the picture, unlike every other button in this
+ * game, and for one reason: naming a save needs a keyboard, and a keyboard
+ * over the city would eat the W A S D.
+ *
+ * The game keeps itself anyway - it is written every few seconds and picked up
+ * when the page opens - so this is for the saves one wants to come **back** to.
+ */
+function Saves({
+  saves,
+  onSave,
+  onLoad,
+  onForget,
+}: {
+  readonly saves: readonly SaveSlot[];
+  readonly onSave: (name: string) => void;
+  readonly onLoad: (at: number) => void;
+  readonly onForget: (at: number) => void;
+}): ReactElement {
+  const [name, setName] = useState("");
+  return (
+    <section
+      data-testid="gta-saves"
+      className="rounded-2xl border border-zinc-200 p-3 text-xs dark:border-zinc-800"
+    >
+      <h2 className="mb-2 text-sm font-semibold">{T.savesTitle}</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder={T.savesName}
+          maxLength={NAME_MAX}
+          data-testid="gta-save-name"
+          className="w-48 rounded-lg border border-zinc-300 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+        />
+        <button
+          type="button"
+          data-testid="gta-save"
+          onClick={() => {
+            onSave(name);
+            setName("");
+          }}
+          className={LINK}
+        >
+          {T.save}
+        </button>
+        <span className="text-zinc-500 dark:text-zinc-400">
+          {T.savesRoom(saves.length, MAX_SAVES)}
+        </span>
+      </div>
+      <ul className="mt-2 flex flex-col gap-1">
+        {saves.map((slot) => (
+          <li
+            key={slot.at}
+            className="flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-1 dark:border-zinc-800"
+          >
+            <b className="min-w-24">{slot.name}</b>
+            <span className="text-zinc-500 dark:text-zinc-400">
+              {when(slot.savedAt)}
+            </span>
+            <button
+              type="button"
+              onClick={() => onLoad(slot.at)}
+              className={`${LINK} ml-auto`}
+            >
+              {T.load}
+            </button>
+            <button
+              type="button"
+              onClick={() => onForget(slot.at)}
+              className={LINK}
+            >
+              {T.forget}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** The day and the time a save was written, as this country writes them. */
+function when(at: number): string {
+  return new Date(at).toLocaleString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** How long a name may be. */
+const NAME_MAX = 24;
 
 /** What is shown over the city when the day ends one way or the other. */
 function Overlay({

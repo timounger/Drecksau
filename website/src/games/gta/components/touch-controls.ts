@@ -157,7 +157,10 @@ type Press = {
  * @param canvas - the canvas the game is drawn on
  * @returns the controller the hook samples once a frame
  */
-export function createTouchControls(canvas: HTMLCanvasElement): TouchControls {
+export function createTouchControls(
+  canvas: HTMLCanvasElement,
+  onPress: (at: Vec) => boolean,
+): TouchControls {
   let stick: Stick | null = null;
   let look: Look | null = null;
   let lastAim: Vec | null = null;
@@ -182,7 +185,12 @@ export function createTouchControls(canvas: HTMLCanvasElement): TouchControls {
     engaged = true;
     for (const touch of Array.from(event.changedTouches)) {
       const spot = spotOf(touch);
-      const button = buttonAt(spot);
+      // A button drawn into the picture - a shop, a hold-up, a hired man -
+      // takes the tap before anything else. Without that every purchase would
+      // also be a shot, because the shop sits in the half of the screen the
+      // aiming zone owns.
+      const pressed = onPress(spot);
+      const button = pressed ? null : buttonAt(spot);
       if (button !== null) {
         presses = [...presses, { id: touch.identifier, kind: button }];
         press(button);

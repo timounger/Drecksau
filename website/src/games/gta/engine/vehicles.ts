@@ -14,7 +14,8 @@
  */
 
 /** What sort of vehicle something is. */
-export type VehicleBody = "car" | "suv" | "taxi" | "bike" | "cycle" | "tank";
+export type VehicleBody =
+  "car" | "suv" | "taxi" | "bike" | "cycle" | "tank" | "dmc" | "tractor";
 
 /** One body, as numbers. */
 export type Vehicle = {
@@ -57,6 +58,20 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     accel: 260,
     turn: 2.6,
     health: 100,
+    gun: false,
+    seats: 2,
+  },
+  dmc: {
+    body: "dmc",
+    name: "DMC-12",
+    // Low, wide and quick: the fastest thing on four wheels in this city, and
+    // the only one that is never painted - it is bare stainless steel.
+    length: 46,
+    width: 27,
+    top: 520,
+    accel: 320,
+    turn: 2.45,
+    health: 85,
     gun: false,
     seats: 2,
   },
@@ -108,6 +123,21 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     gun: false,
     seats: 1,
   },
+  tractor: {
+    body: "tractor",
+    name: "Traktor",
+    // Slow, heavy and stubborn. Nothing about it is a getaway car - what it is
+    // for is the tow bar on the back, and for that it only has to be able to
+    // pull.
+    length: 48,
+    width: 28,
+    top: 190,
+    accel: 150,
+    turn: 1.9,
+    health: 180,
+    gun: false,
+    seats: 1,
+  },
   tank: {
     body: "tank",
     name: "Panzer",
@@ -116,7 +146,9 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     top: 190,
     accel: 120,
     turn: 1.1,
-    health: 400,
+    // Three times what it used to have, and see TANK_ARMOUR: small arms are a
+    // waste of time against it, which is the point of there being one.
+    health: 1200,
     gun: true,
     seats: 1,
   },
@@ -163,8 +195,30 @@ export const ON_THE_ROAD: readonly VehicleBody[] = [
  * How many tanks stand about the city.
  *
  * @remarks
- * None. A tank is not something one finds parked at the kerb - it is what the
- * police send at six stars, and the only way to get one is to take it off
- * them. That makes it the last thing in the game rather than the first.
+ * One, and it is not parked at a kerb: it stands behind the wire of the
+ * military base out in the desert with ten armed men round it. The other way
+ * to get one is still to take it off the police at six stars. Both ways cost
+ * every star there is, which is what makes a tank the last thing in the game
+ * rather than the first.
  */
-export const TANKS = 0;
+export const TANKS = 1;
+
+/**
+ * How many tractors stand about the farms.
+ *
+ * @remarks
+ * One to a farm. They are not traffic - nobody drives a tractor down a
+ * motorway - so they stand where they belong and wait for somebody who needs
+ * to tow something.
+ */
+export const TRACTORS = 4;
+
+/**
+ * How many DMC-12s stand about the city.
+ *
+ * @remarks
+ * Three, parked, never in traffic. It is the fastest car in Los Santos and it
+ * looks like nothing else on the road, so finding one should be a small event
+ * rather than something one overtakes on the way to a job.
+ */
+export const DELOREANS = 3;

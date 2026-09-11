@@ -37,7 +37,8 @@ export type GameId =
   | "catan"
   | "bohnanza"
   | "arschloch"
-  | "gta";
+  | "gta"
+  | "dog";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -273,11 +274,20 @@ const ENTRIES: readonly GameDefinition[] = [
   {
     id: "gta",
     name: "GTA",
-    tagline: "Los Santos von oben - fahren, liefern, abhauen.",
+    tagline: "Los Santos von oben - fahren, liefern, überfallen, abhauen.",
     emoji: "\u{1F697}",
     href: "/gta",
     category: "action",
     addedOn: "2026-09-06",
+  },
+  {
+    id: "dog",
+    name: "Dog",
+    tagline: "Den Letzten beißen die Hunde - mit Karten ins Ziel.",
+    emoji: "\u{1F436}",
+    href: "/dog",
+    category: "karten",
+    addedOn: "2026-09-11",
   },
   {
     id: "arschloch",

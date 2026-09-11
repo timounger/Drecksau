@@ -37,6 +37,7 @@ import catan from "./catan/assets/logo.webp";
 import bohnanza from "./bohnanza/assets/logo.webp";
 import arschloch from "./arschloch/assets/logo.webp";
 import gta from "./gta/assets/logo.webp";
+import dog from "./dog/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -66,4 +67,5 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   bohnanza,
   arschloch,
   gta,
+  dog,
 };

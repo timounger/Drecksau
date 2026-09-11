@@ -15,11 +15,12 @@ jedes Spiel hat seine eigene Seite.
 | [CATAN](website/src/games/catan/README.md)                         | Siedeln, handeln, bauen - und die Insel unter euch aufteilen.                                            | Computer + Online    |
 | [Codenames](website/src/games/codenames/README.md)                 | Ein Wort, eine Zahl - und der Attentaeter wartet.                                                        | Computer + Online    |
 | [Das politische Talent](website/src/games/politik/README.md)       | Wahlkampf, Koalitionen, Wahlversprechen - wer regiert und liefert, gewinnt.                              | Computer + Online    |
+| [Dog](website/src/games/dog/README.md)                             | Den Letzten beissen die Hunde - mit Karten statt Wuerfeln ins Ziel.                                      | Computer + Online    |
 | [Drecksau](website/src/games/drecksau/README.md)                   | Kosmos-Kartenspiel: wer zuerst nur noch Drecksaeue hat, gewinnt.                                         | Computer + Online    |
 | [Exploding Kittens](website/src/games/exploding-kittens/README.md) | Zieh keine Bombe - wer als Letzter uebrig ist, gewinnt.                                                  | Computer + Online    |
 | [Flash Point](website/src/games/flash-point/README.md)             | Rettet die Opfer, bevor das Haus einstuerzt.                                                             | Computer + Online    |
 | [Flip 7](website/src/games/flip-7/README.md)                       | Sieben verschiedene Zahlen - oder eine zu viel.                                                          | Computer + Online    |
-| [GTA](website/src/games/gta/README.md)                             | Los Santos von oben - fahren, liefern und der Polizei entkommen.                                         | Einzelspieler        |
+| [GTA](website/src/games/gta/README.md)                             | Los Santos von oben - fahren, liefern, Bank und Druckerei ausraeumen, abhauen.                           | Einzelspieler        |
 | [Heckmeck am Bratwurmeck](website/src/games/heckmeck/README.md)    | Acht Wuerfel, sechzehn Chips - ohne Wurm zaehlt nichts.                                                  | Computer + Online    |
 | [Jammerlappen](website/src/games/jammerlappen/README.md)           | Werd alle Karten los - wer als Letzter drauf sitzt, ist der Jammerlappen.                                | Computer + Online    |
 | [Kniffel](website/src/games/kniffel/README.md)                     | Fuenf Wuerfel, drei Wuerfe, dreizehn Felder - jedes nur einmal.                                          | Computer + Online    |

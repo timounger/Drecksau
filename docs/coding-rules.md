@@ -32,16 +32,18 @@ Kurz: erst die Tools laufen lassen, inhaltliche Konventionen nach dem Google-Gui
 
 `camelCase` ist der Standard, `snake_case` wird im Code **nicht** verwendet.
 
-| Was                                                    | Stil               | Beispiel                         |
-| ------------------------------------------------------ | ------------------ | -------------------------------- |
-| Variablen, Funktionen, Parameter, Methoden, Properties | `camelCase`        | `articleRank`, `loadArticleGrid` |
-| Klassen, Typen, Interfaces, Enums, React-Komponenten   | `PascalCase`       | `Article`, `BonPrinterApp`       |
-| Echte Konstanten (modul-weit, unveränderlich)          | `UPPER_SNAKE_CASE` | `PAPER_ROLL`, `INI_PATH`         |
-| Dateinamen                                             | `kebab-case`       | `load-articles.ts`               |
+| Was                                                    | Stil               | Beispiel                       |
+| ------------------------------------------------------ | ------------------ | ------------------------------ |
+| Variablen, Funktionen, Parameter, Methoden, Properties | `camelCase`        | `doorsOf`, `createGame`        |
+| Klassen, Typen, Interfaces, Enums, React-Komponenten   | `PascalCase`       | `GameState`, `DrecksauGame`    |
+| Echte Konstanten (modul-weit, unveränderlich)          | `UPPER_SNAKE_CASE` | `MAX_STARS`, `CITY_TILES`      |
+| Dateinamen                                             | `kebab-case`       | `use-gta-game.ts`              |
 
 **`snake_case`** nur bei **externen Formaten**, deren Schreibweise vorgegeben ist
-(z. B. JSON-Keys einer API, INI-/Config-Schlüssel wie `tax_group`). Im Code wird
-das an der Grenze auf `camelCase` gemappt (z. B. `tax_group` -> `taxGroup`).
+(z. B. JSON-Keys einer fremden API wie `created_at`). Im Code wird das an der
+Grenze auf `camelCase` gemappt (`created_at` -> `createdAt`). Im Projekt selbst
+kommt derzeit keiner vor - die eigenen Formate (Online-Räume, Statistiken,
+gespeicherte Partien) sind durchgehend `camelCase`.
 
 ## Rückgabetypen
 
@@ -50,7 +52,7 @@ Vertrag, faengt versehentliche Aenderungen ab). Interne Funktionen duerfen den
 Typ weglassen - TypeScript leitet ihn ab.
 
 - React-Komponenten: `: ReactElement` (bzw. `: ReactElement | null`)
-- sonst der passende Typ, z. B. `: ArticleGrid`, `: number`
+- sonst der passende Typ, z. B. `: GameState`, `: number`
 
 Durchgesetzt via ESLint-Regel `@typescript-eslint/explicit-module-boundary-types`.
 
@@ -82,20 +84,20 @@ Wenn **mehrere Zweige immer dieselbe Variable** gegen feste Werte prüfen (ab ca
 
 ```ts
 // schlecht: gleiche Bedingung immer wieder
-if (key === "name") ...;
-else if (key === "price") ...;
-else if (key === "tax_group") ...;
+if (kind === "bank") ...;
+else if (kind === "guns") ...;
+else if (kind === "mint") ...;
 
 // gut: switch
-switch (key) {
-  case "name": ...; break;
-  case "price": ...; break;
-  case "tax_group": ...; break;
+switch (kind) {
+  case "bank": ...; break;
+  case "guns": ...; break;
+  case "mint": ...; break;
 }
 
 // gut: Lookup-Tabelle (viele/dynamische Faelle)
-const labels: Record<string, string> = { hell: "Hell", dunkel: "Dunkel" };
-const label = labels[key];
+const SIGNS: Record<BuildingKind, string> = { bank: "BANK", guns: "WAFFEN" };
+const sign = SIGNS[kind];
 ```
 
 **Ausnahmen (bleiben `if/else`):** kurze 2-Zweig-Entscheidungen und Ketten mit
@@ -110,10 +112,10 @@ zurückgeben; bei `switch` das Ergebnis zuweisen und nach dem `switch` einmal
 
 ```ts
 // statt mehrerer returns
-function rank(key: string): number {
+function stars(crime: Crime): number {
   let result: number;
-  switch (key) {
-    case "a":
+  switch (crime) {
+    case "theft":
       result = 1;
       break;
     default:
@@ -129,7 +131,7 @@ geprüft.
 ## Magic Numbers
 
 Bedeutungstragende Zahlen als **benannte Konstante** statt nackter Literale
-(`count > MAX_PRINT_ITEMS` statt `count > 50`). Triviale Werte (`0`, `1`, `2`,
+(`stars > MAX_STARS` statt `stars > 6`). Triviale Werte (`0`, `1`, `2`,
 Indizes, `* 100` fuer Prozent) bleiben direkt. Durchgesetzt via ESLint-Regel
 `@typescript-eslint/no-magic-numbers`.
 
@@ -146,12 +148,13 @@ Gängige Tags: `@param`, `@returns`, `@remarks`, `@example`, `@throws`,
 
 ```ts
 /**
- * Converts the POS article number into the grid index.
+ * Which quarter of town a point lies in.
  *
- * @param pos - article number (1..30)
- * @returns index in the row-major grid (0 = top left)
+ * @param x - the point, in city pixels
+ * @param y - the point, in city pixels
+ * @returns the district it belongs to
  */
-function posToIndex(pos: number): number { ... }
+function districtAt(x: number, y: number): District { ... }
 ```
 
 Eine durchsuchbare HTML-Doku wird mit **TypeDoc** erzeugt: `npm run docs`
@@ -165,7 +168,7 @@ so ist sofort klar, ob Doku fehlt oder bewusst knapp ist.
 
 ```ts
 /**
- * Reads the article configuration and builds the article grid.
+ * Laying out Los Santos: streets, blocks, the beach and the four districts.
  *
  * @module
  */
@@ -176,7 +179,7 @@ sind vor der Direktive erlaubt):
 
 ```ts
 /**
- * Hero section of the landing page.
+ * The board, the hand and the log: one screen of Drecksau.
  * @module
  */
 "use client";

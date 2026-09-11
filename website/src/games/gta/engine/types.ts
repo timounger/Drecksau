@@ -27,7 +27,7 @@ export type Vec = {
 export const TILE = 48;
 
 /** How many cells the city is across and down. */
-export const CITY_TILES = 64;
+export const CITY_TILES = 168;
 
 /** How wide the whole city is, in pixels. */
 export const CITY_SIZE = CITY_TILES * TILE;
@@ -35,8 +35,364 @@ export const CITY_SIZE = CITY_TILES * TILE;
 /** Every second cell of this many is a road. */
 export const BLOCK_TILES = 6;
 
+/**
+ * The train, which is one number.
+ *
+ * @remarks
+ * How far it has come along the loop. Everything else about it - where the
+ * engine is, where the fourth carriage is, which way they point - is worked
+ * out from that, so the whole train costs one number to keep and to save.
+ */
+export type Train = {
+  /** Distance along the loop, in pixels, from the north-west corner. */
+  readonly along: number;
+  /** The clock reading it may leave the platform at. */
+  readonly waitUntil: number;
+  /** How fast it is going right now, in pixels a second. */
+  readonly speed: number;
+};
+
+/** How hard it pulls away from a platform, in pixels a second squared. */
+export const TRAIN_ACCEL = 230;
+
+/** And how hard it brakes for the next one. */
+export const TRAIN_BRAKE = 280;
+
+/** How long it stands in a station, in seconds. */
+export const STATION_WAIT = 5;
+
+/** How near a standing train one has to be to get on, in pixels. */
+export const BOARD_REACH = 90;
+
+/**
+ * How fast it goes, in pixels a second.
+ *
+ * @remarks
+ * Faster than the traffic, which is the point of taking it: one lap of San
+ * Andreas is about fifty seconds of running plus the three station stops.
+ */
+export const TRAIN_SPEED = 440;
+
+/** How many carriages there are, engine included. */
+export const TRAIN_CARS = 5;
+
+/** How far apart two of them are, in pixels. */
+export const TRAIN_GAP = 62;
+
+/** How long one carriage is. */
+export const TRAIN_LONG = 58;
+
+/** And how wide. */
+export const TRAIN_WIDE = 26;
+
+/** How much it takes off whatever it catches on the line. */
+export const TRAIN_HURT = 90;
+
+/**
+ * The helicopter on the pad at the military base: the one you can fly.
+ *
+ * @remarks
+ * Not the police machine - that one is {@link Heli} and flies itself. This one
+ * does nothing at all until somebody climbs in, and then it does exactly what
+ * the keys say: nose round, forward, and up while the space bar is held.
+ */
+export type Chopper = {
+  readonly x: number;
+  readonly y: number;
+  /** Which way the nose points, in radians. */
+  readonly angle: number;
+  /** How far off the ground it is, in pixels. */
+  readonly height: number;
+  /** How fast it is going forwards, in pixels a second. */
+  readonly speed: number;
+  /** Where the rotor is in its turn, in radians. */
+  readonly spin: number;
+};
+
+/** How fast the helicopter climbs, in pixels a second. */
+export const CHOP_RISE = 70;
+
+/** And sinks, with the space bar let go. */
+export const CHOP_FALL = 55;
+
+/** How high it goes at all. */
+export const CHOP_CEILING = 140;
+
+/** How fast it flies, in pixels a second. */
+export const CHOP_SPEED = 460;
+
+/** How hard it picks that up, and loses it again. */
+export const CHOP_ACCEL = 240;
+
+/** How quickly the nose comes round, in radians a second. */
+export const CHOP_TURN = 1.5;
+
+/** How fast the rotor turns, in radians a second. */
+export const CHOP_SPIN = 26;
+
+/** How near one has to stand to climb in, in pixels. */
+export const CHOP_REACH = 70;
+
+/** One city: a rectangle of land in the sea, in tiles. */
+export type Island = {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+};
+
+/**
+ * The three cities of San Andreas.
+ *
+ * @remarks
+ * West, north-east and south-east, with open water between them and three
+ * bridges over it. Their edges fall on multiples of six so that the grid of
+ * streets inside them lines up with the bridges that join them.
+ *
+ * It lives here rather than in ./city because two modules have to agree about
+ * it: the floor lays sea where there is no island, and the block table refuses
+ * to put a hospital on a square of water.
+ */
+export const ISLANDS: readonly Island[] = [
+  { left: 12, top: 42, right: 48, bottom: 96 },
+  { left: 108, top: 12, right: 156, bottom: 66 },
+  { left: 90, top: 108, right: 156, bottom: 156 },
+];
+
+/**
+ * The land itself: everything outside these rectangles is sea.
+ *
+ * @remarks
+ * The three cities are only the built-up corners of it. Between them lie a
+ * forest in the north-west, a desert across the north, meadows down the middle
+ * and a mountain in the south-west - and a bay in the middle of all of it, so
+ * that the way from San Fierro to the south is a bridge rather than a street.
+ *
+ * Rectangles, because a coastline drawn by hand would be a map file, and there
+ * is no map file. The ragged edge comes later: see `shoreShift` in ./city.
+ */
+export const LAND: readonly Island[] = [
+  { left: 8, top: 8, right: 58, bottom: 44 },
+  { left: 8, top: 40, right: 50, bottom: 96 },
+  { left: 46, top: 62, right: 60, bottom: 94 },
+  { left: 54, top: 4, right: 114, bottom: 72 },
+  { left: 104, top: 8, right: 158, bottom: 70 },
+  { left: 76, top: 66, right: 126, bottom: 118 },
+  { left: 68, top: 114, right: 126, bottom: 158 },
+  { left: 108, top: 62, right: 150, bottom: 116 },
+  { left: 86, top: 104, right: 158, bottom: 158 },
+  { left: 8, top: 110, right: 44, bottom: 158 },
+  { left: 40, top: 134, right: 70, bottom: 158 },
+];
+
+/**
+ * The mountain in the south-west, as a middle and a radius in squares.
+ *
+ * @remarks
+ * Mount Chiliad, and the only thing on the map one climbs rather than drives
+ * round: a dirt track winds up it from the south side to the top. There is no
+ * height in this game - the picture is flat - so the mountain is drawn as
+ * bands of stone that grow lighter towards the summit, which is how a map
+ * shows a mountain and how the eye reads one.
+ */
+export const MOUNTAIN = { x: 24, y: 134, radius: 15 };
+
+/**
+ * The fields of the north-west.
+ *
+ * @remarks
+ * Rectangles, because fields are: somebody ploughed them that way. What makes
+ * them read as farmland rather than as green squares is the furrows, which the
+ * renderer draws, and the barns standing between them.
+ */
+export const FIELDS: readonly Island[] = [
+  { left: 12, top: 12, right: 22, bottom: 18 },
+  { left: 26, top: 10, right: 36, bottom: 16 },
+  { left: 14, top: 22, right: 23, bottom: 28 },
+  { left: 28, top: 20, right: 38, bottom: 26 },
+  { left: 40, top: 14, right: 50, bottom: 20 },
+  { left: 18, top: 32, right: 28, bottom: 38 },
+  { left: 34, top: 30, right: 44, bottom: 36 },
+  { left: 44, top: 24, right: 52, bottom: 30 },
+];
+
+/**
+ * The farms themselves: a barn or a farmhouse apiece.
+ *
+ * @remarks
+ * Walls like any house, and like the sheds on the military base they belong to
+ * no city block - so the renderer draws them where they stand. Each one has a
+ * tractor parked beside it.
+ */
+export const FARMS: readonly Island[] = [
+  { left: 24, top: 17, right: 28, bottom: 19 },
+  { left: 39, top: 28, right: 43, bottom: 30 },
+  { left: 15, top: 30, right: 18, bottom: 32 },
+  { left: 46, top: 21, right: 49, bottom: 23 },
+];
+
+/** How far behind the tractor a towed vehicle hangs, in pixels. */
+export const TOW_GAP = 58;
+
+/** How near one has to stop to hook something up, in pixels. */
+export const TOW_REACH = 110;
+
+/** How far a tow will stretch before the rope comes off, in pixels. */
+export const TOW_SNAP = 140;
+
+/** The desert across the north, between the forest and Las Venturas. */
+export const DESERT: Island = { left: 54, top: 0, right: 112, bottom: 70 };
+
+/** The docks west of the bay, where the boats lie. */
+export const HARBOUR: Island = { left: 46, top: 64, right: 60, bottom: 94 };
+
+/**
+ * The piers that stick out of them into the water.
+ *
+ * @remarks
+ * Concrete over the sea, one square wide apart from the wide one at the end -
+ * one can drive out onto them, and there is nothing at the far end but water.
+ */
+export const PIERS: readonly Island[] = [
+  { left: 58, top: 68, right: 70, bottom: 69 },
+  { left: 58, top: 76, right: 71, bottom: 77 },
+  { left: 58, top: 84, right: 69, bottom: 85 },
+];
+
+/**
+ * The military base out in the desert.
+ *
+ * @remarks
+ * A square of wire with one gate in the south fence and a tank standing inside
+ * it. It is the only place in San Andreas one can simply take a tank, and
+ * walking through the gate is worth every star there is - which is the trade:
+ * the tank is not hidden, it is guarded.
+ */
+export const BASE: Island = { left: 60, top: 28, right: 78, bottom: 44 };
+
+/** The gate: where the south fence is missing, in columns. */
+export const BASE_GATE = { left: 67, right: 69 };
+
+/**
+ * The buildings on the base: hangar, barracks, store.
+ *
+ * @remarks
+ * Walls like any other house - one drives round them, not through them - but
+ * they are not part of any city block, so they are drawn where they stand
+ * rather than dealt out of the block table.
+ */
+export const BASE_HUTS: readonly Island[] = [
+  { left: 70, top: 30, right: 76, bottom: 34 },
+  { left: 70, top: 37, right: 75, bottom: 39 },
+  { left: 62, top: 41, right: 65, bottom: 42 },
+];
+
+/** Where the helicopter stands, in squares. */
+export const BASE_PAD = { x: 67.5, y: 31.5 };
+
+/** How far outside the corners of the wire a launcher stands, in squares. */
+const ACK_OUT = 2.5;
+
+/**
+ * The four anti-aircraft sites, spread round the base outside the wire.
+ *
+ * @remarks
+ * Outside, because that is where air defence stands: the thing it is defending
+ * is behind it. They fire at anything in the air within {@link ACK_RANGE} -
+ * the helicopter, or a man on a jetpack who thought the fence was the problem.
+ */
+export const ACK_SITES: readonly Vec[] = [
+  { x: BASE.left - ACK_OUT, y: BASE.top - ACK_OUT },
+  { x: BASE.right + ACK_OUT, y: BASE.top - ACK_OUT },
+  { x: BASE.right + ACK_OUT, y: BASE.bottom + ACK_OUT },
+  { x: BASE.left - ACK_OUT, y: BASE.bottom + ACK_OUT },
+];
+
+/**
+ * One anti-aircraft site, as the game keeps it.
+ *
+ * @remarks
+ * It has bodywork like a car, because it can be shot to pieces like one - and
+ * unlike a car it comes back: the army has more of them, and a base that can
+ * be disarmed once and for ever would be a base one flies over on the way past
+ * for the rest of the game.
+ */
+export type Ack = {
+  readonly x: number;
+  readonly y: number;
+  /** From zero to {@link ACK_HEALTH}. */
+  readonly health: number;
+  /** When a wrecked one is replaced, or null while it still stands. */
+  readonly backAt: number | null;
+};
+
+/** How much a launcher takes before it is scrap. */
+export const ACK_HEALTH = 150;
+
+/** How wide it is, for anything flying at it. */
+export const ACK_SIZE = 34;
+
+/** How long the army takes to put a new one in its place, in seconds. */
+export const ACK_REPAIR = 45;
+
+/** How far an anti-aircraft gun reaches, in pixels. */
+export const ACK_RANGE = 900;
+
+/** How high one has to be before they bother, in pixels. */
+export const ACK_FLOOR = 30;
+
+/** Seconds between two volleys. */
+export const ACK_EVERY = 1.1;
+
+/** What one round takes off. */
+export const ACK_DAMAGE = 13;
+
+/** And how fast it flies. */
+export const ACK_SPEED = 900;
+
+/** How near a guard's post the player has to be before the guard leaves it. */
+export const GUARD_REACH = 1500;
+
+/** How many men stand about inside the wire. */
+export const GUARD_COUNT = 10;
+
+/** The airport in the south-east corner, beside Los Santos. */
+export const AIRPORT: Island = { left: 124, top: 138, right: 156, bottom: 156 };
+
+/** And the strip down the middle of it. */
+export const RUNWAY: Island = { left: 126, top: 145, right: 154, bottom: 148 };
+
+/** How deep the sand along the south edge is, in tiles. */
+export const BEACH_TILES = 5;
+
+/** And the water beyond it. */
+export const WATER_TILES = 3;
+
 /** What one cell of the city is. */
-export type Cell = "road" | "walk" | "building" | "park" | "water";
+export type Cell =
+  | "road"
+  | "walk"
+  | "building"
+  | "park"
+  | "water"
+  /** The railway: a road one may cross, with a train on it. */
+  | "rail"
+  /** Desert and beach: open, dusty, and nobody built on it. */
+  | "sand"
+  /** Woodland: one drives through it, slowly and into trees. */
+  | "forest"
+  /** The concrete of the docks, and the apron of the airport. */
+  | "dock"
+  /** The strip itself, which is the widest straight road in San Andreas. */
+  | "runway"
+  /** The wire round the military base: one may look through it, not walk. */
+  | "fence"
+  /** The mountain in the south-west: bare stone, and steep to look at. */
+  | "rock"
+  /** A farm track: one drives on it, nobody paints a line down it. */
+  | "dirt"
+  /** A ploughed field, in the farmland of the north-west. */
+  | "field";
 
 /** The four corners of town, and who calls them home. */
 export type District = "grove" | "ballas" | "vagos" | "beach";
@@ -189,6 +545,14 @@ export type Car = {
    * time the answer to "does this thing still drive": a wreck rolls out and
    * then stands there.
    */
+  /**
+   * Simulation time this patrol car pulled up beside the player.
+   *
+   * @remarks
+   * Null while it is still driving. Getting out is not instant - the doors
+   * open a second after the car stops - and this is that second.
+   */
+  readonly haltAt: number | null;
   readonly fireAt: number | null;
   /**
    * How many policemen are aboard.
@@ -201,6 +565,24 @@ export type Car = {
    * instead of it.
    */
   readonly crew: number;
+  /**
+   * How many rockets or shells have gone into it.
+   *
+   * @remarks
+   * Only a tank counts them: see {@link TANK_HITS}. Everything else is alight
+   * the moment a rocket touches it and never gets as far as a second.
+   */
+  readonly shells: number;
+  /**
+   * What this one is towing, by id, or null for anything with nothing on the
+   * back.
+   *
+   * @remarks
+   * Only a tractor ever has one. It is kept on the tractor rather than on the
+   * thing being towed because the tractor is the one that decides: it hooks up,
+   * it pulls, and it drops the rope.
+   */
+  readonly hitched: number | null;
   /**
    * Which way the gun points, in radians - only the tank has one.
    *
@@ -221,10 +603,16 @@ export type Car = {
  * sight is a city nobody walks through twice. Once the orange shirts are at war
  * the green ones join in on your side, which is what "your gang" means here.
  */
-export type Feud = {
-  readonly mine: boolean;
-  readonly rival: boolean;
-};
+/**
+ * Whether the orange shirts are at war with the player.
+ *
+ * @remarks
+ * One flag, because there is only one war to have. Your own gang is yours
+ * whatever you do - a stray shot into a green shirt is an accident among
+ * friends, and there is nothing in this city so lonely as a man whose own
+ * people are shooting at him because a bullet went wide.
+ */
+export type Feud = boolean;
 
 /**
  * How far the simulation has got.
@@ -234,7 +622,8 @@ export type Feud = {
  * player is somewhere else entirely - inside the jail, on foot, with a screw
  * and a plan. See {@link PrisonState}.
  */
-export type Phase = "playing" | "busted" | "wasted" | "won" | "prison";
+export type Phase =
+  "playing" | "busted" | "wasted" | "won" | "prison" | "mint" | "bank";
 
 /** The whole city, at one moment. */
 export type GameState = {
@@ -258,7 +647,15 @@ export type GameState = {
   readonly job: Job | null;
   readonly districts: Districts;
   /** Where the spray shop is - drive in and the stars go. */
-  readonly garage: Vec;
+  readonly garages: readonly Vec[];
+  /** The train going round the map. */
+  readonly train: Train;
+  /** The helicopter on the pad at the base, whoever is or is not in it. */
+  readonly chopper: Chopper;
+  /** The clock reading the anti-aircraft guns may fire their next volley at. */
+  readonly ackAt: number;
+  /** The four launchers round the base, wrecked or whole. */
+  readonly acks: readonly Ack[];
   /**
    * Simulation time the garage door shut at, or null while it stands open.
    *
@@ -267,6 +664,15 @@ export type GameState = {
    * two frames of the same city have to show the same door.
    */
   readonly garageAt: number | null;
+  /**
+   * Whether the garage door stands open.
+   *
+   * @remarks
+   * One answer for the picture and for the walls: while this is false the
+   * square behind the door is part of the house (see `setGarage` in ./city),
+   * so a car inside is shut in until it opens again.
+   */
+  readonly garageOpen: number | null;
   /** The helicopter overhead, or null while there is none. */
   readonly heli: Heli | null;
   /** Which gangs the player has picked a fight with. */
@@ -274,6 +680,22 @@ export type GameState = {
   /** Simulation time the next patrol car may be sent, so they arrive one by
    * one rather than all at once. */
   readonly patrolAt: number;
+  /**
+   * Simulation time the next helicopter may take off, in seconds.
+   *
+   * @remarks
+   * Shooting one down used to buy nothing: the next frame saw an empty sky and
+   * a wanted level and sent another. Taking a unit off the board has to be
+   * worth something, and what it is worth is time.
+   */
+  readonly heliAt: number;
+  /**
+   * The bank, while somebody is inside it with a gun, or null out in the city.
+   *
+   * @remarks
+   * The fourth little world: see {@link BankState} and ./bank.
+   */
+  readonly bank: BankState | null;
   /**
    * The escape, while one is under way - null whenever the city is being
    * played.
@@ -285,6 +707,32 @@ export type GameState = {
    * still standing when one comes back out of the wall.
    */
   readonly prison: PrisonState | null;
+  /**
+   * The printing works, while a job is on inside it, or null out in the city.
+   *
+   * @remarks
+   * The third little world after the jail: see {@link MintState} and ./mint.
+   */
+  readonly mint: MintState | null;
+  /**
+   * The gang members the player has taken on, by id.
+   *
+   * @remarks
+   * A list of ids rather than a flag on the person, because being in somebody's
+   * crew is a thing between the player and them and not a property of a man in
+   * a green shirt. They walk after him, and they are the reason the door of the
+   * printing works opens at all.
+   */
+  readonly crew: readonly number[];
+  /**
+   * The hired men who are sitting in the car with the player.
+   *
+   * @remarks
+   * They are taken out of {@link GameState.people} while they ride, because
+   * that is what being in a car is: not being in the street. They go back into
+   * it, round the car, the moment he gets out.
+   */
+  readonly riders: readonly Person[];
   /** The newest lines of what happened, newest last. */
   readonly log: readonly string[];
 };
@@ -329,6 +777,16 @@ export type Player = {
    */
   readonly movedAt: number;
   /**
+   * What is in the bag from a robbery, and not yet safe.
+   *
+   * @remarks
+   * Kept apart from the money on purpose: a robbery is only worth anything
+   * once one is away with it. The bag empties into the money when the search
+   * dies down, and into the evidence room when the police catch up - which is
+   * the whole risk of the thing.
+   */
+  readonly loot: number;
+  /**
    * Whether the player is still in the striped suit he broke out in.
    *
    * @remarks
@@ -337,6 +795,44 @@ export type Player = {
    * with the last star, he has found something else to put on.
    */
   readonly striped: boolean;
+  /**
+   * Whether he is still in the red overall and the mask of the printing works.
+   *
+   * @remarks
+   * The same idea as {@link Player.striped} and for the same reason: what one
+   * walks out of a job in is what the street sees. It goes with the last star.
+   */
+  readonly masked: boolean;
+  /**
+   * Whether he is wearing the black balaclava of a bank job.
+   *
+   * @remarks
+   * The third thing one can be caught in, after the prison suit and the red
+   * overall. It goes the same way they do: with the last star, or with the
+   * money when there was never a star to lose.
+   */
+  readonly hooded: boolean;
+  /**
+   * Whether there is a jetpack on his back.
+   *
+   * @remarks
+   * Not a weapon: there is nothing to select and nothing to reload. One either
+   * owns it or one does not, and owning it means the space bar lifts you off
+   * the ground.
+   */
+  readonly jetpack: boolean;
+  /** Whether he is riding the train rather than standing beside it. */
+  readonly aboard: boolean;
+  /** Whether he is at the controls of the helicopter. */
+  readonly flying: boolean;
+  /**
+   * How high above the road he is, in pixels.
+   *
+   * @remarks
+   * Zero on the ground, which is where everybody without a jetpack stays. Above
+   * {@link ROOF_HEIGHT} the houses are below him and he goes over them.
+   */
+  readonly height: number;
   /**
    * Simulation time the star count last went up at.
    *
@@ -442,7 +938,43 @@ export type Input = {
   readonly wheel: number;
   /** The other cheat: nothing hurts, and the belt is full. */
   readonly god: boolean;
+  /** The space bar: up, while there is a jetpack to go up with. */
+  readonly lift: boolean;
+  /**
+   * What the player asked for at a counter this frame, or null for nothing.
+   *
+   * @remarks
+   * The keys and the mouse say where the player is and what they are pointing
+   * at; this says what they pressed in the panel that opens when they are
+   * standing in a doorway. It is spent the moment it is read, like
+   * {@link Input.use}.
+   */
+  readonly order: Order | null;
 };
+
+/** What can be asked for at a counter. */
+export type Order =
+  /** One of the things on the wall of the gun shop. */
+  | {
+      readonly kind: "buy";
+      readonly what: WeaponKind | "armour" | "jetpack";
+    }
+  /** Rounds for a weapon already in the belt. */
+  | { readonly kind: "refill"; readonly what: WeaponKind }
+  /** The other way of doing business in a bank. */
+  | { readonly kind: "rob" }
+  /** One gang member, taken on for the day. */
+  | { readonly kind: "hire" }
+  /** In through the door of the printing works, with the crew. */
+  | { readonly kind: "raid" }
+  /** On or off the train, which is the same key either way. */
+  | { readonly kind: "board" }
+  /** The tow bar on the tractor: hook something on, or drop it. */
+  | { readonly kind: "hitch" }
+  /** One hostage out of the front door, to buy quiet. */
+  | { readonly kind: "release" }
+  /** The mains, cut - which works once. */
+  | { readonly kind: "power" };
 
 /** Nothing pressed. */
 export const IDLE_INPUT: Input = {
@@ -457,10 +989,42 @@ export const IDLE_INPUT: Input = {
   boost: false,
   wheel: 0,
   god: false,
+  lift: false,
+  order: null,
 };
 
 /** Longest slice of time one step may advance, so a paused tab cannot jump. */
 export const MAX_STEP = 0.05;
+
+/** How fast the jetpack climbs, in pixels a second. */
+export const JET_RISE = 80;
+
+/** And how fast one sinks with the thumb off the button. */
+export const JET_FALL = 65;
+
+/**
+ * How high it goes at all.
+ *
+ * @remarks
+ * Heights in this game are small numbers: a house is 26 to 74, the police
+ * helicopter hangs at 52. A ceiling of a hundred and ten is well over the
+ * tallest roof in Los Santos and still inside the picture - twice that and the
+ * figure simply leaves the top of the screen.
+ */
+export const JET_CEILING = 110;
+
+/**
+ * How high one has to be to clear the roofs, in pixels.
+ *
+ * @remarks
+ * Above this nothing on the ground is in the way any more - houses, cars,
+ * water, the lot. Below it one is in the street like everybody else, which is
+ * what makes taking off and landing the only two interesting moments.
+ */
+export const ROOF_HEIGHT = 80;
+
+/** What a jetpack costs at the counter, in euros. */
+export const JET_PRICE = 25000;
 
 /** How fast the player walks, in pixels per second. */
 export const WALK_SPEED = 130;
@@ -478,6 +1042,19 @@ export const WALK_SPEED = 130;
  * it gets a factor that is still driveable.
  */
 export const CHEAT_WALK = 10;
+
+/**
+ * How much faster Shift is on its own, without the cheat.
+ *
+ * @remarks
+ * Shift by itself is a run: quick enough to cross a street before the lights
+ * change, slow enough that the city still goes past. The tenfold sprint above
+ * belongs to the cheat, and only to the cheat.
+ */
+export const RUN_WALK = 3;
+
+/** And what Shift alone does to a car. */
+export const RUN_DRIVE = 1.5;
 
 /** How much faster Shift makes a car. See {@link CHEAT_WALK}. */
 export const CHEAT_DRIVE = 3;
@@ -586,6 +1163,15 @@ export const BOARD_SECONDS = 1.6;
  * to be a flat one and a bit between every pair of shots, which read as a slow
  * drip rather than as somebody firing at you.
  */
+/** How long a patrol car stands before the doors open, in seconds. */
+export const COP_OUT = 1;
+
+/** And how long they take to spread out round the player before firing. */
+export const COP_FORM = 1;
+
+/** How far from the player they take up position, in pixels. */
+export const COP_RING = 120;
+
 export const COP_RELOAD = 0.22;
 
 /** How near the player has to be before a car brakes for them, in pixels. */
@@ -603,16 +1189,37 @@ export const BRAKE_WIDTH = 26;
  * get out: a wisp, a black plume, flames, and then the bang. A wreck that went
  * up the moment the bar emptied would be a death, not a decision.
  */
-export const SMOKE_STAGE = 2;
+/**
+ * How many rockets or shells it takes to set a tank alight.
+ *
+ * @remarks
+ * Three. A rocket sets any other vehicle on fire where it hits it, and that is
+ * right for a car - but a tank that goes up on the first hit makes the duel
+ * between two of them a matter of who fires first, which is no duel at all.
+ */
+export const TANK_HITS = 3;
+
+/**
+ * How much of a hit a tank soaks up compared to any other vehicle.
+ *
+ * @remarks
+ * A quarter. With twelve hundred of bodywork behind it that is the better part
+ * of five thousand rounds of pistol - which is the right answer: whatever is
+ * going to stop a tank is not a pistol, it is a rocket, another tank, or a very
+ * long argument with a helicopter.
+ */
+export const TANK_ARMOUR = 0.25;
+
+export const SMOKE_STAGE = 0.8;
 
 /** How long after that the smoke turns thick and black. */
 export const FUMES_STAGE = 4;
 
 /** How long after that it is properly alight. */
-export const FIRE_STAGE = 6;
+export const FIRE_STAGE = 2.2;
 
 /** How long a wreck lasts altogether before it goes off, in seconds. */
-export const BURN_SECONDS = 9;
+export const BURN_SECONDS = 4.5;
 
 /** How long an explosion is drawn for, in seconds. */
 export const BLAST_SECONDS = 0.5;
@@ -635,6 +1242,25 @@ export const STAR_FLASH = 1.2;
 /** How much health the player has. */
 export const PLAYER_HEALTH = 100;
 
+/**
+ * How many game minutes one real second is worth.
+ *
+ * @remarks
+ * One. A whole day is twenty-four real minutes, which is short enough that
+ * anybody who plays for half an hour sees two sunsets and long enough that
+ * driving somewhere does not happen in a different hour than setting off did.
+ */
+export const MINUTES_PER_SECOND = 1;
+
+/** What the clock says when a game begins: eight in the morning. */
+export const START_HOUR = 8;
+
+/** How many minutes are in an hour, and hours in a day. */
+export const HOUR_MINUTES = 60;
+
+/** And how many of those in a day. */
+export const DAY_HOURS = 24;
+
 /** The most stars the police hand out. */
 export const MAX_STARS = 6;
 
@@ -647,11 +1273,30 @@ export const ENTER_RANGE = 46;
 /** How close counts as arriving at a job marker. */
 export const MARKER_RANGE = 40;
 
-/** How close to the spray shop counts as driving in. */
-export const GARAGE_RANGE = 60;
+/**
+ * How close to the middle of the bay counts as being all the way in.
+ *
+ * @remarks
+ * Half a square, so that the work only starts once the car is past the doorway
+ * and the door has something to come down behind. Anything wider and the door
+ * shuts on a car that is still standing in it - and whatever is already inside
+ * a wall is allowed to drive out of it, so it would simply leave again.
+ */
+/**
+ * The number Los Santos is built from.
+ *
+ * @remarks
+ * One city, always the same one. The plan of the streets never depended on it -
+ * that comes out of a hash - but where the traffic stands, where the gangs hold
+ * their corners and where one wakes up did, and a city that rearranged its cars
+ * every time one pressed "new game" was a city one could never learn.
+ */
+export const CITY_SEED = 20260912;
+
+export const GARAGE_RANGE = 26;
 
 /** How long the garage door stays shut while the work is done, in seconds. */
-export const GARAGE_SHUT = 1.6;
+export const GARAGE_SHUT = 1.4;
 
 /**
  * How near the player has to be for the door to roll up, in pixels.
@@ -698,13 +1343,13 @@ export const JOB_SECONDS = 100;
  * ghost town. Only what is near the player is simulated, so the price of the
  * bigger number is memory rather than time.
  */
-export const PEOPLE_COUNT = 220;
+export const PEOPLE_COUNT = 620;
 
 /** How many cars drive around, the parked ones aside. */
-export const TRAFFIC_COUNT = 58;
+export const TRAFFIC_COUNT = 170;
 
 /** How many cars stand at the kerb waiting to be taken. */
-export const PARKED_COUNT = 54;
+export const PARKED_COUNT = 160;
 
 /**
  * How many police cars come out per star.
@@ -718,6 +1363,20 @@ export const POLICE_PER_STAR = 1;
 
 /** How long between one patrol car arriving and the next, in seconds. */
 export const PATROL_EVERY = 7;
+
+/**
+ * How long the law needs after losing a man or a car, in seconds.
+ *
+ * @remarks
+ * Twice the ordinary gap. This is the reward for fighting back rather than
+ * only running: every patrol that goes down buys a quarter of a minute in
+ * which the next one is not there yet, and a quarter of a minute is two
+ * streets and a corner.
+ */
+export const POLICE_AGAIN = 15;
+
+/** And how long before another helicopter comes up, in seconds. */
+export const HELI_AGAIN = 50;
 
 /** How much unseen trouble it takes before somebody calls the police. */
 export const HEAT_PER_STAR = 3;
@@ -929,6 +1588,28 @@ export type Cop = {
   /** Simulation time the next shot may be fired at. */
   readonly reloadAt: number;
   /**
+   * Simulation time he is in position and may open fire.
+   *
+   * @remarks
+   * A second after he is out of the car. Two men who got out and fired in the
+   * same frame were a firing squad at the kerb; two who spread out first are
+   * police surrounding somebody, which is what the whole scene is meant to
+   * look like.
+   */
+  readonly readyAt: number;
+  /** Which side of the player he takes up, in radians. */
+  readonly post: number;
+  /**
+   * The spot in the military base he guards, or null for an ordinary patrol.
+   *
+   * @remarks
+   * A guard is not a patrol: he belongs to a place rather than to a car, he
+   * goes back to it when there is nobody to chase, and he never counts towards
+   * how much law is already on the scene - otherwise ten men standing in a
+   * desert would mean no patrol car is ever sent anywhere again.
+   */
+  readonly guards: Vec | null;
+  /**
    * How many shots are left in this burst before he has to reload.
    *
    * @remarks
@@ -994,8 +1675,10 @@ export type Pickup = {
   readonly id: number;
   readonly x: number;
   readonly y: number;
-  /** A weapon, or the armour vest. */
-  readonly holds: WeaponKind | "armour";
+  /** A weapon, the armour vest, or a fold of notes off somebody. */
+  readonly holds: WeaponKind | "armour" | "cash";
+  /** What the notes are worth, in euros. Nought for anything else. */
+  readonly worth: number;
   /** Simulation time it comes back at, or null while it is lying there. */
   readonly backAt: number | null;
   /**
@@ -1045,6 +1728,109 @@ export const SHOT_STARS = 2;
 
 /** How many lines of the log are kept. */
 export const LOG_LINES = 6;
+
+/** How close one has to stand to a counter to be served, in pixels. */
+export const COUNTER_RANGE = 46;
+
+/* ---------------------------------------------------------------- the bank */
+
+/** One of the people behind the counter. */
+export type Clerk = Inmate & {
+  /** Whether his hands are up and he does as he is told. */
+  readonly held: boolean;
+  /** Simulation time at which he would start for the alarm button. */
+  readonly panicAt: number;
+};
+
+/** One till, and how far it has been emptied. */
+export type Till = {
+  readonly open: boolean;
+  /** How far the drawer has got, from zero to one. */
+  readonly work: number;
+};
+
+/**
+ * A hold-up, from the inside.
+ *
+ * @remarks
+ * Its own little world beside the city, like the jail and the printing works.
+ * What goes back to the city is two things: how much is in the bag, and
+ * whether anybody got to the button.
+ */
+export type BankState = {
+  /** Seconds since the gun came out. */
+  readonly time: number;
+  /** The player. */
+  readonly hero: Inmate;
+  /** The people behind the counter. */
+  readonly staff: readonly Clerk[];
+  /** The four drawers. */
+  readonly tills: readonly Till[];
+  /** What is in the bag. */
+  readonly taken: number;
+  /** How far the vault door has come open, from zero to one. */
+  readonly vault: number;
+  /** Whether the silent alarm has gone. */
+  readonly alarm: boolean;
+  /** Simulation time the police walk through the door. */
+  readonly raidAt: number;
+  /** How far the job in hand has got, from zero to one. */
+  readonly work: number;
+};
+
+/**
+ * How long one has in a bank before the police come by themselves, in seconds.
+ *
+ * @remarks
+ * Long enough to cover three people, open the vault and empty four tills - but
+ * only just, and only if none of it goes wrong. A quiet bank job is a job done
+ * to a clock.
+ */
+export const BANK_GRACE = 100;
+
+/** And how long one has once the silent alarm is out. */
+export const ALARM_GRACE = 22;
+
+/**
+ * How long each clerk waits before trying for the button, in seconds.
+ *
+ * @remarks
+ * The first one goes almost at once, the second twice as late, the third
+ * later still - so the opening of a bank job is a sprint: three people to put
+ * on the floor before the first of them finds his nerve.
+ */
+export const PANIC_AFTER = 5;
+
+/** How near one has to stand to keep somebody from trying, in pixels. */
+export const BANK_COVER = 130;
+
+/** What one till holds, in euros. */
+export const TILL_EACH = 950;
+
+/** How long a drawer takes to empty, in seconds. */
+export const TILL_SECONDS = 2.2;
+
+/** How long the vault takes to open once somebody works the wheel. */
+export const VAULT_SECONDS = 7;
+
+/** How near the man with the combination has to be, in pixels. */
+export const VAULT_ROOM = 120;
+
+/** What the open vault pays out, in euros a second. */
+export const VAULT_RATE = 850;
+
+/** And how much is in there altogether. */
+export const VAULT_TOTAL = 9000;
+
+/**
+ * How hard they look for whoever comes out of a bank the alarm went off in.
+ *
+ * @remarks
+ * Two stars: cars, and enough of them to make the street outside the wrong
+ * place to stand. A robbery nobody noticed is worth none at all - which is the
+ * whole reason for covering the clerks rather than shooting the lock off.
+ */
+export const BANK_STARS = 2;
 
 /* ------------------------------------------------------------ the prison */
 
@@ -1231,3 +2017,202 @@ export const CABLE_PACE = 0.55;
 
 /** How high over the ground the cable hangs, in pixels. */
 export const CABLE_HEIGHT = 46;
+
+/* ------------------------------------------------------ the printing works */
+
+/**
+ * What one square of the printing works is.
+ *
+ * @remarks
+ * The third fixed plan, after the city and the jail, and for the same reason: a
+ * job is a route learned by heart. See the plan in ./mint.
+ */
+export type Tile =
+  | "wall"
+  /** The hall inside the front door. */
+  | "hall"
+  /** The floor of the press room. */
+  | "works"
+  /** A press: somebody stands at it and it runs off notes. */
+  | "press"
+  /** Pallets of paper, stacked. */
+  | "pallet"
+  /** A desk in the office. */
+  | "desk"
+  /** The front door - where they knock first. */
+  | "door"
+  /** The loading gate at the back. */
+  | "gate"
+  /** The high window over the yard. */
+  | "window"
+  /** The cellar under the works. */
+  | "cellar"
+  /** Where the tunnel is dug. */
+  | "dig"
+  /** The tunnel itself, once it is open. */
+  | "tunnel"
+  /** The far end of it: out. */
+  | "out"
+  /** Anything past the walls. */
+  | "free";
+
+/** Which of the three ways in. */
+export type GateKind = "door" | "gate" | "window";
+
+/**
+ * One way into the building, and how hard they are leaning on it.
+ *
+ * @remarks
+ * Three of them, and the siege is these three numbers. What is piled against a
+ * door slows what comes through it; what comes through it eats what is piled
+ * against it. Neither gets to the end on its own, which is what makes standing
+ * in the right doorway at the right moment the whole game.
+ */
+export type Gate = {
+  readonly kind: GateKind;
+  /** Where it stands, in works pixels. */
+  readonly at: Vec;
+  /** What is piled against it, from zero to one. */
+  readonly barricade: number;
+  /** How far they have got through it, from zero to one. */
+  readonly push: number;
+  /** Whether a squad is working on it this moment. */
+  readonly busy: boolean;
+};
+
+/**
+ * Somebody who works here and is having a very bad morning.
+ *
+ * @remarks
+ * Until they are taken they walk about their own business. Afterwards they do
+ * what they are told: they go to a press and they run it. Which press is
+ * remembered rather than worked out again, so that two of them never end up at
+ * the same machine.
+ */
+export type Hostage = Inmate & {
+  /** Whether they have given up. */
+  readonly taken: boolean;
+  /** Which press they were sent to, or null while they are still free. */
+  readonly press: number | null;
+};
+
+/**
+ * The job in the printing works, at one moment.
+ *
+ * @remarks
+ * Its own little world beside the city, like the jail - but a busy one. Three
+ * things run at once and each has its own people: the hostages print, the hired
+ * men dig, and the player is the only one who can hold a door. What goes back
+ * to the city is one number and one answer - how much was printed, and whether
+ * it came out through the tunnel or they came in through a door.
+ */
+export type MintState = {
+  /** Seconds since the front door shut. */
+  readonly time: number;
+  /** The player. */
+  readonly hero: Inmate;
+  /** The hired men, digging. */
+  readonly crew: readonly Inmate[];
+  /** Everybody who works here. */
+  readonly staff: readonly Hostage[];
+  /** The three ways in. */
+  readonly gates: readonly Gate[];
+  /** What the presses have run off so far. */
+  readonly printed: number;
+  /** How far the tunnel has got, from zero to one. */
+  readonly tunnel: number;
+  /** How far the job in hand has got, from zero to one. */
+  readonly work: number;
+  /** Simulation time they keep their distance until. */
+  readonly calmUntil: number;
+  /** Simulation time the lights come back on - and with them the presses. */
+  readonly darkUntil: number;
+  /** Whether the mains have been cut already - that works once. */
+  readonly cut: boolean;
+  /** Simulation time the next squad turns up at. */
+  readonly waveAt: number;
+  /** How many squads have come so far. */
+  readonly waves: number;
+};
+
+/** How many hired men the door of the printing works opens for. */
+export const MINT_CREW = 4;
+
+/** How many of them will work for one man at a time. */
+export const CREW_MAX = 6;
+
+/**
+ * What a man from the other gang costs for the day, in euros.
+ *
+ * @remarks
+ * Only the other gang. Your own come along because they are your own - which
+ * is the whole point of having a side in this city, and the reason the green
+ * shirts on the corner by your house are worth knowing about.
+ */
+export const HIRE_PRICE = 500;
+
+/**
+ * How close one has to stand to take somebody on, in city pixels.
+ *
+ * @remarks
+ * Two squares, which is wider than the doorways are. A gang member is not a
+ * counter with a sign over it - the offer has to catch the eye of somebody who
+ * was only walking past.
+ */
+export const HIRE_RANGE = 96;
+
+/** How close behind the player his crew walk, in city pixels. */
+export const CREW_GAP = 34;
+
+/**
+ * What one manned press runs off, in euros a second.
+ *
+ * @remarks
+ * Five machines and a few minutes come to more than a bank vault several times
+ * over, and they are meant to: this is the one job in the city that needs a
+ * crew, a plan and somebody to hold three doors. The number is what makes the
+ * risk worth taking, and the tunnel is what stops it being taken twice.
+ */
+export const PRESS_RATE = 85;
+
+/** How long one man alone would dig the tunnel, in seconds. */
+export const DIG_SECONDS = 620;
+
+/** How many men the player digs like, when he digs himself. */
+export const HERO_DIG = 1.6;
+
+/** How long it takes to talk somebody onto a press, in seconds. */
+export const TAKE_SECONDS = 1.5;
+
+/** How fast a barricade goes up by hand, in shares of a door a second. */
+export const BUILD_RATE = 0.4;
+
+/**
+ * How fast a squad comes through a bare door, in shares a second.
+ *
+ * @remarks
+ * A minute on a door with nothing against it, and the better part of five on
+ * one piled to the top. That is the width of the whole decision: the building
+ * is big enough that crossing it takes fifteen seconds, so a door left bare is
+ * a door lost, and one piled up early is one that can be left alone for a
+ * while.
+ */
+export const PUSH_RATE = 0.016;
+
+/** How much of that a full barricade takes off. */
+export const SHIELD = 0.82;
+
+/** How long after the door shuts the first squad turns up, in seconds. */
+export const WAVE_FIRST = 30;
+
+/** And how long between the ones after it. */
+export const WAVE_EVERY = 36;
+
+/** How long they stand off after a hostage is let out, in seconds. */
+export const RELEASE_CALM = 26;
+
+/** And after the mains go, which happens once. */
+export const POWER_CALM = 46;
+
+/** How many of the hired men come out of the tunnel with the player. */
+export const MINT_MATES = 3;

@@ -60,7 +60,16 @@ export type ArmPose = "swing" | "hold" | "punch";
 
 /** The sorts of people the city draws. */
 export type FigureStyle =
-  "plain" | "posh" | "bum" | "night" | "gang" | "cop" | "player" | "convict";
+  | "plain"
+  | "posh"
+  | "bum"
+  | "night"
+  | "gang"
+  | "cop"
+  | "player"
+  | "convict"
+  | "robber"
+  | "hooded";
 
 /** How many poses of the arm swing are kept. */
 export const SWING_FRAMES = 6;
@@ -729,6 +738,13 @@ function extras(ctx: CanvasRenderingContext2D, look: FigureLook): void {
       band.rect(at, -3.6, 1, 7.2);
       ctx.fill(band);
     }
+  } else if (look.style === "robber") {
+    // The zip: one black line down the front of the overall, from the collar
+    // to the waist. It is the only mark on an otherwise plain red suit.
+    ctx.fillStyle = "#1c1917";
+    const zip = new Path2D();
+    zip.rect(-0.4, -0.55, 4, 1.1);
+    ctx.fill(zip);
   } else if (look.style === "gang" || look.style === "player") {
     // An open jacket over the shirt: two panels with a gap down the middle.
     ctx.globalAlpha = 0.3;
@@ -790,6 +806,10 @@ function extras(ctx: CanvasRenderingContext2D, look: FigureLook): void {
  * just on the picture, ears at the sides.
  */
 function paintHead(ctx: CanvasRenderingContext2D, look: FigureLook): void {
+  if (look.style === "robber") {
+    // The hood first of all: everything else is drawn inside it.
+    hood(ctx);
+  }
   // The ears first, so the head covers where they meet it.
   ctx.fillStyle = look.skin;
   ctx.strokeStyle = INK;
@@ -834,6 +854,9 @@ function paintHead(ctx: CanvasRenderingContext2D, look: FigureLook): void {
     ctx.stroke();
     ctx.strokeStyle = INK;
     ctx.lineWidth = PEN;
+  } else if (look.style === "hooded") {
+    // Nothing. The wool is the hair, and it is drawn with the face.
+    ctx.lineWidth = PEN;
   } else {
     // The hair over the back two thirds, with a fringe that dips at the middle.
     const hair = new Path2D();
@@ -854,6 +877,14 @@ function paintHead(ctx: CanvasRenderingContext2D, look: FigureLook): void {
 
 /** Brows, eyes, nose and mouth on the front wedge of the head. */
 function face(ctx: CanvasRenderingContext2D, look: FigureLook): void {
+  if (look.style === "robber") {
+    mask(ctx);
+    return;
+  }
+  if (look.style === "hooded") {
+    balaclava(ctx);
+    return;
+  }
   if (look.style === "night") {
     // Sunglasses after dark, which is the point of them: one dark bar across
     // where the eyes would be, and at this size that is the whole face.
@@ -926,6 +957,110 @@ function face(ctx: CanvasRenderingContext2D, look: FigureLook): void {
     ctx.quadraticCurveTo(4.4, 0, 4.1, 0.7);
     ctx.stroke();
   }
+}
+
+/**
+ * The mask of the printing works: the face from the photograph.
+ *
+ * @param ctx - where to paint
+ * @remarks
+ * Over the whole front of the head rather than across the eyes, because from
+ * above a domino mask is a line and this has to read as a face that is not a
+ * face. Four marks make it: the cream shell, the two arched brows, the black
+ * eyes and the moustache that curls up at both ends. The little beard under
+ * the lip is the fifth, and at this size it is the one that stops the face
+ * from reading as a snowman.
+ */
+function mask(ctx: CanvasRenderingContext2D): void {
+  const front = new Path2D();
+  front.ellipse(1.1, 0, 3.8, 3.9, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#ecdcc0";
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.8;
+  ctx.fill(front);
+  ctx.stroke(front);
+  ctx.strokeStyle = "#1c1917";
+  for (const side of [-1, 1]) {
+    // The brow: a thin arch over the eye, which is what gives this face its
+    // permanent surprise.
+    ctx.lineWidth = 0.36;
+    ctx.beginPath();
+    ctx.moveTo(1.5, side * 2.7);
+    ctx.quadraticCurveTo(2.9, side * 3.1, 3.5, side * 1.9);
+    ctx.stroke();
+    const eye = new Path2D();
+    eye.ellipse(2.7, side * 1.5, 0.7, 0.58, side * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = "#1c1917";
+    ctx.fill(eye);
+  }
+  // The moustache: one stroke across the lip with both ends turned up.
+  ctx.strokeStyle = "#1c1917";
+  ctx.lineWidth = 0.42;
+  ctx.beginPath();
+  ctx.moveTo(2.9, -2.2);
+  ctx.quadraticCurveTo(4.4, -1.1, 3.9, 0);
+  ctx.quadraticCurveTo(4.4, 1.1, 2.9, 2.2);
+  ctx.stroke();
+  // And the tuft under it.
+  const chin = new Path2D();
+  chin.ellipse(4.2, 0, 0.55, 0.85, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#1c1917";
+  ctx.fill(chin);
+}
+
+/**
+ * The black balaclava of a bank job.
+ *
+ * @param ctx - where to paint
+ * @remarks
+ * The other end of the trade from the Dali mask: that one is meant to be seen
+ * and remembered, this one is meant to leave nothing to remember. Black wool
+ * over the whole head and one slit with two eyes in it - at this size the slit
+ * is the only mark, so it is the only thing drawn.
+ */
+function balaclava(ctx: CanvasRenderingContext2D): void {
+  const wool = new Path2D();
+  wool.ellipse(0.4, 0, 4.5, 4.2, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#18181b";
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.8;
+  ctx.fill(wool);
+  ctx.stroke(wool);
+  // The slit, with the eyes in it.
+  const slit = new Path2D();
+  slit.roundRect(2.1, -2.4, 1.9, 4.8, 0.9);
+  ctx.fillStyle = "#e7c9a9";
+  ctx.fill(slit);
+  for (const side of [-1, 1]) {
+    const eye = new Path2D();
+    eye.ellipse(3.05, side * 1.25, 0.5, 0.45, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#1c1917";
+    ctx.fill(eye);
+  }
+}
+
+/**
+ * The hood of the red overall, pushed back off the face.
+ *
+ * @param ctx - where to paint
+ * @remarks
+ * Drawn before the head, so the head sits in it. It is the half of the costume
+ * one sees from directly above - from up there a man in a jumpsuit is a red
+ * blob, and what says which red blob is the ring of cloth round his neck.
+ */
+function hood(ctx: CanvasRenderingContext2D): void {
+  const cloth = new Path2D();
+  cloth.ellipse(-1.4, 0, 5.1, 5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#dc2626";
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.8;
+  ctx.fill(cloth);
+  ctx.stroke(cloth);
+  // The fold where it is pushed back, a shade darker than the rest.
+  ctx.fillStyle = "#b91c1c";
+  const fold = new Path2D();
+  fold.ellipse(-3.4, 0, 2.2, 4.2, 0, 0, Math.PI * 2);
+  ctx.fill(fold);
 }
 
 /** The cap or hat the style wears, over the hair. */

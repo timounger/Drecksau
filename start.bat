@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title BonPrinter Website Dev Server
+title Spielesammlung Dev Server
 
 REM === Node.js zur PATH hinzufuegen, falls noetig ===
 where node >nul 2>&1
@@ -13,7 +13,7 @@ cd /d "%~dp0website"
 
 echo.
 echo ============================================
-echo   BonPrinter Website - Dev Server Launcher
+echo   Spielesammlung - Dev Server Launcher
 echo ============================================
 echo.
 
@@ -51,7 +51,7 @@ if not exist "node_modules" (
 
 REM === Dev-Server in neuem Fenster starten ===
 echo Starte Dev-Server in neuem Fenster ...
-start "BonPrinter Dev Server" cmd /k "npm run dev"
+start "Spielesammlung Dev Server" cmd /k "npm run dev"
 
 REM === Warten, bis Server bereit ist ===
 echo Warte 6 Sekunden auf Server-Start ...

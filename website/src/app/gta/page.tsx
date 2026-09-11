@@ -10,7 +10,7 @@ import { GtaScreen } from "@/games/gta/components/gta-game";
 export const metadata: Metadata = {
   title: "GTA",
   description:
-    "Top-Down-Stadtspiel: fahren, liefern und der Polizei entkommen.",
+    "Top-Down-Stadtspiel: fahren, liefern, ueberfallen und der Polizei entkommen.",
 };
 
 /**

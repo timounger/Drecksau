@@ -4,6 +4,11 @@ Los Santos von oben. Du läufst durch die Stadt, nimmst dir ein Auto, fährst
 Aufträge - und je schneller du unterwegs bist, desto mehr interessiert sich die
 Polizei für dich. Wer alle vier Viertel übernommen hat, dem gehört die Stadt.
 
+Dazwischen liegt der Rest der Stadt: ein Waffenladen, die eine Bank, die eine
+Notendruckerei, in die man nur mit einer angeheuerten Crew hineinkommt, und das
+Gefängnis für den Fall, dass es schiefgeht - aus dem man auch wieder ausbrechen
+kann.
+
 ## Spielen
 
 - Gegen die Stadt: `/gta`
@@ -11,7 +16,7 @@ Polizei für dich. Wer alle vier Viertel übernommen hat, dem gehört die Stadt.
   Bremse und Lenkung
 - **Maus**: zu Fuß der Blick - **Klick** schießt dorthin
 - **E** oder **Enter**: ein- und aussteigen
-- **Shift** halten oder der Knopf **Turbo (Cheat)**: zu Fuß zehnfach, im Auto
+- **Shift** halten: rennen. Mit dem **Cheat-Modus** zu Fuß zehnfach, im Auto
   dreifach
 
 ## Was von GTA San Andreas übrig bleibt
@@ -172,6 +177,318 @@ Code und beschreibt das ganze Spielzeug:
   Drei Ladungen darunter sind 450 - also genau das Werkzeug, mit dem man zu Fuß
   einen Panzer auseinandernimmt, und kein zweites, das alles andere auch schon
   könnte.
+
+## Zwei Theken, ein Fenster
+
+Waffenladen und Bank sind derselbe Mechanismus, und zwar bewusst: `counterAt()`
+fragt einmal, ob der Spieler **zu Fuß** und näher als `COUNTER_RANGE` an einer
+Tür einer der beiden Sorten steht, und `<Counter>` zeigt, was es dort gibt. Was
+man in dieser Stadt im Stehen tun kann, ist eine kurze Liste und gehört an eine
+Stelle.
+
+Gedrückt wird im HTML, entschieden wird im Motor. Der Knopf setzt ein
+`Order`-Objekt in einen Ref, das nächste Bild hängt es als `Input.order` an, und
+`serveCounter()` prüft alles noch einmal nach: Geld da, Waffe im Gürtel, Tür
+noch in Reichweite. Die Anzeige bietet nur an, was geht - die Prüfung im Motor
+fängt den Fall ab, dass jemand zwischen Drücken und Bedienen aus der Tür läuft.
+Ein Kauf, den nur der Knopf kennt, wäre ein Kauf, den der Online-Zustand nicht
+kennt.
+
+**Munition kostet ein Viertel.** Eine Waffe zu kaufen ist eine Anschaffung, sie
+zu füllen eine Nebensache - `refillPrice()` ist diese Regel als eine Zeile, und
+es gibt sie nur für das, was schon im Gürtel liegt.
+
+## Der Überfall sind drei Uhren
+
+`runHeist()` ist die ganze Bank. Drei Uhren laufen gleichzeitig, und aus ihnen
+besteht die Entscheidung:
+
+- **Das Geld** kommt als Rate, nicht als Betrag. Die Kassen sind schnell und
+  klein (`TILL_RATE`, `TILL_TOTAL`), der Tresor braucht erst `VAULT_WORK`
+  Sekunden zum Aufkriegen und schüttet danach das Mehrfache aus. Deshalb ist er
+  eine Entscheidung und keine Gewohnheit: Wer ihn mitnimmt, steht eine halbe
+  Minute länger in einem Raum, in dem die Uhr gegen ihn läuft.
+- **Der Alarm** geht nach `ALARM_DELAY` Sekunden raus und setzt die Fahndung auf
+  `HEIST_STARS`. Danach kommt alle `HEIST_STAR_EVERY` Sekunden ein Stern dazu.
+  Die Sterne werden nur nach oben genommen (`Math.max`), damit ein Überfall
+  keine laufende Verfolgung zurücksetzt.
+- **Die Tür.** Weggehen beendet den Überfall genau so wie der Knopf; beides
+  landet in `away()`. Ein Raubzug, den man nur über ein HTML-Element verlassen
+  kann, wäre im Vollbild ein Raubzug ohne Ausgang - deshalb zeichnet der
+  Renderer Beutel und Alarm zusätzlich ins Bild.
+
+**Die Beute ist kein Geld.** Sie liegt in `Player.loot` und wird erst beim
+letzten Stern in `coolDown()` aufs Konto gebucht. Das ist der ganze Sinn der
+Sache: Der Überfall ist nicht die Tat, sondern die Flucht danach. `busted()`
+zieht deshalb `loot` **und** den laufenden Griff in den Tresor ein und sagt es
+im Protokoll, `onStreet()` nimmt der Krankenhausrechnung dasselbe - Geld, das
+ohne ein Wort verschwindet, liest sich wie ein Fehler.
+
+## Abschleppen ist eine Zahl auf dem Zugfahrzeug
+
+`Car.hitched` steht auf dem **Traktor**, nicht auf dem Anhang: der Traktor
+entscheidet, der Traktor zieht, der Traktor lässt los. `towAlong` setzt den
+Anhang jeden Schritt auf einen festen Punkt hinter dem Zugfahrzeug und gibt ihm
+dessen Winkel und Tempo - eine starre Deichsel statt eines Gelenks. Reißt der
+Abstand (Explosion, jemand anders steigt ein), löst sich die Kupplung von
+selbst.
+
+Der Berg ist genauso wenig Geometrie: `MOUNTAIN` ist Mittelpunkt und Radius,
+die Felder sind Rechtecke, und beides wird gezeichnet statt modelliert. Der
+erste Versuch malte den Fels Feld für Feld heller zur Mitte hin - das Ergebnis
+war ein Schachbrett. Jetzt ist es **eine** Fläche mit Verlauf und Höhenlinien.
+
+## Die Uhr ist eine Zahl, das Licht eine Tabelle - und beides ist abschaltbar
+
+`clockAt(time)` rechnet die Sekunden des Spiels in Minuten des Tages um - eine
+Sekunde je Minute, ein Tag in 24 Minuten. Darüber liegt `SKY`: zehn Stützstellen
+mit Farbe und Stärke, zwischen denen linear gemischt wird. Gezeichnet wird das
+als **ein** Rechteck über die ganze Leinwand, nachdem die Stadt fertig ist und
+bevor Minikarte, Anzeige und Knöpfe drankommen - was man lesen muss, wird nicht
+dunkel.
+
+Kein Licht pro Objekt, keine Schattenwürfe, keine zweite Palette: eine
+Tabelle, eine Füllung, und die Nacht ist da.
+
+**Aus ist der Auslieferungszustand.** Ein Schalter, mehr nicht - er kommt wie
+der Zoom aus den Einstellungen und wird als Ref in den Loop gereicht, damit ein
+Umschalten im nächsten Bild wirkt. Ist es aus, kehrt `drawLight` sofort zurück
+und die Anzeige rückt um die Höhe des Uhrkastens nach oben - ein erster Besuch
+landet nicht um halb zwölf nachts in einer Stadt, die er für kaputt hält.
+
+## Zwei Hubschrauber, ein Bild
+
+`paintHeli` zeichnet die Maschine - Kabine, Stummelflügel, Heckausleger,
+Heckrotor, vier Blätter -, und beide Hubschrauber im Spiel sind sie: die
+Polizei in Blau, das Militär in Oliv. Ein zweites Bild hätte bedeutet, jede
+Änderung zweimal zu machen und beim zweiten Mal daneben.
+
+Der fliegbare ist **kein Fahrzeug**. Er hat weder Blech noch Tank noch einen
+Platz in der Verkehrssimulation, sondern ist ein eigener kleiner Zustand:
+`chopper = { x, y, angle, height, speed, spin }`. Der Trick, der alles andere
+geschenkt bekommt: solange man drin sitzt, wird `player.height` auf die Höhe
+der Maschine gesetzt. Damit hebt die Kamera von selbst mit (dieselbe Zeile wie
+beim Jetpack), die Flak trifft den Spieler statt ein Fahrzeug, und
+`player.x/y` bleibt die Position, an der alles andere im Spiel nachschaut.
+
+## Wachen gehören zu einem Ort, Streifen zu einem Auto
+
+Die zehn Mann auf dem Militärgelände sind dieselbe `Cop`-Struktur wie eine
+Streifenbesatzung, mit einem Feld mehr: `guards` - der Fleck, zu dem sie
+zurückgehen. Daran hängen drei Dinge, und alle drei mussten sein:
+
+1. **Sie steigen in kein Auto.** `carId` ist -1; ohne die Ausnahme in `walkCop`
+   liefe der Zähler `boardAt` los, `boardCars` steckte sie in ein Auto, das es
+   nicht gibt, und das Gelände wäre nach anderthalb Minuten leer.
+2. **Sie zählen nicht als Polizei im Einsatz.** Sonst hätten zehn Mann in der
+   Wüste bedeutet, dass nirgendwo in San Andreas je wieder eine Streife
+   geschickt wird.
+3. **Sie rennen nicht quer über die Karte.** Nur wenn der Spieler näher als
+   `GUARD_REACH` an ihrem Posten ist, verlassen sie ihn.
+
+## Der Jetpack ist eine Zahl
+
+`player.height`. Sie tut zwei Dinge: sie hebt die Figur auf dem Schirm (eine
+Stufe nach oben ist in dieser Projektion eine Stufe nach hinten, also wird sie
+schlicht von `y` abgezogen), und oberhalb von `ROOF_HEIGHT` überspringt `walk`
+die Kollision mit dem Boden ganz - dann gilt nur noch der Kartenrand. Es gibt
+kein Flugmodell, keinen Treibstoff und keinen Sturzschaden: Das ist ein Weg über
+den Block, kein Flugzeug.
+
+## Die Karte ist eine Formel, kein Bild
+
+San Andreas ist ein Land aus drei Städten, Wald, Wüste, Bucht, Hafen und
+Flughafen - und nichts davon liegt als Datei irgendwo. `cellAt(col, row)`
+beantwortet für jedes Feld in dieser Reihenfolge:
+
+1. Liegt hier die **Bahn**? Ihre vier Linien fallen auf Straßenlinien, damit der
+   Zug durch Straßen fährt statt durch Wohnzimmer.
+2. Liegt hier eine **Landstraße**? Die sind Polygonzüge, keine Rasterlinien -
+   und wo eine über Wasser läuft, **ist** sie die Brücke. Ein zweites System für
+   Brücken gibt es nicht mehr.
+3. **Flughafen**, dann **Stege**, dann **Kaimauer**: Beton schlägt Strand, sonst
+   wäre der ganze Hafen Sand - er hat auf drei Seiten Wasser.
+4. **Strand**, wo das Meer zwei Felder weit ist.
+5. In der Stadt das gewohnte Raster aus Straßen, Gehwegen, Parks und Blöcken.
+6. Und sonst: Meer, Wüste, Wald oder Wiese.
+
+**Wo Land ist, steht in `types.ts`** (`LAND`), und die Städte stehen daneben in
+`ISLANDS`. Zwei Module müssen sich darüber einig sein: der Boden legt Meer, wo
+kein Land ist, und die Blocktabelle weigert sich, ein Krankenhaus auf Wasser zu
+stellen - sonst stehen Clubs im Meer und ihre Warteschlange gleich mit. Genau
+das war der erste Fehler beim Umbau.
+
+**Die Küste franst.** Jede Kante jedes wilden Rechtecks wird um bis zu drei
+Felder verschoben, und zwar nach einem Hash der Koordinate: unregelmäßig, aber
+jedes Mal gleich unregelmäßig. Die Stadtrechtecke wandern **nicht** - eine Stadt
+mit angeknabbertem Rand hätte Wohnzimmer im Meer.
+
+**Die Antwort wird gemerkt.** Der Strand fragt für jedes Feld 25 Nachbarn nach
+Wasser ab; ohne `LAND_MEMO` würde die teuerste Frage der Karte
+fünfundzwanzigmal je Feld gestellt. Mit ihr dauert `createCity` 0,25 statt 1,7
+Sekunden.
+
+**Landstraßen sind gebogen.** `ROUTES` sind eine Handvoll Eckpunkte, `bend`
+zieht mit Catmull-Rom eine weiche Linie hindurch, und `onRoute` fragt nur noch
+den Abstand zur nächsten Teilstrecke. Darum ist draußen nichts gerade und in der
+Stadt alles.
+
+**Autobahnen sind keine neue Sorte Straße**, sondern jede vierte Rasterlinie mit
+einer Spur links und rechts. Eine Zeile in `isRoad`, kein zweites Wegesystem.
+
+**Der Zug ist eine Zahl.** `train.along` - wie weit er auf der Runde ist. Wo die
+Lok steht, wo der vierte Wagen steht und wohin sie zeigen, rechnet `trainAt`
+daraus aus. Dazu kommt `waitUntil`: Würde ein Schritt an einem Bahnsteig
+vorbeiführen, wird der Zug stattdessen **auf** den Bahnsteig gesetzt und bleibt
+dort stehen. Weil er dabei genau auf dem Halt landet, beginnt der nächste
+Schritt hinter ihm - derselbe Bahnsteig kann ihn nicht zweimal fangen. Ein
+Mitfahrer ist ebenfalls keine eigene Mechanik: `player.aboard`, und die Position
+des zweiten Wagens wird ihm jeden Schritt zugewiesen.
+
+## Spielstände ohne den Boden
+
+`storage/saves.ts` schreibt alles außer `GameState.cells`. Der Boden sind
+28.000 Felder, die sich aus dem Plan jedes Mal identisch ergeben - beim Laden
+werden nur die drei Garagen wieder hineingeschnitten und die Tür geöffnet, die
+offen war. Das ist der Unterschied zwischen 220 Kilobyte und einem Megabyte pro
+Stand.
+
+Gespeichert wird im Spiel-Loop, nicht im Effekt: React darf während eines
+Effekts keinen State setzen, und der Loop ist ohnehin die Stelle, an der jede
+andere Aktualisierung passiert.
+
+## Die dritte kleine Welt
+
+Die Casa de Papel - die Banknotendruckerei - ist nach demselben Muster gebaut wie der Knast und aus
+demselben Grund: ein fester Plan aus Feldern, eigene Figuren darauf, und genau
+**eine** Naht zur Stadt. `advanceMint()` bekommt den Zustand und die Tasten und
+gibt drei Antworten zurück - weiter, raus, oder sie sind drin. Die Stadt steht
+so lange still.
+
+Der Unterschied zum Knast ist, dass hier **drei Uhren gleichzeitig** laufen und
+**jede jemand anderem gehört**:
+
+- **Die Geiseln drucken.** Nur besetzte Pressen zählen (`manned()`), und besetzt
+  heißt: jemand steht wirklich daran, nicht bloß, dass er hingeschickt wurde.
+- **Die Crew gräbt.** `digCrew()` ist das ganze Argument für das Anheuern
+  draußen: der Tunnel ist die einzige Uhr, über der niemand stehen muss, und wie
+  schnell sie läuft, hat der Spieler auf der Straße entschieden.
+- **Die Polizei drückt.** `siege()` schickt alle `WAVE_EVERY` Sekunden einen
+  Trupp an den schwächsten der drei Eingänge, und von da an ist es Arithmetik.
+
+Dass der Spieler **nur eine** dieser drei Uhren selbst bedienen kann, ist das
+Spiel. Das Gebäude ist absichtlich so groß, dass der Weg vom Fenster zum
+Ladetor fünfzehn Sekunden dauert.
+
+**Eine Maus, drei Arbeiten.** `doWork()` entscheidet nicht über ein Menü,
+sondern über den Ort: an einer Tür stapelt die gehaltene Maus, an einem
+Angestellten nimmt sie eine Geisel, am Schacht gräbt sie. Ein Knopf pro Tätigkeit
+wäre eine Leiste, die man liest, statt eines Gebäudes, durch das man rennt.
+
+**Barrikade und Druck sind zwei Zahlen, keine.** Was vor der Tür liegt,
+verlangsamt, was durch sie kommt (`SHIELD`), und was durch sie kommt, frisst
+langsam, was davor liegt (`WEAR`). Stapeln **drängt zusätzlich zurück**
+(`RETAKE`) - ohne das bliebe eine Tür, die zu drei Vierteln offen war, für den
+Rest des Bruchs zu drei Vierteln offen, und die letzten Minuten wären an einer
+Tür verloren, die man nie wieder zubekommt.
+
+**Jede Art, Zeit zu kaufen, kostet Geld.** Eine Geisel rauslassen kostet eine
+Presse für immer; den Strom kappen kostet alle Pressen, solange es dunkel ist,
+und geht nur einmal. Ein drittes Mittel, das nichts kostet, würde die beiden
+anderen überflüssig machen.
+
+**Der Tunnel ist die Belohnung, nicht nur der Ausgang.** Wer durch die Vordertür
+geht, hat eine Verfolgungsjagd; wer durch den Boden geht, hat keine. Deshalb
+setzt `upTheTunnel` **keine** Sterne - es gibt nichts zu verfolgen, weil niemand
+weiß, wo das Loch endet. Weil damit aber auch kein Stern mehr abgebaut wird,
+nimmt `cashIn` dem Spieler beim Auszahlen die Maske ab: Sonst liefe er für den
+Rest des Spiels im Overall herum.
+
+**Der Tunnel kommt auf einer Straße hoch**, nicht einfach zweihundertsechzig
+Pixel südlich der Tür: `tunnelMouth()` sucht ringweise die nächste Kreuzung, die
+wirklich Asphalt ist. Die schlichte Variante setzte eine der beiden Druckereien
+unter einen Wohnblock - und in einer Wand hochzukommen wäre ein schlimmeres Ende
+als geschnappt zu werden.
+
+## Eine Crew ist vier Leute, die man nicht verlieren darf
+
+Drei Kleinigkeiten machen aus "vier Mann laufen ungefähr hinter dir her" etwas,
+mit dem man arbeiten kann - und alle drei sind dieselbe Erkenntnis: Was man nur
+mühsam beisammenhält, nimmt man nicht mit.
+
+- **Sie schauen, wo sie hinlaufen.** `walkPerson` legt jetzt denselben Blick
+  nach vorn ein, den die Polizisten zu Fuß haben (`steerRound`): Die gewünschte
+  Richtung wird probiert, dann dieselbe ein Stück zur Seite gedreht, bis eine
+  frei ist. Das ist keine Route, sondern ein Blick - in einem Raster reicht das,
+  weil das, was im Weg steht, ein Block ist. Vorher lief eine Crew jedes Mal in
+  die Hauswand, wenn ihr Anführer um die Ecke bog.
+- **Sie sind schneller als du.** Ein Bandenmitglied schlendert mit 48 Pixeln je
+  Sekunde, der Spieler geht 130. Wer folgt, läuft deshalb mit dem Faktor
+  `CREW_HURRY`, und wer weiter als `CREW_LOST` zurückliegt, rennt.
+- **Sie fahren mit.** `getIn` nimmt beim Einsteigen jeden aus
+  `GameState.people` heraus, der nah genug steht, und legt ihn nach
+  `GameState.riders`; `putDown` stellt sie beim Aussteigen um den Wagen herum
+  wieder hin. Wer in einem Auto sitzt, ist **nicht** woanders auf der Straße -
+  die Alternative wären vier Gangmitglieder, die im Dauerlauf hinter einem
+  Wagen herhecheln, und das war der Grund, warum eine Crew wertlos wurde,
+  sobald man sich hinters Steuer setzte.
+
+## Das Garagentor ist eine Wand, kein Bild
+
+Drei Dinge mussten zusammenkommen, damit man in die eigene Garage fahren kann:
+
+- **Ein Loch im Haus.** `openBay` schneidet beim Spielstart genau ein Feld aus
+  dem Block heraus, in dem dein Haus steht; `setGarage` öffnet und schließt das
+  Feld darunter - das Torfeld - zusammen mit dem Tor. Kein Sonderfall in der
+  Kollision: Wer fragt, ob er da durchfahren darf, fragt den Boden, und der
+  antwortet dasselbe wie das Bild.
+- **Zwei Felder tief.** Eines reicht nicht. Wer in einer Wand steht, darf sich
+  **heraus**bewegen - diese Regel verhindert, dass jemand für immer in der
+  Kulisse klemmt -, also stünde ein Wagen im Torfeld selbst und würde beim
+  Schließen einfach hinausfahren. Der Wagen parkt deshalb im hinteren Feld, und
+  das Tor geht davor zu.
+- **Das Tor wird nach dem Haus gezeichnet.** Vorher lag es in derselben Lage wie
+  die Ringe auf der Straße, also **unter** der Hauswand - und weil das Haus
+  durchsichtig wird, sobald man dahintersteht, sah man die Fenster durch das
+  geschlossene Tor. Jetzt ist es ein eigener Eintrag in der Tiefensortierung,
+  eine Haaresbreite hinter der Hauswand. Und wenn der Spieler drinnen steht,
+  wird es danach noch einmal gezeichnet: Die Regel "der Spieler ist immer
+  sichtbar" würde sonst die eigene Motorhaube durch das zugesperrte Tor malen.
+
+## Vier kleine Welten, eine Naht
+
+Knast, Notendruckerei und Bank sind nach demselben Muster gebaut, und das ist
+kein Zufall, sondern die einzige Art, so etwas billig zu halten:
+
+- ein fester Plan aus Buchstaben (`PLAN`), eine `LEGEND`, ein `solid()`,
+- ein eigener Zustand im `GameState` (`prison`, `mint`, `bank`) und eine eigene
+  `Phase`,
+- eine Funktion `advanceX(state, input, dt)`, die drei Antworten kennt: weiter,
+  raus, vorbei,
+- ein eigener Renderer, der denselben Kippwinkel und dieselben Figuren benutzt
+  wie die Stadt und sonst nichts mit ihr teilt.
+
+Die Stadt steht still, solange eine davon läuft. Was zurückkommt, ist immer nur
+ein Ergebnis - wie viel Geld, und ob man gesehen wurde.
+
+**Die Bank ist die kleinste davon und die mit der klarsten Entscheidung.**
+Decken oder arbeiten: Wer an einer Kasse steht, steht nicht bei den Leuten, und
+wer nicht bei den Leuten steht, hat in fünf Sekunden einen auf dem Weg zum
+Knopf. Die Geiseln laufen deshalb **mit** - der Mann mit der Kombination muss
+an die Tresortür gebracht werden, und das geht nur, indem man ihn hintersich
+herlaufen lässt.
+
+## Die Knöpfe stehen im Bild, nicht auf der Seite
+
+`gta-actions.ts` ist beides: die Liste der Knöpfe und ihre Kästen. Der Renderer
+malt sie, der Hook fragt sie, was ein Klick getroffen hat. Ein Knopf ist nur
+dann ein Knopf, wenn gezeichnet und getroffen dieselbe Rechnung sind - zwei
+Listen, die auseinanderlaufen können, wären die erste Stelle, an der ein Kauf
+danebengeht.
+
+Sie liegen im Bild und nicht darunter, weil es im Vollbild kein Darunter gibt,
+auf dem Telefon keinen Platz dafür, und weil ein Laden, für den man von der
+Straße wegsehen muss, ein Laden ist, vor dem man erschossen wird.
 
 ## Drei Tabellen statt drei Sonderfällen
 
@@ -777,15 +1094,14 @@ wie eine Kehrtwende.
 
 ## Shift, und warum Bewegung in Häppchen läuft
 
-Shift ist ein Cheat: zehnfaches Tempo zu Fuß, dreifaches im Auto. Er kostet
-eine Zeile im Motor - und eine zweite, wichtigere, in der Kollision.
+Shift hat zwei Stufen, und welche gilt, entscheidet der Cheat-Modus: allein ist
+die Taste ein Lauf (dreifach zu Fuß, anderthalbfach im Auto), mit dem Cheat der
+alte Turbo (zehnfach und dreifach). Eine Funktion, `sprint`, beantwortet das für
+beide Aufrufstellen - der eigene Turbo-Knopf ist weg, weil eine gehaltene Taste
+kein Modus ist, den man anschaltet.
 
-Zwei Schalter führen auf dieselbe Fahne: die gehaltene Taste und ein Knopf im
-Kopf, der einrastet. Der Knopf ist nicht nur Bequemlichkeit - er ist sichtbar.
-Eine gehaltene Taste kann am Fenster vorbeigehen, vom System geschluckt werden
-oder beim Alt-Tab hängen bleiben, und dann steht man vor einem Cheat, der
-vielleicht kaputt ist und vielleicht nur nicht ankommt. Der Knopf leuchtet,
-wenn der Turbo läuft, und beantwortet die Frage.
+Das kostet eine Zeile im Motor - und eine zweite, wichtigere, in der
+Kollision.
 
 Geprüft wird immer nur das **Ende** eines Schritts gegen die Stadt. Bei
 Schrittweiten von zwanzig Pixeln geht das gut; mit dem Cheat sind es

@@ -7,12 +7,28 @@
  * jobs are drawn from the seed. That is the split the whole game rests on - a
  * city you can learn, and a day in it you cannot.
  */
-import { districtAt, districtCentre, doorsOf, isOpen, isRoadAt } from "./city";
-import { createCity } from "./city";
-import { createRandom, nextInt, nextRandom, type RandomState } from "./random";
 import {
+  cellUnder,
+  districtAt,
+  districtCentre,
+  doorsOf,
+  isOpen,
+  isRoadAt,
+} from "./city";
+import { createCity, myHouses, openBay } from "./city";
+import { createRandom, nextInt, nextRandom, type RandomState } from "./random";
+import { newTrain } from "./train";
+import {
+  ACK_HEALTH,
+  ACK_SITES,
+  BASE,
+  FARMS,
+  BASE_PAD,
   CAT_COUNT,
   CITY_SIZE,
+  COP_HEALTH,
+  GUARD_COUNT,
+  CITY_TILES,
   COPS_PER_CAR,
   DOG_LEASH,
   DOG_SHARE,
@@ -23,8 +39,11 @@ import {
   TILE,
   TRAFFIC_COUNT,
   type Animal,
+  type Cop,
   type Car,
+  type Ack,
   type Cell,
+  type Chopper,
   type District,
   type Districts,
   type GameState,
@@ -50,7 +69,14 @@ import {
   KINDS,
   type PersonKind,
 } from "./people";
-import { ON_THE_ROAD, TANKS, VEHICLES, type VehicleBody } from "./vehicles";
+import {
+  DELOREANS,
+  ON_THE_ROAD,
+  TANKS,
+  TRACTORS,
+  VEHICLES,
+  type VehicleBody,
+} from "./vehicles";
 
 /** How much money the player starts with. */
 const START_MONEY = 250;
@@ -62,7 +88,7 @@ const CAR_COLOURS = 8;
 const PERSON_LOOKS = 6;
 
 /** How many tries a spot is looked for before the search gives up. */
-const PLACE_TRIES = 200;
+const PLACE_TRIES = 400;
 
 /** How many ways a car can be parked: the four points of the compass. */
 const HEADINGS = 4;
@@ -73,14 +99,65 @@ const JOB_TRIES = 8;
 /** The distance the pay is counted in. */
 const PAY_STEP = 100;
 
+/**
+ * The four launchers round the base, all of them whole.
+ *
+ * @returns one per corner of the wire, in city pixels
+ */
+export function newAcks(): readonly Ack[] {
+  return ACK_SITES.map((site) => ({
+    x: site.x * TILE,
+    y: site.y * TILE,
+    health: ACK_HEALTH,
+    backAt: null,
+  }));
+}
+
+/**
+ * The helicopter, on its pad at the military base.
+ *
+ * @returns it, nose north and rotor still
+ */
+export function newChopper(): Chopper {
+  return {
+    x: BASE_PAD.x * TILE,
+    y: BASE_PAD.y * TILE,
+    angle: -Math.PI / 2,
+    height: 0,
+    speed: 0,
+    spin: 0,
+  };
+}
+
+/** How many guards stand in one row inside the wire. */
+const GUARD_ROW = 5;
+
+/** Where the tanks stand inside the base, in squares from its west fence. */
+const TANK_ACROSS = 4;
+
+/** And from its north fence. */
+const TANK_DOWN = 4;
+
+/** How far apart two of them are parked. */
+const TANK_APART = 3;
+
+/** Where the first guard stands, in squares from the west fence. */
+const GUARD_ACROSS = 3;
+
+/** And from the north fence. */
+const GUARD_DOWN = 8;
+
+/** How far apart two men in a row stand. */
+const GUARD_APART = 3;
+
+/** And how far apart the two rows are. */
+const GUARD_ROWS = 4;
+
+/** What they carry: the base is not patrolled with truncheons. */
+const GUARD_ARMS: readonly WeaponKind[] = ["mg", "pistol", "mg"];
+
 /** How far the car you start beside stands from you, in pixels. */
 const FIRST_CAR_AWAY = 30;
-
-/** How much of the city the player may start in, as a share of its width. */
-const START_SHARE = 0.25;
-
-/** How far from the middle of town the player starts, in pixels. */
-const START_RANGE = CITY_SIZE * START_SHARE;
 
 /** The four quarters, for the takeover board. */
 export const DISTRICTS: readonly District[] = [
@@ -106,12 +183,16 @@ const JOB_MIN_DISTANCE = 600;
  * @returns the city, filled and waiting
  */
 export function createGame(seed: number): GameState {
-  const cells = createCity();
+  const plan = createCity();
   let rng = createRandom(seed);
-  // Downtown rather than the edge of the map: a game that starts with the sea
-  // filling half the screen starts by looking broken.
-  const start = findSpot(cells, rng, "road", START_RANGE);
-  rng = start.rng;
+  // Which houses are yours decides where the garages are, and a garage is a
+  // hole in a house - so the floor everybody else is placed on already has it.
+  const homes = myHouses();
+  // On your own doorstep in Los Santos rather than in the middle of the map:
+  // the middle of San Andreas is open water with a mountain beside it, and a
+  // game that starts in a field starts by looking lost.
+  const start = { at: roadNear(plan, homes[homes.length - 1]), rng };
+  const cells = homes.reduce((floor, home) => openBay(floor, home), plan);
   const cars: Car[] = [];
   // A car of your own, right there. Every game of this sort starts by handing
   // you the keys to something, and hunting for the first car on foot is the
@@ -142,13 +223,68 @@ export function createGame(seed: number): GameState {
   }
   // A couple of tanks, standing about. Finding one should be an event, so they
   // are parked rather than driven and there are only ever a handful.
-  for (let at = 0; at < TANKS; at += 1) {
+  // Three silver wedges, parked where somebody left them.
+  for (let at = 0; at < DELOREANS; at += 1) {
     const spot = findSpot(cells, rng, "road");
     rng = spot.rng;
-    const made = makeCar(rng, cars.length, "parked", spot.at, "tank");
+    const made = makeCar(rng, cars.length, "parked", spot.at, "dmc");
     rng = made.rng;
     cars.push(made.car);
   }
+  // The tanks, and the only ones there are: behind the wire out in the desert,
+  // in a row on the concrete. Nothing else in San Andreas hands you one - the
+  // police bring theirs at six stars, and that one has to be taken off them.
+  for (let at = 0; at < TANKS; at += 1) {
+    const spot = {
+      x: (BASE.left + TANK_ACROSS + at * TANK_APART) * TILE,
+      y: (BASE.top + TANK_DOWN) * TILE,
+    };
+    const made = makeCar(rng, cars.length, "parked", spot, "tank");
+    rng = made.rng;
+    cars.push(made.car);
+  }
+  // And the men who guard them. They belong to the place rather than to a car:
+  // see walkCop in ./engine. Two rows across the yard, between the tanks and
+  // the gate, so that walking in is walking into all of them.
+  // One tractor to a farm, parked beside the barn door.
+  for (let at = 0; at < TRACTORS; at += 1) {
+    const farm = FARMS[at % FARMS.length];
+    const spot = {
+      x: farm === undefined ? CITY_SIZE / 2 : (farm.left - 1) * TILE,
+      y: farm === undefined ? CITY_SIZE / 2 : (farm.bottom + 2) * TILE,
+    };
+    const made = makeCar(rng, cars.length, "parked", spot, "tractor");
+    rng = made.rng;
+    cars.push(made.car);
+  }
+
+  const guards: Cop[] = [];
+  for (let at = 0; at < GUARD_COUNT; at += 1) {
+    const across = at % GUARD_ROW;
+    const down = Math.floor(at / GUARD_ROW);
+    const spot = {
+      x: (BASE.left + GUARD_ACROSS + across * GUARD_APART) * TILE,
+      y: (BASE.top + GUARD_DOWN + down * GUARD_ROWS) * TILE,
+    };
+    guards.push({
+      id: at,
+      carId: -1,
+      x: spot.x,
+      y: spot.y,
+      angle: Math.PI / 2,
+      walked: 0,
+      health: COP_HEALTH,
+      holds: GUARD_ARMS[at % GUARD_ARMS.length] ?? "pistol",
+      reloadAt: 0,
+      readyAt: 0,
+      post: (at * Math.PI * 2) / GUARD_COUNT,
+      guards: spot,
+      burst: 0,
+      stillUntil: null,
+      boardAt: null,
+    });
+  }
+
   const people: Person[] = [];
   const animals: Animal[] = [];
   for (let at = 0; at < PEOPLE_COUNT; at += 1) {
@@ -165,9 +301,14 @@ export function createGame(seed: number): GameState {
     const draw = nextRandom(rng);
     rng = draw.state;
     if (KINDS[made.person.kind].walksDogs && draw.value < DOG_SHARE) {
+      // On the lead beside its owner - on the pavement side of him, if the
+      // other side happens to be the harbour.
+      const lead = isOpen(cells, person.x + DOG_LEASH, person.y)
+        ? DOG_LEASH
+        : -DOG_LEASH;
       animals.push({
         id: animals.length,
-        x: person.x + DOG_LEASH,
+        x: person.x + lead,
         y: person.y,
         heading: 0,
         turnAt: 0,
@@ -177,10 +318,10 @@ export function createGame(seed: number): GameState {
       });
     }
   }
-  const gangs = makeGangs(cells, rng, people.length);
+  const gangs = makeGangs(cells, rng, people.length, homes[0]);
   rng = gangs.rng;
   people.push(...gangs.people);
-  const outside = makeClubCrowd(rng, people.length);
+  const outside = makeClubCrowd(cells, rng, people.length);
   rng = outside.rng;
   people.push(...outside.people);
   const shoppers = makeMarketCrowd(cells, rng, people.length);
@@ -213,12 +354,12 @@ export function createGame(seed: number): GameState {
         x: spot.at.x,
         y: spot.at.y,
         holds: sort.holds,
+        worth: 0,
         backAt: null,
         again: sort.again,
       });
     }
   }
-  const home = myHouse(start.at);
   const job = pickJob(cells, rng);
   return {
     phase: "playing",
@@ -240,6 +381,13 @@ export function createGame(seed: number): GameState {
       floorUntil: 0,
       movedAt: 0,
       striped: false,
+      masked: false,
+      hooded: false,
+      jetpack: false,
+      aboard: false,
+      flying: false,
+      height: 0,
+      loot: 0,
       heat: 0,
       car: null,
       safeUntil: 0,
@@ -259,18 +407,28 @@ export function createGame(seed: number): GameState {
     cars,
     people,
     animals,
-    cops: [],
+    cops: guards,
     bullets: [],
     blasts: [],
     pickups,
     job: job.job,
     districts: emptyDistricts(),
-    garage: home,
+    garages: homes,
+    train: newTrain(),
+    chopper: newChopper(),
+    ackAt: 0,
+    acks: newAcks(),
     garageAt: null,
+    garageOpen: null,
     heli: null,
-    feud: { mine: false, rival: false },
+    feud: false,
     patrolAt: 0,
+    heliAt: 0,
+    bank: null,
     prison: null,
+    mint: null,
+    crew: [],
+    riders: [],
     charges: [],
     log: ["Los Santos. Klau dir was und fang an."],
   };
@@ -344,13 +502,77 @@ export function findSpot(
     const drawY = nextInt(drawX.state, span);
     state = drawY.state;
     const at = { x: from + drawX.value, y: from + drawY.value };
-    const road = isRoadAt(cells, at.x, at.y);
-    if (want === "road" ? road : isOpen(cells, at.x, at.y) && !road) {
+    const here = cellUnder(cells, at.x, at.y);
+    // A pavement, not merely somewhere one may stand: since the map became
+    // mostly countryside, "open and not a road" would scatter the whole of
+    // Los Santos over a desert.
+    if (want === "road" ? here === "road" : here === "walk") {
       return { at, rng: state };
     }
   }
-  return { at: { x: middle, y: middle }, rng: state };
+  return { at: dryLand(cells), rng: state };
 }
+
+/**
+ * The nearest piece of tarmac to a point.
+ *
+ * @param cells - the city floor
+ * @param at - where to start looking, or nothing at all
+ * @returns the middle of the first road square found on a spiral outwards
+ */
+function roadNear(cells: readonly Cell[], at: Vec | undefined): Vec {
+  const from = at ?? { x: CITY_SIZE / 2, y: CITY_SIZE / 2 };
+  let found = from;
+  let done = false;
+  for (let ring = 1; ring < CITY_TILES && !done; ring += 1) {
+    for (let step = 0; step < ring * WAYS_ROUND && !done; step += 1) {
+      const turn = (step / (ring * WAYS_ROUND)) * Math.PI * 2;
+      const spot = {
+        x: from.x + Math.cos(turn) * ring * TILE,
+        y: from.y + Math.sin(turn) * ring * TILE,
+      };
+      if (isRoadAt(cells, spot.x, spot.y)) {
+        found = spot;
+        done = true;
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Somewhere solid, for when the dice keep landing in the sea.
+ *
+ * @param cells - the city floor
+ * @returns the first open square found on a spiral out of the middle
+ * @remarks
+ * The middle of the map used to be the answer, and on a city that filled its
+ * square that was fine. Three islands in an ocean are a different map: the
+ * middle of it is open water, and everything that gave up on the dice - a
+ * hundred passers-by, a few cars - was put there to drown.
+ */
+function dryLand(cells: readonly Cell[]): Vec {
+  const middle = CITY_SIZE / 2;
+  let found = { x: middle, y: middle };
+  let done = false;
+  for (let ring = 1; ring < CITY_TILES && !done; ring += 1) {
+    for (let step = 0; step < ring * WAYS_ROUND && !done; step += 1) {
+      const turn = (step / (ring * WAYS_ROUND)) * Math.PI * 2;
+      const at = {
+        x: middle + Math.cos(turn) * ring * TILE,
+        y: middle + Math.sin(turn) * ring * TILE,
+      };
+      if (isOpen(cells, at.x, at.y)) {
+        found = at;
+        done = true;
+      }
+    }
+  }
+  return found;
+}
+
+/** How many directions the search out of the middle tries per ring. */
+const WAYS_ROUND = 8;
 
 /** One car, pointed along the street it stands on. */
 function makeCar(
@@ -379,35 +601,13 @@ function makeCar(
       health: VEHICLES[body].health,
       driven: false,
       turnAt: 0,
+      haltAt: null,
       fireAt: null,
+      shells: 0,
+      hitched: null,
     },
     rng: turn.state,
   };
-}
-
-/**
- * The door of the house that is the player's own.
- *
- * @param start - where the player begins
- * @returns the pavement outside its garage
- * @remarks
- * The nearest ordinary house to where the day starts, so that home is
- * somewhere one has walked past rather than a spot on the other side of town.
- * It is picked out of the same table the renderer paints the roofs from, so
- * the two can never disagree about which house it is.
- */
-function myHouse(start: Vec): Vec {
-  const doors = doorsOf("house");
-  let best = doors[0] ?? start;
-  let bestAway = Number.POSITIVE_INFINITY;
-  for (const door of doors) {
-    const away = far(door, start);
-    if (away < bestAway) {
-      best = door;
-      bestAway = away;
-    }
-  }
-  return best;
 }
 
 /** One body out of the mix that rolls in ordinary traffic. */
@@ -465,6 +665,7 @@ function makePerson(
  * @returns the women outside the clubs, and the generator afterwards
  */
 function makeClubCrowd(
+  cells: readonly Cell[],
   rng: RandomState,
   from: number,
 ): { people: Person[]; rng: RandomState } {
@@ -476,10 +677,12 @@ function makeClubCrowd(
       const turn = nextRandom(away.state);
       state = turn.state;
       const angle = turn.value * Math.PI * 2;
-      const at = {
+      const drift = {
         x: door.x + Math.cos(angle) * away.value * CLUB_ROAM,
         y: door.y + Math.sin(angle) * away.value * CLUB_ROAM,
       };
+      // A club on the shore would otherwise put half its queue in the sea.
+      const at = isOpen(cells, drift.x, drift.y) ? drift : door;
       const made = makePerson(state, from + people.length, at);
       state = made.rng;
       people.push({
@@ -525,12 +728,13 @@ function makeMarketCrowd(
       const angle = turn.value * Math.PI * 2;
       // Whoever is sitting down goes along the shop front; whoever is still on
       // his feet may be anywhere round the door.
-      const at = sits
+      const drift = sits
         ? { x: door.x + (turn.value - MIDDLE) * 2 * MARKET_ROAM, y: door.y }
         : {
             x: door.x + Math.cos(angle) * away.value * MARKET_ROAM,
             y: door.y + Math.sin(angle) * away.value * MARKET_ROAM,
           };
+      const at = isOpen(cells, drift.x, drift.y) ? drift : door;
       const made = makePerson(state, from + people.length, at);
       state = made.rng;
       // The draw for the kind is thrown away here - this crowd is all of one
@@ -554,29 +758,42 @@ function makeMarketCrowd(
  * @param cells - the city floor
  * @param rng - the generator
  * @param from - the id the first of them gets
+ * @param house - the player's own front door, which is one of your corners
  * @returns the members, and the generator afterwards
  */
 function makeGangs(
   cells: readonly Cell[],
   rng: RandomState,
   from: number,
+  house: Vec,
 ): { people: Person[]; rng: RandomState } {
   const people: Person[] = [];
   let state = rng;
   const sides: readonly PersonKind[] = ["mine", "rival"];
   for (const kind of sides) {
     for (let corner = 0; corner < GANG_CORNERS; corner += 1) {
-      const spot = findSpot(cells, state, "walk");
+      // Your own first corner is the pavement outside your own front door.
+      // It is where one comes back to between jobs, so it is where the men
+      // one might take along ought to be standing - and a crew of four that
+      // has to be collected from the far side of town is a crew nobody takes.
+      const atHome = kind === "mine" && corner === 0;
+      const spot = atHome
+        ? { at: house, rng: state }
+        : findSpot(cells, state, "walk");
       state = spot.rng;
       for (let man = 0; man < GANG_CREW; man += 1) {
         const away = nextRandom(state);
         const turn = nextRandom(away.state);
         state = turn.state;
         const angle = turn.value * Math.PI * 2;
-        const at = {
+        const drift = {
           x: spot.at.x + Math.cos(angle) * away.value * GANG_ROAM,
           y: spot.at.y + Math.sin(angle) * away.value * GANG_ROAM,
         };
+        // The corner is on the pavement, but a man scattered round it can land
+        // in the house behind - and a gang member who starts inside a wall is
+        // one nobody can ever collect.
+        const at = isOpen(cells, drift.x, drift.y) ? drift : spot.at;
         const made = makePerson(state, from + people.length, at);
         const arms = nextInt(made.rng, GANG_ARMS.length);
         state = arms.state;

@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title BonPrinter Website - Install Dependencies
+title Spielesammlung - Install Dependencies
 
 REM === Node.js zur PATH hinzufuegen, falls noetig ===
 where node >nul 2>&1
@@ -13,7 +13,7 @@ cd /d "%~dp0website"
 
 echo.
 echo ============================================
-echo   BonPrinter Website - npm install
+echo   Spielesammlung - npm install
 echo ============================================
 echo.
 

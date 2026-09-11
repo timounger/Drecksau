@@ -23,10 +23,13 @@ import { BLOCK_TILES, TILE } from "@/games/gta/engine/types";
  *
  * @returns the page element
  * @remarks
- * One setting, and the thing worth saying about it is what it costs: every step
- * closer is a step less of street you can see coming. So the page says, for
- * each step, how much city fits on the screen - in blocks, because that is the
- * unit this city is actually built in.
+ * The camera, and the clock. About the camera the thing worth saying is what it
+ * costs: every step closer is a step less of street you can see coming, so the
+ * page says for each step how much city fits on the screen - in blocks, because
+ * that is the unit this city is actually built in.
+ *
+ * The clock is off until somebody asks for it. A game that greets a first-time
+ * visitor with a dark street looks broken rather than nocturnal.
  */
 export function GtaSettingsView(): ReactElement {
   const settings = useSyncExternalStore(
@@ -86,6 +89,42 @@ export function GtaSettingsView(): ReactElement {
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+        <div>
+          <h2 className="text-sm font-semibold">{T.dayLabel}</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {T.dayHint}
+          </p>
+        </div>
+        <div
+          role="radiogroup"
+          aria-label={T.dayLabel}
+          className="flex flex-wrap gap-1.5"
+        >
+          {[false, true].map((on) => (
+            <button
+              key={on ? "on" : "off"}
+              type="button"
+              role="radio"
+              aria-checked={on === settings.dayNight}
+              data-testid={`gta-day-${on ? "on" : "off"}`}
+              onClick={() => {
+                updateSettings({ ...settings, dayNight: on });
+              }}
+              className={`h-11 w-24 cursor-pointer rounded-lg border text-sm font-semibold ${
+                on === settings.dayNight
+                  ? "border-indigo-500 bg-indigo-600 text-white"
+                  : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {on ? T.dayOn : T.dayOff}
+            </button>
+          ))}
+        </div>
+
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{T.dayHours}</p>
       </section>
     </div>
   );
