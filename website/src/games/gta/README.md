@@ -224,6 +224,138 @@ zieht deshalb `loot` **und** den laufenden Griff in den Tresor ein und sagt es
 im Protokoll, `onStreet()` nimmt der Krankenhausrechnung dasselbe - Geld, das
 ohne ein Wort verschwindet, liest sich wie ein Fehler.
 
+## Fahrzeuge sind Kisten, und Kisten haben Regeln
+
+Ein Fahrzeug wird nicht als Bild gezeichnet, sondern als **Quader**: unten der
+Kasten bis zur Gürtellinie, darauf die Kabine, obendrauf das Dach als
+Draufsicht-Sprite. Das ist dasselbe, was eine Engine mit einem Würfel und einer
+orthografischen Kamera täte - nur von Hand:
+
+1. **Eine einzige Silhouette.** `bodyOutline` liefert vier Ecken, und aus genau
+   denen wird beides gebaut: Die Draufsicht wird damit gefüllt, die Wände werden
+   daraus hochgezogen. Oberkante der Wand und Rand des Dachs darüber sind damit
+   per Konstruktion dieselbe Linie. Vorher standen die Wände auf einem _Rechteck_,
+   während sich das Dach zur Nase hin verjüngte - dazwischen klaffte ein Keil
+   Tageslicht, der beim Drehen von einer Seite auf die andere wanderte. Genau das
+   ist „die Autoteile sind nicht zusammen, da ist Luft dazwischen". Für die Kabine
+   macht `cabinOutline` dasselbe.
+2. **Alle Wände, von hinten nach vorn.** Rückseiten wegzuwerfen ist die
+   naheliegende Optimierung und hier die falsche: Das Dach eines Stockwerks ist
+   ein eigenes Bild auf eigener Höhe, also blieb dort, wo eine Rückwand
+   weggeworfen wurde, _nichts_ zwischen Dach und Blech - ein Schlitz quer durchs
+   Auto, immer auf der abgewandten Seite. Von hinten nach vorn gemalt liegen sie
+   einfach unter dem, was sie ohnehin verdeckt, und kosten einen Pinselstrich.
+3. **Jedes Teil auf seiner Höhe.** Das Draufsicht-Bild enthält mehr als das
+   Dach: Räder und Spiegel stehen über die Karosserie hinaus. In einem Rutsch
+   auf Gürtelhöhe gestempelt, schwebten die Räder der abgewandten Seite über
+   dem Dach - das war der Grund, warum die Fahrzeuge aus jedem schrägen Winkel
+   schief aussahen. Jetzt geht das Bild in zwei Durchgängen runter: der **Ring
+   mit den Rädern auf der Straße**, die **Karosserie oben auf den Wänden**.
+   Geschnitten wird mit derselben Silhouette (der Ring: Rand minus Silhouette
+   nach der Even-Odd-Regel), nicht mit Rechtecken - sonst bliebe die verjüngte
+   Nase der Motorhaube unten auf der Straße liegen.
+
+Eine Engine bekommt Punkt 3 geschenkt, weil ein Rad dort ein Ding auf einer
+Höhe ist und nicht ein paar Pixel in einem Bild. Der Rest ist in beiden Welten
+dieselbe Arbeit.
+
+Was sonst noch daran hängt:
+
+- **Reifen.** Ein Auto ist viereinhalb Meter lang und seine Reifen sind zwei
+  Drittel Meter hoch - bei diesem Maßstab gut sechs Pixel, nicht drei. Sie
+  waren drei, was als Möbelrolle durchging, solange sie auf Gürtelhöhe
+  mitschwammen; seit sie auf der Straße stehen, fällt es auf. Draufsicht und
+  Seitenansicht rechnen jetzt dieselbe Größe aus.
+- **Bündige Enden.** Die Draufsicht wölbte sich vorn und hinten anderthalb
+  Pixel über den Quader hinaus. Die Wände stehen aber genau an den Enden - was
+  das Dach darüber hinausträgt, hängt in der Luft und sah von vorn aus wie eine
+  durchhängende Motorhaube. Jetzt endet die Karosserie exakt an der Stoßstange.
+- **Weicher Schatten.** Er war eine Ellipse mit harter Kante und schnitt genau
+  durch die Räder, die darauf stehen - ein Reifen mit dunklem Band quer über
+  der Aufstandsfläche sieht platt aus. Jetzt läuft er nach außen aus (das gilt
+  für alle Schatten im Spiel, auch die der Figuren), und die Reifen bekommen
+  oben eine hellere Lauffläche, damit sie als runde Dinger lesen.
+- **Windschutzscheibe.** Ein Kasten hat eine senkrechte Scheibe, was seit
+  ungefähr 1935 kein Auto mehr hat. `VehicleTiers.rake` sagt, wie weit sie sich
+  zurücklegt - und **das Dach muss mit**: Es endet dort, wo die Scheibe endet,
+  nicht dort, wo die Kabine auf dem Blech steht. Sonst ragt es über das Glas
+  hinaus. Die Heckscheibe legt sich etwa halb so weit.
+
+## Figuren: die Bilder sind fest, die Bewegung nicht
+
+Körper, Kopf und Beine sind **gecachte Sprites**, ein Satz je Outfit, achtfach
+aufgelöst - ein Körperbild sind rund 100 Kilobyte. Ein zweiter Satz fürs Rennen
+würde den Speicher jeder Person in der Stadt verdoppeln. **Also kommt alles,
+was einen Gang vom anderen unterscheidet, aus der Zeichenphase**, nicht aus
+mehr Einzelbildern:
+
+- `pace` - wie schnell jemand geht, als Anteil eines Spaziergangs (0 / 1 / 3 /
+  10 bei Stehen, Gehen, Rennen, Cheat). Der Motor rechnet ihn dort aus, wo er
+  die Schrittweite ohnehin kennt; nur das Bild liest ihn.
+- Daraus skaliert die **Neigung nach vorn** - und _nur_ die. **Hüftschwung** und
+  **Wippen** (zwei Fußtritte je Schritt, deshalb doppelte Frequenz) sind bei
+  einem Gehtempo gedeckelt: Ein Körper, der umso höher federt, je schneller er
+  ist, hüpft, statt zu rennen. Die Neigung darf mitwachsen, weil sie ein
+  ruhiger Versatz ist und nicht schwingt.
+- **Der Schrittzyklus ist gedeckelt** (`CYCLE_CAP`, doppeltes Gehtempo). Er wird
+  von der zurückgelegten Strecke getrieben, liefe also beim Rennen dreifach und
+  im Cheat zehnfach so schnell - gemessen 38 Zyklen je Sekunde, was kein Laufen
+  mehr ist, sondern ein Flimmern. Jetzt sind es 3,8 beim Gehen und 7,6 bei allem
+  Schnelleren. Preis: Die Füße halten beim Sprint nicht mehr mit dem Boden mit -
+  ein Handel, den jedes Spiel macht, weil niemand auf die Füße einer Figur
+  schaut, die über den Schirm zieht.
+- Im Stand bleibt ein langsames **Atmen** übrig, damit eine stehende Figur kein
+  eingefrorenes Bild ist.
+- Die **Schultern** kommen nur zu 78 % zur Blickrichtung herum, den Rest macht
+  der Kopf.
+- Der **Kopf** wird schmaler gestempelt als die Schultern. Gleich breit war das,
+  was die Leute wie Spielzeug aussehen ließ.
+
+**Plastizität geht nur symmetrisch.** Die Sprites werden gedreht gestempelt -
+ein Glanzlicht auf einer Seite und Schatten auf der anderen würde mit der
+Figur mitschwenken und dreimal von vier Malen falsch stehen. Was bleibt, ist
+`rounded`: dunkler Rand innen an der Silhouette, heller Kern in der Mitte. Das
+ist von jeder Seite richtig, aus demselben Grund, aus dem ein Tonmodell unter
+jeder Lampe rund aussieht.
+
+## Fahren ist zwei Zahlen, nicht eine
+
+Ein Fahrzeug hatte früher `speed` - eine Zahl, die immer exakt entlang der Nase
+zeigte. Das war ein Kettenfahrzeugmodell: Lenken drehte die Bewegung sofort
+mit, also konnte nichts je rutschen, und alle Fahrzeuge fühlten sich im Kern
+gleich an.
+
+Jetzt kommt `slip` dazu - was der Wagen **quer** zu sich selbst tut. Der ganze
+Motor davon steht in `rollCar` und ist sechs Zeilen Arithmetik:
+
+1. Die Nase dreht sich um `swing`.
+2. Dieselbe Bewegung, im neuen Bezugssystem gelesen, hat einen Queranteil -
+   `forward` und `across` fallen aus einer Drehmatrix.
+3. Die Reifen ziehen den Queranteil gerade: `slip = across * exp(-bite * dt)`.
+
+Mehr ist es nicht. Ein Drift ist kein Sonderfall, sondern das, was man sieht,
+wenn Schritt 2 schneller einspeist, als Schritt 3 abbaut. Der Endwert ist
+ausrechenbar: **Tempo × Lenkrate ÷ Haftung**.
+
+**Die Handbremse ist ein Faktor auf dieselbe Zahl.** `HAND_GRIP` von 0,16 -
+mehr ist sie nicht. Dazu ein Bremsmoment, ein tieferer Lenk-Schwellwert
+(`HAND_LOCK`) und etwas mehr Lenkrate, damit sich der Wagen im Stand noch
+drehen kann. Nirgends steht „Donut": ein Donut ist, was passiert, wenn die
+Haftung fast weg ist und die Nase sich trotzdem dreht.
+
+**Bremsspuren sind Wetter, keine Geschichte.** `Mark` ist Punkt, Winkel, Zeit -
+kein Besitzer, kein Update, kein Speichern. Gelegt wird alle 30 Millisekunden
+von allem, was rutscht (auch von der Polizei), gezeichnet wird unter den Autos,
+und verblasst wird über die Uhr. Der Spielstand wirft sie weg.
+
+Zwei Fallstricke, beide erlebt:
+
+- **Haftung als feste Abzugsmenge** (`slip - bite*dt`) macht das Verhalten
+  binär: eine Stufe mehr Haftung und der Wagen rutscht _nie_, eine weniger und
+  er dreht sich weg. Die Exponentialform ist stufenlos abstimmbar.
+- **Wer `speed` setzt, muss `slip` mitsetzen.** Sonst schiebt ein stehendes
+  Auto weiter seitwärts vor sich hin.
+
 ## Abschleppen ist eine Zahl auf dem Zugfahrzeug
 
 `Car.hitched` steht auf dem **Traktor**, nicht auf dem Anhang: der Traktor
@@ -332,6 +464,25 @@ Sekunden.
 zieht mit Catmull-Rom eine weiche Linie hindurch, und `onRoute` fragt nur noch
 den Abstand zur nächsten Teilstrecke. Darum ist draußen nichts gerade und in der
 Stadt alles.
+
+**Gefahren wird auf Feldern, gezeichnet wird eine Linie.** Das ist die
+wichtigste Trennung im Renderer. Der Boden beantwortet in 48-Pixel-Feldern, _wo
+man fahren darf_ - und eine Kurve in Feldern dieser Größe ist eine Treppe.
+Also zeichnet `drawCountryRoads` nicht den Boden, sondern **dieselbe Kurve**,
+aus der die Felder entstanden sind: ein Pfad, runde Ecken, etwas breiter als
+das Feldband darunter. Die Stufen verschwinden unter der Linie, und an der
+Spiellogik ändert sich nichts.
+
+Das ist auch die Antwort auf „dann nimm doch eine Engine": Eine Engine würde an
+dieser Stelle genau dasselbe tun - Kollision grob, Darstellung glatt. Dafür
+braucht es sie nicht.
+
+**Wer die Straße verbreitert, verkleinert die Häuser.** Eine fünf Felder breite
+Autobahn frisst ein Feld der Parzelle nebenan. Darum fragt `builtPlot` in
+./city dieselben zwei Fragen wie der Boden - ist diese Linie Straße, ist sie
+Gehweg - und der Renderer baut auf das, was übrig bleibt, statt die alten
+festen „Felder zwei bis vier" anzunehmen. Sonst steht ein Haus auf der
+Außenspur.
 
 **Autobahnen sind keine neue Sorte Straße**, sondern jede vierte Rasterlinie mit
 einer Spur links und rechts. Eine Zeile in `isRoad`, kein zweites Wegesystem.
@@ -1010,8 +1161,17 @@ Türen auf weißem Blech und den Balken. Motorrad und Fahrrad sind zwei Räder,
 ein Rahmen, ein Lenker und ein Fahrer von oben; der Panzer ist Kette, Wanne,
 Turm und Rohr.
 
-Was **nicht** ins Bild gebacken wird, ist alles, was sich ändert: der Schatten,
-der grüne Rahmen um den Wagen, in dem man sitzt, und der Rauch eines Wracks.
+Was **nicht** ins Bild gebacken wird, ist alles, was sich ändert: der Schatten
+und der Rauch eines Wracks. Einen Rahmen um den Wagen, in dem man sitzt, gab es
+auch einmal - der ist weg: Die Kamera sitzt darauf, also war nie fraglich,
+welcher es ist, und ein gezeichnetes Kästchen war das einzige auf dem Schirm,
+das nicht Teil der Stadt sein konnte.
+
+**Zwei Farben sind vergeben.** Gelb gehört dem Taxi, Weiß dem DMC-12 - die
+beiden Fahrzeuge, die man quer über eine Kreuzung erkennen können muss. Wagen
+und Geländewagen bekommen deshalb die Palette **ohne** diese beiden Töne; das
+Taxi bekommt sein Gelb fest statt aus der Palette, wo es vorher auch blau
+herauskommen konnte.
 
 ### Zwei Kästen, nicht einer
 

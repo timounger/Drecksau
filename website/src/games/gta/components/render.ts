@@ -15,7 +15,9 @@
  */
 import {
   STATIONS,
+  builtPlot,
   cellUnder,
+  roadLines,
   doorsOf,
   garageBay,
   garageMouth,
@@ -23,7 +25,7 @@ import {
 } from "@/games/gta/engine/city";
 import { drawActions } from "@/games/gta/components/gta-actions";
 import { trainCars, trainDue } from "@/games/gta/engine/train";
-import { builtBlock } from "@/games/gta/engine/buildings";
+import { builtBlock, inCity } from "@/games/gta/engine/buildings";
 import { carOf } from "@/games/gta/engine/engine";
 import {
   BLAST_SECONDS,
@@ -52,7 +54,9 @@ import {
   JET_CEILING,
   PIERS,
   ROOF_HEIGHT,
+  SLIP_SMOKE,
   RUNWAY,
+  MARK_LIFE,
   MAX_STARS,
   STAR_FLASH,
   PLAYER_HEALTH,
@@ -107,6 +111,8 @@ import { VEHICLES } from "@/games/gta/engine/vehicles";
 import {
   STEEL,
   VEHICLE_MARGIN,
+  bodyOutline,
+  cabinOutline,
   tiersOf,
   turretSprite,
   TURRET_SIZE,
@@ -157,17 +163,36 @@ const GROUND: Readonly<Record<Cell, string>> = {
   field: "#9a7b3f",
 };
 
+/** The yellow of a taxi, and of nothing else on four wheels. */
+const TAXI_PAINT = "#facc15";
+
+/** The near-white that would otherwise be mistaken for bare steel. */
+const PALE_PAINT = "#e5e7eb";
+
 /** The paint jobs cars come in. */
 const CAR_PAINT: readonly string[] = [
   "#dc2626",
   "#2563eb",
-  "#facc15",
+  TAXI_PAINT,
   "#16a34a",
   "#f97316",
   "#a855f7",
-  "#e5e7eb",
+  PALE_PAINT,
   "#0f172a",
 ];
+
+/**
+ * What an ordinary car or off-roader may be painted.
+ *
+ * @remarks
+ * Everything except the two colours that mean something. A yellow saloon in
+ * the traffic is a taxi one runs after for nothing, and a white one is a
+ * DMC-12 one has already found - the two vehicles worth spotting from across
+ * a junction are exactly the two that must not have company.
+ */
+const PLAIN_PAINT: readonly string[] = CAR_PAINT.filter(
+  (paint) => paint !== TAXI_PAINT && paint !== PALE_PAINT,
+);
 
 /** The shirts people wear. */
 const SHIRTS: readonly string[] = [
@@ -473,7 +498,195 @@ function drawGround(
       ctx.fillRect(at.x, at.y, TILE + 1, deep);
     }
   }
+  drawCountryRoads(ctx, view, seen);
+  drawMarks(ctx, state, view, seen);
   drawScenery(ctx, state, view, fromCol, fromRow, toCol, toRow);
+}
+
+/**
+ * The black marks left by tyres that were dragged rather than rolled.
+ *
+ * @param ctx - what to paint on
+ * @param state - the city, for the marks and the clock
+ * @param view - where the camera is
+ * @param seen - the patch of city on screen
+ * @remarks
+ * Straight onto the road, under everything else: a skid mark is on the tarmac,
+ * not on the cars that drive over it afterwards. Each is a short dark capsule
+ * along the way the tyre was pointing, and successive ones overlap into a
+ * continuous line at any speed worth skidding at.
+ *
+ * They fade with age rather than vanishing, which is the whole reason the time
+ * is kept with them.
+ */
+function drawMarks(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  seen: Seen,
+): void {
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#1c1917";
+  ctx.lineWidth = MARK_WIDE;
+  for (const mark of state.marks) {
+    const near =
+      mark.x > seen.left - TILE &&
+      mark.x < seen.right + TILE &&
+      mark.y > seen.top - TILE &&
+      mark.y < seen.bottom + TILE;
+    if (near) {
+      const age = (state.time - mark.at) / MARK_LIFE;
+      ctx.globalAlpha = Math.max(0, MARK_DARK * (1 - age));
+      const from = project(
+        view,
+        mark.x - Math.cos(mark.angle) * MARK_LONG,
+        mark.y - Math.sin(mark.angle) * MARK_LONG,
+      );
+      const to = project(
+        view,
+        mark.x + Math.cos(mark.angle) * MARK_LONG,
+        mark.y + Math.sin(mark.angle) * MARK_LONG,
+      );
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/** How wide one mark is drawn, in pixels. */
+const MARK_WIDE = 5;
+
+/** And how far it reaches either side of where the tyre was. */
+const MARK_LONG = 14;
+
+/** How dark a fresh one is. */
+const MARK_DARK = 0.5;
+
+/**
+ * The roads between the cities, drawn as the curves they are.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param seen - the patch of city on screen, so a road off it costs nothing
+ * @remarks
+ * The floor knows a road as squares, because squares are what a car asks when
+ * it wants to know whether it is on tarmac. But a curve laid into squares of
+ * forty-eight pixels is a staircase, and a staircase is what a road is not.
+ *
+ * So this strokes the **same curve the squares were laid from** - one path,
+ * round joins, round caps - a shade wider than the squares underneath. The
+ * steps vanish under the line, the edges come out smooth, and nothing about
+ * where one may drive has changed: the squares still answer that, and they
+ * answer it for a road slightly narrower than the one on the screen, so the
+ * tarmac one can see is always tarmac one can use.
+ */
+function drawCountryRoads(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  seen: Seen,
+): void {
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  for (const road of roadLines()) {
+    const near = road.points.some(
+      (point) =>
+        point.x * TILE > seen.left - ROAD_MARGIN &&
+        point.x * TILE < seen.right + ROAD_MARGIN &&
+        point.y * TILE > seen.top - ROAD_MARGIN &&
+        point.y * TILE < seen.bottom + ROAD_MARGIN,
+    );
+    if (near) {
+      const wide = (road.wide + ROAD_COVER) * TILE;
+      // The verge first, a little wider: it hides the last of the steps and
+      // gives the road an edge to sit in rather than floating on the grass.
+      // Only out in the country - a road through a city has kerbs, and a strip
+      // of dust drawn across a junction is a strip of dust on a junction.
+      strokeVerge(ctx, view, road.points, wide + VERGE);
+      strokeRoad(
+        ctx,
+        view,
+        road.points,
+        wide,
+        road.dirt ? GROUND.dirt : GROUND.road,
+      );
+    }
+  }
+  ctx.restore();
+}
+
+/** How far off screen a road still counts as worth drawing, in pixels. */
+const ROAD_MARGIN = 400;
+
+/** How much wider than its squares a road is painted, in squares. */
+const ROAD_COVER = 1.1;
+
+/** How far the verge stands out past the tarmac, in pixels. */
+const VERGE = 14;
+
+/** What that verge is painted in: the dust a road throws onto its own edge. */
+const VERGE_PAINT = "#6b6357";
+
+/**
+ * The dusty edge of a road, drawn only where a road has one.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param points - the road, in squares
+ * @param wide - how wide to stroke it
+ * @remarks
+ * Segment by segment, because a country road that runs into a city stops
+ * having verges at the first kerb - and a brown stripe painted across a
+ * junction reads as somebody spilt something, not as a road.
+ */
+function strokeVerge(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  points: readonly Vec[],
+  wide: number,
+): void {
+  ctx.strokeStyle = VERGE_PAINT;
+  ctx.lineWidth = wide;
+  ctx.beginPath();
+  points.forEach((point, at) => {
+    const next = points[at + 1];
+    if (next !== undefined) {
+      const middle = { x: (point.x + next.x) / 2, y: (point.y + next.y) / 2 };
+      if (!inCity(Math.floor(middle.x), Math.floor(middle.y))) {
+        const from = project(view, point.x * TILE, point.y * TILE);
+        const to = project(view, next.x * TILE, next.y * TILE);
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+      }
+    }
+  });
+  ctx.stroke();
+}
+
+/** One road, as one stroked path. */
+function strokeRoad(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  points: readonly Vec[],
+  wide: number,
+  paint: string,
+): void {
+  ctx.strokeStyle = paint;
+  ctx.lineWidth = wide;
+  ctx.beginPath();
+  points.forEach((point, at) => {
+    const spot = project(view, point.x * TILE, point.y * TILE);
+    if (at === 0) {
+      ctx.moveTo(spot.x, spot.y);
+    } else {
+      ctx.lineTo(spot.x, spot.y);
+    }
+  });
+  ctx.stroke();
 }
 
 /**
@@ -1418,7 +1631,7 @@ function drawScene(
       movers.push({
         depth: person.y,
         at: person,
-        paint: (fade) => drawPerson(ctx, person, view, fade),
+        paint: (fade) => drawPerson(ctx, person, view, state.time, fade),
       });
     }
   }
@@ -1436,7 +1649,7 @@ function drawScene(
       movers.push({
         depth: cop.y,
         at: cop,
-        paint: (fade) => drawCop(ctx, cop, view, fade),
+        paint: (fade) => drawCop(ctx, cop, view, state.time, fade),
       });
     }
   }
@@ -1448,7 +1661,7 @@ function drawScene(
         depth: car.y,
         at: car,
         mine,
-        paint: (fade) => drawCar(ctx, car, view, mine, state.time, fade),
+        paint: (fade) => drawCar(ctx, car, view, state.time, fade),
       });
     }
   }
@@ -2016,12 +2229,13 @@ function collectHouses(
   const toBlockY = Math.ceil(seen.bottom / span);
   for (let blockY = fromBlockY; blockY <= toBlockY; blockY += 1) {
     for (let blockX = fromBlockX; blockX <= toBlockX; blockX += 1) {
-      // The houses of a block sit inside its ring of pavement: cells two to
-      // four of the six a block is wide.
-      const left = (blockX * BLOCK_TILES + 2) * TILE;
-      const top = (blockY * BLOCK_TILES + 2) * TILE;
-      const right = left + 3 * TILE;
-      const bottom = top + 3 * TILE;
+      // The houses of a block sit inside its ring of pavement - and inside the
+      // motorway, where one runs past. Asked of the plan, not assumed.
+      const box = builtPlot(blockX, blockY);
+      const left = box.left * TILE;
+      const top = box.top * TILE;
+      const right = box.right * TILE;
+      const bottom = box.bottom * TILE;
       // Asked of the plan, not of the floor: the player's own house has a
       // garage cut out of its middle square, and a house with a garage in it
       // is still a house.
@@ -2762,21 +2976,15 @@ function drawCar(
   ctx: CanvasRenderingContext2D,
   car: Car,
   view: View,
-  driven: boolean,
   now: number,
   fade: number,
 ): void {
   const shape = VEHICLES[car.body];
+  // Under the car, before it: rubber going up is the one thing that says a
+  // corner was taken too fast, and it belongs on the road, not on the roof.
+  drawSkid(ctx, car, view, now, fade);
   const police = car.kind === "police";
-  // Every car has a colour except the one that never had one: a DMC-12 is
-  // bare steel on all six sides, so the palette is not asked.
-  const paint = police
-    ? "#0f172a"
-    : car.body === "dmc"
-      ? STEEL
-      : car.body === "tractor"
-        ? TRACTOR_GREEN
-        : CAR_PAINT[car.colour % CAR_PAINT.length];
+  const paint = paintOf(car);
   const long = shape.length;
   const wide = shape.width;
   const tiers = tiersOf(car.body);
@@ -2784,16 +2992,30 @@ function drawCar(
   const sheet = vehicleSprite(car.body, paint, police);
   shadow(ctx, view, car, long / 2, wide / 2, car.angle, fade);
 
-  // The body: wheels, doors and bumpers on the walls, with the bonnet and the
+  // The wheels first, and on the road where they belong.
+  stampTop(ctx, view, car, 0, {
+    part: "ring",
+    sheet,
+    cabin: null,
+    fade,
+    soot,
+  });
+  // Then the body: doors and bumpers on the walls, with the bonnet and the
   // boot laid flat on top of them.
   panels(
     ctx,
     view,
-    boxCorners(car, car.angle, long / 2, wide / 2),
+    placed(bodyOutline(car.body), car, car.angle),
     { base: 0, top: tiers.belt, fade, soot },
     (face) => vehicleWall(car.body, paint, police, face, false),
   );
-  stampTop(ctx, view, car, tiers.belt, { sheet, cabin: null, fade, soot });
+  stampTop(ctx, view, car, tiers.belt, {
+    part: "body",
+    sheet,
+    cabin: null,
+    fade,
+    soot,
+  });
 
   // And the cabin standing on it, which is what makes it a car and not a box.
   // The tank is the exception: its upper storey turns on its own, so it is a
@@ -2801,39 +3023,25 @@ function drawCar(
   if (car.body === "tank") {
     drawTurret(ctx, view, car, tiers.tall, fade, soot);
   } else {
-    const middle = (tiers.cabinBack + tiers.cabinFront) / 2;
-    const hub = {
-      x: car.x + Math.cos(car.angle) * middle,
-      y: car.y + Math.sin(car.angle) * middle,
-    };
     panels(
       ctx,
       view,
-      boxCorners(
-        hub,
-        car.angle,
-        (tiers.cabinFront - tiers.cabinBack) / 2,
-        tiers.cabinWide / 2,
-      ),
+      placed(cabinOutline(car.body), car, car.angle),
       { base: tiers.belt, top: tiers.tall, fade, soot },
       (face) => vehicleWall(car.body, paint, police, face, true),
     );
-    stampTop(ctx, view, car, tiers.tall, { sheet, cabin: tiers, fade, soot });
+    stampTop(ctx, view, car, tiers.tall, {
+      part: "all",
+      sheet,
+      cabin: tiers,
+      fade,
+      soot,
+    });
   }
 
-  if (driven) {
-    // The green frame around the thing you are in, so it is never a guess.
-    const roof = project(view, car.x, car.y, tiers.tall);
-    ctx.save();
-    ctx.translate(roof.x, roof.y);
-    ctx.scale(1, DEPTH);
-    ctx.rotate(car.angle);
-    ctx.globalAlpha = fade;
-    ctx.strokeStyle = "#22c55e";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(-long / 2 - 4, -wide / 2 - 4, long + 8, wide + 8);
-    ctx.restore();
-  }
+  // No frame round the one being driven. The camera sits on it, so which car
+  // that is was never in doubt - and a box drawn round a vehicle is the one
+  // thing on the screen that could not be part of the city.
   drawDamage(ctx, view, car, now, fade);
 }
 
@@ -2874,6 +3082,40 @@ function drawTurret(
   }
 }
 
+/**
+ * What one vehicle is painted.
+ *
+ * @param car - the vehicle in question
+ * @returns the colour of its bodywork
+ * @remarks
+ * Three of them never had a choice - a police car is dark blue, a DMC-12 is
+ * bare steel, a tractor is green - and a taxi is yellow because a taxi one
+ * cannot pick out of the traffic is not worth having in it. What is left is
+ * the palette, minus those last two colours for the bodies that would be
+ * confused with them.
+ */
+function paintOf(car: Car): string {
+  let paint: string;
+  switch (car.body) {
+    case "dmc":
+      paint = STEEL;
+      break;
+    case "tractor":
+      paint = TRACTOR_GREEN;
+      break;
+    case "taxi":
+      paint = TAXI_PAINT;
+      break;
+    case "car":
+    case "suv":
+      paint = PLAIN_PAINT[car.colour % PLAIN_PAINT.length] ?? "#dc2626";
+      break;
+    default:
+      paint = CAR_PAINT[car.colour % CAR_PAINT.length] ?? "#dc2626";
+  }
+  return car.kind === "police" ? "#0f172a" : paint;
+}
+
 /** The one colour a tractor is ever painted in. */
 const TRACTOR_GREEN = "#3f6212";
 
@@ -2882,6 +3124,76 @@ const SOOT = 0.55;
 
 /** Which wall each edge of a box is, in {@link boxCorners} order. */
 const FACES: readonly VehicleFace[] = ["flank", "nose", "flank", "tail"];
+
+/**
+ * A vehicle's own outline, put where the vehicle is.
+ *
+ * @param outline - the corners in car-local pixels, nose to the east
+ * @param at - where the vehicle stands
+ * @param angle - which way it points
+ * @returns the same corners in city pixels
+ */
+function placed(
+  outline: readonly Vec[],
+  at: Vec,
+  angle: number,
+): readonly Vec[] {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return outline.map((point) => ({
+    x: at.x + point.x * cos - point.y * sin,
+    y: at.y + point.x * sin + point.y * cos,
+  }));
+}
+
+/** A closed path through a set of corners. */
+function outlineOf(points: readonly Vec[]): Path2D {
+  const path = new Path2D();
+  points.forEach((point, at) => {
+    if (at === 0) {
+      path.moveTo(point.x, point.y);
+    } else {
+      path.lineTo(point.x, point.y);
+    }
+  });
+  path.closePath();
+  return path;
+}
+
+/**
+ * A cabin outline with both screens leaned back.
+ *
+ * @param outline - the cabin at the belt line
+ * @param tiers - the vehicle, for how far its windscreen leans
+ * @returns the outline of the roof, which stops short of the screen
+ * @remarks
+ * Only the front. The back window leans as well, but it is drawn leaning on
+ * the side panels - trimming the roof there too left a notch at the rear
+ * corner where the wall's top edge and the roof no longer met.
+ */
+function leaning(outline: readonly Vec[], tiers: VehicleTiers): readonly Vec[] {
+  const front = tiers.cabinFront - tiers.rake;
+  return outline.map((point) => ({
+    x: Math.min(point.x, front),
+    y: point.y,
+  }));
+}
+
+/**
+ * Which part of the top-down picture a stamp lays down.
+ *
+ * @remarks
+ * The picture of a car from above carries more than the roof: wheels and
+ * mirrors stick out past the bodywork. Drawn in one go at the height of the
+ * bodywork, the wheels on the far side end up floating over the roof - which
+ * is what made every vehicle look lopsided from anywhere but straight on.
+ *
+ * So it goes down in two passes at two heights: the ring of wheels **on the
+ * road**, the bodywork **on top of the walls**. A game engine gets this for
+ * nothing, because there a wheel is a thing at a height rather than a few
+ * pixels in a picture.
+ */
+type LidPart = "all" | "ring" | "body";
 
 /** How high a stack of walls goes, and how it is painted. */
 type Storey = {
@@ -2920,12 +3232,21 @@ function panels(
   storey: Storey,
   sheetFor: (face: VehicleFace) => HTMLCanvasElement | null,
 ): void {
-  for (let at = 0; at < corners.length; at += 1) {
-    const from = corners[at];
-    const to = corners[(at + 1) % corners.length];
-    if (to.x >= from.x) {
-      continue;
-    }
+  // **Every** wall, furthest first. Throwing away the ones facing away is the
+  // obvious optimisation and it is the wrong one here: the roof of a storey is
+  // drawn as its own picture at its own height, so where a rear wall was culled
+  // there was nothing at all between the roof above and the bodywork below -
+  // a slot of daylight through the car, on whichever side happened to face
+  // away. Painted back to front they simply lie under what covers them.
+  const shown = corners.map((from, at) => {
+    const to = corners[(at + 1) % corners.length] ?? from;
+    return { at, from, to, depth: (from.y + to.y) / 2 };
+  });
+  shown.sort((one, other) => one.depth - other.depth);
+  for (const wall of shown) {
+    const at = wall.at;
+    const from = wall.from;
+    const to = wall.to;
     const footFrom = project(view, from.x, from.y);
     const footTo = project(view, to.x, to.y);
     const quad = new Path2D();
@@ -2973,6 +3294,8 @@ const BACKWARDS = 2;
 
 /** What a picture laid flat on a vehicle needs to know. */
 type Lid = {
+  /** Which part of the picture to lay down. */
+  readonly part: LidPart;
   /** The view from above, or null where none could be made. */
   readonly sheet: HTMLCanvasElement | null;
   /** The cabin, when only the roof of it is wanted. */
@@ -2999,6 +3322,7 @@ function stampTop(
   height: number,
   lid: Lid,
 ): void {
+  const outer = lid.part === "ring";
   const sheet = lid.sheet;
   if (sheet !== null) {
     const shape = VEHICLES[car.body];
@@ -3011,15 +3335,23 @@ function stampTop(
     ctx.rotate(car.angle);
     ctx.globalAlpha = lid.fade;
     const cabin = lid.cabin;
+    const body = outlineOf(bodyOutline(car.body));
     if (cabin !== null) {
-      const only = new Path2D();
-      only.rect(
-        cabin.cabinBack,
-        -cabin.cabinWide / 2,
-        cabin.cabinFront - cabin.cabinBack,
-        cabin.cabinWide,
-      );
-      ctx.clip(only);
+      // The roof ends where the screens end, not where the cabin stands on the
+      // body: a windscreen that leans back takes the front of the roof with
+      // it. Without this the roof juts out over the glass.
+      ctx.clip(outlineOf(leaning(cabinOutline(car.body), cabin)));
+    } else if (outer) {
+      // Everything the picture carries *outside* the bodywork: wheels, mirrors,
+      // the lot. The margin with the silhouette cut out of it by the even-odd
+      // rule - the silhouette, not a rectangle, or the tapered nose of the
+      // bonnet would be left lying on the road.
+      const ring = new Path2D();
+      ring.rect(-across / 2, -deep / 2, across, deep);
+      ring.addPath(body);
+      ctx.clip(ring, "evenodd");
+    } else if (lid.part === "body") {
+      ctx.clip(body);
     }
     ctx.drawImage(sheet, -across / 2, -deep / 2, across, deep);
     if (lid.soot > 0) {
@@ -3187,6 +3519,7 @@ function drawPerson(
   ctx: CanvasRenderingContext2D,
   person: Person,
   view: View,
+  now: number,
   fade: number,
 ): void {
   const worn = outfit(person);
@@ -3209,6 +3542,8 @@ function drawPerson(
         facing: person.heading,
         heading: person.heading,
         walked: person.walked,
+        pace: person.pace,
+        time: now,
         // Whoever carries something holds it out; everybody else walks with
         // their hands where hands go.
         arms: person.holds === null ? "swing" : "hold",
@@ -3356,11 +3691,79 @@ function drawTowBar(
 /** How high off the road the tow bar is drawn, in pixels. */
 const TOW_HIGH = 8;
 
+/**
+ * The smoke off the tyres of a car that is sliding.
+ *
+ * @param ctx - what to paint on
+ * @param car - the vehicle, for how far sideways it is going
+ * @param view - where the camera is
+ * @param now - the clock, so the puffs shift rather than sit still
+ * @param fade - how solid to paint them
+ * @remarks
+ * Nothing is remembered: no skid marks lying on the road afterwards, because
+ * that would mean a list of marks to keep, trim and save. Two puffs at the
+ * back wheels for as long as the slide lasts say the same thing and cost
+ * nothing once it is over.
+ */
+function drawSkid(
+  ctx: CanvasRenderingContext2D,
+  car: Car,
+  view: View,
+  now: number,
+  fade: number,
+): void {
+  const across = Math.abs(car.slip);
+  if (across < SLIP_SMOKE) {
+    return;
+  }
+  const shape = VEHICLES[car.body];
+  const hard = Math.min(1, (across - SLIP_SMOKE) / SLIP_SMOKE);
+  const back = -shape.length * 0.3;
+  const side = shape.width * 0.42;
+  ctx.save();
+  ctx.globalAlpha = fade * (0.25 + hard * 0.4);
+  ctx.fillStyle = "#d6d3d1";
+  for (const wheel of [-1, 1]) {
+    // A little way behind where the tyre is, and drifting further back the
+    // harder the car is sliding.
+    for (let puff = 0; puff < SMOKE_PUFFS; puff += 1) {
+      const trail = back - puff * 9 * (0.6 + hard);
+      const wobble = Math.sin(now * 9 + puff * 2 + wheel) * 3;
+      const at = project(
+        view,
+        car.x +
+          Math.cos(car.angle) * trail -
+          Math.sin(car.angle) * (side * wheel + wobble),
+        car.y +
+          Math.sin(car.angle) * trail +
+          Math.cos(car.angle) * (side * wheel + wobble),
+        3,
+      );
+      ctx.beginPath();
+      ctx.ellipse(
+        at.x,
+        at.y,
+        5 + puff * 3.5,
+        (5 + puff * 3.5) * DEPTH,
+        0,
+        0,
+        TURN,
+      );
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+/** How many puffs trail off one sliding tyre. */
+const SMOKE_PUFFS = 3;
+
 /** A policeman on foot: dark blue, and always facing the player. */
 function drawCop(
   ctx: CanvasRenderingContext2D,
   cop: Cop,
   view: View,
+  now: number,
   fade: number,
 ): void {
   const worn = {
@@ -3385,6 +3788,8 @@ function drawCop(
         facing: cop.angle,
         heading: cop.angle,
         walked: cop.walked,
+        pace: cop.pace,
+        time: now,
         arms: "hold",
         hand: "right",
         holds: cop.holds,
@@ -3485,6 +3890,8 @@ function drawWalker(
       facing: player.angle,
       heading: player.heading,
       walked: player.walked,
+      pace: player.pace,
+      time: state.time,
       arms: poseOf(state, player.weapon),
       // Fists alternate, blow by blow; anything carried stays in the hand that
       // carries it.
@@ -3603,6 +4010,19 @@ export type Figure = {
   readonly heading: number;
   /** How far this figure has walked, which is the clock of the step. */
   readonly walked: number;
+  /**
+   * How fast they are going, as a share of an ordinary walk.
+   *
+   * @remarks
+   * Nought standing, one strolling, three at a run. Everything that tells a
+   * walk from a run is scaled by it - the lean, the sway, the bounce - because
+   * the pictures themselves cannot change: they are cached sprites, one set
+   * per outfit, and a second set for running would double the memory of every
+   * person in the city.
+   */
+  readonly pace: number;
+  /** The clock, for the small motion of somebody standing still. */
+  readonly time: number;
   /** What the arms are doing: swinging, holding a gun out, or striking. */
   readonly arms: ArmPose;
   /** Which hand is working. */
@@ -3614,6 +4034,44 @@ export type Figure = {
   /** Whether this one is sitting on the ground rather than standing. */
   readonly sits?: boolean;
 };
+
+/**
+ * The shortest way round from one angle to another.
+ *
+ * @param from - where it is now, in radians
+ * @param to - where it is going
+ * @returns the difference, between minus half a turn and half a turn
+ */
+function turnGap(from: number, to: number): number {
+  const whole = Math.PI * 2;
+  const raw = ((to - from) % whole) + whole;
+  const wrapped = raw % whole;
+  return wrapped > Math.PI ? wrapped - whole : wrapped;
+}
+
+/** How fast a figure can be going before the lean stops growing. */
+const PACE_CAP = 3;
+
+/** How far the body bounces with each footfall, in screen pixels. */
+const BOB = 1.3;
+
+/** How far the body swings across the line of travel, in screen pixels. */
+const SWAY = 1.1;
+
+/** How far a figure leans into its own direction, in city pixels. */
+const LEAN = 1.5;
+
+/** How much of the way to the eyes the shoulders come round. */
+const SHOULDER_TURN = 0.78;
+
+/** How fast somebody standing still breathes, in radians a second. */
+const BREATH = 2.2;
+
+/** And how far, in screen pixels. */
+const BREATH_DEEP = 0.32;
+
+/** How wide a head is against a pair of shoulders. */
+const HEAD_SHARE = 0.82;
 
 /** How high the shoulders sit above the road, in screen pixels. */
 const SHOULDER = 9;
@@ -3672,7 +4130,36 @@ export function drawFigure(
   // the road, and the legs are swapped for a cross-legged pair. Nothing else
   // changes, which is why it is one number and one extra sprite.
   const low = down ? SEAT : 1;
-  const bob = down ? 0 : Math.abs(Math.cos(phase)) * 1.7;
+  // How much of a walk this is. Held a little above nought so that a figure
+  // that has just stopped does not lose its weight between one frame and the
+  // next, and capped so the cheat does not fold anybody double.
+  const going = down ? 0 : Math.min(look.pace, PACE_CAP);
+  // Two footfalls to a stride, so the bounce runs at twice the cycle. It does
+  // **not** grow with the pace: a body that bounces higher the faster it goes
+  // reads as hopping rather than running. What speeds up is the arms and the
+  // legs, and they are in the sprites.
+  const moving = Math.min(going, 1);
+  const bob = down
+    ? 0
+    : Math.abs(Math.cos(phase)) * BOB * moving +
+      Math.sin(look.time * BREATH) * (going > 0.05 ? 0 : BREATH_DEEP);
+  // Weight goes from foot to foot, so the body swings across the line of
+  // travel once per stride - the thing that makes a walk read as a walk from
+  // above rather than as a sprite sliding along. Capped at a walk for the same
+  // reason as the bounce.
+  const sway = down ? 0 : Math.sin(phase) * SWAY * moving;
+  // And the whole figure leans into where it is going. This one may grow with
+  // the pace - it is an offset that sits still, not something that wobbles.
+  const lean = down ? 0 : LEAN * going;
+  const ahead = {
+    x: at.x + Math.cos(look.heading) * lean - Math.sin(look.heading) * sway,
+    y: at.y + Math.sin(look.heading) * lean + Math.cos(look.heading) * sway,
+  };
+  // The shoulders do not snap round to where the eyes look: they come most of
+  // the way and the head does the rest, which is how anybody turns to look at
+  // something while walking somewhere else.
+  const shoulders =
+    look.heading + turnGap(look.heading, look.facing) * SHOULDER_TURN;
   const frame =
     Math.round((look.walked / STRIDE) * SWING_FRAMES) % SWING_FRAMES;
   const worn = {
@@ -3685,6 +4172,8 @@ export function drawFigure(
     hand: look.hand,
   };
   ctx.globalAlpha = fade;
+  // The feet stay on the ground where the figure actually is; everything above
+  // the waist leans and sways.
   stamp(
     ctx,
     legsSprite(worn, (frame + SWING_FRAMES) % SWING_FRAMES, down),
@@ -3698,22 +4187,24 @@ export function drawFigure(
     ctx,
     bodySprite(worn, (frame + SWING_FRAMES) % SWING_FRAMES),
     view,
-    at,
-    look.facing,
+    ahead,
+    shoulders,
     SHOULDER * low + bob,
     BODY_SIZE,
   );
   if (look.holds !== undefined) {
-    inHand(ctx, view, at, look, frame, SHOULDER * low + bob);
+    inHand(ctx, view, ahead, look, frame, SHOULDER * low + bob);
   }
+  // A head is narrower than a pair of shoulders. It used to be drawn the same
+  // width, which is what made everybody look like a toy.
   stamp(
     ctx,
     headSprite(worn),
     view,
-    at,
+    ahead,
     look.facing,
     PERSON_HEIGHT * low + bob,
-    HEAD_SIZE,
+    HEAD_SIZE * HEAD_SHARE,
   );
   ctx.globalAlpha = 1;
 }
@@ -3915,25 +4406,6 @@ function drawBlasts(
 /* -------------------------------------------------------------- the box */
 
 /** The four corners of a rotated rectangle, in city coordinates. */
-function boxCorners(
-  at: Vec,
-  angle: number,
-  halfLong: number,
-  halfWide: number,
-): readonly Vec[] {
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  const corner = (long: number, wide: number): Vec => ({
-    x: at.x + long * cos - wide * sin,
-    y: at.y + long * sin + wide * cos,
-  });
-  return [
-    corner(-halfLong, -halfWide),
-    corner(halfLong, -halfWide),
-    corner(halfLong, halfWide),
-    corner(-halfLong, halfWide),
-  ];
-}
 
 /**
  * The dark patch a thing throws on the road under it.
@@ -3960,10 +4432,18 @@ export function shadow(
   ctx.translate(spot.x, spot.y + 2);
   ctx.scale(1, DEPTH);
   ctx.rotate(angle);
-  ctx.globalAlpha = 0.28 * fade;
-  ctx.fillStyle = "#000000";
+  // Soft, not a disc. A hard-edged ellipse under a car cuts straight across
+  // the wheels standing on it, and a wheel with a dark band across its bottom
+  // looks like a wheel with no air in it.
+  ctx.scale(halfLong, halfWide);
+  const dark = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  dark.addColorStop(0, "rgba(0,0,0,0.32)");
+  dark.addColorStop(0.6, "rgba(0,0,0,0.24)");
+  dark.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = dark;
   ctx.beginPath();
-  ctx.ellipse(0, 0, halfLong, halfWide, 0, 0, Math.PI * 2);
+  ctx.arc(0, 0, 1, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }

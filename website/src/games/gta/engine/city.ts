@@ -485,8 +485,15 @@ const BEND_PARTS = 6;
 /** Every fourth street is a motorway. */
 const MOTORWAY_EVERY = 4;
 
-/** How many lanes a motorway has either side of its middle. */
-const MOTORWAY_HALF = 1;
+/**
+ * How many lanes a motorway has either side of its middle.
+ *
+ * @remarks
+ * Two, so a motorway is five squares of tarmac across - wide enough that two
+ * cars side by side still leave room for a third to come past, and wide enough
+ * to read as a motorway from the far side of a block.
+ */
+const MOTORWAY_HALF = 2;
 
 /** One country road: the corners it passes and how wide it is, in squares. */
 type Route = {
@@ -517,7 +524,7 @@ function onTrack(col: number, row: number): boolean {
  */
 const TRACK_LINES: readonly Route[] = [
   {
-    wide: 2,
+    wide: 3,
     points: [
       { x: 22, y: 152 },
       { x: 12, y: 146 },
@@ -555,7 +562,7 @@ const TRACKS: readonly Route[] = TRACK_LINES.map((track) => ({
 const ROUTES: readonly Route[] = [
   // Die Kuestenstrasse im Nordwesten: von San Fierro hinauf in den Wald.
   {
-    wide: 3,
+    wide: 5,
     points: [
       { x: 20, y: 46 },
       { x: 12, y: 32 },
@@ -566,7 +573,7 @@ const ROUTES: readonly Route[] = [
   },
   // Quer durch die Wueste nach Las Venturas.
   {
-    wide: 3,
+    wide: 5,
     points: [
       { x: 58, y: 14 },
       { x: 76, y: 18 },
@@ -577,7 +584,7 @@ const ROUTES: readonly Route[] = [
   },
   // Von San Fierro schraeg durch die Wueste nach Las Venturas.
   {
-    wide: 3,
+    wide: 5,
     points: [
       { x: 46, y: 60 },
       { x: 62, y: 56 },
@@ -588,7 +595,7 @@ const ROUTES: readonly Route[] = [
   },
   // Die Landstrasse im Sueden: von Los Santos an den Hafen.
   {
-    wide: 3,
+    wide: 5,
     points: [
       { x: 96, y: 120 },
       { x: 84, y: 112 },
@@ -600,7 +607,7 @@ const ROUTES: readonly Route[] = [
   },
   // Von Las Venturas hinunter nach Los Santos, am Ostufer entlang.
   {
-    wide: 3,
+    wide: 5,
     points: [
       { x: 138, y: 68 },
       { x: 144, y: 84 },
@@ -611,7 +618,7 @@ const ROUTES: readonly Route[] = [
   },
   // Die Bruecke ueber die Meerenge, von San Fierro nach Sueden.
   {
-    wide: 3,
+    wide: 5,
     points: [
       { x: 22, y: 90 },
       { x: 22, y: 102 },
@@ -620,7 +627,7 @@ const ROUTES: readonly Route[] = [
   },
   // Die Runde um den Berg im Suedwesten.
   {
-    wide: 2,
+    wide: 3,
     points: [
       { x: 24, y: 112 },
       { x: 14, y: 128 },
@@ -634,7 +641,7 @@ const ROUTES: readonly Route[] = [
   },
   // Die Zufahrt zum Militaergelaende, bis vors Tor und keinen Meter weiter.
   {
-    wide: 3,
+    wide: 5,
     points: [
       { x: 69, y: 53 },
       { x: 69, y: 49 },
@@ -643,7 +650,7 @@ const ROUTES: readonly Route[] = [
   },
   // Und die Piste durch die Wueste nach Sueden.
   {
-    wide: 2,
+    wide: 3,
     points: [
       { x: 80, y: 30 },
       { x: 86, y: 52 },
@@ -659,6 +666,77 @@ const ROADS: readonly Route[] = ROUTES.map((route) => ({
   wide: route.wide,
   points: bend(route.points),
 }));
+
+/**
+ * The squares of a block that are actually built on.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the block, down
+ * @returns its built rectangle in squares, the far edges exclusive
+ * @remarks
+ * Used to be three squares in the middle of every six, and that was true for
+ * as long as every street was one square wide. A motorway is five, and it
+ * takes its extra lanes out of the blocks either side of it - so a house drawn
+ * to the old rule stood in the outside lane.
+ *
+ * Now the picture asks the same two questions the floor asks - is this line a
+ * street, is it a pavement - and builds on what is left. A block beside a
+ * motorway simply gets a smaller house, which is what happens when a motorway
+ * is put through a neighbourhood.
+ */
+export function builtPlot(
+  blockX: number,
+  blockY: number,
+): { left: number; top: number; right: number; bottom: number } {
+  const across = builtSpan(blockX);
+  const down = builtSpan(blockY);
+  return {
+    left: blockX * BLOCK_TILES + across.from,
+    top: blockY * BLOCK_TILES + down.from,
+    right: blockX * BLOCK_TILES + across.to + 1,
+    bottom: blockY * BLOCK_TILES + down.to + 1,
+  };
+}
+
+/** Which squares of one block, along one axis, are neither road nor pavement. */
+function builtSpan(block: number): { from: number; to: number } {
+  let from = BLOCK_TILES;
+  let to = -1;
+  for (let into = 0; into < BLOCK_TILES; into += 1) {
+    const at = block * BLOCK_TILES + into;
+    if (!isRoad(at) && !nextToRoad(at)) {
+      from = Math.min(from, into);
+      to = Math.max(to, into);
+    }
+  }
+  return { from, to };
+}
+
+/**
+ * The country roads, as the smooth lines they were bent from.
+ *
+ * @returns each road with its width in squares and its points, in squares
+ * @remarks
+ * The floor answers *where one may drive* in squares of forty-eight pixels,
+ * and a curve laid into squares that size is a staircase. So the picture does
+ * not use the floor for these: it strokes **this**, the same curve, as one
+ * smooth line. Squares decide, the line is what one sees - and because the
+ * line is drawn a shade wider than the squares it covers, the staircase
+ * disappears under it.
+ *
+ * The dirt tracks come back as well, so the renderer can tell tarmac from
+ * gravel without a second table.
+ */
+export function roadLines(): readonly {
+  readonly wide: number;
+  readonly dirt: boolean;
+  readonly points: readonly Vec[];
+}[] {
+  return [
+    ...ROADS.map((road) => ({ ...road, dirt: false })),
+    ...TRACKS.map((track) => ({ ...track, dirt: true })),
+  ];
+}
 
 /**
  * The railway: one great rectangle through all three cities.

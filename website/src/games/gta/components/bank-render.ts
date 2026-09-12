@@ -222,6 +222,10 @@ function paintPerson(
     facing: who.at.heading,
     heading: who.at.heading,
     walked: who.at.walked,
+    // The little worlds keep no speed for anybody, so their figures get the
+    // still pose: no lean, no sway. It is a room, not a street.
+    pace: 0,
+    time: 0,
     // Hands up for anybody who has given in; the man with the gun holds it out.
     arms: who.kind === "held" ? "hold" : hero ? "hold" : "swing",
     hand: "right",

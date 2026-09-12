@@ -224,6 +224,18 @@ function rebuild(stored: Stored): GameState {
     ...stored,
     // A stand written before the train learned to accelerate has no speed in
     // it, and a train at undefined pixels a second goes nowhere at all.
+    // A stand written before cars could slide has no sideways speed in it,
+    // and a car at undefined pixels a second goes nowhere sensible.
+    cars: stored.cars.map((car) => ({ ...car, slip: car.slip ?? 0 })),
+    // Skid marks are weather, not history: they fade on their own and nobody
+    // comes back to a saved game for them.
+    marks: [],
+    markAt: 0,
+    // Everybody on foot gained a pace; a stand written before that has none,
+    // and a figure leaning forward by NaN pixels is not drawn at all.
+    player: { ...stored.player, pace: stored.player.pace ?? 0 },
+    people: stored.people.map((one) => ({ ...one, pace: one.pace ?? 0 })),
+    cops: stored.cops.map((one) => ({ ...one, pace: one.pace ?? 0 })),
     train: { ...stored.train, speed: stored.train.speed ?? 0 },
     // A stand written before there was a helicopter has none; it belongs on
     // its pad, which is where a new one starts.

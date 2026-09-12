@@ -23,7 +23,7 @@ darin drei Aufträge abgeliefert hast.
 | Linke Maustaste           | schießen       | -                        |
 | Mausrad                   | Waffe wechseln | -                        |
 | E oder Enter              | einsteigen, in den Zug | aussteigen       |
-| Leertaste                 | Jetpack: steigen | -                      |
+| Leertaste                 | Jetpack: steigen | Handbremse               |
 | Shift                     | rennen         | schneller fahren         |
 
 **Rechtsklick** legt einen Zünder ab, wenn du den **Fernzünder** in der Hand
@@ -148,12 +148,18 @@ achttausend Pixel in jede Richtung.
 | **Der Flughafen**     | rechts unten neben Los Santos: Vorfeld, Startbahn und zwei Maschinen |
 
 **In den Städten ist alles rechtwinklig**, draußen nichts. Die Landstraßen
-schwingen in Kurven um den Berg, laufen schräg durch die Wüste und gehen dort,
-wo sie das Wasser treffen, einfach weiter - **eine Straße über dem Meer ist eine
-Brücke**, und so sind alle Übergänge hier gemacht.
+schwingen in **echten Kurven** um den Berg, laufen schräg durch die Wüste und
+gehen dort, wo sie das Wasser treffen, einfach weiter - **eine Straße über dem
+Meer ist eine Brücke**, und so sind alle Übergänge hier gemacht. Eine Kurve ist
+dabei wirklich eine Kurve und keine Treppe aus rechten Winkeln: Gefahren wird
+auf Feldern, gezeichnet wird ein glatter Linienzug darüber.
 
-**Autobahnen** sind in den Städten jede vierte Straße: drei Spuren statt einer.
-Man erkennt sie an der Breite, lange bevor man auf ihnen ist.
+**Breit sind sie auch.** Die großen Verbindungen zwischen den Städten und die
+**Autobahnen** in den Städten - jede vierte Straße - sind **fünf Spuren** breit;
+Nebenstrecken und der Feldweg auf den Berg drei. Man erkennt eine Autobahn an
+der Breite, lange bevor man auf ihr ist. Wo eine Autobahn durch ein Viertel
+geht, nimmt sie sich den Platz von den Häusern: die Parzellen daneben sind
+schmaler bebaut.
 
 **Am Strand liegt Sand**, überall dort, wo Land ans Wasser stößt. Die Küste ist
 nicht gerade gezogen, sondern springt vor und zurück - und sie tut das an
@@ -307,6 +313,14 @@ kostet dich mehr Aufsehen, als er dir einbringt.
 | Deine Bande          | **grünes** T-Shirt                          |
 | Gegnerische Bande    | **orangenes** T-Shirt                       |
 
+**Wie sie sich bewegen**, hängt daran, wie schnell sie unterwegs sind: Wer geht,
+wiegt sich leicht von einem Fuß auf den anderen und wippt mit jedem Schritt; wer
+rennt, lehnt sich sichtbar nach vorn - **der Körper bleibt dabei ruhig, nur Arme
+und Beine gehen schneller**. Wer steht, atmet. Die Schultern drehen sich beim Blickwechsel nur zu drei
+Vierteln mit - den Rest macht der Kopf, so wie man sich im Gehen nach etwas
+umschaut. Und gedreht wird nicht in Achtelschritten, sondern in gut einer
+Zehntelsekunde herum.
+
 Wenn es knallt, rennt **nur, wer es mitbekommen hat**. Ein Faustschlag reicht
 120 Pixel weit, ein Schuss 300, eine Explosion 520; wer näher dran war, läuft
 sechs Sekunden lang weg und beruhigt sich dann wieder. Zwei Straßen weiter weiß
@@ -364,16 +378,16 @@ niemandem etwas.
 
 ## Fahrzeuge
 
-| Fahrzeug        | Länge | Tempo | Blech | Eigenart                    |
-| --------------- | ----- | ----- | ----- | --------------------------- |
-| Wagen           | 44 px | 420   | 100   | der Normalfall              |
-| Taxi            | 46 px | 430   | 95    | gelb, Schild auf dem Dach   |
-| Geländewagen    | 54 px | 380   | 150   | träge, aber zäh             |
-| Motorrad        | 34 px | 480   | 55    | schnell und wendig, dünn    |
-| Fahrrad         | 28 px | 150   | 25    | langsam, aus Papier         |
-| DMC-12          | 46 px | 520   | 85    | Edelstahl, schnellstes Auto  |
-| Panzer          | 62 px | 190   | 1200  | Kanone, und dazu Panzerung   |
-| Traktor         | 48 px | 190   | 180   | langsam, mit Anhängerkupplung |
+| Fahrzeug        | Länge | Tempo | Blech | Haftung | Eigenart                    |
+| --------------- | ----- | ----- | ----- | ------- | --------------------------- |
+| Wagen           | 44 px | 420   | 100   | 16      | der Normalfall, nie gelb oder weiß |
+| Taxi            | 46 px | 430   | 95    | 17      | immer gelb, Schild auf dem Dach |
+| Geländewagen    | 54 px | 380   | 150   | 13      | träge, zäh, wankt in Kurven, nie gelb oder weiß |
+| Motorrad        | 34 px | 480   | 55    | 100     | schnell und wendig, dünn    |
+| Fahrrad         | 28 px | 150   | 25    | 120     | langsam, aus Papier         |
+| DMC-12          | 46 px | 520   | 85    | 6,5     | Edelstahl, schnellstes Auto, bricht hinten aus |
+| Panzer          | 62 px | 190   | 1200  | 200     | Kanone, und dazu Panzerung   |
+| Traktor         | 48 px | 190   | 180   | 70      | langsam, mit Anhängerkupplung |
 
 Der **DMC-12** steht dreimal in der Stadt herum, immer geparkt, nie im Verkehr.
 Er ist das schnellste Auto von Los Santos und hat dafür das dünnste Blech. Man
@@ -418,9 +432,52 @@ die Frage, wer zuerst abdrückt.
 
 **Der Panzer schiebt alles weg**, und dafür braucht es keinen Cheat: Wer im
 Panzer in ein Fahrzeug fährt, schleudert es zur Seite und fährt mit
-unverminderter Geschwindigkeit weiter - kein Rückprall, keine Zwangspause.
+unverminderter Geschwindigkeit weiter - kein Rückprall, keine Zwangspause. Das
+Weggeschobene **rollt dabei wirklich weg** und bleibt stehen, wo es
+liegenbleibt - meist quer auf der Straße.
 Einen Streifenwagen so beiseitezuräumen bleibt trotzdem Rammen und kostet den
 üblichen Stern; nur im Cheat-Modus zählt auch das nicht.
+
+## Wie sich die Autos fahren
+
+Ein Auto fährt **nicht** einfach dorthin, wohin die Nase zeigt. Es hat zwei
+Geschwindigkeiten: eine **längs** und eine **quer**. Einlenken dreht die Nase -
+aber nicht das, was der Wagen gerade tut. Der Unterschied ist die Quergeschwindigkeit,
+und die fressen die Reifen wieder weg. Wie schnell sie das tun, steht in der
+Spalte **Haftung** oben.
+
+Daraus ergibt sich alles Weitere von selbst:
+
+- **Schnell in die Kurve heißt quer stehen.** Je höher Tempo und Einschlag,
+  desto mehr schiebt der Wagen über die Vorderräder hinaus.
+- **Bremsen zieht ihn gerade.** Beim Bremsen geht das Gewicht nach vorn, die
+  Reifen greifen ein Viertel besser - eine zu schnell angefahrene Kurve rettet
+  man mit der Bremse, nicht mit dem Lenkrad.
+- **Gas gibt ihn frei.** Unter Vollgas haftet er etwas weniger; so bekommt man
+  das Heck absichtlich herum.
+- **Die Handbremse liegt auf der Leertaste** (zu Fuß ist das der Jetpack). Sie
+  blockiert die Hinterräder, und ein Rad, das nicht rollt, hält auch nichts:
+  - **Geradeaus** bremst sie den Wagen zum Stehen und zieht dabei zwei
+    schwarze Striche.
+  - **In der Kurve** kommt das Heck herum - damit driftet man absichtlich statt
+    aus Versehen.
+  - **Mit vollem Einschlag** dreht sich der Wagen um die eigene Achse:
+    **Donuts**. Gemessen: gut eine ganze Umdrehung in drei Sekunden.
+- **Qualmende Reifen** heißen: jetzt rutscht er wirklich. Bei normalem Fahren
+  sieht man sie nicht.
+- **Bremsspuren bleiben liegen.** Wo ein Reifen geschleift statt gerollt ist,
+  bleibt der typische schwarze Strich auf der Straße - rund **22 Sekunden**
+  lang, dann ist er verblasst. Das gilt für jeden, der rutscht, auch für die
+  Polizei.
+- **Jedes Fahrzeug fährt anders**, und zwar nicht wegen einer Sonderregel: Das
+  Motorrad legt sich in die Kurve und rutscht praktisch nie, der DMC-12 hat den
+  Motor hinter der Hinterachse und bricht am ehesten aus, der Geländewagen
+  wankt, der Panzer geht auf Ketten schlicht dorthin, wo er zeigt.
+- **Die Polizei fährt dieselben Reifen.** Ein Streifenwagen, der Kurven wie auf
+  Schienen nimmt, während dein baugleicher Wagen rutscht, wären zwei Spiele.
+
+Am Limit - Vollgas, voller Einschlag - steht ein Wagen rund **zehn Grad quer**,
+der DMC-12 rund **zwanzig**. Motorrad, Traktor und Panzer gar nicht.
 
 ## Waffen
 

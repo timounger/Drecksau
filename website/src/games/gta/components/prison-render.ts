@@ -264,6 +264,10 @@ function paintPerson(
     facing: who.at.heading,
     heading: who.at.heading,
     walked: who.at.walked,
+    // The little worlds keep no speed for anybody, so their figures get the
+    // still pose: no lean, no sway. It is a room, not a street.
+    pace: 0,
+    time: 0,
     arms: warder ? "hold" : "swing",
     hand: "right",
     style: warder ? "cop" : "convict",

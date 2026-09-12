@@ -45,6 +45,23 @@ export type Vehicle = {
    * circus act.
    */
   readonly seats: number;
+  /**
+   * How quickly the tyres pull a slide straight, in shares a second.
+   *
+   * @remarks
+   * The one number that gives each body a character the others cannot copy.
+   * High and the thing follows its nose whatever one does with the wheel - a
+   * bicycle, a tank on tracks. Low and the back comes round in a fast corner:
+   * a heavy off-roader rolls onto its outside tyres, a DMC-12 has its engine
+   * behind the rear axle and behaves accordingly.
+   *
+   * It sets how far sideways a corner puts the car, and the sum is worth
+   * knowing: at full lock the slide settles at roughly **top speed times turn
+   * rate, divided by this**. A saloon at 420 and 2.6 with a grip of 16 sits
+   * about seventy pixels a second sideways - a tenth of a turn out of line,
+   * which is a car leaning on its tyres rather than a car losing them.
+   */
+  readonly grip: number;
 };
 
 /** Every body there is. */
@@ -60,6 +77,7 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     health: 100,
     gun: false,
     seats: 2,
+    grip: 16,
   },
   dmc: {
     body: "dmc",
@@ -74,6 +92,9 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     health: 85,
     gun: false,
     seats: 2,
+    // The engine is behind the back axle. It goes, and then it goes sideways.
+    // Engine behind the back axle: it goes, and then it goes sideways.
+    grip: 6.5,
   },
   suv: {
     body: "suv",
@@ -86,6 +107,8 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     health: 150,
     gun: false,
     seats: 2,
+    // Tall and heavy: it leans onto the outside tyres and washes wide.
+    grip: 13,
   },
   taxi: {
     body: "taxi",
@@ -98,6 +121,7 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     health: 95,
     gun: false,
     seats: 2,
+    grip: 17,
   },
   bike: {
     body: "bike",
@@ -110,6 +134,9 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     health: 55,
     gun: false,
     seats: 1,
+    // Two wheels lean into a corner instead of leaning out of one: a bike
+    // holds a line nothing on four wheels can.
+    grip: 100,
   },
   cycle: {
     body: "cycle",
@@ -122,6 +149,7 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     health: 25,
     gun: false,
     seats: 1,
+    grip: 120,
   },
   tractor: {
     body: "tractor",
@@ -137,6 +165,8 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     health: 180,
     gun: false,
     seats: 1,
+    // Slow enough that it could not slide if it wanted to.
+    grip: 70,
   },
   tank: {
     body: "tank",
@@ -151,6 +181,8 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     health: 1200,
     gun: true,
     seats: 1,
+    // Tracks, not tyres. A tank does not drift; it goes where it is pointed.
+    grip: 200,
   },
 };
 

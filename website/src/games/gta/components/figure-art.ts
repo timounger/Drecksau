@@ -417,6 +417,9 @@ function trunk(ctx: CanvasRenderingContext2D, look: FigureLook): void {
   ctx.lineWidth = PEN;
   ctx.fill(path);
   ctx.stroke(path);
+  // And the thing that turns a flat patch of colour into a body: dark where
+  // the shoulders fall away, light where they stand highest.
+  rounded(ctx, path, look.style === "night" ? look.skin : look.shirt, -0.6, 3);
   // A seam down the middle, so the two halves of the back read as a back.
   ctx.globalAlpha = 0.2;
   ctx.strokeStyle = "#000000";
@@ -827,6 +830,9 @@ function paintHead(ctx: CanvasRenderingContext2D, look: FigureLook): void {
   ctx.lineWidth = PEN;
   ctx.fill(skull);
   ctx.stroke(skull);
+  // A head is the roundest thing on a person, so it gets the same treatment
+  // as the shoulders and gets it a little stronger.
+  rounded(ctx, skull, look.skin, 0, 3.4);
   if (look.style === "night") {
     // Long hair, which from above is most of what there is to see of her: two
     // curtains down past the shoulders with the parting between them.
@@ -1121,6 +1127,68 @@ function hat(ctx: CanvasRenderingContext2D, look: FigureLook): void {
  * Computed rather than looked up, because every shirt, every skin tone and
  * every future colour needs one, and a table would have to grow with them.
  */
+/**
+ * Rounds a flat shape off: dark round the inside of its edge, light in the
+ * middle.
+ *
+ * @param ctx - what to paint on
+ * @param path - the silhouette, already filled
+ * @param tint - the colour it is filled in
+ * @param middle - where the high point sits, along the figure
+ * @param span - how far the light spreads
+ * @remarks
+ * Both parts are **symmetric about the middle of the shape**, and that is the
+ * whole trick: these sprites are cached once and then rotated to whichever way
+ * the figure happens to face, so anything that pretends to come from a fixed
+ * light - a highlight up one side, a shadow on the other - would swing round
+ * with the shoulders and look wrong three times out of four.
+ *
+ * A rim and a centre do not care which way up they are. It is the same reason
+ * a clay model reads as round under any lamp: what says "this is not flat" is
+ * that the edges turn away and the middle does not.
+ */
+function rounded(
+  ctx: CanvasRenderingContext2D,
+  path: Path2D,
+  tint: string,
+  middle: number,
+  span: number,
+): void {
+  ctx.save();
+  ctx.clip(path);
+  ctx.strokeStyle = "rgba(0,0,0,0.22)";
+  ctx.lineWidth = 2.4;
+  ctx.stroke(path);
+  const light = ctx.createRadialGradient(middle, 0, 0, middle, 0, span);
+  light.addColorStop(0, lighten(tint));
+  light.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = light;
+  ctx.fill(path);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/**
+ * A lighter version of a colour, for the high side of a rounded thing.
+ *
+ * @param colour - any of the palette colours, as `#rrggbb`
+ * @returns the same colour a third of the way towards white
+ */
+function lighten(colour: string): string {
+  const hex = colour.replace("#", "");
+  if (hex.length !== 6) {
+    return colour;
+  }
+  const brighter = [0, 2, 4].map((at) => {
+    const part = Number.parseInt(hex.slice(at, at + 2), 16);
+    return Math.round(part + (255 - part) * 0.34)
+      .toString(16)
+      .padStart(2, "0");
+  });
+  return `#${brighter.join("")}`;
+}
+
 function shade(colour: string): string {
   const hex = colour.replace("#", "");
   if (hex.length !== 6) {

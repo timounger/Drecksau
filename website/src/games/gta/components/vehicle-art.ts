@@ -19,6 +19,7 @@
  * leans. Both are in city pixels.
  */
 import { VEHICLES, type VehicleBody } from "@/games/gta/engine/vehicles";
+import type { Vec } from "@/games/gta/engine/types";
 
 /** How many pixels of sprite stand for one city pixel. */
 const GRAIN = 6;
@@ -61,6 +62,21 @@ export type VehicleTiers = {
   readonly cabinFront: number;
   /** How wide the cabin is. */
   readonly cabinWide: number;
+  /**
+   * How far the windscreen leans back, in city pixels.
+   *
+   * @remarks
+   * A cabin drawn as a plain box has a windscreen standing straight up, which
+   * no car has had since about 1935. This is how far the top of the screen
+   * sits behind its bottom - and because the roof has to end where the screen
+   * ends rather than where the cabin's floor does, the picture of the roof is
+   * pulled back by the same amount. The back window leans too, about half as
+   * far.
+   *
+   * Nought for the bodies that draw their own sides: the DMC-12 is a wedge,
+   * the tank has no windscreen, the tractor's cab is a glass box on purpose.
+   */
+  readonly rake: number;
 };
 
 /**
@@ -72,25 +88,70 @@ export type VehicleTiers = {
  * the rest of it, which is the one thing that looks worse than a plain box.
  */
 const TIERS: Readonly<Record<VehicleBody, VehicleTiers>> = {
-  car: { tall: 13, belt: 8, cabinBack: -9.6, cabinFront: 7.9, cabinWide: 22 },
+  car: {
+    tall: 13,
+    belt: 8,
+    cabinBack: -9.6,
+    cabinFront: 7.9,
+    cabinWide: 22,
+    rake: 3.2,
+  },
   suv: {
     tall: 16,
     belt: 10,
     cabinBack: -11.7,
     cabinFront: 9.6,
     cabinWide: 27.6,
+    // Upright: a big square thing has a big square screen.
+    rake: 2.4,
   },
-  taxi: { tall: 13, belt: 8, cabinBack: -10, cabinFront: 8.2, cabinWide: 23 },
+  taxi: {
+    tall: 13,
+    belt: 8,
+    cabinBack: -10,
+    cabinFront: 8.2,
+    cabinWide: 23,
+    rake: 3,
+  },
   // Low, and low again: the roof of this one is about chest height, which is
   // the whole reason a DMC-12 looks like nothing else in the street. The cabin
   // is barely three pixels of glass on top of five of body.
-  dmc: { tall: 8.6, belt: 5.4, cabinBack: -10, cabinFront: 6, cabinWide: 22 },
-  bike: { tall: 14, belt: 8, cabinBack: -5, cabinFront: 3.5, cabinWide: 14 },
-  cycle: { tall: 14, belt: 8, cabinBack: -4.5, cabinFront: 3, cabinWide: 12 },
-  tank: { tall: 19, belt: 12, cabinBack: -14, cabinFront: 10, cabinWide: 34 },
+  dmc: {
+    tall: 8.6,
+    belt: 5.4,
+    cabinBack: -10,
+    cabinFront: 6,
+    cabinWide: 22,
+    rake: 0,
+  },
+  bike: {
+    tall: 14,
+    belt: 8,
+    cabinBack: -5,
+    cabinFront: 3.5,
+    cabinWide: 14,
+    rake: 0,
+  },
+  cycle: {
+    tall: 14,
+    belt: 8,
+    cabinBack: -4.5,
+    cabinFront: 3,
+    cabinWide: 12,
+    rake: 0,
+  },
+  tank: {
+    tall: 19,
+    belt: 12,
+    cabinBack: -14,
+    cabinFront: 10,
+    cabinWide: 34,
+    rake: 0,
+  },
   // Tall and narrow: a tractor is mostly cab, and the cab sits over the back
   // axle rather than in the middle.
   tractor: {
+    rake: 0,
     tall: 26,
     belt: 13,
     cabinBack: -16,
@@ -178,6 +239,81 @@ export function turretSprite(): HTMLCanvasElement | null {
   }
   return sheet;
 }
+
+/**
+ * The outline of a body seen from above, nose to the east, in city pixels.
+ *
+ * @param body - which sort of vehicle
+ * @returns its four corners: tail left, nose left, nose right, tail right
+ * @remarks
+ * **One silhouette, used twice.** The picture of the roof is filled with it,
+ * and the walls of the box are raised from it - so the top edge of a wall and
+ * the edge of the roof above it are the same line by construction.
+ *
+ * They used not to be. The walls stood on a plain rectangle while the roof
+ * tapered towards the nose, which left a wedge of daylight between the two -
+ * and since only the walls facing the camera are drawn, which side the daylight
+ * showed on changed with the angle. That is exactly what "the parts do not fit
+ * together" looks like.
+ *
+ * Four corners and no more, because the wall pictures are dealt out per edge:
+ * flank, nose, flank, tail. A rounder outline would want a picture per corner,
+ * which is how one ends up with a model and a texture atlas - the point at
+ * which this stops being a canvas and starts being an engine.
+ */
+export function bodyOutline(body: VehicleBody): readonly Vec[] {
+  const shape = VEHICLES[body];
+  const long = shape.length / 2;
+  const wide = shape.width / 2;
+  const cut = NARROWS[body] ?? { nose: 1, tail: 1 };
+  return [
+    { x: -long, y: -wide * cut.tail },
+    { x: long, y: -wide * cut.nose },
+    { x: long, y: wide * cut.nose },
+    { x: -long, y: wide * cut.tail },
+  ];
+}
+
+/**
+ * The outline of a cabin, the same way.
+ *
+ * @param body - which sort of vehicle
+ * @returns its four corners in the same order
+ */
+export function cabinOutline(body: VehicleBody): readonly Vec[] {
+  const tiers = TIERS[body];
+  const half = tiers.cabinWide / 2;
+  const cut = CABIN_NARROWS[body] ?? 1;
+  return [
+    { x: tiers.cabinBack, y: -half },
+    { x: tiers.cabinFront, y: -half * cut },
+    { x: tiers.cabinFront, y: half * cut },
+    { x: tiers.cabinBack, y: half },
+  ];
+}
+
+/**
+ * How much narrower each end of a body is than its widest point.
+ *
+ * @remarks
+ * A saloon noses in, an off-roader hardly does, a DMC-12 is a wedge. Anything
+ * not listed is square from end to end - a tank, a tractor, two wheels.
+ */
+const NARROWS: Readonly<
+  Partial<Record<VehicleBody, { readonly nose: number; readonly tail: number }>>
+> = {
+  car: { nose: 0.76, tail: 0.97 },
+  taxi: { nose: 0.78, tail: 0.97 },
+  suv: { nose: 0.92, tail: 1 },
+  dmc: { nose: 0.62, tail: 0.94 },
+};
+
+/** And how much the roof narrows towards the windscreen. */
+const CABIN_NARROWS: Readonly<Partial<Record<VehicleBody, number>>> = {
+  car: 0.93,
+  taxi: 0.93,
+  suv: 0.96,
+};
 
 /**
  * How high a vehicle stands, and where its cabin sits on it.
@@ -279,17 +415,12 @@ function paintCar(
   const long = shape.length / 2;
   const wide = shape.width / 2;
   const boxy = body === "suv";
-  const taper = boxy ? 0.92 : 0.76;
 
-  wheels(ctx, long, wide, boxy ? 3.4 : 2.8, boxy ? 2.6 : 2.2);
+  wheels(ctx, long, wide, boxy ? 7.4 : 6.4, boxy ? 3 : 2.5);
 
-  // The body: a rounded shell, narrower at the nose than at the flanks.
-  const shell = new Path2D();
-  shell.moveTo(long, -wide * taper);
-  shell.quadraticCurveTo(long + 1.6, 0, long, wide * taper);
-  shell.lineTo(-long + 2, wide);
-  shell.quadraticCurveTo(-long - 1.2, 0, -long + 2, -wide);
-  shell.closePath();
+  // The body, filled with the very outline the walls are raised from - see
+  // bodyOutline. Anything else here and the roof and the walls part company.
+  const shell = pathOf(bodyOutline(body));
   ctx.fillStyle = police ? "#f8fafc" : paint;
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
@@ -312,13 +443,8 @@ function paintCar(
     }
   }
 
-  // The cabin: roof between two panes, and a seam where the bonnet begins.
-  const roof = new Path2D();
-  roof.moveTo(long * 0.34, -wide * 0.86);
-  roof.lineTo(-long * 0.42, -wide * 0.92);
-  roof.lineTo(-long * 0.42, wide * 0.92);
-  roof.lineTo(long * 0.34, wide * 0.86);
-  roof.closePath();
+  // The cabin: the same trick again, so its roof sits exactly on its walls.
+  const roof = pathOf(cabinOutline(body));
   ctx.fillStyle = shade(police ? "#e2e8f0" : paint);
   ctx.fill(roof);
   ctx.stroke(roof);
@@ -410,17 +536,11 @@ function paintDelorean(ctx: CanvasRenderingContext2D): void {
   const long = shape.length / 2;
   const wide = shape.width / 2;
 
-  wheels(ctx, long, wide, 3.2, 2.4);
+  wheels(ctx, long, wide, 6.6, 2.6);
 
-  // The shell: broad across the rear wheels, tapering to a flat nose.
-  const shell = new Path2D();
-  shell.moveTo(long, -wide * 0.62);
-  shell.lineTo(long, wide * 0.62);
-  shell.lineTo(long * 0.35, wide);
-  shell.lineTo(-long + 2, wide * 0.94);
-  shell.quadraticCurveTo(-long - 1, 0, -long + 2, -wide * 0.94);
-  shell.lineTo(long * 0.35, -wide);
-  shell.closePath();
+  // The shell: broad across the rear wheels, tapering to a flat nose - and the
+  // same outline the walls stand on.
+  const shell = pathOf(bodyOutline("dmc"));
   ctx.fillStyle = STEEL;
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
@@ -510,6 +630,10 @@ function wheels(
   size: number,
   thick: number,
 ): void {
+  // A car is four and a half metres long and its tyres are two thirds of a
+  // metre across: at this scale that is a good six pixels, not three. Drawn
+  // too small they read as castors, and now that they stand on the road
+  // rather than at the height of the bodywork, that shows.
   ctx.fillStyle = "#1c1917";
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN * 0.7;
@@ -525,6 +649,17 @@ function wheels(
       );
       ctx.fill(wheel);
       ctx.stroke(wheel);
+      // The crown of the tyre, where a round thing catches the light. Without
+      // it a wheel from above is a black bar, and a black bar on the road next
+      // to a shadow reads as a puncture.
+      ctx.fillStyle = "#44403c";
+      ctx.fillRect(
+        at - size * 0.32,
+        side * (wide + thick * 0.35) - thick * 0.16,
+        size * 0.64,
+        thick * 0.32,
+      );
+      ctx.fillStyle = "#1c1917";
     }
   }
 }
@@ -1214,7 +1349,9 @@ function carFlank(ctx: CanvasRenderingContext2D, job: WallJob): void {
   const long = job.span / 2;
   const high = job.high;
   const skin = job.police ? "#f8fafc" : job.paint;
-  const tyre = high * (job.body === "suv" ? 0.4 : 0.35);
+  // The same six and a bit pixels the picture from above now draws, so that a
+  // wheel is the same wheel whichever side of the car one is looking at.
+  const tyre = high * (job.body === "suv" ? 0.44 : 0.4);
   const axle = long * 0.6;
 
   const shell = new Path2D();
@@ -1285,6 +1422,28 @@ function carFlank(ctx: CanvasRenderingContext2D, job: WallJob): void {
   for (const grip of [-long * 0.24, long * 0.18]) {
     ctx.fillRect(grip, high - 1.8, 2, 0.7);
   }
+}
+
+/** How far the back window leans, against the windscreen. */
+const BACK_RAKE = 0.55;
+
+/**
+ * A closed path through a set of points.
+ *
+ * @param points - the corners, in order
+ * @returns the path
+ */
+function pathOf(points: readonly Vec[]): Path2D {
+  const path = new Path2D();
+  points.forEach((point, at) => {
+    if (at === 0) {
+      path.moveTo(point.x, point.y);
+    } else {
+      path.lineTo(point.x, point.y);
+    }
+  });
+  path.closePath();
+  return path;
 }
 
 /** One wheel, seen from the side: a tyre with a rim in it. */
@@ -1385,13 +1544,17 @@ function cabinFlank(ctx: CanvasRenderingContext2D, job: WallJob): void {
   const half = job.span / 2;
   const high = job.high;
   const skin = job.police ? "#f8fafc" : job.paint;
+  // How far the two screens lean back. The front one is the one anybody
+  // notices; the back window of a saloon leans about half as far.
+  const rake = tiersOf(job.body).rake;
+  const back = rake * BACK_RAKE;
 
   const shell = new Path2D();
   shell.moveTo(-half, 0);
-  shell.lineTo(-half + 1.4, high - 0.8);
-  shell.quadraticCurveTo(-half + 1.8, high, -half + 2.6, high);
-  shell.lineTo(half - 2.8, high);
-  shell.quadraticCurveTo(half - 2, high, half - 1.6, high - 0.8);
+  shell.lineTo(-half + back, high - 0.8);
+  shell.quadraticCurveTo(-half + back + 0.4, high, -half + back + 1.2, high);
+  shell.lineTo(half - rake - 1.2, high);
+  shell.quadraticCurveTo(half - rake - 0.4, high, half - rake, high - 0.8);
   shell.lineTo(half, 0);
   shell.closePath();
   ctx.fillStyle = skin;
@@ -1402,9 +1565,11 @@ function cabinFlank(ctx: CanvasRenderingContext2D, job: WallJob): void {
 
   ctx.fillStyle = GLASS;
   ctx.lineWidth = PEN * 0.5;
+  // Each pane is a four-cornered patch: its bottom edge on the belt line, its
+  // top edge pulled back by however far that screen leans.
   const panes = [
-    [-half + 0.9, -half + 2.3, -0.5, -0.5],
-    [0.5, 0.5, half - 2.6, half - 1.2],
+    [-half + 0.9, -half + back + 0.9, -0.5, -0.5],
+    [0.5, 0.5, half - rake - 1, half - 0.6],
   ];
   for (const pane of panes) {
     const glass = new Path2D();

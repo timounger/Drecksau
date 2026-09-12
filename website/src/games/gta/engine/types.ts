@@ -469,6 +469,8 @@ export type Person = {
   readonly look: number;
   /** How far they have walked, in pixels. See {@link STRIDE}. */
   readonly walked: number;
+  /** How fast they are going, as a share of an ordinary walk. */
+  readonly pace: number;
   /** What sort of person they are - see the table in ./people. */
   readonly kind: PersonKind;
   /** What they carry, if anything: only the gangs do. */
@@ -574,6 +576,19 @@ export type Car = {
    */
   readonly shells: number;
   /**
+   * How fast it is going sideways, in pixels a second.
+   *
+   * @remarks
+   * The whole of the driving model, in one number. {@link Car.speed} is what
+   * the car is doing along its nose; this is what it is doing across it, and
+   * it is what a car doing nothing wrong does not have. Turning the wheel
+   * feeds forward speed into it; the tyres eat it again at whatever the body
+   * grips at. Eaten faster than it arrives, the car follows its nose; eaten
+   * slower, it slides - and that is a drift, without a single special case
+   * for one.
+   */
+  readonly slip: number;
+  /**
    * What this one is towing, by id, or null for anything with nothing on the
    * back.
    *
@@ -656,6 +671,10 @@ export type GameState = {
   readonly ackAt: number;
   /** The four launchers round the base, wrecked or whole. */
   readonly acks: readonly Ack[];
+  /** Black marks on the road, oldest first. */
+  readonly marks: readonly Mark[];
+  /** The clock reading the next lot may be laid at. */
+  readonly markAt: number;
   /**
    * Simulation time the garage door shut at, or null while it stands open.
    *
@@ -747,6 +766,16 @@ export type Player = {
   readonly heading: number;
   /** How far they have walked, in pixels. See {@link STRIDE}. */
   readonly walked: number;
+  /**
+   * How fast he is going, as a share of an ordinary walk.
+   *
+   * @remarks
+   * Nought standing, one strolling, three running, ten with the cheat on. The
+   * picture reads it and nothing else does: a figure at a run leans further
+   * forward, swings wider and bounces harder than one out for a walk, and
+   * without this number every pace looks like the same pace.
+   */
+  readonly pace: number;
   /** From zero to {@link PLAYER_HEALTH}. */
   readonly health: number;
   readonly money: number;
@@ -1098,6 +1127,81 @@ export const TRAFFIC_SPEED = 190;
 /** How hard a car accelerates, in pixels per second squared. */
 export const CAR_ACCEL = 260;
 
+/**
+ * How much more the tyres bite with the brakes on.
+ *
+ * @remarks
+ * Weight goes forward under braking and the front axle digs in, so braking
+ * into a corner is what pulls a slide straight. A quarter more is enough to
+ * feel without turning the handbrake into an anchor.
+ */
+export const GRIP_BRAKE = 1.25;
+
+/** And how much they let go with the throttle down: power out of a corner. */
+export const GRIP_PUSH = 0.85;
+
+/**
+ * How much sideways it takes before the tyres smoke, in pixels a second.
+ *
+ * @remarks
+ * Set above what an ordinary corner produces: smoke every time somebody turns
+ * would say nothing at all. It means "you are sliding", and it should only say
+ * so when that is true.
+ */
+export const SLIP_SMOKE = 55;
+
+/**
+ * How quickly a shoved car rolls to a stop, in pixels per second squared.
+ *
+ * @remarks
+ * Nobody is at the wheel of it, so nothing keeps it going: a car knocked aside
+ * travels about as far as it was thrown and then stands where it stopped,
+ * usually across the road, which is the point of knocking it aside.
+ */
+export const LOOSE_DRAG = 240;
+
+/**
+ * How hard the handbrake slows a car, in pixels per second squared.
+ *
+ * @remarks
+ * Less than the foot brake, because that is not what it is for: it locks the
+ * back wheels, and a wheel that is not turning has no grip to give. Stopping
+ * with it works, but sideways.
+ */
+export const HAND_DRAG = 300;
+
+/**
+ * What is left of the tyres' grip with the back wheels locked.
+ *
+ * @remarks
+ * Not much. This one number is the whole handbrake: pull it in a corner and
+ * the back comes round, pull it with the wheel hard over and the car turns on
+ * its own axle - a donut, which nothing in the code knows the word for.
+ */
+export const HAND_GRIP = 0.16;
+
+/**
+ * How much of the usual speed the wheel needs while the handbrake is up.
+ *
+ * @remarks
+ * A standing car cannot steer, and that is right - but a car spinning slowly
+ * round its own middle with the back wheels locked very much can, and without
+ * this it could not be done at all.
+ */
+export const HAND_LOCK = 0.25;
+
+/** And how much more the nose comes round with the back end loose. */
+export const HAND_TURN = 1.4;
+
+/** How long a black mark stays on the road, in seconds. */
+export const MARK_LIFE = 22;
+
+/** How often a sliding tyre lays one down, in seconds. */
+export const MARK_EVERY = 0.03;
+
+/** How many are kept at once; the oldest go first. */
+export const MARK_MAX = 800;
+
 /** How hard it brakes. */
 export const CAR_BRAKE = 460;
 
@@ -1106,6 +1210,33 @@ export const CAR_DRAG = 90;
 
 /** How fast a car turns at speed, in radians per second. */
 export const CAR_TURN = 2.6;
+
+/**
+ * How fast the walk cycle may run at most, in pixels a second.
+ *
+ * @remarks
+ * Twice a walking pace. The cycle is driven by distance, so at a run it would
+ * otherwise turn three times as fast and at the cheat ten - and a figure whose
+ * legs go round ten times a second is not running, it is vibrating.
+ *
+ * Capping it means the feet no longer keep up with the ground at a sprint.
+ * That is the right trade: nobody looks at the feet of a figure crossing the
+ * screen, and everybody notices a body bouncing like a pneumatic drill.
+ */
+export const CYCLE_CAP = 2 * WALK_SPEED;
+
+/**
+ * How fast somebody on foot turns to face a new direction, in radians a second.
+ *
+ * @remarks
+ * The keys give eight directions and nothing in between, so a figure that
+ * faced them exactly snapped through forty-five degrees at a time. Turning at
+ * a rate instead costs a tenth of a second and is the difference between a
+ * person changing direction and a sprite being replaced.
+ *
+ * Purely how it looks: where the feet actually go is still the keys.
+ */
+export const FOOT_TURN = 14;
 
 /** Below this speed the wheel does nothing - a standing car cannot steer. */
 export const CAR_TURN_FLOOR = 30;
@@ -1581,6 +1712,8 @@ export type Cop = {
   readonly angle: number;
   /** How far they have walked, for the walk cycle. */
   readonly walked: number;
+  /** How fast they are going, as a share of an ordinary walk. */
+  readonly pace: number;
   /** From zero to {@link COP_HEALTH}. */
   readonly health: number;
   /** What he carries, and what falls out of his hand when he goes down. */
@@ -1690,6 +1823,23 @@ export type Pickup = {
    * dispenser - and whatever falls out of a dead man's hand is his, once.
    */
   readonly again: boolean;
+};
+
+/**
+ * One black mark on the tarmac, where a tyre was dragged rather than rolled.
+ *
+ * @remarks
+ * Four numbers and no owner: once it is down it belongs to the road, not to
+ * the car that made it. They are not saved - a stored game full of last
+ * afternoon's skid marks would be a bigger file for nothing.
+ */
+export type Mark = {
+  readonly x: number;
+  readonly y: number;
+  /** Which way the tyre was pointing, in radians. */
+  readonly angle: number;
+  /** The clock reading it was laid at, for fading it out again. */
+  readonly at: number;
 };
 
 /**

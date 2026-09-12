@@ -38,6 +38,19 @@ import {
   ACK_REPAIR,
   ACK_SIZE,
   ACK_SPEED,
+  CYCLE_CAP,
+  FOOT_TURN,
+  GRIP_BRAKE,
+  GRIP_PUSH,
+  HAND_DRAG,
+  HAND_GRIP,
+  HAND_LOCK,
+  HAND_TURN,
+  MARK_EVERY,
+  MARK_LIFE,
+  MARK_MAX,
+  SLIP_SMOKE,
+  LOOSE_DRAG,
   TANK_HITS,
   TOW_GAP,
   TOW_REACH,
@@ -174,6 +187,7 @@ import {
   type Car,
   type Cell,
   type Cop,
+  type Mark,
   type GameState,
   type Input,
   type Job,
@@ -238,6 +252,8 @@ export function step(state: GameState, input: Input, dt: number): GameState {
     next = shoot(next, input, slice);
     next = runTrain(next, slice);
     next = moveTraffic(next, slice);
+    next = rollLoose(next, slice);
+    next = layMarks(next, input);
     next = towAlong(next);
     next = movePeople(next, slice);
     next = gangFire(next);
@@ -509,6 +525,7 @@ function robber(state: GameState, out: Vec, at: number, way: number): Person {
     scaredAt: state.time + ESCAPE_PANIC,
     look: at,
     walked: 0,
+    pace: 0,
     kind: "robber",
     holds: null,
     health: KINDS.robber.health,
@@ -617,6 +634,7 @@ function convict(state: GameState, at: number, way: number): Person {
     scaredAt: state.time + ESCAPE_PANIC,
     look: at,
     walked: 0,
+    pace: 0,
     kind: "convict",
     holds: null,
     health: KINDS.convict.health,
@@ -749,6 +767,110 @@ function hitchOrder(state: GameState): GameState {
     };
   }
   return next;
+}
+
+/**
+ * The black marks a dragged tyre leaves on the road.
+ *
+ * @param state - the city
+ * @returns it, with a fresh pair under every car that is sliding
+ * @remarks
+ * Laid by whatever is sliding, player or not - a patrol car that loses the
+ * back end in a corner leaves the same two lines. Every twentieth of a second,
+ * because that is close enough at road speed that the dots run into a line,
+ * and the oldest are dropped once there are five hundred of them.
+ *
+ * They are the one thing in the game that outlives what made them, and they do
+ * it the cheap way: a point, an angle and a time. Nothing owns them, nothing
+ * updates them, and they fade out on the clock.
+ */
+function layMarks(state: GameState, input: Input): GameState {
+  let next = state;
+  if (state.time >= state.markAt) {
+    const fresh: Mark[] = [];
+    for (const car of state.cars) {
+      const shape = VEHICLES[car.body];
+      // Either the tyres are being dragged sideways, or they are locked and
+      // being dragged forwards. Both leave the same line, and the second is
+      // what the handbrake does in a straight line.
+      const sliding = Math.abs(car.slip) > SLIP_SMOKE;
+      const locked =
+        car.id === state.player.car &&
+        input.lift &&
+        Math.abs(car.speed) > MARK_CRAWL;
+      if ((sliding || locked) && car.health > 0) {
+        const back = -shape.length * WHEEL_BACK;
+        const side = shape.width * WHEEL_SIDE;
+        for (const wheel of [-1, 1]) {
+          fresh.push({
+            x:
+              car.x +
+              Math.cos(car.angle) * back -
+              Math.sin(car.angle) * side * wheel,
+            y:
+              car.y +
+              Math.sin(car.angle) * back +
+              Math.cos(car.angle) * side * wheel,
+            angle: car.angle,
+            at: state.time,
+          });
+        }
+      }
+    }
+    const kept = [...state.marks, ...fresh].filter(
+      (mark) => state.time - mark.at < MARK_LIFE,
+    );
+    next = {
+      ...state,
+      marks: kept.slice(Math.max(0, kept.length - MARK_MAX)),
+      markAt: state.time + MARK_EVERY,
+    };
+  }
+  return next;
+}
+
+/** Below this, locked wheels only scuff rather than mark, in pixels a second. */
+const MARK_CRAWL = 40;
+
+/** How far back the rear wheels sit, as a share of the length. */
+const WHEEL_BACK = 0.3;
+
+/** And how far out to the side, as a share of the width. */
+const WHEEL_SIDE = 0.42;
+
+/**
+ * Cars with nobody at the wheel, rolling to a stop.
+ *
+ * @param state - the city
+ * @param dt - seconds since the last step
+ * @returns it, with everything that was shoved that much further along
+ * @remarks
+ * A parked car knocked aside by a tank used to be given a speed that nothing
+ * ever read: the traffic step moves traffic, the chase step moves patrol cars,
+ * and a parked car was nobody's business. So it sat there at two hundred and
+ * sixty pixels a second, in the same place, for ever. This is the step that
+ * was missing - and it is also what makes the shove worth having, because a
+ * car that is shoved ends up across the road rather than where it was.
+ */
+function rollLoose(state: GameState, dt: number): GameState {
+  let touched = false;
+  const cars = state.cars.map((car) => {
+    const loose =
+      !car.driven &&
+      car.kind === "parked" &&
+      car.hitched === null &&
+      car.speed !== 0;
+    let after = car;
+    if (loose) {
+      touched = true;
+      const pace =
+        Math.sign(car.speed) *
+        Math.max(0, Math.abs(car.speed) - LOOSE_DRAG * dt);
+      after = { ...car, ...slideCar(state.cells, car, car.angle, pace, dt) };
+    }
+    return after;
+  });
+  return touched ? { ...state, cars } : state;
 }
 
 /**
@@ -1246,6 +1368,7 @@ function throwOut(state: GameState, car: Car): GameState {
       y: car.y + Math.cos(car.angle) * CAR_WIDTH * side,
       angle: car.angle,
       walked: 0,
+      pace: 0,
       health: COP_HEALTH,
       holds: COP_ARMS[(car.id + seat) % COP_ARMS.length] ?? "pistol",
       reloadAt: state.time + COP_RELOAD,
@@ -1322,14 +1445,19 @@ function walk(state: GameState, input: Input, dt: number): GameState {
   const looking =
     input.aim.x === 0 && input.aim.y === 0 ? state.player.angle : aimed;
   const went = Math.hypot(moved.x - state.player.x, moved.y - state.player.y);
+  // The feet turn towards the keys rather than onto them: eight directions
+  // snapped through is a sprite changing, not somebody turning.
+  const facing = length === 0 ? state.player.heading : Math.atan2(dy, dx);
+  const swung = turnToward(state.player.heading, facing, FOOT_TURN * dt);
   const walked: GameState = {
     ...state,
     player: {
       ...state.player,
       ...moved,
       angle: looking,
-      heading: length === 0 ? state.player.heading : Math.atan2(dy, dx),
+      heading: swung,
       walked: stridden(state.player.walked, went, dt),
+      pace: dt === 0 ? 0 : went / dt / WALK_SPEED,
       movedAt: went > 0 ? state.time : state.player.movedAt,
     },
   };
@@ -1458,10 +1586,24 @@ const KNOCK_BACK = 9;
  * point where the feet are together and stops there. Walking into a wall counts
  * as standing, because the feet are not going anywhere either.
  */
+function turnToward(from: number, want: number, most: number): number {
+  const away = angleTo(from, want);
+  return from + Math.max(-most, Math.min(most, away));
+}
+
+/**
+ * How far the cycle has run, which is a distance rather than a time.
+ *
+ * @param walked - how far it had walked before
+ * @param went - how far it moved this step, in pixels
+ * @param dt - how much time that took, in seconds
+ * @returns the new reading of the cycle
+ */
 function stridden(walked: number, went: number, dt: number): number {
   let next: number;
   if (went > 0) {
-    next = walked + went;
+    // Distance drives the cycle, but only up to a point - see CYCLE_CAP.
+    next = walked + Math.min(went, CYCLE_CAP * dt);
   } else {
     const half = STRIDE / 2;
     const rest = Math.round(walked / half) * half;
@@ -1487,17 +1629,37 @@ function drive(state: GameState, input: Input, dt: number): GameState {
     // A wreck has no engine left. The brake still works, and so does the drag:
     // it rolls out and then stands there, which is the moment to get out.
     const dead = car.health <= 0;
+    // The space bar: on foot it is the jetpack, behind a wheel it is the
+    // handbrake. Locked back wheels slow the car and, more to the point, stop
+    // holding it in line - see the grip below.
+    const hand = input.lift && !dead;
+    const held = hand
+      ? Math.sign(car.speed) * Math.max(0, Math.abs(car.speed) - HAND_DRAG * dt)
+      : car.speed;
     const push =
       (input.up && !dead ? shape.accel * boost : 0) -
       (input.down ? CAR_BRAKE : 0);
-    const drag = Math.sign(car.speed) * CAR_DRAG;
-    const raw = car.speed + (push - (input.up || input.down ? 0 : drag)) * dt;
+    const drag = Math.sign(held) * CAR_DRAG;
+    const raw = held + (push - (input.up || input.down ? 0 : drag)) * dt;
     const speed = Math.max(-top / 2, Math.min(top, raw));
-    const grip = Math.min(1, Math.abs(speed) / CAR_TURN_FLOOR);
+    // A standing car does not steer: the wheel turns the tyres, and tyres that
+    // are not rolling turn nothing.
+    // With the back end locked the wheel works at a crawl and bites harder -
+    // which is what lets a car turn on its own axle instead of driving a
+    // circle around itself.
+    const floor = CAR_TURN_FLOOR * (hand ? HAND_LOCK : 1);
+    const rolling = Math.min(1, Math.abs(speed) / floor);
     const turn = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    const angle =
-      car.angle + turn * shape.turn * grip * Math.sign(speed || 1) * dt;
-    const moved = slideCar(state.cells, car, angle, speed, dt);
+    const rate = shape.turn * (hand ? HAND_TURN : 1);
+    const swing = turn * rate * rolling * Math.sign(speed || 1) * dt;
+    // What the tyres can hold sideways this step. On the brakes they bite; on
+    // the throttle they let go a little, which is why one can bring the back
+    // round by going faster and straighten it by braking.
+    const bite =
+      shape.grip *
+      (hand ? HAND_GRIP : input.down ? GRIP_BRAKE : input.up ? GRIP_PUSH : 1);
+    const moved = rollCar(state.cells, car, swing, speed, bite, dt);
+    const angle = moved.angle;
     // The turret looks where the mouse looks, not where the tracks point.
     // Straight away rather than swinging round: the shell is meant to land on
     // the crosshair, and a turret that lags puts it somewhere else.
@@ -1555,6 +1717,64 @@ function slideCar(
   const went = Math.hypot(moved.x - car.x, moved.y - car.y);
   const blocked = speed !== 0 && went < Math.hypot(dx, dy) / 2;
   return { ...moved, speed: blocked ? 0 : speed };
+}
+
+/**
+ * One step of a vehicle that has tyres on it.
+ *
+ * @param cells - the city floor
+ * @param car - the vehicle as it stands
+ * @param swing - how far the nose turns this step, in radians
+ * @param speed - what it is doing along its nose after the pedals
+ * @param bite - how quickly the tyres pull a slide straight, in shares a
+ *   second
+ * @param dt - seconds since the last step
+ * @returns where it ends up, which way it points, and what it is now doing
+ *   along and across itself
+ * @remarks
+ * The whole driving model, and it is six lines of arithmetic.
+ *
+ * Turning the nose does **not** turn what the car is already doing. The same
+ * movement, read in the new direction, has a sideways part - so every degree
+ * of steering at speed feeds the slide. The tyres then eat that sideways part
+ * at whatever the body grips at. Eat it faster than the wheel feeds it and the
+ * car simply follows its nose, which is what happens at sensible speeds; eat
+ * it slower and the thing is drifting.
+ *
+ * That is why nothing in here says "drift". A drift is what it looks like when
+ * the second number wins.
+ */
+function rollCar(
+  cells: readonly Cell[],
+  car: Car,
+  swing: number,
+  speed: number,
+  bite: number,
+  dt: number,
+): { x: number; y: number; angle: number; speed: number; slip: number } {
+  const angle = car.angle + swing;
+  const forward = speed * Math.cos(swing) + car.slip * Math.sin(swing);
+  const across = -speed * Math.sin(swing) + car.slip * Math.cos(swing);
+  // The tyres pull the slide straight at a rate, not by a fixed amount: how
+  // far sideways the car ends up settles where the steering feeds it in as
+  // fast as the tyres take it out. A fixed amount made it all or nothing -
+  // one notch of grip either killed every slide or let the car spin.
+  const slip = across * Math.exp(-bite * dt);
+  const side = angle + Math.PI / 2;
+  const dx = (Math.cos(angle) * forward + Math.cos(side) * slip) * dt;
+  const dy = (Math.sin(angle) * forward + Math.sin(side) * slip) * dt;
+  const moved = slide(cells, car, dx, dy);
+  // Stopped dead rather than merely scraping along a wall: whatever got less
+  // than half the way it wanted hit something head on, and a car that hits a
+  // wall keeps neither its speed nor its slide.
+  const went = Math.hypot(moved.x - car.x, moved.y - car.y);
+  const hit = forward !== 0 && went < Math.hypot(dx, dy) / 2;
+  return {
+    ...moved,
+    angle,
+    speed: hit ? 0 : forward,
+    slip: hit ? 0 : slip,
+  };
 }
 
 /**
@@ -2651,6 +2871,7 @@ function walkPerson(
       mood: foe === null && scare ? "fleeing" : "walking",
       turnAt: turning || stuck ? state.time + PERSON_TURN_EVERY : person.turnAt,
       walked: stridden(person.walked, went, dt),
+      pace: dt === 0 ? 0 : went / dt / WALK_SPEED,
     };
   }
   return { person: next, rng: state2 };
@@ -3162,6 +3383,7 @@ function unload(state: GameState, car: Car): GameState {
       y: car.y + Math.cos(car.angle) * CAR_WIDTH * side,
       angle: car.angle,
       walked: 0,
+      pace: 0,
       health: COP_HEALTH,
       holds: COP_ARMS[(car.id + door) % COP_ARMS.length] ?? "pistol",
       reloadAt: state.time + COP_RELOAD,
@@ -3281,6 +3503,7 @@ function walkCop(state: GameState, cop: Cop, dt: number): Cop {
     ...moved,
     angle,
     walked: cop.walked + step,
+    pace: dt === 0 ? 0 : step / dt / WALK_SPEED,
     boardAt: atDoor ? (cop.boardAt ?? state.time + BOARD_SECONDS) : null,
   };
 }
@@ -3435,6 +3658,7 @@ function callPolice(state: GameState): GameState {
         body,
         shells: 0,
         hitched: null,
+        slip: 0,
         x: spot.x,
         y: spot.y,
         angle,
@@ -3626,13 +3850,20 @@ function chase(state: GameState, car: Car, dt: number): Car {
     state.player.car === null && far(car, state.player) < COP_STOP;
   if (car.health <= 0) {
     // A wrecked patrol car chases nobody; it rolls to a stop like any other.
-    next = car.speed === 0 ? car : { ...car, speed: car.speed * WRECK_ROLL };
+    next =
+      car.speed === 0
+        ? car
+        : {
+            ...car,
+            speed: car.speed * WRECK_ROLL,
+            slip: car.slip * WRECK_ROLL,
+          };
   } else if (car.crew === 0) {
     // Nobody at the wheel: the men are out on the pavement, or were shot
     // there. Either way this car waits for them.
-    next = car.speed === 0 ? car : { ...car, speed: 0 };
+    next = car.speed === 0 ? car : { ...car, speed: 0, slip: 0 };
   } else if (holding) {
-    next = car.speed === 0 ? car : { ...car, speed: 0 };
+    next = car.speed === 0 ? car : { ...car, speed: 0, slip: 0 };
   } else if (state.player.stars > 0 && near(state.player, car)) {
     const straight = Math.atan2(state.player.y - car.y, state.player.x - car.x);
     const want = steerRound(state.cells, car, straight, DRIVE_LOOK);
@@ -3640,12 +3871,20 @@ function chase(state: GameState, car: Car, dt: number): Car {
       -CAR_TURN * dt,
       Math.min(CAR_TURN * dt, angleTo(car.angle, want)),
     );
-    const angle = car.angle + turn;
     const speed = Math.min(POLICE_TOP_SPEED, car.speed + CAR_ACCEL * dt);
-    const moved = slideCar(state.cells, car, angle, speed, dt);
-    next = { ...car, ...moved, angle };
+    // Their tyres are the same tyres: a patrol car that took a corner on rails
+    // while the player's identical saloon slid would be two different games.
+    const moved = rollCar(
+      state.cells,
+      car,
+      turn,
+      speed,
+      VEHICLES[car.body].grip * GRIP_PUSH,
+      dt,
+    );
+    next = { ...car, ...moved };
   } else if (car.speed !== 0) {
-    next = { ...car, speed: 0 };
+    next = { ...car, speed: 0, slip: 0 };
   }
   return next;
 }
@@ -3726,7 +3965,7 @@ function inCar(state: GameState, car: Car): GameState {
       next = {
         ...next,
         cars: next.cars.map((each) =>
-          each.id === other.id ? { ...each, speed: 0 } : each,
+          each.id === other.id ? { ...each, speed: 0, slip: 0 } : each,
         ),
       };
     }
@@ -3798,6 +4037,7 @@ function fling(state: GameState, car: Car, hit: readonly Car[]): GameState {
             ...each,
             angle: Math.atan2(each.y - car.y, each.x - car.x),
             speed: RAM_FLING,
+            slip: 0,
           }
         : each,
     ),
