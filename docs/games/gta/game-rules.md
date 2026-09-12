@@ -82,7 +82,8 @@ Und weil ein Cheat zu nichts Nein sagen soll:
   999.999 € und füllt sich nach jedem Einkauf wieder auf.
 - **Streifenwagen halten dich nicht auf.** Wer im Cheat in einen fährt, schleudert
   ihn zur Seite und fährt mit unverminderter Geschwindigkeit weiter - ohne
-  Rückprall, ohne Zwangspause und ohne den Stern fürs Rammen.
+  Rückprall, ohne Zwangspause und ohne den Stern fürs Rammen. Im **Panzer**
+  geht das Wegschieben auch ohne Cheat, nur der Stern fällt dann an.
 - **Der Jetpack ist dabei.** Sobald der Cheat einmal an war, hast du ihn -
   Leertaste halten und los.
 
@@ -414,6 +415,12 @@ wäre. Danach bleiben knapp fünf Sekunden bis zur Explosion.
 **Einen anderen Panzer nicht.** Der braucht **drei Treffer**, bis er brennt -
 die ersten beiden sind Löcher. Sonst wäre ein Duell zwischen zwei Panzern nur
 die Frage, wer zuerst abdrückt.
+
+**Der Panzer schiebt alles weg**, und dafür braucht es keinen Cheat: Wer im
+Panzer in ein Fahrzeug fährt, schleudert es zur Seite und fährt mit
+unverminderter Geschwindigkeit weiter - kein Rückprall, keine Zwangspause.
+Einen Streifenwagen so beiseitezuräumen bleibt trotzdem Rammen und kostet den
+üblichen Stern; nur im Cheat-Modus zählt auch das nicht.
 
 ## Waffen
 

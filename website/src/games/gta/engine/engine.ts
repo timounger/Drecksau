@@ -3708,13 +3708,16 @@ function inCar(state: GameState, car: Car): GameState {
             far(other, car) < bodyRadius(car.body) + bodyRadius(other.body) &&
             (hitting || Math.abs(other.speed) > CRASH_FLOOR),
         );
-  if (crashed.length > 0 && state.player.god) {
-    // The cheat drives through them. Whatever was in the way is thrown off
-    // along its own bonnet and the player does not lose a mile an hour: being
-    // stopped by a road block is the one thing a cheat has to answer for.
+  // Two ways through a car: the cheat, and sixty tonnes of tank. Both throw
+  // whatever was in the way off along its own bonnet and carry on at the same
+  // speed - a tank that is stopped by a parked hatchback is not a tank.
+  const shoving = state.player.god || car.body === "tank";
+  if (crashed.length > 0 && shoving) {
     next = fling(next, car, crashed);
+    // The cheat answers to nobody; a tank still does. Shoving a patrol car
+    // aside is ramming it, and the law counts it as such.
+    next = state.player.god ? next : ramStar(next, state, car, crashed);
   } else if (crashed.length > 0) {
-    const police = crashed.some((other) => other.kind === "police");
     // **No bodywork changes hands.** Cars stop each other and bounce apart,
     // and that is all: driving is how one gets about this city, and a game
     // that writes the car off over a few kerbs makes getting about the game.
@@ -3736,24 +3739,43 @@ function inCar(state: GameState, car: Car): GameState {
       ),
       player: { ...next.player, crashUntil: state.time + CRASH_PAUSE },
     };
-    // A star for ramming a patrol car - but only when the player was the
-    // faster of the two, and not again within a few seconds. Without both,
-    // being surrounded by police was a machine for making stars: they drove
-    // into the player, the player got the star, and the cool-off never began.
-    const rammed = crashed.some(
-      (other) =>
-        other.kind === "police" && Math.abs(car.speed) > Math.abs(other.speed),
-    );
-    next =
-      police && rammed && state.time >= state.player.rammedUntil
-        ? {
-            ...wanted(next, 1, "Streifenwagen gerammt"),
-            player: {
-              ...wanted(next, 1, "Streifenwagen gerammt").player,
-              rammedUntil: state.time + RAM_PAUSE,
-            },
-          }
-        : next;
+    next = ramStar(next, state, car, crashed);
+  }
+  return next;
+}
+
+/**
+ * The star for ramming a patrol car.
+ *
+ * @param state - the city, with the crash already settled
+ * @param before - the city as it was when the crash was found
+ * @param car - the one the player is driving
+ * @param crashed - what it ran into
+ * @returns the city, one star worse off if that is what happened
+ * @remarks
+ * Only when the player was the faster of the two, and not again within a few
+ * seconds. Without both, being surrounded by police was a machine for making
+ * stars: they drove into the player, the player got the star, and the cool-off
+ * never began.
+ */
+function ramStar(
+  state: GameState,
+  before: GameState,
+  car: Car,
+  crashed: readonly Car[],
+): GameState {
+  const rammed = crashed.some(
+    (other) =>
+      other.kind === "police" && Math.abs(car.speed) > Math.abs(other.speed),
+  );
+  const fresh = before.time >= before.player.rammedUntil;
+  let next = state;
+  if (rammed && fresh) {
+    const booked = wanted(state, 1, "Streifenwagen gerammt");
+    next = {
+      ...booked,
+      player: { ...booked.player, rammedUntil: before.time + RAM_PAUSE },
+    };
   }
   return next;
 }

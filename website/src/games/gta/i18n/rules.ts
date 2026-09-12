@@ -40,6 +40,7 @@ export const GTA_RULES: GameRules = {
         "Oben links liegt Bauernland mit Feldern, Scheunen und Traktoren - der Traktor hat eine Anhängerkupplung und kann andere Fahrzeuge abschleppen. Unten links steht ein Berg, auf den ein Feldweg hinaufführt.",
         "Tag und Nacht sind standardmäßig aus. In den Einstellungen kann man sie anschalten - dann läuft oben rechts eine Uhr, nachts wird es dunkel, und zum Sonnenauf- und -untergang liegt die Stadt in Orange. Ein ganzer Tag dauert 24 Minuten.",
         "Wer umkommt, lässt sein Geld liegen - vom Passanten 60 Euro, vom Snob 260. Penner haben nichts, Polizisten tragen keins bei sich.",
+        "Im Panzer schiebt man jedes Fahrzeug einfach zur Seite und fährt ohne Tempoverlust weiter - dafür braucht es keinen Cheat.",
         "Der Panzer ist kaum kaputtzukriegen und hat als einziges Fahrzeug eine Kanone: Aus ihm heraus wird geschossen, und zwar dorthin, wo er zeigt. Es gibt genau einen, und der steht hinter dem Zaun des Militärgeländes in der Wüste - wer dort hineingeht, hat sofort sechs Sterne und zehn bewaffnete Wachen am Hals. Der andere Weg zu einem Panzer ist, ihn der Polizei wegzunehmen, die bei sechs Sternen selbst einen schickt.",
       ],
     },
