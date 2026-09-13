@@ -253,11 +253,203 @@ orthografischen Kamera täte - nur von Hand:
    mit den Rädern auf der Straße**, die **Karosserie oben auf den Wänden**.
    Geschnitten wird mit derselben Silhouette (der Ring: Rand minus Silhouette
    nach der Even-Odd-Regel), nicht mit Rechtecken - sonst bliebe die verjüngte
-   Nase der Motorhaube unten auf der Straße liegen.
+   Nase der Motorhaube unten auf der Straße liegen. Das Loch im Ring ist dabei
+   **etwas größer als die Karosserie** (`RING_BITE`): Das Draufsicht-Bild
+   umrandet die Silhouette mit einem Stift, der auf der Kante sitzt, und die
+   äußere Hälfte dieser Linie ist alles, was vom Ring übrig bleibt - ein
+   schwarzer Umriss des Autos, flach auf der Straße, der von der Seite als
+   **gerader Strich unter den Schwellern** zu sehen war.
 
 Eine Engine bekommt Punkt 3 geschenkt, weil ein Rad dort ein Ding auf einer
 Höhe ist und nicht ein paar Pixel in einem Bild. Der Rest ist in beiden Welten
 dieselbe Arbeit.
+
+**Der normale Wagen ist ein Golf VIII**, und er hat einen eigenen Satz Wände
+(`golfWall`) statt der Limousine mit anderen Zahlen. Der Grund ist die Form:
+Das Auto auf den Werkszeichnungen ist keine Limousine. Was stimmen muss, in der
+Reihenfolge, in der man es bemerkt:
+
+- **Schrägheck.** Die Kabine reicht bis fast an die Stoßstange und endet in
+  einer steilen Klappe mit Spoiler darüber. `cabinBack` von -9,6 auf -17: diese
+  eine Zahl ist der halbe Wiedererkennungswert.
+- **Lichtbalken über der Nase.** Zwei schmale Leuchten und ein dunkler Streifen
+  dazwischen, quer durch, Zeichen in der Mitte. Das Band ist das, was von vorn
+  Golf sagt; darunter der breite dunkle Lufteinlass und die Ecklüfter.
+- **Das Heck ist nicht die Front mit roten Birnen.** Die Leuchten sitzen hoch
+  und breit, direkt unter der Scheibe am oberen Rand der Klappe, jede ein
+  schmaler Balken, der um die Ecke auf die Flanke läuft - deshalb sieht man von
+  der Seite beide Enden leuchten. **Dazwischen ist nichts**: Die Klappe ist
+  lackiertes Blech mit dem Zeichen darauf, der dunkle Balken gehört der Front.
+  Darunter eine rote Linie über der Stoßstange, das Kennzeichen tief in der
+  Mitte, und ganz unten die dunkle Schürze mit je einem hellen Endrohr.
+- **Die Scheiben laufen durch.** Die Fasen an den Ecken der Kabine bekommen
+  nicht die Wagenfarbe, sondern die Farbe der Säulen: Lackiert steht zwischen
+  Windschutzscheibe und Türscheibe ein farbiger Streifen, und so etwas hat
+  dieses Auto nicht - das Glas läuft in einem Stück um die Ecke.
+- **Die Türgriffe** auf Schulterhöhe. Den Knick, auf dem sie sitzen, gibt es
+  nicht mehr: Bei dieser Größe ist eine Linie über die ganze Flanke keine
+  Sicke, sondern ein Streifen, der um das Auto herum gemalt ist.
+
+- **Runde Ecken.** Vier Ecken geben vier Wände und vier rechte Winkel, und von
+  oben ist das eine Schuhschachtel, so sorgfältig die Flanken auch gemalt sind.
+  `bodyOutline` liefert für dieses Auto deshalb **zwölf** Ecken - drei je
+  Kante -, und `panels` zieht aus jeder eine Wand hoch. Welche Wand welche ist,
+  wird **aus der Form gelesen** statt in Reihenfolge abgezählt - zeigt die
+  Außenseite einer Kante überwiegend längs, ist es ein Ende, überwiegend quer,
+  eine Flanke, alles dazwischen eine Fase.
+
+- **Jede Kante bekommt ihr Stück des Bildes, nicht das ganze.** Ein Wandbild
+  wird für die **volle** Länge bzw. Breite des Fahrzeugs gemalt. Die vier
+  Fasen, die längs zeigen, zählen aber ebenfalls als Flanke - und wer jeder von
+  ihnen das ganze Bild aufzieht, quetscht ein komplettes Auto aus Türen, Rädern
+  und Stoßstangen in zwei Pixel. Genau das war der **schwarze Balken, der vorn
+  und hinten neben den Reifen auf der Straße stand**, sobald man ein Auto von
+  der Seite sah. `wallFaces` gibt deshalb zu jeder Kante zusätzlich `start` und
+  `end` - wo sie über dem Bild liegt, null bis eins -, und `panels` stempelt mit
+  `drawImage` genau diesen Ausschnitt. Damit stimmt der Maßstab an jeder Kante:
+  Drei Pixel Fase zeigen drei Pixel Auto.
+
+**Die Zahlen sind gemessen, nicht geschätzt.** Zu diesem Auto gibt es ein
+3D-Modell (`game_instructions/vw-golf-mk8-gti-2022.stl`, 446 809 Dreiecke). Aus
+dem lässt sich jede Zahl dieses Abschnitts ablesen, statt sie aus Fotos zu
+raten: Die Dreiecke werden auf die drei Ebenen projiziert und so skaliert, dass
+der Wagen 44 Pixel lang ist, dann liest man das Dachprofil Scheibe für Scheibe
+ab. Die Gegenprobe ist der Radstand - gemessen 26,4 Pixel, laut Datenblatt
+2620 von 4284 Millimetern, also 26,9. Wer so nah liegt, hat die richtige Achse
+erwischt.
+
+Zwei Werte waren daraufhin grob falsch:
+
+- **Die Scheibe liegt zwölf Pixel zurück, nicht fünf.** Eine moderne
+  Windschutzscheibe ist ein Viertel der ganzen Draufsicht. Geraten hatte ich
+  ein Drittel davon.
+- **Die Kabine ist viel schmaler als der Wagen**, 14,6 gegen 18,4 - das Dach
+  eines Golf ist drei Viertel so breit wie seine Schulter. Gezeichnet war sie
+  fast so breit wie die Karosserie.
+
+**Das Heck ist aus dem Werksfoto ausgemessen** (`Golf-8-hinten.webp`), und
+zwar in Anteilen: Der Boden des Fotos ist null, die Schulterlinie ist eins, und
+jede Kante wird als Bruchteil dieser Strecke abgelesen. Drei Dinge waren falsch:
+
+- **Die Rückleuchte ist ein Flügel, kein Klotz.** Außen ist sie tief
+  (0,169 der Wandhöhe), nach innen läuft sie auf ein abgerundetes Ende zu, das
+  noch gut halb so hoch ist, und sie endet bei 0,444 der halben Breite. Als
+  zwei gleich hohe Rechtecke gezeichnet sieht das Heck aus wie eine Limousine.
+
+- **Die Heckklappe hat einen Umriss, und die Leuchte liegt darin.** Die
+  Schattenfuge läuft neben der Scheibe herunter, **quer durch die Leuchte** bei
+  0,77 der halben Breite, und biegt deutlich unter dem Emblem quer über den
+  Wagen (`GOLF_HATCH`, `GOLF_LID_SIDE`, `GOLF_LID_FOOT`). Ohne sie ist das Heck
+  eine leere Platte und die Leuchten wirken aufgeklebt statt zur Hälfte im
+  Deckel zu sitzen.
+
+- **Keine Reflektorleiste auf dem Stoßfänger.** Der Wagen hat eine, eine
+  Handbreit unter der Fuge - und eine Handbreit sind hier ein Pixel. Gezeichnet
+  verschmierte sie genau die eine Linie, an der man die Klappe erkennt.
+
+**Und der Wagen steht niedriger.** `tall` war mit 15,3 die wahre Höhe im
+Maßstab des Modells, nur wird in dieser Projektion der Boden mit `DEPTH` (0,82)
+gestaucht und die Höhe nicht - also stand das Auto höher über seinem eigenen
+Grundriss, als es das in Wirklichkeit tut, und sah von der Seite aus wie ein
+Kastenwagen. Jetzt sind `tall` und `belt` um denselben Faktor gestaucht wie der
+Grundriss (12,6 und 8,9), und `GOLF_TYRE` ist entsprechend nachgezogen, damit
+das Rad nicht mitschrumpft.
+
+**Das Rad ist zu sieben Zehnteln Felge.** Gemessen wird es, indem man das
+Vorderrad in dünne Scheiben schneidet und zusieht, wie die Sehne wächst: Der
+Reifen kommt auf sieben Pixel bei 44 Pixel Wagenlänge, also 680 Millimeter -
+und die Speichenenden und das Felgenhorn sitzen bei 0,7 des Radius, was einer
+18-Zoll-Felge entspricht. Gezeichnet war es andersherum, ein kleiner silberner
+Nabendeckel in einer schwarzen Scheibe, und damit fuhr die ganze Stadt auf
+Vollgummi. Jetzt ist das Schwarz ein Band am Rand, darin liegt das dunkle
+Felgenbett, und darüber fünf helle Speichen, das Horn und die Nabe
+(`WHEEL_RIM`, `WHEEL_SPOKES`). Davon profitiert jedes Fahrzeug, das `wheelAt`
+benutzt, nicht nur der Golf.
+
+**Über der Frontscheibe stand ein zweiter schwarzer Balken.** Die Scheibe hörte
+0,7 Pixel vor der Oberkante ihrer Wand auf, und in diesem Streifen lag die
+Lackfarbe mit je einer schwarzen Linie darüber und darunter - gedacht als
+Dachrahmen, gezeichnet als Balken. Ein Dachrahmen ist an einem Auto eine
+Handbreit Blech, hier also nichts: Die Scheibe läuft jetzt bis an die Dachkante
+durch, genau wie sie seitlich schon bis an die Kanten läuft.
+
+**Die Glühpunkte sitzen da, wo die Leuchte gemalt ist.** `LAMP_HIGH_OF` galt für
+beide Enden, und die Rückleuchten eines Golf sitzen eine halbe Bordwand höher
+als die Scheinwerfer - der rote Punkt schwebte also unter der Leuchte im
+Kofferraumdeckel. Es gibt jetzt `LAMP_BACK_OF` für das Heck, und `TAIL_GLOW`
+ist kleiner: Durch einen Lichtklecks von doppelter Leuchtengröße sieht man
+weder den Flügel noch die Fuge.
+
+Und drei Kleinigkeiten, die erst im Bild auffielen:
+
+- **Der Spiegel gehört in die Draufsicht, nicht an die Flanke.** Laut Mesh sitzt
+  er bei x 4,8 bis 6,8 mit der Mitte auf der Schulterlinie - und die
+  Schulterlinie ist die Oberkante des Flankenbildes. Alles, was dort gezeichnet
+  wird, steht über der Motorhaube davor wie eine Antenne.
+- **Die A-Säule wird in Wagenfarbe gezogen, nicht in Tinte.** Der Rand des
+  Kabinenbildes _ist_ die Säule; schwarz gestrichelt liest sie sich von der
+  Seite als Mast aus der Haube.
+- **Das Rad hat 7 Pixel Durchmesser.** Aus den Seitenwandpunkten des Mesh einen
+  Kreis gefittet: bei z = 1,75 ist die Sehne 3,06 breit, was auf r = 3,5 führt.
+  Der Radlauf ist entsprechend weiter, damit der Reifen ihn auch ausfüllt.
+
+Dazu kam die Breite selbst: 4284 zu 1789 Millimeter sind 44 zu **18,4** Pixel,
+nicht 44 zu 24. Die 24 waren eine Schätzung und der Grund, warum das Auto wie
+ein Kastenwagen aussah. Rad (6,6 Pixel Durchmesser), Radstand, Schwellerhöhe
+und Schulterlinie kommen aus derselben Messung.
+
+Was der Schrägsicht nicht beizubringen ist: Die Kamera steht fast senkrecht,
+also ist das Dach eine große Fläche und die Flanke ein schmales Band. Die
+Silhouette aus der Seitenansicht kann dieses Bild nicht zeigen - was es zeigen
+kann, sind die Kanten, die Rundungen und die Lichter, und die sind es.
+
+**Eine Windschutzscheibe steht schräg, also steht ihre Wand schräg.** Das Dach
+der Kabine ist kürzer als ihr Boden - so weit, wie die Scheibe sich zurücklegt -
+und die Wand dazwischen war trotzdem senkrecht. Also endete das Dach ein paar
+Pixel vor der Oberkante seiner eigenen Wand, und durch den Schlitz sah man je
+nach Blickwinkel ins Freie. Eine Wand hat jetzt eine eigene **Oberkante**
+(`Storey.lean`): unten die Standfläche, oben die Linie, auf die das Dach
+zugeschnitten ist. Nur die Enden neigen sich; die Flanken nicht, denn in deren
+Bild ist die Schräge beider Scheiben schon eingezeichnet, und geneigt würde sie
+doppelt gezählt.
+
+**Von oben sieht man keine Reifen.** Ein Auto von senkrecht oben ist Blech: Die
+Reifen stehen unter den Radkästen, und zu sehen sind sie nur von der Seite - wo
+sie das Wandbild ohnehin zeichnet. Im Draufsicht-Bild standen sie seitlich über
+die Karosserie hinaus, was von vorn vier freistehende Reifen neben ein Auto mit
+Radkästen stellte und von der Seite unter jedes Rad einen schwarzen Balken legte.
+Beides ist weg, und mit ihm der Grund für den Ring-Durchgang: Was im Bild
+außerhalb der Silhouette liegt, landet auf der Straße - also liegt jetzt nichts
+mehr dort. Spiegel und Rammbügel sind nach innen gerückt.
+
+**Nur der Reifen berührt den Boden.** Schweller und Radkasten hören darüber auf.
+Sie liefen bis auf die Straße herunter, was einen schwarzen Strich unter das
+ganze Auto und quer über jede Aufstandsfläche legte - und ein Reifen mit einem
+dunklen Band über der Aufstandsfläche sieht platt aus.
+
+**Der Traktor ist nach denselben Regeln gebaut.** Seine Wandbilder wurden aus
+einer linken oberen Ecke in ein Bild gezeichnet, dessen Nullpunkt die Mitte der
+Bodenlinie ist: Der Rumpf schwebte, die Kabine saß darunter und die Räder hingen
+über dem Dach. Jetzt hat er wie alle anderen eine Silhouette (`NARROWS`), eine
+Kabine (`cabinOutline`) und Wände, die auf dem Boden stehen. Seine Räder sind die
+einzigen, die von oben zu sehen sind - die stehen bei einem Traktor wirklich
+außen -, und sie beginnen genau an der Silhouette, damit dazwischen keine Straße
+durchblitzt.
+
+**Licht ist keine Farbe, sondern Licht.** Scheinwerfer und Rücklichter werden in
+der Zeichenphase mit `lighter` obendrauf gelegt, nicht ins Sprite gemalt: Ein
+weißer Aufkleber sieht aus wie ein weißer Aufkleber.
+
+**Aber das Glas gehört darunter.** Eine Lampe, die nur aus addiertem Licht
+besteht, wird weiß, so rot sie auch gemalt ist: Ein Rot mit etwas Grün und Blau
+darin, addiert auf eine Farbe, die beides schon hat, sättigt alle drei Kanäle -
+und drei gesättigte Kanäle sind Weiß. Also erst das Glas deckend (`source-over`),
+dann den Hof darum additiv, und der Hof fast reines Rot. Ein Rücklicht, das man
+vom Scheinwerfer nicht unterscheiden kann, ist schlimmer als gar keins. Sie brennen immer - das ist
+nicht Realismus, sondern Lesbarkeit: zwei weiße Punkte und zwei rote sagen aus
+vierzig Metern, wo bei einem vier Pixel großen Ding vorn ist. `Car.braking` sagt,
+wann die roten heller werden; geschrieben wird es dort, wo über das Tempo
+entschieden wird, gelesen nur vom Renderer.
 
 Was sonst noch daran hängt:
 
@@ -280,6 +472,91 @@ Was sonst noch daran hängt:
   zurücklegt - und **das Dach muss mit**: Es endet dort, wo die Scheibe endet,
   nicht dort, wo die Kabine auf dem Blech steht. Sonst ragt es über das Glas
   hinaus. Die Heckscheibe legt sich etwa halb so weit.
+
+## Der Berg ist ein Höhenfeld, keine Schraffur
+
+Es gibt in diesem Bild keine Höhe, also wurde der Berg gezeichnet, wie ein
+Atlas einen zeichnet: eine Lasur, die zur Mitte hin heller wird, mit Ringen
+darauf. Das las sich als beigefarbener Essteller.
+
+Was eine Engine stattdessen tut, tut jetzt auch dieser Renderer: **ein
+Höhenfeld, und Licht darauf.** `heightAt` ist die Form des Bergs - ein Kegel
+mit Kämmen, die daran herunterlaufen, und drei Oktaven Rauschen obendrauf -,
+und jedes Pixel wird danach eingefärbt, wie sein eigenes Stück Hang gegen ein
+Licht von Nordwesten geneigt ist. Kämme und Rinnen entstehen dabei von selbst,
+denn genau das **ist** Schattierung. Nichts daran ist ein Bild von einem Berg;
+es ist ein beleuchteter Berg.
+
+Zwei Dinge, die man dabei lernt:
+
+- **Eine Welle, die um den Berg läuft, hat am Gipfel unendliche Steigung.** Ihre
+  Steigung ist ihre Höhe geteilt durch den Abstand zur Mitte. Auf voller Höhe
+  gehalten malte die Schattierung deshalb einen Stern auf die Bergspitze. Die
+  Kämme wachsen jetzt mit dem Radius mit, dann ist ihre Steigung überall
+  ungefähr gleich.
+- **Die Farbbänder werden gemischt, nicht gestuft.** Gestuft trägt das Rauschen
+  ganze Hangstücke auf einmal über eine Grenze, und der Berg zerfällt in flache
+  Farbinseln - das ist wieder die Höhenschichtkarte.
+
+**Ausgeschnitten nach dem Boden.** Jedes Pixel fragt den Boden, ob es auf Fels
+steht, zwischen den Feldmitten geglättet, und blendet aus, wo nicht. Das ist es,
+was den Bergfuß von der Straße um ihn herum fernhält - die Lasur war eine große
+Ellipse und lag einfach über dem Asphalt - und dasselbe schneidet die Piste in
+den Hang, denn deren Felder sind auch kein Fels.
+
+Einmal in ein Bild gerechnet, und die Höhen zuerst in ein `Float32Array`: Die
+Schattierung braucht zu jedem Pixel auch die vier Nachbarhöhen, und die
+nochmals auszurechnen ist dieselbe Summe fünfmal - bei einem Berg dieser Größe
+zehn Millionen Sinus und ein sichtbares Stocken, wenn man das erste Mal
+vorbeifährt.
+
+## Der Cybertruck ist der Golf rückwärts
+
+Derselbe Kasten, dieselben drei Stockwerke, und trotzdem das Gegenteil - weil
+alles, was den Golf ausmacht, hier **weggelassen** wird:
+
+| Golf                           | Cybertruck                           |
+| ------------------------------ | ------------------------------------ |
+| zwölf Ecken, gefast            | vier Ecken, scharf                   |
+| Radlauf ins Blech geschnitten  | schwarzes Trapez aufgesetzt          |
+| zwei Lampen plus Balken        | ein Balken, durchgehend, beide Enden |
+| Scheiben mit Rahmen und Säulen | eine Scheibe, ein Keil               |
+| Kofferraumdeckel               | offene Ladefläche mit Abdeckung      |
+
+Dazu kommt der Grundriss: Von oben ist dieses Fahrzeug ein **Sechseck** - die
+Nase zieht hart ein, das Heck etwas, und am breitesten ist es über den Rädern.
+Das ist dieselbe Tabelle (`NARROWS`), mit der der Golf beinahe gleich breit
+bleibt, nur andersherum benutzt.
+
+Das Zeichnen eines Cybertruck besteht darin, nichts zu tun, was man sonst täte.
+Die einzige Stelle, an der er eine Sonderregel braucht, ist der Lichtbalken: Er
+läuft an der **Oberkante** des Blechs statt auf halber Höhe, also gibt es zu
+`LAMP_HIGH` eine Tabelle mit den Fahrzeugen, die ihre Lampen woanders tragen.
+
+## Der Supermarkt hat einen Parkplatz statt eines Gehwegs
+
+Zu einem Supermarkt geht niemand zu Fuß. Er bekommt deshalb als einziges
+Gebäude der Stadt **den Ring statt des Gehwegs**: Die Felder, die bei jedem
+anderen Block Bürgersteig sind, sind hier Beton, rundherum. Das Gebäude behält
+seine ganze Parzelle - ein Supermarkt, dem man für die Autos die Hälfte
+wegnimmt, ist ein Tante-Emma-Laden.
+
+Alles andere fällt daraus heraus, ohne neue Mechanik:
+
+- **Boden.** `onCarPark` beantwortet dieselbe Frage wie der Rest von `inTown`,
+  nur vor dem Gehweg. Beton ist begehbar und befahrbar, gehört aber nicht zum
+  Straßenraster - also biegt der Verkehr nie darauf ab und niemand zu Fuß
+  behandelt das Überqueren als Straßenüberquerung.
+- **Stellplätze.** `carParks` zählt die Ringfelder auf und gibt zu jedem die
+  Richtung, in der ein Auto dort steht: quer zur Wand, nicht auf den
+  Mittelpunkt des Ladens gezielt - sonst stünden die vier Eckplätze schräg.
+  Knapp die Hälfte bekommt ein Auto, ein gutes Drittel einen Menschen.
+- **Kundschaft.** Ihr Zuhause ist der Stellplatz, auf dem sie stehen. Die Regel
+  dafür gab es schon: Wer sich zu weit von seinem Zuhause entfernt, geht dorthin
+  zurück - bei einem Bandenmitglied ist das seine Ecke, hier ist es das eigene
+  Auto. Zwischen Tür und Wagen hin und her ist genau das, was dabei herauskommt.
+- **Bild.** Eine weiße Linie zwischen zwei Stellplätzen, quer zum Ring - was
+  einen Betonstreifen als Parkplatz lesbar macht, sind die Striche darauf.
 
 ## Figuren: die Bilder sind fest, die Bewegung nicht
 
@@ -355,6 +632,93 @@ Zwei Fallstricke, beide erlebt:
   er dreht sich weg. Die Exponentialform ist stufenlos abstimmbar.
 - **Wer `speed` setzt, muss `slip` mitsetzen.** Sonst schiebt ein stehendes
   Auto weiter seitwärts vor sich hin.
+
+## Verkehr ist kein Zufallsgenerator
+
+Ein Auto auf der Straße fährt irgendwohin. Vorher wählte jedes alle zweieinhalb
+Sekunden eine der vier Himmelsrichtungen und fuhr dorthin, egal was davor stand -
+ein Drittel des Verkehrs stand deshalb mit der Nase in einer Hauswand und wartete
+auf den nächsten Würfelwurf. Das liest sich als Stadt, in der Autos mitten auf
+der Fahrbahn geparkt sind, und genau so wurde es auch gemeldet.
+
+Die Regeln sind jetzt die, die ein Fahrer hat:
+
+- **Rechts halten.** `streetRun` sagt, wie breit die Straße an dieser Stelle
+  laut Plan ist - eine Gasse ein Feld, eine Autobahn fünf. Die rechte Hälfte
+  gehört der eigenen Richtung, und der Wagen zieht quer zur Nase in die
+  **nächstgelegene** Spur dieser Hälfte. Auf der Autobahn sind das zwei je
+  Richtung, also kann man überholen statt hinterherzufahren.
+  Gemessen wird nach dem Plan und nicht nach dem Boden: An einer Kreuzung liegt
+  in beiden Richtungen sieben Felder Asphalt, und ein Wagen, der daraus seine
+  Spur ausrechnet, stellt sich in die Kreuzungsmitte.
+- **Nur an Kreuzungen abbiegen**, und nur in eine Straße, die auch eine ist. Der
+  Blick zur Seite geht dreieinhalb Felder weit - er muss über die eigene
+  Fahrbahnbreite hinausreichen, sonst biegt ein Wagen auf der Autobahn in seine
+  eigene Fahrbahn ab und fährt quer über sie in den Gegenverkehr.
+- **Anhalten für das, was davor steht.** Der Fußgänger vor der Haube, der Wagen
+  in der Schlange, die rote Ampel: drei Gründe, ein Fuß auf der Bremse. Deshalb
+  brauchen die Bremslichter keinen eigenen Fall.
+- **Vorfahrt, damit es weitergeht.** Man reiht sich hinter jemanden ein, der in
+  dieselbe Richtung fährt; für Gegenverkehr bremst niemand. Stehen zwei quer
+  zueinander, fährt der mit der kleineren Nummer - eine willkürliche Regel, und
+  genau das ist eine Vorfahrtsregel. Ohne sie halten zwei Autos ewig füreinander.
+- **Ampeln nur dort, wo zwei Autobahnen kreuzen.** Eine Ampel an jeder Ecke eines
+  Rasters heißt, dass man das Spiel im Wartezustand verbringt. Sie laufen auf
+  **einer** Uhr für die ganze Stadt: sieben Sekunden Nord-Süd, sieben Sekunden
+  Ost-West. Das ist eine grüne Welle und kostet nichts.
+- **Abstand halten, an der Ampel weniger.** Hinter etwas, das fährt, bleibt
+  ein knapper Wagen Platz; hinter etwas, das steht, eine halbe Wagenlänge.
+  Damit schließt sich eine Schlange an der roten Ampel und zieht sich beim
+  Anfahren wieder auseinander - eine Bedingung, zwei Abstände. Beide Zahlen
+  sind größer, als sie aussehen: `bodyRadius` ist das Mittel aus halber Länge
+  und halber Breite, also deutlich weniger als die Nase, für die es steht.
+- **Niemand wird zurückgeholt.** Ein Wagen, der alle paar Straßen umdreht, weil
+  der Spieler in der anderen Richtung steht, ist ein Pendelbus vor dem Fenster:
+  Gemessen legten die Autos viertausend Pixel zurück und endeten dreihundert
+  Pixel vom Startpunkt. Jetzt wird an jeder Kreuzung frei gewählt und meist
+  geradeaus gefahren - dieselbe Messung ergibt jetzt Luftlinien von ein- bis
+  sechstausend Pixeln. Was die Straßen belebt, ist nicht, dass dieselben
+  Autos zurückkommen, sondern dass andere ankommen.
+- **Der Verkehr rückt nach.** Simuliert wird nur, was nahe genug ist; ein Wagen,
+  der weiter wegfährt, bleibt stehen, wo er die Grenze überschreitet, und sammelt
+  sich dort. Wer aus dem Zählkreis herausgefallen ist, wird deshalb hinter dem
+  Bildrand wieder abgesetzt - nach innen zeigend, sonst sieht ihn nie jemand.
+- **Geparkt wird am Bordstein.** Hundertsechzig geparkte Wagen standen auf
+  Fahrbahnfeldern. Sie stehen jetzt auf dem Gehwegrand und zeigen längs der
+  Straße; die Fahrbahn gehört denen, die fahren.
+- **In jedem Wagen sitzt jemand.** `Car.seats` ist eine Zahl und wird erst im
+  Moment des Türöffnens zu Leuten: Fahrer an seiner Tür, Beifahrer an ihren, alle
+  erschrocken und alle weg. Weit genug vom Blech - bei zweiundzwanzig Pixeln
+  landete der Fahrer in seinem eigenen Auto und wurde davon überfahren.
+- **Ein Wagen, den man verlässt, bleibt stehen.** Er wird `parked`. Verkehr sind
+  die Autos, in denen jemand sitzt.
+
+- **Landstraßen fährt man nicht als Zickzack.** Draußen gibt es kein Raster,
+  die Straße schwingt - und ein Fahrer mit vier Himmelsrichtungen fährt einen
+  Schwung als Treppe. `routeHeading` gibt die Richtung des nächsten Teilstücks
+  derselben Polylinie zurück, aus der auch der Asphalt entstanden ist, und
+  draußen zeigt der Wagen einfach dorthin.
+- **Rammen verschiebt.** Zwei Autos, die sich gegenseitig totstellen, ist das,
+  was eine Wand tut. Wer fährt, gewinnt den Stoß: Der Getroffene fliegt entlang
+  der Verbindungslinie davon - deshalb schiebt ein Streifschuss zur Seite und
+  ein Volltreffer nach vorn -, mit einem Anteil des Tempos, das ihn getroffen
+  hat und nach Fahrzeuggewicht verteilt. Der Rammende behält gut die Hälfte
+  seines Tempos, statt zu stoppen und zurückzuprallen. Und ein Wagen, der eben
+  gestoßen wurde, **rollt** aus, statt sofort wieder Verkehr zu sein - sonst
+  sieht ein Rammstoß aus, als würde der andere einfach in eine neue Richtung
+  losfahren.
+- **Ampeln haben drei Farben.** Grün, Gelb, Rot - jede Richtung bekommt ihr
+  Grün, dann ihr Gelb, und ist genau so lange rot, wie die andere beides hat.
+  Damit können die beiden Seiten nie etwas anderes als gegensätzlich sein.
+  Gelb heißt anhalten: Es dauert zwei Sekunden, der Blick nach vorn ist knapp
+  eine Sekunde Fahrt, also hat ein Wagen, der Gelb sieht, Platz zum Anhalten.
+
+Fußgänger haben dieselbe Art Regel bekommen: Wer nur spazieren geht, bleibt auf
+dem Gehweg, überquert die Fahrbahn nur, wenn ihn gerade danach ist
+(`crossingMood` - Personennummer plus Uhr, damit derselbe Mensch seine Meinung
+lange genug behält, um wirklich hinüberzukommen), und geht nie auf die Autobahn.
+Wer flieht, wer bewaffnet ist und wer irgendwohin muss, geht weiter, wohin er
+will.
 
 ## Abschleppen ist eine Zahl auf dem Zugfahrzeug
 
@@ -433,8 +797,17 @@ San Andreas ist ein Land aus drei Städten, Wald, Wüste, Bucht, Hafen und
 Flughafen - und nichts davon liegt als Datei irgendwo. `cellAt(col, row)`
 beantwortet für jedes Feld in dieser Reihenfolge:
 
-1. Liegt hier die **Bahn**? Ihre vier Linien fallen auf Straßenlinien, damit der
-   Zug durch Straßen fährt statt durch Wohnzimmer.
+1. Liegt hier die **Bahn**? Ihre vier Geraden fallen auf Straßenlinien, damit
+   der Zug durch Straßen fährt statt durch Wohnzimmer - und ihre vier Ecken
+   sind Kurven mit achtzehn Feldern Radius. Eisenbahn macht keine rechten
+   Winkel; ein Neunzig-Grad-Knick ist eine Entgleisung und sieht von oben nach
+   Computer aus. Die Strecke ist deshalb kein Rechteck mehr, sondern eine
+   **Linie**: `railLine` läuft sie einmal in Fünftel-Feld-Schritten ab,
+   `railCells` merkt sich daraus, welches Feld Gleis ist **und in welche
+   Richtung**, und alles Weitere liest daraus ab - der Boden, die Schwellen im
+   Bild, `railAt` für den Zug, `stationAlong` für die Bahnsteige. Die
+   Südkante lag früher auf Zeile 138 und damit quer über dem Berg; sie liegt
+   jetzt auf 114 und geht zwanzig Felder daran vorbei.
 2. Liegt hier eine **Landstraße**? Die sind Polygonzüge, keine Rasterlinien -
    und wo eine über Wasser läuft, **ist** sie die Brücke. Ein zweites System für
    Brücken gibt es nicht mehr.
@@ -485,7 +858,61 @@ festen „Felder zwei bis vier" anzunehmen. Sonst steht ein Haus auf der
 Außenspur.
 
 **Autobahnen sind keine neue Sorte Straße**, sondern jede vierte Rasterlinie mit
-einer Spur links und rechts. Eine Zeile in `isRoad`, kein zweites Wegesystem.
+zwei Spuren links und rechts. Eine Zeile in `isRoad`, kein zweites Wegesystem.
+
+**Eine Straße ist drei Felder breit, ein Block acht.** Vorher war eine Gasse ein
+Feld - achtundvierzig Pixel, also zwei Autobreiten ohne Rest. Zwei Wagen, die
+sich begegneten, fuhren mit den Rädern auf dem Bordstein aneinander vorbei. Die
+Straße bekam also links und rechts ein Feld dazu (`ROAD_HALF`), und der Block
+wuchs um zwei mit, damit die Parzellen dieselbe Größe behalten und nur mehr
+Platz zwischen ihnen liegt.
+
+Zehn wurde zuerst probiert: fünf Felder Parzelle, richtig große Gebäude - und
+**sechsundvierzig bebaute Blöcke in ganz San Andreas**, darunter der einzige
+Supermarkt. Eine Stadt, die man in drei Straßen durchquert, ist keine. Bei acht
+sind es siebzig, und das ist noch eine Stadt.
+
+**`builtBlock` fragt nach der Parzelle, nicht nach dem Block.** Ein Stadtrechteck
+endet nicht auf einem Vielfachen von acht. Nach den Ecken des Blocks gefragt
+fiel jeder Randblock jeder Stadt weg - bei dieser Blockgröße die Mehrzahl.
+
+**Was durch eine Parzelle läuft, wird nicht überbaut.** Ein Haus ist ein Kasten
+über der ganzen Parzelle, ganz gleich was der Boden darunter sagt - wo also eine
+Bahnkurve, eine Landstraße oder ein Bahnsteig durchging, wurde erst Asphalt
+gezeichnet und dann ein Wohnzimmer darüber. Das liest sich genau als das, was es
+ist: ein durchgesägtes Haus. `builtBlock` fragt jetzt zusätzlich `crossed`, und
+wo etwas durchläuft, bleibt der Block frei. Zwei Dinge hängen daran:
+
+- **Der Boden muss mitziehen.** `inTown` legt auf einem unbebauten Block
+  Grünfläche statt Gebäude. Täte er das nicht, stünde dort eine Wand, die
+  nirgends gezeichnet wird - und die lief man sich auf der Suche nach dem
+  Fehler zweimal ab.
+- **Die Antwort wird gemerkt.** Die Landstraßen sind tausend Punkte, und der
+  Renderer fragt für jeden sichtbaren Block in jedem Bild.
+- **Ein Feld Rand gehört dazu.** Gezeichnet wird breiter als gelegt: Die
+  Landstraße ist eine glatte Linie, etwas breiter als ihr Feldband, damit die
+  Treppe darunter verschwindet - und dann steht eine Straße, die nur den Gehweg
+  streift, trotzdem an der Hauswand. Deshalb prüft `crossed` ein Feld über die
+  Parzelle hinaus.
+- **Landstraßen enden nicht mitten in der Stadt.** Drei von ihnen taten es, und
+  eine Landstraße endet als runde Kappe Asphalt - also lag ein Kreis Teer über
+  einem halben Wohnblock. Ihre Endpunkte liegen jetzt knapp außerhalb der
+  Stadtrechtecke, auf der Randstraße, wo sie ins Raster übergehen.
+
+**Das Gleis wird als Linie gezeichnet, nicht als Felder.** Dieselbe Trennung
+wie bei den Landstraßen, und aus demselben Grund: Jedes Feld malte vorher sein
+eigenes Stück Gleis, gedreht nach der Richtung dort und zentriert auf der
+Feldmitte. In der Kurve liegt die Feldmitte aber neben der Linie - also lagen
+die Stücke versetzt nebeneinander statt hintereinander, und die Schienen waren
+lauter kurze Striche. Jetzt läuft `drawTrack` einmal die Polylinie aus
+`railLine` ab: Schwellen quer darauf, und die beiden Schienen als je ein
+durchgehender Pfad, um eine halbe Spurweite nach außen versetzt.
+
+**Bahnsteige gehören zur Karte, nicht zum Bild.** `platformBox` sagt, wo der
+Beton liegt; der Renderer zeichnet genau dieses Rechteck und `crossed` hält die
+Häuser davon frei. Vorher kannte nur der Renderer das Maß - und ein Bahnsteig,
+der sieben Felder lang ist, reicht in die Parzelle nebenan hinein. Genau so war
+das Haus des Spielers halbiert.
 
 **Der Zug ist eine Zahl.** `train.along` - wie weit er auf der Runde ist. Wo die
 Lok steht, wo der vierte Wagen steht und wohin sie zeigen, rechnet `trainAt`
@@ -1274,6 +1701,13 @@ nichts; mit Shift sind es ein Dutzend.
 Aus demselben Grund zählt ein Zusammenstoß höchstens mit ehrlicher
 Höchstgeschwindigkeit: sonst wäre mit gehaltenem Shift jeder Bordstein ein
 Totalschaden.
+
+**Hauptstraßen sind auf der Karte ein Pixel breit.** Eine Autobahn über ihre
+ganzen fünf Felder schwarz gemalt ist ein etwas breiteres Grau - man kann sie
+nicht herausgreifen, und dafür ist eine Karte in der Ecke da. Also malt
+`mainRoads` nach den Feldern eine einzelne schwarze Linie: die Mittellinie jeder
+Autobahn innerhalb der Städte, und dazu die Polylinien der Landstraßen. Die
+Piste auf den Berg bekommt keine - sie führt nirgendwohin.
 
 ## Die Karte zeigt die Stadt, nicht den Bildschirm
 

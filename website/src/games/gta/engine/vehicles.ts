@@ -68,9 +68,11 @@ export type Vehicle = {
 export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
   car: {
     body: "car",
-    name: "Wagen",
+    name: "Golf VIII",
     length: 44,
-    width: 24,
+    // Off the mesh: 4284 by 1789 is 44 by 18.4, and that is what it is drawn
+    // and collided at. Twenty four was a guess and made it look like a van.
+    width: 18.4,
     top: 420,
     accel: 260,
     turn: 2.6,
@@ -98,7 +100,7 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
   },
   suv: {
     body: "suv",
-    name: "Geländewagen",
+    name: "Cybertruck",
     length: 54,
     width: 30,
     top: 380,

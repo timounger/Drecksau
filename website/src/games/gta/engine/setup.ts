@@ -15,7 +15,7 @@ import {
   isOpen,
   isRoadAt,
 } from "./city";
-import { createCity, myHouses, openBay } from "./city";
+import { carParks, createCity, myHouses, openBay } from "./city";
 import { createRandom, nextInt, nextRandom, type RandomState } from "./random";
 import { newTrain } from "./train";
 import {
@@ -33,6 +33,7 @@ import {
   DOG_LEASH,
   DOG_SHARE,
   JOB_SECONDS,
+  CAR_SEATS,
   PARKED_COUNT,
   PEOPLE_COUNT,
   PLAYER_HEALTH,
@@ -210,22 +211,48 @@ export function createGame(seed: number): GameState {
     rng = pick.rng;
     const made = makeCar(rng, cars.length, "traffic", spot.at, pick.body);
     rng = made.rng;
-    cars.push(made.car);
+    const who = nextInt(rng, CAR_SEATS);
+    rng = who.state;
+    cars.push({ ...made.car, seats: who.value + 1 });
   }
+  // At the kerb, not in the road. A hundred and sixty cars standing about on
+  // the carriageway is what made the traffic look like a car park: the ones
+  // that are parked belong on the pavement edge, and the road belongs to the
+  // ones that are driving.
   for (let at = 0; at < PARKED_COUNT; at += 1) {
-    const spot = findSpot(cells, rng, "road");
+    const spot = findSpot(cells, rng, "walk");
     rng = spot.rng;
     const pick = pickBody(rng);
     rng = pick.rng;
-    const made = makeCar(rng, cars.length, "parked", spot.at, pick.body);
-    rng = made.rng;
-    cars.push(made.car);
+    // Not in somebody garage. The bay is hollowed out of the house before the
+    // cars are placed, and a hollow in a house is a square of pavement as far
+    // as anybody looking for a parking space is concerned - so three of them
+    // used to be queued up the drive and through the door of your own house.
+    const blocking = homes.some((home) => far(spot.at, home) < GARAGE_KEEP);
+    if (!blocking) {
+      const made = makeCar(rng, cars.length, "parked", spot.at, pick.body);
+      rng = made.rng;
+      cars.push({ ...made.car, angle: alongKerb(cells, spot.at) });
+    }
+  }
+  // The supermarket car parks: a few cars standing in the bays, nose to the
+  // shop. A car park with nothing on it is a concrete yard.
+  for (const bay of carParks()) {
+    const roll = nextRandom(rng);
+    rng = roll.state;
+    if (roll.value < LOT_TAKEN) {
+      const pick = pickBody(rng);
+      rng = pick.rng;
+      const made = makeCar(rng, cars.length, "parked", bay.at, pick.body);
+      rng = made.rng;
+      cars.push({ ...made.car, angle: bay.angle });
+    }
   }
   // A couple of tanks, standing about. Finding one should be an event, so they
   // are parked rather than driven and there are only ever a handful.
   // Three silver wedges, parked where somebody left them.
   for (let at = 0; at < DELOREANS; at += 1) {
-    const spot = findSpot(cells, rng, "road");
+    const spot = findSpot(cells, rng, "walk");
     rng = spot.rng;
     const made = makeCar(rng, cars.length, "parked", spot.at, "dmc");
     rng = made.rng;
@@ -328,6 +355,10 @@ export function createGame(seed: number): GameState {
   const shoppers = makeMarketCrowd(cells, rng, people.length);
   rng = shoppers.rng;
   people.push(...shoppers.people);
+  // And the ones who came to shop rather than to stand outside.
+  const buying = makeShoppers(cells, rng, people.length);
+  rng = buying.rng;
+  people.push(...buying.people);
   // And the cats, who belong to nobody.
   for (let at = 0; at < CAT_COUNT; at += 1) {
     const spot = findSpot(cells, rng, "walk");
@@ -518,6 +549,24 @@ export function findSpot(
 }
 
 /**
+ * Which way a car parked here should point.
+ *
+ * @param cells - the city floor
+ * @param at - where it stands, in pixels
+ * @returns the heading, in radians
+ * @remarks
+ * Along the kerb, which means along whichever road it is standing beside. A
+ * row of parked cars all pointing whichever way the dice fell is the one thing
+ * that says nobody parked them.
+ */
+function alongKerb(cells: readonly Cell[], at: Vec): number {
+  const road = (x: number, y: number): boolean =>
+    cellUnder(cells, x, y) === "road";
+  const across = road(at.x + TILE, at.y) || road(at.x - TILE, at.y);
+  return across ? 0 : Math.PI / 2;
+}
+
+/**
  * The nearest piece of tarmac to a point.
  *
  * @param cells - the city floor
@@ -610,6 +659,8 @@ function makeCar(
       fireAt: null,
       shells: 0,
       hitched: null,
+      braking: false,
+      seats: 0,
     },
     rng: turn.state,
   };
@@ -622,7 +673,7 @@ function pickBody(rng: RandomState): { body: VehicleBody; rng: RandomState } {
 }
 
 /** One person, walking some way. */
-function makePerson(
+export function makePerson(
   rng: RandomState,
   id: number,
   at: Vec,
@@ -662,6 +713,49 @@ function makePerson(
     rng: rest.state,
   };
 }
+
+/**
+ * The shoppers, crossing the car park of every supermarket.
+ *
+ * @param cells - the city floor
+ * @param rng - the generator
+ * @param from - the id the first of them gets
+ * @returns the shoppers, and the generator afterwards
+ * @remarks
+ * Their home is the bay they parked in, so they drift back to it whenever they
+ * wander off - which on a car park round a shop reads as exactly what it is
+ * meant to: people walking from their cars to the door and back again.
+ */
+function makeShoppers(
+  cells: readonly Cell[],
+  rng: RandomState,
+  from: number,
+): { people: Person[]; rng: RandomState } {
+  const people: Person[] = [];
+  let state = rng;
+  for (const bay of carParks()) {
+    const roll = nextRandom(state);
+    state = roll.state;
+    if (roll.value < SHOPPERS && isOpen(cells, bay.at.x, bay.at.y)) {
+      const made = makePerson(state, from + people.length, bay.at);
+      state = made.rng;
+      // Home is the bay they parked in, so they drift back to it after
+      // wandering towards the door - which on a car park is a man walking to
+      // the shop and back to his car.
+      people.push({ ...made.person, mood: "walking", home: bay.at });
+    }
+  }
+  return { people, rng: state };
+}
+
+/** How many of the bays have somebody walking about on them. */
+const SHOPPERS = 0.35;
+
+/** And how many have a car standing in them: a third, not a full house. */
+const LOT_TAKEN = 0.33;
+
+/** How much room round a garage door is kept clear of parked cars, in pixels. */
+const GARAGE_KEEP = 150;
 
 /**
  * The night crowd, standing about outside every night club.

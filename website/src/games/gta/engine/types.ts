@@ -32,8 +32,24 @@ export const CITY_TILES = 168;
 /** How wide the whole city is, in pixels. */
 export const CITY_SIZE = CITY_TILES * TILE;
 
-/** Every second cell of this many is a road. */
-export const BLOCK_TILES = 6;
+/**
+ * How many squares one block of the city grid is, street included.
+ *
+ * @remarks
+ * Eight. It was six, which gave a street one square wide - and one square is
+ * forty eight pixels, which is two cars side by side with nothing to spare.
+ * Two cars meeting on it had to pass with their wheels on the kerb. A street
+ * is three squares now, and the block grew by two to pay for it, so the plots
+ * on it are the same size as before and there is simply more room between
+ * them.
+ *
+ * Ten was tried first, which gave five square plots - proper big buildings -
+ * and left forty six built blocks in the whole of San Andreas, one of them the
+ * only supermarket. A city one can cross in three streets is not a city. Eight
+ * is what fits: the blocks are bigger, the streets are three times wider, and
+ * there are still enough corners to put things on.
+ */
+export const BLOCK_TILES = 8;
 
 /**
  * The train, which is one number.
@@ -599,6 +615,31 @@ export type Car = {
    */
   readonly hitched: number | null;
   /**
+   * How many people are sitting in it.
+   *
+   * @remarks
+   * Every car in the traffic has a driver, and some of them have somebody
+   * with them - a city whose cars drive themselves is a city of ghosts. They
+   * are a number rather than a list because nothing about them matters until
+   * the door is opened: at that moment the number becomes that many people
+   * standing in the road, and the car becomes an empty car.
+   *
+   * A parked car has nobody in it. That is what parked means.
+   */
+  readonly seats: number;
+  /**
+   * Whether the brake lights are on.
+   *
+   * @remarks
+   * Every car in this city drives with its lights on, which is what makes one
+   * readable as a car at all from three streets away - so the headlamps and
+   * the tail lamps need no flag. This one is for the moment the tail lamps go
+   * from lit to bright: the brake pedal, the handbrake, or a computer driver
+   * stopping for something. It is written where the speed is decided and only
+   * read by the renderer.
+   */
+  readonly braking: boolean;
+  /**
    * Which way the gun points, in radians - only the tank has one.
    *
    * @remarks
@@ -1121,8 +1162,15 @@ export const CAR_WIDTH = 24;
 /** Top speed of a police car - they are faster, and that is the point. */
 export const POLICE_TOP_SPEED = 360;
 
-/** Top speed of traffic that drives itself. */
-export const TRAFFIC_SPEED = 190;
+/**
+ * Top speed of traffic that drives itself.
+ *
+ * @remarks
+ * Well under half of what the player car will do. Traffic that moves at the
+ * pace one drives at oneself is traffic one can never overtake, and a street
+ * where everything moves at the same speed has no sense of speed in it at all.
+ */
+export const TRAFFIC_SPEED = 110;
 
 /** How hard a car accelerates, in pixels per second squared. */
 export const CAR_ACCEL = 260;
@@ -1481,6 +1529,27 @@ export const TRAFFIC_COUNT = 170;
 
 /** How many cars stand at the kerb waiting to be taken. */
 export const PARKED_COUNT = 160;
+
+/** How many people are in a car in the traffic, at most. */
+export const CAR_SEATS = 3;
+
+/**
+ * How long each direction gets at a traffic light, in seconds.
+ *
+ * @remarks
+ * One clock for the whole city rather than one per junction: every light on
+ * the north-south axis is green together, and then every light on the
+ * east-west axis is. That is a green wave, which is what a city council
+ * spends a fortune trying to arrange - and here it comes free and keeps the
+ * traffic moving in blocks rather than in dribs.
+ */
+export const LIGHT_PHASE = 7;
+
+/** How long the amber lasts at the end of each green, in seconds. */
+export const LIGHT_AMBER = 2;
+
+/** How far in front of a junction a car begins to slow for a red, in pixels. */
+export const LIGHT_LOOK = 90;
 
 /**
  * How many police cars come out per star.

@@ -14,17 +14,17 @@ darin drei Aufträge abgeliefert hast.
 
 ## Steuerung
 
-| Taste                     | Zu Fuß         | Im Auto                  |
-| ------------------------- | -------------- | ------------------------ |
-| W / Pfeil hoch            | nach oben      | Gas                      |
-| S / Pfeil runter          | nach unten     | bremsen und zurücksetzen |
-| A D / Pfeile links rechts | links, rechts  | lenken                   |
-| Maus                      | Blickrichtung  | -                        |
-| Linke Maustaste           | schießen       | -                        |
-| Mausrad                   | Waffe wechseln | -                        |
-| E oder Enter              | einsteigen, in den Zug | aussteigen       |
-| Leertaste                 | Jetpack: steigen | Handbremse               |
-| Shift                     | rennen         | schneller fahren         |
+| Taste                     | Zu Fuß                 | Im Auto                  |
+| ------------------------- | ---------------------- | ------------------------ |
+| W / Pfeil hoch            | nach oben              | Gas                      |
+| S / Pfeil runter          | nach unten             | bremsen und zurücksetzen |
+| A D / Pfeile links rechts | links, rechts          | lenken                   |
+| Maus                      | Blickrichtung          | -                        |
+| Linke Maustaste           | schießen               | -                        |
+| Mausrad                   | Waffe wechseln         | -                        |
+| E oder Enter              | einsteigen, in den Zug | aussteigen               |
+| Leertaste                 | Jetpack: steigen       | Handbremse               |
+| Shift                     | rennen                 | schneller fahren         |
 
 **Rechtsklick** legt einen Zünder ab, wenn du den **Fernzünder** in der Hand
 hast - siehe unten. Sonst tut er nichts.
@@ -34,14 +34,14 @@ hast - siehe unten. Sonst tut er nichts.
 Das Spiel lässt sich mit den Daumen spielen; die Bedienelemente tauchen erst
 auf, sobald du den Bildschirm einmal berührst.
 
-| Wo                 | Was                                                    |
-| ------------------ | ------------------------------------------------------ |
-| linke Bildhälfte   | Stick zum Laufen und Fahren - er erscheint unter dem Daumen |
-| rechte Bildhälfte  | schauen und schießen; im Gefängnis ist es das Arbeiten  |
-| Knopf **Auto**     | ein- und aussteigen                                    |
-| Knopf **Waffe**    | eine Waffe weiter                                      |
-| Knopf **Zünder**   | einen Fernzünder ablegen                               |
-| Knopf **Einsteigen** | in den wartenden Zug - er steht unten im Bild         |
+| Wo                   | Was                                                         |
+| -------------------- | ----------------------------------------------------------- |
+| linke Bildhälfte     | Stick zum Laufen und Fahren - er erscheint unter dem Daumen |
+| rechte Bildhälfte    | schauen und schießen; im Gefängnis ist es das Arbeiten      |
+| Knopf **Auto**       | ein- und aussteigen                                         |
+| Knopf **Waffe**      | eine Waffe weiter                                           |
+| Knopf **Zünder**     | einen Fernzünder ablegen                                    |
+| Knopf **Einsteigen** | in den wartenden Zug - er steht unten im Bild               |
 
 Die drei Knöpfe stehen unten rechts und bleiben, wo sie sind.
 
@@ -109,14 +109,14 @@ Sie geht schnell: eine echte Sekunde ist eine Spielminute, ein ganzer Tag also
 
 Und die Stadt geht mit:
 
-| Uhrzeit         | Wie es aussieht                                  |
-| --------------- | ------------------------------------------------ |
-| 09:00 - 17:30   | Tag, ganz normales Licht                          |
-| ab 19:00        | Sonnenuntergang: alles liegt in Orange            |
-| ab 20:30        | die rote Stunde danach                            |
-| 22:00 - 04:30   | Nacht, tiefblau                                   |
-| ab 06:00        | Sonnenaufgang, wieder Orange                      |
-| ab 07:30        | Morgenlicht, dann Tag                             |
+| Uhrzeit       | Wie es aussieht                        |
+| ------------- | -------------------------------------- |
+| 09:00 - 17:30 | Tag, ganz normales Licht               |
+| ab 19:00      | Sonnenuntergang: alles liegt in Orange |
+| ab 20:30      | die rote Stunde danach                 |
+| 22:00 - 04:30 | Nacht, tiefblau                        |
+| ab 06:00      | Sonnenaufgang, wieder Orange           |
+| ab 07:30      | Morgenlicht, dann Tag                  |
 
 Die Minikarte, die Knöpfe und die Anzeigen bleiben immer hell - was man lesen
 muss, wird nicht dunkel.
@@ -135,17 +135,17 @@ zwischen ihnen ist alles das, was in einer Stadt nicht vorkommt: Wald, Wiese,
 Wüste, Berge, Strand und Meer. Die Karte ist 168 mal 168 Felder groß - gut
 achttausend Pixel in jede Richtung.
 
-| Gegend                | Wo sie liegt                                   |
-| --------------------- | ---------------------------------------------- |
-| **San Fierro**        | die Stadt im Westen                            |
-| **Las Venturas**      | die Stadt im Nordosten, mitten in der Wüste     |
-| **Los Santos**        | die Stadt im Südosten, wo du wohnst und anfängst |
-| **Wald und Wiese**    | der ganze Nordwesten und die Mitte des Landes   |
-| **Die Wüste**         | quer über den Norden, zwischen Wald und Las Venturas |
-| **Der Berg**          | im Südwesten, hinter der Bucht                 |
-| **Die Bucht**         | das Meer mitten im Land, zwischen San Fierro und dem Süden |
-| **Der Hafen**         | links, östlich von San Fierro: Kaimauer, drei Stege und Boote daran |
-| **Der Flughafen**     | rechts unten neben Los Santos: Vorfeld, Startbahn und zwei Maschinen |
+| Gegend             | Wo sie liegt                                                         |
+| ------------------ | -------------------------------------------------------------------- |
+| **San Fierro**     | die Stadt im Westen                                                  |
+| **Las Venturas**   | die Stadt im Nordosten, mitten in der Wüste                          |
+| **Los Santos**     | die Stadt im Südosten, wo du wohnst und anfängst                     |
+| **Wald und Wiese** | der ganze Nordwesten und die Mitte des Landes                        |
+| **Die Wüste**      | quer über den Norden, zwischen Wald und Las Venturas                 |
+| **Der Berg**       | im Südwesten, hinter der Bucht                                       |
+| **Die Bucht**      | das Meer mitten im Land, zwischen San Fierro und dem Süden           |
+| **Der Hafen**      | links, östlich von San Fierro: Kaimauer, drei Stege und Boote daran  |
+| **Der Flughafen**  | rechts unten neben Los Santos: Vorfeld, Startbahn und zwei Maschinen |
 
 **In den Städten ist alles rechtwinklig**, draußen nichts. Die Landstraßen
 schwingen in **echten Kurven** um den Berg, laufen schräg durch die Wüste und
@@ -173,23 +173,37 @@ Die Karte oben rechts zeigt das **ganze** Land, nicht den Bildausschnitt: helle
 Straßen auf dunklen Blöcken, das Grün und den Sand dazwischen, das Meer und die
 dunkelrote Bahnlinie.
 
-| Zeichen        | Was es ist              |
-| -------------- | ----------------------- |
-| weiß           | du                      |
-| gelb           | Abholung                |
-| grün           | Abgabe                  |
-| hellblau       | Lackiererei             |
-| dunkelblau     | ein Streifenwagen       |
-| **Cocktailglas** | ein Nachtclub         |
-| **blaues Bankgebäude** | die Bank - es gibt nur eine |
-| **goldener Geldschein** | die Casa de Papel - auch die gibt es nur einmal |
-| **blaues Häuschen** | eines deiner drei Häuser |
-| **dunkelrote Linie** | die Bahnstrecke    |
-| **gelber Waggon** | ein Bahnhof - drei, einer je Stadt |
-| **rote Punktreihe** | der Zug, unterwegs auf der Strecke |
-| **graues Viereck in der Wüste** | das Militärgelände |
-| **grauer Kreis unten links** | der Berg mit dem Feldweg |
-| **braune Rechtecke oben links** | die Felder der Bauernhöfe |
+| Zeichen                         | Was es ist                                      |
+| ------------------------------- | ----------------------------------------------- |
+| weiß                            | du                                              |
+| gelb                            | Abholung                                        |
+| grün                            | Abgabe                                          |
+| hellblau                        | Lackiererei                                     |
+| dunkelblau                      | ein Streifenwagen                               |
+| **Cocktailglas**                | ein Nachtclub                                   |
+| **blaues Bankgebäude**          | die Bank - es gibt nur eine                     |
+| **goldener Geldschein**         | die Casa de Papel - auch die gibt es nur einmal |
+| **blaues Häuschen**             | eines deiner drei Häuser                        |
+| **dunkelrote Linie**            | die Bahnstrecke                                 |
+| **gelber Waggon**               | ein Bahnhof - drei, einer je Stadt              |
+| **rote Punktreihe**             | der Zug, unterwegs auf der Strecke              |
+| **graues Viereck in der Wüste** | das Militärgelände                              |
+| **grauer Kreis unten links**    | der Berg mit dem Feldweg                        |
+| **braune Rechtecke oben links** | die Felder der Bauernhöfe                       |
+
+**Hauptstraßen sind auf der Karte eine dünne schwarze Linie.** Das gilt für die
+Autobahnen in den Städten **und** für die Landstraßen dazwischen: Alles andere
+dort ist eine Schattierung des Bodens, den es darstellt, und die schwarzen
+Linien sind die einzigen, denen man quer durch San Andreas mit einem Blick
+folgen kann. Die Piste auf den Berg gehört nicht dazu.
+
+**Pro Stadtteil gibt es genau einen Nachtclub.** Vier Cocktailgläser auf der
+Karte, eines je Viertel - wo der Plan einen weiteren vorgesehen hätte, steht ein
+normales Haus. Bank und Druckerei gibt es weiterhin **je einmal in ganz San
+Andreas**.
+
+**Bäume stehen nur im Grünen.** Am Rand eines Waldes hört der Wald auf; über
+einer Straße hängt kein Geäst.
 
 ## Das Militärgelände
 
@@ -228,12 +242,12 @@ das graue Quadrat im Sand.
 
 Auf dem Militärgelände steht einer, und den kann man fliegen.
 
-| Taste          | Was sie tut                         |
-| -------------- | ----------------------------------- |
-| E oder Enter   | ein- und aussteigen                 |
-| Leertaste      | steigen; loslassen heißt sinken      |
-| W / S          | vorwärts, und bremsen               |
-| A / D          | die Nase herumziehen                |
+| Taste        | Was sie tut                     |
+| ------------ | ------------------------------- |
+| E oder Enter | ein- und aussteigen             |
+| Leertaste    | steigen; loslassen heißt sinken |
+| W / S        | vorwärts, und bremsen           |
+| A / D        | die Nase herumziehen            |
 
 - **Aussteigen geht nur am Boden.** In der Luft sagt das Spiel dir das auch.
 - **Über Dachhöhe ist nichts mehr im Weg** - Häuser, Autos, das Meer, alles
@@ -246,8 +260,14 @@ Auf dem Militärgelände steht einer, und den kann man fliegen.
 
 ## Der Berg und das Bauernland
 
-**Unten links liegt der Berg.** Kahler Fels mit Höhenlinien, sichtbar bis auf
-die Minikarte. Hinauf führt genau ein **Feldweg**: er beginnt an der
+**Der Berg ist beleuchtet, nicht schraffiert.** Seine Hänge sind nach Norden
+und Westen hell und nach Süden und Osten dunkel, Kämme und Rinnen laufen
+daran herunter, und nach oben hin wird der Fels heller und kahler. Wo die
+Piste hinaufführt, ist sie in den Hang geschnitten - und der Bergfuß hört dort
+auf, wo der Fels aufhört: Er liegt nicht mehr über der Straße, die um ihn
+herumführt.
+
+**Unten links liegt der Berg.** Kahler Fels, sichtbar bis auf die Minikarte. Hinauf führt genau ein **Feldweg**: er beginnt an der
 Küstenstraße im Süden und windet sich in einer großen Schleife um den Berg bis
 auf die Kuppe. Fahrbar ist er mit allem, aber schmal und ohne Leitplanke.
 
@@ -259,10 +279,20 @@ vorbei, alles andere ist Acker.
 
 ## Die Bahn
 
-**Ein einziger Zug fährt immer im Kreis**, ein großes Rechteck durch alle drei
+**Ein einziger Zug fährt immer im Kreis**, eine große Schleife durch alle drei
 Städte und über eigene Brücken über das Meer. Er ist schneller als der Verkehr -
 eine Runde dauert knapp eine Minute. Auf der Karte ist die Strecke die
 dunkelrote Linie; im Bild ist sie ein Gleis mit Schwellen und zwei Schienen.
+
+**Die Schienen sind durchgehend.** Auch in der Kurve: Gleis und Schwellen
+folgen einer einzigen Linie, statt aus Stücken je Feld zu bestehen.
+
+**Die Strecke läuft gerade und biegt weit.** Wo sie einen Knick macht, macht sie
+eine Kurve mit rund achtzehn Feldern Radius - Eisenbahn fährt keine rechten
+Winkel. **Über den Berg geht sie nicht**, sie führt zwanzig Felder daran vorbei;
+über den Berg führt nur die Piste. Wo eine Kurve durch einen Stadtblock läuft,
+steht dort kein Haus, sondern Grün: In Los Santos wird nichts halbiert, weil
+etwas hindurchgeht.
 
 **Er fährt an und bremst ab**, statt sofort auf vollem Tempo zu sein: aus dem
 Stand dauert es gut zwei Sekunden bis zur Höchstgeschwindigkeit, und vor jedem
@@ -275,26 +305,32 @@ aussteigt. Unterwegs steuerst du nichts: der Wagen fährt, wohin die Schienen
 gehen. Das ist die bequemste Art, von Los Santos nach Las Venturas zu kommen,
 und die einzige, bei der man aus dem Fenster schauen kann.
 
-**Wann er kommt, steht auf dem Bahnsteig.** Dort liegt ein Schild: *Zug in 23 s*
-- und *Zug hält*, solange er da ist. Und auf der Karte oben rechts siehst du
-ihn selbst: fünf rote Punkte, die auf der dunkelroten Linie im Kreis wandern.
-So wartet man nicht blind.
+**Wann er kommt, steht auf dem Bahnsteig.** Dort liegt ein Schild: _Zug in 23 s_
+
+- und _Zug hält_, solange er da ist. Und auf der Karte oben rechts siehst du
+  ihn selbst: fünf rote Punkte, die auf der dunkelroten Linie im Kreis wandern.
+  So wartet man nicht blind.
 
 **Auf einen fahrenden Zug springt man nicht.** Wer auf den Gleisen steht, wenn
 er kommt, wird umgefahren - Passanten, Autos und du.
+**Gelaufen wird auf dem Gehweg.** Passanten bleiben auf dem Bürgersteig und
+gehen nur ab und zu über die Fahrbahn - und auf die Autobahn geht von ihnen
+keiner. Wer flieht, wer zu einer Bande gehört und die Polizei gehen dorthin, wo
+sie hin müssen.
+
 ## Was Tote fallen lassen
 
 **Wer umkommt, lässt sein Geld liegen**, und du kannst es aufheben - einfach
 drüberlaufen. Wie viel, hängt davon ab, wen es erwischt hat:
 
-| Wen                   | Was in der Tasche war |
-| --------------------- | --------------------- |
-| Penner                | nichts                |
-| Passant               | 60 €                  |
-| Nachtschwärmer        | 120 €                 |
-| Bandenmitglied        | 90 - 110 €            |
-| Räuber                | 180 €                 |
-| Snob                  | 260 €                 |
+| Wen            | Was in der Tasche war |
+| -------------- | --------------------- |
+| Penner         | nichts                |
+| Passant        | 60 €                  |
+| Nachtschwärmer | 120 €                 |
+| Bandenmitglied | 90 - 110 €            |
+| Räuber         | 180 €                 |
+| Snob           | 260 €                 |
 
 **Polizisten tragen kein Geld bei sich.** Von denen fällt die Waffe, sonst
 nichts.
@@ -304,14 +340,14 @@ kostet dich mehr Aufsehen, als er dir einbringt.
 
 ## Wer hier lebt
 
-| Sorte                | Woran man sie erkennt                       |
-| -------------------- | ------------------------------------------- |
-| Passant              | bunte Alltagskleidung                       |
-| Feiner Herr          | dunkler Anzug, helles Hemd                  |
-| Penner               | zerschlissener Mantel; halbes Tempo, meist im Schneidersitz vor dem Supermarkt |
-| Nachtschwärmerin     | helle Haut, blondes Haar, Sonnenbrille, Bikini |
-| Deine Bande          | **grünes** T-Shirt                          |
-| Gegnerische Bande    | **orangenes** T-Shirt                       |
+| Sorte             | Woran man sie erkennt                                                          |
+| ----------------- | ------------------------------------------------------------------------------ |
+| Passant           | bunte Alltagskleidung                                                          |
+| Feiner Herr       | dunkler Anzug, helles Hemd                                                     |
+| Penner            | zerschlissener Mantel; halbes Tempo, meist im Schneidersitz vor dem Supermarkt |
+| Nachtschwärmerin  | helle Haut, blondes Haar, Sonnenbrille, Bikini                                 |
+| Deine Bande       | **grünes** T-Shirt                                                             |
+| Gegnerische Bande | **orangenes** T-Shirt                                                          |
 
 **Wie sie sich bewegen**, hängt daran, wie schnell sie unterwegs sind: Wer geht,
 wiegt sich leicht von einem Fuß auf den anderen und wippt mit jedem Schritt; wer
@@ -378,16 +414,16 @@ niemandem etwas.
 
 ## Fahrzeuge
 
-| Fahrzeug        | Länge | Tempo | Blech | Haftung | Eigenart                    |
-| --------------- | ----- | ----- | ----- | ------- | --------------------------- |
-| Wagen           | 44 px | 420   | 100   | 16      | der Normalfall, nie gelb oder weiß |
-| Taxi            | 46 px | 430   | 95    | 17      | immer gelb, Schild auf dem Dach |
-| Geländewagen    | 54 px | 380   | 150   | 13      | träge, zäh, wankt in Kurven, nie gelb oder weiß |
-| Motorrad        | 34 px | 480   | 55    | 100     | schnell und wendig, dünn    |
-| Fahrrad         | 28 px | 150   | 25    | 120     | langsam, aus Papier         |
-| DMC-12          | 46 px | 520   | 85    | 6,5     | Edelstahl, schnellstes Auto, bricht hinten aus |
-| Panzer          | 62 px | 190   | 1200  | 200     | Kanone, und dazu Panzerung   |
-| Traktor         | 48 px | 190   | 180   | 70      | langsam, mit Anhängerkupplung |
+| Fahrzeug   | Länge | Tempo | Blech | Haftung | Eigenart                                        |
+| ---------- | ----- | ----- | ----- | ------- | ----------------------------------------------- |
+| Golf VIII  | 44 px | 420   | 100   | 16      | der Normalfall, nie gelb oder weiß              |
+| Taxi       | 46 px | 430   | 95    | 17      | immer gelb, Schild auf dem Dach                 |
+| Cybertruck | 54 px | 380   | 150   | 13      | träge, zäh, wankt in Kurven, nie gelb oder weiß |
+| Motorrad   | 34 px | 480   | 55    | 100     | schnell und wendig, dünn                        |
+| Fahrrad    | 28 px | 150   | 25    | 120     | langsam, aus Papier                             |
+| DMC-12     | 46 px | 520   | 85    | 6,5     | Edelstahl, schnellstes Auto, bricht hinten aus  |
+| Panzer     | 62 px | 190   | 1200  | 200     | Kanone, und dazu Panzerung                      |
+| Traktor    | 48 px | 190   | 180   | 70      | langsam, mit Anhängerkupplung                   |
 
 Der **DMC-12** steht dreimal in der Stadt herum, immer geparkt, nie im Verkehr.
 Er ist das schnellste Auto von Los Santos und hat dafür das dünnste Blech. Man
@@ -468,16 +504,97 @@ Daraus ergibt sich alles Weitere von selbst:
 - **Bremsspuren bleiben liegen.** Wo ein Reifen geschleift statt gerollt ist,
   bleibt der typische schwarze Strich auf der Straße - rund **22 Sekunden**
   lang, dann ist er verblasst. Das gilt für jeden, der rutscht, auch für die
-  Polizei.
+  Polizei. **Ein Motorrad zieht einen Strich**, nicht zwei: Es hat die Räder
+  hintereinander. **Ein Fahrrad zieht keinen** - dafür ist zu wenig Gewicht
+  darauf.
 - **Jedes Fahrzeug fährt anders**, und zwar nicht wegen einer Sonderregel: Das
   Motorrad legt sich in die Kurve und rutscht praktisch nie, der DMC-12 hat den
   Motor hinter der Hinterachse und bricht am ehesten aus, der Geländewagen
   wankt, der Panzer geht auf Ketten schlicht dorthin, wo er zeigt.
+- **Wer fährt, schiebt.** Rammst du ein anderes Auto, bremst dich das zwar
+  merklich aus, aber du **schiebst es weg** statt beide totzustellen - entlang
+  der Verbindungslinie, also zur Seite bei einem Streifschuss und nach vorn bei
+  einem Volltreffer. Wie weit es fliegt, hängt von deinem Tempo und davon ab,
+  wer das schwerere Fahrzeug fährt: Mit dem Geländewagen räumt man auf, mit dem
+  Fahrrad nicht.
 - **Die Polizei fährt dieselben Reifen.** Ein Streifenwagen, der Kurven wie auf
   Schienen nimmt, während dein baugleicher Wagen rutscht, wären zwei Spiele.
 
 Am Limit - Vollgas, voller Einschlag - steht ein Wagen rund **zehn Grad quer**,
 der DMC-12 rund **zwanzig**. Motorrad, Traktor und Panzer gar nicht.
+
+**Der Normalfall ist ein Golf VIII.** Man erkennt ihn an dem, woran man ihn
+auch auf der Straße erkennt: kurze Haube und ein Dach, das bis fast an das Heck
+reicht - ein Schrägheck, kein Stufenheck -, der **Lichtbalken quer über die
+Nase** mit dem Zeichen in der Mitte und der breiten dunklen Lufteinlass
+darunter, die hohen roten Leuchten in den Heckecken, die um die Kante herum auf
+die Flanke laufen, die Türgriffe auf Schulterhöhe, und der
+Dachspoiler mit der Haifischflosse davor. Am Heck sitzen die Leuchten hoch und
+breit direkt unter der Scheibe, mit lackiertem Blech und dem Zeichen dazwischen
+statt einem dunklen Balken, darunter die rote Linie über der Stoßstange, das
+Kennzeichen und zwei Endrohre. Kanten und Ecken sind gerundet, nicht auf Gehrung
+geschnitten, die Scheiben laufen ohne farbigen Zwischenstreifen um die Ecke, und
+die Windschutzscheibe legt sich sichtbar zurück statt senkrecht zu stehen. Die Lackfarben sind dieselben wie bisher - gelb und
+weiß bleiben dem Taxi und dem DMC-12 vorbehalten.
+
+**Licht ist immer an.** Jedes Fahrzeug fährt mit Scheinwerfern und
+Rücklichtern, und vor der Haube liegt ein schwacher Lichtkegel auf der Straße.
+So sieht man auch bei einem Wagen am anderen Ende der Straße sofort, wo vorn
+ist und wohin er fährt. **Beim Bremsen glühen die Rücklichter auf** - bei dir
+genauso wie beim Verkehr, und das ist der einzige Hinweis darauf, dass der
+Wagen vor dir gleich steht.
+
+**Der Geländewagen ist ein Cybertruck.** In jeder Linie das Gegenteil des
+Golf: **nichts daran ist rund.** Flache Flächen, die in harten Winkeln
+aufeinandertreffen, keine ausgeschnittenen Radläufe sondern aufgesetzte
+schwarze Trapeze, und ein Dach, das in einer geraden Linie hoch und in einer
+geraden wieder herunter geht. Dazu die beiden Dinge, an denen man ihn sofort
+erkennt: **der durchgehende Lichtbalken** über die ganze Breite, vorn weiß und
+hinten rot, und die **offene Ladefläche** hinter der Kabine, die von oben eine
+gerippte Abdeckung ist statt eines Kofferraumdeckels. Er fährt sich wie vorher:
+träge, zäh und mit reichlich Blech.
+
+## So fährt der Verkehr
+
+**Autos stehen nicht auf der Fahrbahn herum.** Was auf der Straße ist, fährt.
+Steht doch einmal etwas, dann aus einem von drei Gründen:
+
+- Es **steht im Stau** - hinter jemandem, der selbst steht.
+- Es **wartet an einer roten Ampel**.
+- Es ist **verlassen**: Wagen, die du irgendwo abgestellt hast, und Streifenwagen,
+  deren Besatzung ausgestiegen ist. Ein Auto, aus dem du aussteigst, bleibt
+  endgültig stehen.
+
+**Geparkt wird am Bordstein**, nicht auf der Fahrbahn - längs zur Straße, wie es
+sich gehört. Auch der DMC-12 steht dort.
+
+**Der Verkehr fährt gemächlich und hält Abstand.** Er ist deutlich langsamer als
+du - überholen ist etwas, das du tust, nicht etwas, das dir passiert - und lässt
+vor dem Vordermann einen Wagen Platz. An der roten Ampel rückt die Schlange auf
+eine halbe Wagenlänge zusammen, nicht Stoßstange an Stoßstange, und zieht sich
+beim Anfahren wieder auseinander.
+
+**Die Straßen sind drei Felder breit**, eine Spur je Richtung mit Platz darin -
+vorher war eine Gasse genau zwei Autobreiten und Ausweichen ging nur über den
+Bordstein. Die Autobahn bleibt mit fünf Feldern die breitere, und auf der Karte
+ist sie nach wie vor die schwarze Linie.
+
+**Es herrscht Rechtsverkehr.** Jeder hält sich rechts. Die Autobahn ist fünf
+Felder breit und hat damit **zwei Spuren je Richtung**; wer schneller ist,
+überholt links statt in der Schlange zu stehen. Auf einer normalen Straße ist es
+eine Spur je Richtung.
+
+**Ampeln stehen dort, wo zwei Autobahnen kreuzen.** Am Bordstein jeder Zufahrt
+steht ein kleiner Kasten, quer über der Fahrbahn liegt die Haltelinie. Sie
+schalten wie eine richtige Ampel: **sieben Sekunden grün, zwei Sekunden gelb,
+dann rot**, solange die Querrichtung beides hat. In der ganzen Stadt
+gleichzeitig - eine grüne Welle. Der Verkehr hält sich daran; du musst nicht.
+
+**In den anderen Autos sitzen Leute.** Ein bis drei je Wagen. Steigst du ein,
+**ziehst du den Fahrer heraus** - er steht danach neben dem Auto -, und wer sonst
+noch drin saß, steigt ebenfalls aus und rennt weg. Das ist der Unterschied
+zwischen einem Wagen aus dem Verkehr und einem am Bordstein: Der eine kostet
+einen Stern und lässt Zeugen auf der Straße zurück, der andere gehört niemandem.
 
 ## Waffen
 
@@ -485,18 +602,18 @@ Zu Beginn hast du nur die **Faust**. Alles andere liegt verteilt in der Stadt
 und muss gefunden werden; aufgenommene Sachen kommen nach etwa 40 Sekunden an
 derselben Stelle zurück.
 
-| Waffe             | Art       | Schaden | Reichweite | Munition je Fund |
-| ----------------- | --------- | ------- | ---------- | ---------------- |
-| Faust             | Schlag    | 8       | 24 px      | unbegrenzt       |
-| Schlagring        | Schlag    | 16      | 24 px      | unbegrenzt       |
-| Schlagstock       | Schlag    | 22      | 34 px      | unbegrenzt       |
-| Messer            | Schlag    | 26      | 28 px      | unbegrenzt       |
-| Pistole           | Schuss    | 12      | 520 px     | 24               |
-| Maschinengewehr   | Schuss    | 9       | 480 px     | 90               |
-| Flammenwerfer     | Feuer     | 3 je Zunge | 120 px  | 200              |
-| Panzerfaust       | Explosion | 90      | 900 px     | 3                |
-| Granate           | Explosion | 80      | 260 px     | 5                |
-| Fernzünder        | Explosion | 150 je Zünder | dort, wo er liegt | 10        |
+| Waffe           | Art       | Schaden       | Reichweite        | Munition je Fund |
+| --------------- | --------- | ------------- | ----------------- | ---------------- |
+| Faust           | Schlag    | 8             | 24 px             | unbegrenzt       |
+| Schlagring      | Schlag    | 16            | 24 px             | unbegrenzt       |
+| Schlagstock     | Schlag    | 22            | 34 px             | unbegrenzt       |
+| Messer          | Schlag    | 26            | 28 px             | unbegrenzt       |
+| Pistole         | Schuss    | 12            | 520 px            | 24               |
+| Maschinengewehr | Schuss    | 9             | 480 px            | 90               |
+| Flammenwerfer   | Feuer     | 3 je Zunge    | 120 px            | 200              |
+| Panzerfaust     | Explosion | 90            | 900 px            | 3                |
+| Granate         | Explosion | 80            | 260 px            | 5                |
+| Fernzünder      | Explosion | 150 je Zünder | dort, wo er liegt | 10               |
 
 Gewechselt wird mit dem **Mausrad**; leere Fächer werden übersprungen.
 Explosionen treffen alles im Umkreis von 90 Pixeln - auch dich.
@@ -607,15 +724,14 @@ Tresorraum **stehen bleibst**.
 
 ### Wie es ausgeht
 
-| Was passiert | Folge |
-| ------------ | ----- |
-| Rechtzeitig raus, **kein Alarm** | Keine Fahndung. Das Geld ist sofort auf dem Konto. |
+| Was passiert                         | Folge                                                                                         |
+| ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Rechtzeitig raus, **kein Alarm**     | Keine Fahndung. Das Geld ist sofort auf dem Konto.                                            |
 | Rechtzeitig raus, **Alarm war raus** | **Zwei Sterne** - draußen wartet die Polizei, und die Beute zählt erst, wenn du sie los bist. |
-| **Zu lange drin** | Sie stehen in der Tür. Verhaftet, Beute weg. |
+| **Zu lange drin**                    | Sie stehen in der Tür. Verhaftet, Beute weg.                                                  |
 
 Der stille Alarm kürzt die Uhr auf **22 Sekunden** - ab da geht es nur noch
 darum, mit dem, was man hat, durch die Tür zu kommen.
-
 
 ## Speichern
 
@@ -633,8 +749,8 @@ fällig, fliegt der älteste raus.
 Stell dich neben ein Bandenmitglied, dann steht unter dem Bild ein Knopf. Was er
 kostet, hängt vom Hemd ab:
 
-| Wen du mitnimmst | Preis   |
-| ---------------- | ------- |
+| Wen du mitnimmst               | Preis      |
+| ------------------------------ | ---------- |
 | **Grün** - deine eigenen Leute | **gratis** |
 | **Orange** - die andere Bande  | **500 €**  |
 
@@ -748,12 +864,12 @@ Geschwindigkeiten bleiben gleich.
 
 Jeder Block ist etwas Bestimmtes, und zwar immer dasselbe:
 
-| Wohnhäuser   | Orte mit Namen                                                |
-| ------------ | ------------------------------------------------------------- |
-| Haus         | Bank, Waffenladen, Casa de Papel, Feuerwehr, Krankenhaus, Polizeirevier, Barber |
-| Doppelhaus   | Restaurant, Casino, Rathaus, Supermarkt, Nachtclub            |
-| Reihenhaus   | Gefängnis                                                      |
-| Hochhaus     |                                                                |
+| Wohnhäuser | Orte mit Namen                                                                  |
+| ---------- | ------------------------------------------------------------------------------- |
+| Haus       | Bank, Waffenladen, Casa de Papel, Feuerwehr, Krankenhaus, Polizeirevier, Barber |
+| Doppelhaus | Restaurant, Casino, Rathaus, Supermarkt, Nachtclub                              |
+| Reihenhaus | Gefängnis                                                                       |
+| Hochhaus   |                                                                                 |
 
 Zwei Drittel sind Wohnhäuser, ein Drittel hat einen Namen und ein Schild über
 der Tür. **Bank und Casa de Papel gibt es je genau einmal** - wo der Plan eine
@@ -772,20 +888,31 @@ schmale, ein Hochhaus ist fast doppelt so hoch wie ein normales Haus.
 - Wer die Zeit reißt, verliert den Auftrag und bekommt sofort einen neuen.
 - Jeder abgelieferte Auftrag zählt für das Viertel, in dem er **endet**.
 
+## Der Supermarkt
+
+**Um den Supermarkt herum liegt ein Parkplatz.** Statt des Gehwegs, den jeder
+andere Block hat, ist dort rundherum Beton, und auf etwa jedem dritten
+Stellplatz steht schon ein Auto - quer zur Wand geparkt, wie es sich gehört.
+Dazwischen laufen Leute von ihren Wagen zur Tür und wieder zurück.
+
+Für dich heißt das zweierlei: Es ist die einfachste Stelle der Stadt, um an ein
+Auto zu kommen, ohne jemanden herauszuzerren - und es ist die unübersichtlichste,
+wenn dort jemand steht, während du mit Tempo hereinkommst.
+
 ## Die Fahndung
 
 **Nicht jede Tat ist gleich ein Stern.** Was Passanten trifft, muss erst jemand
 sehen:
 
-| Was du tust                      | Wirkung                                  |
-| -------------------------------- | ---------------------------------------- |
-| einen fahrenden Wagen wegnehmen  | 1 Punkt „Aufsehen"                       |
-| einen Passanten anfahren         | 1 Punkt                                  |
-| jemanden niederschlagen          | 1 Punkt                                  |
-| auf jemanden schießen            | 2 Punkte                                 |
-| eine Explosion mit Verletzten    | 2 Punkte                                 |
-| **auf die Polizei schießen**     | sofort +1 Stern                          |
-| **einen Streifenwagen rammen**   | sofort +1 Stern                          |
+| Was du tust                     | Wirkung            |
+| ------------------------------- | ------------------ |
+| einen fahrenden Wagen wegnehmen | 1 Punkt „Aufsehen" |
+| einen Passanten anfahren        | 1 Punkt            |
+| jemanden niederschlagen         | 1 Punkt            |
+| auf jemanden schießen           | 2 Punkte           |
+| eine Explosion mit Verletzten   | 2 Punkte           |
+| **auf die Polizei schießen**    | sofort +1 Stern    |
+| **einen Streifenwagen rammen**  | sofort +1 Stern    |
 
 Drei Punkte Aufsehen ergeben einen Stern. **Ist aber eine Streife in Sichtweite
 (420 px), zählt schon die erste Tat als Stern.** Aufsehen kühlt langsam ab, eine
@@ -812,7 +939,7 @@ nächste Wagen losgeschickt wird - statt der sieben, die sonst zwischen zwei
 Streifen liegen. Das ist der Sinn davon, sich zu wehren: fünfzehn Sekunden sind
 zwei Straßen und eine Ecke.
 
-**Abkühlen** tut die Fahndung nur außer Sichtweite: Solange eine *fahrtüchtige*
+**Abkühlen** tut die Fahndung nur außer Sichtweite: Solange eine _fahrtüchtige_
 Streife in der Nähe ist, bleibt die Suche wach. Ein Wrack sieht nichts mehr -
 wer den Wagen ausschaltet und wegfährt, ist die Fahndung nach 18 Sekunden je
 Stern los. Beim letzten fahren die Streifen weg.

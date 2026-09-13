@@ -13,10 +13,15 @@
  * that one number, which is why a saved game can put it back exactly where it
  * was.
  */
-import { STATIONS, railLoop, type Station } from "./city";
+import {
+  STATIONS,
+  railAt,
+  railLength,
+  stationAlong,
+  type Station,
+} from "./city";
 import {
   STATION_WAIT,
-  TILE,
   TRAIN_ACCEL,
   TRAIN_BRAKE,
   TRAIN_CARS,
@@ -195,20 +200,7 @@ export function stopsAlong(): readonly number[] {
  * platform is a point on the track, and the track is one number long.
  */
 function alongOf(stop: Station): number {
-  const loop = railLoop();
-  const across = (loop.right - loop.left) * TILE;
-  const down = (loop.bottom - loop.top) * TILE;
-  let along: number;
-  if (stop.row === loop.top) {
-    along = (stop.col - loop.left) * TILE;
-  } else if (stop.col === loop.right) {
-    along = across + (stop.row - loop.top) * TILE;
-  } else if (stop.row === loop.bottom) {
-    along = across + down + (loop.right - stop.col) * TILE;
-  } else {
-    along = across * 2 + down + (loop.bottom - stop.row) * TILE;
-  }
-  return along;
+  return stationAlong(stop);
 }
 
 /**
@@ -245,32 +237,7 @@ export function trainCars(train: Train): readonly OnRails[] {
  * @returns where it lands and which way the rail runs there
  */
 export function trainAt(along: number): OnRails {
-  const loop = railLoop();
-  const left = (loop.left + HALF) * TILE;
-  const right = (loop.right + HALF) * TILE;
-  const top = (loop.top + HALF) * TILE;
-  const bottom = (loop.bottom + HALF) * TILE;
-  const across = right - left;
-  const down = bottom - top;
-  const round = loopLength();
-  const gone = ((along % round) + round) % round;
-  let spot: OnRails;
-  if (gone < across) {
-    spot = { at: { x: left + gone, y: top }, angle: 0 };
-  } else if (gone < across + down) {
-    spot = { at: { x: right, y: top + (gone - across) }, angle: Math.PI / 2 };
-  } else if (gone < across * 2 + down) {
-    spot = {
-      at: { x: right - (gone - across - down), y: bottom },
-      angle: Math.PI,
-    };
-  } else {
-    spot = {
-      at: { x: left, y: bottom - (gone - across * 2 - down) },
-      angle: -Math.PI / 2,
-    };
-  }
-  return spot;
+  return railAt(along);
 }
 
 /**
@@ -279,9 +246,5 @@ export function trainAt(along: number): OnRails {
  * @returns the way round the rectangle
  */
 export function loopLength(): number {
-  const loop = railLoop();
-  return ((loop.right - loop.left) * 2 + (loop.bottom - loop.top) * 2) * TILE;
+  return railLength();
 }
-
-/** The middle of a square, as a share of its width. */
-const HALF = 0.5;

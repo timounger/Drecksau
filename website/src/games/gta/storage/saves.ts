@@ -226,7 +226,12 @@ function rebuild(stored: Stored): GameState {
     // it, and a train at undefined pixels a second goes nowhere at all.
     // A stand written before cars could slide has no sideways speed in it,
     // and a car at undefined pixels a second goes nowhere sensible.
-    cars: stored.cars.map((car) => ({ ...car, slip: car.slip ?? 0 })),
+    cars: stored.cars.map((car) => ({
+      ...car,
+      slip: car.slip ?? 0,
+      braking: car.braking ?? false,
+      seats: car.seats ?? 0,
+    })),
     // Skid marks are weather, not history: they fade on their own and nobody
     // comes back to a saved game for them.
     marks: [],

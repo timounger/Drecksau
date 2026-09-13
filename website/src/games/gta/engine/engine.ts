@@ -14,21 +14,30 @@
  */
 import type { BuildingKind } from "./buildings";
 import {
+  atCrossing,
+  cellUnder,
   districtAt,
   doorsOf,
   garageBay,
   garageMouth,
   isOpen,
   isRoadAt,
+  onMotorway,
+  lightAt,
+  lightColour,
   nearestCrossing,
+  inCity,
+  roadRun,
+  routeHeading,
   setGarage,
+  streetRun,
 } from "./city";
 import { advanceBank, enterBank } from "./bank";
 import { advanceMint, enterMint } from "./mint";
 import { atPlatform, rollTrain, trainCars } from "./train";
 import { advance, enterPrison } from "./prison";
 import { nextInt, nextRandom, type RandomState } from "./random";
-import { DISTRICTS, far, jobDeadline, pickJob } from "./setup";
+import { DISTRICTS, far, jobDeadline, makePerson, pickJob } from "./setup";
 import {
   ACK_DAMAGE,
   ACK_EVERY,
@@ -50,6 +59,7 @@ import {
   MARK_LIFE,
   MARK_MAX,
   SLIP_SMOKE,
+  LIGHT_LOOK,
   LOOSE_DRAG,
   TANK_HITS,
   TOW_GAP,
@@ -801,7 +811,7 @@ function layMarks(state: GameState, input: Input): GameState {
       if ((sliding || locked) && car.health > 0) {
         const back = -shape.length * WHEEL_BACK;
         const side = shape.width * WHEEL_SIDE;
-        for (const wheel of [-1, 1]) {
+        for (const wheel of TYRE_TRACKS[car.body] ?? BOTH_TRACKS) {
           fresh.push({
             x:
               car.x +
@@ -828,6 +838,24 @@ function layMarks(state: GameState, input: Input): GameState {
   }
   return next;
 }
+
+/**
+ * Where a vehicle's back tyres are, across it, as shares of half its width.
+ *
+ * @remarks
+ * Two lines is the usual answer and the default. The two that are not usual are
+ * the two-wheelers: a motorbike drags one tyre down the middle of the lane, and
+ * a bicycle drags nothing at all - there is not enough weight on a pushbike to
+ * scrub rubber off it, and a bicycle leaving black lines out of a corner is the
+ * sort of detail that makes everything around it look made up.
+ */
+const TYRE_TRACKS: Readonly<Partial<Record<VehicleBody, readonly number[]>>> = {
+  bike: [0],
+  cycle: [],
+};
+
+/** What everything else leaves: one line per rear wheel. */
+const BOTH_TRACKS: readonly number[] = [-1, 1];
 
 /** Below this, locked wheels only scuff rather than mark, in pixels a second. */
 const MARK_CRAWL = 40;
@@ -1264,7 +1292,8 @@ function enterCar(state: GameState, car: Car): GameState {
   // is the only way to a tank: they bring one at six stars, and taking it off
   // them is the whole of getting one.
   const thrown = manned ? throwOut(withStar, car) : withStar;
-  const boarded = getIn(thrown);
+  const emptied = jacked ? tipOut(thrown, car) : thrown;
+  const boarded = getIn(emptied);
   return {
     ...boarded,
     player: { ...boarded.player, car: car.id, angle: car.angle },
@@ -1272,7 +1301,9 @@ function enterCar(state: GameState, car: Car): GameState {
     // patrol car - taking one is the point of taking one - and what stops it
     // from behaving like the law is the empty crew, not a change of livery.
     cars: boarded.cars.map((each) =>
-      each.id === car.id ? { ...each, driven: true, crew: 0 } : each,
+      each.id === car.id
+        ? { ...each, driven: true, crew: 0, seats: 0, braking: false }
+        : each,
     ),
     log: note(
       boarded.log,
@@ -1386,6 +1417,76 @@ function throwOut(state: GameState, car: Car): GameState {
   return { ...state, cops: [...state.cops, ...born] };
 }
 
+/**
+ * The people who were in a car, put out of it.
+ *
+ * @param state - the city, at the moment the door is opened
+ * @param car - the car being taken
+ * @returns the city with them standing in the road beside it
+ * @remarks
+ * The driver first, at his own door, and then whoever was sitting with him -
+ * out of the other doors and away. They are frightened, which means they run,
+ * which is the only sensible thing to do when somebody drags you out of your
+ * own car in the middle of Los Santos.
+ *
+ * This is why a car in the traffic is worth taking rather than picking up: one
+ * that is standing at the kerb is nobody. One with people in it leaves three
+ * witnesses in the road behind you.
+ */
+function tipOut(state: GameState, car: Car): GameState {
+  const born: Person[] = [];
+  let rng = state.rng;
+  let id = state.people.reduce((most, person) => Math.max(most, person.id), 0);
+  for (let seat = 0; seat < car.seats; seat += 1) {
+    const side = seat % 2 === 0 ? 1 : -1;
+    const back = Math.floor(seat / 2) * DOOR_BACK;
+    const at = {
+      x:
+        car.x -
+        Math.sin(car.angle) * DOOR_OUT * side -
+        Math.cos(car.angle) * back,
+      y:
+        car.y +
+        Math.cos(car.angle) * DOOR_OUT * side -
+        Math.sin(car.angle) * back,
+    };
+    id += 1;
+    const made = makePerson(
+      rng,
+      id,
+      isOpen(state.cells, at.x, at.y) ? at : car,
+    );
+    rng = made.rng;
+    born.push({
+      ...made.person,
+      mood: "walking",
+      scaredAt: state.time + SCARE_SECONDS,
+      heading: car.angle + (Math.PI / 2) * side,
+    });
+  }
+  return born.length === 0
+    ? state
+    : {
+        ...state,
+        rng,
+        people: [...state.people, ...born],
+        log: note(state.log, "Der Fahrer steht jetzt auf der Strasse."),
+      };
+}
+
+/**
+ * How far out of the car somebody lands, in pixels.
+ *
+ * @remarks
+ * Clear of the bodywork, not against it. At twenty two the driver landed
+ * inside the very car he had just been pulled out of and was promptly run
+ * over by it, which is a thing that happened every single time.
+ */
+const DOOR_OUT = 34;
+
+/** And how far back the second row of doors is. */
+const DOOR_BACK = 16;
+
 /** Getting out again, beside the car. */
 function leaveCar(state: GameState): GameState {
   const car = carOf(state);
@@ -1400,7 +1501,19 @@ function leaveCar(state: GameState): GameState {
           y: car.y + Math.sin(car.angle + Math.PI / 2) * bodyRadius(car.body),
         },
         cars: state.cars.map((each) =>
-          each.id === car.id ? { ...each, driven: false, speed: 0 } : each,
+          // Left standing, and it stays standing. A car nobody is in is not
+          // traffic any more: the traffic is the cars with somebody in them,
+          // and this one has just had its driver thrown out and then walked
+          // away from by the man who threw him out.
+          each.id === car.id
+            ? {
+                ...each,
+                kind: "parked",
+                driven: false,
+                speed: 0,
+                braking: false,
+              }
+            : each,
         ),
       };
 }
@@ -1660,6 +1773,11 @@ function drive(state: GameState, input: Input, dt: number): GameState {
       (hand ? HAND_GRIP : input.down ? GRIP_BRAKE : input.up ? GRIP_PUSH : 1);
     const moved = rollCar(state.cells, car, swing, speed, bite, dt);
     const angle = moved.angle;
+    // Brake lights: the pedal or the handbrake, and only while there is
+    // something to slow down. Standing still with a foot on the brake lights
+    // nothing up, because a parked car with its brake lights on looks like a
+    // car about to pull away.
+    const braking = (input.down || hand) && Math.abs(car.speed) > 1;
     // The turret looks where the mouse looks, not where the tracks point.
     // Straight away rather than swinging round: the shell is meant to land on
     // the crosshair, and a turret that lags puts it somewhere else.
@@ -1667,7 +1785,9 @@ function drive(state: GameState, input: Input, dt: number): GameState {
     next = {
       ...state,
       cars: state.cars.map((each) =>
-        each.id === car.id ? { ...each, ...moved, angle, turret } : each,
+        each.id === car.id
+          ? { ...each, ...moved, angle, turret, braking }
+          : each,
       ),
       player: {
         ...state.player,
@@ -2675,38 +2795,551 @@ const BLAST_FORCE = 85;
 
 /* ----------------------------------------------------------------- traffic */
 
-/** Traffic drives itself: straight on, and a new heading at the crossings. */
+/**
+ * Traffic drives itself.
+ *
+ * @remarks
+ * **A car on the road is going somewhere.** It used to pick one of the four
+ * compass points every two and a half seconds and drive at it whatever was in
+ * front; a third of the traffic was therefore standing with its nose in a wall
+ * waiting for the timer, which read as a city where cars are parked in the
+ * middle of the road. The rules now are the ones a driver has: keep to your
+ * own side, only turn where there is something to turn into, stop for whatever
+ * is in front of you, and stop at a red light.
+ */
 function moveTraffic(state: GameState, dt: number): GameState {
   let rng = state.rng;
+  // How much traffic is about **in the streets one can see**, which is a much
+  // smaller circle than the one that is simulated. Cars stop being stepped at
+  // the edge of the simulated circle, so they silt up against the inside of it
+  // - fifty of them out there and an empty street in the middle is exactly
+  // what this count has to notice.
+  let about = state.cars.filter(
+    (car) =>
+      car.kind === "traffic" &&
+      !car.driven &&
+      far(state.player, car) < TRAFFIC_ROUND,
+  ).length;
   const cars = state.cars.map((car) => {
     let next = car;
-    const rolling = car.health > 0;
-    if (
-      !car.driven &&
-      rolling &&
-      car.kind === "traffic" &&
-      near(state.player, car)
+    const mine = car.kind === "traffic" && !car.driven && car.health > 0;
+    if (mine && near(state.player, car)) {
+      const driven = driveTraffic(state, car, rng, dt);
+      rng = driven.rng;
+      next = driven.car;
+    } else if (
+      mine &&
+      about < TRAFFIC_ABOUT &&
+      state.time >= car.turnAt &&
+      far(state.player, car) > COME_ROUND_AWAY
     ) {
-      const turning = state.time >= car.turnAt;
-      const draw = turning ? nextInt(rng, HEADINGS) : { value: 0, state: rng };
-      rng = draw.state;
-      const angle = turning ? (draw.value * Math.PI) / 2 : car.angle;
-      // They brake for you. A city where crossing the road is a coin toss is a
-      // city you drive through rather than walk in - and being run over by
-      // somebody else's Sunday driver is not a death anybody learns from.
-      const pace = inTheWay(state, car, angle) ? 0 : TRAFFIC_SPEED;
-      const moved = slideCar(state.cells, car, angle, pace, dt);
-      const stuck = moved.speed === 0;
-      next = {
-        ...car,
-        ...moved,
-        angle,
-        turnAt: turning || stuck ? state.time + TURN_EVERY : car.turnAt,
-      };
+      about += 1;
+      const back = comeRound(state, car, rng);
+      rng = back.rng;
+      next = back.car;
     }
     return next;
   });
   return { ...state, cars, rng };
+}
+
+/**
+ * A car that has driven out of the world, brought back into it.
+ *
+ * @param state - the city
+ * @param car - the car, somewhere out of sight
+ * @param rng - the generator
+ * @returns it on a road near the player again, and the generator afterwards
+ * @remarks
+ * The traffic is only simulated near the player, so a car that drives away
+ * stops where it leaves that circle and stands there for ever. Do that for a
+ * minute and the streets round the player are empty - not because the traffic
+ * stopped, but because it all left and none of it came back.
+ *
+ * So it comes back. Far enough out to be off the screen, on a road, pointing
+ * somewhere it can actually drive. This is the oldest trick there is in a game
+ * with a scrolling city, and what it buys is a city that is as busy on the
+ * tenth minute as on the first.
+ */
+function comeRound(
+  state: GameState,
+  car: Car,
+  rng: RandomState,
+): { car: Car; rng: RandomState } {
+  let spin = rng;
+  let found: Vec | null = null;
+  for (let tries = 0; tries < COME_ROUND_TRIES && found === null; tries += 1) {
+    const turn = nextRandom(spin);
+    const out = nextRandom(turn.state);
+    spin = out.state;
+    const angle = turn.value * Math.PI * 2;
+    const away = COME_ROUND_IN + out.value * (COME_ROUND_OUT - COME_ROUND_IN);
+    const at = {
+      x: state.player.x + Math.cos(angle) * away,
+      y: state.player.y + Math.sin(angle) * away,
+    };
+    found = cellUnder(state.cells, at.x, at.y) === "road" ? at : null;
+  }
+  // Pointed inwards: of the ways it could go from there, the one that takes it
+  // past the player. A car put down outside the screen and sent off in a random
+  // direction is a car nobody ever sees.
+  const spot = found;
+  const ways =
+    spot === null
+      ? []
+      : WAYS.filter(
+          (way) =>
+            cellUnder(
+              state.cells,
+              spot.x + Math.cos(way) * TILE * LOOK_TILES,
+              spot.y + Math.sin(way) * TILE * LOOK_TILES,
+            ) === "road",
+        );
+  const inwards = spot === null ? null : inward(ways, spot, state.player);
+  return {
+    car:
+      spot === null
+        ? { ...car, turnAt: state.time + COME_ROUND_HOLD }
+        : {
+            ...car,
+            x: spot.x,
+            y: spot.y,
+            angle: inwards ?? car.angle,
+            speed: 0,
+            slip: 0,
+            braking: false,
+            turnAt: state.time,
+          },
+    rng: spin,
+  };
+}
+
+/** Above this much of its own top speed a car has been hit, not driven. */
+const SHOVED_OVER = 1.3;
+
+/** The circle the traffic is counted in, a comfortable screen wide. */
+const TRAFFIC_ROUND = 700;
+
+/** How far outside that circle a car has to be to be brought round, in pixels. */
+const COME_ROUND_PAST = 20;
+
+/** Which puts the line here. */
+const COME_ROUND_AWAY = TRAFFIC_ROUND + COME_ROUND_PAST;
+
+/**
+ * How many cars of traffic are kept within sight of the player.
+ *
+ * @remarks
+ * Enough that every street has something on it and a junction is worth
+ * looking at, few enough that they are not queueing nose to tail. The rest of
+ * the fleet stands where it stopped, out in the city, and is drawn on when
+ * this number falls.
+ */
+const TRAFFIC_ABOUT = 12;
+
+/**
+ * Where it comes back: past the corner of the screen, and no further.
+ *
+ * @remarks
+ * The view is about six hundred and forty pixels across and four hundred down,
+ * so four hundred and thirty from the middle is off the screen in every
+ * direction - and near enough that a car pointed inwards is in the street in
+ * front of you within two seconds.
+ */
+const COME_ROUND_IN = 430;
+
+/** The far edge of that ring. */
+const COME_ROUND_OUT = 620;
+
+/** How many places are tried before giving up for now. */
+const COME_ROUND_TRIES = 6;
+
+/** How long a car that found nowhere waits before trying again, in seconds. */
+const COME_ROUND_HOLD = 2;
+
+/**
+ * One computer driver, one step.
+ *
+ * @param state - the city
+ * @param car - the car as it stands
+ * @param rng - the generator, for the turns it takes
+ * @param dt - seconds since the last step
+ * @returns where it got to, and the generator afterwards
+ */
+function driveTraffic(
+  state: GameState,
+  car: Car,
+  rng: RandomState,
+  dt: number,
+): { car: Car; rng: RandomState } {
+  // A car that has just been shoved is not driving, it is rolling: it keeps
+  // whatever speed it was given until the tyres have scrubbed it off, and only
+  // then goes back to being traffic. Otherwise being rammed looked like the
+  // other driver simply setting off again in a new direction.
+  const shoved = Math.abs(car.speed) > TRAFFIC_SPEED * SHOVED_OVER;
+  const picked = headingFor(state, car, rng);
+  const angle = picked.angle;
+  // Anything at all in front: the player on foot, the car in the queue ahead,
+  // or a junction showing red. All three come out as the same thing - a driver
+  // with his foot on the brake - which is why the brake lights need no case of
+  // their own.
+  const held =
+    inTheWay(state, car, angle) ||
+    queueAhead(state, car, angle) ||
+    redAhead(state, car, angle);
+  const pace = held ? 0 : TRAFFIC_SPEED;
+  const sideways = laneDrift(state.cells, car, angle, dt);
+  const dx = Math.cos(angle) * pace * dt - Math.sin(angle) * sideways;
+  const dy = Math.sin(angle) * pace * dt + Math.cos(angle) * sideways;
+  const moved = slide(state.cells, car, dx, dy);
+  const went = Math.hypot(moved.x - car.x, moved.y - car.y);
+  const stuck = pace > 0 && went < Math.abs(pace * dt) / 2;
+  const rolled =
+    Math.sign(car.speed) * Math.max(0, Math.abs(car.speed) - LOOSE_DRAG * dt);
+  return {
+    car: shoved
+      ? {
+          ...car,
+          ...slideCar(state.cells, car, car.angle, rolled, dt),
+          braking: false,
+        }
+      : {
+          ...car,
+          x: moved.x,
+          y: moved.y,
+          angle,
+          speed: pace,
+          braking: held,
+          // A driver who has just turned holds that heading for a moment; one
+          // that has just been stopped by a wall looks for a way out at once.
+          turnAt: stuck
+            ? state.time
+            : picked.turned
+              ? state.time + TURN_HOLD
+              : car.turnAt,
+        },
+    rng: picked.rng,
+  };
+}
+
+/**
+ * Which way a computer driver goes from here.
+ *
+ * @param state - the city
+ * @param car - the car
+ * @param rng - the generator
+ * @returns the heading, whether it is a new one, and the generator afterwards
+ * @remarks
+ * Straight on unless there is a reason: a driver who turns at every junction
+ * is a driver going nowhere. A turn is only taken **at a crossing**, because
+ * anywhere else it is a turn into a front garden - which is what the old
+ * timer did, four times a minute, to every car in the city.
+ */
+function headingFor(
+  state: GameState,
+  car: Car,
+  rng: RandomState,
+): { angle: number; turned: boolean; rng: RandomState } {
+  const col = Math.floor(car.x / TILE);
+  const row = Math.floor(car.y / TILE);
+  // Anything but a U turn, and only where there is road to turn into.
+  const open = WAYS.filter(
+    (way) =>
+      Math.cos(way - car.angle) > -HALF_WAY &&
+      roadThatWay(state.cells, car, way, TURN_TILES),
+  );
+  // And if there is no road anywhere about - shoved into a field, wedged in a
+  // yard - anything that is not a wall will do. Without this a car with no road
+  // in reach turned round every single step and stood there shaking: the
+  // fallback was a reverse, and a reverse every step is a car facing both ways
+  // at once and going nowhere.
+  const loose =
+    open.length > 0
+      ? open
+      : WAYS.filter(
+          (way) =>
+            Math.cos(way - car.angle) > -HALF_WAY &&
+            isOpen(
+              state.cells,
+              car.x + Math.cos(way) * TILE,
+              car.y + Math.sin(way) * TILE,
+            ),
+        );
+  // Out of town the road decides. A country road sweeps, and a driver who only
+  // knows north, south, east and west drives a sweep as a zigzag - which is
+  // exactly what it looked like. Out there he simply points along the tarmac,
+  // forwards, whichever of the two ways along it he was already going.
+  const along = atCrossing(col, row) ? null : routeHeading(car.x, car.y);
+  const due = state.time >= car.turnAt && atCrossing(col, row);
+  const ahead = roadThatWay(state.cells, car, car.angle, LOOK_TILES);
+  let angle = car.angle;
+  let turned = false;
+  let after = rng;
+  if (along !== null) {
+    angle =
+      Math.cos(along - car.angle) >= 0
+        ? along
+        : (along + Math.PI) % (Math.PI * 2);
+  } else if (!ahead || (due && open.length > 0)) {
+    const draw = nextRandom(rng);
+    after = draw.state;
+    const keep = ahead && draw.value < STRAIGHT_ON;
+    if (!keep) {
+      // A free choice, every time. Nobody is steered back towards the player:
+      // a car that turns round whenever it gets a few streets away is a
+      // shuttle service running past the window, and that is exactly what it
+      // looked like - four thousand pixels of driving that ended three hundred
+      // pixels from where it started. Drivers here are going somewhere. What
+      // keeps the streets busy is not that they come back, it is that others
+      // arrive - see {@link comeRound}.
+      const which = nextInt(after, Math.max(1, loose.length));
+      after = which.state;
+      angle = loose[which.value] ?? car.angle + Math.PI;
+      turned = true;
+    }
+  }
+  return { angle, turned, rng: after };
+}
+
+/** Whichever of these ways points most nearly at a place. */
+function inward(ways: readonly number[], from: Vec, to: Vec): number | null {
+  const toward = (way: number): number =>
+    Math.cos(way) * (to.x - from.x) + Math.sin(way) * (to.y - from.y);
+  return ways.reduce<number | null>(
+    (best, way) => (best === null || toward(way) > toward(best) ? way : best),
+    null,
+  );
+}
+
+/** The four ways a computer driver may point. */
+const WAYS: readonly number[] = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+
+/** How long a driver holds a heading after taking a turning, in seconds. */
+const TURN_HOLD = 1.4;
+
+/**
+ * How often a driver with a clear road ahead stays on it at a junction.
+ *
+ * @remarks
+ * High, because a car that takes a turning at three junctions out of five is a
+ * car going round the same four blocks all afternoon. Drivers are going
+ * somewhere; a journey in this city should be streets long.
+ */
+const STRAIGHT_ON = 0.82;
+
+/** Whether there is road that way, a square and a half off. */
+function roadThatWay(
+  cells: readonly Cell[],
+  car: Car,
+  way: number,
+  tiles: number,
+): boolean {
+  const look = TILE * tiles;
+  return (
+    cellUnder(
+      cells,
+      car.x + Math.cos(way) * look,
+      car.y + Math.sin(way) * look,
+    ) === "road"
+  );
+}
+
+/** How far ahead a driver looks for tarmac, in squares. */
+const LOOK_TILES = 1.5;
+
+/**
+ * And how far to the side when he is looking for a turning, in squares.
+ *
+ * @remarks
+ * It has to reach past the width of the road he is on. A motorway is five
+ * squares across, so a square and a half to the left of the middle of one is
+ * still motorway - and the traffic was turning left into its own carriageway
+ * and driving across it into the oncoming lane, which is most of the reason
+ * half the cars were found on the wrong side of the road.
+ */
+const TURN_TILES = 3.5;
+
+/**
+ * How far across the road a car moves this step to get into its lane.
+ *
+ * @param cells - the city floor
+ * @param car - the car
+ * @param angle - the way it is going
+ * @param dt - seconds since the last step
+ * @returns the distance to the right of its nose, in pixels
+ * @remarks
+ * **Right hand traffic.** The run of tarmac under the car is measured, the
+ * right hand half of it belongs to this direction, and the car is drawn across
+ * towards the middle of a lane in that half. On an ordinary street that is one
+ * lane each way; on a motorway, five squares of tarmac, it is two - which is
+ * what makes a motorway worth having, since the car in front can be passed
+ * rather than queued behind.
+ */
+function laneDrift(
+  cells: readonly Cell[],
+  car: Car,
+  angle: number,
+  dt: number,
+): number {
+  const upright = Math.abs(Math.cos(angle)) < HALF_WAY;
+  const col = Math.floor(car.x / TILE);
+  const row = Math.floor(car.y / TILE);
+  // Lanes are a town thing. Out in the country the road sweeps and the drivers
+  // only know four directions, so a car chasing a lane down a diagonal road
+  // wanders across it the whole way - twice the distance covered and a wobble
+  // to look at. There it simply follows the road.
+  const town = inCity(col, row);
+  const run = town
+    ? streetRun(upright ? col : row)
+    : roadRun(cells, col, row, !upright);
+  const wide = (run.to - run.from + 1) * TILE;
+  const middle = ((run.from + run.to + 1) / 2) * TILE;
+  // Which side of the middle is this car right hand side: east and south turn
+  // out the opposite way round, which is the whole of the sign below.
+  const hand = upright
+    ? -Math.sign(Math.sin(angle))
+    : Math.sign(Math.cos(angle));
+  const now = upright ? car.x : car.y;
+  // Whichever lane of its own half it is nearest. A car coming off a side
+  // street lands somewhere across the road and is in somebody way until it is
+  // in a lane; aiming for the near one rather than for one picked in advance
+  // means it is in a lane within a car length instead of crossing the whole
+  // carriageway to reach the one it was given.
+  const slots =
+    wide >= TILE * LANES_FROM ? [INNER_LANE, OUTER_LANE] : [ONE_LANE];
+  const want = slots
+    .map((slot) => middle + hand * (wide / 2) * slot)
+    .reduce((best, one) =>
+      Math.abs(one - now) < Math.abs(best - now) ? one : best,
+    );
+  const off = want - now;
+  const most = town ? LANE_PULL * dt : 0;
+  const pull = Math.max(-most, Math.min(most, off));
+  // The drift is given in "to the right of the nose", so it needs the sign
+  // that turns a movement across the world into a movement across the car.
+  return upright
+    ? -pull * Math.sign(Math.sin(angle))
+    : pull * Math.sign(Math.cos(angle));
+}
+
+/**
+ * Above how many squares of tarmac a direction gets two lanes.
+ *
+ * @remarks
+ * Five, which is the motorway and nothing else. An ordinary street is three
+ * squares wide - a comfortable lane each way, and nothing like enough for two.
+ */
+const LANES_FROM = 5;
+
+/** Where the one lane of an ordinary street sits, as a share of half the road. */
+const ONE_LANE = 0.42;
+
+/** And the two lanes of a motorway. */
+const INNER_LANE = 0.3;
+
+/** The outer one, which is the one to pass in. */
+const OUTER_LANE = 0.74;
+
+/** How fast a car pulls across into its lane, in pixels a second. */
+const LANE_PULL = 170;
+
+/** Half a turn either way, for telling an upright heading from a flat one. */
+const HALF_WAY = 0.5;
+
+/**
+ * Whether another car is close in front.
+ *
+ * @param state - the city
+ * @param car - the car looking
+ * @param angle - the way it is going
+ * @returns true when it should be on the brakes
+ * @remarks
+ * This is the whole of a traffic jam, and it is the only place cars are
+ * allowed to stand still on a road: behind another car that is standing still.
+ */
+function queueAhead(state: GameState, car: Car, angle: number): boolean {
+  const gap = bodyRadius(car.body) + QUEUE_GAP;
+  const closed = bodyRadius(car.body) + QUEUE_CLOSED;
+  return state.cars.some((other) => {
+    const dx = other.x - car.x;
+    const dy = other.y - car.y;
+    const ahead = dx * Math.cos(angle) + dy * Math.sin(angle);
+    const aside = Math.abs(-dx * Math.sin(angle) + dy * Math.cos(angle));
+    // Whom one gives way to. Somebody going the same way is the car in front
+    // and one queues behind him. Somebody crossing is dealt with by the
+    // junction, not by braking - two cars that each stop for the other stop
+    // for ever, and a grid city full of that is a grid city that never moves.
+    // Where both are standing still the lower number goes first, which is an
+    // arbitrary rule and is exactly what a right of way is.
+    const along = Math.cos(other.angle - angle);
+    const together = along > SAME_WAY;
+    const oncoming = along < -SAME_WAY;
+    const standing = Math.abs(other.speed) < QUEUE_CRAWL;
+    const yields = together || (!oncoming && standing && other.id < car.id);
+    return (
+      other.id !== car.id &&
+      yields &&
+      ahead > 0 &&
+      // Room to stop behind something that is moving; nose to tail behind
+      // something that is not. That is how a queue at a red light closes up
+      // and how the same queue opens out again when it pulls away.
+      ahead < (standing ? closed : gap) + bodyRadius(other.body) &&
+      aside < QUEUE_WIDE
+    );
+  });
+}
+
+/** How nearly two cars have to point the same way to be in one queue. */
+const SAME_WAY = 0.2;
+
+/** How much room a driver leaves to the car in front, in pixels. */
+const QUEUE_GAP = 96;
+
+/**
+ * And how little he leaves once that car has stopped.
+ *
+ * @remarks
+ * Less than while driving, but still a gap: bumper to bumper at a red light is
+ * what a scrapyard looks like, not a queue. {@link bodyRadius} is the mean of
+ * half the length and half the width, so it is a good bit less than the nose
+ * of the car it stands for - which is why this number has to be bigger than it
+ * looks to leave half a car length of daylight.
+ */
+const QUEUE_CLOSED = 42;
+
+/** And how far off his own line a car has to be to count as in front. */
+const QUEUE_WIDE = 16;
+
+/** Below this a car counts as standing rather than driving, in pixels a second. */
+const QUEUE_CRAWL = 12;
+
+/**
+ * Whether the junction ahead is showing red.
+ *
+ * @param state - the city
+ * @param car - the car
+ * @param angle - the way it is going
+ * @returns true while it should wait
+ * @remarks
+ * Only where the car is still short of the line: once the nose is over it, the
+ * light turning red behind you is not a reason to stop in the middle of a
+ * junction, and a car that did would block the green wave for everybody.
+ */
+function redAhead(state: GameState, car: Car, angle: number): boolean {
+  const here = lightAt(Math.floor(car.x / TILE), Math.floor(car.y / TILE));
+  const look = {
+    x: car.x + Math.cos(angle) * LIGHT_LOOK,
+    y: car.y + Math.sin(angle) * LIGHT_LOOK,
+  };
+  const upright = Math.abs(Math.cos(angle)) < HALF_WAY;
+  // Amber means stop as well. It lasts two seconds and the look ahead is under
+  // a second of driving, so a car that sees amber has room to stop - which is
+  // what amber is for.
+  return (
+    !here &&
+    lightAt(Math.floor(look.x / TILE), Math.floor(look.y / TILE)) &&
+    lightColour(state.time, upright) !== "green"
+  );
 }
 
 /**
@@ -2730,12 +3363,6 @@ function inTheWay(state: GameState, car: Car, angle: number): boolean {
   const aside = Math.abs(-dx * Math.sin(angle) + dy * Math.cos(angle));
   return ahead > 0 && ahead < BRAKE_RANGE && aside < BRAKE_WIDTH;
 }
-
-/** How long a computer driver holds a heading, in seconds. */
-const TURN_EVERY = 2.5;
-
-/** How many ways a car can turn at a crossing: the four points of the compass. */
-const HEADINGS = 4;
 
 /** Whether something is close enough to bother simulating. */
 function near(player: Player, thing: Vec): boolean {
@@ -2852,12 +3479,19 @@ function walkPerson(
     //
     // Unless he is **in** the wall, in which case there is nothing to steer
     // round and only one thing worth doing: get out.
+    const wandering =
+      wayOut === null && !behind && !scare && foe === null && !strayed;
     const going = wayOut ?? steerRound(state.cells, person, heading, WALK_LOOK);
+    // And then the pavement. Everybody who is merely out walking stays on it;
+    // whoever is running for his life, going somewhere, or carrying a gun for
+    // a living goes where he likes, which is the difference between a passer
+    // by and everybody else in this city.
+    const footed = wandering ? keepToPath(state, person, going) : going;
     const want = slide(
       state.cells,
       person,
-      Math.cos(going) * speed * dt,
-      Math.sin(going) * speed * dt,
+      Math.cos(footed) * speed * dt,
+      Math.sin(footed) * speed * dt,
     );
     const moved = blocked(state, want, person)
       ? { x: person.x, y: person.y }
@@ -2867,7 +3501,7 @@ function walkPerson(
     next = {
       ...person,
       ...moved,
-      heading: going,
+      heading: footed,
       mood: foe === null && scare ? "fleeing" : "walking",
       turnAt: turning || stuck ? state.time + PERSON_TURN_EVERY : person.turnAt,
       walked: stridden(person.walked, went, dt),
@@ -3613,6 +4247,83 @@ function copShot(state: GameState, cop: Cop, gun: Weapon): GameState {
   return startle(fired, cop, EARSHOT);
 }
 
+/**
+ * A heading that keeps somebody on the pavement.
+ *
+ * @param state - the city
+ * @param person - the one walking
+ * @param going - where they were about to go
+ * @returns the same heading, or one along the kerb instead
+ * @remarks
+ * Pavements are what pavements are for. Left to wander freely, half the people
+ * in Los Santos were strolling down the middle of the carriageway, which makes
+ * a road look like a pedestrian precinct and every car in it look lost.
+ *
+ * Three rules, and they are the ones anybody actually uses. Somebody already
+ * on the road finishes crossing it - turning back half way is worse than
+ * either. Somebody on the pavement steps into the road only while the fancy
+ * takes him, which is {@link crossingMood} and is how a road gets crossed at
+ * all. And nobody at all strolls on to a motorway: it is five lanes of traffic
+ * doing seventy, and the people who go on it are the ones being chased across
+ * it.
+ */
+function keepToPath(state: GameState, person: Person, going: number): number {
+  const step = WALK_LOOK;
+  const look = {
+    x: person.x + Math.cos(going) * step,
+    y: person.y + Math.sin(going) * step,
+  };
+  const ahead = cellUnder(state.cells, look.x, look.y);
+  const fast = onMotorway(Math.floor(look.x / TILE), Math.floor(look.y / TILE));
+  const crossing =
+    !fast &&
+    (cellUnder(state.cells, person.x, person.y) === "road" ||
+      crossingMood(person, state.time));
+  return ahead === "road" && !crossing
+    ? alongPath(state.cells, person, going, step)
+    : going;
+}
+
+/**
+ * Whether somebody feels like crossing the road just now.
+ *
+ * @param person - the one walking
+ * @param time - the clock
+ * @returns true while the fancy takes them
+ * @remarks
+ * A dice roll that does not need a die: the person number and the clock, in
+ * blocks of a few seconds, so the same person keeps the same mind about it for
+ * long enough to actually get across - and so the whole street does not decide
+ * to cross at the same moment.
+ */
+function crossingMood(person: Person, time: number): boolean {
+  return (person.id + Math.floor(time / CROSS_HOLD)) % CROSS_ODDS === 0;
+}
+
+/** How long somebody stays of the same mind about crossing, in seconds. */
+const CROSS_HOLD = 7;
+
+/** And one in how many of them is of that mind. */
+const CROSS_ODDS = 6;
+
+/** Which way along the pavement lies nearest to where they were going. */
+function alongPath(
+  cells: readonly Cell[],
+  person: Person,
+  going: number,
+  step: number,
+): number {
+  const paved = (way: number): boolean =>
+    cellUnder(
+      cells,
+      person.x + Math.cos(way) * step,
+      person.y + Math.sin(way) * step,
+    ) === "walk";
+  const right = going + Math.PI / 2;
+  const left = going - Math.PI / 2;
+  return paved(right) ? right : paved(left) ? left : going + Math.PI;
+}
+
 /** How far ahead somebody on foot looks for a wall, in pixels. */
 const WALK_LOOK = 40;
 
@@ -3658,6 +4369,8 @@ function callPolice(state: GameState): GameState {
         body,
         shells: 0,
         hitched: null,
+        braking: false,
+        seats: 0,
         slip: 0,
         x: spot.x,
         y: spot.y,
@@ -3957,25 +4670,16 @@ function inCar(state: GameState, car: Car): GameState {
     // aside is ramming it, and the law counts it as such.
     next = state.player.god ? next : ramStar(next, state, car, crashed);
   } else if (crashed.length > 0) {
-    // **No bodywork changes hands.** Cars stop each other and bounce apart,
-    // and that is all: driving is how one gets about this city, and a game
-    // that writes the car off over a few kerbs makes getting about the game.
-    // What still costs bodywork is a wall - see {@link drive} - and gunfire.
-    for (const other of crashed) {
-      next = {
-        ...next,
-        cars: next.cars.map((each) =>
-          each.id === other.id ? { ...each, speed: 0, slip: 0 } : each,
-        ),
-      };
-    }
+    // **The one driving shoves the other out of the way.** Two cars that stop
+    // each other dead is what a wall does, not what a car does - and it made
+    // every collision a full stop, in a game whose whole business is getting
+    // somewhere. What changes hands here is momentum, not bodywork: driving is
+    // how one gets about this city, and a game that writes the car off over a
+    // few kerbs makes getting about the game. A wall still costs bodywork -
+    // see {@link drive} - and so does gunfire.
+    next = barge(next, car, crashed);
     next = {
       ...next,
-      cars: next.cars.map((each) =>
-        each.id === car.id
-          ? { ...each, speed: -Math.sign(car.speed) * CRASH_BOUNCE }
-          : each,
-      ),
       player: { ...next.player, crashUntil: state.time + CRASH_PAUSE },
     };
     next = ramStar(next, state, car, crashed);
@@ -4044,11 +4748,58 @@ function fling(state: GameState, car: Car, hit: readonly Car[]): GameState {
   };
 }
 
+/**
+ * One car barging another aside.
+ *
+ * @param state - the city
+ * @param car - the one being driven
+ * @param hit - what it ran into
+ * @returns the city with the others shoved off and the rammer slowed
+ * @remarks
+ * Whoever is doing the driving wins the exchange. The car that was hit goes off
+ * along the line between the two - which is what makes a glancing blow push it
+ * aside and a square hit push it straight on - at a share of the speed that hit
+ * it, and the rammer keeps most of his own. He is slowed, not stopped: there is
+ * a difference between hitting a car and hitting a house, and before this there
+ * was not.
+ *
+ * The shove is worth more in something heavy. A tank does not appear here at
+ * all - it goes through everything, see {@link fling} - but an off-roader
+ * against a hatchback should still be the one that ends up further up the road.
+ */
+function barge(state: GameState, car: Car, hit: readonly Car[]): GameState {
+  const ids = new Set(hit.map((other) => other.id));
+  const mine = VEHICLES[car.body].health;
+  const force = Math.abs(car.speed);
+  return {
+    ...state,
+    cars: state.cars.map((each) => {
+      let after = each;
+      if (ids.has(each.id)) {
+        const heft = mine / (mine + VEHICLES[each.body].health);
+        after = {
+          ...each,
+          angle: Math.atan2(each.y - car.y, each.x - car.x),
+          speed: Math.min(RAM_FLING, force * heft * RAM_SHARE),
+          slip: 0,
+          braking: false,
+        };
+      } else if (each.id === car.id) {
+        after = { ...each, speed: car.speed * RAM_KEEP, slip: 0 };
+      }
+      return after;
+    }),
+  };
+}
+
+/** How much of the speed that hit it a rammed car is sent off with. */
+const RAM_SHARE = 1.7;
+
+/** And how much of his own the one doing the ramming keeps. */
+const RAM_KEEP = 0.55;
+
 /** How fast a rammed car is thrown out of the way, in pixels per second. */
 const RAM_FLING = 260;
-
-/** How hard a crash throws a car back, in pixels per second. */
-const CRASH_BOUNCE = 60;
 
 /** How long after ramming a patrol car the next ram is free, in seconds. */
 const RAM_PAUSE = 6;

@@ -15,17 +15,24 @@
  */
 import {
   STATIONS,
-  builtPlot,
   cellUnder,
   roadLines,
   doorsOf,
   garageBay,
   garageMouth,
-  railLoop,
+  railAngle,
+  railLine,
+  carPark,
+  builtPlot,
+  platformBox,
+  motorwayLine,
+  lightAt,
+  lightColour,
+  type LightColour,
 } from "@/games/gta/engine/city";
 import { drawActions } from "@/games/gta/components/gta-actions";
 import { trainCars, trainDue } from "@/games/gta/engine/train";
-import { builtBlock, inCity } from "@/games/gta/engine/buildings";
+import { builtBlock, inCity } from "@/games/gta/engine/city";
 import { carOf } from "@/games/gta/engine/engine";
 import {
   BLAST_SECONDS,
@@ -106,19 +113,22 @@ import {
   animalBody,
   animalHead,
 } from "@/games/gta/components/animal-art";
-import { buildingAt, type Building } from "@/games/gta/engine/buildings";
-import { VEHICLES } from "@/games/gta/engine/vehicles";
+import { buildingAt } from "@/games/gta/engine/city";
+import type { Building } from "@/games/gta/engine/buildings";
+import { VEHICLES, type VehicleBody } from "@/games/gta/engine/vehicles";
 import {
   STEEL,
   VEHICLE_MARGIN,
   bodyOutline,
   cabinOutline,
+  wallFaces,
   tiersOf,
   turretSprite,
   TURRET_SIZE,
   vehicleSprite,
   vehicleWall,
   type VehicleFace,
+  type VehicleSide,
   type VehicleTiers,
 } from "@/games/gta/components/vehicle-art";
 import {
@@ -240,6 +250,9 @@ const CLOCK_HIGH = 26;
 
 /** How big the map in the corner is, in pixels. */
 const MAP_SIZE = 170;
+
+/** And the through routes, which are the only black thing on the map. */
+const MAP_MAIN = "#0a0a0a";
 
 /** What the city looks like on that map: light streets on dark blocks. */
 const MAP_GROUND: Readonly<Record<Cell, string>> = {
@@ -711,11 +724,15 @@ function drawScenery(
   for (let row = fromRow; row <= toRow; row += 1) {
     for (let col = fromCol; col <= toCol; col += 1) {
       const cell = cellUnder(state.cells, col * TILE, row * TILE);
-      if (cell === "forest" && spread(col, row) > TREE_SHARE) {
+      if (
+        cell === "forest" &&
+        spread(col, row) > TREE_SHARE &&
+        rooted(state.cells, col, row)
+      ) {
         drawTree(ctx, view, col, row);
       }
-      if (cell === "rail") {
-        drawTrack(ctx, view, col, row);
+      if (cell === "road") {
+        drawSignals(ctx, view, state, col, row);
       }
       if (cell === "fence") {
         drawFence(ctx, view, col, row);
@@ -728,6 +745,8 @@ function drawScenery(
       }
     }
   }
+  drawCarParks(ctx, view, fromCol, fromRow, toCol, toRow);
+  drawTrack(ctx, view, fromCol, fromRow, toCol, toRow);
   drawBase(ctx, state, view);
   drawRunway(ctx, view);
   drawPlanes(ctx, view);
@@ -796,14 +815,12 @@ function drawPlatforms(
   view: View,
 ): void {
   STATIONS.forEach((stop, which) => {
-    const down = stop.row === RAIL_TOP || stop.row === RAIL_BOTTOM;
-    const long = PLATFORM_LONG * TILE;
-    const wide = PLATFORM_WIDE * TILE;
-    const x = (stop.col + 0.5) * TILE + (down ? 0 : wide);
-    const y = (stop.row + 0.5) * TILE + (down ? wide : 0);
-    const across = down ? long : wide * 2;
-    const deep = down ? wide * 2 : long;
-    const corner = project(view, x - across / 2, y - deep / 2);
+    // The plan knows where the concrete goes - it keeps the houses off it.
+    const box = platformBox(stop);
+    const down = Math.abs(Math.cos(railAngle(stop.col, stop.row))) > HALF_TILE;
+    const across = (box.right - box.left) * TILE;
+    const deep = (box.bottom - box.top) * TILE;
+    const corner = project(view, box.left * TILE, box.top * TILE);
     ctx.fillStyle = "#d6d3d1";
     ctx.fillRect(corner.x, corner.y, across, deep * DEPTH);
     ctx.fillStyle = "#facc15";
@@ -815,9 +832,11 @@ function drawPlatforms(
     );
     // On the far side of the platform from the track: in the middle it would
     // be under the feet of everybody waiting.
+    const x = (box.left + box.right) / 2;
+    const y = (box.top + box.bottom) / 2;
     const board = {
-      x: x + (down ? 0 : BOARD_OFF),
-      y: y + (down ? BOARD_OFF : 0),
+      x: x * TILE + (down ? 0 : BOARD_OFF),
+      y: y * TILE + (down ? BOARD_OFF : 0),
     };
     drawDueBoard(ctx, view, board, trainDue(state.train, state.time, which));
   });
@@ -864,17 +883,8 @@ function drawDueBoard(
 /** How far the board stands from the middle of the platform, in pixels. */
 const BOARD_OFF = 46;
 
-/** How long a platform is, in squares. */
-const PLATFORM_LONG = 7;
-
-/** And how far it stands off the middle of the track. */
-const PLATFORM_WIDE = 1.6;
-
-/** The two sides of the loop that run east to west. */
-const RAIL_TOP = 24;
-
-/** The other one. */
-const RAIL_BOTTOM = 138;
+/** The middle of a square, as a share of its width. */
+const HALF_TILE = 0.5;
 
 /**
  * One square of railway: sleepers across it and two steel rails along it.
@@ -888,50 +898,71 @@ const RAIL_BOTTOM = 138;
 function drawTrack(
   ctx: CanvasRenderingContext2D,
   view: View,
-  col: number,
-  row: number,
+  fromCol: number,
+  fromRow: number,
+  toCol: number,
+  toRow: number,
 ): void {
-  const loop = railLoop();
-  const upright = col === loop.left || col === loop.right;
-  const at = project(view, col * TILE, row * TILE);
-  const across = TILE;
-  const deep = TILE * DEPTH;
-  ctx.save();
-  ctx.translate(at.x, at.y);
-  // The sleepers: creosote brown, a hand apart the whole length of the square.
+  const line = railLine();
+  const rails = [new Path2D(), new Path2D()];
+  let running = false;
   ctx.fillStyle = "#4a3b2c";
-  for (let tie = 0; tie < TIES_PER_TILE; tie += 1) {
-    const along = ((tie + 0.5) / TIES_PER_TILE) * (upright ? deep : across);
-    if (upright) {
-      ctx.fillRect(
-        across / 2 - TIE_LONG / 2,
-        along - (TIE_THICK * DEPTH) / 2,
-        TIE_LONG,
-        TIE_THICK * DEPTH,
-      );
+  line.forEach((point, at) => {
+    const next = line[(at + 1) % line.length] ?? point;
+    const seen =
+      point.x >= fromCol - 1 &&
+      point.x <= toCol + 1 &&
+      point.y >= fromRow - 1 &&
+      point.y <= toRow + 1;
+    if (!seen) {
+      running = false;
     } else {
-      ctx.fillRect(
-        along - TIE_THICK / 2,
-        deep / 2 - (TIE_LONG * DEPTH) / 2,
-        TIE_THICK,
-        TIE_LONG * DEPTH,
-      );
+      const dx = next.x - point.x;
+      const dy = next.y - point.y;
+      const long = Math.hypot(dx, dy) || 1;
+      const spot = project(view, point.x * TILE, point.y * TILE);
+      // A sleeper every other step, laid across the line.
+      if (at % TIE_EVERY === 0) {
+        ctx.save();
+        ctx.translate(spot.x, spot.y);
+        ctx.scale(1, DEPTH);
+        ctx.rotate(Math.atan2(dy, dx));
+        ctx.fillRect(-TIE_THICK / 2, -TIE_LONG / 2, TIE_THICK, TIE_LONG);
+        ctx.restore();
+      }
+      // And the two rails, offset to either side of the line and squashed the
+      // same way the ground is.
+      rails.forEach((rail, side) => {
+        const hand = side === 0 ? 1 : -1;
+        // The step is measured in squares, so the unit normal is the step
+        // divided by its own length - and the rail sits half a gauge along it,
+        // in pixels.
+        const off = (hand * GAUGE) / 2 / long;
+        const to = {
+          x: spot.x - dy * off,
+          y: spot.y + dx * off * DEPTH,
+        };
+        if (running) {
+          rail.lineTo(to.x, to.y);
+        } else {
+          rail.moveTo(to.x, to.y);
+        }
+      });
+      running = true;
     }
+  });
+  ctx.strokeStyle = "#b8bcc2";
+  ctx.lineWidth = RAIL_THICK;
+  for (const rail of rails) {
+    ctx.stroke(rail);
   }
-  // And the two rails on top of them, worn steel.
-  ctx.fillStyle = "#b8bcc2";
-  for (const side of [-1, 1]) {
-    if (upright) {
-      ctx.fillRect(across / 2 + (side * GAUGE) / 2 - 1.5, 0, 3, deep);
-    } else {
-      ctx.fillRect(0, deep / 2 + ((side * GAUGE) / 2) * DEPTH - 1.5, across, 3);
-    }
-  }
-  ctx.restore();
 }
 
-/** How many sleepers lie in one square of track. */
-const TIES_PER_TILE = 4;
+/** Every how many points of the line a sleeper is laid. */
+const TIE_EVERY = 2;
+
+/** How thick a rail is drawn, in pixels. */
+const RAIL_THICK = 3;
 
 /** How long one of them is, across the track. */
 const TIE_LONG = 30;
@@ -994,48 +1025,320 @@ const MESH = 4;
 const WIRE_WIDE = 16;
 
 /**
- * The mountain, in one piece.
+ * The mountain.
  *
+ * @param ctx - what to paint on
+ * @param state - the city, for which squares are stone
+ * @param view - where the camera is
  * @remarks
- * There is no height in this picture, so the mountain is drawn the way a map
- * draws one: a slope that grows lighter towards the middle, with contour rings
- * on it. One shape rather than one per square - painted square by square it
- * came out as a chessboard, which is what a mountain is not.
+ * **A lit slope, not a contour map.** There is no height in this picture, so
+ * the mountain was drawn the way an atlas draws one: a wash that grows lighter
+ * towards the middle with rings on it. It read as a beige dinner plate.
  *
- * The shape stops short of the ragged foot on purpose: inside that radius
- * every square really is stone, so the wash never spills onto the grass.
+ * What an engine does instead is what this does now: a height field, and light
+ * on it. `heightAt` is the shape of the hill - a cone with ridges running down
+ * it and noise on top - and every pixel is shaded by how its own patch of
+ * slope is tilted against a light from the north west. Slopes facing the light
+ * come out pale, slopes facing away go dark, and the ridges and gullies appear
+ * of their own accord because that is what shading *is*. Nothing about it is a
+ * picture of a mountain; it is a mountain lit.
+ *
+ * **Cut out to fit the ground.** Every pixel asks the floor whether it is
+ * standing on stone, smoothed between square centres, and fades out where it is
+ * not. That is what keeps the foot of the hill off the road round it - the wash
+ * used to be one big ellipse and simply lay over the tarmac - and it is also
+ * what carves the dirt track into the hillside, because the squares of the
+ * track are not stone either.
+ *
+ * Worked out once into a picture. It is thousands of square roots, and the
+ * mountain never moves.
  */
-function drawMountain(ctx: CanvasRenderingContext2D, view: View): void {
-  const at = project(view, MOUNTAIN.x * TILE, MOUNTAIN.y * TILE);
-  const span = (MOUNTAIN.radius - MOUNTAIN_FOOT) * TILE;
-  ctx.save();
-  ctx.translate(at.x, at.y);
-  ctx.scale(1, DEPTH);
-  const slope = ctx.createRadialGradient(0, 0, span * 0.1, 0, 0, span);
-  slope.addColorStop(0, "#b9ada0");
-  slope.addColorStop(0.45, "#948a7e");
-  slope.addColorStop(1, "rgba(122,114,104,0)");
-  ctx.fillStyle = slope;
-  ctx.beginPath();
-  ctx.arc(0, 0, span, 0, TURN);
-  ctx.fill();
-  // The contour rings, and a cap of bare rock at the top.
-  ctx.strokeStyle = "rgba(70,60,48,0.35)";
-  ctx.lineWidth = 2;
-  for (let ring = 1; ring <= CONTOURS; ring += 1) {
-    ctx.beginPath();
-    ctx.arc(0, 0, (span * ring) / (CONTOURS + 1), 0, TURN);
-    ctx.stroke();
+function drawMountain(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+): void {
+  const sheet = mountainSprite(state);
+  if (sheet !== null) {
+    const span = (MOUNTAIN.radius + MOUNTAIN_EDGE) * 2;
+    const corner = project(
+      view,
+      (MOUNTAIN.x - MOUNTAIN.radius - MOUNTAIN_EDGE) * TILE,
+      (MOUNTAIN.y - MOUNTAIN.radius - MOUNTAIN_EDGE) * TILE,
+    );
+    ctx.drawImage(sheet, corner.x, corner.y, span * TILE, span * TILE * DEPTH);
   }
-  ctx.fillStyle = "#cfc6ba";
-  ctx.beginPath();
-  ctx.arc(0, 0, span * 0.12, 0, TURN);
-  ctx.fill();
-  ctx.restore();
 }
 
-/** How far inside the ragged foot the drawn slope stops, in squares. */
-const MOUNTAIN_FOOT = 3;
+/** How many squares of margin the picture keeps round the stone. */
+const MOUNTAIN_EDGE = 2;
+
+/** How many pixels of the picture one square of the mountain gets. */
+const MOUNTAIN_GRAIN = 12;
+
+/** The mountain, worked out once. */
+let mountainImage: HTMLCanvasElement | null = null;
+
+/**
+ * The mountain as a picture, lit from the north west.
+ *
+ * @param state - the city, for which squares are stone
+ * @returns the picture, or null where the browser gives no canvas
+ */
+function mountainSprite(state: GameState): HTMLCanvasElement | null {
+  if (mountainImage !== null) {
+    return mountainImage;
+  }
+  const span = (MOUNTAIN.radius + MOUNTAIN_EDGE) * 2;
+  const wide = span * MOUNTAIN_GRAIN;
+  const sheet = document.createElement("canvas");
+  sheet.width = wide;
+  sheet.height = wide;
+  const paint = sheet.getContext("2d");
+  if (paint === null) {
+    return null;
+  }
+  const shot = paint.createImageData(wide, wide);
+  const from = {
+    x: MOUNTAIN.x - MOUNTAIN.radius - MOUNTAIN_EDGE,
+    y: MOUNTAIN.y - MOUNTAIN.radius - MOUNTAIN_EDGE,
+  };
+  // The height of every pixel first, once. The shading needs the height of the
+  // four points round each pixel as well, and working those out again on the
+  // spot is the same sum five times over - which for a hill this size is ten
+  // million sines and a visible stutter the first time one drives past it.
+  const field = new Float32Array(wide * wide);
+  for (let down = 0; down < wide; down += 1) {
+    for (let across = 0; across < wide; across += 1) {
+      field[down * wide + across] = heightAt(
+        from.x + across / MOUNTAIN_GRAIN,
+        from.y + down / MOUNTAIN_GRAIN,
+      );
+    }
+  }
+  const step = Math.max(1, Math.round(SLOPE_STEP * MOUNTAIN_GRAIN));
+  const height = (across: number, down: number): number =>
+    field[
+      Math.min(wide - 1, Math.max(0, down)) * wide +
+        Math.min(wide - 1, Math.max(0, across))
+    ] ?? 0;
+  for (let down = 0; down < wide; down += 1) {
+    for (let across = 0; across < wide; across += 1) {
+      const col = from.x + across / MOUNTAIN_GRAIN;
+      const row = from.y + down / MOUNTAIN_GRAIN;
+      const stone = stoneAt(state, col, row);
+      const at = (down * wide + across) * PIXEL_PARTS;
+      if (stone > 0) {
+        const high = height(across, down) * stone;
+        // The tilt of this patch of hillside, against a light from over the
+        // left shoulder. The steeper the slope faces away, the darker it goes.
+        // Read over a quarter of a square rather than from one pixel to the
+        // next: what is wanted is the lie of the slope, not the difference
+        // between two grains of it.
+        const nx = height(across - step, down) - height(across + step, down);
+        const ny = height(across, down - step) - height(across, down + step);
+        const lit = Math.max(
+          0,
+          Math.min(1, HALF_LIT + (nx * LIGHT_X + ny * LIGHT_Y) * LIGHT_GAIN),
+        );
+        const tint = rockTint(high);
+        // A little grain on top of the shading. Stone is not a smooth surface,
+        // and without it the lit side of a slope is a wash.
+        const grain = 1 + (spread(across, down) - HALF_TILE) * ROCK_GRAIN;
+        const shade = (DARKEST + lit * (BRIGHTEST - DARKEST)) * grain;
+        shot.data[at] = Math.min(FULL, tint.red * shade);
+        shot.data[at + 1] = Math.min(FULL, tint.green * shade);
+        shot.data[at + 2] = Math.min(FULL, tint.blue * shade);
+        shot.data[at + 3] = Math.round(stone * FULL);
+      } else {
+        shot.data[at + 3] = 0;
+      }
+    }
+  }
+  paint.putImageData(shot, 0, 0);
+  mountainImage = sheet;
+  return sheet;
+}
+
+/** How many numbers one pixel of an image takes. */
+const PIXEL_PARTS = 4;
+
+/** The largest a colour goes. */
+const FULL = 255;
+
+/** How lit a flat patch of ground is, before any slope is counted. */
+const HALF_LIT = 0.5;
+
+/** Where the light comes from, across. */
+const LIGHT_X = -0.7;
+
+/** And down. */
+const LIGHT_Y = -0.7;
+
+/** How hard the slope is read: the whole of how craggy the hill looks. */
+const LIGHT_GAIN = 9;
+
+/** How much the stone speckles, as a share of its brightness. */
+const ROCK_GRAIN = 0.11;
+
+/** How dark the shaded side goes. */
+const DARKEST = 0.58;
+
+/** And how pale the lit side. */
+const BRIGHTEST = 1.22;
+
+/**
+ * How much of a square is stone, smoothed between square centres.
+ *
+ * @param state - the city
+ * @param col - the point, in squares
+ * @param row - the point, in squares
+ * @returns nothing off the rock, one well inside it, and a slope between
+ * @remarks
+ * Read from the floor rather than from the circle the floor was laid from, so
+ * that whatever cuts into the stone - the track up it, a road round its foot -
+ * cuts into the picture as well. Smoothed, because the floor is squares of
+ * forty eight pixels and a mountain with a staircase for an outline is a
+ * mountain nobody believes.
+ */
+function stoneAt(state: GameState, col: number, row: number): number {
+  const left = Math.floor(col - HALF_TILE);
+  const top = Math.floor(row - HALF_TILE);
+  const alongX = col - HALF_TILE - left;
+  const alongY = row - HALF_TILE - top;
+  const rock = (x: number, y: number): number =>
+    cellUnder(state.cells, x * TILE + TILE / 2, y * TILE + TILE / 2) === "rock"
+      ? 1
+      : 0;
+  const upper = rock(left, top) * (1 - alongX) + rock(left + 1, top) * alongX;
+  const lower =
+    rock(left, top + 1) * (1 - alongX) + rock(left + 1, top + 1) * alongX;
+  return upper * (1 - alongY) + lower * alongY;
+}
+
+/**
+ * How high the hill stands at a point, from nothing at the foot to one at the
+ * top.
+ *
+ * @param col - the point, in squares
+ * @param row - the point, in squares
+ * @returns the height, roughly between zero and one
+ * @remarks
+ * A cone, with ridges running down it and two octaves of noise on top. The
+ * ridges are what make one side of a hill different from the other; the noise
+ * is what stops the slope from being a smooth funnel.
+ */
+function heightAt(col: number, row: number): number {
+  const acrossFrom = col - MOUNTAIN.x;
+  const downFrom = row - MOUNTAIN.y;
+  const away = Math.hypot(acrossFrom, downFrom) / MOUNTAIN.radius;
+  const cone = Math.max(0, 1 - away);
+  const turn = Math.atan2(downFrom, acrossFrom);
+  // The ridges grow with the radius, and that is not a matter of taste. A wave
+  // that goes round the hill has a slope of its own size divided by the
+  // distance from the middle - so held at full height it is infinitely steep at
+  // the summit, and the shading drew a starburst there. Fading it in from the
+  // top outwards makes the slope of the wave roughly the same all the way down.
+  const ridges =
+    Math.sin(turn * RIDGES + Math.cos(turn * (RIDGES + 1))) *
+    RIDGE_DEEP *
+    Math.min(1, away);
+  const rough =
+    bumps(col * ROUGH_ONE, row * ROUGH_ONE) * ROUGH_DEEP +
+    bumps(col * ROUGH_TWO, row * ROUGH_TWO) * (ROUGH_DEEP / 2) +
+    bumps(col * ROUGH_THREE, row * ROUGH_THREE) * (ROUGH_DEEP / 4);
+  return Math.max(0, cone * cone * (1 + ridges) + cone * rough);
+}
+
+/** How far apart the two points a slope is measured from are, in squares. */
+const SLOPE_STEP = 0.25;
+
+/** How many ridges run down the hill. */
+const RIDGES = 5;
+
+/** How deep the gullies between them are. */
+const RIDGE_DEEP = 0.3;
+
+/** How coarse the first layer of roughness is. */
+const ROUGH_ONE = 0.3;
+
+/** And the second, which is finer. */
+const ROUGH_TWO = 0.85;
+
+/** And a third, which is the gravel. */
+const ROUGH_THREE = 2.2;
+
+/** How much roughness there is at all. */
+const ROUGH_DEEP = 0.14;
+
+/** Smooth noise: the corner hash, interpolated. */
+function bumps(x: number, y: number): number {
+  const left = Math.floor(x);
+  const top = Math.floor(y);
+  const alongX = smoothed(x - left);
+  const alongY = smoothed(y - top);
+  const upper =
+    spread(left, top) * (1 - alongX) + spread(left + 1, top) * alongX;
+  const lower =
+    spread(left, top + 1) * (1 - alongX) + spread(left + 1, top + 1) * alongX;
+  return upper * (1 - alongY) + lower * alongY - HALF_TILE;
+}
+
+/** An S curve, so the noise has no creases along the lattice. */
+function smoothed(along: number): number {
+  return along * along * (3 - 2 * along);
+}
+
+/**
+ * What the rock is made of at a given height.
+ *
+ * @param high - how far up the hill, from nothing to one
+ * @returns the colour of the ground there
+ * @remarks
+ * Mixed between the bands rather than stepped through them. Stepped, the
+ * roughness carries whole patches of hillside over a boundary at once and the
+ * hill comes out in flat islands of colour, which is a contour map again.
+ */
+function rockTint(high: number): {
+  readonly red: number;
+  readonly green: number;
+  readonly blue: number;
+} {
+  const last = ROCK_BANDS.length - 1;
+  const along = Math.max(0, Math.min(1, high)) * last;
+  const step = Math.min(last - 1, Math.floor(along));
+  const into = along - step;
+  const from = ROCK_BANDS[step] ?? ROCK_BANDS[0];
+  const to = ROCK_BANDS[step + 1] ?? from;
+  return from === undefined || to === undefined
+    ? { red: 0, green: 0, blue: 0 }
+    : {
+        red: from.red + (to.red - from.red) * into,
+        green: from.green + (to.green - from.green) * into,
+        blue: from.blue + (to.blue - from.blue) * into,
+      };
+}
+
+/**
+ * The rock, in bands from the foot to the summit.
+ *
+ * @remarks
+ * Earth and scree at the bottom, stone in the middle, bare pale rock at the
+ * top. Bands rather than a gradient, because a hillside is made of different
+ * stuff at different heights and the lines between them are what says so.
+ */
+const ROCK_BANDS: readonly {
+  readonly red: number;
+  readonly green: number;
+  readonly blue: number;
+}[] = [
+  { red: 104, green: 92, blue: 66 },
+  { red: 120, green: 108, blue: 86 },
+  { red: 132, green: 122, blue: 106 },
+  { red: 150, green: 142, blue: 128 },
+  { red: 174, green: 167, blue: 154 },
+  { red: 208, green: 202, blue: 190 },
+];
 
 /** One boulder on the mountain, where the scatter said there is one. */
 function drawBoulder(
@@ -1050,9 +1353,6 @@ function drawBoulder(
   ctx.ellipse(at.x, at.y, TILE * 0.17, TILE * 0.13, 0, 0, TURN);
   ctx.fill();
 }
-
-/** How many contour bands the mountain is drawn in. */
-const CONTOURS = 7;
 
 /** One square of a ploughed field: the furrows across it. */
 function drawFurrows(
@@ -1093,6 +1393,204 @@ function drawFurrows(
 /** How many furrows are drawn across one square of field. */
 const FURROWS = 4;
 
+/**
+ * Whether a tree here would keep its branches off the tarmac.
+ *
+ * @param cells - the city floor
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns true only where the ground all round is green as well
+ * @remarks
+ * A tree is drawn a third of a square wide, thrown about within its square and
+ * lifted a good half square up the screen for its height - so a tree on the
+ * last square of a wood hangs out over whatever is next to it, and what was
+ * next to it was usually a road. Trees grow where the landscape is green; the
+ * edge of a wood is where they stop.
+ */
+function rooted(cells: readonly Cell[], col: number, row: number): boolean {
+  return AROUND.every((step) =>
+    GREEN_GROUND.has(
+      cellUnder(cells, (col + step.x) * TILE, (row + step.y) * TILE),
+    ),
+  );
+}
+
+/** The four squares a tree could lean over. */
+const AROUND: readonly Vec[] = [
+  { x: -1, y: 0 },
+  { x: 1, y: 0 },
+  { x: 0, y: -1 },
+  { x: 0, y: 1 },
+];
+
+/** What counts as landscape rather than as town. */
+const GREEN_GROUND = new Set<Cell>(["forest", "park", "field", "sand", "dirt"]);
+
+/**
+ * The traffic lights on the approaches to a junction, from above.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param time - the clock, which is what the lights run on
+ * @param col - the square, across
+ * @param row - the square, down
+ * @remarks
+ * Asked of every square of road on the screen rather than kept in a list:
+ * a square that is not a junction but touches one is an approach, and an
+ * approach gets a stop line and a lamp on the kerb beside it. There is nothing
+ * to store and nothing to keep in step with the map.
+ *
+ * The lamp is on the driver right, where a lamp is, and the stop line is
+ * white, because a stop line is - the colour that matters is in the lamp.
+ */
+function drawSignals(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  state: GameState,
+  col: number,
+  row: number,
+): void {
+  const junction = lightAt(col, row);
+  for (const way of APPROACHES) {
+    if (!junction && lightAt(col + way.x, row + way.y)) {
+      const upright = way.y !== 0;
+      const colour = lightColour(state.time, upright);
+      // The lamp stands on the kerb to the driver right, and there is one of
+      // it - not one per lane. The stop line is the thing that runs the whole
+      // width of the road.
+      const kerb =
+        cellUnder(
+          state.cells,
+          (col - way.y + HALF_TILE) * TILE,
+          (row + way.x + HALF_TILE) * TILE,
+        ) !== "road";
+      const middle = project(
+        view,
+        (col + HALF_TILE + way.x * STOP_LINE) * TILE,
+        (row + HALF_TILE + way.y * STOP_LINE) * TILE,
+      );
+      ctx.save();
+      ctx.translate(middle.x, middle.y);
+      ctx.scale(1, DEPTH);
+      ctx.rotate(Math.atan2(way.y, way.x));
+      // The line across the road, and the lamp on the kerb to the right of it.
+      ctx.fillStyle = "#e7e5e4";
+      ctx.fillRect(-STOP_THICK / 2, -TILE / 2, STOP_THICK, TILE);
+      if (kerb) {
+        ctx.fillStyle = "#1c1917";
+        ctx.fillRect(-LAMP_BOX / 2, TILE / 2, LAMP_BOX, LAMP_BOX);
+        ctx.fillStyle = LIGHT_BULBS[colour];
+        ctx.beginPath();
+        ctx.arc(0, TILE / 2 + LAMP_BOX / 2, LAMP_DOT, 0, TURN);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+}
+
+/** The four squares a junction could be in from here. */
+const APPROACHES: readonly Vec[] = [
+  { x: -1, y: 0 },
+  { x: 1, y: 0 },
+  { x: 0, y: -1 },
+  { x: 0, y: 1 },
+];
+
+/** What each of the three shows. */
+const LIGHT_BULBS: Readonly<Record<LightColour, string>> = {
+  green: "#22c55e",
+  amber: "#f59e0b",
+  red: "#ef4444",
+};
+
+/** How far from the middle of the square the stop line is, in squares. */
+const STOP_LINE = 0.42;
+
+/** How thick that line is, in pixels. */
+const STOP_THICK = 3;
+
+/** How big the lamp on the kerb is, in pixels. */
+const LAMP_BOX = 9;
+
+/** And the lit part of it. */
+const LAMP_DOT = 2.6;
+
+/**
+ * The bays painted on the supermarket car parks in view.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param fromCol - the leftmost square in view
+ * @param fromRow - the topmost
+ * @param toCol - the rightmost
+ * @param toRow - the bottom one
+ * @remarks
+ * What makes a square of concrete read as a car park is the white lines on it.
+ * They are painted per block rather than per square, because a bay is wider
+ * than a square and two of them do not line up with the grid.
+ */
+function drawCarParks(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  fromCol: number,
+  fromRow: number,
+  toCol: number,
+  toRow: number,
+): void {
+  const span = BLOCK_TILES;
+  ctx.strokeStyle = "#d6d3d1";
+  ctx.lineWidth = 1.5;
+  for (
+    let blockY = Math.floor(fromRow / span);
+    blockY <= Math.floor(toRow / span);
+    blockY += 1
+  ) {
+    for (
+      let blockX = Math.floor(fromCol / span);
+      blockX <= Math.floor(toCol / span);
+      blockX += 1
+    ) {
+      const lot = carPark(blockX, blockY);
+      if (lot !== null) {
+        const plot = builtPlot(blockX, blockY);
+        ctx.beginPath();
+        for (let row = lot.top; row < lot.bottom; row += 1) {
+          for (let col = lot.left; col < lot.right; col += 1) {
+            const inside =
+              col >= plot.left &&
+              col < plot.right &&
+              row >= plot.top &&
+              row < plot.bottom;
+            // One line between one bay and the next. The bays run along the
+            // ring, so the line across a bay lies the other way round on the
+            // sides of the shop than it does at the front.
+            if (!inside) {
+              const upright = col < plot.left || col >= plot.right;
+              const from = project(
+                view,
+                col * TILE + (upright ? BAY_EDGE : 0),
+                row * TILE + (upright ? 0 : BAY_EDGE),
+              );
+              const to = project(
+                view,
+                (col + (upright ? 1 : 0)) * TILE - (upright ? BAY_EDGE : 0),
+                (row + (upright ? 0 : 1)) * TILE - (upright ? 0 : BAY_EDGE),
+              );
+              ctx.moveTo(from.x, from.y);
+              ctx.lineTo(to.x, to.y);
+            }
+          }
+        }
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+/** How far the lines stop short of the edge of the tarmac, in pixels. */
+const BAY_EDGE = 6;
+
 /** One tree, where the wood said there is one. */
 function drawTree(
   ctx: CanvasRenderingContext2D,
@@ -1104,19 +1602,220 @@ function drawTree(
   const x = (col + 0.2 + jitter * 0.6) * TILE;
   const y = (row + 0.2 + spread(col + 1, row + 9) * 0.6) * TILE;
   const wide = TILE * (0.17 + jitter * 0.13);
+  const foot = project(view, x, y);
   const at = project(view, x, y, TREE_HIGH);
-  ctx.fillStyle = "rgba(15,42,18,0.45)";
+  // The shadow on the ground, then the trunk standing in it, then the crown on
+  // top. Three things at three heights, which is the same rule everything else
+  // in this picture follows - and the reason a tree now reads as standing up
+  // rather than as a green circle lying on the grass.
+  const shade = ctx.createRadialGradient(
+    foot.x,
+    foot.y,
+    0,
+    foot.x,
+    foot.y,
+    wide,
+  );
+  shade.addColorStop(0, "rgba(12,32,14,0.42)");
+  shade.addColorStop(0.65, "rgba(12,32,14,0.3)");
+  shade.addColorStop(1, "rgba(12,32,14,0)");
+  ctx.fillStyle = shade;
   ctx.beginPath();
-  ctx.ellipse(at.x, at.y + TREE_HIGH * 0.8, wide, wide * DEPTH, 0, 0, TURN);
+  ctx.ellipse(foot.x, foot.y, wide, wide * DEPTH, 0, 0, TURN);
   ctx.fill();
-  ctx.fillStyle = jitter > 0.5 ? "#1f4d22" : "#2a6b2c";
+  ctx.strokeStyle = "#4a3524";
+  ctx.lineWidth = Math.max(1.8, wide * 0.22);
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.ellipse(at.x, at.y, wide, wide * 0.85, 0, 0, TURN);
+  ctx.moveTo(foot.x, foot.y);
+  ctx.lineTo(at.x, at.y + wide * 0.2);
+  ctx.stroke();
+  const sheet = treeSprite(Math.floor(jitter * TREE_SORTS) % TREE_SORTS);
+  if (sheet !== null) {
+    const span = wide * 2 * TREE_OVER;
+    ctx.drawImage(sheet, at.x - span / 2, at.y - span / 2, span, span);
+  }
+}
+
+/** How many different trees there are. */
+const TREE_SORTS = 4;
+
+/** How far the picture reaches past the width the wood asked for. */
+const TREE_OVER = 1.15;
+
+/** The crowns, drawn once each. */
+const TREE_SHEETS: (HTMLCanvasElement | null)[] = [];
+
+/**
+ * One sort of treetop, as a picture.
+ *
+ * @param sort - which of them
+ * @returns the picture, or null where the browser gives no canvas
+ * @remarks
+ * Cached like everything else that is drawn more than once: a wood is
+ * thousands of trees, and building a crown out of a dozen blobs on every frame
+ * for every one of them would cost more than the rest of the picture put
+ * together. Four sorts is enough - past that nobody counts, and the wood has
+ * its own scatter in where they stand and how big they are.
+ */
+function treeSprite(sort: number): HTMLCanvasElement | null {
+  const known = TREE_SHEETS[sort];
+  if (known !== undefined) {
+    return known;
+  }
+  const sheet = document.createElement("canvas");
+  sheet.width = TREE_GRAIN;
+  sheet.height = TREE_GRAIN;
+  const paint = sheet.getContext("2d");
+  const made = paint === null ? null : sheet;
+  if (paint !== null) {
+    paint.translate(TREE_GRAIN / 2, TREE_GRAIN / 2);
+    paint.scale(TREE_GRAIN / 2, TREE_GRAIN / 2);
+    paintCrown(paint, sort);
+  }
+  TREE_SHEETS[sort] = made;
+  return made;
+}
+
+/** How many pixels across one crown picture is. */
+const TREE_GRAIN = 96;
+
+/**
+ * A treetop seen from above.
+ *
+ * @param ctx - what to paint on, scaled so the crown is one across
+ * @param sort - which of the four
+ * @remarks
+ * A tree from above is not a disc, it is a heap of clumps: the light catches
+ * the top of each one and the gaps between them go almost black. So that is
+ * what this draws - an uneven outline, then a dozen clumps of leaves over it,
+ * lighter the further towards the light they sit. The dark side is the same
+ * side for every tree in the city, which is what makes a wood look lit rather
+ * than speckled.
+ */
+function paintCrown(ctx: CanvasRenderingContext2D, sort: number): void {
+  const look = TREE_LOOKS[sort] ?? TREE_LOOKS[0];
+  if (look === undefined) {
+    return;
+  }
+  // The outline: a circle pushed in and out, so no two trees are the same
+  // round blob and none of them has a compass edge.
+  ctx.beginPath();
+  for (let step = 0; step <= TREE_EDGES; step += 1) {
+    const turn = (step / TREE_EDGES) * TURN;
+    const out =
+      1 - look.ragged * (0.5 + 0.5 * Math.sin(turn * look.lobes + look.turn));
+    const spot = { x: Math.cos(turn) * out, y: Math.sin(turn) * out * 0.94 };
+    if (step === 0) {
+      ctx.moveTo(spot.x, spot.y);
+    } else {
+      ctx.lineTo(spot.x, spot.y);
+    }
+  }
+  ctx.closePath();
+  ctx.fillStyle = look.dark;
+  ctx.fill();
+  // The clumps. Their middles sit on two rings, and how light each one is
+  // depends on how far towards the light it stands.
+  for (let clump = 0; clump < TREE_CLUMPS; clump += 1) {
+    const turn = (clump / TREE_CLUMPS) * TURN + look.turn;
+    const out = clump % 2 === 0 ? 0.44 : 0.2;
+    const spot = { x: Math.cos(turn) * out, y: Math.sin(turn) * out };
+    const lit = (spot.x * -1 + spot.y * -1) / 1.4;
+    ctx.fillStyle = lit > 0.16 ? look.light : lit > -0.1 ? look.mid : look.dark;
+    ctx.beginPath();
+    ctx.ellipse(spot.x, spot.y, look.clump, look.clump * 0.9, turn, 0, TURN);
+    ctx.fill();
+  }
+  // And the one bright clump at the very top of the tree.
+  ctx.fillStyle = look.top;
+  ctx.beginPath();
+  ctx.ellipse(-0.1, -0.13, look.clump * 0.62, look.clump * 0.55, 0, 0, TURN);
   ctx.fill();
 }
 
-/** How high a treetop sits over the ground it grows out of. */
-const TREE_HIGH = 26;
+/** How many straight bits the wobbly outline of a crown is made of. */
+const TREE_EDGES = 36;
+
+/** And how many clumps of leaves sit on it. */
+const TREE_CLUMPS = 9;
+
+/** One sort of tree: its greens and how ragged it is. */
+type TreeLook = {
+  readonly dark: string;
+  readonly mid: string;
+  readonly light: string;
+  readonly top: string;
+  /** How deeply the outline is notched, as a share of the radius. */
+  readonly ragged: number;
+  /** How many notches go round it. */
+  readonly lobes: number;
+  /** Which way the whole thing is turned. */
+  readonly turn: number;
+  /** How big one clump of leaves is. */
+  readonly clump: number;
+};
+
+/**
+ * The four of them.
+ *
+ * @remarks
+ * Two broadleaves, a pine and a scrubby one. What tells them apart at this
+ * size is not the shape of a leaf - it is the green, how deeply the outline is
+ * notched and how big the clumps are: a pine is dark, nearly round and finely
+ * broken up, a poplar is light and lumpy.
+ */
+const TREE_LOOKS: readonly TreeLook[] = [
+  {
+    dark: "#1c4722",
+    mid: "#2a6b2c",
+    light: "#3d8a3a",
+    top: "#59a64a",
+    ragged: 0.18,
+    lobes: 5,
+    turn: 0.4,
+    clump: 0.42,
+  },
+  {
+    dark: "#17351a",
+    mid: "#1f4d22",
+    light: "#2d6b2c",
+    top: "#3f8437",
+    ragged: 0.1,
+    lobes: 9,
+    turn: 1.9,
+    clump: 0.3,
+  },
+  {
+    dark: "#22521f",
+    mid: "#357a2c",
+    light: "#4e9a3c",
+    top: "#6fb84e",
+    ragged: 0.24,
+    lobes: 4,
+    turn: 2.8,
+    clump: 0.46,
+  },
+  {
+    dark: "#1a3d1c",
+    mid: "#285c26",
+    light: "#3a7d33",
+    top: "#4f9640",
+    ragged: 0.14,
+    lobes: 7,
+    turn: 0.9,
+    clump: 0.36,
+  },
+];
+
+/**
+ * How high a treetop sits over the ground it grows out of.
+ *
+ * @remarks
+ * Low enough that the trunk under it reads as a trunk. At twenty six the crown
+ * floated a long way above its own shadow and the tree looked like a lollipop.
+ */
+const TREE_HIGH = 17;
 
 /** How many squares of wood actually have a tree drawn on them. */
 const TREE_SHARE = 0.62;
@@ -1165,7 +1864,7 @@ function drawBase(
     drawAck(ctx, view, site, state);
   }
   drawFarms(ctx, view);
-  drawMountain(ctx, view);
+  drawMountain(ctx, state, view);
 }
 
 /**
@@ -2991,6 +3690,7 @@ function drawCar(
   const soot = car.health <= 0 ? SOOT : 0;
   const sheet = vehicleSprite(car.body, paint, police);
   shadow(ctx, view, car, long / 2, wide / 2, car.angle, fade);
+  beam(ctx, view, car, fade);
 
   // The wheels first, and on the road where they belong.
   stampTop(ctx, view, car, 0, {
@@ -3002,11 +3702,13 @@ function drawCar(
   });
   // Then the body: doors and bumpers on the walls, with the bonnet and the
   // boot laid flat on top of them.
+  const body = bodyOutline(car.body);
   panels(
     ctx,
     view,
-    placed(bodyOutline(car.body), car, car.angle),
-    { base: 0, top: tiers.belt, fade, soot },
+    placed(body, car, car.angle),
+    wallFaces(body),
+    { base: 0, top: tiers.belt, fade, soot, paint, lean: null },
     (face) => vehicleWall(car.body, paint, police, face, false),
   );
   stampTop(ctx, view, car, tiers.belt, {
@@ -3023,11 +3725,27 @@ function drawCar(
   if (car.body === "tank") {
     drawTurret(ctx, view, car, tiers.tall, fade, soot);
   } else {
+    // The cabin, whose walls lean: a windscreen that slopes back takes the
+    // roof with it, so the top of the wall is the outline the roof is clipped
+    // to rather than the one it stands on.
+    const cabin = cabinOutline(car.body);
     panels(
       ctx,
       view,
-      placed(cabinOutline(car.body), car, car.angle),
-      { base: tiers.belt, top: tiers.tall, fade, soot },
+      placed(cabin, car, car.angle),
+      wallFaces(cabin),
+      {
+        base: tiers.belt,
+        top: tiers.tall,
+        fade,
+        soot,
+        // The bevels of the greenhouse are pillars, not bodywork. Painted in
+        // the colour of the car they put a coloured strip between the
+        // windscreen and the door glass, and a Golf has no such thing -
+        // the glass runs round the corner in one piece.
+        paint: PILLAR,
+        lean: placed(leaning(cabin, tiers), car, car.angle),
+      },
       (face) => vehicleWall(car.body, paint, police, face, true),
     );
     stampTop(ctx, view, car, tiers.tall, {
@@ -3042,8 +3760,277 @@ function drawCar(
   // No frame round the one being driven. The camera sits on it, so which car
   // that is was never in doubt - and a box drawn round a vehicle is the one
   // thing on the screen that could not be part of the city.
+  lamps(ctx, view, car, tiers, fade);
   drawDamage(ctx, view, car, now, fade);
 }
+
+/**
+ * Where a vehicle's lamps sit across it, as shares of half its width.
+ *
+ * @remarks
+ * A pair front and back for anything with four wheels; one down the middle for
+ * the two-wheelers; none at all on a tank, which has headlamps in real life and
+ * would look like a taxi with them here.
+ */
+const LAMP_SIDES: Readonly<Partial<Record<VehicleBody, readonly number[]>>> = {
+  bike: [0],
+  cycle: [0],
+  tank: [],
+};
+
+/** What everything else carries. */
+const BOTH_LAMPS: readonly number[] = [-0.7, 0.7];
+
+/**
+ * The lamps of one vehicle, lit.
+ *
+ * @param ctx - what to draw on
+ * @param view - the camera
+ * @param car - the vehicle
+ * @param tiers - how high it stands, for where the lamps hang
+ * @param fade - how much of it a house in front lets through
+ * @remarks
+ * Every car in the city drives with its lights on. That is not realism - it is
+ * legibility: two white points and two red ones say which end of a dark shape
+ * is the front, from far enough away that the shape itself is four pixels.
+ * They are drawn rather than painted into the sprite because a lamp is light,
+ * and light adds to what is under it: `lighter` is what makes a headlamp look
+ * lit instead of looking like a white sticker.
+ *
+ * A wreck has none of it. The one thing a burnt-out car should not look is
+ * ready to drive.
+ */
+function lamps(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  car: Car,
+  tiers: VehicleTiers,
+  fade: number,
+): void {
+  const sides = LAMP_SIDES[car.body] ?? BOTH_LAMPS;
+  if (car.health > 0 && sides.length > 0) {
+    const shape = VEHICLES[car.body];
+    const long = shape.length / 2;
+    const wide = shape.width / 2;
+    // How far up the bodywork the lamps hang. The Cybertruck wears its light
+    // bar along the very top edge of the panel; everything else has its lamps
+    // about halfway up.
+    const head = tiers.belt * (LAMP_HIGH_OF[car.body] ?? LAMP_HIGH);
+    const rear = tiers.belt * (LAMP_BACK_OF[car.body] ?? LAMP_BACK);
+    ctx.save();
+    ctx.globalAlpha = fade;
+    // A lamp pointing away from the camera is behind its own car. The picture
+    // has no depth test - the glow is laid over everything - so a car driving
+    // away showed its headlamps through its own roof, and one coming towards
+    // you its tail lamps.
+    const into = Math.sin(car.angle);
+    for (const side of sides) {
+      if (into > -LAMP_FACING) {
+        lamp(
+          ctx,
+          view,
+          car,
+          { along: long - 1.5, across: side * wide, high: head },
+          { glass: HEAD_GLASS, halo: HEAD_HALO, size: HEAD_GLOW },
+        );
+      }
+      if (into < LAMP_FACING) {
+        lamp(
+          ctx,
+          view,
+          car,
+          { along: -long + 1, across: side * wide, high: rear },
+          {
+            glass: car.braking ? BRAKE_GLASS : TAIL_GLASS,
+            halo: TAIL_HALO,
+            size: car.braking ? BRAKE_GLOW : TAIL_GLOW,
+          },
+        );
+      }
+    }
+    ctx.restore();
+  }
+}
+
+/** One lamp: a point of colour that fades out into nothing. */
+function lamp(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  car: Car,
+  seat: {
+    readonly along: number;
+    readonly across: number;
+    readonly high: number;
+  },
+  bulb: {
+    readonly glass: string;
+    readonly halo: string;
+    readonly size: number;
+  },
+): void {
+  const cos = Math.cos(car.angle);
+  const sin = Math.sin(car.angle);
+  const spot = project(
+    view,
+    car.x + cos * seat.along - sin * seat.across,
+    car.y + sin * seat.along + cos * seat.across,
+    seat.high,
+  );
+  // The glass first, painted **over** whatever is under it. A lamp drawn
+  // purely as light added to the bodywork comes out white however red it is:
+  // adding a red with any green and blue in it to a colour that already has
+  // some of both saturates all three channels, and three saturated channels
+  // are white. A tail lamp one cannot tell from a headlamp is worse than no
+  // lamp at all.
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = bulb.glass;
+  ctx.beginPath();
+  ctx.arc(spot.x, spot.y, bulb.size * LAMP_GLASS, 0, Math.PI * 2);
+  ctx.fill();
+  // And then the halo round it, which is light and does add.
+  ctx.globalCompositeOperation = "lighter";
+  const light = ctx.createRadialGradient(
+    spot.x,
+    spot.y,
+    0,
+    spot.x,
+    spot.y,
+    bulb.size,
+  );
+  light.addColorStop(0, `rgba(${bulb.halo},0.5)`);
+  light.addColorStop(LAMP_CORE, `rgba(${bulb.halo},0.28)`);
+  light.addColorStop(1, `rgba(${bulb.halo},0)`);
+  ctx.fillStyle = light;
+  ctx.beginPath();
+  ctx.arc(spot.x, spot.y, bulb.size, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/**
+ * How far round a lamp may point before it is out of sight, as a sine.
+ *
+ * @remarks
+ * Well past a right angle, because the lamps of this car wrap round its
+ * corners on to the flank: from the side one sees both ends lit, which is
+ * right, and only nose on or tail on does the far pair disappear.
+ */
+const LAMP_FACING = 0.62;
+
+/** How much of a lamp is the glass itself rather than the glow round it. */
+const LAMP_GLASS = 0.34;
+
+/** The glass of a headlamp, and the light it throws. */
+const HEAD_GLASS = "#fff6dc";
+
+/** Its halo, which is warm white. */
+const HEAD_HALO = "255,240,200";
+
+/** The glass of a tail lamp. */
+const TAIL_GLASS = "#e01b12";
+
+/** And with the brake on, which is the same lamp turned up. */
+const BRAKE_GLASS = "#ff2a16";
+
+/**
+ * The halo of a tail lamp: red, and almost nothing else.
+ *
+ * @remarks
+ * A softer red would be truer to a tail lamp lens and comes out pink, because
+ * this is added to what is underneath. Whatever green and blue it carries is
+ * added to the green and blue already there - so the halo has to be nearly
+ * pure red for the light to read as red at all.
+ */
+const TAIL_HALO = "255,24,12";
+
+/**
+ * The pool of light a pair of headlamps throws on the road in front.
+ *
+ * @remarks
+ * On the ground and under the car, so the bonnet covers where it starts - a
+ * beam that begins in mid-air in front of the bumper reads as a puddle rather
+ * than as light. Faint: the city is not dark, and the point is to say which way
+ * the thing is pointing, not to light the street.
+ */
+function beam(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  car: Car,
+  fade: number,
+): void {
+  const sides = LAMP_SIDES[car.body] ?? BOTH_LAMPS;
+  if (car.health > 0 && sides.length > 0) {
+    const shape = VEHICLES[car.body];
+    const reach = shape.length * BEAM_REACH;
+    const cos = Math.cos(car.angle);
+    const sin = Math.sin(car.angle);
+    const spot = project(view, car.x + cos * reach, car.y + sin * reach);
+    ctx.save();
+    ctx.translate(spot.x, spot.y);
+    ctx.scale(1, DEPTH);
+    ctx.rotate(car.angle);
+    ctx.scale(reach, shape.width * BEAM_SPREAD);
+    const pool = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    pool.addColorStop(0, "rgba(255,238,190,0.1)");
+    pool.addColorStop(1, "rgba(255,240,200,0)");
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = pool;
+    ctx.beginPath();
+    ctx.arc(0, 0, 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+/** How far up the bodywork the headlamps hang, as a share of the belt line. */
+const LAMP_HIGH = 0.55;
+
+/** And the ones that hang somewhere else. */
+const LAMP_HIGH_OF: Readonly<Partial<Record<VehicleBody, number>>> = {
+  car: 0.64,
+  suv: 0.86,
+};
+
+/**
+ * The same for the tail lamps, which are not at the same height.
+ *
+ * @remarks
+ * On the Golf they sit **right under the glass**, half a bodyside higher than
+ * the headlamps do, and the glow has to sit where the lamp is painted or the
+ * car looks like it is leaking light out of the boot lid.
+ */
+const LAMP_BACK = 0.55;
+
+/** And the ones that hang somewhere else. */
+const LAMP_BACK_OF: Readonly<Partial<Record<VehicleBody, number>>> = {
+  car: 0.88,
+  suv: 0.86,
+};
+
+/** How far a headlamp's glow reaches, in screen pixels. */
+const HEAD_GLOW = 4;
+
+/**
+ * A tail lamp, which is dimmer.
+ *
+ * @remarks
+ * Dimmer than it was, too. The lamp painted on the tailgate is a wing that
+ * tapers inboard and the shut line crosses it - and none of that can be seen
+ * through a blob of light twice its size.
+ */
+const TAIL_GLOW = 2.2;
+
+/** And a tail lamp with the brake on. */
+const BRAKE_GLOW = 5.2;
+
+/** Where the bright middle of a lamp ends and the halo begins. */
+const LAMP_CORE = 0.35;
+
+/** How far ahead of the nose the light pool sits, in vehicle lengths. */
+const BEAM_REACH = 0.6;
+
+/** And how wide it spreads, in vehicle widths. */
+const BEAM_SPREAD = 0.5;
 
 /**
  * The tank's turret, laid on the hull and turned where the gun points.
@@ -3119,11 +4106,14 @@ function paintOf(car: Car): string {
 /** The one colour a tractor is ever painted in. */
 const TRACTOR_GREEN = "#3f6212";
 
+/** Below this much area a wall is edge on and worth nothing, in square pixels. */
+const WALL_THIN = 1;
+
+/** What the corners of a greenhouse are made of: blacked out pillar. */
+const PILLAR = "#1b2432";
+
 /** How dark a burnt-out wreck is painted over. */
 const SOOT = 0.55;
-
-/** Which wall each edge of a box is, in {@link boxCorners} order. */
-const FACES: readonly VehicleFace[] = ["flank", "nose", "flank", "tail"];
 
 /**
  * A vehicle's own outline, put where the vehicle is.
@@ -3145,6 +4135,36 @@ function placed(
     y: at.y + point.x * sin + point.y * cos,
   }));
 }
+
+/**
+ * The same outline, with every edge pushed out by a little.
+ *
+ * @param points - the corners
+ * @param by - how far out each edge goes, in city pixels
+ * @returns the corners of the wider outline
+ * @remarks
+ * Stretched about its own middle rather than walked edge by edge, which for a
+ * shape as plain as a car comes to the same thing: the four long edges are
+ * straight and square to the axes, so each of them moves out by exactly this
+ * much and the chamfers between them follow.
+ */
+function grown(points: readonly Vec[], by: number): readonly Vec[] {
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const midX = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const midY = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const halfX = (Math.max(...xs) - Math.min(...xs)) / 2;
+  const halfY = (Math.max(...ys) - Math.min(...ys)) / 2;
+  const outX = halfX > 0 ? (halfX + by) / halfX : 1;
+  const outY = halfY > 0 ? (halfY + by) / halfY : 1;
+  return points.map((point) => ({
+    x: midX + (point.x - midX) * outX,
+    y: midY + (point.y - midY) * outY,
+  }));
+}
+
+/** How far outside the bodywork the ring starts, in city pixels. */
+const RING_BITE = 0.7;
 
 /** A closed path through a set of corners. */
 function outlineOf(points: readonly Vec[]): Path2D {
@@ -3205,6 +4225,20 @@ type Storey = {
   readonly fade: number;
   /** How black it is painted over, for a wreck. */
   readonly soot: number;
+  /** What the bevels between the walls are painted, since they get no picture. */
+  readonly paint: string;
+  /**
+   * The outline the top of the walls follows, where it is not the bottom one.
+   *
+   * @remarks
+   * A windscreen leans. The roof of the cabin is therefore shorter than the
+   * floor of it, and the wall between them is not upright - it slopes back
+   * from the bottom edge to the top. Drawn upright, as every wall used to be,
+   * the roof ended a few pixels short of the top of its own wall and one could
+   * see daylight through the gap, from whichever angle happened to look into
+   * it. This is that lean.
+   */
+  readonly lean: readonly Vec[] | null;
 };
 
 /**
@@ -3229,6 +4263,7 @@ function panels(
   ctx: CanvasRenderingContext2D,
   view: View,
   corners: readonly Vec[],
+  walls: readonly VehicleSide[],
   storey: Storey,
   sheetFor: (face: VehicleFace) => HTMLCanvasElement | null,
 ): void {
@@ -3238,6 +4273,7 @@ function panels(
   // there was nothing at all between the roof above and the bodywork below -
   // a slot of daylight through the car, on whichever side happened to face
   // away. Painted back to front they simply lie under what covers them.
+  const lean = storey.lean;
   const shown = corners.map((from, at) => {
     const to = corners[(at + 1) % corners.length] ?? from;
     return { at, from, to, depth: (from.y + to.y) / 2 };
@@ -3245,39 +4281,89 @@ function panels(
   shown.sort((one, other) => one.depth - other.depth);
   for (const wall of shown) {
     const at = wall.at;
-    const from = wall.from;
-    const to = wall.to;
-    const footFrom = project(view, from.x, from.y);
-    const footTo = project(view, to.x, to.y);
+    const side = walls[at];
+    const face = side?.face ?? null;
+    // The top edge of this wall. An end wall follows the lean; a flank does
+    // not, because the picture on a flank has the slope of both screens drawn
+    // into it already and leaning it as well would count the slope twice.
+    const upper =
+      lean === null || face === "flank" || face === null
+        ? { from: wall.from, to: wall.to }
+        : {
+            from: lean[at] ?? wall.from,
+            to: lean[(at + 1) % corners.length] ?? wall.to,
+          };
+    const footFrom = project(view, wall.from.x, wall.from.y);
+    const footTo = project(view, wall.to.x, wall.to.y);
+    const capFrom = project(view, upper.from.x, upper.from.y);
+    const capTo = project(view, upper.to.x, upper.to.y);
     const quad = new Path2D();
     quad.moveTo(footFrom.x, footFrom.y - storey.base);
     quad.lineTo(footTo.x, footTo.y - storey.base);
-    quad.lineTo(footTo.x, footTo.y - storey.top);
-    quad.lineTo(footFrom.x, footFrom.y - storey.top);
+    quad.lineTo(capTo.x, capTo.y - storey.top);
+    quad.lineTo(capFrom.x, capFrom.y - storey.top);
     quad.closePath();
 
-    const sheet = sheetFor(FACES[at]);
+    // A wall one is looking at edge on. **Its area, not its width**: this
+    // projection leaves x alone and squashes y, so the two corners of a nose
+    // are the same distance apart on screen whichever way the car points - it
+    // is the parallelogram between them that collapses. Drawn anyway, all one
+    // sees of the wall is a squeezed stripe of whatever its picture is darkest
+    // at: a black line standing on the road at the nose of every car seen from
+    // the side, and another at its tail. It hides nothing either - the roof
+    // above it and the bodywork below it meet without its help.
+    const along = { x: capTo.x - capFrom.x, y: capTo.y - capFrom.y };
+    const down = {
+      x: footFrom.x - capFrom.x,
+      y: footFrom.y - storey.base - (capFrom.y - storey.top),
+    };
+    const flat = Math.abs(along.x * down.y - along.y * down.x) < WALL_THIN;
+    const sheet = face === null ? null : sheetFor(face);
+    if (flat) {
+      continue;
+    }
     ctx.save();
     ctx.globalAlpha = storey.fade;
     if (sheet === null) {
-      ctx.fillStyle = "#334155";
+      // A bevel between two walls: too narrow for a picture, so it takes the
+      // colour of the bodywork and reads as the highlight round a corner.
+      ctx.fillStyle = storey.paint;
       ctx.fill(quad);
     } else {
+      // **The slice of the picture this edge is**, laid on the parallelogram
+      // the wall makes: across it along the top edge, down it to the bottom.
+      // Not the whole picture - the chamfers at the corners of an outline face
+      // the same way the long edges do, and a whole car squeezed into the two
+      // pixels of a chamfer is a black bar standing on the road at each end.
+      const first = side?.start ?? 0;
+      const last = side?.end ?? 1;
+      const from = Math.round(first * sheet.width);
+      const wide = Math.max(1, Math.round((last - first) * sheet.width));
       ctx.transform(
-        (footTo.x - footFrom.x) / sheet.width,
-        (footTo.y - footFrom.y) / sheet.width,
-        0,
-        (storey.top - storey.base) / sheet.height,
-        footFrom.x,
-        footFrom.y - storey.top,
+        along.x / wide,
+        along.y / wide,
+        down.x / sheet.height,
+        down.y / sheet.height,
+        capFrom.x,
+        capFrom.y - storey.top,
       );
-      if (at === BACKWARDS) {
+      if (side?.flip === true) {
         // That edge runs nose to tail, so the picture goes on the other way
         // round - otherwise the bonnet would be at the back of one flank.
-        ctx.translate(sheet.width, 0);
+        ctx.translate(wide, 0);
         ctx.scale(-1, 1);
       }
-      ctx.drawImage(sheet, 0, 0);
+      ctx.drawImage(
+        sheet,
+        from,
+        0,
+        wide,
+        sheet.height,
+        0,
+        0,
+        wide,
+        sheet.height,
+      );
     }
     ctx.restore();
     if (storey.soot > 0) {
@@ -3289,9 +4375,7 @@ function panels(
   }
 }
 
-/** The one edge of the box whose picture has to be turned round. */
-const BACKWARDS = 2;
-
+/** One edge of an outline: which wall it is, and which way its picture goes. */
 /** What a picture laid flat on a vehicle needs to know. */
 type Lid = {
   /** Which part of the picture to lay down. */
@@ -3346,9 +4430,14 @@ function stampTop(
       // the lot. The margin with the silhouette cut out of it by the even-odd
       // rule - the silhouette, not a rectangle, or the tapered nose of the
       // bonnet would be left lying on the road.
+      // The hole is cut a shade **wider** than the bodywork. The picture draws
+      // the silhouette with a pen that straddles its edge, and the half of
+      // that line lying outside it is the only thing the ring has left to
+      // stamp: a black outline of the car laid flat on the road, which seen
+      // from the side is a straight line on the ground under the sills.
       const ring = new Path2D();
       ring.rect(-across / 2, -deep / 2, across, deep);
-      ring.addPath(body);
+      ring.addPath(outlineOf(grown(bodyOutline(car.body), RING_BITE)));
       ctx.clip(ring, "evenodd");
     } else if (lid.part === "body") {
       ctx.clip(body);
@@ -4965,8 +6054,56 @@ function cityMap(state: GameState): HTMLCanvasElement | null {
       paint.fillRect(col, row, 1, 1);
     }
   }
+  mainRoads(paint);
   cityImage = sheet;
   return sheet;
+}
+
+/**
+ * The through routes, drawn on the map as one thin black line each.
+ *
+ * @param paint - the map picture, one pixel to the square
+ * @remarks
+ * **The line one follows across the country.** Everything else on this map is
+ * a shade of the ground it is made of, and a motorway painted over its whole
+ * five squares is simply a slightly wider grey - one cannot pick it out, which
+ * is the only thing a map in the corner of the screen is for.
+ *
+ * One pixel, down the middle. And not only in the cities: the roads **between**
+ * them are the same sort of road for the person reading the map, so the country
+ * routes get the same line. The dirt track up the mountain does not - it is not
+ * a way of getting anywhere.
+ */
+function mainRoads(paint: CanvasRenderingContext2D): void {
+  paint.fillStyle = MAP_MAIN;
+  for (let at = 0; at < CITY_TILES; at += 1) {
+    if (motorwayLine(at)) {
+      for (let along = 0; along < CITY_TILES; along += 1) {
+        if (inCity(at, along)) {
+          paint.fillRect(at, along, 1, 1);
+        }
+        if (inCity(along, at)) {
+          paint.fillRect(along, at, 1, 1);
+        }
+      }
+    }
+  }
+  paint.strokeStyle = MAP_MAIN;
+  paint.lineWidth = 1;
+  paint.lineJoin = "round";
+  for (const road of roadLines()) {
+    if (!road.dirt) {
+      paint.beginPath();
+      road.points.forEach((point, at) => {
+        if (at === 0) {
+          paint.moveTo(point.x, point.y);
+        } else {
+          paint.lineTo(point.x, point.y);
+        }
+      });
+      paint.stroke();
+    }
+  }
 }
 
 /* eslint-enable @typescript-eslint/no-magic-numbers */
