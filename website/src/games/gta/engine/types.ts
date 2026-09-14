@@ -640,6 +640,28 @@ export type Car = {
    */
   readonly braking: boolean;
   /**
+   * How far this one has rolled, in pixels, counting reverse as backwards.
+   *
+   * @remarks
+   * Not a mileage: it is what the **wheels** are drawn from. A wheel turns
+   * once every 2 pi r of road, so the angle of its spokes is this number over
+   * the radius of the tyre - which means the renderer can draw a turning wheel
+   * without remembering anything between frames, and a saved game comes back
+   * with its wheels where it left them. The same trick as {@link Player.walked},
+   * which is how a walking figure knows which leg is forward.
+   */
+  readonly rolled: number;
+  /**
+   * Whether the handbrake is pulled.
+   *
+   * @remarks
+   * Not the same thing as {@link Car.braking}, which is on for the pedal as
+   * well. This one is what the **back wheels** are told: a handbrake works on
+   * them alone, so with it pulled they stop turning while the front pair go on
+   * rolling. Only the car the player is driving ever has it.
+   */
+  readonly locked: boolean;
+  /**
    * Which way the gun points, in radians - only the tank has one.
    *
    * @remarks

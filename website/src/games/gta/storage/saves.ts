@@ -231,6 +231,10 @@ function rebuild(stored: Stored): GameState {
       slip: car.slip ?? 0,
       braking: car.braking ?? false,
       seats: car.seats ?? 0,
+      // A stand written before the wheels turned has no mileage on it, and a
+      // wheel at undefined radians is not drawn at all.
+      rolled: car.rolled ?? 0,
+      locked: car.locked ?? false,
     })),
     // Skid marks are weather, not history: they fade on their own and nobody
     // comes back to a saved game for them.

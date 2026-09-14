@@ -1512,6 +1512,7 @@ function leaveCar(state: GameState): GameState {
                 driven: false,
                 speed: 0,
                 braking: false,
+                locked: false,
               }
             : each,
         ),
@@ -1786,7 +1787,7 @@ function drive(state: GameState, input: Input, dt: number): GameState {
       ...state,
       cars: state.cars.map((each) =>
         each.id === car.id
-          ? { ...each, ...moved, angle, turret, braking }
+          ? { ...each, ...moved, angle, turret, braking, locked: hand }
           : each,
       ),
       player: {
@@ -1828,7 +1829,7 @@ function slideCar(
   angle: number,
   speed: number,
   dt: number,
-): { x: number; y: number; speed: number } {
+): { x: number; y: number; speed: number; rolled: number } {
   const dx = Math.cos(angle) * speed * dt;
   const dy = Math.sin(angle) * speed * dt;
   const moved = slide(cells, car, dx, dy);
@@ -1836,7 +1837,15 @@ function slideCar(
   // less than half the way it wanted hit something head on.
   const went = Math.hypot(moved.x - car.x, moved.y - car.y);
   const blocked = speed !== 0 && went < Math.hypot(dx, dy) / 2;
-  return { ...moved, speed: blocked ? 0 : speed };
+  return {
+    ...moved,
+    speed: blocked ? 0 : speed,
+    // What the wheels have to show for it. Signed by the way the car is
+    // going, so that one in reverse turns its wheels backwards - and taken
+    // from how far it **actually** got, so that wheels do not spin against a
+    // wall the car is stuck on.
+    rolled: car.rolled + Math.sign(speed) * went,
+  };
 }
 
 /**
@@ -1871,7 +1880,14 @@ function rollCar(
   speed: number,
   bite: number,
   dt: number,
-): { x: number; y: number; angle: number; speed: number; slip: number } {
+): {
+  x: number;
+  y: number;
+  angle: number;
+  speed: number;
+  slip: number;
+  rolled: number;
+} {
   const angle = car.angle + swing;
   const forward = speed * Math.cos(swing) + car.slip * Math.sin(swing);
   const across = -speed * Math.sin(swing) + car.slip * Math.cos(swing);
@@ -1894,6 +1910,7 @@ function rollCar(
     angle,
     speed: hit ? 0 : forward,
     slip: hit ? 0 : slip,
+    rolled: car.rolled + Math.sign(forward) * went,
   };
 }
 
@@ -2908,6 +2925,8 @@ function comeRound(
             speed: 0,
             slip: 0,
             braking: false,
+            locked: false,
+            rolled: 0,
             turnAt: state.time,
           },
     rng: spin,
@@ -2994,14 +3013,15 @@ function driveTraffic(
   const moved = slide(state.cells, car, dx, dy);
   const went = Math.hypot(moved.x - car.x, moved.y - car.y);
   const stuck = pace > 0 && went < Math.abs(pace * dt) / 2;
-  const rolled =
+  const coast =
     Math.sign(car.speed) * Math.max(0, Math.abs(car.speed) - LOOSE_DRAG * dt);
   return {
     car: shoved
       ? {
           ...car,
-          ...slideCar(state.cells, car, car.angle, rolled, dt),
+          ...slideCar(state.cells, car, car.angle, coast, dt),
           braking: false,
+          locked: false,
         }
       : {
           ...car,
@@ -3010,6 +3030,10 @@ function driveTraffic(
           angle,
           speed: pace,
           braking: held,
+          locked: false,
+          // How far it actually got, which is what its wheels will show. A
+          // computer driver never reverses, so this only ever counts up.
+          rolled: car.rolled + Math.sign(pace) * went,
           // A driver who has just turned holds that heading for a moment; one
           // that has just been stopped by a wall looks for a way out at once.
           turnAt: stuck
@@ -4370,6 +4394,8 @@ function callPolice(state: GameState): GameState {
         shells: 0,
         hitched: null,
         braking: false,
+        locked: false,
+        rolled: 0,
         seats: 0,
         slip: 0,
         x: spot.x,
@@ -4536,11 +4562,17 @@ function pickPatrol(state: GameState, id: number): VehicleBody {
   let body: VehicleBody = "bike";
   if (state.player.stars >= TANK_STARS && !state.cars.some(isPoliceTank)) {
     body = "tank";
-  } else if (state.player.stars >= CAR_STARS && id % 2 === 0) {
-    body = "car";
+  } else if (state.player.stars >= CAR_STARS && id % BIKE_EVERY !== 0) {
+    // **Mostly cars.** It used to be every other one, which put as many men on
+    // motorbikes as in patrol cars - and a motorbike is what they send to a
+    // traffic offence, not what they send to a robbery.
+    body = "patrol";
   }
   return body;
 }
+
+/** One patrol in this many is a motorbike; the rest come in cars. */
+const BIKE_EVERY = 4;
 
 /** Whether this is a patrol tank still in the hands of the police. */
 function isPoliceTank(car: Car): boolean {
@@ -4783,6 +4815,7 @@ function barge(state: GameState, car: Car, hit: readonly Car[]): GameState {
           speed: Math.min(RAM_FLING, force * heft * RAM_SHARE),
           slip: 0,
           braking: false,
+          locked: false,
         };
       } else if (each.id === car.id) {
         after = { ...each, speed: car.speed * RAM_KEEP, slip: 0 };

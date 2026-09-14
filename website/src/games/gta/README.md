@@ -309,6 +309,170 @@ Reihenfolge, in der man es bemerkt:
   `drawImage` genau diesen Ausschnitt. Damit stimmt der Maßstab an jeder Kante:
   Drei Pixel Fase zeigen drei Pixel Auto.
 
+**Der Streifenwagen ist ein eigenes Fahrzeug.** Er war ein Golf mit Blaulicht,
+und im Head-up stand entsprechend "Golf VIII" drin. Auf dem Foto steht aber eine
+Mercedes E-Klasse T-Modell, und die ist ein Kombi und deutlich größer: 4949 mal
+1880 Millimeter gegen 4284 mal 1789. Im Maßstab, in dem alles andere gezeichnet
+ist - der Golf ist 44 Pixel lang -, sind das **50,8 mal 19,3**. Es gibt deshalb
+die Karosserie `patrol` mit eigener Zeile in `VEHICLES` (Name: "Polizeiwagen")
+und eigenem Eintrag in `TIERS`. Gefahren wird sie wie der Golf, mit den Zahlen,
+auf die die Verfolgungsjagd einmal eingestellt wurde - eine Jagd, die man nicht
+verlieren kann, ist so langweilig wie eine, die man nicht gewinnen kann.
+
+**Gemessen, nicht geschätzt - aus der Rettungskarte.** Ein 3D-Modell dieses
+Wagens war nicht aufzutreiben, aber es gibt etwas beinahe ebenso Gutes: Die
+Rettungskarte des Herstellers (`rk.mb-qr.com/de/214.250`) enthält eine
+maßstäbliche **Seitenansicht und Draufsicht** genau dieses Autos. Alle Zahlen
+unten sind daran abgelesen, mit dem Radstand als Lineal - 2961 Millimeter kamen
+auf 595,5 Zeichnungspixel, und die Höhe, die dieser Maßstab dann vorhersagt,
+ist 1487 gegen 1469 laut Datenblatt. Wer so nah liegt, hat eine saubere
+Parallelprojektion vor sich und keine Perspektive.
+
+Gemalt wird sie mit **denselben Wandroutinen** wie der Golf. Was sie zum Kombi
+macht, sind vier Zahlen:
+
+- **Die Motorhaube ist lang.** Die Frontscheibe trifft sie 999 Millimeter vor
+  der Wagenmitte - zehn Pixel -, und weil der Wagen selbst länger ist, sind das
+  vierzehn Pixel Haube gegen elf beim Golf.
+- **Das Dach läuft bis ans Heck.** `cabinBack` sitzt zwei Pixel vor dem Ende,
+  und darunter gibt es keine abfallende Heckklappe.
+- **Die Heckklappe steht.** Dafür gibt es `BACK_RAKE_OF`: Das Dach endet 2,6
+  Pixel vor dem Fuß der Klappe, gegen eine Frontscheibe, die 11,7 zurückliegt -
+  ein Verhältnis von 0,22, wo das Schrägheck 0,55 hat. Dieser eine Winkel ist
+  von der Seite der größte Unterschied zwischen den beiden Silhouetten.
+- **Die Räder sitzen nicht symmetrisch.** Vor dem Vorderrad liegen 843
+  Millimeter Überhang, hinter dem Hinterrad **1144** - also 16,8 Pixel vor der
+  Mitte und 13,7 dahinter. Dafür gibt es `AXLES`; auf derselben Achse beidseits
+  gezeichnet landet das Hinterrad drei Pixel zu weit hinten, und ein Auto mit
+  dem Hinterrad in der Heckklappe kann niemand benennen. Beim Golf liegen die
+  Überhänge 880 zu 784 und damit einen Pixel auseinander - der zeichnet weiter
+  symmetrisch.
+
+Und eine Zahl, die sich zu prüfen lohnte: **Höher als ein Golf ist sie nicht.**
+1487 Millimeter gegen 1491. Eine E-Klasse wirkt groß, weil sie sechs Pixel
+länger ist, nicht weil sie hoch steht.
+
+**Und dann kam die CAD-Zeichnung**
+(`game_instructions/GTA/Fahrzeuge/Polizei/eklasse_ansicht.jpg`, vier
+Ansichten). Damit war die E-Klasse kein langer Golf mehr:
+
+- **Ein Kühlergrill statt einer Lichtleiste.** Ein Golf trägt vorn einen
+  schmalen dunklen Balken mit den Leuchten darin und ein Emblem so groß wie ein
+  Stecknadelkopf. Dieses Auto trägt einen **Kühlergrill**: halb so breit wie der
+  Wagen, ein Viertel der Bordwandhöhe hoch, oben breiter als unten, mit dem
+  Stern in der Mitte - und schmale Leuchten, die nach außen an die Kotflügel
+  gedrängt sind. `mercedesFace`.
+- **Keine Antenne.** Der Golf hat die Haifischflosse hinten auf dem Dach, dieser
+  Wagen nicht: Was er da oben trägt, ist der Balken, und ein Mast daneben liest
+  sich als Fehler.
+- **Gerade Hauben-Sicken.** Beim Golf laufen zwei Knicke vom Emblem nach außen
+  zu den Kotflügeln, hier zwei gerade parallele Powerdomes über die ganze Haube.
+- **POLIZEI auf Haube und Vordertüren**, und zwar an beiden Stellen so
+  gedreht, dass man es auch lesen kann:
+
+  - Auf der **Haube** läuft das Wort **quer** über den Wagen, nicht längs.
+    Diese Ansicht dreht sich mit dem Auto - längs gelegt ließe es sich nur dann
+    lesen, wenn der Wagen seitlich an einem vorbeifährt. Quer gelegt steht es
+    in dem einen Fall richtig herum, auf den es ankommt: wenn ein Streifenwagen
+    direkt auf einen zufährt. In Schwarz, weil Blau auf Silber bei dieser Größe
+    ein Fleck ist.
+  - Auf der **Tür** weiß auf blauem Feld, und das Flankenbild wird **zweimal
+    gebaut**: einmal mit der Schrift vorwärts, einmal rückwärts. Welche Kopie
+    aufgelegt wird, entscheidet sich **pro Bild neu**, und zwar an der
+    Bildschirmrichtung - nicht an `flip`.
+
+    Das ist der Punkt, an dem ich es beim ersten Anlauf falsch hatte. `flip`
+    sagt, wie das Bild in den Fahrzeugkoordinaten auf die Kante passt, und das
+    ist dasselbe, egal wohin das Auto zeigt. Eine Schrift interessiert aber, in
+    welche Richtung sie am Ende **über den Bildschirm** läuft, und das dreht
+    sich mit dem Auto - für beide Flanken gleichzeitig, weil sie sich
+    gemeinsam drehen. Nach `flip` gespiegelt stand das Wort deshalb auf beiden
+    Seiten rückwärts, sobald der Wagen in die andere Richtung fuhr. Jetzt
+    rechnet `panels` aus, wohin die x-Achse des Bildes auf dem Schirm zeigt,
+    und holt die gedrehte Kopie, wenn sie nach links zeigt. Nase und Heck
+    bekommen keine zweite Kopie, weil dort nichts geschrieben steht.
+
+- **Das Blaulicht ist ein Kasten, kein Rechteck.** Es war flach ins Dachbild
+  gemalt, und eine Farbfläche, die im Lack liegt, liest sich als Aufkleber: Sie
+  hat keine Dicke, fängt von der Seite kein Licht und verschwindet aus flachem
+  Winkel ganz im Dach. Jetzt wird es gebaut wie der Rest der Stadt - ein Umriss,
+  auf Höhe gezogen, Wände von hinten nach vorn, Deckel drauf (`beacon`). Genauer
+  gesagt drei Kästen: an jedem Ende eine blaue Leuchte, dazwischen der dunkle
+  Kasten, was aus zehn Metern Entfernung genau so aussieht. Der Schein kommt
+  entsprechend von **über** dem Dach statt aus ihm heraus. Seine Breite misst
+  sich am **Dach**, nicht am Wagen (BAR_WIDE): Ein Blaulichtbalken läuft von
+  einer Dachreling zur anderen, und gegen die volle Wagenbreite gerechnet kam
+  er knapp halb so breit heraus, wie er sein soll - ein blaues Kästchen mitten
+  in viel Silber.
+
+**Und die Ecken sind jetzt zu.** Das war ein echter Fehler: Eine Kante, die
+weder längs noch quer zeigt - also jede Fase an den vier Ecken -, bekam kein
+Bild, sondern die Lackfarbe. Auf einem einfarbigen Auto fällt das nicht auf, auf
+einem gestreiften schon: An jeder Ecke stand ein grauer Streifen, und die
+Lackierung hörte links und rechts davon einfach auf. Der Grund für die
+Sonderbehandlung - eine ganze Flanke in zwei Pixel gequetscht ist ein Schmierer
+
+- gilt nicht mehr, seit jede Kante nur noch ihr eigenes Stück des Bildes nimmt.
+  Also bekommt jetzt **jede** Kante ein Bild: das der Wand, der sie am nächsten
+  zeigt. Dazu passen Flanke und Enden ihre Streifen auf dieselben vier Zahlen an
+  (`POLICE_BAND`), damit sie sich an der Ecke auch wirklich treffen; über die
+  Front sacken sie dann in den Stoßfänger ab und wieder hoch, weil dort der Grill
+  sitzt - genau wie am echten Wagen.
+
+**Und es kommen überwiegend Autos.** Die Streife war jede zweite ein Motorrad,
+womit genauso viele Beamte auf zwei Rädern anrückten wie in Streifenwagen - ein
+Motorrad schickt man aber zu einem Verkehrsverstoß, nicht zu einem Überfall. Ab
+zwei Sternen ist jetzt nur noch jeder vierte Einsatz ein Motorrad
+(`BIKE_EVERY`), der Rest kommt im Wagen. Bei einem Stern bleibt es beim
+Motorrad, das ist Absicht.
+
+Die Lackierung hängt an der Karosserie, nicht am Besitzer: Wer einen
+Streifenwagen klaut, fährt weiter einen gestreiften Streifenwagen.
+
+**Der Streifenwagen ist silbern, nicht weiß.** Vorlage ist
+`game_instructions/GTA/Fahrzeuge/Polizei` - ein deutscher Streifenwagen, und
+damit ein silbernes Auto mit blau-gelbem Band, kein weißes mit schwarzen Türen.
+Das Weiß-Schwarze ist amerikanisch und war das eine Detail am Polizeiauto, an
+dem man sofort sieht, in welchem Land man ist.
+
+Drei Teile hat die Lackierung, und alle drei müssen mit sechs mal vierundvierzig
+Pixeln auskommen:
+
+- **Zwei Bänder an der Flanke**, blau unten, leuchtgelb darüber, mit einer
+  dünnen blauen Kante obendrauf - und **beide steigen zur Nase hin an**. Dieser
+  Anstieg ist die halbe Miete: Ein gerade durchgezogener Streifen ist ein
+  Lieferwagen, die Schräge liest man vom anderen Ende der Straße als Polizei.
+  Die Schrift, die auf das gelbe Band gehört, wäre hier vier Pixel hoch und
+  bleibt deshalb weg - was in dieser Größe trägt, sind Farbe und Winkel.
+
+- **Dieselben zwei Bänder quer über Nase und Heck**, dort waagerecht, unten im
+  Stoßfänger, sodass Kennzeichen und Leuchten darüber frei bleiben.
+
+- **Der Balken vorn auf dem Dach**, an beiden Enden blau und in der Mitte
+  dunkel, flach und breit statt als Kasten. Rot gehört auf dieser Seite des
+  Wassers an ein Feuerwehrauto.
+
+Von oben sieht man vom Seitenband nur die Oberkante: eine leuchtgelbe Linie an
+jeder Flanke. Die hört allerdings fünf Pixel vor jedem Ende auf - ein Rechteck
+über die volle Länge steht an den abgeschrägten Ecken über die Silhouette
+hinaus, und was übersteht, stempelt der Ring flach auf die Straße. Das waren
+zwei gelbe Sprenkel auf dem Asphalt.
+
+**Und die Farben stehen in der Preisliste.** Ein Golf VIII wird in neun Lacken
+ausgeliefert - Uranograu, Pure White, Anemonenblau Metallic, Crystal Ice Blue
+Metallic, Delfingrau Metallic, Grenadillschwarz Metallic, Kings Red Metallic,
+Oyster Silver Metallic und Oryxweiß Perlmutteffekt -, und die stehen jetzt in
+`GOLF_PAINT` statt in der Buntstiftschachtel, aus der der übrige Verkehr lackiert
+wird. Das ändert das Straßenbild: Echte Autos sind viel öfter grau, weiß und
+schwarz als rot, und eine Reihe geparkter Golfs liest sich damit als Reihe
+Autos statt als Farbkarte.
+
+Drei davon sind hell, und genau das hatte die alte Palette vermieden: Ein weißes
+Auto könnte man für den DMC-12 halten, das einzige Fahrzeug der Stadt, für das
+man über eine Kreuzung läuft. Keiner der drei ist allerdings das blanke Blech
+des DMC (`STEEL`), und ein Schrägheck ist kein Keil mit Flügeltüren - die beiden
+sind also weiterhin an allem außer einem Blick auf die Farbe zu unterscheiden.
+
 **Die Zahlen sind gemessen, nicht geschätzt.** Zu diesem Auto gibt es ein
 3D-Modell (`game_instructions/vw-golf-mk8-gti-2022.stl`, 446 809 Dreiecke). Aus
 dem lässt sich jede Zahl dieses Abschnitts ablesen, statt sie aus Fotos zu
@@ -365,6 +529,54 @@ Vollgummi. Jetzt ist das Schwarz ein Band am Rand, darin liegt das dunkle
 Felgenbett, und darüber fünf helle Speichen, das Horn und die Nabe
 (`WHEEL_RIM`, `WHEEL_SPOKES`). Davon profitiert jedes Fahrzeug, das `wheelAt`
 benutzt, nicht nur der Golf.
+
+**Die Räder drehen sich, und zwar untersetzt.** Ein Auto merkt sich in
+`rolled`, wie weit es gerollt ist - vorzeichenbehaftet, rückwärts zählt
+rückwärts, und gezählt wird, was es **wirklich** geschafft hat, damit die Räder
+an einer Wand nicht durchdrehen. Es ist derselbe Trick wie `Player.walked` beim
+Gehen: Der Renderer muss sich zwischen zwei Bildern nichts merken, und ein
+geladener Spielstand kommt mit den Rädern zurück, wie er sie verlassen hat.
+
+Nur darf man den Winkel nicht einfach hinschreiben. Ein Rad ist hier sechs Pixel
+groß und dreht sich alle neunzehn Pixel Straße einmal - bei Verkehrstempo also
+sechsmal pro Sekunde, 36 Grad von einem Bild zum nächsten, gegen ein
+Speichenmuster, das sich alle 72 Grad wiederholt. Exakt gezeichnet säße jedes
+Rad der Stadt genau auf der Kante des Wagenrad-Effekts: die Hälfte liefe
+rückwärts, der Rest stünde still. Deshalb wird der gezeichnete Winkel mit
+`WHEEL_GEAR` auf ein Drittel untersetzt - das sind zwölf Grad pro Bild, lesbar,
+richtungsrichtig und proportional zum Tempo. Über `WHEEL_FAST` (230 Pixel pro
+Sekunde, also deutlich über Verkehrstempo und gut unter Höchstgeschwindigkeit)
+verschwimmen die Speichen zu der grauen Scheibe, die ein schnelles Rad
+tatsächlich ist. Beides zusammen ist das, was eine Engine mit Rädern macht, die
+zu klein zum ehrlichen Animieren sind.
+
+Gezeichnet wird das über den Bild-Cache: `wheelStep` liefert eine Stufe von 0
+bis 5 (sechs Bilder über **eine** Speiche - fünf Speichen sehen alle gleich aus,
+nach 72 Grad ist das Rad wieder da, wo es war) oder `WHEEL_SMEAR`. Die Stufe
+steckt im Cache-Schlüssel, aber nur bei den Flanken: Nase, Heck und
+Windschutzscheibe haben keine Räder und werden nicht siebenfach vorgehalten.
+
+**Minus, nicht plus.** Ein Flankenbild wird mit der Nase nach rechts gemalt,
+ein vorwärts fahrendes Auto fährt also nach rechts, und ein nach rechts
+rollendes Rad dreht sich im Uhrzeigersinn. Das Wandbild wird aber mit der
+Straße unten und der Höhe nach oben gezeichnet (`ctx.scale(GRAIN, -GRAIN)`),
+und in dieser Lage zählen die Winkel **gegen** den Uhrzeigersinn - der Schritt
+muss also abgezogen werden. Mit Plus lief jedes Rad der Stadt exakt verkehrt
+herum.
+
+**Die Handbremse hält das Hinterrad an.** Sie wirkt nur auf die Hinterachse,
+also stehen die hinteren Räder still, während die vorderen weiterrollen - und
+genau das ist von der Seite der Unterschied zwischen einem Auto, das bremst, und
+einem, das per Handbremse um die Kurve geworfen wird. `Car.locked` ist dafür da
+und nicht `Car.braking`: Letzteres ist auch beim Fußbremsen an. Gezeichnet wird
+das blockierte Rad auf einer festen Stufe statt auf der, bei der es zufällig
+stehengeblieben ist - eine Lüge, die sechs Pixel wert ist, denn was man in
+dieser Größe liest, ist "dreht sich nicht", nie "welche Speiche steht oben".
+
+**Der Radlauf beginnt jetzt auf Achshöhe.** Dort ist der Reifen am breitesten.
+Weiter unten angesetzt standen seine beiden unteren Ecken über die Rundung des
+Reifens hinaus, und was man sah, war ein dunkles Dreieck links und rechts neben
+jedem Rad, das auf der Straße stand und nichts war.
 
 **Über der Frontscheibe stand ein zweiter schwarzer Balken.** Die Scheibe hörte
 0,7 Pixel vor der Oberkante ihrer Wand auf, und in diesem Streifen lag die

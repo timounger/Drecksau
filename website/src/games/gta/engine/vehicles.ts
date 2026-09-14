@@ -15,7 +15,15 @@
 
 /** What sort of vehicle something is. */
 export type VehicleBody =
-  "car" | "suv" | "taxi" | "bike" | "cycle" | "tank" | "dmc" | "tractor";
+  | "car"
+  | "patrol"
+  | "suv"
+  | "taxi"
+  | "bike"
+  | "cycle"
+  | "tank"
+  | "dmc"
+  | "tractor";
 
 /** One body, as numbers. */
 export type Vehicle = {
@@ -80,6 +88,36 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     gun: false,
     seats: 2,
     grip: 16,
+  },
+  /**
+   * What the police drive: an estate, and a big one.
+   *
+   * @remarks
+   * Not the hatchback with a light bar on it that it used to be. The car in
+   * the reference photograph (`game_instructions/GTA/Fahrzeuge/Polizei`) is a
+   * Mercedes E-Klasse T-Modell, and at the scale everything else is drawn at -
+   * the Golf's 4284 millimetres are 44 pixels - its 4949 by 1880 come out at
+   * 50,8 by 19,3. Six pixels longer than a Golf is a pixel and a half of
+   * mirror on either side of one in the rear-view: the size **is** the thing
+   * one notices when a patrol car pulls up behind.
+   *
+   * It drives like the Golf on purpose. A chase that the player cannot lose
+   * and a chase he cannot win are equally dull, and that balance was tuned
+   * when the patrol car was the same row as his - so the numbers stay where
+   * they were, give or take what a longer, heavier car is owed.
+   */
+  patrol: {
+    body: "patrol",
+    name: "Polizeiwagen",
+    length: 50.8,
+    width: 19.3,
+    top: 420,
+    accel: 260,
+    turn: 2.5,
+    health: 110,
+    gun: false,
+    seats: 2,
+    grip: 15,
   },
   dmc: {
     body: "dmc",

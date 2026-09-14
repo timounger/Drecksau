@@ -117,11 +117,13 @@ import { buildingAt } from "@/games/gta/engine/city";
 import type { Building } from "@/games/gta/engine/buildings";
 import { VEHICLES, type VehicleBody } from "@/games/gta/engine/vehicles";
 import {
+  POLICE_PAINT as PATROL_SILVER,
   STEEL,
   VEHICLE_MARGIN,
   bodyOutline,
   cabinOutline,
   wallFaces,
+  wheelStep,
   tiersOf,
   turretSprite,
   TURRET_SIZE,
@@ -203,6 +205,42 @@ const CAR_PAINT: readonly string[] = [
 const PLAIN_PAINT: readonly string[] = CAR_PAINT.filter(
   (paint) => paint !== TAXI_PAINT && paint !== PALE_PAINT,
 );
+
+/**
+ * The nine colours a Golf VIII is sold in.
+ *
+ * @remarks
+ * Off the price list rather than out of the box of crayons the rest of the
+ * traffic is painted from, and it changes the look of a street: real cars are
+ * grey, white and black far more often than they are red, and a row of parked
+ * Golfs in these colours reads as a row of cars rather than as a paint chart.
+ *
+ * Three of them are pale, which is the one thing the old palette was careful
+ * to avoid - a white car could be taken for the DMC-12, the only vehicle in
+ * the city worth crossing a junction for. None of them is the DMC's bare steel
+ * though, and a hatchback is not a wedge with gullwing doors, so the two are
+ * still told apart by everything except a glance at the colour.
+ */
+const GOLF_PAINT: readonly string[] = [
+  // Uranograu
+  "#6c7175",
+  // Pure White
+  "#f0f1ef",
+  // Anemonenblau Metallic
+  "#2a4260",
+  // Crystal Ice Blue Metallic
+  "#aebfc8",
+  // Delfingrau Metallic
+  "#565c62",
+  // Grenadillschwarz Metallic
+  "#1e2124",
+  // Kings Red Metallic
+  "#8f1b22",
+  // Oyster Silver Metallic
+  "#c3c7c8",
+  // Oryxweiss Perlmutteffekt
+  "#f8f8f4",
+];
 
 /** The shirts people wear. */
 const SHIRTS: readonly string[] = [
@@ -3682,13 +3720,18 @@ function drawCar(
   // Under the car, before it: rubber going up is the one thing that says a
   // corner was taken too fast, and it belongs on the road, not on the roof.
   drawSkid(ctx, car, view, now, fade);
-  const police = car.kind === "police";
+  // A patrol car wears its stripes whoever is at the wheel: the police keep
+  // the paint when the player steals one, and so does the picture.
+  const police = car.kind === "police" || car.body === "patrol";
   const paint = paintOf(car);
   const long = shape.length;
   const wide = shape.width;
   const tiers = tiersOf(car.body);
   const soot = car.health <= 0 ? SOOT : 0;
   const sheet = vehicleSprite(car.body, paint, police);
+  // Where the wheels stand this frame. Read off how far the car has rolled, so
+  // it is the same on every machine and comes back with a saved game.
+  const spin = wheelStep(car.body, car.rolled, car.speed);
   shadow(ctx, view, car, long / 2, wide / 2, car.angle, fade);
   beam(ctx, view, car, fade);
 
@@ -3709,7 +3752,17 @@ function drawCar(
     placed(body, car, car.angle),
     wallFaces(body),
     { base: 0, top: tiers.belt, fade, soot, paint, lean: null },
-    (face) => vehicleWall(car.body, paint, police, face, false),
+    (face, mirror) =>
+      vehicleWall(
+        car.body,
+        paint,
+        police,
+        face,
+        false,
+        spin,
+        car.locked,
+        mirror,
+      ),
   );
   stampTop(ctx, view, car, tiers.belt, {
     part: "body",
@@ -3746,7 +3799,17 @@ function drawCar(
         paint: PILLAR,
         lean: placed(leaning(cabin, tiers), car, car.angle),
       },
-      (face) => vehicleWall(car.body, paint, police, face, true),
+      (face, mirror) =>
+        vehicleWall(
+          car.body,
+          paint,
+          police,
+          face,
+          true,
+          spin,
+          car.locked,
+          mirror,
+        ),
     );
     stampTop(ctx, view, car, tiers.tall, {
       part: "all",
@@ -3757,12 +3820,209 @@ function drawCar(
     });
   }
 
+  if (police && LAMP_SIDES[car.body] === undefined) {
+    beacon(ctx, view, car, tiers, fade);
+  }
+
   // No frame round the one being driven. The camera sits on it, so which car
   // that is was never in doubt - and a box drawn round a vehicle is the one
   // thing on the screen that could not be part of the city.
   lamps(ctx, view, car, tiers, fade);
   drawDamage(ctx, view, car, now, fade);
 }
+
+/**
+ * The light bar on the roof of a patrol car.
+ *
+ * @param ctx - what to draw on
+ * @param view - the camera
+ * @param car - the vehicle
+ * @param tiers - how high it stands, for where the roof is
+ * @param fade - how much of it a house in front lets through
+ * @remarks
+ * **A box, not a rectangle.** It used to be painted flat into the roof
+ * picture, and a rectangle of colour lying in the paint reads as a sticker -
+ * it has no thickness, it does not catch the light from the side, and from a
+ * low angle it disappears into the roof altogether. This one is built the way
+ * the rest of the city is: an outline raised to a height, its walls painted
+ * back to front and a lid on top. Three boxes, in fact - a blue lamp at each
+ * end and the dark control box between them, which is what one of these
+ * actually looks like from ten metres away.
+ *
+ * It sits at the **front** of the roof, just behind the top of the windscreen,
+ * which is where the roof begins: further back and it rides the middle of the
+ * car like a taxi sign.
+ */
+function beacon(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  car: Car,
+  tiers: VehicleTiers,
+  fade: number,
+): void {
+  const wide = (tiers.cabinWide / 2) * BAR_WIDE;
+  const front = tiers.cabinFront - tiers.rake - BAR_BACK;
+  const back = front - BAR_LONG;
+  const foot = tiers.tall;
+  const lid = foot + BAR_TALL;
+  ctx.save();
+  ctx.globalAlpha = fade;
+  // The far lamp, the box, the near lamp: painted in that order so that the
+  // nearer ones cover the further, whichever way the car is pointing.
+  const cut = wide * BAR_LAMP;
+  const parts: readonly { readonly from: number; readonly to: number }[] = [
+    { from: -wide, to: -cut },
+    { from: -cut, to: cut },
+    { from: cut, to: wide },
+  ];
+  const seen = parts
+    .map((part) => ({
+      part,
+      lamp: Math.abs(part.from) === wide || Math.abs(part.to) === wide,
+      depth: Math.sin(car.angle) * ((part.from + part.to) / 2),
+    }))
+    .sort((one, other) => one.depth - other.depth);
+  for (const each of seen) {
+    const corners = placed(
+      [
+        { x: back, y: each.part.from },
+        { x: front, y: each.part.from },
+        { x: front, y: each.part.to },
+        { x: back, y: each.part.to },
+      ],
+      car,
+      car.angle,
+    );
+    boxOnRoof(
+      ctx,
+      view,
+      corners,
+      foot,
+      lid,
+      each.lamp ? BAR_LAMP_SIDE : BAR_BOX,
+      each.lamp ? BAR_LAMP_LID : BAR_BOX_LID,
+    );
+  }
+  ctx.restore();
+  // And the light itself, which is the point of the whole thing.
+  ctx.save();
+  ctx.globalAlpha = fade;
+  for (const side of [-1, 1]) {
+    lamp(
+      ctx,
+      view,
+      car,
+      {
+        along: (front + back) / 2,
+        across: side * wide * BAR_GLOW,
+        high: lid,
+      },
+      { glass: BLUE_GLASS, halo: BLUE_HALO, size: BLUE_GLOW },
+    );
+  }
+  ctx.restore();
+}
+
+/**
+ * One little box standing on a roof: its walls, then its lid.
+ *
+ * @param ctx - what to draw on
+ * @param view - the camera
+ * @param corners - the four corners of its footprint, already placed
+ * @param foot - how high off the road it stands
+ * @param lid - and how high its top is
+ * @param wall - what its sides are painted
+ * @param face - and its top
+ * @remarks
+ * The same trick as {@link panels} and for the same reason: every wall, back
+ * to front, no culling. At this size that is four little quadrilaterals, and
+ * working out which two of them face the camera costs more than drawing all
+ * four.
+ */
+function boxOnRoof(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  corners: readonly Vec[],
+  foot: number,
+  lid: number,
+  wall: string,
+  face: string,
+): void {
+  const feet = corners.map((corner) => project(view, corner.x, corner.y));
+  const walls = feet.map((from, at) => {
+    const to = feet[(at + 1) % feet.length] ?? from;
+    return { from, to, depth: (from.y + to.y) / 2 };
+  });
+  walls.sort((one, other) => one.depth - other.depth);
+  ctx.fillStyle = wall;
+  for (const side of walls) {
+    const quad = new Path2D();
+    quad.moveTo(side.from.x, side.from.y - foot);
+    quad.lineTo(side.to.x, side.to.y - foot);
+    quad.lineTo(side.to.x, side.to.y - lid);
+    quad.lineTo(side.from.x, side.from.y - lid);
+    quad.closePath();
+    ctx.fill(quad);
+  }
+  const top = new Path2D();
+  feet.forEach((spot, at) => {
+    if (at === 0) {
+      top.moveTo(spot.x, spot.y - lid);
+    } else {
+      top.lineTo(spot.x, spot.y - lid);
+    }
+  });
+  top.closePath();
+  ctx.fillStyle = face;
+  ctx.fill(top);
+}
+
+/**
+ * How far across the light bar reaches, as a share of half the **roof**.
+ *
+ * @remarks
+ * Of the roof, not of the car: a light bar runs from one roof rail to the
+ * other, and measured against the whole width of the car it came out barely
+ * half as wide as it should be - a little blue box sitting in the middle of a
+ * lot of silver.
+ */
+const BAR_WIDE = 0.92;
+
+/** How far behind the top of the windscreen it starts, in city pixels. */
+const BAR_BACK = 0.6;
+
+/** How long it is from front to back. */
+const BAR_LONG = 1.8;
+
+/** And how high it stands off the roof. */
+const BAR_TALL = 1.5;
+
+/** Where the blue ends stop and the dark box between them starts. */
+const BAR_LAMP = 0.42;
+
+/** The side of a blue lamp, which is darker than its lens. */
+const BAR_LAMP_SIDE = "#1d4ed8";
+
+/** And the lens itself, seen from above. */
+const BAR_LAMP_LID = "#3b82f6";
+
+/** The side of the control box between the two lamps. */
+const BAR_BOX = "#0f172a";
+
+/** And its lid. */
+const BAR_BOX_LID = "#1e293b";
+
+/** How far out the glow sits, as a share of the bar's half width. */
+const BAR_GLOW = 0.72;
+
+/** What a blue lamp is made of. */
+const BLUE_GLASS = "#93c5fd";
+
+/** And what it throws, as red, green and blue. */
+const BLUE_HALO = "40,110,255";
+
+/** How far that reaches, in screen pixels. */
+const BLUE_GLOW = 3.4;
 
 /**
  * Where a vehicle's lamps sit across it, as shares of half its width.
@@ -3988,6 +4248,7 @@ const LAMP_HIGH = 0.55;
 /** And the ones that hang somewhere else. */
 const LAMP_HIGH_OF: Readonly<Partial<Record<VehicleBody, number>>> = {
   car: 0.64,
+  patrol: 0.64,
   suv: 0.86,
 };
 
@@ -4004,6 +4265,7 @@ const LAMP_BACK = 0.55;
 /** And the ones that hang somewhere else. */
 const LAMP_BACK_OF: Readonly<Partial<Record<VehicleBody, number>>> = {
   car: 0.88,
+  patrol: 0.88,
   suv: 0.86,
 };
 
@@ -4094,13 +4356,18 @@ function paintOf(car: Car): string {
       paint = TAXI_PAINT;
       break;
     case "car":
+      paint = GOLF_PAINT[car.colour % GOLF_PAINT.length] ?? "#6c7175";
+      break;
+    case "patrol":
+      paint = PATROL_SILVER;
+      break;
     case "suv":
       paint = PLAIN_PAINT[car.colour % PLAIN_PAINT.length] ?? "#dc2626";
       break;
     default:
       paint = CAR_PAINT[car.colour % CAR_PAINT.length] ?? "#dc2626";
   }
-  return car.kind === "police" ? "#0f172a" : paint;
+  return car.kind === "police" || car.body === "patrol" ? PATROL_SILVER : paint;
 }
 
 /** The one colour a tractor is ever painted in. */
@@ -4265,7 +4532,7 @@ function panels(
   corners: readonly Vec[],
   walls: readonly VehicleSide[],
   storey: Storey,
-  sheetFor: (face: VehicleFace) => HTMLCanvasElement | null,
+  sheetFor: (face: VehicleFace, mirror: boolean) => HTMLCanvasElement | null,
 ): void {
   // **Every** wall, furthest first. Throwing away the ones facing away is the
   // obvious optimisation and it is the wrong one here: the roof of a storey is
@@ -4318,7 +4585,16 @@ function panels(
       y: footFrom.y - storey.base - (capFrom.y - storey.top),
     };
     const flat = Math.abs(along.x * down.y - along.y * down.x) < WALL_THIN;
-    const sheet = face === null ? null : sheetFor(face);
+    // Which way round the writing on this wall has to be drawn. **Not the same
+    // question as `flip`**: that one says how the picture maps on to the edge
+    // in the car's own coordinates, and it is the same whichever way the car
+    // is pointing. What a word needs to know is which way it ends up running
+    // across the **screen**, and that turns with the car - both flanks at
+    // once, since they turn together. The picture's own x axis lands on screen
+    // along `along`, or against it where the edge is flipped, so the writing is
+    // mirrored whenever that comes out pointing left.
+    const reads = (side?.flip === true ? -along.x : along.x) < 0;
+    const sheet = face === null ? null : sheetFor(face, reads);
     if (flat) {
       continue;
     }

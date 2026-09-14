@@ -660,6 +660,8 @@ function makeCar(
       shells: 0,
       hitched: null,
       braking: false,
+      locked: false,
+      rolled: 0,
       seats: 0,
     },
     rng: turn.state,
