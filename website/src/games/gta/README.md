@@ -370,6 +370,10 @@ Ansichten). Damit war die E-Klasse kein langer Golf mehr:
 - **POLIZEI auf Haube und Vordertüren**, und zwar an beiden Stellen so
   gedreht, dass man es auch lesen kann:
 
+  - Die **Haube ist blau** und der Schriftzug darauf weiß - wie jeder
+    POLIZEI-Schriftzug an diesem Wagen. Das blaue Feld ist ein Stück von der
+    Silhouette eingerückt, damit ringsum ein Rand Silber stehen bleibt: bis an
+    die Kanten gemalt liest es sich als blaues Auto mit silbernem Dach.
   - Auf der **Haube** läuft das Wort **quer** über den Wagen, nicht längs.
     Diese Ansicht dreht sich mit dem Auto - längs gelegt ließe es sich nur dann
     lesen, wenn der Wagen seitlich an einem vorbeifährt. Quer gelegt steht es
@@ -391,6 +395,33 @@ Ansichten). Damit war die E-Klasse kein langer Golf mehr:
     rechnet `panels` aus, wohin die x-Achse des Bildes auf dem Schirm zeigt,
     und holt die gedrehte Kopie, wenn sie nach links zeigt. Nase und Heck
     bekommen keine zweite Kopie, weil dort nichts geschrieben steht.
+
+- **Das Blaulicht brennt nur im Einsatz**, und dann blitzt es. Ein
+  Streifenwagen, der einfach herumfährt - und das tun die meisten, weshalb jetzt
+  auch einer im normalen Verkehr rollt (`ON_THE_ROAD`) -, hat es aus. Das ist
+  der Unterschied zwischen "die Polizei ist unterwegs" und "die Polizei ist
+  hinter dir her": Es blitzt, was die Wache losschickt, sobald der Spieler
+  Sterne hat; ein Wagen, den der Spieler selbst fährt, blitzt nicht, denn dann
+  ist niemand im Einsatz.
+
+  Der Rhythmus ist der deutsche und kein langsames Pulsieren: **zweimal kurz
+  dicht hintereinander**, eine Runde in 0,42 s (`FLASH_OVER`, `FLASH_LIT`,
+  `FLASH_AGAIN`). Die rechte Seite hängt dabei **genau einen Blitz** hinter der
+  linken (`BLUE_APART`), und daraus werden aus zwei Doppelblitzen drei Schläge:
+  **erst links allein, dann beide zusammen, dann rechts allein.** Nachgemessen
+  über eine Runde: links bei 0,00-0,06, beide bei 0,12-0,18, rechts bei
+  0,24-0,30, dann dunkel. Der Versatz wird von der Uhr **abgezogen** statt
+  daraufgerechnet - addiert käme die rechte Seite zuerst und das Muster hieße
+  beide, links, rechts. Die versteckten Leuchten im Kühlergrill gehen mit der
+  Seite, über der sie sitzen - für die ist vorn nichts gemalt, und genau das
+  macht einen Blitz aus einem silbernen Grill heraus aus.
+
+  **Und keine zwei Fahrzeuge blitzen im Gleichschritt.** Jede Maschine hat
+  ihren eigenen Versatz im Takt, aus ihrer id gerechnet (`ownBeat`) - dieselbe
+  Zahl in jedem Bild, dieselbe nach dem Laden eines Spielstands, und eine
+  andere als die des Nachbarn. Eine Straße mit vier Streifenwagen flackert
+  dadurch, statt zu pulsieren; dass zwei zufällig auf denselben Schlag fallen,
+  kommt vor und sieht aus wie das, was es ist.
 
 - **Das Blaulicht ist ein Kasten, kein Rechteck.** Es war flach ins Dachbild
   gemalt, und eine Farbfläche, die im Lack liegt, liest sich als Aufkleber: Sie
@@ -419,6 +450,306 @@ Sonderbehandlung - eine ganze Flanke in zwei Pixel gequetscht ist ein Schmierer
   Front sacken sie dann in den Stoßfänger ab und wieder hoch, weil dort der Grill
   sitzt - genau wie am echten Wagen.
 
+**Die Handbremse hält das Bremslicht an**, auch im Stand. Der Fuß auf der
+Bremse tut das nicht: Ein Auto, das mit brennenden Bremslichtern steht, sieht
+aus wie eines, das gleich anfährt. Ein Auto auf der Handbremse steht aber
+absichtlich, und das ist eine Aussage wert.
+
+**Rückfahrlicht für alle Fahrzeuge.** Das Heck kennt jetzt drei Zustände statt
+zwei, und jedes Fahrzeug der Stadt hat alle drei: **rückwärts** ist weiß und
+hell, **bremsen** ist dasselbe Rot nur härter, und sonst brennt das Rücklicht,
+mit dem hier ohnehin jeder fährt. Rückwärts schlägt die anderen beiden, denn ein
+Rückfahrscheinwerfer ist die einzige Leuchte an einem Auto, die etwas anderes
+sagt als "hier bin ich" - sie sagt, dass das Ding gleich rückwärts auf einen
+zukommt. Abgelesen wird sie an der Geschwindigkeit und nicht an einem Schalter:
+Ein Wagen, der ohne Motor einen Hang hinunterrollt, fährt für jeden dahinter
+trotzdem rückwärts.
+
+**Das Polizeimotorrad ist eine BMW R 1300 RT** und damit eine eigene
+Karosserie (`patrolbike`, Name "Polizeimotorrad"), kein Motorrad in Polizeilack.
+Ein Tourer sieht anders aus als ein nacktes Motorrad, und zwar genau da, wo man
+es von oben sieht: **vorn schmal, hinten breit**. Vorn Scheibe und Verkleidung,
+hinten links und rechts ein Koffer - das ist die ganze Silhouette, mehr gibt
+diese Größe nicht her. Vorlage ist
+`game_instructions/GTA/Fahrzeuge/Polizei/polizei_motorrad.png`.
+
+Zwei Dinge, die beim Zeichnen zählten:
+
+- **Schmal bleiben.** Mit Koffern ist die RT tausend Millimeter breit gegen die
+  achtzehnhundert des Autos. Beim ersten Versuch hatte ich sie zu breit gemacht,
+  und dann ist sie von oben kein Motorrad mehr, sondern ein sehr kurzer
+  Lieferwagen.
+- **Die Räder gehören nach unten.** Ein Motorrad von der Seite ist überwiegend
+  Rad; deshalb wird unterhalb der Achslinie nichts lackiert außer dem Motor
+  zwischen den Rädern - und der ist kurz, denn ein Balken von Rad zu Rad macht
+  aus den beiden eine einzige schwarze Masse.
+- **Drei Stufen, kein Balken.** Vorn steht die Verkleidung am höchsten, dahinter
+  fällt die Sitzbank ab, hinten sitzt der Koffer quer über dem Hinterrad. Diese
+  gestufte Linie ist das Profil eines Tourers; ein durchgehender Streifen von
+  vorn bis hinten ist das Profil eines Stoßfängers.
+
+Die Blaulichter sitzen bei ihr auf Stielen neben der Scheibe statt auf einem
+Dachbalken; sie blitzen im selben Takt wie die des Wagens.
+
+**Ein Motorrad für alle.** Das normale Motorrad ist jetzt dieselbe Maschine wie
+das Polizeimotorrad - derselbe Tourer mit Verkleidung und Koffern -, nur in
+Grün oder Schwarz statt in der Lackierung und ohne alles, was blinkt
+(`BIKE_PAINT`). Eine Form ordentlich schlägt zwei halbherzig, und eine Stadt, in
+der die Polizei ein anderes **Fabrikat** fährt als alle anderen, ist eine Stadt,
+in der jemand zwei Motorräder gezeichnet hat.
+
+**POLIZEI steht auf beiden Koffern**, weiß auf blauem Feld, und wird genauso
+seitenrichtig gespiegelt wie der Schriftzug an der Autotür.
+
+**Drei Blaulichter**: eines neben jedem Griff und eines mittig am Heck, alle im
+selben Takt wie die des Wagens. Die Gehäuse sind gemalt, damit man sie auch
+sieht, wenn nichts brennt.
+
+**Und es legt sich in die Kurve.** Zehn Pixel auf einer elf Pixel breiten
+Maschine (`LEAN_MOST`) - eine ganze Motorradbreite: Vollgas auf vollem
+Einschlag hängt der Fahrer **neben** seiner Maschine statt auf ihr.
+Nachgemessen: 9,83 von 10, geradeaus null. Das ist weiter, als ein echtes geht,
+und zwar mit Absicht - eine naturgetreue Schräglage ist von hier oben keine,
+die jemand sieht, und gesehen werden ist der ganze Zweck.
+
+Damit das ein **Kippen** bleibt und kein seitliches Wegrutschen, geht die Stadt
+stockwerksweise mit: Die Reifen stehen, wo die Straße ist, die Schweller sind
+schon zu einem knappen Drittel drüben (`LEAN_FOOT`), der Fahrer ganz. Jede
+Wand hat dafür eine eigene Oberkante - unten die der Schweller, oben die des
+Dachs -, und dieselbe Maschinerie, mit der eine schräge Frontscheibe ihr Dach
+nach hinten zieht, zieht hier das Motorrad zur Seite.
+
+Dazu wird sie oben **schmaler** (`LEAN_NARROW`): Ein Motorrad auf der Seite
+zeigt einem, der von oben schaut, seine Flanke statt seines Sattels. Diese
+Ansicht kann nichts umkippen, aber sie kann das Bild quer stauchen, und das
+zusammen mit dem herausgetragenen Fahrer ist das, was aus einem Versatz eine
+Schräglage macht. Zwei waren eine, nach der man suchen musste, vier eine, die
+man sah, sechseinhalb eine, die man nicht übersah. Geneigt wird außerdem **gestaffelt**:
+Die Räder und die Schweller gehen kaum mit (`LEAN_FOOT`), der Fahrer geht den
+ganzen Weg. Ein Motorrad kippt um seine Aufstandspunkte, und alles um denselben
+Betrag zu verschieben sah aus wie ein Motorrad, das seitlich wegrutscht,
+während der Fahrer kerzengerade darauf sitzen bleibt.
+
+Kurvenrate mal Geschwindigkeit ist der
+seitliche Zug, und genau dagegen lehnt sich ein Fahrer: harte Kurve, weit
+herüber; Schritttempo, aufrecht, egal was der Lenker macht (`LEAN_STIFF`,
+`LEAN_MOST`). Gespeichert wird das als **Versatz in Pixeln**, nicht als Winkel,
+denn diese Ansicht kann kein Bild kippen - was sie kann, ist Maschine und
+Fahrer über den Rädern zur Seite schieben, und ein Fahrer zwei Pixel innerhalb
+seiner eigenen Reifen liest sich als jemand in Schräglage. Geglättet statt
+gesetzt, sonst schnippt es statt zu neigen.
+
+**Ein Motorrad hat von vorn einen Reifen, und der ist so breit wie ein
+Reifen.** Die Maschine ist elf Pixel breit, der Reifen keine drei davon - also
+besteht die Stirnwand aus diesem einen schmalen, stehenden Streifen in der Mitte
+und aus dem, was darüber steht: Verkleidung, ein Scheinwerfer, der Lenker. Vorher
+stand dort ein ganzes Rad von der Seite, und weil die Draufsicht die beiden
+Reifen ohnehin flach auf die Straße legt, hatte das Ding von Norden oder Süden
+aus **vier** Räder - und keines in der Breite, die ein Reifen wirklich hat. Der
+Lenker war dabei eine schwarze Platte über die volle Breite; jetzt ist er eine
+Stange mit zwei Griffen.
+
+Der Scheinwerfer sitzt mittig, weil der **leuchtende** dort sitzt: Ein Zweirad
+trägt eine Lampe auf der Mittellinie (`LAMP_SIDES`), und der Schein, den der
+Renderer darüberlegt, braucht ein Glas an genau dieser Stelle. Als Paar gemalt
+ergaben die beiden plus der Schein dazwischen drei Lichter an einem Motorrad.
+
+**Und die Ecken des Motorrads sind nicht mehr abgeschrägt** (`ROUNDS`). Eine
+Fase ist ein ein bis zwei Pixel schmaler Wandstreifen, der sich seine Scheibe
+aus dem Bild nimmt, dem er am nächsten zugewandt ist - an den Ecken eines
+Motorrads ist das die **Flanke**, und vorn besteht die Flanke aus Reifen. Von
+vorn stand deshalb links und rechts neben der Maschine ein schwarzer Strich auf
+der Kante: zwei weitere Räder, genau dort, wo ein Motorrad überhaupt kein Blech
+hat. Der Umriss ist jetzt ein schlichtes Rechteck - abzurunden gab es da nichts,
+was jemand sehen konnte, denn die Keilform steckt in der Zeichnung.
+
+**Der Motor darf kein Reifen sein.** Schwarz, flach und zwischen zwei
+schwarzen Reifen hängend schloss er die Lücke zwischen ihnen: Von der Seite kam
+die Maschine als eine lange dunkle Masse heraus - also als ein einziger sehr
+breiter Reifen mit Verkleidung obendrauf. Jetzt ist er metallfarben, umrandet,
+deutlich über der Straße und kurz genug, dass links und rechts Tageslicht
+bleibt.
+
+**Ein Zweirad hinterlässt eine Bremsspur, nicht zwei.** Es hat einen
+Hinterreifen. Das Polizeimotorrad fehlte in `TYRE_TRACKS` und legte das Paar
+hin, das ein Auto legt - ein Motorrad mit Hinterachse. Dasselbe für den Rauch
+beim Driften.
+
+**Und der Rauch ist Rauch, kein Konfetti.** Drei flache Scheiben in einem Grau
+lesen sich als drei Scheiben. Was ein brennender Reifen tatsächlich macht: eine
+Fahne, die dort von der Straße abgeht, wo der Gummi ist, aufsteigt, sich
+ausbreitet und hinter dem Wagen zu nichts ausdünnt. Also ist jede Wolke entlang
+der Fahne größer als die davor, höher über der Straße und blasser - und jede
+einzelne hat eine weiche Kante statt einer harten, was der ganze Unterschied
+zwischen Rauch und einem hellgrau gezeichneten Kreis ist.
+
+**Ein Fahrrad raucht gar nicht.** Auf zwei so dünnen Reifen liegt nicht genug
+Gewicht, um etwas abzubrennen: Ein Fahrrad, das die Haftung verliert, rutscht,
+und das ist alles.
+
+**Die Nase läuft spitz zu - gezeichnet, nicht geschnitten.** Der naheliegende
+Weg wäre gewesen, den Umriss vorn zusammenzuziehen, und das war der falsche:
+Der Umriss ist das, was die Draufsicht beschneidet, also lagen bei einer
+handbreiten Nase Scheibe, Spiegel und Blaulichter außerhalb davon - und was
+außerhalb liegt, stempelt der Ring flach auf die Straße. Es lagen also plötzlich
+Kästchen auf dem Asphalt. Der Umriss bleibt deshalb rechteckig, und die Spitze
+steckt in der Zeichnung, wo sie nichts kostet: eine gebogene Verkleidung, die
+vorn auf einen Punkt zuläuft, in der Draufsicht wie von der Seite.
+
+**Das Bremslicht geht nur an, solange die Bremse auch bremst.** Jenseits von
+null ist dieselbe Taste der Rückwärtsgang und keine Bremse mehr, und ein Auto,
+das mit brennenden Bremslichtern rückwärts aus einer Lücke fährt, macht zwei
+Dinge gleichzeitig. Nachgemessen: Auto −210 und Motorrad −40 Pixel pro Sekunde,
+beide mit `braking: false`.
+
+**Auf dem Sattel sitzt, wer darauf sitzt** - und das gilt fürs Fahrrad genauso.
+Fremde Fahrräder haben einen Mann im gelben Trikot ohne Helm, ein
+Streifenmotorrad einen Polizisten in dunklem Leder mit weißem Helm - und wenn
+der Spieler eines von beiden nimmt, sitzt der Spieler darauf, in seinem Grün
+und mit dunklem Kopf (`riderLook`). Eine Maschine, auf der noch der sitzt, dem
+man sie gerade abgenommen hat, ist das Bild von jemandes anderem Fahrzeug. Das Bild
+wird dafür zweimal vorgehalten, aber nur bei Zweirädern: Alles andere hat ein
+Dach über dem Fahrer.
+
+Und er hat Gliedmaßen. Vorher war er eine Platte mit einem Punkt darauf, und
+eine Platte, die schmaler ist als die Wand, auf der sie steht, lässt links und
+rechts Tageslicht durch - genau das ließ den Fahrer hohl aussehen. Jetzt sitzt
+da jemand: **Arme nach vorn an den Lenker, Stiefel unten auf den Fußrasten**,
+dazwischen ein Oberkörper, der den Sattel ausfüllt, und ein Helm mit Visier.
+Von vorn stehen die Knie am weitesten heraus, so wie bei einem Menschen auf
+einem Motorrad auch.
+
+**Kein Rückfahrlicht, kein Rückwärtsgang.** Beides hängt an derselben Tatsache
+(`twoWheeled`). Rückwärts geht es nur im Schritttempo - 40 Pixel pro Sekunde
+gegen die halbe Höchstgeschwindigkeit eines Autos -, weil der Fahrer die Füße
+auf den Boden stellt und schiebt. Nachgemessen: Auto −210, Motorrad −40.
+
+**Und die Räder sind keine geschrumpften Autofelgen.** Ein Motorradrad ist
+überwiegend Reifen, und was man darin sieht, ist eine **Bremsscheibe**: ein
+heller Ring mit der Nabe in der Mitte und Luft zwischen den Speichen. Das
+Profil sind Rillen rund um die Lauffläche - eine Spur heller als der Gummi und
+ein Stück vor der Kante endend, sonst sieht das Rad aus wie ein Zahnrad. Rillen
+und Speichen drehen sich mit demselben `spin` wie beim Auto, das Rad rollt also
+sichtbar statt zu rutschen.
+
+**Motorräder fahren auch Streife, aber es sind weniger.** Im normalen Verkehr
+stehen zwei Streifenwagen gegen ein Streifenmotorrad (`ON_THE_ROAD`), und was
+die Wache schickt, ist jeder vierte ein Kraftrad (`BIKE_EVERY`) - unterhalb von
+zwei Sternen dagegen immer eines, denn ein Kraftrad ist das, was man zu einer
+Verkehrssache schickt, und kein Wagen mit Besatzung. Der Testschalter, der
+zwischendurch nur Motorräder fahren ließ, ist wieder draußen.
+
+**Einsteigen ist ein Weg, keine Taste.** E setzt einen nicht mehr durch das
+Blech hindurch auf den Sitz. Es schickt den Mann zur **Fahrertür**, und die ist
+immer die **linke**: Links von einer Nase, die entlang `angle` zeigt, ist
+`angle` minus ein rechter Winkel, denn in diesem Bild läuft y nach unten - wer
+nach Osten fährt, fährt entlang positivem x und hat Norden, also negatives y,
+vor dem linken Fenster. Dieselbe Seite benutzen der Herausgezerrte
+(`tipOut`, `throwOut`) und der Aussteigende (`leaveCar`): Es ist eine Tür, und
+sie ist immer dieselbe. Dort geht sie auf, und eine knappe halbe Sekunde später
+(`DOOR_OPEN`) sitzt er drin. Wer vorher darin saß, steigt in genau diesem
+Moment aus; das ist der eigentliche Zweck der Pause, denn ein Autodiebstahl,
+bei dem der Fahrer im selben Augenblick verschwindet, in dem man die Klinke
+berührt, ist ein Zaubertrick.
+
+Drei Sachen daran waren nicht geschenkt:
+
+- **Er läuft um den Wagen herum, nicht hinein.** Die Fahrertür liegt so oft auf
+  der abgewandten Seite wie auf der zugewandten, und Blech ist fest. Geradeaus
+  darauf zu drückte ihn an den hinteren Kotflügel, wo er stehen blieb und
+  schob. Führt die Linie zur Tür in den Wagen, folgt er ihm stattdessen an der
+  Tangente herum - den kürzeren Weg, mit einem kleinen Schlenker nach außen
+  (`DOOR_SWERVE`). Der Schlenker ist keine Zierde: Ein Fahrzeug blockiert jeden
+  Schritt, der nicht weiter von ihm weg endet als er begann, und ein Schritt
+  exakt auf der Tangente hält den Abstand auf den Pixel genau.
+- **Wem die Tür aufgerissen wird, der hält an.** Der Wagen geht dafür über
+  dieselbe Bremse, die der Verkehr an einer roten Ampel benutzt - die
+  Bremslichter gehen damit von allein an -, und ohne das fuhr der Fahrer
+  einfach weiter, ließ den Mann auf der Straße stehen und hatte ihn eine halbe
+  Sekunde später sechzig Pixel entfernt im Wagen.
+- **Die Laufrichtungstasten brechen ab, aber erst nach einem Moment**
+  (`BOARD_GRACE`). Fast jeder drückt die Taste im Gehen. Ohne diese
+  Viertelsekunde bricht die Taste, die ihn hingetragen hat, genau das ab, was
+  die andere Taste gerade begonnen hat, und Einsteigen ginge nur im Stand.
+
+**Auf ein Zweirad steigt man nicht ein, man setzt sich drauf.** Ein Motorrad
+hat keine Fahrertür und keine linke Seite, die diesen Namen verdient: Man steht
+daneben, schwingt ein Bein darüber und sitzt. Auf welcher Seite man gerade
+steht, ist dabei egal, also gibt es dort weder Weg noch Pause - die Taste setzt
+einen sofort auf den Sattel. Für alles mit vier Rädern bleibt es der Weg zur
+Tür, die aber **deutlich schneller** aufgeht als vorher: eine Siebtelsekunde
+(`DOOR_OPEN`) statt einer halben. Man sieht es passieren und wartet nicht
+darauf.
+
+**Und wenn an der Fahrertür eine Wand steht, nimmt er die andere Seite.** Ein
+Wagen, der dicht an einem Haus parkt, hat eine Fahrertür, an der niemand stehen
+kann; der Mann lief dorthin, stieß gegen die Hauswand und schob. Jetzt wird
+geprüft, ob der Platz überhaupt frei ist, und wenn nicht, steigt er auf der
+anderen Seite ein und rutscht hinüber - was jeder tut. Dazu geht er auch um
+**Häuser** herum und nicht nur ums Auto, und nach `BOARD_PATIENCE` Sekunden
+ohne Ankommen gibt er auf, statt ewig zu drücken.
+
+Die offene Tür ist gemalt wie jede andere Wand auch: eine Platte, vorn
+angeschlagen, um `DOOR_SWING` herausgeschwenkt, mit Glas im oberen Drittel. Ein
+Motorrad bekommt keine - man macht ein Motorrad nicht auf, man schwingt ein
+Bein darüber -, die Pause aber schon.
+
+**Ein Polizeifahrzeug je Stern, und das gilt auch für die aus dem Verkehr.**
+Die Leiter ist so schlicht, wie sie klingt: ein Fahrzeug bei einem Stern, zwei
+bei zweien, bis sechs; ab fünf Sternen dazu der **Hubschrauber**, ab sechs
+zusätzlich der **Panzer**. Beide zählen nicht mit, weil beide _dazukommen_ und
+nicht _anstelle_ - der Panzer wird deshalb auch dann losgeschickt, wenn die
+sechs schon draußen sind, sonst kam er nie, weil sechs umgeschaltete
+Streifenwagen aus dem Verkehr das Kontingent längst gefüllt hatten.
+
+Das Umschalten war nämlich das eigentliche Leck. "Wer Sterne hat, wird von
+**allen** verfolgt" hieß wörtlich genommen: jede Streife der Stadt - und seit
+welche im normalen Verkehr rollen, sind das einige - wurde beim ersten Stern
+zum Verfolger. Ein Stern für eine gestohlene Handtasche und ein halbes Dutzend
+Wagen hinterher. Jetzt wird nur die **Differenz** umgeschaltet, die nächsten
+zuerst, und unter zwei Sternen Motorräder vor Wagen, weil ein Stern eine
+Verkehrssache ist.
+
+Dazu: **Wer niemanden drin hat, fährt auch nicht.** Ein Streifenwagen, dessen
+Männer auf dem Gehweg stehen - oder dort liegen -, ist Kulisse, und genau das
+sagt die Zählung längst über ihn. Ihn trotzdem weiter verfolgen zu lassen war
+der Weg, auf dem eine abgeschüttelte Jagd am Ende mehr Wagen hatte, als die
+Sterne hergeben.
+
+**Zwei Sterne, sobald man auf einem Polizeifahrzeug sitzt** - Wagen wie Motorrad,
+und egal, ob es einem Beamten abgenommen, am Bordstein gefunden oder sonstwie
+beschafft wurde. Gesehen werden muss das von niemandem: Das Funkgerät darin
+gehört ihnen, und es meldet sich nicht mehr, sobald jemand anderes am Lenker
+sitzt (`PATROL_STARS`).
+
+**Niemand ist auf Streife, solange jemand gesucht wird.** Ein Streifenwagen im
+Verkehr ist Kulisse: Er hält sich an die Ampeln und verfolgt niemanden. Sobald
+der Spieler einen Stern hat, hört das auf - **jedes** Polizeifahrzeug in
+Sichtweite ist hinter ihm her, nicht nur das, was die Wache geschickt hat -, und
+sobald er sauber ist, fängt es wieder an. Das ist der Unterschied zwischen einer
+Verfolgungsjagd und einer Straße.
+
+Gemacht wird das, indem sich ändert, **was der Wagen ist** (`callOffPatrol`),
+nicht indem man dem Verkehr das Verfolgen beibringt: Verkehr und Polizei werden
+von zwei verschiedenen Routinen gefahren, und ein Wagen, der beides ist, wird
+pro Bild zweimal bewegt. Ein leerer Streifenwagen bleibt übrigens stehen, wo er
+steht - einer, dessen Besatzung auf dem Gehweg steht, ist keine Streife, sondern
+ein geparktes Auto.
+
+**Die Faust trifft jetzt auch Blech.** Sie ging vorher durch Karosserien
+hindurch, also war ein Faustschlag auf die Motorhaube eines Streifenwagens die
+einzige Provokation der Stadt, die überhaupt nichts provoziert hat. Jetzt gibt
+das **zwei Sterne und eine Verfolgung**, bei einem fremden Auto eine
+Sachbeschädigung wie jede andere - also einen Stern, wenn jemand in Uniform
+zusieht, und sonst nur Hitze.
+
+**Und wer an einem Streifenwagen vorbei eine Straftat begeht, hat sofort einen
+Stern.** Die Regel gab es schon - `trouble` vergibt den ersten Stern sofort,
+wenn jemand in Uniform in Sichtweite ist -, aber sie zählte nur Wagen, die die
+Wache losgeschickt hatte. Jetzt zählt **jedes** Polizeifahrzeug, also auch das
+eine, das im normalen Verkehr mitrollt. Etwas vor dessen Nase zu tun heißt es
+vor der Polizei zu tun.
+
 **Und es kommen überwiegend Autos.** Die Streife war jede zweite ein Motorrad,
 womit genauso viele Beamte auf zwei Rädern anrückten wie in Streifenwagen - ein
 Motorrad schickt man aber zu einem Verkehrsverstoß, nicht zu einem Überfall. Ab
@@ -438,12 +769,16 @@ dem man sofort sieht, in welchem Land man ist.
 Drei Teile hat die Lackierung, und alle drei müssen mit sechs mal vierundvierzig
 Pixeln auskommen:
 
-- **Zwei Bänder an der Flanke**, blau unten, leuchtgelb darüber, mit einer
-  dünnen blauen Kante obendrauf - und **beide steigen zur Nase hin an**. Dieser
-  Anstieg ist die halbe Miete: Ein gerade durchgezogener Streifen ist ein
-  Lieferwagen, die Schräge liest man vom anderen Ende der Straße als Polizei.
-  Die Schrift, die auf das gelbe Band gehört, wäre hier vier Pixel hoch und
-  bleibt deshalb weg - was in dieser Größe trägt, sind Farbe und Winkel.
+- **Die Flanke ist komplett blau**, mit einem leuchtgelben Streifen unten und
+  einem oben an der Schulterlinie - und dazwischen kein Lack. Vorher waren es
+  Streifen auf silberner Flanke, was über dem Schriftzug ein graues Band stehen
+  ließ; das las sich als Auto mit Aufkleber statt als lackiertes Auto.
+
+- **Nase und Heck tragen nur den unteren Streifen**, darüber blau bis zur
+  Schulter. Der zweite Streifen gehört zu den Seiten. Gemalt wird das vor
+  Grill, Leuchten und Kennzeichen, die dann darauf sitzen wie am echten Wagen.
+
+- **Grau bleibt nur das Dach.**
 
 - **Dieselben zwei Bänder quer über Nase und Heck**, dort waagerecht, unten im
   Stoßfänger, sodass Kennzeichen und Leuchten darüber frei bleiben.
@@ -722,28 +1057,198 @@ nochmals auszurechnen ist dieselbe Summe fünfmal - bei einem Berg dieser Größ
 zehn Millionen Sinus und ein sichtbares Stocken, wenn man das erste Mal
 vorbeifährt.
 
+## Ein Fahrrad ist ein Strich mit zwei Ringen
+
+Drei Dinge machen eines aus, und alle drei sind Weglassungen.
+
+**Man sieht hindurch.** Ein Fahrradrad ist ein dünner Reifen auf einer dünneren
+Felge, und dazwischen sind ein paar Dutzend Drähte - also wird hier gar nichts
+gefüllt (`cycleWheel`): Der Reifen ist ein **gestrichener** Kreis, und was
+darin steht, ist das, was gerade hinter dem Fahrrad ist. Vorher war es eine
+schwarze Scheibe mit sechs Strichen drüber, und eine schwarze Scheibe ist ein
+Mofa. Die Speichen drehen sich mit wie bei jedem anderen Rad der Stadt; bei
+hohem Tempo verwischen sie zu einer Scheibe, durch die man immer noch
+hindurchsieht.
+
+**Und es hat pro Ende genau einen Reifen.** In der Draufsicht wurden auch noch
+welche gezeichnet; die stempelt der Körperstempel auf Gürtelhöhe, also hing
+hinter dem Reifen, den die Wand malt, ein zweiter in der Luft. Die Draufsicht
+malt jetzt keine mehr - die Wände können das, und bei einer Maschine ohne Blech
+darüber ist ohnehin nur das zu sehen, was die Wände malen.
+
+Dazu bekommt das Fahrrad als einziges Fahrzeug der Stadt **nur die zugewandte
+Flanke** (`single`). Von jedem Auto wird jede Wand gemalt, die abgewandten
+zuerst, weil ein Auto Volumen zwischen seinen Flanken hat und die nahe die
+ferne verdeckt - lässt man die ferne weg, klafft Tageslicht zwischen Dach und
+Blech. Ein Fahrrad hat dieses Volumen nicht und nichts, wovor sich etwas
+verstecken könnte: Beide Flanken landen ein paar Pixel auseinander im Freien,
+und weil man durch die Räder hindurchsieht, waren es **vier** - zwei auf der
+Straße und zwei darüber schwebend.
+
+**Von oben ist es ein Strich.** Neun Pixel breit statt zwölf, und die meisten
+davon sind der Mensch: Reifen und Rahmen sind so schmal gezeichnet, wie sie
+sind, und das Breiteste am Fahrrad sind die Schultern dessen, der darauf sitzt.
+
+**Und es hat kein einziges Licht** - keinen Scheinwerfer, kein Rücklicht, kein
+Bremslicht, denn es hat keine Batterie und nichts, womit man eins einschalten
+würde. Eine leere Liste in `LAMP_SIDES` schaltet Glas, Schein, Bremse und den
+Lichtfleck auf der Straße in einem Zug ab: Alle vier fragen dort zuerst nach.
+
+Der Rahmen ist dazu das Diamant-Dreieck, nach dem Fahrräder seit hundertdreißig
+Jahren gebaut werden - Sitzrohr, Unterrohr, Oberrohr und die beiden Streben zur
+Hinternabe -, gezeichnet als Linien so dick wie die Rohre. Als Fläche gemalt
+kam ein grauer Kasten heraus, in dem ein Mann saß.
+
 ## Der Cybertruck ist der Golf rückwärts
 
 Derselbe Kasten, dieselben drei Stockwerke, und trotzdem das Gegenteil - weil
 alles, was den Golf ausmacht, hier **weggelassen** wird:
 
-| Golf                           | Cybertruck                           |
-| ------------------------------ | ------------------------------------ |
-| zwölf Ecken, gefast            | vier Ecken, scharf                   |
-| Radlauf ins Blech geschnitten  | schwarzes Trapez aufgesetzt          |
-| zwei Lampen plus Balken        | ein Balken, durchgehend, beide Enden |
-| Scheiben mit Rahmen und Säulen | eine Scheibe, ein Keil               |
-| Kofferraumdeckel               | offene Ladefläche mit Abdeckung      |
+| Golf                           | Cybertruck                            |
+| ------------------------------ | ------------------------------------- |
+| zwölf Ecken, gefast            | vier Ecken, scharf                    |
+| Radlauf ins Blech geschnitten  | schwarzes Trapez aufgesetzt           |
+| zwei Lampen plus Balken        | ein Balken, durchgehend, beide Enden  |
+| Scheiben mit Rahmen und Säulen | eine Scheibe, ein Keil                |
+| Kofferraumdeckel               | gar keiner: das Dach läuft bis hinten |
+| neun Lackfarben                | eine, und die ist kein Lack           |
 
 Dazu kommt der Grundriss: Von oben ist dieses Fahrzeug ein **Sechseck** - die
 Nase zieht hart ein, das Heck etwas, und am breitesten ist es über den Rädern.
 Das ist dieselbe Tabelle (`NARROWS`), mit der der Golf beinahe gleich breit
 bleibt, nur andersherum benutzt.
 
-Das Zeichnen eines Cybertruck besteht darin, nichts zu tun, was man sonst täte.
-Die einzige Stelle, an der er eine Sonderregel braucht, ist der Lichtbalken: Er
-läuft an der **Oberkante** des Blechs statt auf halber Höhe, also gibt es zu
-`LAMP_HIGH` eine Tabelle mit den Fahrzeugen, die ihre Lampen woanders tragen.
+**Nachgemessen statt geschätzt.** 5,68 m lang und 2,03 m über der Karosserie.
+Die Stadt zeichnet mit **10,3 Pixeln auf den Meter** - ein Golf VIII ist 4,28 m
+und 44 Pixel, eine E-Klasse 4,95 m und 50,8 -, also ist dieser hier 58 mal 21.
+Und genau das macht ihn groß: ein Drittel länger als ein Golf und keine drei
+Pixel breiter. Dreißig Pixel quer waren zweieinhalb Meter, und das ist ein
+Transporter. Hoch steht er 1,79 m; Höhen zeichnen mit 8,6 Pixeln auf den Meter,
+macht 15,4 statt der 17 von vorher.
+
+**Die Kabine ist das ganze Fahrzeug.** Jedes andere Auto hier ist eine
+Karosserie mit einem Glashaus obendrauf und einem Knick dazwischen; dieses ist
+ein einziger Keil von Stoßstange zu Stoßstange. Es gibt keine flach liegende
+Motorhaube, auf deren Ende eine Scheibe steht: Von der vorderen Stoßstange
+läuft **eine gerade Linie** hinauf zum Dach und **eine gerade Linie** wieder
+hinunter zur Heckklappe, und die Motorhaube ist schlicht die untere Hälfte der
+ersten davon.
+
+Also reicht die Kabine über die volle Länge, und beide Enden sind riesige
+Neigungen - 27 Pixel Auslauf vorn (`rake`), 21 hinten (`rakeBack`) -, was
+dazwischen zehn Pixel flaches Dach lässt und nirgends auf der Silhouette einen
+Knick. `rakeBack` ist dieselbe Mechanik wie die geneigte Frontscheibe, nur am
+anderen Ende; außer diesem Fahrzeug hat sie keines.
+
+Das Glas folgt dann oben am Keil entlang: Windschutzscheibe, Seitenscheiben und
+Heckscheibe in einem Band, weil sie auf der Straße auch ein Stück sind. Was
+darunter auf den beiden Schrägen übrig bleibt, ist Blech - vorn die Haube,
+hinten die Klappe.
+
+Sonst hat kein Fahrzeug das. Bei einer Limousine neigt sich die Heckscheibe
+auch, aber sie ist auf die Seitenwände gemalt und das Dach bleibt, wie es ist -
+schneidet man das Dach dort ebenfalls zurück, klafft an der hinteren Ecke eine
+Kerbe zwischen Wandoberkante und Dach. Beim Cybertruck geht es, weil dort das
+Heck **keine Scheibe im Dach ist, sondern das Dach selbst**, und weil sein
+eigenes Flankenbild genau dieselbe Schräge zeichnet.
+
+**Lackiert wird er nicht.** Die Karosserie ist blanker Edelstahl - es gibt in
+der Fabrik keine Lackiererei dafür -, also gibt es ihn in genau einer Farbe
+(`CYBER_STEEL`): ein kaltes helles Grau fast ohne Buntanteil. Ein roter
+Cybertruck ist kein seltener, sondern ein anderes Fahrzeug. Selten ist er
+trotzdem: einer auf fünf Limousinen im Verkehr.
+
+Ansonsten besteht das Zeichnen eines Cybertruck darin, nichts zu tun, was man
+sonst täte. Die einzige Stelle, an der er darüber hinaus eine Sonderregel
+braucht, ist der Lichtbalken: Er läuft an der **Oberkante** des Blechs statt
+auf halber Höhe, also gibt es zu `LAMP_HIGH` eine Tabelle mit den Fahrzeugen,
+die ihre Lampen woanders tragen.
+
+> Und eine Falle, die zweimal in dieselbe Richtung zuschnappt: `ctx.fillStyle`
+> überlebt den Schleifendurchlauf. Die Radkästen wurden vor der Schleife auf
+> Schwarz gesetzt, das Rad am Ende jedes Durchlaufs malt aber seine Nabe in
+> Silber - also kam der **zweite** Radkasten, der hintere, als zwei blassgraue
+> Ohren links und rechts des Hinterreifens heraus. Farbe wird jetzt im
+> Durchlauf gesetzt, nicht davor.
+
+## Der Opel Corsa F, dreimal
+
+**Ein Golf, dem ein Fuß Länge fehlt.** 4,06 m mal 1,765 - bei den 10,3 Pixeln
+der Stadt auf den Meter sind das 41,7 mal 18,1 gegen die 44 mal 18,4 des Golf.
+Also eine Spur schmaler und spürbar kürzer, und das ist auch das Einzige, was
+man von oben sieht. Der Radstand schrumpft im selben Verhältnis mit, er lenkt
+also etwas enger. Und er hat **keinen Haifisch auf dem Dach**: Dieses kleine
+Dreieck hinten am Dach ist die Antenne des Golf; der Corsa hat seine in der
+Heckscheibe, von oben ist dort nichts.
+
+**Drei Ausstattungen sind drei Fahrzeuge**, keine Variable an einem. Was sie
+trennt, ist der Motor - 75, 100 und 130 PS -, und Motoren stehen in `VEHICLES`,
+eine Zeile pro Fahrzeug. Ein Auto, das sich anders fährt, ist eine andere
+Zeile. Alles andere folgt dann daraus:
+
+|                  | Leistung | Dach und Spiegel | Emblem      | Felgen        |
+| ---------------- | -------- | ---------------- | ----------- | ------------- |
+| Corsa F          | 75 PS    | in Wagenfarbe    | Chrom       | fünf Speichen |
+| Corsa F Elegance | 100 PS   | **schwarz**      | Chrom       | fünf Speichen |
+| Corsa F Ultimate | 130 PS   | **schwarz**      | **schwarz** | Sportfelge    |
+
+Das schwarze Dach nimmt die **Säulen und die Spiegelkappen** mit, so wie es
+verkauft wird. Schwarzes Dach und Säulen in Wagenfarbe ist kein Zweifarbenauto,
+das ist ein Auto mit einem Deckel drauf - also färbt `blackTop` alles drei, das
+Dachbild, die Kabinenwände und die Spiegel, und der Lack darunter bleibt, was
+bestellt wurde.
+
+**Das Emblem sitzt im Grill zwischen den beiden Scheinwerfern**, nicht auf der
+Motorhaube - ein Markenzeichen liegt nicht flach da, wo man von oben darauf
+schaut. Es ist ein Ring mit einem Blitz quer darin; bei dieser Größe sind das
+drei kurze Striche - raus, runter, raus -, also ein **Z**, und ein Z in einem
+Ring auf der Nase eines Kleinwagens wird als genau das gelesen, was es ist. Der
+Ring ist beim Ultimate schwarz und sonst Chrom, der Blitz jeweils in der
+anderen der beiden Farben, damit er in beiden Fällen zu sehen ist.
+
+Die Felgen des Ultimate sind zehn dünne Doppelspeichen in hellem Silber über
+einem fast schwarzen Bett, mit einer polierten Lippe außen - und dahinter ein
+**roter Bremssattel**. Bei drei Pixeln Felgenradius sagt nichts so laut
+"Sportfelge" wie ein roter Sattel, der zwischen den Speichen durchschaut, und
+er steht still, während das Rad sich dreht, weil ein Sattel genau das tut.
+
+**Sieben Farben**, für alle drei dieselben: Power Orange, Schnee Weiß, Karbon
+Schwarz, Grafik Grau, Kardio Rot, Voltaik Blau, Quarz Silber (`CORSA_PAINT`).
+Die Ausstattung entscheidet über Dach, Emblem und Felgen - nie über die Farbe
+des Autos.
+
+## Das Taxi ist der Streifenwagen in Gelb
+
+So wie auf der Straße: Das deutsche Taxi ist eine E-Klasse, und der
+Streifenwagen ist es auch. Also ist es **dieselbe Zeichnung** - dieselbe Länge,
+dieselbe Breite, dieselben Achsen, dieselbe stehende Heckklappe -, und was es
+unterscheidet, ist die Farbe, das Karoband und das Schild auf dem Dach. Als
+dritte Limousine mit eigenen Maßen gezeichnet war es 46 mal 25 Pixel, also
+zweieinhalb Meter breit; so breit war noch keine Limousine.
+
+Das Karoband wird dabei nur **einmal** gemalt, nämlich in der Draufsicht an
+beiden Schultern. Der Körperstempel legt das ohnehin auf die Flanke; zusätzlich
+auf die Seitenwand gemalt kamen zwei Reihen dunkler Quadrate übereinander
+heraus, und das ist ein Bus.
+
+Und es sitzt auf der **hinteren Hälfte** und sonst nirgends. Über die ganze
+Länge gezogen kreuzt es die Türen, und die Türen sind, wo die Schrift steht:
+**UBER**, auf beiden vorderen Türen, mit demselben Spiegel-Trick wie der
+Schriftzug des Streifenwagens - also von beiden Straßenseiten richtig herum
+statt von einer verkehrt. Dafür wird für das Taxi wie für den Streifenwagen ein
+zweites Flankenbild vorgehalten; alles andere braucht keins, weil auf nichts
+anderem etwas geschrieben steht.
+
+**Das Dachschild ist ein Kasten**, aus demselben Grund wie der Lichtbalken:
+Ein Schild liegt **auf** einem Dach, es ist nicht hineingemalt. Als gelbe
+Fläche im Lack hat es keine Dicke, fängt von der Seite nichts und verschwindet
+aus flachem Winkel im Dach.
+
+Zwei Lampensätze hatte es außerdem. Die Draufsicht malt Lampen für die
+Karosserien, deren Wände keine tragen - alles, was `golfWall` zeichnet, trägt
+sie aber -, also standen rote und weiße Punkte über und unter den echten
+Lichtern, auf der Haube und dem Kofferraumdeckel, wo nie eine Lampe war.
+`onGolfWalls` beantwortet das jetzt für alle sechs auf einmal.
 
 ## Der Supermarkt hat einen Parkplatz statt eines Gehwegs
 

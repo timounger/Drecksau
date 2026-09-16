@@ -63,6 +63,7 @@ import {
   ROOF_HEIGHT,
   SLIP_SMOKE,
   RUNWAY,
+  LEAN_MOST,
   MARK_LIFE,
   MAX_STARS,
   STAR_FLASH,
@@ -115,7 +116,11 @@ import {
 } from "@/games/gta/components/animal-art";
 import { buildingAt } from "@/games/gta/engine/city";
 import type { Building } from "@/games/gta/engine/buildings";
-import { VEHICLES, type VehicleBody } from "@/games/gta/engine/vehicles";
+import {
+  VEHICLES,
+  twoWheeled,
+  type VehicleBody,
+} from "@/games/gta/engine/vehicles";
 import {
   POLICE_PAINT as PATROL_SILVER,
   STEEL,
@@ -194,17 +199,22 @@ const CAR_PAINT: readonly string[] = [
 ];
 
 /**
- * What an ordinary car or off-roader may be painted.
+ * The seven colours an Opel Corsa F is sold in, in the order Opel lists them.
  *
  * @remarks
- * Everything except the two colours that mean something. A yellow saloon in
- * the traffic is a taxi one runs after for nothing, and a white one is a
- * DMC-12 one has already found - the two vehicles worth spotting from across
- * a junction are exactly the two that must not have company.
+ * Power Orange, Schnee Weiß, Karbon Schwarz, Grafik Grau, Kardio Rot, Voltaik
+ * Blau and Quarz Silber. All three Corsas share them: the trim level decides
+ * the roof, the badge and the wheels, never the colour of the car.
  */
-const PLAIN_PAINT: readonly string[] = CAR_PAINT.filter(
-  (paint) => paint !== TAXI_PAINT && paint !== PALE_PAINT,
-);
+const CORSA_PAINT: readonly string[] = [
+  "#e8541b",
+  "#f1f2f4",
+  "#1b1b1f",
+  "#6a7079",
+  "#c2102c",
+  "#1f4fd8",
+  "#b6bcc4",
+];
 
 /**
  * The nine colours a Golf VIII is sold in.
@@ -2391,6 +2401,10 @@ function drawScene(
     }
   }
   const driven = carOf(state);
+  // Which vehicle is standing there with its driver's door open, if any: the
+  // one the player has walked up to and is climbing into.
+  const board = state.player.boarding;
+  const opened = board !== null && board.openAt !== null ? board.car : null;
   for (const car of state.cars) {
     if (inPicture(car, seen)) {
       const mine = car.id === driven?.id;
@@ -2398,7 +2412,8 @@ function drawScene(
         depth: car.y,
         at: car,
         mine,
-        paint: (fade) => drawCar(ctx, car, view, state.time, fade),
+        paint: (fade) =>
+          drawCar(ctx, car, view, state.time, fade, car.id === opened),
       });
     }
   }
@@ -3715,6 +3730,7 @@ function drawCar(
   view: View,
   now: number,
   fade: number,
+  open = false,
 ): void {
   const shape = VEHICLES[car.body];
   // Under the car, before it: rubber going up is the one thing that says a
@@ -3722,18 +3738,53 @@ function drawCar(
   drawSkid(ctx, car, view, now, fade);
   // A patrol car wears its stripes whoever is at the wheel: the police keep
   // the paint when the player steals one, and so does the picture.
-  const police = car.kind === "police" || car.body === "patrol";
+  const police = car.kind === "police" || onDuty(car.body);
   const paint = paintOf(car);
   const long = shape.length;
   const wide = shape.width;
   const tiers = tiersOf(car.body);
   const soot = car.health <= 0 ? SOOT : 0;
-  const sheet = vehicleSprite(car.body, paint, police);
+  const sheet = vehicleSprite(car.body, paint, police, car.driven);
   // Where the wheels stand this frame. Read off how far the car has rolled, so
   // it is the same on every machine and comes back with a saved game.
   const spin = wheelStep(car.body, car.rolled, car.speed);
+  // **Leaning into the corner.** Only a two-wheeler does it, and it is done by
+  // shifting the machine and its rider sideways over the wheels rather than by
+  // turning anything: this view has no way to tip a picture over, but a rider
+  // two pixels to the inside of his own tyres reads as a rider leaning, which
+  // is the whole of what one sees of a bike in a corner from up here.
+  const heel = twoWheeled(car.body) ? car.lean : 0;
+  const heeled = (share: number): Car => ({
+    ...car,
+    x: car.x + Math.cos(car.angle + Math.PI / 2) * heel * share,
+    y: car.y + Math.sin(car.angle + Math.PI / 2) * heel * share,
+  });
+  // **It tips rather than slides.** A machine leaning over pivots about where
+  // its tyres meet the road, so the further up the bike one looks the further
+  // across it has gone: the wheels and the sills barely move, the rider goes
+  // the whole way. Shifting every storey by the same amount instead reads as a
+  // bike sliding sideways with the rider sitting bolt upright on it.
+  const low = heeled(LEAN_FOOT);
+  const over = heeled(1);
+  // **And it gets narrower as it goes over.** A motorbike on its side shows
+  // less of itself to somebody looking down at it than one standing upright
+  // does, and that narrowing is half of what makes a lean read as a lean
+  // rather than as a machine sliding sideways with the rider still sat bolt
+  // upright on it. Only the top of it: at the belt line the thing is as wide
+  // as it ever was, and it draws in from there up.
+  const tip = heel === 0 ? 0 : Math.min(1, Math.abs(heel) / LEAN_MOST);
+  const squash = 1 - LEAN_NARROW * tip;
   shadow(ctx, view, car, long / 2, wide / 2, car.angle, fade);
   beam(ctx, view, car, fade);
+  // **The open door, and which side of the car it is on.** There is no depth
+  // test in this picture, so a door on the far side has to go down before the
+  // bodywork and one on the near side after it - otherwise a car pointing east
+  // stands there with its door drawn through its own roof. The driver's side is
+  // the car's **left**, which faces the camera when the nose points west.
+  const near = Math.cos(car.angle) < 0;
+  if (open && !near) {
+    swungDoor(ctx, view, car, tiers, paint, fade);
+  }
 
   // The wheels first, and on the road where they belong.
   stampTop(ctx, view, car, 0, {
@@ -3749,9 +3800,21 @@ function drawCar(
   panels(
     ctx,
     view,
+    // The wheels are on the road where the road is; the sills above them have
+    // already started to go over. That is what a tip is - every storey further
+    // across than the one under it - and it is why this wall has a top outline
+    // of its own on a two-wheeler and none on anything else.
     placed(body, car, car.angle),
     wallFaces(body),
-    { base: 0, top: tiers.belt, fade, soot, paint, lean: null },
+    {
+      base: 0,
+      top: tiers.belt,
+      fade,
+      soot,
+      paint,
+      single: car.body === "cycle",
+      lean: heel === 0 ? null : placed(body, low, car.angle),
+    },
     (face, mirror) =>
       vehicleWall(
         car.body,
@@ -3762,9 +3825,10 @@ function drawCar(
         spin,
         car.locked,
         mirror,
+        car.driven,
       ),
   );
-  stampTop(ctx, view, car, tiers.belt, {
+  stampTop(ctx, view, low, tiers.belt, {
     part: "body",
     sheet,
     cabin: null,
@@ -3782,10 +3846,14 @@ function drawCar(
     // roof with it, so the top of the wall is the outline the roof is clipped
     // to rather than the one it stands on.
     const cabin = cabinOutline(car.body);
+    const drawn =
+      squash === 1
+        ? cabin
+        : cabin.map((point) => ({ x: point.x, y: point.y * squash }));
     panels(
       ctx,
       view,
-      placed(cabin, car, car.angle),
+      placed(cabin, low, car.angle),
       wallFaces(cabin),
       {
         base: tiers.belt,
@@ -3797,7 +3865,9 @@ function drawCar(
         // windscreen and the door glass, and a Golf has no such thing -
         // the glass runs round the corner in one piece.
         paint: PILLAR,
-        lean: placed(leaning(cabin, tiers), car, car.angle),
+        single: car.body === "cycle",
+        // The top of this wall is where the roof is: fully over, and drawn in.
+        lean: placed(leaning(drawn, tiers), over, car.angle),
       },
       (face, mirror) =>
         vehicleWall(
@@ -3809,19 +3879,55 @@ function drawCar(
           spin,
           car.locked,
           mirror,
+          car.driven,
         ),
     );
-    stampTop(ctx, view, car, tiers.tall, {
+    stampTop(ctx, view, over, tiers.tall, {
       part: "all",
       sheet,
       cabin: tiers,
       fade,
       soot,
+      squash,
     });
   }
 
+  if (open && near) {
+    swungDoor(ctx, view, car, tiers, paint, fade);
+  }
+
+  if (car.body === "taxi") {
+    taxiSign(ctx, view, car, tiers, fade);
+  }
+
   if (police && LAMP_SIDES[car.body] === undefined) {
-    beacon(ctx, view, car, tiers, fade);
+    beacon(ctx, view, car, tiers, fade, now);
+  } else if (police) {
+    // A bike has no roof to stand a light bar on. It carries three lamps
+    // instead - one beside each grip and one in the middle of the tail - and
+    // they keep the same left-then-right beat the bar does, the tail lamp
+    // going with the left.
+    const shape = VEHICLES[car.body];
+    const nose = shape.length / 2;
+    ctx.save();
+    ctx.globalAlpha = fade;
+    for (const seat of [
+      { along: nose - BIKE_BLUES, across: -BIKE_APART },
+      { along: nose - BIKE_BLUES, across: BIKE_APART },
+      { along: -nose + BIKE_TAIL, across: 0 },
+    ]) {
+      if (!onCall(car, now, seat.across)) {
+        continue;
+      }
+      lamp(
+        ctx,
+        view,
+        car,
+        { along: seat.along, across: seat.across, high: tiers.tall * 0.9 },
+        { glass: BLUE_GLASS, halo: BLUE_HALO, size: GRILLE_GLOW },
+      );
+    }
+    ctx.restore();
   }
 
   // No frame round the one being driven. The camera sits on it, so which car
@@ -3859,6 +3965,7 @@ function beacon(
   car: Car,
   tiers: VehicleTiers,
   fade: number,
+  now: number,
 ): void {
   const wide = (tiers.cabinWide / 2) * BAR_WIDE;
   const front = tiers.cabinFront - tiers.rake - BAR_BACK;
@@ -3893,21 +4000,33 @@ function beacon(
       car,
       car.angle,
     );
+    // Each half of the bar asks for itself, because the two halves do not fire
+    // together: the middle box is never lit either way.
+    const lens = each.lamp && onCall(car, now, each.part.from + each.part.to);
     boxOnRoof(
       ctx,
       view,
       corners,
       foot,
       lid,
-      each.lamp ? BAR_LAMP_SIDE : BAR_BOX,
-      each.lamp ? BAR_LAMP_LID : BAR_BOX_LID,
+      each.lamp ? (lens ? BAR_LAMP_SIDE : BAR_DARK_SIDE) : BAR_BOX,
+      each.lamp ? (lens ? BAR_LAMP_LID : BAR_DARK_LID) : BAR_BOX_LID,
     );
   }
   ctx.restore();
-  // And the light itself, which is the point of the whole thing.
+  // And the light itself, which is the point of the whole thing: the two on
+  // the roof, and the pair buried in the grille that go off with them. Those
+  // are invisible until they fire - there is nothing painted on the nose for
+  // them, which is what makes an unmarked flash out of a silver radiator
+  // grille worth having. Each side keeps its own beat here too, so the grille
+  // lamp fires with the roof lamp above it and not with the other one.
+  const long = VEHICLES[car.body].length / 2;
   ctx.save();
   ctx.globalAlpha = fade;
   for (const side of [-1, 1]) {
+    if (!onCall(car, now, side)) {
+      continue;
+    }
     lamp(
       ctx,
       view,
@@ -3919,9 +4038,178 @@ function beacon(
       },
       { glass: BLUE_GLASS, halo: BLUE_HALO, size: BLUE_GLOW },
     );
+    lamp(
+      ctx,
+      view,
+      car,
+      {
+        along: long - 1,
+        across: side * GRILLE_ACROSS,
+        high: tiers.belt * GRILLE_HIGH,
+      },
+      { glass: BLUE_GLASS, halo: BLUE_HALO, size: GRILLE_GLOW },
+    );
   }
   ctx.restore();
 }
+
+/**
+ * The sign on a taxi's roof.
+ *
+ * @param ctx - what to draw on
+ * @param view - the camera
+ * @param car - the taxi
+ * @param tiers - how high it stands
+ * @param fade - how much of it a house in front lets through
+ * @remarks
+ * The same little box the light bar is, and built by the same routine: a sign
+ * stands **on** a roof, and a yellow rectangle painted into the roof itself
+ * reads as a sticker - it has no thickness, it catches nothing from the side
+ * and from flat on it disappears into the paint. This one is short, square on
+ * in plan, and wears a dark band down the middle where the word goes.
+ */
+function taxiSign(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  car: Car,
+  tiers: VehicleTiers,
+  fade: number,
+): void {
+  const middle = (tiers.cabinFront - tiers.rake + tiers.cabinBack) / 2;
+  const foot = tiers.tall;
+  ctx.save();
+  ctx.globalAlpha = fade;
+  boxOnRoof(
+    ctx,
+    view,
+    placed(
+      [
+        { x: middle - SIGN_LONG, y: -SIGN_WIDE },
+        { x: middle + SIGN_LONG, y: -SIGN_WIDE },
+        { x: middle + SIGN_LONG, y: SIGN_WIDE },
+        { x: middle - SIGN_LONG, y: SIGN_WIDE },
+      ],
+      car,
+      car.angle,
+    ),
+    foot,
+    foot + SIGN_TALL,
+    SIGN_SIDE,
+    SIGN_LID,
+  );
+  ctx.restore();
+}
+
+/** How far the sign reaches along the roof, from its middle. */
+const SIGN_LONG = 1.4;
+
+/** And across it. */
+const SIGN_WIDE = 3;
+
+/** How high it stands off the roof. */
+const SIGN_TALL = 1.5;
+
+/** What its sides are painted. */
+const SIGN_SIDE = "#eab308";
+
+/** And its top, which is the lit face. */
+const SIGN_LID = "#fde047";
+
+/**
+ * Whether this car's blue lights are burning at this instant.
+ *
+ * @param car - the vehicle
+ * @param now - the time on the city clock, in seconds
+ * @returns true on the two short flashes of each half second
+ * @remarks
+ * **Only when it is on a call.** A patrol car that is simply driving about -
+ * and most of them are, which is why one rolls in ordinary traffic - has its
+ * lights off, and that is the difference between the police being around and
+ * the police being after you. The ones the station sends out when the player
+ * has stars are the ones that flash; one the player has taken for himself does
+ * not, because at that point nobody is on a call.
+ *
+ * The rhythm is the German one and it is not a slow pulse: **two short flashes
+ * close together, and better than twice a second**. The two sides are one
+ * flash apart, which gives the whole bar three beats out of two double
+ * flashes: **the left alone, then both together, then the right alone.** That
+ * is what a real bar does, and it is what makes one read as a bar of lamps
+ * rather than as one lamp the width of a roof.
+ *
+ * @param side - which half of the bar is being asked: negative or nought for
+ *   the left, positive for the right.
+ * @remarks
+ * **And no two vehicles are in step.** Every machine gets its own offset off
+ * its id, so a street with four of them on it flickers rather than pulsing;
+ * two of them landing on the same beat is possible and looks like what it is,
+ * a coincidence.
+ */
+function onCall(car: Car, now: number, side = 0): boolean {
+  // The right-hand lamps **lag** the left by one flash, so the offset is taken
+  // off the clock rather than added to it - added, the right would arrive
+  // first and the pattern would come out as both, left, right.
+  const lag = side > 0 ? FLASH_OVER - BLUE_APART : 0;
+  const beat = (now + ownBeat(car) + lag) % FLASH_OVER;
+  return (
+    car.kind === "police" &&
+    !car.driven &&
+    (beat < FLASH_LIT ||
+      (beat >= FLASH_AGAIN && beat < FLASH_AGAIN + FLASH_LIT))
+  );
+}
+
+/**
+ * Where in the round one vehicle's lights start.
+ *
+ * @param car - the vehicle
+ * @returns an offset in seconds, somewhere inside one round
+ * @remarks
+ * Off the id and nothing else: it has to be the same every frame, the same
+ * after a saved game is loaded, and different from its neighbour's. An
+ * irrational-looking multiplier keeps consecutive ids from landing a neat
+ * fraction apart, which would be a pattern rather than a crowd.
+ */
+function ownBeat(car: Car): number {
+  return ((car.id * 0.6180339887) % 1) * FLASH_OVER;
+}
+
+/** How long one round of the blue lights lasts, in seconds. */
+const FLASH_OVER = 0.42;
+
+/** How long each of its two flashes burns. */
+const FLASH_LIT = 0.06;
+
+/** And how far into the round the second one comes. */
+const FLASH_AGAIN = 0.12;
+
+/**
+ * How far the right-hand lamps lag the left, in seconds.
+ *
+ * @remarks
+ * **Exactly one flash.** That is what makes the pattern read as a pattern:
+ * the left fires, then the left's second flash and the right's first land
+ * together, then the right fires alone. Left, both, right - three beats out of
+ * two double flashes, and none of the three has to be written down.
+ */
+const BLUE_APART = FLASH_AGAIN;
+
+/** How far out the hidden grille lights sit, in city pixels. */
+const GRILLE_ACROSS = 3.4;
+
+/** And how far up the nose, as a share of the bodyside. */
+const GRILLE_HIGH = 0.6;
+
+/** How far their flash reaches, in screen pixels. */
+const GRILLE_GLOW = 2.8;
+
+/** How far back from the nose a patrol bike carries its front blue lights. */
+const BIKE_BLUES = 12;
+
+/** And how far out from the middle, which is beside the grips. */
+const BIKE_APART = 3.6;
+
+/** The third one sits this far forward of the tail. */
+const BIKE_TAIL = 2;
 
 /**
  * One little box standing on a roof: its walls, then its lid.
@@ -4006,6 +4294,12 @@ const BAR_LAMP_SIDE = "#1d4ed8";
 /** And the lens itself, seen from above. */
 const BAR_LAMP_LID = "#3b82f6";
 
+/** The side of a blue lamp with nothing behind it. */
+const BAR_DARK_SIDE = "#172554";
+
+/** And its lens, unlit. */
+const BAR_DARK_LID = "#1e3a8a";
+
 /** The side of the control box between the two lamps. */
 const BAR_BOX = "#0f172a";
 
@@ -4034,7 +4328,12 @@ const BLUE_GLOW = 3.4;
  */
 const LAMP_SIDES: Readonly<Partial<Record<VehicleBody, readonly number[]>>> = {
   bike: [0],
-  cycle: [0],
+  patrolbike: [0],
+  // **A bicycle has no lights at all** - no headlamp, no tail lamp and no
+  // brake light, because it has no battery and nothing to switch one on with.
+  // An empty list turns off the glass, the glow, the brake and the pool of
+  // light on the road in one go: they all ask this first.
+  cycle: [],
   tank: [],
 };
 
@@ -4100,17 +4399,59 @@ function lamps(
           view,
           car,
           { along: -long + 1, across: side * wide, high: rear },
-          {
-            glass: car.braking ? BRAKE_GLASS : TAIL_GLASS,
-            halo: TAIL_HALO,
-            size: car.braking ? BRAKE_GLOW : TAIL_GLOW,
-          },
+          backBulb(car),
         );
       }
     }
     ctx.restore();
   }
 }
+
+/**
+ * What the back of a vehicle is showing.
+ *
+ * @param car - the vehicle
+ * @returns the colour of the glass, what it throws, and how far
+ * @remarks
+ * Three states, and every vehicle in the city has all three:
+ *
+ * - **Reversing**, which is white and bright. A reversing lamp is the one
+ *   light on a car that means something other than "here I am" - it says the
+ *   thing is about to come backwards at you - so it wins over the other two.
+ *   Read off the speed rather than off a flag, because a car rolling backwards
+ *   down a hill with the engine off is still reversing as far as anybody
+ *   behind it is concerned. **Nothing on two wheels has one**: no reverse
+ *   gear, no reversing lamp.
+ * - **Braking**, which is the same red only harder.
+ * - **Neither**, which is the tail lamp every car here drives with lit.
+ */
+function backBulb(car: Car): {
+  readonly glass: string;
+  readonly halo: string;
+  readonly size: number;
+} {
+  let bulb;
+  if (car.speed < -BACKING_UP && !twoWheeled(car.body)) {
+    bulb = { glass: BACK_GLASS, halo: BACK_HALO, size: BACK_GLOW };
+  } else if (car.braking) {
+    bulb = { glass: BRAKE_GLASS, halo: TAIL_HALO, size: BRAKE_GLOW };
+  } else {
+    bulb = { glass: TAIL_GLASS, halo: TAIL_HALO, size: TAIL_GLOW };
+  }
+  return bulb;
+}
+
+/** How fast backwards a vehicle counts as reversing, in pixels a second. */
+const BACKING_UP = 4;
+
+/** What a reversing lamp is made of. */
+const BACK_GLASS = "#ffffff";
+
+/** And what it throws, as red, green and blue. */
+const BACK_HALO = "255,255,245";
+
+/** How far, in screen pixels. */
+const BACK_GLOW = 4.2;
 
 /** One lamp: a point of colour that fades out into nothing. */
 function lamp(
@@ -4203,6 +4544,125 @@ const BRAKE_GLASS = "#ff2a16";
 const TAIL_HALO = "255,24,12";
 
 /**
+ * The driver's door, standing open.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param car - the vehicle it belongs to
+ * @param tiers - how high its bodywork stands
+ * @param paint - what it is painted in
+ * @param fade - how solid the vehicle is drawn this frame
+ * @remarks
+ * A door is a piece of wall, so it is drawn as one: a panel hinged at its
+ * front edge, swung out by {@link DOOR_SWING}, standing from just above the
+ * sill to the belt line. Nothing is cut out of the car where it used to be -
+ * at this size the doorway would be two pixels of shadow and the panel already
+ * says what has happened.
+ *
+ * A motorbike has no door and gets none. One does not open a motorbike; one
+ * swings a leg over it, and the pause while that happens is the same pause.
+ */
+function swungDoor(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  car: Car,
+  tiers: VehicleTiers,
+  paint: string,
+  fade: number,
+): void {
+  if (twoWheeled(car.body) || car.body === "tank") {
+    return;
+  }
+  const shape = VEHICLES[car.body];
+  const cos = Math.cos(car.angle);
+  const sin = Math.sin(car.angle);
+  const hinge = shape.length * DOOR_HINGE;
+  const leaf = shape.length * DOOR_LEAF;
+  // The driver's door is the left one, and left is the negative side of a car
+  // whose nose runs along its own x axis in a picture with y pointing down.
+  const side = -shape.width / 2;
+  // The hinge on the flank, and the far edge swung out from it.
+  const corners: readonly {
+    readonly along: number;
+    readonly across: number;
+  }[] = [
+    { along: hinge, across: side },
+    {
+      along: hinge - Math.cos(DOOR_SWING) * leaf,
+      across: side - Math.sin(DOOR_SWING) * leaf,
+    },
+  ];
+  const foot = tiers.belt * DOOR_SILL;
+  const spot = (
+    at: { readonly along: number; readonly across: number },
+    high: number,
+  ): Vec =>
+    project(
+      view,
+      car.x + cos * at.along - sin * at.across,
+      car.y + sin * at.along + cos * at.across,
+      high,
+    );
+  const panel = new Path2D();
+  const first = corners[0];
+  const second = corners[1];
+  if (first === undefined || second === undefined) {
+    return;
+  }
+  const a = spot(first, foot);
+  const b = spot(second, foot);
+  const c = spot(second, tiers.belt);
+  const d = spot(first, tiers.belt);
+  panel.moveTo(a.x, a.y);
+  panel.lineTo(b.x, b.y);
+  panel.lineTo(c.x, c.y);
+  panel.lineTo(d.x, d.y);
+  panel.closePath();
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = paint;
+  ctx.strokeStyle = "#0f172a";
+  ctx.lineWidth = 1;
+  ctx.lineJoin = "round";
+  ctx.fill(panel);
+  ctx.stroke(panel);
+  // The glass in the top of it, so the panel reads as a door and not a flap.
+  const glass = new Path2D();
+  const up = (at: Vec, low: Vec, share: number): Vec => ({
+    x: low.x + (at.x - low.x) * share,
+    y: low.y + (at.y - low.y) * share,
+  });
+  const e = up(d, a, DOOR_GLASS);
+  const f = up(c, b, DOOR_GLASS);
+  glass.moveTo(e.x, e.y);
+  glass.lineTo(f.x, f.y);
+  glass.lineTo(c.x, c.y);
+  glass.lineTo(d.x, d.y);
+  glass.closePath();
+  ctx.fillStyle = DOOR_PANE;
+  ctx.fill(glass);
+  ctx.restore();
+}
+
+/** What the window in a door is: the same dark blue the screens are. */
+const DOOR_PANE = "#1e293b";
+
+/** How far forward on the body the driver's door is hinged, as a share. */
+const DOOR_HINGE = 0.1;
+
+/** And how long the door itself is, the same way. */
+const DOOR_LEAF = 0.27;
+
+/** How far out it swings, in radians. */
+const DOOR_SWING = 1.1;
+
+/** How far above the road the bottom of it sits, as a share of the belt. */
+const DOOR_SILL = 0.1;
+
+/** Where the glass in it starts, as a share of the way up the panel. */
+const DOOR_GLASS = 0.74;
+
+/**
  * The pool of light a pair of headlamps throws on the road in front.
  *
  * @remarks
@@ -4249,6 +4709,9 @@ const LAMP_HIGH = 0.55;
 const LAMP_HIGH_OF: Readonly<Partial<Record<VehicleBody, number>>> = {
   car: 0.64,
   patrol: 0.64,
+  corsa: 0.64,
+  corsaelegance: 0.64,
+  corsaultimate: 0.64,
   suv: 0.86,
 };
 
@@ -4266,8 +4729,34 @@ const LAMP_BACK = 0.55;
 const LAMP_BACK_OF: Readonly<Partial<Record<VehicleBody, number>>> = {
   car: 0.88,
   patrol: 0.88,
+  corsa: 0.88,
+  corsaelegance: 0.88,
+  corsaultimate: 0.88,
   suv: 0.86,
 };
+
+/**
+ * How much of a two-wheeler's lean the bodywork below the belt line takes.
+ *
+ * @remarks
+ * Not none, or the machine would be a rider leaning off a bike that stayed
+ * upright under him; not all of it, or the tyres would leave the line they are
+ * running on. Somewhere under half, which is a bike tipped over on its contact
+ * patches with the rider further over still.
+ */
+const LEAN_FOOT = 0.32;
+
+/**
+ * How much narrower a two-wheeler is drawn at full lean, as a share.
+ *
+ * @remarks
+ * A third of its width gone. Seen from above a machine on its side shows its
+ * flank rather than its saddle, and while this view cannot actually turn one
+ * over, it can draw the top of it narrower - which, with the rider carried out
+ * to the side at the same time, is what somebody hanging off a bike in a
+ * corner looks like from a helicopter.
+ */
+const LEAN_NARROW = 0.34;
 
 /** How far a headlamp's glow reaches, in screen pixels. */
 const HEAD_GLOW = 4;
@@ -4358,17 +4847,62 @@ function paintOf(car: Car): string {
     case "car":
       paint = GOLF_PAINT[car.colour % GOLF_PAINT.length] ?? "#6c7175";
       break;
+    case "corsa":
+    case "corsaelegance":
+    case "corsaultimate":
+      paint = CORSA_PAINT[car.colour % CORSA_PAINT.length] ?? "#e8541b";
+      break;
     case "patrol":
+    case "patrolbike":
       paint = PATROL_SILVER;
       break;
+    case "bike":
+      paint = BIKE_PAINT[car.colour % BIKE_PAINT.length] ?? "#166534";
+      break;
     case "suv":
-      paint = PLAIN_PAINT[car.colour % PLAIN_PAINT.length] ?? "#dc2626";
+      paint = CYBER_STEEL;
       break;
     default:
       paint = CAR_PAINT[car.colour % CAR_PAINT.length] ?? "#dc2626";
   }
-  return car.kind === "police" || car.body === "patrol" ? PATROL_SILVER : paint;
+  return car.kind === "police" || onDuty(car.body) ? PATROL_SILVER : paint;
 }
+
+/**
+ * Whether this body is a police machine whoever happens to be on it.
+ *
+ * @param body - the sort of vehicle
+ * @returns true for the patrol car and the patrol bike
+ * @remarks
+ * The livery belongs to the machine, not to the driver. A patrol car the
+ * player has taken is still a patrol car - that is the point of taking one -
+ * and one simply driving about in ordinary traffic is one too.
+ */
+function onDuty(body: VehicleBody): boolean {
+  return body === "patrol" || body === "patrolbike";
+}
+
+/**
+ * The two colours an ordinary motorbike comes in.
+ *
+ * @remarks
+ * Green or black, and nothing else. It is the same machine as the patrol bike
+ * under the stripes, so it needs a paint that could not be mistaken for the
+ * livery - and two dark colours do that better than a boxful of bright ones.
+ */
+const BIKE_PAINT: readonly string[] = ["#166534", "#18181b"];
+
+/**
+ * The one colour a Cybertruck comes in.
+ *
+ * @remarks
+ * **It is not painted at all.** The body is bare stainless steel - there is no
+ * paint shop in the factory for it - so there is one of them and one only: a
+ * cold light grey with almost no colour in it, the way rolled aluminium or
+ * steel looks in daylight. A red one is not a rare one, it is a different
+ * vehicle.
+ */
+const CYBER_STEEL = "#c6cbd1";
 
 /** The one colour a tractor is ever painted in. */
 const TRACTOR_GREEN = "#3f6212";
@@ -4454,14 +4988,21 @@ function outlineOf(points: readonly Vec[]): Path2D {
  * @param tiers - the vehicle, for how far its windscreen leans
  * @returns the outline of the roof, which stops short of the screen
  * @remarks
- * Only the front. The back window leans as well, but it is drawn leaning on
- * the side panels - trimming the roof there too left a notch at the rear
- * corner where the wall's top edge and the roof no longer met.
+ * The front on everything. The back window of a saloon leans as well, but it
+ * is drawn leaning on the side panels and the roof is left alone - trimming
+ * the roof there too left a notch at the rear corner where the wall's top edge
+ * and the roof no longer met.
+ *
+ * `rakeBack` is the exception, and only the Cybertruck has one: on that body
+ * the back is not a window in a roof, it is the roof coming down, and its own
+ * flank picture draws exactly the same slope - so the two meet and there is no
+ * notch to leave.
  */
 function leaning(outline: readonly Vec[], tiers: VehicleTiers): readonly Vec[] {
   const front = tiers.cabinFront - tiers.rake;
+  const back = tiers.cabinBack + (tiers.rakeBack ?? 0);
   return outline.map((point) => ({
-    x: Math.min(point.x, front),
+    x: Math.min(Math.max(point.x, back), front),
     y: point.y,
   }));
 }
@@ -4494,6 +5035,23 @@ type Storey = {
   readonly soot: number;
   /** What the bevels between the walls are painted, since they get no picture. */
   readonly paint: string;
+  /**
+   * Whether only the flank facing the camera is painted.
+   *
+   * @remarks
+   * For the two-wheelers, and for nothing else. Every wall of a car is drawn,
+   * far ones first, because there is a car's worth of volume between the two
+   * flanks and the near one covers the far one - leave the far one out and a
+   * slot of daylight opens between the roof and the bodywork.
+   *
+   * A bicycle has no such volume, and nothing solid to hide anything behind
+   * either: it is a set of tubes and two rings one can see straight through.
+   * Both flanks therefore landed in plain sight a few pixels apart, and what
+   * one saw was **four** wheels - two on the road and two floating above them.
+   * Only the bicycle: a motorbike has bodywork, its far flank is covered by
+   * its own machine, and taking that flank away opens daylight through it.
+   */
+  readonly single?: boolean;
   /**
    * The outline the top of the walls follows, where it is not the bottom one.
    *
@@ -4546,10 +5104,16 @@ function panels(
     return { at, from, to, depth: (from.y + to.y) / 2 };
   });
   shown.sort((one, other) => one.depth - other.depth);
+  const middle =
+    corners.reduce((sum, point) => sum + point.y, 0) /
+    Math.max(1, corners.length);
   for (const wall of shown) {
     const at = wall.at;
     const side = walls[at];
     const face = side?.face ?? null;
+    if (storey.single === true && face === "flank" && wall.depth < middle) {
+      continue;
+    }
     // The top edge of this wall. An end wall follows the lean; a flank does
     // not, because the picture on a flank has the slope of both screens drawn
     // into it already and leaning it as well would count the slope twice.
@@ -4662,6 +5226,16 @@ type Lid = {
   readonly cabin: VehicleTiers | null;
   readonly fade: number;
   readonly soot: number;
+  /**
+   * How wide across the vehicle to draw it, as a share of its own width.
+   *
+   * @remarks
+   * One for everything that is standing up straight, which is everything on
+   * four wheels. Below one for a two-wheeler in a corner: see `LEAN_NARROW`.
+   * The clip goes through the same squeeze, so the roof and the shape it is
+   * cut to stay the same size as each other.
+   */
+  readonly squash?: number;
 };
 
 /**
@@ -4693,6 +5267,7 @@ function stampTop(
     ctx.translate(spot.x, spot.y);
     ctx.scale(1, DEPTH);
     ctx.rotate(car.angle);
+    ctx.scale(1, lid.squash ?? 1);
     ctx.globalAlpha = lid.fade;
     const cabin = lid.cabin;
     const body = outlineOf(bodyOutline(car.body));
@@ -5078,7 +5653,12 @@ function drawSkid(
   fade: number,
 ): void {
   const across = Math.abs(car.slip);
-  if (across < SLIP_SMOKE) {
+  // **A bicycle raises none.** There is not enough weight on those two thin
+  // tyres to burn anything off them: a bicycle that loses grip slides, and
+  // that is all it does.
+  const tyres =
+    car.body === "cycle" ? [] : twoWheeled(car.body) ? [0] : [-1, 1];
+  if (across < SLIP_SMOKE || tyres.length === 0) {
     return;
   }
   const shape = VEHICLES[car.body];
@@ -5086,15 +5666,22 @@ function drawSkid(
   const back = -shape.length * 0.3;
   const side = shape.width * 0.42;
   ctx.save();
-  ctx.globalAlpha = fade * (0.25 + hard * 0.4);
-  ctx.fillStyle = "#d6d3d1";
-  for (const wheel of [-1, 1]) {
-    // A little way behind where the tyre is, and drifting further back the
-    // harder the car is sliding.
+  // **Smoke, not confetti.** Three flat discs of one grey read as three discs;
+  // what a burning tyre actually does is put up a plume that leaves the road
+  // where the rubber is, climbs, spreads and thins out to nothing behind the
+  // car. So each puff along the trail is bigger than the one in front of it,
+  // higher off the road, and fainter - and every one of them is a soft edge
+  // rather than a hard one, which is the whole difference between smoke and a
+  // circle drawn in pale grey.
+  for (const wheel of tyres) {
     for (let puff = 0; puff < SMOKE_PUFFS; puff += 1) {
-      const trail = back - puff * 9 * (0.6 + hard);
-      const wobble = Math.sin(now * 9 + puff * 2 + wheel) * 3;
-      const at = project(
+      const age = puff / Math.max(1, SMOKE_PUFFS - 1);
+      const trail = back - puff * SMOKE_BACK * (0.6 + hard);
+      // It churns as it goes: the further back a puff is, the further it has
+      // wandered off the line the tyre took.
+      const wobble =
+        Math.sin(now * 6 + puff * 1.7 + wheel * 2.3) * (1 + puff * 1.2);
+      const spot = project(
         view,
         car.x +
           Math.cos(car.angle) * trail -
@@ -5102,18 +5689,27 @@ function drawSkid(
         car.y +
           Math.sin(car.angle) * trail +
           Math.cos(car.angle) * (side * wheel + wobble),
-        3,
+        SMOKE_FOOT + puff * SMOKE_RISE,
       );
+      const size = SMOKE_SEED + puff * SMOKE_GROW;
+      const thick = fade * (0.1 + hard * 0.2) * (1 - age * 0.8);
+      const cloud = ctx.createRadialGradient(
+        spot.x,
+        spot.y,
+        0,
+        spot.x,
+        spot.y,
+        size,
+      );
+      cloud.addColorStop(0, `rgba(${SMOKE_TINT},${String(thick)})`);
+      cloud.addColorStop(
+        SMOKE_CORE,
+        `rgba(${SMOKE_TINT},${String(thick * 0.55)})`,
+      );
+      cloud.addColorStop(1, `rgba(${SMOKE_TINT},0)`);
+      ctx.fillStyle = cloud;
       ctx.beginPath();
-      ctx.ellipse(
-        at.x,
-        at.y,
-        5 + puff * 3.5,
-        (5 + puff * 3.5) * DEPTH,
-        0,
-        0,
-        TURN,
-      );
+      ctx.ellipse(spot.x, spot.y, size, size * DEPTH, 0, 0, TURN);
       ctx.fill();
     }
   }
@@ -5121,7 +5717,28 @@ function drawSkid(
 }
 
 /** How many puffs trail off one sliding tyre. */
-const SMOKE_PUFFS = 3;
+const SMOKE_PUFFS = 7;
+
+/** What tyre smoke is made of, as red, green and blue. */
+const SMOKE_TINT = "216,213,206";
+
+/** How far apart the puffs sit along the trail, in city pixels. */
+const SMOKE_BACK = 7;
+
+/** How far off the road the first one leaves the tyre. */
+const SMOKE_FOOT = 2;
+
+/** And how much higher each one after it climbs. */
+const SMOKE_RISE = 2.4;
+
+/** How big the first puff is, in screen pixels. */
+const SMOKE_SEED = 4.5;
+
+/** And how much each one after it has spread. */
+const SMOKE_GROW = 3.4;
+
+/** How far out a puff holds its body before it fades away, as a share. */
+const SMOKE_CORE = 0.45;
 
 /** A policeman on foot: dark blue, and always facing the player. */
 function drawCop(

@@ -662,6 +662,22 @@ export type Car = {
    */
   readonly locked: boolean;
   /**
+   * How far a two-wheeler is leaning into the corner, in pixels of offset.
+   *
+   * @remarks
+   * Signed: right of the nose is positive. Nothing on four wheels ever uses
+   * it - a car leans **out** of a corner and by an amount nobody can see at
+   * this size - but a motorbike leans in, and a motorbike that goes round a
+   * corner bolt upright looks like it is on rails.
+   *
+   * It is an offset rather than an angle because that is what the renderer can
+   * use: the machine and the rider are shifted sideways over the wheels, which
+   * from above and from the side reads as a lean. How far depends on how hard
+   * the corner is, which is the turn rate times the speed - the same sum that
+   * decides whether a real one falls over.
+   */
+  readonly lean: number;
+  /**
    * Which way the gun points, in radians - only the tank has one.
    *
    * @remarks
@@ -820,6 +836,40 @@ export type GameState = {
 };
 
 /** The player, on foot or at a wheel. */
+/**
+ * Somebody on his way into a vehicle.
+ *
+ * @remarks
+ * Getting in is no longer a key that teleports a man through bodywork. He
+ * walks round to the **driver's door**, opens it, and then he is in - which is
+ * three things one can see happening, and the reason one can see them is that
+ * they take time. The whole of that time lives here: what he is heading for,
+ * and when he got there.
+ */
+export type Boarding = {
+  /** Which vehicle, by id. */
+  readonly car: number;
+  /**
+   * Simulation time he set off for it.
+   *
+   * @remarks
+   * Only {@link BOARD_GRACE} reads it, and it is there for one case: almost
+   * everybody is already walking when they press the key. Without a moment's
+   * grace the key that starts the walk is cancelled by the key that carried
+   * him there, and getting into a car becomes something one can only do
+   * standing still.
+   */
+  readonly from: number;
+  /**
+   * Simulation time the door came open at, or null while he is still walking.
+   *
+   * @remarks
+   * Doubles as which of the two halves he is in. Null means feet; a number
+   * means he is standing at the open door with {@link DOOR_OPEN} to wait.
+   */
+  readonly openAt: number | null;
+};
+
 export type Player = {
   readonly x: number;
   readonly y: number;
@@ -945,6 +995,8 @@ export type Player = {
   readonly heat: number;
   /** The car being driven, or null on foot. */
   readonly car: number | null;
+  /** The vehicle being walked up to and got into, or null. */
+  readonly boarding: Boarding | null;
   /** Simulation time before which the player may not be arrested again. */
   readonly safeUntil: number;
   /**
@@ -1471,6 +1523,60 @@ export const COOL_SECONDS = 18;
 /** How close the player has to be to a car to get in. */
 export const ENTER_RANGE = 46;
 
+/**
+ * How far out from the flank the driver's door is stood at, in pixels.
+ *
+ * @remarks
+ * The same distance somebody thrown out of a car lands at, so that the spot he
+ * walks to is the spot the man he is taking it from is standing on.
+ */
+export const DOOR_STAND = 34;
+
+/** How near that spot counts as being at it, in pixels. */
+export const DOOR_REACH = 9;
+
+/**
+ * How long the door takes to open, in seconds.
+ *
+ * @remarks
+ * A seventh of a second: one sees it happen and one is not kept waiting. Half
+ * a second was long enough to feel like the game had missed the key. The men
+ * who were in it still get out in this same moment, which is what the pause is
+ * for - a carjacking in which the driver vanishes the instant one touches the
+ * handle is a magic trick - but that moment does not have to be a long one.
+ */
+export const DOOR_OPEN = 0.15;
+
+/**
+ * How far the vehicle may get away before he gives up on it, in pixels.
+ *
+ * @remarks
+ * A car in the traffic does not wait to be taken. Walking after one that is
+ * pulling away is fair enough for a few yards; chasing it across the district
+ * at walking pace is not, and this is where he stops.
+ */
+export const BOARD_GIVE_UP = 150;
+
+/**
+ * How long the walking keys are ignored after setting off, in seconds.
+ *
+ * @remarks
+ * A quarter of a second: long enough to let go of the key one arrived on,
+ * short enough that walking away really does mean walking away.
+ */
+export const BOARD_GRACE = 0.25;
+
+/**
+ * How long he keeps trying to reach a door before he stops, in seconds.
+ *
+ * @remarks
+ * Every walk that can be done is done in well under a second, so this is not a
+ * budget, it is a way out: a door on the far side of a car parked against a
+ * wall can be a spot with no way to stand on it, and without this he would go
+ * on pushing at the wall until somebody pressed the key again.
+ */
+export const BOARD_PATIENCE = 4;
+
 /** How close counts as arriving at a job marker. */
 export const MARKER_RANGE = 40;
 
@@ -1622,6 +1728,56 @@ export const POLICE_MAX = 6;
  * from being something one wanders into.
  */
 export const CIVIL_STARS = 4;
+
+/**
+ * How badly the police want somebody who has taken one of their machines.
+ *
+ * @remarks
+ * Two, straight away and without anybody having to see it. A patrol car or a
+ * patrol bike is theirs however it was come by, and the radio in it tells them
+ * where it is - so the wanted level here is not a matter of witnesses, it is a
+ * matter of the vehicle having been taken at all.
+ */
+export const PATROL_STARS = 2;
+
+/**
+ * How fast a two-wheeler will go backwards, in pixels a second.
+ *
+ * @remarks
+ * Walking pace, because that is what it is: nothing on two wheels has a
+ * reverse gear, and a rider who wants to back out of a space puts his feet
+ * down and paddles. A car does half its top speed; a motorbike does this,
+ * whatever else is under the throttle.
+ */
+export const PADDLE_BACK = 40;
+
+/**
+ * How far a two-wheeler may lean, in pixels of offset.
+ *
+ * @remarks
+ * **Ten pixels on a machine eleven wide**, which is a whole bike's width: flat
+ * out on full lock the rider is over beside his own machine rather than on top
+ * of it. That is further than a real one goes, and deliberately - a lean drawn
+ * true to life is a lean nobody sees from up here, and what this is for is
+ * being seen. Two had to be looked for, four could be seen, six and a half
+ * could not be missed, and this is the one that is the whole point of the
+ * corner.
+ */
+export const LEAN_MOST = 10;
+
+/**
+ * What a corner has to be worth before it leans at all.
+ *
+ * @remarks
+ * Turn rate times speed, divided by this, gives the offset. Set so that a
+ * motorbike flat out on full lock is right over on {@link LEAN_MOST} - a bike
+ * turns at 3.1 radians a second and does 460, so the hardest corner in the
+ * game is worth about 1400 - and one trickling round a junction barely moves.
+ */
+export const LEAN_STIFF = 145;
+
+/** How quickly it goes over and comes back up, in shares a second. */
+export const LEAN_RATE = 9;
 
 /**
  * The star at which one man on a motorbike stops being enough.

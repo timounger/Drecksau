@@ -140,6 +140,11 @@ import {
   BODY_SECONDS,
   CAR_STARS,
   CIVIL_STARS,
+  LEAN_MOST,
+  LEAN_RATE,
+  LEAN_STIFF,
+  PADDLE_BACK,
+  PATROL_STARS,
   FOE_DAMAGE,
   HELI_LOOK,
   TANK_STARS,
@@ -158,6 +163,12 @@ import {
   RUN_OVER_DAMAGE,
   BOARD_RANGE,
   BOARD_SECONDS,
+  BOARD_GIVE_UP,
+  BOARD_GRACE,
+  BOARD_PATIENCE,
+  DOOR_OPEN,
+  DOOR_REACH,
+  DOOR_STAND,
   ENTER_RANGE,
   GARAGE_SEEN,
   GARAGE_OPEN,
@@ -223,7 +234,7 @@ import {
   PURSE,
   type Side,
 } from "./people";
-import { VEHICLES, bodyRadius, type VehicleBody } from "./vehicles";
+import { VEHICLES, bodyRadius, twoWheeled, type VehicleBody } from "./vehicles";
 import {
   BLAST_RADIUS,
   GRENADE_FUSE,
@@ -694,7 +705,10 @@ function drivePlayer(state: GameState, input: Input, dt: number): GameState {
     // the keys do nothing at all until he gets off.
     next = used;
   } else if (used.player.car === null) {
-    next = walk(used, input, dt);
+    next =
+      used.player.boarding === null
+        ? walk(used, input, dt)
+        : boardCar(used, input, dt);
   } else {
     next = drive(used, input, dt);
   }
@@ -719,8 +733,172 @@ function swapSeat(state: GameState): GameState {
     // The platform comes first: standing beside a waiting train with a parked
     // car behind one, the train is plainly what was meant.
     next = getOn(state);
+  } else if (state.player.boarding !== null) {
+    // Second press: he changes his mind and stands where he is.
+    next = { ...state, player: { ...state.player, boarding: null } };
+  } else if (near !== null && twoWheeled(near.body)) {
+    // **Nothing to walk round and nothing to open.** A motorbike has no
+    // driver's door and no left-hand side worth the name: one stands next to
+    // it, swings a leg over and is on it. Whichever side one happens to be
+    // standing on is the right one.
+    next = enterCar(state, near);
   } else {
-    next = near === null ? state : enterCar(state, near);
+    // **Not in yet.** The key starts him walking round to the driver's door;
+    // what actually puts him behind the wheel is arriving there.
+    next =
+      near === null
+        ? state
+        : {
+            ...state,
+            player: {
+              ...state.player,
+              boarding: { car: near.id, from: state.time, openAt: null },
+            },
+          };
+  }
+  return next;
+}
+
+/**
+ * Where the driver's door of a vehicle is stood at.
+ *
+ * @param car - the vehicle
+ * @returns the spot beside it, in city pixels
+ * @remarks
+ * **The left**, which is where the wheel is and where the man who is already in
+ * it will be put out. Left of a nose pointing along `angle` is `angle` minus a
+ * right angle: this picture has y running down it, so a driver heading east is
+ * heading along positive x with north - negative y - out of his left window.
+ * On two wheels there is no door and no left either, but one still mounts a
+ * motorbike from that side, so the walk is the same walk.
+ */
+function doorSpot(state: GameState, car: Car): Vec {
+  const left = car.angle - Math.PI / 2;
+  const stand = (out: number): Vec => ({
+    x: car.x + Math.cos(out) * DOOR_STAND,
+    y: car.y + Math.sin(out) * DOOR_STAND,
+  });
+  const door = stand(left);
+  // **Unless there is a wall where the door is.** A car parked hard against a
+  // house has a driver's door one cannot stand at, and a man walking round to
+  // a spot inside a building never gets there. In that case one gets in the
+  // other side and slides across, which is what anybody does.
+  return isOpen(state.cells, door.x, door.y) ? door : stand(left + Math.PI);
+}
+
+/**
+ * Which way to walk to get to a spot beside a vehicle.
+ *
+ * @param state - the city
+ * @param car - the vehicle in the way of itself
+ * @param spot - where beside it he is trying to stand
+ * @returns a heading, in radians
+ * @remarks
+ * **Round it, not through it.** The driver's door is on the far side as often
+ * as the near one, and bodywork is solid: walking straight at it pressed the
+ * man against the back wing and left him standing there pushing. So when the
+ * line to the door runs into the car, he follows the car round instead - along
+ * the tangent, the short way round, and leaning a little outwards as he goes.
+ *
+ * The lean outwards is not a flourish. A vehicle stops a step that ends no
+ * further from it than it began, so a step exactly along the tangent - which
+ * keeps the distance to the pixel - is a step that never happens.
+ */
+function wayRoundTo(state: GameState, car: Car, spot: Vec): number {
+  const me = state.player;
+  const straight = Math.atan2(spot.y - me.y, spot.x - me.x);
+  const ahead = {
+    x: me.x + Math.cos(straight) * DOOR_LOOK,
+    y: me.y + Math.sin(straight) * DOOR_LOOK,
+  };
+  let way = straight;
+  if (blocked(state, ahead, me)) {
+    const out = Math.atan2(me.y - car.y, me.x - car.x);
+    const round = turned(out, Math.atan2(spot.y - car.y, spot.x - car.x));
+    way = out + Math.sign(round || 1) * (Math.PI / 2 - DOOR_SWERVE);
+  }
+  // And round the houses as well as round the car. A door on the far side can
+  // have a wall behind it, and a man walking into that wall stands there
+  // pushing at it for as long as one lets him.
+  return steerRound(state.cells, me, way, DOOR_LOOK);
+}
+
+/** How far ahead the walk to a door looks for bodywork, in pixels. */
+const DOOR_LOOK = 16;
+
+/** How far outwards it leans while going round, in radians. */
+const DOOR_SWERVE = 0.45;
+
+/**
+ * One step of walking up to a vehicle, opening it and getting in.
+ *
+ * @param state - the city, with somebody already on his way
+ * @param input - the keys this frame
+ * @param dt - seconds since the last step
+ * @returns the city one step further into the door
+ * @remarks
+ * **Three things in order**, and any of the four walking keys calls the whole
+ * thing off: a man who presses north while walking round a car wanted to go
+ * north. So does the car driving away, being wrecked, or the player being put
+ * on the tarmac - none of which is a reason to keep marching at a door that is
+ * no longer there.
+ */
+function boardCar(state: GameState, input: Input, dt: number): GameState {
+  const board = state.player.boarding;
+  const car = state.cars.find((each) => each.id === board?.car) ?? null;
+  const away = car === null ? 0 : far(doorSpot(state, car), state.player);
+  const steered =
+    (input.left ? 1 : 0) +
+    (input.right ? 1 : 0) +
+    (input.up ? 1 : 0) +
+    (input.down ? 1 : 0);
+  let next: GameState;
+  if (
+    board === null ||
+    car === null ||
+    car.health <= 0 ||
+    (steered > 0 && state.time > board.from + BOARD_GRACE) ||
+    away > BOARD_GIVE_UP ||
+    state.time > board.from + BOARD_PATIENCE ||
+    state.time < state.player.floorUntil
+  ) {
+    next = walk(
+      { ...state, player: { ...state.player, boarding: null } },
+      input,
+      dt,
+    );
+  } else if (board.openAt === null) {
+    // Walking round to it. He keeps facing where the mouse points - the door
+    // is where his feet are going, not where his eyes are.
+    const spot = doorSpot(state, car);
+    const way = wayRoundTo(state, car, spot);
+    const gone =
+      away <= DOOR_REACH
+        ? state
+        : walk(state, input, dt, {
+            x: Math.cos(way),
+            y: Math.sin(way),
+          });
+    next =
+      far(spot, gone.player) <= DOOR_REACH
+        ? {
+            ...gone,
+            player: {
+              ...gone.player,
+              boarding: { ...board, openAt: gone.time },
+            },
+            log: note(gone.log, "Tür auf."),
+          }
+        : gone;
+  } else if (state.time >= board.openAt + DOOR_OPEN) {
+    next = enterCar(
+      { ...state, player: { ...state.player, boarding: null } },
+      car,
+    );
+  } else {
+    // Standing at the open door while whoever was in it gets out of it. Still,
+    // or the legs would go on walking on the spot for half a second.
+    next = { ...state, player: { ...state.player, pace: 0 } };
   }
   return next;
 }
@@ -850,7 +1028,11 @@ function layMarks(state: GameState, input: Input): GameState {
  * sort of detail that makes everything around it look made up.
  */
 const TYRE_TRACKS: Readonly<Partial<Record<VehicleBody, readonly number[]>>> = {
+  // One line down the middle for anything on two wheels - it has one back
+  // tyre and it leaves one mark. The patrol bike was missing from this list
+  // and laid the pair a car lays, which is a motorbike with a rear axle.
   bike: [0],
+  patrolbike: [0],
   cycle: [],
 };
 
@@ -1283,11 +1465,19 @@ function nearestCar(state: GameState): Car | null {
 function enterCar(state: GameState, car: Car): GameState {
   const jacked = car.kind === "traffic";
   const manned = car.kind === "police" && car.crew > 0;
-  const withStar = jacked
+  const took = jacked
     ? trouble(state, 1, "Autodiebstahl")
     : manned
       ? trouble(state, SHOT_STARS, "Einem Polizisten den Wagen weggenommen")
       : state;
+  // **A police machine is wanted from the moment one sits on it**, whether it
+  // was taken off a policeman or found standing at a kerb. Nobody has to see
+  // it happen: the radio in it is theirs, and it stops answering the moment
+  // somebody else is at the wheel.
+  const stolen = car.kind === "police" || isPatrol(car.body);
+  const withStar = stolen
+    ? wanted(took, PATROL_STARS, "Polizeifahrzeug genommen", PATROL_STARS)
+    : took;
   // Somebody still aboard is pulled out and left standing at the door. This
   // is the only way to a tank: they bring one at six stars, and taking it off
   // them is the whole of getting one.
@@ -1391,7 +1581,8 @@ function throwOut(state: GameState, car: Car): GameState {
   let id = state.cops.reduce((most, cop) => Math.max(most, cop.id), 0);
   for (let seat = 0; seat < car.crew; seat += 1) {
     id += 1;
-    const side = seat === 0 ? 1 : -1;
+    // The driver out of his own door on the left, the rest out of the other.
+    const side = seat === 0 ? -1 : 1;
     born.push({
       id,
       carId: car.id,
@@ -1438,7 +1629,8 @@ function tipOut(state: GameState, car: Car): GameState {
   let rng = state.rng;
   let id = state.people.reduce((most, person) => Math.max(most, person.id), 0);
   for (let seat = 0; seat < car.seats; seat += 1) {
-    const side = seat % 2 === 0 ? 1 : -1;
+    // The driver out of the driver's door, which is the left one.
+    const side = seat % 2 === 0 ? -1 : 1;
     const back = Math.floor(seat / 2) * DOOR_BACK;
     const at = {
       x:
@@ -1497,8 +1689,9 @@ function leaveCar(state: GameState): GameState {
         player: {
           ...state.player,
           car: null,
-          x: car.x + Math.cos(car.angle + Math.PI / 2) * bodyRadius(car.body),
-          y: car.y + Math.sin(car.angle + Math.PI / 2) * bodyRadius(car.body),
+          // Out of the door he got in by, which is the one on the left.
+          x: car.x + Math.cos(car.angle - Math.PI / 2) * bodyRadius(car.body),
+          y: car.y + Math.sin(car.angle - Math.PI / 2) * bodyRadius(car.body),
         },
         cars: state.cars.map((each) =>
           // Left standing, and it stays standing. A car nobody is in is not
@@ -1513,10 +1706,29 @@ function leaveCar(state: GameState): GameState {
                 speed: 0,
                 braking: false,
                 locked: false,
+                lean: 0,
               }
             : each,
         ),
       };
+}
+
+/**
+ * Whether somebody has this car's driver's door open.
+ *
+ * @param state - the city
+ * @param car - the car
+ * @returns true while the player is standing in the open door of it
+ * @remarks
+ * A driver whose door has just been pulled open stops the car. It goes through
+ * the same brake the traffic uses for a red light, so the brake lights come on
+ * with it and there is nothing new to draw - and without it the driver simply
+ * carried on, leaving the man who opened the door standing in the road and
+ * then appearing inside the car half a second later, sixty pixels away.
+ */
+function beingOpened(state: GameState, car: Car): boolean {
+  const board = state.player.boarding;
+  return board !== null && board.openAt !== null && board.car === car.id;
 }
 
 /** The car the player is in, if any. */
@@ -1532,10 +1744,23 @@ export function carOf(state: GameState): Car | null {
  * splitting them is what lets somebody back away from a patrol car while still
  * pointing at it. Diagonals are normalised, or north-east would be a third
  * faster than north.
+ *
+ * @param steer - a direction to walk in instead of the keys, or null for the
+ *   keys. What {@link boardCar} steers with: the walk round to a door is the
+ *   same walk in every other respect - the same pace, the same walls, the same
+ *   bodywork in the way - and only the question of which way is answered
+ *   somewhere else.
  */
-function walk(state: GameState, input: Input, dt: number): GameState {
-  const dx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  const dy = (input.down ? 1 : 0) - (input.up ? 1 : 0);
+function walk(
+  state: GameState,
+  input: Input,
+  dt: number,
+  steer: Vec | null = null,
+): GameState {
+  const dx =
+    steer === null ? (input.right ? 1 : 0) - (input.left ? 1 : 0) : steer.x;
+  const dy =
+    steer === null ? (input.down ? 1 : 0) - (input.up ? 1 : 0) : steer.y;
   const length = Math.hypot(dx, dy);
   const pace = WALK_SPEED * sprint(state.player.god, input.boost, false);
   const step = length === 0 ? 0 : (pace * dt) / length;
@@ -1755,7 +1980,11 @@ function drive(state: GameState, input: Input, dt: number): GameState {
       (input.down ? CAR_BRAKE : 0);
     const drag = Math.sign(held) * CAR_DRAG;
     const raw = held + (push - (input.up || input.down ? 0 : drag)) * dt;
-    const speed = Math.max(-top / 2, Math.min(top, raw));
+    // Backwards: half the top speed on four wheels, walking pace on two. A
+    // motorbike has no reverse gear - the rider puts his feet down and paddles
+    // it back, and that is as fast as paddling gets.
+    const astern = twoWheeled(car.body) ? PADDLE_BACK : top / 2;
+    const speed = Math.max(-astern, Math.min(top, raw));
     // A standing car does not steer: the wheel turns the tyres, and tyres that
     // are not rolling turn nothing.
     // With the back end locked the wheel works at a crawl and bites harder -
@@ -1774,11 +2003,16 @@ function drive(state: GameState, input: Input, dt: number): GameState {
       (hand ? HAND_GRIP : input.down ? GRIP_BRAKE : input.up ? GRIP_PUSH : 1);
     const moved = rollCar(state.cells, car, swing, speed, bite, dt);
     const angle = moved.angle;
-    // Brake lights: the pedal or the handbrake, and only while there is
-    // something to slow down. Standing still with a foot on the brake lights
-    // nothing up, because a parked car with its brake lights on looks like a
-    // car about to pull away.
-    const braking = (input.down || hand) && Math.abs(car.speed) > 1;
+    const lean = leaning(car, swing / dt, speed, dt);
+    // Brake lights: the pedal while there is something to slow down, or the
+    // handbrake whatever the car is doing. Standing still with a **foot** on
+    // the brake lights nothing up, because a parked car with its brake lights
+    // on looks like a car about to pull away - but a car standing on its
+    // handbrake is a car that is staying put, and that is worth saying.
+    // **Only while the pedal is still slowing it down.** Past nought the same
+    // key is the reverse throttle, not the brake, and a car backing out of a
+    // space with its brake lights on is a car doing two things at once.
+    const braking = hand || (input.down && car.speed > 1);
     // The turret looks where the mouse looks, not where the tracks point.
     // Straight away rather than swinging round: the shell is meant to land on
     // the crosshair, and a turret that lags puts it somewhere else.
@@ -1787,7 +2021,7 @@ function drive(state: GameState, input: Input, dt: number): GameState {
       ...state,
       cars: state.cars.map((each) =>
         each.id === car.id
-          ? { ...each, ...moved, angle, turret, braking, locked: hand }
+          ? { ...each, ...moved, angle, turret, braking, locked: hand, lean }
           : each,
       ),
       player: {
@@ -1821,6 +2055,27 @@ function drive(state: GameState, input: Input, dt: number): GameState {
 
 /** How much of a car-to-car crash a wall does - it does not hit back. */
 const WALL_SHARE = 0.6;
+
+/**
+ * How far over a two-wheeler is, after this step.
+ *
+ * @param car - the vehicle as it stands
+ * @param rate - how fast its nose is coming round, in radians a second
+ * @param speed - what it is doing along its nose
+ * @param dt - seconds since the last step
+ * @returns the new lean, in pixels of offset
+ * @remarks
+ * Turn rate times speed is the sideways pull on it, and that is what a rider
+ * leans against: hard corner, far over; walking pace, upright whatever the
+ * bars are doing. Eased rather than set, because a bike that snapped from
+ * upright to full lean in one frame would flick rather than lean.
+ */
+function leaning(car: Car, rate: number, speed: number, dt: number): number {
+  const want = twoWheeled(car.body)
+    ? Math.max(-LEAN_MOST, Math.min(LEAN_MOST, (rate * speed) / LEAN_STIFF))
+    : 0;
+  return car.lean + (want - car.lean) * Math.min(1, dt * LEAN_RATE);
+}
 
 /** Moves a car, stopping it dead against a wall. */
 function slideCar(
@@ -2118,6 +2373,15 @@ function swing(state: GameState, gun: Weapon): GameState {
   const cop = state.cops.find(
     (each) => each.health > 0 && far(each, tip) < gun.range,
   );
+  // And what one hits when there is nobody there: a car. The fist used to pass
+  // straight through bodywork, so thumping a patrol car on the bonnet was the
+  // one provocation in the city that provoked nothing at all.
+  const car = state.cars.find(
+    (each) =>
+      each.health > 0 &&
+      each.id !== player.car &&
+      far(each, tip) < bodyRadius(each.body),
+  );
   let next = state;
   if (cop !== undefined) {
     next = hurtCop(next, cop.id, gun.damage);
@@ -2126,11 +2390,17 @@ function swing(state: GameState, gun: Weapon): GameState {
     next = hurtPerson(next, person.id, gun.damage);
     next = startFeud(next, KINDS[person.kind].side);
     next = trouble(next, 1, "Jemanden niedergeschlagen");
+  } else if (car !== undefined) {
+    next = damageCar(next, car.id, gun.damage);
+    next =
+      car.kind === "police" || isPatrol(car.body)
+        ? wanted(next, PATROL_STARS, "Einen Streifenwagen angegriffen")
+        : trouble(next, 1, "Sachbeschädigung");
   }
   // Only a blow that lands is worth running from. Shadow-boxing in the middle
   // of the pavement used to clear the street - which made the fist, the one
   // weapon everybody starts with, a way of emptying a city by accident.
-  const landed = cop !== undefined || person !== undefined;
+  const landed = cop !== undefined || person !== undefined || car !== undefined;
   return landed ? startle(next, player, PUNCH_HEARD) : next;
 }
 
@@ -2926,6 +3196,7 @@ function comeRound(
             slip: 0,
             braking: false,
             locked: false,
+            lean: 0,
             rolled: 0,
             turnAt: state.time,
           },
@@ -3003,6 +3274,7 @@ function driveTraffic(
   // with his foot on the brake - which is why the brake lights need no case of
   // their own.
   const held =
+    beingOpened(state, car) ||
     inTheWay(state, car, angle) ||
     queueAhead(state, car, angle) ||
     redAhead(state, car, angle);
@@ -3022,6 +3294,7 @@ function driveTraffic(
           ...slideCar(state.cells, car, car.angle, coast, dt),
           braking: false,
           locked: false,
+          lean: 0,
         }
       : {
           ...car,
@@ -3030,6 +3303,7 @@ function driveTraffic(
           angle,
           speed: pace,
           braking: held,
+          lean: leaning(car, turned(car.angle, angle) / dt, pace, dt),
           locked: false,
           // How far it actually got, which is what its wheels will show. A
           // computer driver never reverses, so this only ever counts up.
@@ -3044,6 +3318,12 @@ function driveTraffic(
         },
     rng: picked.rng,
   };
+}
+
+/** The shortest way round from one heading to another, in radians. */
+function turned(from: number, to: number): number {
+  const round = Math.PI * 2;
+  return ((((to - from) % round) + round + Math.PI) % round) - Math.PI;
 }
 
 /**
@@ -3948,6 +4228,7 @@ const PERSON_TURN_EVERY = 3;
 
 /** The law: cars that come out per star, and give chase. */
 function runPolice(state: GameState, dt: number): GameState {
+  state = callOffPatrol(state);
   // Wrecks do not count as police: take one out and the next is sent, but only
   // after a while. That gap is the whole of "shake them off and drive away".
   // How much law is already on the scene. A patrol car counts only while
@@ -3956,26 +4237,73 @@ function runPolice(state: GameState, dt: number): GameState {
   // pavement count too**: two who got out of a car are still two policemen,
   // and sending another car because their car no longer counts is how one ends
   // up surrounded by an endless supply of them.
-  const onDuty =
-    state.cars.filter(
-      (car) => car.kind === "police" && car.health > 0 && car.crew > 0,
-    ).length +
-    Math.ceil(
-      state.cops.filter(
-        (cop) => cop.health > 0 && (cop.guards ?? null) === null,
-      ).length / COPS_PER_CAR,
-    );
-  const want = Math.min(POLICE_MAX, state.player.stars * POLICE_PER_STAR);
+  const want = policeWanted(state);
+  // The tank is sent whether or not the six are already out. It is what turns
+  // up **on top of** them at six stars, so it does not wait for a gap in the
+  // count - and without this it never came at all, because six patrols out of
+  // the traffic had already filled the quota before the station was asked.
+  const noTank =
+    state.player.stars >= TANK_STARS && !state.cars.some(isPoliceTank);
   let next = state;
-  if (onDuty < want && state.time >= state.patrolAt) {
+  if ((noTank || onDuty(state) < want) && state.time >= state.patrolAt) {
     next = { ...callPolice(next), patrolAt: state.time + PATROL_EVERY };
   }
+  // **Nobody in it, nobody driving it.** A patrol car whose men are out on the
+  // pavement - or dead on it - is scenery, which is what the count already
+  // says of it; letting it carry on chasing was how a chase one had fought off
+  // ended up with more cars in it than the star count allows.
   const cars = next.cars.map((car) =>
-    car.kind === "police" && !car.driven ? chase(next, car, dt) : car,
+    car.kind === "police" && !car.driven && car.crew > 0
+      ? chase(next, car, dt)
+      : car,
   );
   next = { ...next, cars };
   next = openDoors(next);
   return moveCops(next, dt);
+}
+
+/**
+ * How much law is after the player at this moment.
+ *
+ * @param state - the city
+ * @returns how many patrols that is worth
+ * @remarks
+ * A patrol car counts only while somebody can drive it - wrecked, or with its
+ * crew shot on the pavement, it is scenery, and the next patrol is sent
+ * instead of it. **The men on the pavement count too**: two who got out of a
+ * car are still two policemen, and sending another car because their car no
+ * longer counts is how one ends up surrounded by an endless supply of them.
+ *
+ * The **tank does not count**. It is the thing that turns up on top of the six
+ * at six stars, not one of the six.
+ */
+function onDuty(state: GameState): number {
+  const cars = state.cars.filter(
+    (car) =>
+      car.kind === "police" &&
+      car.health > 0 &&
+      car.crew > 0 &&
+      !isPoliceTank(car),
+  ).length;
+  const men = state.cops.filter(
+    (cop) => cop.health > 0 && (cop.guards ?? null) === null,
+  ).length;
+  return cars + Math.ceil(men / COPS_PER_CAR);
+}
+
+/**
+ * How many patrols the star count is worth.
+ *
+ * @param state - the city
+ * @returns one per star, and no more than {@link POLICE_MAX}
+ * @remarks
+ * **One star, one vehicle.** The ladder is that plain: a single machine at one
+ * star, two at two, and so on up to six - with the helicopter joining in at
+ * five and the tank at six, neither of which is counted here because both are
+ * extra rather than instead.
+ */
+function policeWanted(state: GameState): number {
+  return Math.min(POLICE_MAX, state.player.stars * POLICE_PER_STAR);
 }
 
 /**
@@ -4395,6 +4723,7 @@ function callPolice(state: GameState): GameState {
         hitched: null,
         braking: false,
         locked: false,
+        lean: 0,
         rolled: 0,
         seats: 0,
         slip: 0,
@@ -4559,7 +4888,7 @@ const ROTOR_SPIN = 26;
  * chase made only of saloons all handling alike is one chase repeated.
  */
 function pickPatrol(state: GameState, id: number): VehicleBody {
-  let body: VehicleBody = "bike";
+  let body: VehicleBody = "patrolbike";
   if (state.player.stars >= TANK_STARS && !state.cars.some(isPoliceTank)) {
     body = "tank";
   } else if (state.player.stars >= CAR_STARS && id % BIKE_EVERY !== 0) {
@@ -4573,6 +4902,85 @@ function pickPatrol(state: GameState, id: number): VehicleBody {
 
 /** One patrol in this many is a motorbike; the rest come in cars. */
 const BIKE_EVERY = 4;
+
+/** Whether this body is a police machine whoever is at the wheel of it. */
+function isPatrol(body: VehicleBody): boolean {
+  return body === "patrol" || body === "patrolbike";
+}
+
+/**
+ * Nobody is on patrol while somebody is wanted.
+ *
+ * @param state - the city
+ * @returns the city with the patrols either called in or sent back out
+ * @remarks
+ * A patrol car rolling along in the traffic is scenery: it obeys the lights
+ * and it does not chase anybody. The moment the player has a star that stops
+ * being true - **every** patrol vehicle in sight is after him, not only the
+ * ones the station has sent - and it starts being true again the moment he is
+ * clean, which is what turns a chase back into a street.
+ *
+ * Done by changing what the car **is** rather than by teaching the traffic to
+ * chase: traffic and police are driven by two different routines, and a car
+ * that is both gets moved twice a frame.
+ */
+function callOffPatrol(state: GameState): GameState {
+  const hunted = state.player.stars > 0;
+  // **Only as many as the stars are worth.** Turning every patrol in the city
+  // into a chaser is what one star used to mean, and with police in the
+  // ordinary traffic that was half a dozen cars for a stolen handbag. What
+  // joins in is the shortfall and no more: nearest first, so it is the ones
+  // that were actually there - and at one star a motorbike before a car,
+  // because one star is a traffic offence.
+  const room = Math.max(0, policeWanted(state) - onDuty(state));
+  const spare = state.cars.filter(
+    (car) =>
+      isPatrol(car.body) &&
+      car.health > 0 &&
+      !car.driven &&
+      car.id !== state.player.car &&
+      car.kind !== "police",
+  );
+  const bikesFirst = state.player.stars < CAR_STARS;
+  const joining = new Set(
+    [...spare]
+      .sort((one, other) => {
+        const kind = bikesFirst
+          ? Number(one.body !== "patrolbike") -
+            Number(other.body !== "patrolbike")
+          : 0;
+        return kind !== 0
+          ? kind
+          : far(one, state.player) - far(other, state.player);
+      })
+      .slice(0, room)
+      .map((car) => car.id),
+  );
+  let turned = false;
+  const cars = state.cars.map((car) => {
+    const theirs =
+      isPatrol(car.body) &&
+      car.health > 0 &&
+      !car.driven &&
+      car.id !== state.player.car;
+    if (theirs && hunted && car.kind !== "police" && joining.has(car.id)) {
+      turned = true;
+      return {
+        ...car,
+        kind: "police" as const,
+        crew: VEHICLES[car.body].seats,
+      };
+    }
+    // Back on the beat: an empty one stays where it is, because a patrol car
+    // whose men are out on the pavement is not a patrol, it is a parked car.
+    if (theirs && !hunted && car.kind === "police" && car.crew > 0) {
+      turned = true;
+      return { ...car, kind: "traffic" as const };
+    }
+    return car;
+  });
+  return turned ? { ...state, cars } : state;
+}
 
 /** Whether this is a patrol tank still in the hands of the police. */
 function isPoliceTank(car: Car): boolean {
@@ -4816,6 +5224,7 @@ function barge(state: GameState, car: Car, hit: readonly Car[]): GameState {
           slip: 0,
           braking: false,
           locked: false,
+          lean: 0,
         };
       } else if (each.id === car.id) {
         after = { ...each, speed: car.speed * RAM_KEEP, slip: 0 };
@@ -5104,13 +5513,18 @@ function witnessed(state: GameState): boolean {
  * Whether this car is a patrol car that is actually watching anything.
  *
  * @remarks
+ * **Any patrol vehicle, not only the ones the station has sent.** Most of what
+ * the police do is drive about, and one of those rolls in ordinary traffic - so
+ * doing something in front of it is doing it in front of the police, and that
+ * is a star on the spot rather than a point of heat nobody saw.
+ *
  * Wrecked ones see nothing, and neither does the one the player has taken -
  * without that last part, driving a stolen patrol car would be a permanent
  * witness sitting in one's own seat.
  */
 function onWatch(state: GameState, car: Car): boolean {
   return (
-    car.kind === "police" &&
+    (car.kind === "police" || isPatrol(car.body)) &&
     car.health > 0 &&
     !car.driven &&
     car.id !== state.player.car

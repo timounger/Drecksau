@@ -401,6 +401,7 @@ export function createGame(seed: number): GameState {
     player: {
       x: start.at.x,
       y: start.at.y,
+      boarding: null,
       angle: 0,
       heading: 0,
       walked: 0,
@@ -661,6 +662,7 @@ function makeCar(
       hitched: null,
       braking: false,
       locked: false,
+      lean: 0,
       rolled: 0,
       seats: 0,
     },

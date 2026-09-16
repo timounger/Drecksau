@@ -235,6 +235,7 @@ function rebuild(stored: Stored): GameState {
       // wheel at undefined radians is not drawn at all.
       rolled: car.rolled ?? 0,
       locked: car.locked ?? false,
+      lean: car.lean ?? 0,
     })),
     // Skid marks are weather, not history: they fade on their own and nobody
     // comes back to a saved game for them.
@@ -242,7 +243,14 @@ function rebuild(stored: Stored): GameState {
     markAt: 0,
     // Everybody on foot gained a pace; a stand written before that has none,
     // and a figure leaning forward by NaN pixels is not drawn at all.
-    player: { ...stored.player, pace: stored.player.pace ?? 0 },
+    player: {
+      ...stored.player,
+      pace: stored.player.pace ?? 0,
+      // Nobody is halfway into a car in a saved game: a stand written mid-walk
+      // comes back with him standing beside it, which is where the key left
+      // him anyway.
+      boarding: stored.player.boarding ?? null,
+    },
     people: stored.people.map((one) => ({ ...one, pace: one.pace ?? 0 })),
     cops: stored.cops.map((one) => ({ ...one, pace: one.pace ?? 0 })),
     train: { ...stored.train, speed: stored.train.speed ?? 0 },
