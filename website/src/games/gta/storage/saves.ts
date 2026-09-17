@@ -14,7 +14,12 @@
  * again on the way back. That is the difference between a save of forty
  * kilobytes and one of four hundred.
  */
-import { createCity, openBay, setGarage } from "@/games/gta/engine/city";
+import {
+  createCity,
+  myHouses,
+  openBay,
+  setGarage,
+} from "@/games/gta/engine/city";
 import { newAcks, newChopper } from "@/games/gta/engine/setup";
 import type { GameState } from "@/games/gta/engine/types";
 import {
@@ -214,14 +219,23 @@ const PLACES = 100;
  * when the game was saved is opened again.
  */
 function rebuild(stored: Stored): GameState {
-  const floor = stored.garages.reduce(
-    (cells, garage) => openBay(cells, garage),
-    createCity(),
-  );
+  // **The garages come from the plan, not from the file.** They are a formula
+  // over a city that is itself a formula - one house per island, the one
+  // nearest the middle of it - so a stand written before the plan changed can
+  // simply be given today's answer. And it has to be: the prison grew to four
+  // blocks, and the house one of these was cut into ended up **inside** it,
+  // which put the player's own garage door through the prison wall. Nothing is
+  // lost by recomputing them, because nothing in the game ever moves one.
+  const homes = myHouses();
+  let floor = createCity();
+  for (const home of homes) {
+    floor = openBay(floor, home);
+  }
   const open = stored.garageOpen;
-  const garage = open === null ? undefined : stored.garages[open];
+  const garage = open === null ? undefined : homes[open];
   return {
     ...stored,
+    garages: homes,
     // A stand written before the train learned to accelerate has no speed in
     // it, and a train at undefined pixels a second goes nowhere at all.
     // A stand written before cars could slide has no sideways speed in it,
@@ -235,6 +249,10 @@ function rebuild(stored: Stored): GameState {
       // wheel at undefined radians is not drawn at all.
       rolled: car.rolled ?? 0,
       locked: car.locked ?? false,
+      wakeAt: car.wakeAt ?? 0,
+      // A stand written before drivers steered rather than snapped has no
+      // wanted heading on it; the one the car is pointing is the right guess.
+      want: car.want ?? car.angle,
       lean: car.lean ?? 0,
     })),
     // Skid marks are weather, not history: they fade on their own and nobody
@@ -246,6 +264,12 @@ function rebuild(stored: Stored): GameState {
     player: {
       ...stored.player,
       pace: stored.player.pace ?? 0,
+      // A stand written before the jetpack had a flame has no switch for it,
+      // and it is off: nobody is saved mid-climb.
+      thrust: stored.player.thrust ?? false,
+      // A stand written before the tank had a machine gun on it has no clock
+      // for it, and a gun that may next fire at undefined never fires.
+      gunAt: stored.player.gunAt ?? 0,
       // Nobody is halfway into a car in a saved game: a stand written mid-walk
       // comes back with him standing beside it, which is where the key left
       // him anyway.

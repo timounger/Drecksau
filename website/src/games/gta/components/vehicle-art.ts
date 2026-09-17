@@ -257,20 +257,31 @@ const TIERS: Readonly<Record<VehicleBody, VehicleTiers>> = {
     cabinWide: 9,
     rake: 0,
   },
+  // **The upper storey of a tank is its turret**, and these are its numbers
+  // rather than the hull's. They were the hull's - thirty-four pixels across,
+  // which is the whole machine - and it did not matter while the turret was
+  // laid on as a flat picture with no walls under it. It has walls now, so the
+  // box they stand on is the block in `paintTurret` and not the tank.
   tank: {
     tall: 19,
     belt: 12,
-    cabinBack: -14,
+    cabinBack: -12.5,
     cabinFront: 10,
-    cabinWide: 34,
+    cabinWide: 17,
     rake: 0,
   },
   // Tall and narrow: a tractor is mostly cab, and the cab sits over the back
   // axle rather than in the middle.
+  //
+  // **The belt line is high on this one**, and that is the shape of the
+  // machine rather than a number pushed about: the bonnet of a tractor is up
+  // at the top of a rear wheel that comes to a man's shoulder. The wheel is
+  // drawn inside this storey, so how tall the storey is decides how big the
+  // wheel can be - at thirteen the back wheel was the size of a car's.
   tractor: {
     rake: 0,
-    tall: 26,
-    belt: 13,
+    tall: 28,
+    belt: 16,
     cabinBack: -19,
     cabinFront: -2,
     cabinWide: 20,
@@ -302,11 +313,19 @@ export function vehicleSprite(
   paint: string,
   police: boolean,
   mine: boolean,
+  spin: number,
 ): HTMLCanvasElement | null {
   // Only a two-wheeler shows who is on it - everything else has a roof over
   // the driver - so only a two-wheeler is cached twice over.
   const own = twoWheeled(body) && mine;
-  const key = `${body}|${paint}|${police ? "p" : "-"}|${own ? "me" : "-"}`;
+  // **And only a tank is cached once per step.** Every other vehicle keeps its
+  // moving parts on the walls, where the wheels are: from directly above, a
+  // tyre is a black rectangle and a turning one is the same black rectangle.
+  // A track is not - what one sees of it from above is the plates, and plates
+  // that do not move are a painted stripe. So the phase goes in the key, which
+  // costs six pictures of a tank and nothing at all for anything else.
+  const step = body === "tank" ? spin : 0;
+  const key = `${body}|${paint}|${police ? "p" : "-"}|${own ? "me" : "-"}|${String(step)}`;
   const had = drawn.get(key);
   if (had !== undefined) {
     return had;
@@ -325,7 +344,7 @@ export function vehicleSprite(
   ctx.scale(GRAIN, GRAIN);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  paintVehicle(ctx, body, paint, police, own);
+  paintVehicle(ctx, body, paint, police, own, step);
   drawn.set(key, sheet);
   return sheet;
 }
@@ -539,42 +558,125 @@ function opelBadge(
   size: number,
   dark: boolean,
 ): void {
-  const ring = dark ? BADGE_DARK : BADGE_CHROME;
-  const bolt = dark ? BADGE_CHROME : BADGE_DARK;
-  const disc = new Path2D();
-  disc.ellipse(x, y, size, size, 0, 0, Math.PI * 2);
-  ctx.fillStyle = ring;
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = PEN * BADGE_EDGE;
-  ctx.fill(disc);
-  ctx.stroke(disc);
-  ctx.strokeStyle = bolt;
-  ctx.lineWidth = size * BADGE_PEN;
-  ctx.lineJoin = "miter";
+  // **An open ring, not a disc.** The mark is a circle one can see through
+  // with a flash of lightning laid across it, and the flash runs out past the
+  // ring on both sides - that overhang is most of what one recognises from
+  // across a street, and a lightning bolt tucked inside a filled coin is not
+  // this badge at all.
+  //
+  // **On a dark plate**, whatever the car is painted. The badge is bolted to
+  // the grille on the real one, and a chrome mark on Schnee Weiß with nothing
+  // behind it is a chrome mark nobody can find.
+  ctx.fillStyle = BADGE_PLATE;
+  const plate = new Path2D();
+  plate.ellipse(
+    x,
+    y,
+    size * BADGE_ROUND,
+    size * BADGE_ROUND,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill(plate);
+  // The black one is laid on a chrome one a shade fatter, which is the rim a
+  // gloss black badge actually has. Without it, black on the black grille is
+  // a badge one cannot see, and this one is meant to be seen.
+  if (dark) {
+    blitz(ctx, x, y, size + BADGE_RIM, BADGE_CHROME);
+  }
+  blitz(ctx, x, y, size, dark ? BADGE_DARK : BADGE_CHROME);
+}
+
+/**
+ * One copy of the Opel mark, at one size and in one colour.
+ *
+ * @param ctx - what to paint on
+ * @param x - where across it goes
+ * @param y - and how far up
+ * @param size - the radius of the ring, in city pixels
+ * @param ink - what to draw it in
+ */
+function blitz(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  ink: string,
+): void {
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = size * BADGE_HOOP;
   ctx.beginPath();
-  ctx.moveTo(x - size * BOLT_OUT, y + size * BOLT_STEP);
-  ctx.lineTo(x - size * BOLT_IN, y + size * BOLT_STEP);
-  ctx.lineTo(x + size * BOLT_IN, y - size * BOLT_STEP);
-  ctx.lineTo(x + size * BOLT_OUT, y - size * BOLT_STEP);
+  ctx.ellipse(x, y, size, size, 0, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.lineJoin = "round";
+  // The flash: a long thin arm above the middle, a steep step down, and a long
+  // thin arm below it - thin at both ends and deep where it steps, which is
+  // the whole shape of the thing.
+  const bolt = new Path2D();
+  bolt.moveTo(x - size * BOLT_OUT, y - size * BOLT_EDGE);
+  bolt.lineTo(x + size * BOLT_KNEE, y - size * BOLT_EDGE);
+  bolt.lineTo(x + size * BOLT_OUT, y + size * BOLT_LIP);
+  bolt.lineTo(x + size * BOLT_OUT, y + size * BOLT_EDGE);
+  bolt.lineTo(x - size * BOLT_KNEE, y + size * BOLT_EDGE);
+  bolt.lineTo(x - size * BOLT_OUT, y - size * BOLT_LIP);
+  bolt.closePath();
+  ctx.fillStyle = ink;
+  ctx.fill(bolt);
   ctx.strokeStyle = INK;
 }
 
-/** How fine the line round the ring is, as a share of the pen. */
-const BADGE_EDGE = 0.4;
+/** How far the chrome rim of a black badge stands out past it. */
+const BADGE_RIM = 0.3;
 
-/** How thick the flash is, as a share of the ring. */
-const BADGE_PEN = 0.34;
+/** What the badge is bolted to, which is the same black as the grille. */
+const BADGE_PLATE = "#1c1917";
 
-/** How far out the two ends of the flash reach, the same way. */
-const BOLT_OUT = 0.72;
+/** How far that plate reaches past the badge, as a share of it. */
+const BADGE_ROUND = 1.15;
 
-/** Where the step in the middle of it starts. */
-const BOLT_IN = 0.12;
+/** How thick the ring is, as a share of its radius. */
+const BADGE_HOOP = 0.2;
 
-/** And how far up and down that step goes. */
-const BOLT_STEP = 0.26;
+/**
+ * How far the flash reaches out past the middle, as a share of the radius.
+ *
+ * @remarks
+ * Measured off the drawing: a quarter of a radius clear of the ring at each
+ * end. That overhang is the badge - a bolt that stops at the ring reads as a
+ * bar in a circle, which is somebody else's mark.
+ */
+const BOLT_OUT = 1.26;
+
+/** How far from the middle the step in it stands. */
+const BOLT_KNEE = 0.44;
+
+/** How far above and below the middle the two arms run. */
+const BOLT_EDGE = 0.24;
+
+/** And where the slanted end of each arm stops, the same way. */
+const BOLT_LIP = 0.06;
+
+/**
+ * How big the badge is on the nose and the tailgate, in city pixels.
+ *
+ * @remarks
+ * **As big as the badge on every other car here, and no bigger.** The saloons
+ * wear a plain chrome disc of radius 1,1 on the nose and another on the
+ * tailgate; this one is a ring with a flash through it, and the flash reaches
+ * {@link BOLT_OUT} past the ring - so the ring has to be **smaller** than that
+ * disc for the whole mark to come out the same size. At 0,85 the flash ends at
+ * 1,07, which is the saloon's badge to a tenth of a pixel.
+ *
+ * It was 1,7, which put the flash out at 2,14 and made the badge nearly twice
+ * the width of everybody else's - a car with a badge on it rather than a badge
+ * on a car. That it is barely legible at the right size is the price of the
+ * right size, and it is the one worth paying: a badge one can read across the
+ * street is a badge that is too big.
+ */
+const BADGE_SIZE = 0.85;
+
+/** How far up the tailgate the badge sits, as a share of the bodyside. */
+const BADGE_BACK = 0.62;
 
 /** The black badge of the Ultimate. */
 const BADGE_DARK = "#0f172a";
@@ -675,10 +777,19 @@ const NARROWS: Readonly<
   // little, and the widest point is over the wheels.
   suv: { nose: 0.8, tail: 0.88 },
   dmc: { nose: 0.84, tail: 1 },
-  // A tractor is the exception that proves it: a narrow bonnet between two
-  // big wheels, widening into the cab. The wheels stand outside the body and
-  // are drawn on the road, which is where a tractor's wheels are.
-  tractor: { nose: 0.4, tail: 0.66 },
+  // **A tractor is as wide as its back axle**, and the silhouette has to say
+  // so. It used to be a narrow trapezoid - four tenths of the width at the
+  // nose, two thirds at the tail - with the wheels drawn outside it, and
+  // whatever falls outside the silhouette the ring stamps flat on the road:
+  // two black slabs beside the machine, each one cut in half lengthways by
+  // the bodywork stamped over it. A tractor with half a wheel lying on the
+  // tarmac either side of it.
+  //
+  // Square, then, and the **narrow bonnet is drawn on** - the same lesson the
+  // motorbike's nose taught above. What the picture leaves empty stays empty,
+  // so a full-width outline costs nothing and buys a machine whose wheels are
+  // inside its own shape.
+  tractor: { nose: 1, tail: 1 },
 };
 
 /** And how much the roof narrows towards the windscreen. */
@@ -828,13 +939,14 @@ function paintVehicle(
   paint: string,
   police: boolean,
   mine: boolean,
+  step: number,
 ): void {
   if (body === "patrolbike" || body === "bike") {
     paintPatrolBike(ctx, paint, police, mine);
   } else if (body === "cycle") {
     paintTwoWheeler(ctx, body, paint, police, mine);
   } else if (body === "tank") {
-    paintTank(ctx);
+    paintTank(ctx, step);
   } else if (body === "dmc") {
     paintDelorean(ctx);
   } else if (body === "suv") {
@@ -1379,77 +1491,138 @@ function paintTwoWheeler(
 /**
  * A tank, from above.
  *
+ * @param ctx - what to paint on
+ * @param step - where the tracks are in their shuffle, from {@link wheelStep}
  * @remarks
- * Two tracks, a hull between them, a turret and a gun - and the tracks are what
- * the eye goes to, so they get their links drawn. Nothing about it is subtle,
+ * Two tracks, a hull between them, and the tracks are what the eye goes to, so
+ * they get their plates drawn and the plates move. Nothing about it is subtle,
  * which is right: finding one is meant to change the afternoon.
+ *
+ * Two things were wrong with it and both are worth naming.
+ *
+ * **The left track was not on the tank.** Both were laid out from
+ * `side * wide - band`, which on the positive side puts the band just inside
+ * the flank and on the negative side puts it a whole band *outside* the
+ * machine - so the left one hung off the edge of the picture and was clipped,
+ * and the tank ran about on one and a half tracks.
+ *
+ * **And the hull stopped short of them.** It was inset from the flanks by a
+ * shade more than the tracks were wide, which left a hairline of road showing
+ * down each side between the hull and its own track: one could see the street
+ * through a tank. The deck now overlaps the inside edge of each track instead,
+ * because armour that meets is drawn meeting.
  */
-function paintTank(ctx: CanvasRenderingContext2D): void {
+function paintTank(ctx: CanvasRenderingContext2D, step: number): void {
   const shape = VEHICLES.tank;
   const long = shape.length / 2;
   const wide = shape.width / 2;
+  // Where each track's inner edge runs, and the middle of the band.
+  const inner = wide - TRACK_BAND;
+  const spine = wide - TRACK_BAND / 2;
 
-  // The tracks, with the drive sprocket at the back and the idler at the nose.
-  ctx.fillStyle = "#292524";
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
   for (const side of [-1, 1]) {
     const track = new Path2D();
-    track.roundRect(-long, side * wide - 6.5, long * 2, 6.5, 1.4);
+    track.roundRect(-long, side > 0 ? inner : -wide, long * 2, TRACK_BAND, 1.6);
+    ctx.fillStyle = TRACK_STEEL;
     ctx.fill(track);
     ctx.stroke(track);
   }
-  ctx.fillStyle = "#44403c";
-  for (let link = -long + 2; link < long - 2; link += 4) {
-    for (const side of [-1, 1]) {
-      ctx.fillRect(link, side * wide - 5.6, 2, 4.8);
+
+  // **The plates, shuffled along by however far the thing has rolled.** This
+  // is the whole of what makes a track read as a track from up here rather
+  // than as a black stripe down each side, and it is why the picture is drawn
+  // once per step instead of once per tank.
+  const creep = (step / WHEEL_STEPS) * TRACK_LINK;
+  ctx.fillStyle = TRACK_PLATE;
+  ctx.strokeStyle = TRACK_SEAM;
+  ctx.lineWidth = 0.3;
+  for (let link = -long + 1; link < long - 2.4; link += TRACK_LINK) {
+    const at = link + creep;
+    if (at < long - 2.4) {
+      for (const side of [-1, 1]) {
+        const plate = new Path2D();
+        plate.roundRect(
+          at,
+          side > 0 ? inner + 0.7 : -wide + 0.7,
+          TRACK_LINK * 0.55,
+          TRACK_BAND - 1.4,
+          0.4,
+        );
+        ctx.fill(plate);
+        ctx.stroke(plate);
+      }
     }
   }
-  // Side skirts over the top run of each track: the flat grey slabs that are
-  // the first thing one recognises a Leopard by from above.
-  ctx.fillStyle = TANK_SKIRT;
+
+  // The drive sprocket at the back and the idler at the nose: where the track
+  // turns round, and the two places one can see that it does.
+  ctx.fillStyle = TRACK_HUB;
   ctx.strokeStyle = INK;
-  ctx.lineWidth = PEN * 0.8;
+  ctx.lineWidth = PEN * 0.7;
   for (const side of [-1, 1]) {
-    const skirt = new Path2D();
-    skirt.rect(-long + 6, side * wide - 7.4, long * 2 - 12, 3.4);
-    ctx.fill(skirt);
-    ctx.stroke(skirt);
+    for (const end of [-long + 4, long - 4]) {
+      const hub = new Path2D();
+      hub.ellipse(end, side * spine, 2.4, TRACK_BAND / 2 - 1, 0, 0, Math.PI * 2);
+      ctx.fill(hub);
+      ctx.stroke(hub);
+    }
   }
 
-  // The hull: a long sloped glacis at the front, square at the back.
+  // The skirt rail down the inside of each track. A Leopard's skirts cover the
+  // whole top run, and drawn that way they would cover the plates as well - a
+  // track one cannot see is a track one cannot see moving. So what is left of
+  // it here is the rail the plates hang from.
+  ctx.fillStyle = TANK_SKIRT;
+  ctx.lineWidth = PEN * 0.6;
+  for (const side of [-1, 1]) {
+    const rail = new Path2D();
+    rail.rect(
+      -long + 5,
+      side > 0 ? inner - 0.2 : -inner - 1.6,
+      long * 2 - 10,
+      1.8,
+    );
+    ctx.fill(rail);
+    ctx.stroke(rail);
+  }
+
+  // The hull: a long sloped glacis at the front, square at the back, and wide
+  // enough at the flanks to sit on the inside edge of both tracks.
   const hull = new Path2D();
-  hull.moveTo(long - 9, -wide + 7);
-  hull.lineTo(long + 1, -wide + 11);
-  hull.lineTo(long + 1, wide - 11);
-  hull.lineTo(long - 9, wide - 7);
-  hull.lineTo(-long + 1, wide - 7);
-  hull.lineTo(-long + 1, -wide + 7);
+  hull.moveTo(long - 9, -inner - 1);
+  hull.lineTo(long + 1, -inner + 3);
+  hull.lineTo(long + 1, inner - 3);
+  hull.lineTo(long - 9, inner + 1);
+  hull.lineTo(-long + 1, inner + 1);
+  hull.lineTo(-long + 1, -inner - 1);
   hull.closePath();
   ctx.fillStyle = TANK_GREEN;
+  ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
   ctx.fill(hull);
   ctx.stroke(hull);
   // The two-tone NATO camouflage: a couple of brown patches, nothing clever.
   ctx.fillStyle = TANK_BROWN;
   ctx.beginPath();
-  ctx.ellipse(-long * 0.45, -wide * 0.3, 7, 4, 0.4, 0, Math.PI * 2);
-  ctx.ellipse(long * 0.2, wide * 0.35, 8, 3.6, -0.3, 0, Math.PI * 2);
+  ctx.ellipse(-long * 0.45, -inner * 0.3, 7, 4, 0.4, 0, Math.PI * 2);
+  ctx.ellipse(long * 0.2, inner * 0.35, 8, 3.6, -0.3, 0, Math.PI * 2);
   ctx.fill();
   // The engine deck at the back, with its louvres.
   ctx.fillStyle = "#3f4f22";
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN * 0.7;
   const deck = new Path2D();
-  deck.rect(-long + 3, -wide + 8, 13, (wide - 8) * 2);
+  deck.rect(-long + 3, -inner + 1, 13, (inner - 1) * 2);
   ctx.fill(deck);
   ctx.stroke(deck);
   ctx.strokeStyle = "#1c1917";
   ctx.lineWidth = 0.7;
   ctx.beginPath();
   for (let louvre = -long + 5; louvre < -long + 15; louvre += 2.6) {
-    ctx.moveTo(louvre, -wide + 9.5);
-    ctx.lineTo(louvre, wide - 9.5);
+    ctx.moveTo(louvre, -inner + 2.5);
+    ctx.lineTo(louvre, inner - 2.5);
   }
   ctx.stroke();
 
@@ -1464,6 +1637,24 @@ function paintTank(ctx: CanvasRenderingContext2D): void {
   ctx.stroke(ring);
 }
 
+/** How wide one track is, across the tank, in city pixels. */
+const TRACK_BAND = 7.5;
+
+/** How far apart the plates are along it. */
+const TRACK_LINK = 4;
+
+/** What the track itself is: oiled steel, nearly black. */
+const TRACK_STEEL = "#292524";
+
+/** One plate of it, which catches more light than the gap beside it. */
+const TRACK_PLATE = "#4b4642";
+
+/** And the line between two plates. */
+const TRACK_SEAM = "#18181b";
+
+/** The sprocket at one end and the idler at the other. */
+const TRACK_HUB = "#57534e";
+
 /** The green a tank is painted in. */
 const TANK_GREEN = "#4d5d29";
 
@@ -1476,31 +1667,92 @@ const TANK_SKIRT = "#57534e";
 /**
  * A tractor, from above.
  *
+ * @param ctx - what to paint on
+ * @param paint - the colour of its bodywork
  * @remarks
  * Two big wheels at the back, two small ones at the front, a bonnet with the
  * exhaust standing up out of it and a cab over the rear axle - and a tow bar
  * behind, which is the entire reason this vehicle is in the game.
+ *
+ * **The back wheels are the machine**, and they are on the walls, not here. A
+ * tractor is the one vehicle whose proportions one can name without seeing the
+ * rest of it - enormous driven wheels at the back, little steered ones at the
+ * front - and that is drawn where one actually looks at it: on the flank.
+ *
+ * They used to be drawn in this picture as well, and that was wrong twice
+ * over. The silhouette narrows towards the bonnet, so a wheel laid out to the
+ * full width of the machine fell **outside** it - and whatever falls outside
+ * the silhouette the ring stamps flat on the road, as a black slab beside the
+ * tractor that made it look a third wider than it is. Worse, the slab was cut
+ * in half lengthways by the bodywork stamped over it, which left two **half
+ * wheels** lying on the tarmac behind it.
+ *
+ * So from above one sees what one sees from above on a real one: the wings
+ * over the wheels, and nothing sticking out past them.
  */
 function paintTractor(ctx: CanvasRenderingContext2D, paint: string): void {
   const shape = VEHICLES.tractor;
   const long = shape.length / 2;
+  const wide = shape.width / 2;
 
-  // The wheels: the back pair wide and deep, the front pair small. These are
-  // the one set of wheels in the city that may be seen from above, because a
-  // tractor's really do stand outside its body - they start at the edge of the
-  // silhouette, so there is no strip of road showing between wheel and wing.
-  ctx.fillStyle = "#1c1917";
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN * 0.8;
   for (const side of [-1, 1]) {
-    const back = new Path2D();
-    back.roundRect(-long + 4, side === 1 ? 8.6 : -15.6, 18, 7, 2);
-    ctx.fill(back);
-    ctx.stroke(back);
+    // The driven wheel, out at the flank where it belongs - and **inside** the
+    // silhouette, so the body stamp lays it on the machine instead of the ring
+    // stamping it on the road.
+    const out = side > 0 ? FARM_TYRE_IN : -wide;
+    const tyre = new Path2D();
+    tyre.roundRect(-long + 2, out, FARM_BACK_LONG, wide - FARM_TYRE_IN, 2.2);
+    ctx.fillStyle = RUBBER;
+    ctx.fill(tyre);
+    ctx.stroke(tyre);
+    // The lugs across it, which is what makes it a farm tyre and not a tyre.
+    ctx.fillStyle = FARM_LUG;
+    for (let lug = -long + 4; lug < -long + FARM_BACK_LONG; lug += 4.2) {
+      ctx.fillRect(lug, out + 0.8, 1.8, wide - FARM_TYRE_IN - 1.6);
+    }
+    // And the steered one, half the size and a good deal narrower.
+    const near = side > 0 ? FARM_FRONT_IN : -FARM_FRONT_IN - FARM_FRONT_WIDE;
     const front = new Path2D();
-    front.roundRect(long - 14, side === 1 ? 6 : -10.5, 10, 4.5, 1.5);
+    front.roundRect(long - 13, near, FARM_FRONT_LONG, FARM_FRONT_WIDE, 1.6);
+    ctx.fillStyle = RUBBER;
     ctx.fill(front);
     ctx.stroke(front);
+    ctx.fillStyle = FARM_LUG;
+    for (let lug = long - 11.5; lug < long - 3; lug += 3) {
+      ctx.fillRect(lug, near + 0.5, 1.2, FARM_FRONT_WIDE - 1);
+    }
+  }
+
+  // The wings over the back wheels: the broad flat arches one steps off. They
+  // stop a little short of the outside of the tyre, so a strip of rubber shows
+  // past them - which is what says the wheel is **under** the wing.
+  ctx.fillStyle = shade(paint);
+  ctx.lineWidth = PEN * 0.8;
+  for (const side of [-1, 1]) {
+    const from = side > 0 ? FARM_WING_IN : -FARM_WING_OUT;
+    const wing = new Path2D();
+    wing.roundRect(
+      -long + 3,
+      from,
+      FARM_WING_LONG,
+      FARM_WING_OUT - FARM_WING_IN,
+      1.6,
+    );
+    ctx.fill(wing);
+    ctx.stroke(wing);
+    // The tread plate on top of it, which is what one stands on to get in.
+    ctx.strokeStyle = shade(shade(paint));
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    for (let bar = -long + 6; bar < -long + FARM_WING_LONG; bar += 3.4) {
+      ctx.moveTo(bar, from + 1);
+      ctx.lineTo(bar, from + FARM_WING_OUT - FARM_WING_IN - 1);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = PEN * 0.8;
   }
 
   // The body: a narrow bonnet up front, widening into the cab - and it is the
@@ -1510,10 +1762,35 @@ function paintTractor(ctx: CanvasRenderingContext2D, paint: string): void {
   ctx.lineWidth = PEN;
   ctx.fill(body);
   ctx.stroke(body);
+  // The louvres down the side of the bonnet, and the grille across the nose.
+  ctx.strokeStyle = shade(paint);
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  for (let slot = long - 17; slot < long - 6; slot += 2.4) {
+    ctx.moveTo(slot, -4.4);
+    ctx.lineTo(slot, 4.4);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = INK;
+  const grille = new Path2D();
+  grille.roundRect(long - 5.5, -5, 4, 10, 1);
+  ctx.fillStyle = "#3f3f46";
+  ctx.lineWidth = PEN * 0.7;
+  ctx.fill(grille);
+  ctx.stroke(grille);
+  // A headlamp either side of it, up on the corners of the bonnet.
+  ctx.fillStyle = LAMP;
+  for (const side of [-1, 1]) {
+    const beam = new Path2D();
+    beam.roundRect(long - 4.5, side > 0 ? 5.4 : -7.4, 3, 2, 0.8);
+    ctx.fill(beam);
+    ctx.stroke(beam);
+  }
 
   // The cab, glazed all round, over the back axle - the same trick again.
   const cab = pathOf(cabinOutline("tractor"));
   ctx.fillStyle = shade(paint);
+  ctx.lineWidth = PEN;
   ctx.fill(cab);
   ctx.stroke(cab);
   // A roof, not a skylight: from above a cab is a painted lid with a hatch in
@@ -1529,19 +1806,74 @@ function paintTractor(ctx: CanvasRenderingContext2D, paint: string): void {
   ctx.fillStyle = "#1e293b";
   ctx.fill(hatch);
   ctx.stroke(hatch);
+  // **The amber beacon on the corner of the roof.** Every one of these that is
+  // allowed on a road carries one, and at this size it is the one spot of
+  // colour that says farm vehicle rather than small lorry.
+  const beacon = new Path2D();
+  beacon.ellipse(-long + 9.5, -6, 2, 2, 0, 0, Math.PI * 2);
+  ctx.fillStyle = FARM_BEACON;
+  ctx.fill(beacon);
+  ctx.stroke(beacon);
+  // Two work lamps looking forward off the front of the roof.
+  ctx.fillStyle = LAMP;
+  for (const side of [-1, 1]) {
+    const work = new Path2D();
+    work.roundRect(-long + 18.5, side > 0 ? 3.2 : -5.2, 2.4, 2, 0.6);
+    ctx.fill(work);
+    ctx.stroke(work);
+  }
 
-  // The exhaust stack beside the bonnet, and the tow bar behind.
+  // The exhaust stack beside the bonnet, and the tow bar behind - with the
+  // two lift arms of the three point linkage either side of it, which is what
+  // the thing actually pulls with.
   ctx.fillStyle = "#44403c";
   const stack = new Path2D();
   stack.ellipse(long - 9, -3.4, 2.6, 2.6, 0, 0, Math.PI * 2);
   ctx.fill(stack);
   ctx.stroke(stack);
+  ctx.fillStyle = "#57534e";
+  for (const side of [-1, 1]) {
+    const arm = new Path2D();
+    arm.rect(-long + 1, side > 0 ? 4.5 : -7, 6, 2.5);
+    ctx.fill(arm);
+    ctx.stroke(arm);
+  }
   const bar = new Path2D();
   bar.rect(-long, -3, 5, 6);
   ctx.fillStyle = "#57534e";
   ctx.fill(bar);
   ctx.stroke(bar);
 }
+
+/** How far out from the middle a driven tyre starts, in city pixels. */
+const FARM_TYRE_IN = 5.4;
+
+/** How long it is along the machine. */
+const FARM_BACK_LONG = 22;
+
+/** Where a steered tyre starts, the same way. */
+const FARM_FRONT_IN = 6.4;
+
+/** How long it is. */
+const FARM_FRONT_LONG = 11;
+
+/** And how wide. */
+const FARM_FRONT_WIDE = 4.2;
+
+/** How far out from the middle a wing starts. */
+const FARM_WING_IN = 4.2;
+
+/** And where it ends, which is inside the outside of the tyre. */
+const FARM_WING_OUT = 12.6;
+
+/** How far it reaches along the machine. */
+const FARM_WING_LONG = 22;
+
+/** The bars across a farm tyre, which are what one sees of it from the side. */
+const FARM_LUG = "#0c0a09";
+
+/** The orange lamp on the corner of the cab roof. */
+const FARM_BEACON = "#f59e0b";
 
 /** The turret: a squat block, the hatch behind it, and the gun out in front. */
 function paintTurret(ctx: CanvasRenderingContext2D): void {
@@ -1579,6 +1911,22 @@ function paintTurret(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = "#365314";
   ctx.fill(hatch);
   ctx.stroke(hatch);
+  // **The machine gun beside the main armament.** It is what the right button
+  // fires, and a gun one can fire ought to be a gun one can see: a short
+  // barrel on a mount by the loader's hatch, pointing the same way as the big
+  // one, with the ammunition box behind it.
+  ctx.fillStyle = "#292524";
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.6;
+  const mount = new Path2D();
+  mount.roundRect(-6, -8.6, 5.4, 4.2, 1);
+  ctx.fill(mount);
+  ctx.stroke(mount);
+  const coax = new Path2D();
+  coax.rect(-1.2, -7.6, 9, 1.6);
+  ctx.fillStyle = "#1c1917";
+  ctx.fill(coax);
+  ctx.stroke(coax);
   // Smoke dischargers, four a side, angled forward.
   ctx.fillStyle = "#1c1917";
   for (const side of [-1, 1]) {
@@ -2188,7 +2536,13 @@ function golfFace(
   }
   if (isCorsa(job.body)) {
     // The lightning in the ring, black on the Ultimate and chrome on the rest.
-    opelBadge(ctx, 0, band + high * 0.05, 1.5, job.body === "corsaultimate");
+    opelBadge(
+      ctx,
+      0,
+      band + high * 0.05,
+      BADGE_SIZE,
+      job.body === "corsaultimate",
+    );
   } else {
     ctx.fillStyle = RIM;
     const badge = new Path2D();
@@ -2320,6 +2674,17 @@ function golfTail(
   plate.rect(-half * 0.32, high * 0.37, half * 0.64, high * 0.13);
   ctx.fill(plate);
   ctx.stroke(plate);
+
+  // And the maker's mark on the tailgate, the same one that is on the nose.
+  if (isCorsa(job.body)) {
+    opelBadge(
+      ctx,
+      0,
+      high * BADGE_BACK,
+      BADGE_SIZE,
+      job.body === "corsaultimate",
+    );
+  }
 
   // The valance, with a bright trim at each end for the exhaust.
   ctx.fillStyle = "#0f172a";
@@ -3748,6 +4113,20 @@ export function wheelStep(
   rolled: number,
   speed: number,
 ): number {
+  // **A track is not a wheel.** What one watches on a tank is the plates
+  // going past, and how fast they go past is how far it has rolled - there is
+  // no spoke pattern to alias against and nothing to smear, so a tank keeps
+  // its own count and never turns into a grey blur. Geared down the same way
+  // the wheels are, and for the same reason: true to the pitch, the plates
+  // would be doing forty-seven cycles a second at full speed and one would see
+  // them stand still.
+  if (body === "tank") {
+    const within = ((rolled % TRACK_CREEP) + TRACK_CREEP) % TRACK_CREEP;
+    return Math.min(
+      WHEEL_STEPS - 1,
+      Math.floor((within / TRACK_CREEP) * WHEEL_STEPS),
+    );
+  }
   const radius = TIERS[body].belt * (TYRE_SHARE[body] ?? TYRE_ANY);
   let step: number;
   if (Math.abs(speed) >= WHEEL_FAST || radius <= 0) {
@@ -3801,6 +4180,18 @@ const WHEEL_GEAR = 1 / 3;
  * it - which is also where the geared-down turn would start to alias.
  */
 const WHEEL_FAST = 230;
+
+/**
+ * How far a tank rolls for its plates to walk one whole pitch, in pixels.
+ *
+ * @remarks
+ * Six times the pitch itself, which is the same gearing the wheels get. At the
+ * pitch, a tank at full speed steps its track forty-seven times a second
+ * against a screen that draws sixty: the plates would sit on the edge of the
+ * wagon-wheel illusion and read as standing still or crawling backwards. At
+ * six times it steps eight times a second, which is a track moving.
+ */
+const TRACK_CREEP = TRACK_LINK * 6;
 
 /** How big a tyre is on each vehicle, as a share of its bodyside. */
 const TYRE_SHARE: Readonly<Partial<Record<VehicleBody, number>>> = {
@@ -4675,6 +5066,14 @@ function tractorWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
  * exactly the same picture, which put the body in mid-air, the cab below it
  * and the wheels up on the roof - and made the whole machine look like parts
  * of two others.
+ *
+ * **From the side, a tractor is its back wheel.** It comes up to the top of
+ * the bonnet, the little front one barely reaches the axle of it, and the
+ * ratio between the two is more than two to one - at half against three tenths
+ * of the bodyside the machine read as a van with mismatched tyres. Over the
+ * big one goes the wing one steps off, and up the side of it the ladder one
+ * steps onto; in front of the cab stands the exhaust; and at the nose is the
+ * grille, with a lamp on the corner of the bonnet.
  */
 function tractorLower(ctx: CanvasRenderingContext2D, job: WallJob): void {
   const half = job.span / 2;
@@ -4682,10 +5081,12 @@ function tractorLower(ctx: CanvasRenderingContext2D, job: WallJob): void {
   const flank = job.face === "flank";
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
-  // The chassis rail, and the bonnet sitting on it.
+  // The chassis rail, and the bonnet sitting on it. Across an end it is the
+  // axle, which reaches out to the wheels; along the flank it is the frame.
   ctx.fillStyle = shade(job.paint);
   const rail = new Path2D();
-  rail.rect(-half, high * 0.34, half * 2, high * 0.22);
+  const span = flank ? 1 : FARM_AXLE;
+  rail.rect(-half * span, high * 0.34, half * span * 2, high * 0.22);
   ctx.fill(rail);
   ctx.stroke(rail);
   ctx.fillStyle = job.paint;
@@ -4698,28 +5099,228 @@ function tractorLower(ctx: CanvasRenderingContext2D, job: WallJob): void {
     bonnet.lineTo(half, high * 0.82);
     bonnet.lineTo(half, high * 0.5);
   } else {
-    bonnet.rect(-half, high * 0.5, half * 2, high * 0.5);
+    // **Head on a tractor is narrow.** The wall is now the full width of the
+    // machine - it has to be, or the wheels would fall outside the silhouette
+    // again - but what stands in the middle of it is a bonnet one can see
+    // round, with a big wheel either side. Filling the whole wall would give
+    // the thing a radiator as wide as its back axle.
+    const across = job.face === "nose" ? FARM_NOSE : FARM_TAIL;
+    bonnet.rect(-half * across, high * 0.5, half * across * 2, high * 0.5);
   }
   bonnet.closePath();
   ctx.fill(bonnet);
   ctx.stroke(bonnet);
-  // The wheels: one big one behind, one small one in front, or a pair of the
-  // same size when one is looking at an end of the machine.
+
+  if (flank) {
+    // The louvres along the bonnet side, the grille at the nose and the lamp
+    // on the corner of it.
+    ctx.strokeStyle = shade(job.paint);
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    for (let slot = half * 0.2; slot < half * 0.78; slot += half * 0.09) {
+      ctx.moveTo(slot, high * 0.62);
+      ctx.lineTo(slot, high * 0.88);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = PEN * 0.7;
+    const grille = new Path2D();
+    grille.rect(half * 0.88, high * 0.56, half * 0.1, high * 0.3);
+    ctx.fillStyle = "#3f3f46";
+    ctx.fill(grille);
+    ctx.stroke(grille);
+    const lamp = new Path2D();
+    lamp.roundRect(half * 0.72, high * 0.86, half * 0.12, high * 0.1, 0.6);
+    ctx.fillStyle = LAMP;
+    ctx.fill(lamp);
+    ctx.stroke(lamp);
+    // The exhaust, standing up the near side of the bonnet in front of the
+    // cab - it carries on past the top of this wall, which is right: on the
+    // machine it stands higher than the roof.
+    const stack = new Path2D();
+    stack.rect(-half * 0.1, high * 0.74, 1.8, high * 0.26);
+    ctx.fillStyle = "#44403c";
+    ctx.fill(stack);
+    ctx.stroke(stack);
+  }
+
+  // **The wheels.** One very big one behind, one small one in front, or a pair
+  // of the same size when one is looking at an end of the machine.
   const axles = flank
     ? [
-        { at: -half * 0.62, tyre: high * 0.5 },
-        { at: half * 0.68, tyre: high * 0.3 },
+        { at: -half * 0.52, tyre: high * FARM_BACK_TYRE },
+        { at: half * 0.74, tyre: high * FARM_FRONT_TYRE },
       ]
     : [
-        { at: -half * 0.82, tyre: high * (job.face === "nose" ? 0.3 : 0.5) },
-        { at: half * 0.82, tyre: high * (job.face === "nose" ? 0.3 : 0.5) },
+        {
+          at: -half * 0.78,
+          tyre: high * (job.face === "nose" ? FARM_FRONT_TYRE : FARM_BACK_TYRE),
+        },
+        {
+          at: half * 0.78,
+          tyre: high * (job.face === "nose" ? FARM_FRONT_TYRE : FARM_BACK_TYRE),
+        },
       ];
   for (const axle of axles) {
-    wheelAt(ctx, axle.at, axle.tyre, wheelTurn(job, axle.at));
+    farmWheel(ctx, axle.at, axle.tyre, wheelTurn(job, axle.at));
+  }
+
+  if (flank) {
+    // The wing over the back wheel, and the ladder up the side of it.
+    const rear = -half * 0.52;
+    const tyre = high * FARM_BACK_TYRE;
+    ctx.fillStyle = shade(job.paint);
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = PEN * 0.8;
+    const wing = new Path2D();
+    wing.moveTo(rear - tyre - 1, tyre * 0.9);
+    wing.quadraticCurveTo(rear, tyre * 2.5, rear + tyre + 1, tyre * 0.9);
+    wing.lineTo(rear + tyre + 1, tyre * 1.24);
+    wing.quadraticCurveTo(rear, tyre * 2.86, rear - tyre - 1, tyre * 1.24);
+    wing.closePath();
+    ctx.fill(wing);
+    ctx.stroke(wing);
+    ctx.fillStyle = "#57534e";
+    ctx.lineWidth = PEN * 0.5;
+    for (let rung = 0; rung < 2; rung += 1) {
+      const step = new Path2D();
+      step.rect(rear + tyre * 0.2, tyre * (0.42 + rung * 0.42), 4.4, 1.2);
+      ctx.fill(step);
+      ctx.stroke(step);
+    }
   }
 }
 
-/** The upper storey: a glasshouse on four posts, which is all a cab is. */
+/**
+ * One wheel off a tractor, seen from the side.
+ *
+ * @param ctx - what to paint on
+ * @param at - where its middle is across the wall
+ * @param tyre - how big it is, as a radius
+ * @param spin - which picture of it turning, from {@link wheelStep}
+ * @remarks
+ * Not the wheel every other vehicle gets. A farm tyre has **lugs** - the deep
+ * bars that let it pull - and they are not decoration: a smooth black disc of
+ * this size on the back of a tractor reads as a fairground ride. The lugs run
+ * round the outside, slanted, and they turn with the wheel, which is the only
+ * way one can see at this size that it is turning at all.
+ *
+ * Inside them a plain steel rim with its bolts, which is the other half of it:
+ * a tractor wheel has a dished disc bolted to the hub, not an alloy.
+ */
+function farmWheel(
+  ctx: CanvasRenderingContext2D,
+  at: number,
+  tyre: number,
+  spin: number,
+): void {
+  const wheel = new Path2D();
+  wheel.ellipse(at, tyre, tyre, tyre, 0, 0, Math.PI * 2);
+  ctx.fillStyle = RUBBER;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.7;
+  ctx.fill(wheel);
+  ctx.stroke(wheel);
+
+  // The lugs, stepped round by however far the wheel has turned.
+  const step = spin === WHEEL_SMEAR ? 0 : spin;
+  const round = (Math.PI * 2) / FARM_LUGS;
+  const turned = -(step / WHEEL_STEPS) * round;
+  ctx.strokeStyle = FARM_LUG;
+  ctx.lineWidth = tyre * 0.2;
+  ctx.lineCap = "butt";
+  ctx.beginPath();
+  for (let lug = 0; lug < FARM_LUGS; lug += 1) {
+    const way = turned + lug * round;
+    ctx.moveTo(at + Math.cos(way) * tyre * 0.66, tyre + Math.sin(way) * tyre * 0.66);
+    ctx.lineTo(
+      at + Math.cos(way + FARM_SLANT) * tyre,
+      tyre + Math.sin(way + FARM_SLANT) * tyre,
+    );
+  }
+  ctx.stroke();
+  ctx.lineCap = "round";
+
+  // The rim and the hub bolted into it.
+  const rim = tyre * FARM_RIM_SHARE;
+  const disc = new Path2D();
+  disc.ellipse(at, tyre, rim, rim, 0, 0, Math.PI * 2);
+  ctx.fillStyle = FARM_RIM;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.5;
+  ctx.fill(disc);
+  ctx.stroke(disc);
+  const hub = new Path2D();
+  hub.ellipse(at, tyre, rim * 0.34, rim * 0.34, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#3f3f46";
+  ctx.fill(hub);
+  if (tyre > FARM_BOLTS_AT) {
+    ctx.fillStyle = "#3f3f46";
+    for (let bolt = 0; bolt < FARM_BOLTS; bolt += 1) {
+      const way = turned + (bolt * Math.PI * 2) / FARM_BOLTS;
+      const dot = new Path2D();
+      dot.ellipse(
+        at + Math.cos(way) * rim * 0.64,
+        tyre + Math.sin(way) * rim * 0.64,
+        rim * 0.13,
+        rim * 0.13,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill(dot);
+    }
+  }
+}
+
+/** How wide the bonnet is head on, as a share of the machine. */
+const FARM_NOSE = 0.44;
+
+/** And the back of the cab, which is wider. */
+const FARM_TAIL = 0.72;
+
+/** How far the axle reaches across an end wall, the same way. */
+const FARM_AXLE = 0.82;
+
+/** How big the driven wheel is, as a share of the bodyside. */
+const FARM_BACK_TYRE = 0.62;
+
+/** And the steered one, which is less than half of it. */
+const FARM_FRONT_TYRE = 0.27;
+
+/** How many lugs go round a farm tyre. */
+const FARM_LUGS = 11;
+
+/** How far each one leans off the radius, in radians. */
+const FARM_SLANT = 0.36;
+
+/** What the rim is made of: painted steel, not alloy. */
+const FARM_RIM = "#7f7f72";
+
+/**
+ * How much of the tyre the rim takes up, as a share of its radius.
+ *
+ * @remarks
+ * Small. The whole point of a tractor tyre is the depth of rubber between the
+ * rim and the ground - that is where the grip is - so a rim that fills half
+ * the wheel turns it back into a car tyre with lugs painted on it.
+ */
+const FARM_RIM_SHARE = 0.4;
+
+/** How many bolts hold the disc on. */
+const FARM_BOLTS = 6;
+
+/** Below this radius there is no room to draw them, in pixels. */
+const FARM_BOLTS_AT = 4;
+
+/**
+ * The upper storey: a glasshouse on four posts, which is all a cab is.
+ *
+ * @remarks
+ * With the door in it, which is most of what one sees of a tractor cab from
+ * the side: a tall glazed panel with a handle, the mirror on its arm standing
+ * out in front of it, and the roof edge over the lot.
+ */
 function tractorCab(ctx: CanvasRenderingContext2D, job: WallJob): void {
   const half = job.span / 2;
   const high = job.high;
@@ -4736,6 +5337,36 @@ function tractorCab(ctx: CanvasRenderingContext2D, job: WallJob): void {
   glass.rect(-half * 0.78, high * 0.16, half * 1.56, high * 0.68);
   ctx.fill(glass);
   ctx.stroke(glass);
+  if (job.face === "flank") {
+    // The shut line of the door, its handle, and the mirror out in front.
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = PEN * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(half * 0.1, high * 0.16);
+    ctx.lineTo(half * 0.1, high * 0.84);
+    ctx.stroke();
+    const grip = new Path2D();
+    grip.roundRect(-half * 0.04, high * 0.44, half * 0.12, high * 0.06, 0.4);
+    ctx.fillStyle = FARM_RIM;
+    ctx.fill(grip);
+    ctx.stroke(grip);
+    const arm = new Path2D();
+    arm.rect(half * 0.76, high * 0.72, half * 0.24, 1);
+    ctx.fillStyle = "#3f3f46";
+    ctx.fill(arm);
+    const glassArm = new Path2D();
+    glassArm.roundRect(half * 0.94, high * 0.6, 2, high * 0.2, 0.6);
+    ctx.fillStyle = "#1e293b";
+    ctx.fill(glassArm);
+    ctx.stroke(glassArm);
+  }
+  // The roof edge along the top, which is what a cab has instead of a gutter.
+  ctx.fillStyle = job.paint;
+  ctx.lineWidth = PEN * 0.6;
+  const roof = new Path2D();
+  roof.rect(-half, high - high * 0.1, half * 2, high * 0.1);
+  ctx.fill(roof);
+  ctx.stroke(roof);
 }
 
 /** The tank: tracks and hull below, turret above. */
@@ -4750,62 +5381,218 @@ function tankWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
   }
 }
 
-/** The tank from the side: the track with its road wheels, and the hull. */
+/** The tank from the side: the track it runs on, and the hull above it. */
 function tankFlank(ctx: CanvasRenderingContext2D, job: WallJob): void {
   const half = job.span / 2;
   const high = job.high;
+  // How high the track stands, how thick the run of plates is, and the line
+  // the road wheels turn about - which is halfway up it, because that is what
+  // "the wheels are inside the track" means.
+  const top = high * TRACK_RISE;
+  const thick = top * TRACK_RUN;
+  const axis = top / 2;
 
-  const track = new Path2D();
-  track.roundRect(-half, 0, half * 2, high * 0.62, 1.8);
-  ctx.fillStyle = "#292524";
+  // **What is behind the track**: the suspension and the side of the hull, in
+  // the shadow the track throws over them. Drawn first and the shape of the
+  // whole loop, so that whatever is laid on top of it there is no daylight
+  // between the hull and the ground.
+  const shell = new Path2D();
+  shell.roundRect(-half, 0, half * 2, top, axis);
+  ctx.fillStyle = TRACK_SHADE;
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
-  ctx.fill(track);
-  ctx.stroke(track);
-  ctx.fillStyle = "#44403c";
-  ctx.lineWidth = PEN * 0.5;
-  for (let at = -half + 4.5; at < half - 4; at += 6.5) {
-    const roller = new Path2D();
-    roller.ellipse(at, high * 0.3, high * 0.19, high * 0.19, 0, 0, Math.PI * 2);
-    ctx.fill(roller);
-    ctx.stroke(roller);
+  ctx.fill(shell);
+  ctx.stroke(shell);
+
+  // The road wheels, in a row down the middle of it. They are what the weight
+  // stands on, and they are the reason the track is as tall as it is.
+  const rim = axis - thick * 1.15;
+  const march = (half * 2 - top * 1.7) / (ROAD_WHEELS - 1);
+  ctx.lineWidth = PEN * 0.6;
+  for (let wheel = 0; wheel < ROAD_WHEELS; wheel += 1) {
+    const at = -half + top * 0.85 + wheel * march;
+    const tyre = new Path2D();
+    tyre.ellipse(at, axis, rim, rim, 0, 0, Math.PI * 2);
+    ctx.fillStyle = TRACK_HUB;
+    ctx.fill(tyre);
+    ctx.stroke(tyre);
+    const boss = new Path2D();
+    boss.ellipse(at, axis, rim * 0.34, rim * 0.34, 0, 0, Math.PI * 2);
+    ctx.fillStyle = TRACK_SEAM;
+    ctx.fill(boss);
+  }
+  // The drive sprocket at the back and the idler at the nose, which are bigger
+  // than the road wheels and sit where the belt turns round.
+  for (const end of [-half + axis, half - axis]) {
+    const cog = new Path2D();
+    cog.ellipse(end, axis, axis - thick * 0.7, axis - thick * 0.7, 0, 0, Math.PI * 2);
+    ctx.fillStyle = TRACK_HUB;
+    ctx.lineWidth = PEN * 0.6;
+    ctx.fill(cog);
+    ctx.stroke(cog);
   }
 
+  // **And the belt itself, once round the lot.** A stadium with a stadium cut
+  // out of it by the even-odd rule: straight along the top, round the idler,
+  // straight back underneath, round the sprocket. One band of even thickness
+  // with the wheels showing through the middle of it, which is a track - what
+  // was here before was a flat box with the wheels painted on the outside of
+  // it, and a track that has no inside cannot be seen to go round.
+  const belt = new Path2D();
+  belt.roundRect(-half, 0, half * 2, top, axis);
+  belt.roundRect(
+    -half + thick,
+    thick,
+    half * 2 - thick * 2,
+    top - thick * 2,
+    axis - thick,
+  );
+  ctx.fillStyle = TRACK_STEEL;
+  ctx.lineWidth = PEN;
+  ctx.fill(belt, "evenodd");
+  ctx.stroke(shell);
+
+  // The plates on the two straight runs, stepped along by how far the tank has
+  // rolled. **They go opposite ways**, because that is what the belt does: the
+  // bottom run is standing still on the road while the machine drives over it,
+  // so seen from the hull it runs backwards, and the top run comes forward at
+  // twice the speed to make up for it.
+  const creep = (job.spin / WHEEL_STEPS) * TRACK_LINK;
+  ctx.fillStyle = TRACK_PLATE;
+  ctx.strokeStyle = TRACK_SEAM;
+  ctx.lineWidth = 0.25;
+  for (let link = -half + axis; link < half - axis - TRACK_LINK; link += TRACK_LINK) {
+    for (const run of [
+      { at: link + creep, foot: top - thick },
+      { at: link - creep, foot: 0 },
+    ]) {
+      if (run.at > -half + axis && run.at < half - axis - TRACK_LINK * 0.6) {
+        const plate = new Path2D();
+        plate.rect(run.at, run.foot + 0.15, TRACK_LINK * 0.6, thick - 0.3);
+        ctx.fill(plate);
+        ctx.stroke(plate);
+      }
+    }
+  }
+
+  // The hull, standing on the top run with nothing between the two: a long
+  // sloped glacis at the nose, square at the back, and the fender over the
+  // track along the bottom of it.
   const hull = new Path2D();
-  hull.moveTo(-half + 1, high * 0.52);
-  hull.lineTo(half - 1, high * 0.52);
-  hull.lineTo(half - 1, high * 0.78);
-  hull.lineTo(half - 7, high);
+  hull.moveTo(-half + 1, top - 1.2);
+  hull.lineTo(half - 1, top - 1.2);
+  hull.lineTo(half - 1, high * 0.82);
+  hull.lineTo(half - 8, high);
   hull.lineTo(-half + 1, high);
   hull.closePath();
-  ctx.fillStyle = "#4d7c0f";
+  ctx.fillStyle = TANK_GREEN;
+  ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
   ctx.fill(hull);
   ctx.stroke(hull);
+  const fender = new Path2D();
+  fender.rect(-half + 1, top - 1.2, half * 2 - 2, 1.4);
+  ctx.fillStyle = TANK_SKIRT;
+  ctx.lineWidth = PEN * 0.6;
+  ctx.fill(fender);
+  ctx.stroke(fender);
+  // A stowage box on the side of the hull, which every one of these carries.
+  const box = new Path2D();
+  box.rect(-half + 4, top + 0.8, 9, high - top - 2.4);
+  ctx.fillStyle = "#3f4f22";
+  ctx.fill(box);
+  ctx.stroke(box);
 }
 
-/** The tank end on: a track at each side, the hull between them. */
+/** The tank end on: a track at each side, and armour the whole way between. */
 function tankEnd(ctx: CanvasRenderingContext2D, job: WallJob): void {
   const half = job.span / 2;
   const high = job.high;
+  const top = high * TRACK_RISE;
+  const thick = top * TRACK_RUN;
 
-  ctx.fillStyle = "#292524";
+  // **The belly, right down to the road.** What used to be here was a hull
+  // that began a quarter of the way up, with the two tracks either side of it
+  // and the street showing between them: a tank one could see under. It has a
+  // floor now, because it has one in life.
+  const belly = new Path2D();
+  belly.rect(-half + TRACK_BAND * 0.6, 0, half * 2 - TRACK_BAND * 1.2, top);
+  ctx.fillStyle = TRACK_SHADE;
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
+  ctx.fill(belly);
+
+  // A track at each side, seen end on: the band, with the top and the bottom
+  // run of plates showing as a bar across each end of it.
   for (const side of [-1, 1]) {
     const track = new Path2D();
-    track.roundRect(side === 1 ? half - 6 : -half, 0, 6, high * 0.62, 1.4);
+    track.roundRect(
+      side > 0 ? half - TRACK_BAND : -half,
+      0,
+      TRACK_BAND,
+      top,
+      1.2,
+    );
+    ctx.fillStyle = TRACK_STEEL;
+    ctx.lineWidth = PEN;
     ctx.fill(track);
     ctx.stroke(track);
+    ctx.fillStyle = TRACK_PLATE;
+    for (const foot of [0.2, top - thick - 0.2]) {
+      const plate = new Path2D();
+      plate.rect(
+        (side > 0 ? half - TRACK_BAND : -half) + 0.6,
+        foot,
+        TRACK_BAND - 1.2,
+        thick,
+      );
+      ctx.fill(plate);
+    }
   }
+
+  // And the hull across the top of them, overlapping both.
   const hull = new Path2D();
-  hull.roundRect(-half + 5, high * 0.22, half * 2 - 10, high * 0.78, 1.4);
-  ctx.fillStyle = "#4d7c0f";
+  hull.roundRect(
+    -half + 3,
+    top - 1.2,
+    half * 2 - 6,
+    high - top + 1.2,
+    1.4,
+  );
+  ctx.fillStyle = TANK_GREEN;
+  ctx.strokeStyle = INK;
   ctx.fill(hull);
   ctx.stroke(hull);
 }
 
-/** The turret, from whichever side: a sloped block with the gun in it. */
+/** How much of the bodyside the track takes up, from the ground. */
+const TRACK_RISE = 0.64;
+
+/** How thick one run of it is, as a share of that. */
+const TRACK_RUN = 0.24;
+
+/** How many road wheels there are down each side. */
+const ROAD_WHEELS = 6;
+
+/** What shows between the runs behind the wheels: hull and suspension, in shade. */
+const TRACK_SHADE = "#3f3b36";
+
+/**
+ * The turret, from whichever side: a sloped block with the mantlet in it.
+ *
+ * @remarks
+ * Darker than the deck it stands on, because it has to be: a block the same
+ * green as the hull below it, at this size, reads as more hull, and the whole
+ * point of giving the turret walls is that one can see it is a separate thing
+ * sitting on top and pointing somewhere else.
+ *
+ * **No barrel on the flank.** The gun is already in the picture laid over
+ * this, drawn flat at turret height and pointing wherever the gun points; a
+ * second barrel painted on the side of the turret is the same gun twice, and
+ * since the wall does not turn with the picture the two disagree the moment
+ * the turret does. What the nose face gets is the muzzle, which is what one
+ * actually sees of the gun from in front of it.
+ */
 function turretWall(
   ctx: CanvasRenderingContext2D,
   job: WallJob,
@@ -4820,28 +5607,39 @@ function turretWall(
   turret.lineTo(half - 3, high - 0.8);
   turret.lineTo(half - 1, 0);
   turret.closePath();
-  ctx.fillStyle = "#3f6212";
+  ctx.fillStyle = TURRET_SIDE;
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN;
   ctx.fill(turret);
   ctx.stroke(turret);
 
-  const gun = new Path2D();
   if (flank) {
-    gun.roundRect(half - 8, high * 0.34, 8, 1.6, 0.6);
+    // The bustle rack across the back of it, and the band of spare track links
+    // hung along the side - what one sees of a turret from ten metres away.
+    const rack = new Path2D();
+    rack.rect(-half + 0.8, high * 0.45, 4.4, high * 0.4);
+    ctx.fillStyle = TRACK_HUB;
+    ctx.lineWidth = PEN * 0.6;
+    ctx.fill(rack);
+    ctx.stroke(rack);
   } else {
-    gun.ellipse(0, high * 0.42, 1.8, 1.8, 0, 0, Math.PI * 2);
+    const muzzle = new Path2D();
+    muzzle.ellipse(0, high * 0.42, 1.8, 1.8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = RUBBER;
+    ctx.lineWidth = PEN * 0.7;
+    ctx.fill(muzzle);
+    ctx.stroke(muzzle);
   }
-  ctx.fillStyle = RUBBER;
-  ctx.lineWidth = PEN * 0.7;
-  ctx.fill(gun);
-  ctx.stroke(gun);
 
   const hatch = new Path2D();
   hatch.roundRect(-half * 0.4, high - 1.4, 3.4, 1.4, 0.5);
   ctx.fillStyle = "#365314";
+  ctx.lineWidth = PEN * 0.6;
   ctx.fill(hatch);
   ctx.stroke(hatch);
 }
+
+/** What the side of the turret is painted: darker than the deck under it. */
+const TURRET_SIDE = "#3a4a1f";
 
 /* eslint-enable @typescript-eslint/no-magic-numbers */

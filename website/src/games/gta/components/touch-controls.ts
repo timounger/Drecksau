@@ -85,6 +85,16 @@ export type TouchControls = {
   /** Whether a charge was asked for, clearing it. */
   consumePlant(): boolean;
   /**
+   * Whether the same button is being **held** this instant.
+   *
+   * @remarks
+   * The tank's machine gun, which fires for as long as one holds it. It is the
+   * one button whose press and whose hold mean two different things - a
+   * charge on foot, the gun from the driver's seat - and there is no second
+   * thumb to spare for a fourth button.
+   */
+  sprayHeld(): boolean;
+  /**
    * Whether the right thumb has touched down since the last frame, clearing it.
    *
    * @remarks
@@ -279,6 +289,9 @@ export function createTouchControls(
       const had = plantWanted;
       plantWanted = false;
       return had;
+    },
+    sprayHeld(): boolean {
+      return presses.some((each) => each.kind === "plant");
     },
     consumeTap(): boolean {
       const had = tapWanted;

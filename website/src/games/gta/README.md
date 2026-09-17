@@ -575,6 +575,23 @@ Hinterreifen. Das Polizeimotorrad fehlte in `TYRE_TRACKS` und legte das Paar
 hin, das ein Auto legt - ein Motorrad mit Hinterachse. Dasselbe für den Rauch
 beim Driften.
 
+**Eine Bremsspur ist eine Kurve, kein Lattenzaun.** Jede Marke wurde einzeln
+gezeichnet, als kurzes Stück entlang der Richtung, in die ihr Reifen gerade
+zeigte - und in einer Kurve ist das eine Reihe von **Tangenten**: Jeder Strich
+steht an beiden Enden über die Kurve hinaus, und die Kurve selbst kommt
+nirgends vor. Jede Marke weiß deshalb jetzt, welches Fahrzeug und welcher
+Reifen sie gelegt hat (`Mark.car`, `Mark.lane`), und das Bild zieht die Linie
+von einer zur nächsten. Diese Linie ist der Weg, den der Reifen genommen hat -
+also genau die Spur, die er hinterlassen hat.
+
+Gezeichnet wird das **stückweise statt paarweise**: Paar für Paar gestrichen
+landet jede runde Kappe auf der nächsten und die Linie perlt. Eine ganze
+Sekunde Bremsspur als ein einziger Pfad ist eine glatte Linie, und über eine
+Sekunde gegen zwanzig Sekunden Verblassen unterscheidet sich die Schwärze um
+ein paar Prozent - keine Naht wert. Zwei Spuren, die zeitlich oder räumlich
+weit auseinanderliegen, werden dagegen nicht verbunden: Das sind zwei Spuren
+auf der Straße und keine Linie von hier nach dort.
+
 **Und der Rauch ist Rauch, kein Konfetti.** Drei flache Scheiben in einem Grau
 lesen sich als drei Scheiben. Was ein brennender Reifen tatsächlich macht: eine
 Fahne, die dort von der Straße abgeht, wo der Gummi ist, aufsteigt, sich
@@ -633,7 +650,9 @@ und Speichen drehen sich mit demselben `spin` wie beim Auto, das Rad rollt also
 sichtbar statt zu rutschen.
 
 **Motorräder fahren auch Streife, aber es sind weniger.** Im normalen Verkehr
-stehen zwei Streifenwagen gegen ein Streifenmotorrad (`ON_THE_ROAD`), und was
+steht je einer von beiden in der Liste (`ON_THE_ROAD`) - der Sinn einer Streife
+im Verkehr ist, dass ab und zu eine vorbeikommt, und mit zwei Wagen darin stand
+an jeder zweiten Kreuzung einer. Und was
 die Wache schickt, ist jeder vierte ein Kraftrad (`BIKE_EVERY`) - unterhalb von
 zwei Sternen dagegen immer eines, denn ein Kraftrad ist das, was man zu einer
 Verkehrssache schickt, und kein Wagen mit Besatzung. Der Testschalter, der
@@ -672,6 +691,24 @@ Drei Sachen daran waren nicht geschenkt:
   Viertelsekunde bricht die Taste, die ihn hingetragen hat, genau das ab, was
   die andere Taste gerade begonnen hat, und Einsteigen ginge nur im Stand.
 
+**Am Steuer ist der Daumen ein Kompass, kein Lenkrad.** Die vier Tasten sind
+ein Lenkrad: Oben ist Gas, links und rechts ist Einschlag, und beides wird
+gegen die Richtung gelesen, in die der Wagen gerade zeigt. Ein Daumen auf dem
+Telefon ist das nicht - man schiebt den Stick dorthin, wo man hinwill, und
+**unten heißt Süden, nicht rückwärts**. Der Stick schickt deshalb seine
+Richtung mit (`Input.steer`), und hinter dem Lenkrad wird genau die benutzt:
+Der Wagen dreht sich zu dieser Himmelsrichtung und fährt dorthin.
+
+Gelenkt wird dabei **weich** statt bis zum Anschlag (`STICK_EASE`): voller
+Einschlag, solange die Nase weit von der gewünschten Richtung weg ist, und
+immer weniger, je näher sie kommt - sonst pendelt der Wagen ewig um die Linie.
+Und die Tiefe der Ansicht wird herausgerechnet, bevor die Richtung in die Stadt
+übersetzt wird: Das Bild staucht Norden und Süden, also will ein senkrecht nach
+unten geschobener Daumen eine südlichere Richtung als derselbe Schub flach
+gelesen - sonst führe der Wagen dorthin, wo der Daumen auf dem **Schirm** zeigt,
+statt dorthin, wo er auf der **Karte** zeigt. Auf den Beinen ändert sich
+nichts; Laufen war schon immer ein Kompass.
+
 **Auf ein Zweirad steigt man nicht ein, man setzt sich drauf.** Ein Motorrad
 hat keine Fahrertür und keine linke Seite, die diesen Namen verdient: Man steht
 daneben, schwingt ein Bein darüber und sitzt. Auf welcher Seite man gerade
@@ -681,13 +718,27 @@ Tür, die aber **deutlich schneller** aufgeht als vorher: eine Siebtelsekunde
 (`DOOR_OPEN`) statt einer halben. Man sieht es passieren und wartet nicht
 darauf.
 
+**Wer überfahren wird, steht schneller wieder auf.** Neun Zehntelsekunden
+statt zwei und zwei Zehnteln (`FLOOR_SECONDS`): lang genug, um ein Preis zu
+sein, und kurz genug, um einer zu bleiben. Bei zwei Sekunden saß man da und
+sah der Straße beim Vorbeiziehen zu - was Überfahrenwerden kosten soll, ist
+das Auto, das man gerade erreichen wollte, nicht die nächste Spielminute.
+Dieselbe Zahl gilt für umgefahrene Polizisten.
+
 **Und wenn an der Fahrertür eine Wand steht, nimmt er die andere Seite.** Ein
 Wagen, der dicht an einem Haus parkt, hat eine Fahrertür, an der niemand stehen
 kann; der Mann lief dorthin, stieß gegen die Hauswand und schob. Jetzt wird
 geprüft, ob der Platz überhaupt frei ist, und wenn nicht, steigt er auf der
 anderen Seite ein und rutscht hinüber - was jeder tut. Dazu geht er auch um
-**Häuser** herum und nicht nur ums Auto, und nach `BOARD_PATIENCE` Sekunden
-ohne Ankommen gibt er auf, statt ewig zu drücken.
+**Häuser** herum und nicht nur ums Auto.
+
+**Und wo gar kein Weg hinführt, steigt er trotzdem ein.** Steht der Wagen so
+eng, dass beide Türen in einer Wand liegen, wird der Gang erst gar nicht
+angetreten: Die Taste setzt ihn sofort hinters Lenkrad. Und wer nach
+`BOARD_PATIENCE` Sekunden noch nicht angekommen ist, kommt auch nicht mehr an -
+dann steigt er ebenfalls einfach ein. Draußen vor einem Auto zu stehen, in das
+man gerade einsteigen wollte, ist kein Ergebnis: Der Weg zur Tür ist die schöne
+Art einzusteigen, keine Bedingung dafür.
 
 Die offene Tür ist gemalt wie jede andere Wand auch: eine Platte, vorn
 angeschlagen, um `DOOR_SWING` herausgeschwenkt, mit Glas im oberen Drittel. Ein
@@ -1099,6 +1150,76 @@ Jahren gebaut werden - Sitzrohr, Unterrohr, Oberrohr und die beiden Streben zur
 Hinternabe -, gezeichnet als Linien so dick wie die Rohre. Als Fläche gemalt
 kam ein grauer Kasten heraus, in dem ein Mann saß.
 
+**Es brennt auch nicht.** Ein Fahrrad hat keinen Tank, keinen Sprit und keinen
+Motor; wenn man darauf schießt, hört es auf, ein Fahrrad zu sein - der Rahmen
+verbiegt sich, die Räder sind hin, und es liegt auf der Straße. Es bekommt
+deshalb nie eine `Car.fireAt`, und das nimmt ihm in einem Zug den Rauch, die
+Flammen, den Countdown und den Knall am Ende: Alle vier fragen dort zuerst
+nach. Übrig bleibt der Ruß, den das Bild jedem Wrack gibt - kaputt, nicht
+abgebrannt.
+
+**Und es fährt langsamer als ein Auto.** Der Verkehr lief mit einer einzigen
+Zahl, also hielt der Mann, der zur Arbeit radelt, mit dem Golf neben sich mit -
+das Einzige an einem Fahrrad im Verkehr, das noch nie jemand gesehen hat. Er
+fährt jetzt `PEDAL_SHARE` davon, also gut die Hälfte: sechzig Pixel die
+Sekunde gegen hundertzehn. Das macht ihn nebenbei zum Hindernis, was der Grund
+ist, ihn überhaupt auf die Straße zu stellen.
+
+## Ein Traktor ist sein Hinterrad
+
+Es gibt genau ein Fahrzeug, dessen Proportionen man benennen kann, ohne den
+Rest gesehen zu haben: riesige Triebräder hinten, kleine Lenkräder vorn, und
+der Unterschied ist nicht fein - er ist mehr als das Doppelte. Gezeichnet war
+er als halbe gegen drei Zehntel Bordwandhöhe, in der Draufsicht achtzehn mal
+sieben gegen zehn mal viereinhalb. Das ist ein Lieferwagen mit ungleichen
+Reifen.
+
+Jetzt sind es `FARM_BACK_TYRE` gegen `FARM_FRONT_TYRE` - 0,62 gegen 0,27 der
+Bordwand -, und damit dafür überhaupt Platz ist, ist die **Gürtellinie** des
+Traktors höher gelegt (16 statt 13): Das Rad wird innerhalb des unteren
+Stockwerks gezeichnet, also entscheidet dessen Höhe, wie groß es werden kann.
+Das ist keine verschobene Zahl, sondern die Form der Maschine - die Motorhaube
+eines Traktors sitzt oben auf einem Hinterrad, das einem Mann bis an die
+Schulter geht.
+
+Dazu bekommt er ein eigenes Rad (`farmWheel`) statt des Stadtreifens: **Stollen**
+rundherum, schräg gestellt, die sich mitdrehen, und darin eine schmale
+Stahlfelge mit sechs Schrauben. Eine glatte schwarze Scheibe dieser Größe am
+Heck eines Traktors liest sich als Kirmesfahrgeschäft; und weil ein
+Traktorreifen gerade davon lebt, wie viel Gummi zwischen Felge und Boden steht,
+nimmt die Felge nur `FARM_RIM_SHARE` des Rades ein. Die Stollen stehen auch in
+der Draufsicht, als Reihe von Balken quer über den Reifen - von oben ist das
+die Hälfte dessen, was einen Traktor ausmacht.
+
+**Und die Räder stehen nicht mehr raus.** Die Silhouette war ein schmales
+Trapez - vier Zehntel der Breite an der Schnauze, zwei Drittel am Heck - und
+die Räder lagen außerhalb davon. Was außerhalb der Silhouette liegt, stempelt
+der Ring aber flach auf die Straße: zwei schwarze Platten neben der Maschine,
+jede der Länge nach halbiert von der Karosserie, die darüber gestempelt wird.
+Ein Traktor mit je einem **halben Rad** auf dem Asphalt daneben, und ein
+Drittel zu breit.
+
+Die Silhouette ist deshalb jetzt rechteckig und die **schmale Haube ist
+aufgemalt** - dieselbe Lehre, die vorher schon die Motorradnase gelernt hat:
+Was das Bild leer lässt, bleibt leer, also kostet eine volle Kontur nichts und
+bringt eine Maschine, deren Räder innerhalb ihrer eigenen Form liegen. Die
+Wände an den Enden zeichnen die Haube entsprechend schmal (`FARM_NOSE`,
+`FARM_TAIL`), sonst hätte der Traktor einen Kühler so breit wie seine
+Hinterachse.
+
+Die **Rücklichter** sitzen dazu oben auf den Kotflügeln (`LAMP_BACK_OF` 0,98)
+statt auf halber Bordwand, wo sie hinter dem Hinterrad lagen - das ist zwei
+Drittel der Bordwandhöhe hoch.
+
+Der Rest ist das, was man an einem stehenden Traktor sieht und vorher nicht
+sah: das **Kotflügelblech** über dem Hinterrad, die **Trittleiter** daran
+hoch, die **Kiemen** entlang der Haube, der **Kühlergrill** mit den Scheinwerfern
+auf den Haubenecken, der **Auspuff**, der vor der Kabine hochsteht, die
+**Kabinentür** mit Griff und Spiegel am Ausleger, zwei **Arbeitsscheinwerfer**
+vorn auf dem Dach, die beiden **Hubarme** der Dreipunkt-Hydraulik neben dem
+Zughaken - und das **orange Rundumlicht** auf der Dachecke, das an dieser Größe
+der einzige Farbfleck ist, der Landmaschine statt Kleinlaster sagt.
+
 ## Der Cybertruck ist der Golf rückwärts
 
 Derselbe Kasten, dieselben drei Stockwerke, und trotzdem das Gegenteil - weil
@@ -1173,6 +1294,16 @@ die ihre Lampen woanders tragen.
 
 ## Der Opel Corsa F, dreimal
 
+**Der Blitz ist so groß wie jedes andere Emblem der Stadt.** Die Limousinen
+tragen vorn und hinten eine schlichte Chromscheibe mit Radius 1,1; dieses hier
+ist ein Ring mit einem Blitz hindurch, und der Blitz reicht `BOLT_OUT` über den
+Ring hinaus - der Ring muss also **kleiner** sein als jene Scheibe, damit das
+ganze Zeichen gleich groß herauskommt. Bei `BADGE_SIZE` 0,85 endet der Blitz
+bei 1,07, und das ist die Scheibe der Limousine auf ein Zehntel Pixel genau.
+Vorher stand da 1,7, was den Blitz auf 2,14 hinausschob: fast doppelt so breit
+wie bei allen anderen - ein Auto mit einem Emblem drauf statt eines Emblems auf
+einem Auto.
+
 **Ein Golf, dem ein Fuß Länge fehlt.** 4,06 m mal 1,765 - bei den 10,3 Pixeln
 der Stadt auf den Meter sind das 41,7 mal 18,1 gegen die 44 mal 18,4 des Golf.
 Also eine Spur schmaler und spürbar kürzer, und das ist auch das Einzige, was
@@ -1200,11 +1331,27 @@ bestellt wurde.
 
 **Das Emblem sitzt im Grill zwischen den beiden Scheinwerfern**, nicht auf der
 Motorhaube - ein Markenzeichen liegt nicht flach da, wo man von oben darauf
-schaut. Es ist ein Ring mit einem Blitz quer darin; bei dieser Größe sind das
-drei kurze Striche - raus, runter, raus -, also ein **Z**, und ein Z in einem
-Ring auf der Nase eines Kleinwagens wird als genau das gelesen, was es ist. Der
-Ring ist beim Ultimate schwarz und sonst Chrom, der Blitz jeweils in der
-anderen der beiden Farben, damit er in beiden Fällen zu sehen ist.
+schaut -, und **dasselbe noch einmal auf der Heckklappe**.
+
+Gezeichnet ist es nach der Vorlage: ein **offener Ring**, kein Plättchen, mit
+einem Blitz quer hindurch, und der Blitz **steht auf beiden Seiten über den
+Ring hinaus**. Dieser Überstand ist das, woran man die Marke von der anderen
+Straßenseite erkennt; ein Blitz, der am Ring endet, liest sich als Strich in
+einem Kreis und ist das Zeichen von jemand anderem. Der Blitz selbst ist dünn
+an den Enden und tief in der Mitte, wo er die Stufe macht.
+
+Zwei Dinge musste er dafür bekommen, die ein echtes Emblem nicht hat. Erstens
+sitzt er auf einer **dunklen Platte**, egal welche Farbe das Auto hat: Chrom
+auf Schnee Weiß ohne etwas dahinter ist Chrom, das niemand findet. Zweitens
+bekommt das schwarze Emblem des Ultimate einen **Chromrand** - den hat ein
+Klavierlack-Emblem tatsächlich, und ohne ihn ist Schwarz auf schwarzem Grill
+ein Emblem, das man nicht sieht.
+
+**Größer wird er dafür nicht** (`BADGE_SIZE`). Ein echter wäre bei 10,3 Pixeln
+auf den Meter keinen Pixel breit; das hier ist schon das Dreifache davon, und
+noch größer hört es auf, ein Emblem auf einem Auto zu sein, und fängt an, ein
+Auto unter einem Emblem zu sein. Dass er bei dieser Größe gerade noch zu
+erkennen ist, ist der Preis - und der richtige.
 
 Die Felgen des Ultimate sind zehn dünne Doppelspeichen in hellem Silber über
 einem fast schwarzen Bett, mit einer polierten Lippe außen - und dahinter ein
@@ -1243,6 +1390,26 @@ anderem etwas geschrieben steht.
 Ein Schild liegt **auf** einem Dach, es ist nicht hineingemalt. Als gelbe
 Fläche im Lack hat es keine Dicke, fängt von der Seite nichts und verschwindet
 aus flachem Winkel im Dach.
+
+**TAXI steht auf seinen beiden großen Seiten**, nicht auf dem Deckel. Genau so
+ist ein Taxischild gebaut: breit quer über dem Auto, keine zwei Pixel tief und
+hoch genug für vier Buchstaben. Also trägt die nach vorn und die nach hinten
+gewandte Fläche das Wort, und man liest es von vor oder hinter dem Taxi - wie
+auf der Straße - statt von senkrecht oben, wo niemand steht.
+
+Das heißt auch: Das Wort zeigt sich, wenn das Taxi den Schirm hinauf oder
+hinunter fährt, und nicht, wenn es quer darüber fährt. Das ist kein Fehler,
+sondern diese Ansicht: Sie hat keine Perspektive, eine nach Osten oder Westen
+gedrehte Fläche fällt darin zu einer Linie zusammen. Was man von so einem Taxi
+sieht, ist der gelbe Kasten, und der genügt.
+
+Gedreht wird das Wort, wo die Kante nach links zeigt - derselbe Trick wie beim
+Schriftzug an der Streifenwagentür: In eine Richtung gedruckt läse es sich von
+einem Ende der Straße rückwärts, und ein Taxi, auf dem von hinten IXAT steht,
+ist schlimmer als eines ohne Aufschrift.
+
+Und das Schild sitzt, wo es auf einem echten sitzt: **vorn auf dem Dach und
+über dem Fahrer**, nicht in der Mitte.
 
 Zwei Lampensätze hatte es außerdem. Die Draufsicht malt Lampen für die
 Karosserien, deren Wände keine tragen - alles, was `golfWall` zeichnet, trägt
@@ -1342,6 +1509,24 @@ kein Besitzer, kein Update, kein Speichern. Gelegt wird alle 30 Millisekunden
 von allem, was rutscht (auch von der Polizei), gezeichnet wird unter den Autos,
 und verblasst wird über die Uhr. Der Spielstand wirft sie weg.
 
+**Zwei Sorten Spur, ein Feld.** `Mark.tread` sagt, was sie gedrückt hat, und
+daraus kommt alles andere: Gummi ist schmal, fast schwarz und hält zwanzig
+Sekunden; eine **Kette** ist so breit wie der Stahl, der sie gedrückt hat, hat
+die Farbe des aufgerissenen Bodens statt die von Reifen, trägt die Leiter ihrer
+Stollen der Länge nach und ist nach neun Sekunden weg (`TRACK_LIFE`). Die
+kürzere Lebensdauer ist Arithmetik, nicht Geschmack: Ein Panzer legt sein Paar,
+**solange er fährt** - nicht nur, wenn er rutscht -, und bei neun Sekunden sind
+das sechshundert Marken, also innerhalb von `MARK_MAX`. Bei zweiundzwanzig
+würde ein einziger fahrender Panzer stillschweigend jede Bremsspur der Stadt
+ausradieren.
+
+Die Stollen sind eine **gestrichelte zweite Linie** über dem Band, im selben
+Pfad - deshalb folgt sie der Kurve von allein. Mit runden Kappen war sie
+unsichtbar: Ein Strich, der ein Achtel so lang ist wie die Linie breit, ist mit
+runder Kappe ein Kreis an jedem Ende von nichts, die Striche laufen ineinander
+und zurück kommt wieder das glatte Band. Also `lineCap = "butt"` für die
+Sprossen und danach zurück auf rund.
+
 Zwei Fallstricke, beide erlebt:
 
 - **Haftung als feste Abzugsmenge** (`slip - bite*dt`) macht das Verhalten
@@ -1349,6 +1534,68 @@ Zwei Fallstricke, beide erlebt:
   er dreht sich weg. Die Exponentialform ist stufenlos abstimmbar.
 - **Wer `speed` setzt, muss `slip` mitsetzen.** Sonst schiebt ein stehendes
   Auto weiter seitwärts vor sich hin.
+
+## Eine Schlange fährt nacheinander an
+
+Alles an einer Warteschlange war bis dahin sofort: In dem Augenblick, in dem
+der Vordermann aus dem Weg war, fuhr der Hintermann los, und sechs Autos an
+einer roten Ampel fuhren als ein Stück los, alle sechs Nasen im selben Abstand
+die ganze Straße hinauf. So fährt niemand.
+
+`Car.wakeAt` ist eine **Reaktionszeit**: Wer steht, schiebt diese Marke eine
+halbe Sekunde vor die Uhr, und wenn die Straße frei wird, muss die halbe
+Sekunde erst noch ablaufen. Der Vordermann fährt damit eine halbe Sekunde
+früher los als der dahinter, der wiederum eine halbe Sekunde früher als der
+dahinter - die Schlange **reißt von vorne auf**, wie eine echte. Niemand
+organisiert das: Die Staffel fällt daraus ab, dass jeder Fahrer auf den vor ihm
+reagiert.
+
+## Der Fahrer entscheidet, das Auto schwenkt
+
+Ein Computerfahrer denkt in Himmelsrichtungen, weil die Stadt ein Raster ist
+und ein Raster genau das hergibt. Er bekam diese Richtung - und das Auto
+**hatte** sie: An der Kreuzung drehte sich das ganze Fahrzeug in einem Bild um
+neunzig Grad auf der Stelle und fuhr seitwärts weiter. So dreht sich nichts auf
+der Welt.
+
+`Car.want` ist deshalb, wohin er lenkt, `Car.angle` ist, wohin die Maschine
+zeigt, und das zweite kommt mit `TRAFFIC_TURN` zum ersten. Der Abstand
+dazwischen **ist** die Kurve: gut ein Fünftel Sekunde Bogen durch die Kreuzung,
+bei 110 Pixeln die Sekunde ein Radius von etwa fünfundzwanzig - eine halbe
+Straßenbreite, also genau die Kurve, die ein Auto in eine Seitenstraße fährt.
+Zwei Dinge hängen mit dran:
+
+- **Gefragt wird aus `want`, nicht aus `angle`.** Sonst bekäme ein Auto mitten
+  im Rechtsbogen zur Antwort, dass dort keine Straße ist, und suchte sich in
+  jedem Bild eine neue Richtung.
+- **Kein Spurzug während der Kurve** (`TURN_DONE`). Wer seitwärts in eine Spur
+  gezogen wird, aus der er gerade halb heraus ist, krebst durch die Kreuzung,
+  statt sie zu fahren.
+
+Gemessen: Die größte Richtungsänderung eines Autos in einem Bild ist jetzt
+0,073 Radiant - die Obergrenze - statt 1,571, also statt eines rechten Winkels.
+
+## Autos stehen nicht ineinander
+
+Alles davor ist ein Fahrer, der Entscheidungen trifft - Abstand halten, an Rot
+stehen bleiben, an der Kreuzung Vorfahrt geben -, und jede davon lässt sich
+aushebeln: Zwei biegen aus verschiedenen Straßen in dieselbe Lücke, ein
+geparktes Auto wird dort abgestellt, wo schon eines steht, ein Panzer schiebt
+eines ins andere. Ein Fahrer kann einen Unfall nicht rückgängig machen; was er
+kann, ist dabei nicht im Kofferraum des anderen sitzen, und mehr macht
+`keepApart` nicht.
+
+Jedes Auto wird dafür als **zwei Kreise** genommen statt als einer, je einen
+Radstand vom Mittelpunkt entfernt und so breit wie der Wagen. Ein Kreis würde
+aus einer Limousine eine Scheibe von Wagenlänge machen - das schöbe jeden
+Bordstein auseinander und zerlegte jeden Parkplatz der Stadt; zwei ergeben eine
+Form, die lang und schmal ist wie das Auto, bei vier Abstandsrechnungen je
+Paar. Bewegt wird nur der fahrende Verkehr in der Nähe des Spielers: Geparktes
+bleibt, wo es geparkt ist - irgendetwas muss das Feste sein, aus dem der Rest
+herausgeschoben wird - und den Wagen des Spielers schiebt niemand.
+
+Gemessen über eine Minute Stadtverkehr: **0** von rund zehntausend geprüften
+Paaren steckten ineinander.
 
 ## Verkehr ist kein Zufallsgenerator
 
@@ -1471,10 +1718,44 @@ landet nicht um halb zwölf nachts in einer Stadt, die er für kaputt hält.
 
 ## Zwei Hubschrauber, ein Bild
 
-`paintHeli` zeichnet die Maschine - Kabine, Stummelflügel, Heckausleger,
-Heckrotor, vier Blätter -, und beide Hubschrauber im Spiel sind sie: die
-Polizei in Blau, das Militär in Oliv. Ein zweites Bild hätte bedeutet, jede
+`paintHeli` zeichnet die Maschine, und beide Hubschrauber im Spiel sind sie:
+die Polizei in Blau, das Militär in Oliv. Ein zweites Bild hätte bedeutet, jede
 Änderung zweimal zu machen und beim zweiten Mal daneben.
+
+**Es ist eine Sikorsky UH-60, nach den Maßen des Herstellers.** Der Rumpf ist
+15,25 m lang und 2,36 m breit - von oben also ein **langer, schmaler Körper mit
+einem Ausleger hinten dran**, und diese Form erkennt man, bevor man irgendein
+Detail daran sieht. Alles andere ist dieses Verhältnis mal `HELI_LONG`:
+
+|               | Meter      | Anteil der Länge | gezeichnet   |
+| ------------- | ---------- | ---------------- | ------------ |
+| Rumpfbreite   | 2,36       | 0,155            | 7,1          |
+| Hauptrotor    | 16,36 quer | 1,07             | 24,7 Radius  |
+| Heckrotor     | 3,35 quer  | 0,22             | 5,1 Radius   |
+| Höhenleitwerk | 4,40 quer  | 0,29             | 6,6 je Seite |
+| Spurweite     | 2,97       | 0,19             | 4,5 je Seite |
+
+Fünf Dinge unterscheiden sie von "einem Hubschrauber":
+
+- **Vier Blätter an jedem Rotor.** Der Hauptrotor hatte zwei, und zwei ist eine
+  Huey.
+- **Der Heckrotor sitzt rechts am Seitenleitwerk und ist um zwanzig Grad
+  geneigt** - das hat sonst keiner, und die Neigung ist dazu da, ihm etwas
+  Auftrieb abzugewinnen. Von oben ist die Scheibe eines Heckrotors eine Linie
+  **längs**, nicht quer, und die Neigung öffnet diese Linie zu einer schmalen
+  Ellipse. Gezeichnet war sie quer.
+- **Räder, keine Kufen.** Ein Bugfahrwerk hat sie nicht: zwei Haupträder unter
+  der Kabine und ein Spornrad ein gutes Stück vorn auf dem Ausleger, nicht an
+  dessen Ende.
+- **Zwei Triebwerksgondeln** links und rechts des Rotorkopfs, mit den Abgasen
+  nach außen und hinten.
+- **Ein Höhenleitwerk** quer über dem Ausleger vor dem Seitenleitwerk, und es
+  ist breit - fast so breit wie die Stummelflügel.
+
+An genau einer Stelle sind die Zahlen zugunsten der Maschine gerundet: Bei
+sechsundvierzig Pixeln Länge wären sieben Pixel Breite maßstäblich richtig, und
+sieben Pixel Oliv mit zwei schwarzen Triebwerksdecks darauf lassen einen Rumpf
+übrig, den man kaum noch sieht. Er ist deshalb eine Spur breiter (`HAWK_WIDE`).
 
 Der fliegbare ist **kein Fahrzeug**. Er hat weder Blech noch Tank noch einen
 Platz in der Verkehrssimulation, sondern ist ein eigener kleiner Zustand:
@@ -1498,6 +1779,54 @@ zurückgehen. Daran hängen drei Dinge, und alle drei mussten sein:
    geschickt wird.
 3. **Sie rennen nicht quer über die Karte.** Nur wenn der Spieler näher als
    `GUARD_REACH` an ihrem Posten ist, verlassen sie ihn.
+
+## Auf dem Dach landen
+
+Der Jetpack war eine Zahl nach oben und dieselbe Zahl nach unten, und der Boden
+war **immer die Straße**. Wer über der Mitte eines Blocks losließ, sank durch
+das Dach, die Wohnung und den Laden darunter hindurch und stand auf dem
+Gehweg.
+
+Das Bild wusste dagegen von Anfang an, wie hoch jedes Haus ist - es muss es
+wissen, um es zu zeichnen. Also ist diese Rechnung dorthin gewandert, wo der
+Motor sie auch lesen kann: `scatter`, `houseHeight` und `HOUSE_LOW`/`HOUSE_HIGH`
+stehen jetzt in `city.ts` bzw. `types.ts`, und darauf sitzt `roofAt(cells, x,
+y)` - wie hoch das Dach über einem Punkt ist, null im Freien. Scheune, Kaserne
+und Stadtblock werden in der Reihenfolge gefragt, in der sie gebaut werden.
+
+Daran hängen drei Dinge, und zusammen sind sie das ganze Verhalten:
+
+- **Der Boden ist, was darunter ist.** `fly` klemmt die Höhe nach unten auf
+  `roofAt` statt auf null. Loslassen über einem Dach heißt landen.
+- **Wo eine Wand ist, hängt davon ab, wie hoch man ist** (`clears`). Auf dem
+  Gehweg ist ein Haus eine Wand, auf seinem Dach ist es der Boden, über allem
+  ist nichts im Weg. Ein höheres Nachbarhaus bleibt dabei eine Wand - man
+  läuft nicht in einen Wolkenkratzer hinein, nur weil man auf dem Flachbau
+  daneben steht.
+- **Und deshalb fällt man herunter.** Niemand programmiert das: Der nächste
+  Schritt über die Dachkante hat null unter sich, also sinkt er dorthin.
+
+Dazu wird er auf dem Dach **vor** allem anderen gezeichnet, sonst steckte er in
+dem Haus, auf dem er steht. Über der Straße dagegen nicht: Da ist er zwischen
+den Häusern wie alle anderen, und dass eines davor steht, ist das Bild, das
+funktioniert.
+
+Gemessen: Auf ein 40,4 Pixel hohes Dach losgelassen, bleibt er bei 40,4 stehen,
+läuft 93 Pixel darauf nach Osten und fällt dann über die Kante auf den Gehweg.
+
+**Und man sieht das Gerät - solange er damit fliegt.** Zwei Stahlflaschen
+zwischen den Schultern, hinter ihm angesetzt, damit beide an den Schultern
+vorbeikommen, und darunter zwei kurze Flammen nach unten. Zwei Schalter, zwei
+verschiedene Fragen:
+
+- **Die Flammen brennen, solange er drückt** (`Player.thrust`). Vorher waren es
+  zwei mannsgroße Fahnen mitten durch ihn hindurch, die brannten, sobald er
+  überhaupt in der Luft war - also auch den ganzen Weg nach unten.
+- **Das Gerät ist auf, solange er über dem ist, was unter ihm liegt.** Man hat
+  es auf, wenn man damit fliegt; sobald man aufsetzt - auf der Straße oder auf
+  einem Dach - läuft man wieder herum, und dann hat man es nicht mehr um. Das
+  ist genau `height > roofAt(...)`, also dieselbe Zahl, die auch entscheidet,
+  ob er steht oder fällt.
 
 ## Der Jetpack ist eine Zahl
 
@@ -1773,6 +2102,14 @@ Knopf. Die Geiseln laufen deshalb **mit** - der Mann mit der Kombination muss
 an die Tresortür gebracht werden, und das geht nur, indem man ihn hintersich
 herlaufen lässt.
 
+## Was im Bild steht, steht nicht daneben
+
+Unter dem Bild lief eine zweite Zeile mit Sternen, Respekt und „Pakete
+abholen". Die Sterne standen damit **zweimal** auf dem Schirm - oben rechts
+gezeichnet, unten noch einmal in Text -, und das Spiel hörte am Rand des Bildes
+nicht auf, sondern lief in die Seite hinein. Die Zeile ist weg. Was zählt,
+steht im Bild: Sterne, Blech, Geld, Waffe.
+
 ## Die Knöpfe stehen im Bild, nicht auf der Seite
 
 `gta-actions.ts` ist beides: die Liste der Knöpfe und ihre Kästen. Der Renderer
@@ -2007,6 +2344,121 @@ Wo man danach steht, entscheidet `respawn()` über `nearest()`: nach dem Tod die
 nächste Tür von `doorsOf("hospital")`, nach der Haft die von `doorsOf("prison")`.
 Die Stadt steht fest, also gibt es diese Türen ohne Suche - man wacht dort auf,
 wo man herausgekommen wäre.
+
+## Das Gefängnis ist ein Geviert, kein Kasten
+
+In der Stadt war es ein Haus wie jedes andere mit GEFÄNGNIS über der Tür - ein
+Gefängnis in demselben Sinn, in dem eine Hütte mit BANK darauf eine Bank ist.
+Was ein Gefängnis von oben ausmacht, ist seine **Form**:
+
+- **Ein Zellentrakt einmal ringsherum**, zwei Felder dick, an jeder Ecke
+  geschlossen. Kein Tor, keine Lücke, nichts, wodurch man sehen könnte.
+- **Auf jeder der vier Ecken ein Wachturm**: ein Schaft, darauf eine verglaste
+  Kanzel, die über ihn hinausragt, und darin ein Wächter in Uniform, der über
+  die Mauer schaut.
+- **In der Mitte der Hof**: Beton, ein aufgemaltes Basketballfeld mit
+  Mittelkreis, Zonen und Körben, die Baracke oben links mit *Prison Industry*
+  darüber und die Sitzbänke unten rechts.
+- **Und Männer darin**, die ihre Runden gehen. Zwei sitzen auf den Bänken, weil
+  in jedem Hof jemand sitzt.
+
+### Vier Blöcke, nicht einer
+
+Es steht auf **vier** Stadtblöcken: dreizehn Felder mal dreizehn statt der fünf
+mal fünf, die ein einzelner Block hergibt. Das ist keine Willkür, sondern die
+nächste Größe, die das Raster überhaupt anbietet - alles dazwischen ist Straße.
+Und nötig ist sie: In einen Hof von fünf mal fünf Feldern passt kein
+Basketballfeld, und ohne Hof ist der Ring nur ein Kasten mit einem Loch.
+
+Die Straßenkreuzung, die vorher zwischen den vier Blöcken lag, verschluckt der
+Hof; deshalb fragt `inTown` **zuerst** nach dem Gefängnis und erst danach nach
+den Straßen. Die Straßen **rings außen** bleiben, weil der Grundriss an ihnen
+aufhört: Das Gefängnis schließt eine Kreuzung, nicht vier Straßen.
+
+Drei Dinge mussten dafür mitziehen, und jedes davon war sonst ein sichtbarer
+Fehler gewesen:
+
+- **Eine Autobahn darf nicht an einer Gefängnismauer enden.** Wo der Grundriss
+  eine überdecken würde, baut der Plan stattdessen ein Wohnhaus - dasselbe, was
+  er mit einer zweiten Bank macht. Von den drei Gefängnissen, die der Plan
+  zeichnet, liegen zwei quer über einer Autobahn und werden zu Häusern. Eines
+  ist für ein Wahrzeichen ohnehin die richtige Zahl: Es ist das Gebäude, aus
+  dem man entlassen wird, und immer am selben Tor entlassen zu werden ist
+  besser als am jeweils nächsten von dreien.
+- **Die drei verschluckten Blöcke bekommen keine Tür.** Sie behalten, was der
+  Plan dort gezeichnet hat - ein Haus, einen Club, einen Waffenladen -, und
+  nichts davon ist noch ein Gebäude: Der Boden darunter ist Gefängnis. Eine Tür
+  wäre ein Laden gewesen, den niemand betreten kann - und in dieser Stadt war
+  es genau einmal die eigene **Garage** des Spielers, als Loch durch die
+  Gefängnismauer geschnitten.
+- **Das Dach hat eine Höhe, nicht vier.** `roofAt` fragt für jedes Feld des
+  Gefängnisses den Ankerblock, nicht den Block, auf dem das Feld liegt - sonst
+  stünde, wer auf der anderen Seite des Rings landet, ein paar Pixel im Dach
+  oder darüber.
+
+Dazu ist es über den eigenen Gehweg mitgebaut, die Mauer geht bis an den
+Bordstein; das **Tor** liegt deshalb auf der Straße südlich des ganzen
+Grundrisses statt auf dem Gehweg eines Blocks, und die **Baracke** wird auf
+dasselbe Feld gezeichnet, das der Boden massiv macht - `prisonHut` ist die eine
+Stelle, die das entscheidet, und Bild und Boden fragen beide dort.
+
+**Und die Garagen kommen beim Laden aus dem Plan statt aus der Datei.** Sie
+sind eine Formel über eine Stadt, die selbst eine Formel ist - ein Haus je
+Insel, das der Inselmitte nächste -, also kann ein Spielstand, der vor einer
+Planänderung geschrieben wurde, einfach die heutige Antwort bekommen. Und er
+muss: Als das Gefängnis auf vier Blöcke wuchs, lag das Haus, in das eine der
+Garagen geschnitten war, **darin** - das Garagentor des Spielers ging durch die
+Gefängnismauer. Verloren geht dabei nichts, denn im Spiel verschiebt niemand
+je eine Garage.
+
+### Was ein Gefängnis verdecken kann, ist seine Vorderfront
+
+Jedes Haus der Stadt wird durchsichtig, sobald jemand dahinter steht - sonst
+verschwände man hinter der eigenen Häuserzeile. Gefragt wird das an einem
+Rechteck, und für ein gewöhnliches Haus ist das ganze Grundstück die richtige
+Antwort: Es ist von vorn bis hinten massiv.
+
+Ein Gefängnis ist das nicht - es ist eine Mauer um ein Loch. Das Rechteck über
+den ganzen Grundriss verschluckte deshalb auch den Hof, und wer mitten im Hof
+stand, im Freien, mit nichts vor sich, machte das ganze Gefängnis durchsichtig.
+Der Kasten hört jetzt am **hinteren Rand des vorderen Trakts** auf: Er deckt
+genau den ab, den diese Mauer verbirgt, und niemanden dahinter im Hof.
+
+### Das Feld steht hochkant
+
+Ein Basketballfeld ist fast doppelt so lang wie breit, und die lange Seite ist
+die, auf der gespielt wird: von Korb zu Korb. Quer gelegt - breit und flach -
+liest es sich als Tennisplatz ohne Netz. Es steht deshalb der Länge nach im
+Hof, und damit es dort Platz hat, ist die **Baracke in die obere linke Ecke**
+gerückt: In der Mitte stand sie mitten im Feld, die Männer liefen ihre Runden
+durch sie hindurch, und für Bänke war kein Platz mehr. Die stehen jetzt unten
+rechts, zwei der Sitzenden darauf.
+
+### Der Hof ist Wetter, keine Geschichte
+
+Niemand kann den Hof zu Fuß erreichen - der Ring hat keinen Durchgang -, also
+rührt nichts im Spiel diese Männer an, und keiner von ihnen muss im Zustand
+stehen. Wo jeder gerade ist, kommt aus der Uhr und daraus, wo sein Gefängnis
+steht, genauso wie die Farbe einer Ampel: eine eigene Ellipse je Mann, ein
+eigenes Tempo, eine eigene Richtung. Das kostet nichts je Bild und erspart es,
+ein Dutzend Personen je Gefängnis durch jeden Spielstand zu tragen - für einen
+Hof, den man über eine Mauer hinweg ansieht.
+
+Der einzige Weg hinein ist über die Mauer, also der Jetpack, und der einzige
+Weg hinaus derselbe. Ein Hof, den nichts erreicht, ist kein Versehen - er ist
+der eine Ort der Stadt, zu dem man fliegen muss.
+
+Gezeichnet wird **von Norden nach Süden** statt als ein Kasten, denn das Ding
+hat ein Innen: erst der ferne Trakt mit seinen Türmen, dann der Hofboden, dann
+was im Hof steht und wer darin geht, und zuletzt der nahe Trakt - die Mauer
+zwischen Kamera und Hof verdeckt den Hof, wie eine Mauer das tut.
+
+Zwei Zahlen an der Kanzel sind dabei Projektion und nicht Geschmack: Ihre
+Wände beginnen erst oben am Schaft (`base`), sonst wäre der ganze Turm von
+unten bis oben eine Glasscheibe; und der Wächter steht fast vorn in ihr
+(`GUARD_AT`), weil jedes Feld weiter nördlich 0,82 Pixel weiter
+**oben** auf dem Schirm liegt - mittig gestellt stünde er auf dem Dach seiner
+eigenen Kanzel.
 
 ## Der Knast ist eine zweite Welt, keine Ecke der Stadt
 
@@ -2316,6 +2768,119 @@ beiden Fahrzeuge, die man quer über eine Kreuzung erkennen können muss. Wagen
 und Geländewagen bekommen deshalb die Palette **ohne** diese beiden Töne; das
 Taxi bekommt sein Gelb fest statt aus der Palette, wo es vorher auch blau
 herauskommen konnte.
+
+### Der Panzer ist kein Auto mit Gewehr
+
+Vier Dinge stimmten an ihm nicht, und jedes einzelne ist ein Beispiel dafür,
+wie ein Fahrzeug aussieht, das aus einem Auto gebaut wurde.
+
+**Die linke Kette lag nicht auf dem Panzer.** Beide kamen aus
+`side * wide - band`, was auf der einen Seite das Band innen an die Flanke legt
+und auf der anderen ein ganzes Band **außerhalb** der Maschine - die linke fiel
+über den Rand des Bildes und wurde abgeschnitten. Der Panzer fuhr auf
+anderthalb Ketten.
+
+**Die Wanne hörte vor ihnen auf.** Sie war um etwas mehr eingerückt, als die
+Ketten breit waren, und zwischen Wanne und eigener Kette blieb auf jeder Seite
+ein Haarstrich Straße stehen: Man konnte durch einen Panzer sehen. Jetzt
+überlappt das Deck die Innenkante beider Ketten - Panzerung, die sich trifft,
+wird sich treffend gezeichnet.
+
+**Und zwischen Turm und Deck war Luft.** Der Turm wurde als flaches Bild auf
+Dachhöhe gelegt, mit nichts darunter: sieben Pixel offener Himmel genau dort,
+wo die Panzerung am dicksten ist. Jetzt ist er ein Kasten wie alles andere hier
+- nur steht er im Winkel des **Rohrs** statt im Winkel der Ketten, und er ist
+damit die einzige Wand der Stadt, die sich dreht, während das Fahrzeug darunter
+steht. Dazu gehören auch eigene Maße im Kasten (`TIERS.tank.cabin*`): Es waren
+die der Wanne, vierunddreißig Pixel breit, was solange egal war, wie niemand
+darauf stand.
+
+**Und er blinkte.** Ein Polizeipanzer fiel in den Zweig für Fahrzeuge ohne
+Dachbalken und bekam die drei Blaulichter des Motorrads: sechzig Tonnen
+Kettenfahrzeug, die den Verkehr anblitzen. Die Bedingung fragt jetzt nach
+**zwei Rädern** statt nach „kein Balken".
+
+**Man kam nicht hinein.** Seit es den Gang zur Fahrertüre gibt, lief der Mann
+auch beim Panzer zu einer Stelle `DOOR_STAND` neben dessen Mitte - bei einer
+sechsundvierzig Pixel breiten Maschine sind das elf Pixel neben der Flanke. Er
+lief also in den Panzer hinein und schob dort, für immer, denn „angekommen"
+heißt: näher als `DOOR_REACH` an einem Punkt, den er nicht erreichen kann. Ein
+Panzer hat keine Fahrertüre: Man steigt auf die Wanne und lässt sich durch die
+Luke fallen, von der Seite aus, auf der man gerade steht. Also steht er in
+`noDoor` neben den Zweirädern, und ein Tastendruck daneben genügt.
+
+**Und er hat zwei Waffen, nicht eine.** Die Kanone ist für das, was einen
+Granate wert ist; alles andere - ein Mann auf der Straße, ein Auto, das nicht
+zur Seite geht, ein Schaufenster - ist die Aufgabe des **Maschinengewehrs**
+neben dem Rohr, und ein Panzer ohne eins ist ein sehr langsames Fahrzeug mit
+einem Einzelschussgewehr. Linke Maustaste Granate, rechte Maustaste gehalten
+MG.
+
+Zwei Kleinigkeiten daran sind nicht beliebig:
+
+- **Gehalten, nicht gedrückt.** `Input.plant` ist eine Flanke - ein Druck, eine
+  Ladung -, und mit einer Flanke bekäme man einen Schuss je Klick. Also hat die
+  rechte Maustaste zusätzlich `Input.spray`, den Zustand. Beide Lesarten
+  desselben Knopfes streiten nicht: Die Ladung will, dass man zu Fuß ist, das
+  MG will, dass man im Panzer sitzt.
+- **Eine eigene Uhr** (`Player.gunAt`). Mit `reloadAt` geteilt würde eine
+  MG-Garbe die Nachladezeit der Kanone elfmal je Sekunde zurücksetzen - man
+  könnte Granaten so schnell feuern, wie man rattert - oder umgekehrt eine
+  Granate das MG für eine Sekunde verstummen lassen. Die beiden feuern auch
+  gleichzeitig, genau wie im Original: Der Richtschütze legt die Kanone auf
+  etwas Lohnendes und hält das MG dabei am Laufen.
+
+Was die Kette laufen lässt, ist `wheelStep` mit einem eigenen Zweig: Ein Panzer
+zählt nicht Speichen, sondern **Platten**, es gibt also nichts zu verschmieren
+und keinen Wagenradeffekt zu umgehen - nur eine Untersetzung aus demselben
+Grund wie bei den Rädern. Bei echter Teilung liefe die Kette mit siebenundvierzig
+Zyklen je Sekunde gegen sechzig Bilder und stünde still; bei `TRACK_CREEP`
+(sechs Teilungen) läuft sie mit acht, und das sieht aus wie eine laufende Kette.
+
+Deshalb ist der Panzer auch das **einzige Fahrzeug, dessen Draufsicht je Schritt
+zwischengespeichert** wird. Bei allem anderen sitzt das Bewegliche an den
+Wänden: Von oben ist ein Reifen ein schwarzes Rechteck und ein drehender Reifen
+dasselbe schwarze Rechteck. Eine Kette nicht - von oben sieht man die Platten,
+und Platten, die stehen bleiben, sind ein aufgemalter Streifen. Der Schritt geht
+also in den Schlüssel: sechs Bilder Panzer, null Kosten für alles andere.
+
+Von der Seite ist die Kette ein **geschlossener Umlauf**: ein Stadion, aus dem
+mit der Even-Odd-Regel ein zweites Stadion herausgeschnitten ist, also ein Band
+gleicher Dicke oben herum, um den Leitrad vorn, unten zurück und um das Triebrad
+hinten. Die Laufrollen stehen in der Mitte davon und berühren beide Trume - was
+vorher da war, war ein flacher Kasten mit außen aufgemalten Rollen, und eine
+Kette ohne Innenraum kann nicht umlaufen. Die Platten der beiden geraden Trume
+laufen **gegeneinander**: Das untere steht auf der Straße, während die Maschine
+darüber wegfährt, läuft von der Wanne aus gesehen also rückwärts, und das obere
+kommt mit doppelter Geschwindigkeit nach vorn.
+
+Und wo er fährt, bleibt etwas liegen - siehe `Mark.tread` weiter oben.
+
+### Die Kaserne ist ein Gebäude, keine Fläche
+
+Drei Hütten auf dem Militärgelände waren zwei Rechtecke und ein Türloch: eine
+flache grüne Platte als Dach, ein dunklerer Streifen als Vorderwand, ein
+schwarzes Oblong in der Mitte. In dieser Größe ist das eine Form, kein Gebäude -
+und es steht auf dem einen Fleck der Karte, den man zu Fuß überqueren muss, um
+an einen Panzer zu kommen, wird also genauer angesehen als alles außerhalb der
+Stadt.
+
+**Und es führt keine Straße hin.** Eine Landstraße endete laut Tabelle eine
+Reihe vor dem Zaun - legte aber trotzdem zweieinhalb Felder Asphalt dahinter,
+weil eine fünf Felder breite Straße so weit neben ihre Linie reicht. Also lief
+eine Zufahrt durchs Tor bis vor die Kaserne, und auf ein Militärgelände führt
+keine Zufahrt. Die Strecke ist weg, und `cellAt` fragt das Gelände jetzt
+**vor** den Straßen: Was innerhalb des Zauns liegt, ist Beton, was auch immer
+die Breite einer Straße daneben tut. Die nächste Landstraße geht südlich daran
+vorbei; die letzten Meter fährt man über den Sand, und das ist auch richtig so.
+
+Jetzt wird sie gebaut, wie so etwas gebaut wird: eine **Betonplatte** ringsum,
+ein **Satteldach mit First entlang der langen Achse** (welche Achse das ist,
+entscheidet die Hütte selbst - die kleine am Tor ist keine geschrumpfte Kopie
+der großen), die Nähte der Dachbahnen quer zum First, eine Reihe **Lüfter auf
+dem First**, eine Vorderwand mit Sockel, Traufschatten und so vielen
+**Sprossenfenstern**, wie die Front hergibt, und in der Mitte eine **Tür mit
+Vordach und Stufe**.
 
 ### Zwei Kästen, nicht einer
 

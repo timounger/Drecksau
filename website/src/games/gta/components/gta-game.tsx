@@ -14,11 +14,10 @@ import { useGtaGame, type Heads } from "@/games/gta/hooks/use-gta-game";
 import { MAX_SAVES, type SaveSlot } from "@/games/gta/storage/saves";
 import { GTA_RULES } from "@/games/gta/i18n/rules";
 import { GTA_TEXTS as T } from "@/games/gta/i18n/texts";
-import { CATCHES, MAX_STARS } from "@/games/gta/engine/types";
 import { VIEW_HEIGHT, VIEW_WIDTH } from "@/games/gta/components/projection";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 
-/** Which mouse button puts a charge down. */
+/** Which mouse button puts a charge down - and works the tank's machine gun. */
 const RIGHT_BUTTON = 2;
 
 /** The look of a link in the header. */
@@ -38,6 +37,7 @@ export function GtaScreen(): ReactElement {
     onPress,
     onFire,
     onPlant,
+    onSpray,
     god,
     toggleGod,
     restart,
@@ -103,8 +103,6 @@ export function GtaScreen(): ReactElement {
         </Link>
       </GameHeader>
 
-      <HeadsUp heads={heads} />
-
       <div
         ref={stage}
         className="game-fullscreen relative overflow-hidden rounded-2xl border border-zinc-300 dark:border-zinc-700"
@@ -129,13 +127,25 @@ export function GtaScreen(): ReactElement {
             // already off below, or the second half of the Fernzünder would be
             // a browser menu.
             if (event.button === RIGHT_BUTTON) {
+              // Both readings of the right button at once: the press puts a
+              // charge down, and holding it works the machine gun on the tank.
+              // Only one of the two can be meant at a time - the charge asks to
+              // be on foot, the gun asks to be in a tank - so the engine sorts
+              // out which, and this end simply reports what the hand did.
               onPlant();
+              onSpray(true);
             } else {
               onFire(true);
             }
           }}
-          onPointerUp={() => onFire(false)}
-          onPointerLeave={() => onFire(false)}
+          onPointerUp={() => {
+            onFire(false);
+            onSpray(false);
+          }}
+          onPointerLeave={() => {
+            onFire(false);
+            onSpray(false);
+          }}
           onContextMenu={(event) => event.preventDefault()}
           // touch-none: a thumb on the stick must drive the game, not scroll
           // the page out from under it.
@@ -227,73 +237,6 @@ export function GtaScreen(): ReactElement {
           </ul>
         </section>
       </div>
-    </div>
-  );
-}
-
-/** Money, respect, stars, health, and what the job wants. */
-function HeadsUp({ heads }: { readonly heads: Heads }): ReactElement {
-  return (
-    <div
-      data-testid="gta-heads"
-      className="flex flex-wrap items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
-    >
-      {/* Money, health and the weapon are drawn in the corner of the picture
-          itself - see drawStatus. What is left here is what does not fit in a
-          corner: the search, the seat, the job and the quarters. */}
-      <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
-        {T.respect(heads.respect)}
-      </span>
-      <span className="flex items-center gap-1">
-        <span className="text-zinc-500 dark:text-zinc-400">{T.wanted}</span>
-        <span data-testid="gta-stars" className="tracking-tight">
-          {Array.from({ length: MAX_STARS }, (unused, at) =>
-            at < heads.stars ? "★" : "☆",
-          ).join("")}
-        </span>
-      </span>
-      <span className="text-zinc-500 dark:text-zinc-400">
-        {heads.inCar ? T.driving : T.onFoot}
-      </span>
-      {heads.crew > 0 && (
-        <span
-          data-testid="gta-crew"
-          className="font-semibold text-lime-700 dark:text-lime-300"
-        >
-          {T.crew(heads.crew)}
-        </span>
-      )}
-      {heads.loot > 0 && (
-        <span
-          data-testid="gta-bag"
-          className="font-semibold text-rose-700 dark:text-rose-300"
-        >
-          {T.loot(heads.loot)}
-        </span>
-      )}
-      {heads.escape !== null && (
-        <span
-          data-testid="gta-escape"
-          className="flex flex-wrap items-center gap-2 text-amber-700 dark:text-amber-300"
-        >
-          <b>{T.escapeTitle}:</b>
-          <span>{heads.escape.task}</span>
-          <span>{T.escapeCaught(CATCHES - heads.escape.caught)}</span>
-          {heads.escape.mates > 0 && (
-            <span>{T.escapeMates(heads.escape.mates)}</span>
-          )}
-        </span>
-      )}
-      <span className="ml-auto flex items-center gap-2">
-        <span data-testid="gta-job" className="font-semibold">
-          {heads.jobText === "" ? T.noJob : heads.jobText}
-        </span>
-        {heads.jobLeft !== null && (
-          <span className="tabular-nums text-amber-700 dark:text-amber-300">
-            {T.jobLeft(heads.jobLeft)}
-          </span>
-        )}
-      </span>
     </div>
   );
 }

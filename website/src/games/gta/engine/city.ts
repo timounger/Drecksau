@@ -21,10 +21,14 @@
  */
 import {
   AIRPORT,
+  BARN_HIGH,
   BASE,
   BASE_GATE,
   BASE_HUTS,
   FARMS,
+  HOUSE_HIGH,
+  HOUSE_LOW,
+  HUT_HIGH,
   FIELDS,
   MOUNTAIN,
   BLOCK_TILES,
@@ -53,11 +57,17 @@ import {
 /** How many cells of a block are pavement on each side. */
 const WALK_RING = 1;
 
+/** The middle square of a block, for asking what stands on it. */
+const BLOCK_MIDDLE = BLOCK_TILES / 2;
+
 /** Where the door of a block is, across it: the middle of its houses. */
 const DOOR_ACROSS = 4.5;
 
 /** And down: the pavement south of the front wall. */
 const DOOR_DOWN = 6.5;
+
+/** And for a prison, whose wall reaches the kerb: the street outside it. */
+const PRISON_KERB = 0.5;
 
 /**
  * Builds the city floor.
@@ -88,6 +98,23 @@ function cellAt(col: number, row: number): Cell {
   let cell: Cell;
   if (onRail(col, row)) {
     cell = "rail";
+  } else if (onFence(col, row)) {
+    cell = "fence";
+  } else if (BASE_HUTS.some((hut) => inBox(hut, col, row))) {
+    cell = "building";
+  } else if (inBox(BASE, col, row)) {
+    // **The base is asked before the roads are.** Inside the wire, the gate
+    // included: concrete, and one drives straight in. What stops anybody is
+    // not the ground, it is the ten men on it.
+    //
+    // It used to be asked afterwards, and a road whose last point stopped a
+    // row short of the fence still laid two and a half squares of tarmac past
+    // it, because a road five squares wide reaches that far either side of its
+    // line. So a slip road ran in through the gate and up to the barracks -
+    // and no road runs onto a military base. The roads now stop at the wire
+    // whatever their width does, and the nearest one goes **past** the place
+    // rather than into it.
+    cell = "dock";
   } else if (onRoute(col, row)) {
     cell = "road";
   } else if (onTrack(col, row)) {
@@ -96,14 +123,6 @@ function cellAt(col: number, row: number): Cell {
     cell = "building";
   } else if (inBox(AIRPORT, col, row)) {
     cell = inBox(RUNWAY, col, row) ? "runway" : "dock";
-  } else if (onFence(col, row)) {
-    cell = "fence";
-  } else if (BASE_HUTS.some((hut) => inBox(hut, col, row))) {
-    cell = "building";
-  } else if (inBox(BASE, col, row)) {
-    // Inside the wire, the gate included: concrete, and one drives straight
-    // in. What stops anybody is not the ground, it is the ten men on it.
-    cell = "dock";
   } else if (onPier(col, row)) {
     cell = "dock";
   } else if (inBox(HARBOUR, col, row) && onLand(col, row)) {
@@ -131,7 +150,15 @@ function cellAt(col: number, row: number): Cell {
 /** The built-up part: streets, pavements, parks and blocks. */
 function inTown(col: number, row: number): Cell {
   let cell: Cell;
-  if (isRoad(col) || isRoad(row)) {
+  const gaol = prisonUnder(col, row);
+  if (gaol !== null) {
+    // **Before the streets, not after them.** A prison stands on four blocks
+    // and the street that used to run between them is inside it: asked in the
+    // old order that street won and the yard had a road through the middle of
+    // it. The streets round the outside are untouched, because the footprint
+    // stops at them.
+    cell = prisonCell(gaol, col, row);
+  } else if (isRoad(col) || isRoad(row)) {
     cell = "road";
   } else if (onCarPark(col, row)) {
     // The tarmac round the supermarket, which is where its own pavement would
@@ -153,6 +180,141 @@ function inTown(col: number, row: number): Cell {
     cell = "building";
   }
   return cell;
+}
+
+/**
+ * Which prison a square belongs to, if any.
+ *
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns the top left block of the prison over it, or null
+ * @remarks
+ * **A prison is four blocks, not one.** It is anchored on the block the plan
+ * drew it on and reaches {@link PRISON_BLOCKS} blocks east and south of it, so
+ * a square belongs to it if any of the blocks up and to the left of that
+ * square is the anchor. Four candidates, checked nearest first, which is what
+ * makes two prisons that happened to land beside each other come out as one
+ * larger one rather than as two overlapping ones.
+ *
+ * It answers with the anchor rather than with yes or no, because everything
+ * else about a prison - where its wall is, where its yard is - is measured
+ * from there.
+ */
+export function prisonUnder(col: number, row: number): Vec | null {
+  const blockX = Math.floor(col / BLOCK_TILES);
+  const blockY = Math.floor(row / BLOCK_TILES);
+  let found: Vec | null = null;
+  for (let back = 0; back < PRISON_BLOCKS && found === null; back += 1) {
+    for (let up = 0; up < PRISON_BLOCKS && found === null; up += 1) {
+      const at = { x: blockX - back, y: blockY - up };
+      if (isPrisonBlock(at.x, at.y)) {
+        const plot = prisonPlot(at.x, at.y);
+        const inside =
+          col >= plot.left &&
+          col < plot.right &&
+          row >= plot.top &&
+          row < plot.bottom;
+        found = inside ? at : null;
+      }
+    }
+  }
+  return found;
+}
+
+/** Whether the plan anchors a prison on this block. */
+export function isPrisonBlock(blockX: number, blockY: number): boolean {
+  return (
+    builtBlock(blockX, blockY) && buildingAt(blockX, blockY).kind === "prison"
+  );
+}
+
+/**
+ * What one square of a prison block is.
+ *
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns wall, yard, or the hut in the middle of the yard
+ * @remarks
+ * **A square of building the whole way round, and a yard inside it.** The ring
+ * is one square thick and runs from kerb to kerb with no way through it - not
+ * a gate, not a gap - which is the point of the shape: what one can see of the
+ * inside of a prison from the street is nothing at all.
+ *
+ * The yard is open ground, and it is open ground one cannot walk to. The only
+ * way in is over the wall, which means the jetpack, and the only way out again
+ * is the same way - so a yard that nothing can reach is not a mistake, it is
+ * the one place in the city one has to fly to.
+ *
+ * And a small block in the middle of it, which is what stands in the middle of
+ * a prison yard.
+ */
+function prisonCell(anchor: Vec, col: number, row: number): Cell {
+  const plot = prisonPlot(anchor.x, anchor.y);
+  const ring =
+    col < plot.left + PRISON_WING ||
+    col >= plot.right - PRISON_WING ||
+    row < plot.top + PRISON_WING ||
+    row >= plot.bottom - PRISON_WING;
+  const hut = prisonHut(plot);
+  const middle = col === hut.x && row === hut.y;
+  return ring || middle ? "building" : "dock";
+}
+
+/**
+ * Which square of the yard the hut stands on.
+ *
+ * @param plot - the prison's footprint, in squares
+ * @returns that square
+ * @remarks
+ * Its own function because two things have to agree about it to the square:
+ * the floor, which makes it solid, and the picture, which draws it.
+ *
+ * **In the corner, not in the middle.** A hut in the middle of the yard is a
+ * hut in the middle of everything - it stood in the basketball court, the men
+ * walking their circuits walked through it, and there was nowhere left to put
+ * anything else. In the top left corner it is a building at the edge of a
+ * yard, which is where the workshop of one of these is.
+ */
+export function prisonHut(plot: {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}): Vec {
+  return {
+    x: plot.left + PRISON_WING,
+    y: plot.top + PRISON_WING,
+  };
+}
+
+/**
+ * Which squares of one block line are not street.
+ *
+ * @param block - the block, along one axis
+ * @returns the first and the last square of it that a prison may stand on
+ * @remarks
+ * **The whole block bar the tarmac**, which is a square more on each side than
+ * {@link builtSpan} leaves an ordinary house: a prison is built over its own
+ * pavement, and the wall goes to the kerb.
+ *
+ * Measured rather than assumed, because a motorway takes a lane out of the
+ * blocks either side of it - so beside one the span is a square narrower, and
+ * the prison there is simply a little smaller. A fixed span would have run the
+ * wall through the outside lane of the motorway; picking another block for the
+ * prison instead would have been worse still, since there are only a handful
+ * in the city and three quarters of the blocks are within a lane of a
+ * motorway one way or the other.
+ */
+function openSpan(block: number): { from: number; to: number } {
+  let from = BLOCK_TILES;
+  let to = -1;
+  for (let into = 0; into < BLOCK_TILES; into += 1) {
+    if (!isRoad(block * BLOCK_TILES + into)) {
+      from = Math.min(from, into);
+      to = Math.max(to, into);
+    }
+  }
+  return { from, to };
 }
 
 /**
@@ -322,6 +484,107 @@ const MOUNTAIN_EDGE = 3;
 
 /** And over how many squares it wanders by the same amount. */
 const MOUNTAIN_PATCH = 3;
+
+/**
+ * A number between 0 and 1 that is always the same for the same block.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the block, down
+ * @returns that block's own private dice roll
+ */
+export function scatter(blockX: number, blockY: number): number {
+  const spun = Math.sin(blockX * SCATTER_A + blockY * SCATTER_B) * SCATTER_C;
+  return spun - Math.floor(spun);
+}
+
+/** The three numbers that turn a pair of block coordinates into a dice roll. */
+const SCATTER_A = 12.9898;
+
+/** The second of them. */
+const SCATTER_B = 78.233;
+
+/** And the third, which is what makes the result spread evenly. */
+const SCATTER_C = 43758.5453;
+
+/**
+ * How tall the houses of a block are, in pixels.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the block, down
+ * @param look - that block's dice roll
+ * @returns the height
+ * @remarks
+ * Tall in the middle of town, low towards the edges and the sea - that is what
+ * makes a skyline read as a city rather than as a warehouse estate. The dice
+ * roll only decides how far towards the local maximum a block goes.
+ */
+export function houseHeight(
+  blockX: number,
+  blockY: number,
+  look: number,
+): number {
+  const blocks = CITY_TILES / BLOCK_TILES;
+  const away = Math.hypot(blockX + HALF - blocks / 2, blockY + HALF - blocks / 2);
+  const downtown = Math.max(0, 1 - away / (blocks / 2));
+  return (
+    HOUSE_LOW + (HOUSE_HIGH - HOUSE_LOW) * downtown * (TOWN_FLOOR + TOWN_SPREAD * look)
+  );
+}
+
+/** How much of its local maximum the shortest block on a street reaches. */
+const TOWN_FLOOR = 0.35;
+
+/** And how much of it the dice roll decides. */
+const TOWN_SPREAD = 0.65;
+
+/**
+ * How high the roof is over a point, in pixels.
+ *
+ * @param cells - the city floor
+ * @param x - the point, in pixels
+ * @param y - the point, in pixels
+ * @returns the height of whatever stands there, or nought in the open
+ * @remarks
+ * **What one lands on.** The picture has always known how tall each block is;
+ * it had to, to draw it. Nothing else did - so a man on a jetpack who let go
+ * of the button over the middle of a block sank straight through the roof, the
+ * flat and the shop below it and stood in the street. Now the floor under him
+ * is whatever is under him, and coming down on a roof is landing on it.
+ *
+ * The three sorts of building are asked in the order they are built in
+ * {@link createCity}: a barn, a shed on the base, and otherwise a block of the
+ * city, whose height is its own formula times whatever the table says that
+ * kind of building rises to.
+ */
+export function roofAt(
+  cells: readonly Cell[],
+  x: number,
+  y: number,
+): number {
+  if (cellUnder(cells, x, y) !== "building") {
+    return 0;
+  }
+  const col = Math.floor(x / TILE);
+  const row = Math.floor(y / TILE);
+  let high: number;
+  if (FARMS.some((farm) => inBox(farm, col, row))) {
+    high = BARN_HIGH;
+  } else if (BASE_HUTS.some((hut) => inBox(hut, col, row))) {
+    high = HUT_HIGH;
+  } else {
+    // **A prison is one building over four blocks**, so its roof is one
+    // height: the anchor block's. Asked per block, the four quarters of the
+    // ring would each answer with their own, and a man who landed on the far
+    // side of the roof would stand a few pixels inside it or a few above it.
+    const gaol = prisonUnder(col, row);
+    const blockX = gaol?.x ?? Math.floor(col / BLOCK_TILES);
+    const blockY = gaol?.y ?? Math.floor(row / BLOCK_TILES);
+    high =
+      houseHeight(blockX, blockY, scatter(blockX, blockY)) *
+      buildingAt(blockX, blockY).rise;
+  }
+  return high;
+}
 
 /** Whether a square is one of the piers out into the water. */
 function onPier(col: number, row: number): boolean {
@@ -690,15 +953,6 @@ const ROUTES: readonly Route[] = [
       { x: 87, y: 129 },
     ],
   },
-  // Die Zufahrt zum Militaergelaende, bis vors Tor und keinen Meter weiter.
-  {
-    wide: 5,
-    points: [
-      { x: 69, y: 53 },
-      { x: 69, y: 49 },
-      { x: 68, y: 45 },
-    ],
-  },
   // Und die Piste durch die Wueste nach Sueden.
   {
     wide: 3,
@@ -748,6 +1002,56 @@ export function builtPlot(
     bottom: blockY * BLOCK_TILES + down.to + 1,
   };
 }
+
+/**
+ * The rectangle a prison stands on, in squares, the far edges exclusive.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the block, down
+ * @returns its footprint, which is the whole block bar the street
+ * @remarks
+ * Bigger than {@link builtPlot} by a square on every side, because a prison is
+ * built over the pavement as well: five squares by five against an ordinary
+ * house's three by three, which is two and three quarter times the ground. The
+ * picture and the floor take their shape from this one function, so what one
+ * walks into is what one can see.
+ */
+export function prisonPlot(
+  blockX: number,
+  blockY: number,
+): { left: number; top: number; right: number; bottom: number } {
+  const last = PRISON_BLOCKS - 1;
+  const across = openSpan(blockX);
+  const down = openSpan(blockY);
+  const right = openSpan(blockX + last);
+  const under = openSpan(blockY + last);
+  return {
+    left: blockX * BLOCK_TILES + across.from,
+    top: blockY * BLOCK_TILES + down.from,
+    right: (blockX + last) * BLOCK_TILES + right.to + 1,
+    bottom: (blockY + last) * BLOCK_TILES + under.to + 1,
+  };
+}
+
+/**
+ * How many city blocks across a prison stands.
+ *
+ * @remarks
+ * **The next size the grid allows.** A prison over one block came out at five
+ * squares by five, which next to a yard with a basketball court in it and men
+ * walking about is a shed. The block grid does not offer anything between one
+ * block and two - everything in between is street - so two it is: thirteen
+ * squares by thirteen, with the street that used to run between the four
+ * blocks swallowed by the yard.
+ *
+ * What it does **not** swallow is the streets round the outside, which is why
+ * the footprint stops at them: the prison closes one crossing, not four
+ * streets.
+ */
+const PRISON_BLOCKS = 2;
+
+/** How many squares thick the ring of building round the yard is. */
+export const PRISON_WING = 2;
 
 /** Which squares of one block, along one axis, are neither road nor pavement. */
 function builtSpan(block: number): { from: number; to: number } {
@@ -1127,16 +1431,46 @@ export function doorsOf(kind: BuildingKind): readonly Vec[] {
   const doors: Vec[] = [];
   for (let blockY = 0; blockY < blocks; blockY += 1) {
     for (let blockX = 0; blockX < blocks; blockX += 1) {
+      // **A block a prison stands on has no door on the street.** Three of its
+      // four blocks keep whatever the plan drew there - a house, a club, a gun
+      // shop - and none of them is a building any more: the floor under them
+      // is prison. A door left there would be a shop nobody can walk into, and
+      // in this city it was the player's own garage, cut as a hole through the
+      // prison wall.
+      const over = prisonUnder(
+        blockX * BLOCK_TILES + BLOCK_MIDDLE,
+        blockY * BLOCK_TILES + BLOCK_MIDDLE,
+      );
+      const swallowed =
+        over !== null && (over.x !== blockX || over.y !== blockY);
       if (
         buildingAt(blockX, blockY).kind === kind &&
-        builtBlock(blockX, blockY)
+        builtBlock(blockX, blockY) &&
+        !swallowed
       ) {
         // The middle of the block, one cell south of its front wall: the
         // pavement people would actually stand on.
-        doors.push({
-          x: (blockX * BLOCK_TILES + DOOR_ACROSS) * TILE,
-          y: (blockY * BLOCK_TILES + DOOR_DOWN) * TILE,
-        });
+        //
+        // **A prison has no pavement to stand on**: its wall is built over it
+        // and runs to the kerb. So its gate opens straight onto the street,
+        // which is where one is put out after a stretch and is also what a
+        // prison gate does.
+        if (kind === "prison") {
+          // **South of the whole of it**, which is four blocks away rather
+          // than one: the gate of a prison opens onto the street that runs
+          // along the front of it, and the front of this one is not where the
+          // front of a house on the same block would be.
+          const plot = prisonPlot(blockX, blockY);
+          doors.push({
+            x: ((plot.left + plot.right) / 2) * TILE,
+            y: (plot.bottom + PRISON_KERB) * TILE,
+          });
+        } else {
+          doors.push({
+            x: (blockX * BLOCK_TILES + DOOR_ACROSS) * TILE,
+            y: (blockY * BLOCK_TILES + DOOR_DOWN) * TILE,
+          });
+        }
       }
     }
   }
@@ -1224,6 +1558,9 @@ function cellSet(cells: readonly Cell[], at: Vec, cell: Cell): readonly Cell[] {
  * end in a garage in Las Venturas rather than in a ferry queue.
  */
 export function myHouses(): readonly Vec[] {
+  // The prison swallowed three blocks, and a door on one of them is a door
+  // into a wall - see doorsOf, which now leaves those blocks out. The three
+  // homes are picked from what is left.
   const doors = doorsOf("house");
   return ISLANDS.map((isle) => {
     const middle = {
@@ -1494,8 +1831,40 @@ export function buildingAt(blockX: number, blockY: number): Building {
   const drawn = rawKindAt(blockX, blockY);
   const spare =
     (ONE_ONLY.includes(drawn) && !isTheOne(drawn, blockX, blockY)) ||
-    (ONE_PER_QUARTER.includes(drawn) && !isTheLocalOne(drawn, blockX, blockY));
+    (ONE_PER_QUARTER.includes(drawn) && !isTheLocalOne(drawn, blockX, blockY)) ||
+    (drawn === "prison" && !roomForPrison(blockX, blockY));
   return BUILDINGS[spare ? "house" : drawn];
+}
+
+/**
+ * Whether four blocks here can be given over to a prison.
+ *
+ * @param blockX - the top left block of it, across
+ * @param blockY - the same, down
+ * @returns true where nothing important runs through the footprint
+ * @remarks
+ * **A motorway may not end at a prison wall.** A prison stands on four blocks
+ * and swallows the street crossing between them, which is fine for an ordinary
+ * street - the traffic turns at the wall the way it turns at any dead end -
+ * and not fine at all for a motorway, which is the one road in the city one
+ * drives the length of. Where the footprint would cover one, an ordinary house
+ * goes up instead, the same way a second bank does.
+ *
+ * It costs prisons: of the three the plan draws, two sit across a motorway and
+ * become houses. One is the right number for a landmark anyway - it is the
+ * building one is let out of, and always being let out at the same gate is
+ * better than being let out at whichever of three happened to be nearest.
+ */
+function roomForPrison(blockX: number, blockY: number): boolean {
+  const plot = prisonPlot(blockX, blockY);
+  let room = true;
+  for (let col = plot.left; col < plot.right && room; col += 1) {
+    room = !motorwayNear(col);
+  }
+  for (let row = plot.top; row < plot.bottom && room; row += 1) {
+    room = !motorwayNear(row);
+  }
+  return room;
 }
 
 /**

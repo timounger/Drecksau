@@ -14,7 +14,7 @@
  * where the crosshair sits: the mouse is a screen point and has to be put back
  * on the road with {@link unprojectFloor} before the engine ever sees it.
  */
-import { DEPTH, type Vec } from "@/games/gta/engine/types";
+import { DEPTH, HOUSE_HIGH, type Vec } from "@/games/gta/engine/types";
 
 /**
  * How wide the picture is, in view pixels - not in screen pixels.
@@ -75,12 +75,6 @@ export const LOOK_AT = 8;
 
 /** How high above the road a shot flies. */
 export const SHOT_HEIGHT = 9;
-
-/** The lowest a house is built, in screen pixels. */
-export const HOUSE_LOW = 26;
-
-/** The tallest a house is built - downtown, and only there. */
-export const HOUSE_HIGH = 74;
 
 /** What the camera looks at, and how big the picture is. */
 export type View = {

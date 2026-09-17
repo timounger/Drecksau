@@ -24,6 +24,13 @@ import {
   railLine,
   carPark,
   builtPlot,
+  prisonPlot,
+  prisonHut,
+  prisonUnder,
+  PRISON_WING,
+  houseHeight,
+  roofAt,
+  scatter,
   platformBox,
   motorwayLine,
   lightAt,
@@ -65,6 +72,11 @@ import {
   RUNWAY,
   LEAN_MOST,
   MARK_LIFE,
+  TRACK_LIFE,
+  WALK_SPEED,
+  type Island,
+  type Mark,
+  type Tread,
   MAX_STARS,
   STAR_FLASH,
   PLAYER_HEALTH,
@@ -144,8 +156,6 @@ import {
   ZOOM,
   cameraFor,
   LOOK_AT,
-  HOUSE_HIGH,
-  HOUSE_LOW,
   PERSON_HEIGHT,
   SHOT_HEIGHT,
   project,
@@ -573,12 +583,26 @@ function drawGround(
  * @param seen - the patch of city on screen
  * @remarks
  * Straight onto the road, under everything else: a skid mark is on the tarmac,
- * not on the cars that drive over it afterwards. Each is a short dark capsule
- * along the way the tyre was pointing, and successive ones overlap into a
- * continuous line at any speed worth skidding at.
+ * not on the cars that drive over it afterwards.
  *
- * They fade with age rather than vanishing, which is the whole reason the time
- * is kept with them.
+ * **One line per tyre, not one dash per moment.** Each mark used to be drawn
+ * on its own as a short capsule along the way its tyre was pointing, and in a
+ * corner that is a row of tangents: every dash sticking out past the curve at
+ * both ends, and the curve itself nowhere. So the marks of one tyre are
+ * strung together instead and the line is run from each to the next - which is
+ * the path the tyre took, and therefore the mark it left.
+ *
+ * Segment by segment rather than as one long path, because they fade with age
+ * and the near end of a skid is darker than the far end. Round caps at the
+ * joins make the segments read as one line: consecutive marks are a few pixels
+ * apart and the line is five wide.
+ *
+ * **Two sorts of mark go down here**, and they look nothing like each other.
+ * Rubber is what a tyre leaves when it is dragged: narrow, black, only out of
+ * a corner taken far too fast. A tank's tracks are what sixty tons standing on
+ * two strips of steel leaves everywhere it goes: as wide as the track, the
+ * colour of the ground it churned, and printed the whole way along with the
+ * ladder its cleats press in. Which of the two a mark is, it carries itself.
  */
 function drawMarks(
   ctx: CanvasRenderingContext2D,
@@ -586,46 +610,184 @@ function drawMarks(
   view: View,
   seen: Seen,
 ): void {
+  // Gathered by tyre, in the order they were laid - which is the order they
+  // are in, because the list is only ever appended to.
+  const trails = new Map<string, Mark[]>();
+  for (const mark of state.marks) {
+    const key = `${String(mark.car)}|${String(mark.lane)}`;
+    const trail = trails.get(key);
+    if (trail === undefined) {
+      trails.set(key, [mark]);
+    } else {
+      trail.push(mark);
+    }
+  }
   ctx.save();
   ctx.lineCap = "round";
-  ctx.strokeStyle = "#1c1917";
-  ctx.lineWidth = MARK_WIDE;
-  for (const mark of state.marks) {
-    const near =
-      mark.x > seen.left - TILE &&
-      mark.x < seen.right + TILE &&
-      mark.y > seen.top - TILE &&
-      mark.y < seen.bottom + TILE;
-    if (near) {
-      const age = (state.time - mark.at) / MARK_LIFE;
-      ctx.globalAlpha = Math.max(0, MARK_DARK * (1 - age));
-      const from = project(
-        view,
-        mark.x - Math.cos(mark.angle) * MARK_LONG,
-        mark.y - Math.sin(mark.angle) * MARK_LONG,
+  ctx.lineJoin = "round";
+  for (const trail of trails.values()) {
+    // **One stroke per stretch**, not one per pair of marks. Stroked pair by
+    // pair, every round cap lands on the next one and the line comes out
+    // beaded. A whole stretch as a single path is one smooth line.
+    let piece: Mark[] = [];
+    const lay = (): void => {
+      const head = piece[0];
+      const tail = piece[piece.length - 1];
+      if (head === undefined || tail === undefined) {
+        return;
+      }
+      const near = piece.some(
+        (mark) =>
+          mark.x > seen.left - TILE &&
+          mark.x < seen.right + TILE &&
+          mark.y > seen.top - TILE &&
+          mark.y < seen.bottom + TILE,
       );
-      const to = project(
-        view,
-        mark.x + Math.cos(mark.angle) * MARK_LONG,
-        mark.y + Math.sin(mark.angle) * MARK_LONG,
-      );
-      ctx.beginPath();
-      ctx.moveTo(from.x, from.y);
-      ctx.lineTo(to.x, to.y);
-      ctx.stroke();
+      if (near) {
+        const skin = TREADS[head.tread];
+        // The whole stretch at one darkness: it covers a second of skidding
+        // against a fade that runs for twenty, so the difference across it is
+        // a few per cent and not worth a seam.
+        const age = (state.time - (head.at + tail.at) / 2) / skin.life;
+        const line = new Path2D();
+        piece.forEach((mark, at) => {
+          const spot = project(view, mark.x, mark.y);
+          if (at === 0) {
+            line.moveTo(spot.x, spot.y);
+          } else {
+            line.lineTo(spot.x, spot.y);
+          }
+        });
+        if (piece.length === 1) {
+          // On its own it is a dot, which is what a tyre chirping once leaves.
+          const spot = project(view, head.x, head.y);
+          line.lineTo(spot.x, spot.y);
+        }
+        ctx.globalAlpha = Math.max(0, skin.dark * (1 - age));
+        ctx.strokeStyle = skin.ink;
+        ctx.lineWidth = skin.wide;
+        ctx.stroke(line);
+        if (skin.cleat) {
+          // **The ladder.** A track is not a smear, it is a row of steel
+          // plates, and what it leaves in the ground is every one of them
+          // printed in turn. A dashed line over the band draws exactly that,
+          // and it follows the curve because it is the same path.
+          // **Square ends on the rungs.** The band is stroked with round caps
+          // so that one stretch runs into the next without a notch, and a
+          // dash an eighth as long as the line is wide, capped round, is a
+          // circle either end of nothing: the dashes swell into each other
+          // and what one gets back is the plain band again.
+          ctx.lineCap = "butt";
+          ctx.setLineDash([...TRACK_RUNG]);
+          ctx.strokeStyle = TRACK_CLEAT;
+          ctx.lineWidth = skin.wide * TRACK_BITE;
+          ctx.stroke(line);
+          ctx.setLineDash([]);
+          ctx.lineCap = "round";
+        }
+      }
+      // The next stretch starts where this one ended, or there is a gap in the
+      // line where one stretch hands over to the next.
+      piece = [tail];
+    };
+    for (const mark of trail) {
+      const last = piece[piece.length - 1];
+      // **A gap ends the line.** Two skids seconds apart, or a tyre that
+      // stopped marking and started again round the next corner, are two
+      // marks on the road and not one line from here to there.
+      const joins =
+        last !== undefined &&
+        mark.at - last.at < MARK_JOIN &&
+        Math.hypot(mark.x - last.x, mark.y - last.y) < MARK_REACH;
+      if (last !== undefined && !joins) {
+        lay();
+        piece = [];
+      } else if (last !== undefined && mark.at - piece[0].at > MARK_STEP) {
+        lay();
+      }
+      piece.push(mark);
     }
+    lay();
   }
   ctx.restore();
 }
 
+/** What a skid mark is made of. */
+const MARK_INK = "#1c1917";
+
+/** How long a gap in time still counts as the same skid, in seconds. */
+const MARK_JOIN = 0.2;
+
+/** And how far apart two marks may be and still be joined, in pixels. */
+const MARK_REACH = 40;
+
+/** How much of a skid goes down as one stroke, in seconds. */
+const MARK_STEP = 1;
+
 /** How wide one mark is drawn, in pixels. */
 const MARK_WIDE = 5;
 
-/** And how far it reaches either side of where the tyre was. */
-const MARK_LONG = 14;
-
 /** How dark a fresh one is. */
 const MARK_DARK = 0.5;
+
+/** What a track pressed into the ground looks like: scuffed earth, not rubber. */
+const TRACK_INK = "#4b443c";
+
+/** And the cleat marks printed along it, which are deeper and darker. */
+const TRACK_CLEAT = "#27231d";
+
+/** How wide the band is - the width of the track that made it, in pixels. */
+const TRACK_WIDE = 8;
+
+/** How dark a fresh one is: fainter than rubber, because it is a dent. */
+const TRACK_DARK = 0.42;
+
+/** The plate and the gap between plates, in pixels along the trail. */
+const TRACK_RUNG: readonly number[] = [1.8, 3.4];
+
+/** How much of the band's width a cleat prints across. */
+const TRACK_BITE = 0.94;
+
+/**
+ * How each sort of mark is drawn and how long it takes to go.
+ *
+ * @remarks
+ * The numbers are what the two things are. Rubber is narrow, nearly black and
+ * lasts; a track is the width of the steel that pressed it, the colour of
+ * scuffed ground rather than of tyre, fainter because it is a dent and not a
+ * stain, and gone in a third of the time - which is as much about keeping a
+ * tank's endless trail inside the mark budget as about how long mud lasts.
+ */
+const TREADS: Readonly<Record<Tread, MarkSkin>> = {
+  rubber: {
+    ink: MARK_INK,
+    wide: MARK_WIDE,
+    dark: MARK_DARK,
+    life: MARK_LIFE,
+    cleat: false,
+  },
+  track: {
+    ink: TRACK_INK,
+    wide: TRACK_WIDE,
+    dark: TRACK_DARK,
+    life: TRACK_LIFE,
+    cleat: true,
+  },
+};
+
+/** How one sort of mark is drawn. */
+type MarkSkin = {
+  /** What it is coloured. */
+  readonly ink: string;
+  /** How wide the band is, in pixels. */
+  readonly wide: number;
+  /** How dark a fresh one is. */
+  readonly dark: number;
+  /** And how long it takes to fade away, in seconds. */
+  readonly life: number;
+  /** Whether the cleats of a track are printed along it. */
+  readonly cleat: boolean;
+};
 
 /**
  * The roads between the cities, drawn as the curves they are.
@@ -1886,27 +2048,7 @@ function drawBase(
   view: View,
 ): void {
   for (const hut of BASE_HUTS) {
-    const across = (hut.right - hut.left + 1) * TILE;
-    const deep = (hut.bottom - hut.top + 1) * TILE;
-    const at = project(view, hut.left * TILE, hut.top * TILE, HUT_HIGH);
-    // The front wall, then the roof over it: two rectangles, which at this
-    // tilt is all a flat-roofed shed is.
-    ctx.fillStyle = "#556b2f";
-    ctx.fillRect(at.x, at.y + deep * DEPTH, across, HUT_HIGH);
-    ctx.fillStyle = "#6b7f3a";
-    ctx.fillRect(at.x, at.y, across, deep * DEPTH);
-    ctx.strokeStyle = "#3f4f22";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(at.x, at.y, across, deep * DEPTH);
-    // A door on the front, so that a shed reads as a building rather than a
-    // green rectangle somebody forgot to finish.
-    ctx.fillStyle = "#3f4f22";
-    ctx.fillRect(
-      at.x + across / 2 - TILE * 0.6,
-      at.y + deep * DEPTH,
-      TILE * 1.2,
-      HUT_HIGH,
-    );
+    drawHut(ctx, view, hut);
   }
   for (const site of state.acks) {
     drawAck(ctx, view, site, state);
@@ -1914,6 +2056,221 @@ function drawBase(
   drawFarms(ctx, view);
   drawMountain(ctx, state, view);
 }
+
+/**
+ * One barrack block on the base.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param hut - which squares of the plan it stands on
+ * @remarks
+ * It used to be two rectangles and a doorway: a flat green slab for the roof,
+ * a darker strip for the front wall, and a black oblong in the middle of it.
+ * At this scale that is a shape, not a building - and it sat on the one patch
+ * of the map one has to cross on foot to get at a tank, where it is looked at
+ * more closely than anything else outside the city.
+ *
+ * So it is built the way the thing is built, from the ground up:
+ *
+ * - **A concrete apron** round the foot of it, because a hut on a base stands
+ *   on a poured slab rather than on the dirt, and the slab is what makes it
+ *   look planted rather than laid on.
+ * - **A pitched roof with a ridge down the long axis.** The two slopes get
+ *   their own greens, the near one lighter because it faces the sky the camera
+ *   is behind, and the seams between the roof sheets run down the fall line.
+ *   Which axis is the long one decides which way the ridge goes, so the little
+ *   hut at the gate is not a shrunken copy of the big one.
+ * - **Vents along the ridge**, which is the detail that says army hut rather
+ *   than shed: a row of them, evenly spaced, drawn as little boxes standing
+ *   proud of the ridge cap.
+ * - **A front wall with windows in it.** Sash windows either side of the door,
+ *   as many as the frontage will take, with a frame and a sill; a plinth
+ *   course along the bottom; and the shadow the eaves throw along the top.
+ * - **A door with a canopy over it and a step under it**, in the middle, where
+ *   the old black oblong was.
+ */
+function drawHut(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  hut: Island,
+): void {
+  const across = (hut.right - hut.left + 1) * TILE;
+  const deep = (hut.bottom - hut.top + 1) * TILE;
+  const at = project(view, hut.left * TILE, hut.top * TILE, HUT_HIGH);
+  const roof = deep * DEPTH;
+  // Where the roof stops and the front wall begins, and where the wall meets
+  // the ground.
+  const eaves = at.y + roof;
+  const ground = eaves + HUT_HIGH;
+
+  // The slab it stands on, which reaches a little past it on every side.
+  ctx.fillStyle = HUT_APRON;
+  ctx.fillRect(
+    at.x - HUT_SLAB,
+    at.y - HUT_SLAB * DEPTH,
+    across + HUT_SLAB * 2,
+    roof + HUT_HIGH + HUT_SLAB * 2 * DEPTH,
+  );
+
+  // The front wall.
+  ctx.fillStyle = HUT_WALL;
+  ctx.fillRect(at.x, eaves, across, HUT_HIGH);
+  // The plinth course along the bottom of it, and the eaves shadow along the
+  // top: two bands that between them say which way is up.
+  ctx.fillStyle = HUT_PLINTH;
+  ctx.fillRect(at.x, ground - HUT_HIGH * 0.16, across, HUT_HIGH * 0.16);
+  ctx.fillStyle = HUT_SHADOW;
+  ctx.fillRect(at.x, eaves, across, HUT_HIGH * 0.12);
+
+  // The windows: as many pairs as the frontage will take, with the door in the
+  // middle of them.
+  const bay = TILE * 0.82;
+  const bays = Math.max(2, Math.floor(across / bay));
+  const step = across / bays;
+  const middle = Math.floor(bays / 2);
+  const sill = eaves + HUT_HIGH * 0.3;
+  const tall = HUT_HIGH * 0.42;
+  for (let bayAt = 0; bayAt < bays; bayAt += 1) {
+    if (bayAt === middle) {
+      continue;
+    }
+    const left = at.x + bayAt * step + step * 0.28;
+    const wide = step * 0.44;
+    ctx.fillStyle = HUT_FRAME;
+    ctx.fillRect(left - 1.5, sill - 1.5, wide + 3, tall + 3);
+    ctx.fillStyle = HUT_GLASS;
+    ctx.fillRect(left, sill, wide, tall);
+    // The bar across the middle of the sash, and the sill under it.
+    ctx.fillStyle = HUT_FRAME;
+    ctx.fillRect(left, sill + tall / 2 - 0.8, wide, 1.6);
+    ctx.fillStyle = HUT_SILL;
+    ctx.fillRect(left - 2.5, sill + tall + 1.5, wide + 5, 2);
+  }
+
+  // The door, its canopy and its step.
+  const doorWide = Math.min(step * 0.5, TILE * 0.5);
+  const doorLeft = at.x + across / 2 - doorWide / 2;
+  const doorTop = eaves + HUT_HIGH * 0.24;
+  ctx.fillStyle = HUT_DOOR;
+  ctx.fillRect(doorLeft, doorTop, doorWide, ground - doorTop);
+  ctx.fillStyle = HUT_FRAME;
+  ctx.fillRect(doorLeft - 1.5, doorTop - 1.5, doorWide + 3, 1.5);
+  ctx.fillStyle = HUT_HANDLE;
+  ctx.fillRect(
+    doorLeft + doorWide * 0.78,
+    doorTop + (ground - doorTop) * 0.52,
+    2,
+    2,
+  );
+  ctx.fillStyle = HUT_CANOPY;
+  ctx.fillRect(doorLeft - 4, doorTop - 4.5, doorWide + 8, 3);
+  ctx.fillStyle = HUT_APRON;
+  ctx.fillRect(doorLeft - 3, ground, doorWide + 6, 3);
+
+  // **The roof.** Which way the ridge runs is which way the hut is longer: a
+  // pitched roof runs along the building, and a hut that is wider than it is
+  // deep has its ridge across the picture rather than up and down it.
+  const along = across >= deep;
+  ctx.fillStyle = HUT_ROOF_BACK;
+  ctx.fillRect(at.x, at.y, across, roof);
+  ctx.fillStyle = HUT_ROOF_FRONT;
+  if (along) {
+    ctx.fillRect(at.x, at.y + roof / 2, across, roof / 2);
+  } else {
+    ctx.fillRect(at.x + across / 2, at.y, across / 2, roof);
+  }
+  // The seams between the roof sheets, which run down the fall of it - across
+  // the ridge, not along it.
+  ctx.strokeStyle = HUT_SEAM;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  if (along) {
+    for (let seam = at.x + bay / 2; seam < at.x + across; seam += bay / 2) {
+      ctx.moveTo(seam, at.y);
+      ctx.lineTo(seam, at.y + roof);
+    }
+  } else {
+    const fall = (bay / 2) * DEPTH;
+    for (let seam = at.y + fall; seam < at.y + roof; seam += fall) {
+      ctx.moveTo(at.x, seam);
+      ctx.lineTo(at.x + across, seam);
+    }
+  }
+  ctx.stroke();
+  // The ridge cap, and the vents standing on it.
+  ctx.fillStyle = HUT_RIDGE;
+  if (along) {
+    ctx.fillRect(at.x, at.y + roof / 2 - 2, across, 4);
+  } else {
+    ctx.fillRect(at.x + across / 2 - 2, at.y, 4, roof);
+  }
+  ctx.fillStyle = HUT_VENT;
+  ctx.strokeStyle = HUT_SEAM;
+  const vents = Math.max(2, Math.floor((along ? across : deep) / TILE));
+  for (let vent = 0; vent < vents; vent += 1) {
+    const share = (vent + 0.5) / vents;
+    const spot = along
+      ? { x: at.x + across * share - 4, y: at.y + roof / 2 - 5 }
+      : { x: at.x + across / 2 - 5, y: at.y + roof * share - 4 };
+    ctx.fillRect(spot.x, spot.y, 9, 9);
+    ctx.strokeRect(spot.x, spot.y, 9, 9);
+  }
+
+  ctx.strokeStyle = HUT_EDGE;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(at.x, at.y, across, roof);
+}
+
+/** The concrete slab a hut stands on. */
+const HUT_APRON = "#8e8e80";
+
+/** How far that slab reaches past the walls, in pixels. */
+const HUT_SLAB = 7;
+
+/** The paint on the walls. */
+const HUT_WALL = "#556b2f";
+
+/** The plinth course along the bottom of them. */
+const HUT_PLINTH = "#454f28";
+
+/** And the shadow the eaves throw along the top. */
+const HUT_SHADOW = "#3d4c22";
+
+/** The far slope of the roof. */
+const HUT_ROOF_BACK = "#5f7333";
+
+/** And the near one, which faces the light. */
+const HUT_ROOF_FRONT = "#71873f";
+
+/** The cap along the ridge. */
+const HUT_RIDGE = "#8a9c52";
+
+/** The seams between the roof sheets. */
+const HUT_SEAM = "#46552a";
+
+/** A vent standing on the ridge. */
+const HUT_VENT = "#6e7462";
+
+/** The line round the whole roof. */
+const HUT_EDGE = "#3f4f22";
+
+/** A window frame. */
+const HUT_FRAME = "#3f4f22";
+
+/** What is behind it. */
+const HUT_GLASS = "#93a7ba";
+
+/** The sill under it. */
+const HUT_SILL = "#9a9a8c";
+
+/** The door. */
+const HUT_DOOR = "#38451d";
+
+/** The canopy over it. */
+const HUT_CANOPY = "#9a9a8c";
+
+/** And the handle on it. */
+const HUT_HANDLE = "#c9cdb0";
 
 /**
  * The barns and farmhouses of the north-west.
@@ -2418,12 +2775,21 @@ function drawScene(
     }
   }
   if (state.player.car === null && !state.player.flying) {
+    // Whatever he is standing on, if he is standing on anything.
+    const under = roofAt(state.cells, state.player.x, state.player.y);
     movers.push({
       // Over the roofs he belongs in front of everything: the whole point of
       // being up there is seeing the block, and a roof painted over him would
-      // make the flight look like a fall.
+      // make the flight look like a fall. **And on one**, for the plainer
+      // reason that a man standing on a roof is on top of it - painted at his
+      // own depth he would be inside the house he is standing on.
+      //
+      // Climbing past a house over the street he is not: down there he is
+      // between the buildings like everybody else, and one of them being in
+      // front of him is the picture working.
       depth:
-        state.player.height >= ROOF_HEIGHT
+        state.player.height >= ROOF_HEIGHT ||
+        (under > 0 && state.player.height >= under)
           ? Number.MAX_SAFE_INTEGER
           : state.player.y,
       at: state.player,
@@ -2705,11 +3071,38 @@ const ARMY_PAINT: HeliPaint = {
  * @param spin - where the rotor is in its turn
  * @param paint - whose machine it is
  * @remarks
- * A Black Hawk rather than a bubble: a long squared-off cabin, stub wings over
- * the doors, a tail boom that tapers to a swept fin with the tail rotor on the
- * side of it, and four blades on top. Both machines in the game are this one -
- * the police fly it in blue, the army in olive - because there is only one
- * helicopter in San Andreas and it is the same aircraft either way.
+ * **A Sikorsky UH-60, drawn to the maker's numbers.** The fuselage is 15,25 m
+ * long and 2,36 m across, so from above it is a **long, narrow pod with a boom
+ * on the back of it** - a shape one would recognise before any detail on it.
+ * Everything else here is that ratio times {@link HELI_LONG}:
+ *
+ * | | metres | share of the length | drawn |
+ * | --- | --- | --- | --- |
+ * | fuselage width | 2,36 | 0,155 | 7,1 |
+ * | main rotor | 16,36 across | 1,07 | 24,7 radius |
+ * | tail rotor | 3,35 across | 0,22 | 5,1 radius |
+ * | stabilator | 4,40 across | 0,29 | 6,6 either side |
+ * | wheel track | 2,97 | 0,19 | 4,5 either side |
+ *
+ * The details that say UH-60 rather than "a helicopter":
+ *
+ * - **Four blades on each rotor.** The main one had two, which is a Huey.
+ * - **The tail rotor is on the right of the fin and canted twenty degrees**,
+ *   which is a Black Hawk's and nobody else's - the cant is there to buy some
+ *   lift out of it. Seen from above, a tail rotor disc is a **line running
+ *   fore and aft**, not across the aircraft, and the cant opens that line into
+ *   a thin ellipse. It used to be drawn across.
+ * - **Wheels, not skids.** It has a tricycle undercarriage: two main wheels
+ *   under the cabin and a tail wheel a good way up the boom, not at the end of
+ *   it.
+ * - **Two engine cowlings** either side of the rotor head, with the exhausts
+ *   turned out and back.
+ * - **A stabilator** across the boom ahead of the fin, and it is wide - most
+ *   of the width of the stub wings.
+ *
+ * Both machines in the game are this one - the police fly it in blue, the army
+ * in olive - because there is one helicopter in San Andreas and it is the same
+ * aircraft either way.
  */
 function paintHeli(
   ctx: CanvasRenderingContext2D,
@@ -2718,123 +3111,248 @@ function paintHeli(
   spin: number,
   paint: HeliPaint,
 ): void {
+  const long = HELI_LONG / 2;
+  const wide = HELI_LONG * HAWK_WIDE;
   ctx.save();
   ctx.translate(spot.x, spot.y);
   ctx.scale(1, DEPTH);
   ctx.rotate(angle);
+  ctx.lineJoin = "round";
   ctx.fillStyle = paint.body;
   ctx.strokeStyle = paint.trim;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.2;
 
-  // The tail boom, tapering, with the fin swept up at the end of it.
+  // The boom, tapering from the back of the cabin to the foot of the fin.
   const boom = new Path2D();
-  boom.moveTo(-2, -4.6);
-  boom.lineTo(-HELI_LONG * 0.46, -2.2);
-  boom.lineTo(-HELI_LONG * 0.46, 2.2);
-  boom.lineTo(-2, 4.6);
+  boom.moveTo(-long * HAWK_CABIN, -wide * 0.86);
+  boom.lineTo(-long * HAWK_FIN, -wide * 0.34);
+  boom.lineTo(-long * HAWK_FIN, wide * 0.34);
+  boom.lineTo(-long * HAWK_CABIN, wide * 0.86);
   boom.closePath();
   ctx.fill(boom);
   ctx.stroke(boom);
+
+  // The stabilator: a wing across the boom, well ahead of the fin.
+  const tailplane = new Path2D();
+  tailplane.roundRect(
+    -long * HAWK_STAB - 1.4,
+    -HELI_LONG * HAWK_SPAN,
+    2.8,
+    HELI_LONG * HAWK_SPAN * 2,
+    0.8,
+  );
+  ctx.fill(tailplane);
+  ctx.stroke(tailplane);
+
+  // The fin, swept back off the end of the boom. From above it is a sliver on
+  // the centre line - it is a blade standing on edge.
   const fin = new Path2D();
-  fin.moveTo(-HELI_LONG * 0.46, -2.6);
-  fin.lineTo(-HELI_LONG / 2 - 2, -8.5);
-  fin.lineTo(-HELI_LONG / 2 + 1.5, -9);
-  fin.lineTo(-HELI_LONG * 0.42, 2.6);
+  fin.moveTo(-long * HAWK_FIN, -wide * 0.34);
+  fin.lineTo(-long, -wide * 0.2);
+  fin.lineTo(-long, wide * 0.2);
+  fin.lineTo(-long * HAWK_FIN, wide * 0.34);
   fin.closePath();
   ctx.fill(fin);
   ctx.stroke(fin);
-  // The tailplane, across the boom.
-  const plane = new Path2D();
-  plane.roundRect(-HELI_LONG * 0.44, -7.5, 5, 15, 1.2);
-  ctx.fill(plane);
-  ctx.stroke(plane);
 
-  // The cabin: square-shouldered, with a nose that comes to a point.
+  // The cabin: a long box with a nose drawn out to a round point.
   const cabin = new Path2D();
-  cabin.moveTo(-3, -8.4);
-  cabin.lineTo(9, -8.4);
-  cabin.lineTo(15, -4.6);
-  cabin.lineTo(16.5, 0);
-  cabin.lineTo(15, 4.6);
-  cabin.lineTo(9, 8.4);
-  cabin.lineTo(-3, 8.4);
+  cabin.moveTo(-long * HAWK_CABIN, -wide);
+  cabin.lineTo(long * HAWK_SHOULDER, -wide);
+  cabin.quadraticCurveTo(long * 0.92, -wide * 0.82, long, -wide * 0.2);
+  cabin.quadraticCurveTo(long * 1.02, 0, long, wide * 0.2);
+  cabin.quadraticCurveTo(long * 0.92, wide * 0.82, long * HAWK_SHOULDER, wide);
+  cabin.lineTo(-long * HAWK_CABIN, wide);
   cabin.closePath();
   ctx.fill(cabin);
   ctx.stroke(cabin);
 
-  // Stub wings over the doors, and the engine deck between them.
+  // The two engine cowlings either side of the rotor head, and the exhausts
+  // turned out of the back of them.
   ctx.fillStyle = paint.trim;
   for (const side of [-1, 1]) {
+    const pod = new Path2D();
+    pod.roundRect(
+      -long * 0.06,
+      side > 0 ? wide * 0.46 : -wide * 0.96,
+      long * 0.34,
+      wide * 0.5,
+      1.2,
+    );
+    ctx.fill(pod);
+    const pipe = new Path2D();
+    pipe.roundRect(
+      -long * 0.06,
+      side * wide * 0.74 - 0.7,
+      long * 0.1,
+      1.4,
+      0.6,
+    );
+    ctx.fill(pipe);
+  }
+
+  // The stub wings over the doors, which carry the tanks.
+  for (const side of [-1, 1]) {
     const wing = new Path2D();
-    wing.roundRect(-1.5, side * 8.4 - (side > 0 ? 0 : 3.4), 9, 3.4, 1.2);
+    wing.roundRect(
+      long * 0.02,
+      side > 0 ? wide : -HELI_LONG * HAWK_WING,
+      long * 0.2,
+      HELI_LONG * HAWK_WING - wide,
+      0.8,
+    );
     ctx.fill(wing);
   }
-  const deck = new Path2D();
-  deck.roundRect(-3.5, -5, 7, 10, 2);
-  ctx.fill(deck);
 
-  // The windscreen and the two door windows.
+  // The glass: two windscreen panes with the post between them, and a window
+  // in each of the sliding doors.
   ctx.fillStyle = paint.glass;
-  const glass = new Path2D();
-  glass.moveTo(9.4, -7.4);
-  glass.lineTo(14.4, -4.2);
-  glass.lineTo(15.6, 0);
-  glass.lineTo(14.4, 4.2);
-  glass.lineTo(9.4, 7.4);
-  glass.closePath();
-  ctx.fill(glass);
-  ctx.stroke(glass);
+  ctx.lineWidth = 0.6;
   for (const side of [-1, 1]) {
-    ctx.fillRect(2, side * 8.4 - (side > 0 ? 2.6 : 0), 5.5, 2.6);
+    const pane = new Path2D();
+    pane.moveTo(long * HAWK_SHOULDER, side * wide * 0.86);
+    pane.quadraticCurveTo(
+      long * 0.9,
+      side * wide * 0.7,
+      long * 0.97,
+      side * wide * 0.18,
+    );
+    pane.lineTo(long * 0.97, side * 0.4);
+    pane.lineTo(long * HAWK_SHOULDER, side * 0.4);
+    pane.closePath();
+    ctx.fill(pane);
+    ctx.stroke(pane);
+    const door = new Path2D();
+    door.roundRect(
+      -long * 0.12,
+      side > 0 ? wide * 0.5 : -wide * 0.94,
+      long * 0.26,
+      wide * 0.44,
+      0.5,
+    );
+    ctx.fill(door);
   }
 
-  // The skids.
-  ctx.strokeStyle = "#334155";
-  ctx.lineWidth = 2.2;
+  // The undercarriage: two main wheels under the cabin and a tail wheel on the
+  // boom, which is what this one has instead of skids.
+  ctx.fillStyle = HAWK_TYRE;
+  for (const side of [-1, 1]) {
+    const wheel = new Path2D();
+    wheel.roundRect(
+      long * HAWK_AXLE - 1.6,
+      side * HELI_LONG * HAWK_TRACK - 1,
+      3.2,
+      2,
+      0.9,
+    );
+    ctx.fill(wheel);
+  }
+  const tail = new Path2D();
+  tail.roundRect(-long * HAWK_STAB - 1.2, -0.9, 2.4, 1.8, 0.8);
+  ctx.fill(tail);
+
+  // **The tail rotor.** On the right of the fin, and canted: from above its
+  // disc is a line running fore and aft, opened into a thin ellipse by the
+  // twenty degrees it leans over.
+  const hub = { x: -long * HAWK_ROTOR, y: wide * 0.5 };
+  const lean = Math.sin((HAWK_CANT * Math.PI) / 180);
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = HAWK_BLADE;
   ctx.beginPath();
-  for (const side of [-1, 1]) {
-    ctx.moveTo(-3, side * 10.5);
-    ctx.lineTo(12, side * 10.5);
-  }
-  ctx.stroke();
-
-  // The tail rotor, on the left of the fin and turning the other way.
-  ctx.globalAlpha = 0.5;
-  ctx.strokeStyle = "#cbd5e1";
-  ctx.lineWidth = 2;
+  ctx.ellipse(hub.x, hub.y, TAIL_SPAN, TAIL_SPAN * lean, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.55;
+  ctx.strokeStyle = HAWK_BLADE;
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
   for (let blade = 0; blade < TAIL_BLADES; blade += 1) {
     const turn = -spin * 1.6 + (blade * Math.PI * 2) / TAIL_BLADES;
-    ctx.moveTo(-HELI_LONG / 2, -6.5 - Math.sin(turn) * TAIL_SPAN);
-    ctx.lineTo(-HELI_LONG / 2, -6.5 + Math.sin(turn) * TAIL_SPAN);
+    ctx.moveTo(hub.x, hub.y);
+    ctx.lineTo(
+      hub.x + Math.cos(turn) * TAIL_SPAN,
+      hub.y + Math.sin(turn) * TAIL_SPAN * lean,
+    );
   }
   ctx.stroke();
 
   // And the main rotor: four blades and the disc they sweep.
   ctx.globalAlpha = 0.18;
-  ctx.fillStyle = "#e2e8f0";
+  ctx.fillStyle = HAWK_BLADE;
   ctx.beginPath();
-  ctx.arc(4, 0, ROTOR_SPAN, 0, Math.PI * 2);
+  ctx.arc(long * HAWK_MAST, 0, ROTOR_SPAN, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 0.6;
-  ctx.strokeStyle = "#e2e8f0";
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = HAWK_BLADE;
+  ctx.lineWidth = 2.4;
   ctx.beginPath();
   for (let blade = 0; blade < ROTOR_BLADES; blade += 1) {
     const turn = spin + (blade * Math.PI * 2) / ROTOR_BLADES;
-    ctx.moveTo(4, 0);
-    ctx.lineTo(4 + Math.cos(turn) * ROTOR_SPAN, Math.sin(turn) * ROTOR_SPAN);
+    ctx.moveTo(long * HAWK_MAST, 0);
+    ctx.lineTo(
+      long * HAWK_MAST + Math.cos(turn) * ROTOR_SPAN,
+      Math.sin(turn) * ROTOR_SPAN,
+    );
   }
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.restore();
 }
 
+/**
+ * Half the width of the fuselage, as a share of its length.
+ *
+ * @remarks
+ * 2,36 m of 15,25 is 0,077, and it is drawn a hair over that: at forty six
+ * pixels long the true ratio is seven pixels across, and seven pixels of olive
+ * with two black engine decks on it leaves a fuselage one can barely see. This
+ * is the one place the numbers are rounded in the machine's favour.
+ */
+const HAWK_WIDE = 0.088;
+
+/** Where the cabin ends and the boom begins, as a share of half the length. */
+const HAWK_CABIN = 0.08;
+
+/** Where the shoulder of the cabin turns into the nose, the same way. */
+const HAWK_SHOULDER = 0.58;
+
+/** Where the boom ends and the fin begins. */
+const HAWK_FIN = 0.9;
+
+/** Where the stabilator and the tail wheel sit. */
+const HAWK_STAB = 0.74;
+
+/** And where the tail rotor turns. */
+const HAWK_ROTOR = 0.95;
+
+/** Where the mast stands, as a share of half the length. */
+const HAWK_MAST = 0.22;
+
+/** Where the main wheels are. */
+const HAWK_AXLE = 0.26;
+
+/** Half the stabilator span, as a share of the length: 4,40 m of 15,25. */
+const HAWK_SPAN = 0.144;
+
+/** Half the wheel track, the same way: 2,97 m of 15,25. */
+const HAWK_TRACK = 0.097;
+
+/** And half the span over the stub wings. */
+const HAWK_WING = 0.164;
+
+/** How far the tail rotor leans off the vertical, in degrees. */
+const HAWK_CANT = 20;
+
+/** What a rotor blade is drawn in. */
+const HAWK_BLADE = "#e2e8f0";
+
+/** And a tyre. */
+const HAWK_TYRE = "#1c1917";
+
 /** How many blades the tail rotor has. */
 const TAIL_BLADES = 4;
 
-/** And how long they are. */
-const TAIL_SPAN = 5.5;
+/** And how long they are: 3,35 m across of a 15,25 m aircraft. */
+const TAIL_SPAN = 5.1;
 
 /**
  * The helicopter on the pad at the base, and whoever is flying it.
@@ -2884,11 +3402,11 @@ const HELI_LONG = 46;
 /** And how wide across the cabin. */
 const HELI_WIDE = 9;
 
-/** How many blades the rotor has. */
-const ROTOR_BLADES = 2;
+/** How many blades the rotor has - four, the way a Black Hawk's does. */
+const ROTOR_BLADES = 4;
 
-/** How far they reach from the mast. */
-const ROTOR_SPAN = 26;
+/** How far they reach from the mast: 16,36 m across of a 15,25 m aircraft. */
+const ROTOR_SPAN = 24.7;
 
 /** The job marker and the spray shop, as things a house can hide. */
 function ringsOf(
@@ -2981,25 +3499,53 @@ function collectHouses(
   const toBlockY = Math.ceil(seen.bottom / span);
   for (let blockY = fromBlockY; blockY <= toBlockY; blockY += 1) {
     for (let blockX = fromBlockX; blockX <= toBlockX; blockX += 1) {
-      // The houses of a block sit inside its ring of pavement - and inside the
-      // motorway, where one runs past. Asked of the plan, not assumed.
-      const box = builtPlot(blockX, blockY);
-      const left = box.left * TILE;
-      const top = box.top * TILE;
-      const right = box.right * TILE;
-      const bottom = box.bottom * TILE;
       // Asked of the plan, not of the floor: the player's own house has a
       // garage cut out of its middle square, and a house with a garage in it
       // is still a house.
-      if (builtBlock(blockX, blockY)) {
+      // **A prison swallows its neighbours.** It stands on four blocks, and
+      // the three it is not anchored on must not put their own houses up
+      // inside it - the floor there is prison, so a house drawn on it would
+      // be a house one cannot walk into standing in a yard one cannot reach.
+      const covering = prisonUnder(
+        blockX * BLOCK_TILES + BLOCK_MIDDLE,
+        blockY * BLOCK_TILES + BLOCK_MIDDLE,
+      );
+      const swallowed =
+        covering !== null && (covering.x !== blockX || covering.y !== blockY);
+      if (builtBlock(blockX, blockY) && !swallowed) {
         const look = scatter(blockX, blockY);
         // What it is comes from the table, so that the city and the picture
         // always agree about which corner holds the night club.
         const sort = buildingAt(blockX, blockY);
+        const gaol = covering !== null;
+        // The houses of a block sit inside its ring of pavement - and inside
+        // the motorway, where one runs past. Asked of the plan, not assumed.
+        // A prison is the one that is built over the pavement as well, and
+        // both the floor and this take that shape from the same function.
+        const box = gaol
+          ? prisonPlot(blockX, blockY)
+          : builtPlot(blockX, blockY);
+        const left = box.left * TILE;
+        const top = box.top * TILE;
+        const right = box.right * TILE;
+        const bottom = box.bottom * TILE;
         const height = houseHeight(blockX, blockY, look) * sort.rise;
         const plot = { left, top, right, bottom };
         const foot = project(view, left, bottom);
-        const roof = project(view, left, top, height);
+        // **What a prison can hide is its near range, not its yard.** This
+        // rectangle is what the picture asks "is the player behind this?" of,
+        // and for an ordinary house the whole footprint is the right answer:
+        // it is solid from front to back. A prison is not - it is a wall round
+        // a hole - so the box that reaches from the front wall to the far side
+        // of the block swallowed the yard as well, and a man standing in the
+        // middle of the yard, in the open, with nothing whatever in front of
+        // him, turned the whole prison see-through.
+        //
+        // So for a prison the box stops at the back of the **near range**: it
+        // covers whoever is behind that wall, which is exactly who it hides,
+        // and nobody in the yard beyond it.
+        const capTop = gaol ? bottom - PRISON_WING * TILE : top;
+        const roof = project(view, left, capTop, height);
         houses.push({
           wall: {
             depth: bottom,
@@ -3008,7 +3554,10 @@ function collectHouses(
             top: roof.y,
             bottom: foot.y,
           },
-          paint: (fade) => drawHouse(ctx, view, plot, height, look, sort, fade),
+          paint: (fade) =>
+            gaol
+              ? drawPrison(ctx, view, plot, height, sort, state.time, fade)
+              : drawHouse(ctx, view, plot, height, look, sort, fade),
         });
       }
     }
@@ -3017,35 +3566,755 @@ function collectHouses(
 }
 
 /**
- * A number between 0 and 1 that is always the same for the same block.
+ * The prison: a square of cell blocks with a yard inside it.
  *
- * @param blockX - the block, across
- * @param blockY - the block, down
- * @returns that block's own private dice roll
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param plot - the four blocks it stands on, in city pixels
+ * @param height - how tall the ranges are
+ * @param sort - its colours and its name
+ * @param now - the clock, for the men in the yard
+ * @param fade - how solid to paint it
+ * @remarks
+ * It was one box the size of a house with GEFÄNGNIS written over the door,
+ * which is a prison in the way a shed with BANK on it is a bank. What a prison
+ * looks like from above is a **shape**, and the shape is the whole of what one
+ * recognises:
+ *
+ * - **A range of cell blocks the whole way round**, two squares thick, closed
+ *   at every corner. No gate, no gap, nothing to see through.
+ * - **A watchtower on each of the four corners**, standing half as high again
+ *   as the range, with a glazed cabin on top and a warder in it.
+ * - **The yard in the middle**: concrete, a basketball court painted on it,
+ *   benches round the edge and a hut in the middle.
+ * - **And men in it.** They walk their circuits, which is what a yard is for.
+ *
+ * It is drawn **north to south** rather than as one box, because it has an
+ * inside: the far range and its towers go down first, then the floor of the
+ * yard and everything standing on it, then the near range last of all - so the
+ * wall between the camera and the yard covers the yard, as a wall does.
  */
-function scatter(blockX: number, blockY: number): number {
-  const spun = Math.sin(blockX * 12.9898 + blockY * 78.233) * 43758.5453;
-  return spun - Math.floor(spun);
+function drawPrison(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  plot: { left: number; top: number; right: number; bottom: number },
+  height: number,
+  sort: Building,
+  now: number,
+  fade: number,
+): void {
+  const wing = PRISON_WING * TILE;
+  const yard = {
+    left: plot.left + wing,
+    top: plot.top + wing,
+    right: plot.right - wing,
+    bottom: plot.bottom - wing,
+  };
+  const range = {
+    high: height,
+    wall: sort.wall,
+    roof: sort.roof,
+    bars: true,
+    tower: false,
+  };
+  const wall = { ...range, bars: false };
+
+  // The far range first, then the yard, then the near one.
+  prisonBox(ctx, view, { ...plot, bottom: plot.top + wing }, range, fade);
+  prisonBox(
+    ctx,
+    view,
+    {
+      left: plot.left,
+      top: plot.top + wing,
+      right: plot.left + wing,
+      bottom: plot.bottom - wing,
+    },
+    wall,
+    fade,
+  );
+  prisonBox(
+    ctx,
+    view,
+    {
+      left: plot.right - wing,
+      top: plot.top + wing,
+      right: plot.right,
+      bottom: plot.bottom - wing,
+    },
+    wall,
+    fade,
+  );
+  towerAt(ctx, view, plot.left, plot.top, height, fade, now);
+  towerAt(ctx, view, plot.right, plot.top, height, fade, now);
+
+  yardFloor(ctx, view, yard, fade);
+  // What stands in the yard, north to south: the hut, then the men, then the
+  // benches along the near edge. The hut is on the square the floor made
+  // solid, which is a rounding both sides have to do the same way.
+  const cell = prisonHut({
+    left: plot.left / TILE,
+    top: plot.top / TILE,
+    right: plot.right / TILE,
+    bottom: plot.bottom / TILE,
+  });
+  const shed = {
+    left: cell.x * TILE,
+    top: cell.y * TILE,
+    right: (cell.x + 1) * TILE,
+    bottom: (cell.y + 1) * TILE,
+  };
+  prisonBox(ctx, view, shed, { ...wall, high: height * HUT_RISE }, fade);
+  // What the shed is for, written over it. A prison workshop is a going
+  // concern with a name over the door, and this is the name over the door.
+  const over = project(view, (shed.left + shed.right) / 2, shed.top, height * HUT_RISE);
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `bold ${String(SHED_TEXT)}px system-ui, sans-serif`;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = SHED_EDGE;
+  ctx.strokeText(SHED_NAME, over.x, over.y - SHED_UP);
+  ctx.fillStyle = SHED_INK;
+  ctx.fillText(SHED_NAME, over.x, over.y - SHED_UP);
+  ctx.textAlign = "left";
+  ctx.restore();
+  yardFolk(ctx, view, yard, now, fade);
+
+  prisonBox(ctx, view, { ...plot, top: plot.bottom - wing }, range, fade);
+  towerAt(ctx, view, plot.left, plot.bottom, height, fade, now);
+  towerAt(ctx, view, plot.right, plot.bottom, height, fade, now);
+
+  // And its name over the middle of the near range, like every other place
+  // with one - over the middle of it rather than across the whole front,
+  // because the front is six hundred pixels wide and a sign that long is a
+  // hoarding.
+  const middle = (plot.left + plot.right) / 2;
+  const board = ((plot.right - plot.left) * SIGN_SHARE) / 2;
+  signOver(
+    ctx,
+    view,
+    { ...plot, left: middle - board, right: middle + board },
+    height,
+    sort,
+    fade,
+  );
+}
+
+/** How much of the front the name board takes up. */
+const SIGN_SHARE = 0.34;
+
+/** The middle square of a block, for asking what stands on it. */
+const BLOCK_MIDDLE = BLOCK_TILES / 2;
+
+/** Half of anything, which the yard markings need rather a lot of. */
+const HALF = 0.5;
+
+/**
+ * The floor of the yard: concrete, a basketball court and the benches on it.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param yard - the open ground inside the ranges, in city pixels
+ * @param fade - how solid to paint it
+ * @remarks
+ * All of it flat on the ground, so all of it is one rectangle after another in
+ * the same projection the road markings use. The court is where the eye goes:
+ * it is the one thing in a prison yard that has a shape everybody knows, and
+ * at this size the key and the centre circle are what say basketball rather
+ * than tennis.
+ */
+function yardFloor(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  yard: { left: number; top: number; right: number; bottom: number },
+  fade: number,
+): void {
+  const wide = yard.right - yard.left;
+  const deep = yard.bottom - yard.top;
+  const at = project(view, yard.left, yard.top);
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = YARD_GROUND;
+  ctx.fillRect(at.x, at.y, wide, deep * DEPTH);
+
+  // **The court stands up the yard, not across it.** A basketball court is
+  // nearly twice as long as it is wide, and the long way of it is the way one
+  // plays: basket to basket. Laid the other way round - wide and shallow - it
+  // reads as a tennis court with the net missing. The hut is out of its way in
+  // the top left corner, so it can sit in the middle where it belongs.
+  const court = {
+    left: yard.left + wide * COURT_IN,
+    right: yard.right - wide * COURT_IN,
+    top: yard.top + deep * COURT_TOP,
+    bottom: yard.top + deep * COURT_LOW,
+  };
+  const box = project(view, court.left, court.top);
+  const across = court.right - court.left;
+  const down = (court.bottom - court.top) * DEPTH;
+  ctx.fillStyle = COURT_TARMAC;
+  ctx.fillRect(box.x, box.y, across, down);
+  ctx.strokeStyle = COURT_PAINT;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(box.x, box.y, across, down);
+  // The halfway line, the centre circle, and a key at each end with the hoop
+  // standing on the line behind it.
+  ctx.beginPath();
+  ctx.moveTo(box.x, box.y + down / 2);
+  ctx.lineTo(box.x + across, box.y + down / 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(
+    box.x + across / 2,
+    box.y + down / 2,
+    across * COURT_RING,
+    across * COURT_RING * DEPTH,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.stroke();
+  for (const end of [0, 1]) {
+    const line = box.y + down * end;
+    const into = end === 0 ? 1 : -1;
+    ctx.beginPath();
+    ctx.rect(
+      box.x + across * (HALF - COURT_KEY / 2),
+      line,
+      across * COURT_KEY,
+      down * COURT_DEEP * into,
+    );
+    ctx.stroke();
+    // The board and the hoop, which stand a little outside the end line.
+    ctx.fillStyle = COURT_BOARD;
+    ctx.fillRect(
+      box.x + across * (HALF - COURT_POST / 2),
+      line - (end === 0 ? 2 : 0),
+      across * COURT_POST,
+      2,
+    );
+    ctx.strokeStyle = COURT_HOOP;
+    ctx.beginPath();
+    ctx.ellipse(
+      box.x + across / 2,
+      line + into * 3,
+      3,
+      3 * DEPTH,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.stroke();
+    ctx.strokeStyle = COURT_PAINT;
+  }
+
+  // The benches, in the bottom right corner of the yard: a short row of them
+  // out of the way of the court, which is where the benches of a yard are.
+  for (let seat = 0; seat < BENCHES; seat += 1) {
+    bench(ctx, view, benchAt(yard, seat), fade);
+  }
+  ctx.restore();
 }
 
 /**
- * How tall the houses of a block are.
+ * Where one of the benches stands.
  *
- * @param blockX - the block, across
- * @param blockY - the block, down
- * @param look - that block's dice roll
- * @returns the height in screen pixels
+ * @param yard - the open ground, in city pixels
+ * @param seat - which bench, counting from the back of the row
+ * @returns its top left corner
  * @remarks
- * Tall in the middle of town, low towards the edges and the sea - that is what
- * makes a skyline read as a city rather than as a warehouse estate. The dice
- * roll only decides how far towards the local maximum a block goes.
+ * Its own function because two things want the answer: the floor of the yard,
+ * which draws them, and the two men who are sitting down, who have to be
+ * sitting on one rather than beside it.
  */
-function houseHeight(blockX: number, blockY: number, look: number): number {
-  const blocks = CITY_TILES / BLOCK_TILES;
-  const away = Math.hypot(blockX + 0.5 - blocks / 2, blockY + 0.5 - blocks / 2);
-  const downtown = Math.max(0, 1 - away / (blocks / 2));
-  return HOUSE_LOW + (HOUSE_HIGH - HOUSE_LOW) * downtown * (0.35 + 0.65 * look);
+function benchAt(
+  yard: { left: number; top: number; right: number; bottom: number },
+  seat: number,
+): Vec {
+  const deep = yard.bottom - yard.top;
+  return {
+    x: yard.right - BENCH_OUT - BENCH_LONG,
+    y: yard.top + deep * (BENCH_FROM + BENCH_STEP * seat),
+  };
 }
+
+/** One bench: a slab with its slats and the two legs under it. */
+function bench(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  at: Vec,
+  fade: number,
+): void {
+  const spot = project(view, at.x, at.y);
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = BENCH_SHADE;
+  ctx.fillRect(spot.x + 1, spot.y + 1, BENCH_LONG, BENCH_WIDE * DEPTH);
+  ctx.fillStyle = BENCH_WOOD;
+  ctx.fillRect(spot.x, spot.y, BENCH_LONG, BENCH_WIDE * DEPTH);
+  ctx.strokeStyle = BENCH_SEAM;
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  for (let slat = 1; slat < BENCH_SLATS; slat += 1) {
+    const down = spot.y + (BENCH_WIDE * DEPTH * slat) / BENCH_SLATS;
+    ctx.moveTo(spot.x, down);
+    ctx.lineTo(spot.x + BENCH_LONG, down);
+  }
+  ctx.stroke();
+}
+
+/**
+ * The men in the yard.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param yard - the open ground, in city pixels
+ * @param now - the clock
+ * @param fade - how solid to paint them
+ * @remarks
+ * **Weather, not history.** Nobody can reach the yard on foot - the ring has
+ * no way through it - so nothing in the game ever touches these men and none
+ * of them needs to be in the state: where each one is comes out of the clock
+ * and of where his own prison stands, the same way a traffic light's colour
+ * does. That costs nothing per frame and saves carrying a dozen people per
+ * prison through every save file for the sake of a yard one looks at over a
+ * wall.
+ *
+ * Each walks his own slow ellipse round the hut at his own pace, which is what
+ * an exercise yard looks like from above; two of them sit on the benches,
+ * because in any yard somebody is sitting.
+ */
+function yardFolk(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  yard: { left: number; top: number; right: number; bottom: number },
+  now: number,
+  fade: number,
+): void {
+  const wide = yard.right - yard.left;
+  const deep = yard.bottom - yard.top;
+  const middle = { x: (yard.left + yard.right) / 2, y: (yard.top + yard.bottom) / 2 };
+  for (let man = 0; man < YARD_MEN; man += 1) {
+    // His own dice roll, from where his prison stands, so that two prisons do
+    // not have the same dozen men walking in step.
+    const own = scatter(Math.round(yard.left) + man * 31, Math.round(yard.top));
+    const spin = scatter(Math.round(yard.top) + man * 17, Math.round(yard.left));
+    const rx = wide * (WALK_IN + WALK_OUT * own);
+    const ry = deep * (WALK_IN + WALK_OUT * spin);
+    const pace = YARD_SLOW + (YARD_QUICK - YARD_SLOW) * own;
+    const round = (spin < HALF ? -1 : 1) * (pace / ((rx + ry) / 2));
+    const turn = now * round + own * Math.PI * 2;
+    const at = {
+      x: middle.x + Math.cos(turn) * rx,
+      y: middle.y + Math.sin(turn) * ry,
+    };
+    const way = Math.atan2(
+      Math.sign(round) * ry * Math.cos(turn),
+      -Math.sign(round) * rx * Math.sin(turn),
+    );
+    drawFigure(
+      ctx,
+      view,
+      at,
+      {
+        shirt: CONVICT_SHIRT,
+        trousers: CONVICT_TROUSERS,
+        skin: CONVICT_SKIN,
+        hair: CONVICT_HAIR,
+        facing: way,
+        heading: way,
+        walked: now * pace,
+        pace: pace / WALK_SPEED,
+        time: now,
+        arms: "swing",
+        hand: "right",
+        style: "convict",
+      },
+      fade,
+    );
+  }
+  // And the two who are sitting, each on a bench of the row rather than beside
+  // one, facing across the yard at the court.
+  for (const seat of [0, SEATED_TWO]) {
+    const spot = benchAt(yard, seat);
+    drawFigure(
+      ctx,
+      view,
+      { x: spot.x + BENCH_LONG / 2, y: spot.y + BENCH_WIDE / 2 },
+      {
+        shirt: CONVICT_SHIRT,
+        trousers: CONVICT_TROUSERS,
+        skin: CONVICT_SKIN,
+        hair: CONVICT_HAIR,
+        facing: Math.PI,
+        heading: Math.PI,
+        walked: 0,
+        pace: 0,
+        time: now + seat,
+        arms: "swing",
+        hand: "right",
+        style: "convict",
+        sits: true,
+      },
+      fade,
+    );
+  }
+}
+
+/**
+ * One watchtower: the shaft, the cabin on top of it, and the warder in it.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param x - the corner of the prison it stands on
+ * @param y - the same, down
+ * @param height - how tall the ranges are
+ * @param fade - how solid to paint it
+ * @param now - the clock, for the man standing in it
+ * @remarks
+ * **A tower is a room on a stalk**, and the room is the point of it: a plain
+ * taller box on the corner is a chimney. So the shaft goes up, a cabin a good
+ * deal wider than the shaft sits on top of it, its walls are glass the whole
+ * way round - that is what one of these is, a glasshouse one can see out of in
+ * every direction - and a warder stands inside it looking out over the wall.
+ *
+ * The cabin overhangs the shaft on every side, which is what makes the
+ * silhouette read as a watchtower from across the block rather than as the
+ * corner of the building being a bit taller than the rest of it.
+ */
+function towerAt(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  x: number,
+  y: number,
+  height: number,
+  fade: number,
+  now: number,
+): void {
+  const shaft = TILE * TOWER_SHAFT;
+  const cabin = TILE * TOWER_CABIN;
+  const high = height * TOWER_RISE;
+  prisonBox(
+    ctx,
+    view,
+    { left: x - shaft, top: y - shaft, right: x + shaft, bottom: y + shaft },
+    { high, wall: TOWER_WALL, roof: TOWER_ROOF, bars: false, tower: false },
+    fade,
+  );
+  prisonBox(
+    ctx,
+    view,
+    { left: x - cabin, top: y - cabin, right: x + cabin, bottom: y + cabin },
+    {
+      base: high,
+      high: high + TILE * TOWER_ROOM,
+      wall: TOWER_GLASS,
+      roof: TOWER_LID,
+      bars: false,
+      tower: true,
+    },
+    fade,
+  );
+  // **The man at the window.** He stands on the floor of the cabin, towards
+  // the front of it, and he is painted over the glass rather than behind it -
+  // which is what somebody standing at a window looks like from outside. Drawn
+  // in the middle of the cabin he would come out above its roof instead, half
+  // a cabin further north being half a cabin further up the screen.
+  drawFigure(
+    ctx,
+    view,
+    { x, y: y + cabin * GUARD_AT - high / DEPTH },
+    {
+      shirt: WARDER_SHIRT,
+      trousers: WARDER_TROUSERS,
+      skin: CONVICT_SKIN,
+      hair: WARDER_HAIR,
+      // Looking out over the wall, which from a corner is away from the
+      // middle of the prison - south from the near pair, north from the far.
+      facing: Math.PI / 2,
+      heading: Math.PI / 2,
+      walked: 0,
+      pace: 0,
+      time: now + x,
+      arms: "swing",
+      hand: "right",
+      style: "cop",
+    },
+    fade,
+  );
+}
+
+/**
+ * One block of the prison: its south wall and its roof.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param box - what it stands on, in city pixels
+ * @param look - how tall, what it is painted, and what its wall carries
+ * @param fade - how solid to paint it
+ */
+function prisonBox(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  box: { left: number; top: number; right: number; bottom: number },
+  look: {
+    /** How high off the ground the wall starts: nought for anything standing
+     * on it, and the top of the shaft for the cabin of a watchtower. */
+    readonly base?: number;
+    readonly high: number;
+    readonly wall: string;
+    readonly roof: string;
+    readonly bars: boolean;
+    readonly tower: boolean;
+  },
+  fade: number,
+): void {
+  const high = look.high;
+  const base = look.base ?? 0;
+  const foot = project(view, box.left, box.bottom);
+  const back = project(view, box.left, box.top, high);
+  const wide = box.right - box.left;
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = look.wall;
+  ctx.fillRect(foot.x, foot.y - high, wide, high - base);
+  if (look.bars) {
+    // The windows of a cell block: a row of narrow slots with a bar down each,
+    // all at one height, which is what a range of cells looks like from
+    // outside and is the one thing on the wall that says prison.
+    ctx.fillStyle = CELL_GLASS;
+    const sill = foot.y - high * CELL_SILL;
+    for (
+      let at = foot.x + CELL_STEP;
+      at < foot.x + wide - CELL_WIDE;
+      at += CELL_STEP
+    ) {
+      ctx.fillRect(at, sill, CELL_WIDE, high * CELL_TALL);
+      ctx.fillStyle = CELL_BAR;
+      ctx.fillRect(at + CELL_WIDE / 2 - 0.5, sill, 1, high * CELL_TALL);
+      ctx.fillStyle = CELL_GLASS;
+    }
+  }
+  ctx.fillStyle = look.roof;
+  ctx.fillRect(back.x, back.y, wide, foot.y - high - back.y);
+  ctx.strokeStyle = PRISON_EDGE;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(back.x, back.y, wide, foot.y - back.y);
+  ctx.beginPath();
+  line(
+    ctx,
+    { x: foot.x, y: foot.y - high },
+    { x: foot.x + wide, y: foot.y - high },
+  );
+  ctx.stroke();
+  if (look.tower) {
+    // The frame of the glasshouse: a post at each corner of the front, which
+    // is what stops the glass reading as a hole in the tower.
+    ctx.fillStyle = TOWER_POST;
+    for (const post of [0, wide - TOWER_FRAME]) {
+      ctx.fillRect(foot.x + post, foot.y - high, TOWER_FRAME, high - base);
+    }
+  } else {
+    // The wire along the top of the wall, a pale line just inside the edge of
+    // the roof, which is what one sees of it at this size.
+    ctx.strokeStyle = WIRE_LINE;
+    ctx.beginPath();
+    line(
+      ctx,
+      { x: foot.x + 1, y: foot.y - high - 1.5 },
+      { x: foot.x + wide - 1, y: foot.y - high - 1.5 },
+    );
+    ctx.stroke();
+  }
+}
+
+/** How far the shaft of a tower reaches from its corner, in squares. */
+const TOWER_SHAFT = 0.72;
+
+/** And the cabin on top of it, which overhangs it. */
+const TOWER_CABIN = 1.02;
+
+/** How much taller than the range the shaft stands, as a share. */
+const TOWER_RISE = 1.3;
+
+/** How tall the cabin on top of that is, in squares. */
+const TOWER_ROOM = 0.44;
+
+/**
+ * How far forward in the cabin the warder stands, as a share of it.
+ *
+ * @remarks
+ * Nearly at the front, and the number is not taste: a figure is drawn from its
+ * feet, and every pixel further north in the cabin is {@link DEPTH} of a pixel
+ * further **up** the screen. Stood in the middle of the cabin his feet land
+ * above its roof; at this he stands on its floor, a third of the way up the
+ * glass, which is a man at a window.
+ */
+const GUARD_AT = 0.82;
+
+/** How wide a corner post of the cabin is, in pixels. */
+const TOWER_FRAME = 2.5;
+
+/** What a watchtower shaft is painted. */
+const TOWER_WALL = "#3f3a36";
+
+/** And its roof. */
+const TOWER_ROOF = "#4b4540";
+
+/** The glass of the cabin on top. */
+const TOWER_GLASS = "#33404f";
+
+/** Its lid. */
+const TOWER_LID = "#5b554e";
+
+/** And the posts at its corners. */
+const TOWER_POST = "#2f2b28";
+
+/** How tall the hut in the middle of the yard is, as a share of the range. */
+const HUT_RISE = 0.62;
+
+/** The concrete of the yard. */
+const YARD_GROUND = "#8a8a84";
+
+/** The line round every part of the building. */
+const PRISON_EDGE = "#292524";
+
+/** And the wire along the top of it. */
+const WIRE_LINE = "#b6b2a8";
+
+/** What is behind a cell window. */
+const CELL_GLASS = "#1f2937";
+
+/** The bar down the middle of it. */
+const CELL_BAR = "#9ca3af";
+
+/** How wide one is, in pixels. */
+const CELL_WIDE = 3;
+
+/** How far apart they are. */
+const CELL_STEP = 11;
+
+/** How far down the wall they start, as a share of its height. */
+const CELL_SILL = 0.74;
+
+/** And how tall they are, the same way. */
+const CELL_TALL = 0.34;
+
+/** The tarmac of the basketball court. */
+const COURT_TARMAC = "#6f6f6a";
+
+/** The lines painted on it. */
+const COURT_PAINT = "#e8e6df";
+
+/** A backboard. */
+const COURT_BOARD = "#d6d3cc";
+
+/** And the hoop under it. */
+const COURT_HOOP = "#ea580c";
+
+/** How far in from the side of the yard the court starts, as a share. */
+const COURT_IN = 0.3;
+
+/** Where its top edge is, down the yard. */
+const COURT_TOP = 0.09;
+
+/** And its bottom edge. */
+const COURT_LOW = 0.87;
+
+/** How wide the centre circle is, as a share of the court's width. */
+const COURT_RING = 0.19;
+
+/** How wide the key is, the same way. */
+const COURT_KEY = 0.52;
+
+/** And how far into the court it reaches, as a share of its depth. */
+const COURT_DEEP = 0.15;
+
+/** How wide a backboard is, as a share of the court. */
+const COURT_POST = 0.3;
+
+/** How many benches stand in the corner of the yard. */
+const BENCHES = 3;
+
+/** Where the first one is, down the yard. */
+const BENCH_FROM = 0.64;
+
+/** And how far apart they are, the same way. */
+const BENCH_STEP = 0.11;
+
+/** Which of them the second man sits on. */
+const SEATED_TWO = 2;
+
+/** What is written over the shed in the yard. */
+const SHED_NAME = "Prison Industry";
+
+/** How big, in pixels. */
+const SHED_TEXT = 9;
+
+/** How far above its roof. */
+const SHED_UP = 4;
+
+/** What it is written in. */
+const SHED_INK = "#f8fafc";
+
+/** And what is drawn round the letters so they read on any wall. */
+const SHED_EDGE = "#1c1917";
+
+/** How far in from the wall they stand, in pixels. */
+const BENCH_OUT = 10;
+
+/** How long one is. */
+const BENCH_LONG = 26;
+
+/** And how deep. */
+const BENCH_WIDE = 7;
+
+/** How many slats it has. */
+const BENCH_SLATS = 3;
+
+/** What it is made of. */
+const BENCH_WOOD = "#9a7b52";
+
+/** The line between two slats. */
+const BENCH_SEAM = "#6b5535";
+
+/** And the shadow under it. */
+const BENCH_SHADE = "#6d6d68";
+
+/** How many men are walking the yard. */
+const YARD_MEN = 7;
+
+/** How slowly the slowest of them goes, in pixels a second. */
+const YARD_SLOW = 22;
+
+/** And the quickest. */
+const YARD_QUICK = 44;
+
+/** How far in from the middle the tightest circuit runs, as a share. */
+const WALK_IN = 0.16;
+
+/** And how much wider the widest one is. */
+const WALK_OUT = 0.22;
+
+/** What a convict wears. */
+const CONVICT_SHIRT = "#f8fafc";
+
+/** The trousers of it. */
+const CONVICT_TROUSERS = "#eceae7";
+
+/** What colour the men in the yard are. */
+const CONVICT_SKIN = "#f2c9a0";
+
+/** And their hair. */
+const CONVICT_HAIR = "#1c1917";
+
+/** What a warder wears. */
+const WARDER_SHIRT = "#1e3a8a";
+
+/** His trousers. */
+const WARDER_TROUSERS = "#172554";
+
+/** And his hair. */
+const WARDER_HAIR = "#292524";
 
 /**
  * One block: one house, a pair, a row of them, or a place with a name.
@@ -3744,10 +5013,12 @@ function drawCar(
   const wide = shape.width;
   const tiers = tiersOf(car.body);
   const soot = car.health <= 0 ? SOOT : 0;
-  const sheet = vehicleSprite(car.body, paint, police, car.driven);
   // Where the wheels stand this frame. Read off how far the car has rolled, so
   // it is the same on every machine and comes back with a saved game.
   const spin = wheelStep(car.body, car.rolled, car.speed);
+  // The picture from above, which for a tank depends on that too: its tracks
+  // are on the roof of it, not on its walls.
+  const sheet = vehicleSprite(car.body, paint, police, car.driven, spin);
   // **Leaning into the corner.** Only a two-wheeler does it, and it is done by
   // shifting the machine and its rider sideways over the wheels rather than by
   // turning anything: this view has no way to tip a picture over, but a rider
@@ -3837,9 +5108,43 @@ function drawCar(
   });
 
   // And the cabin standing on it, which is what makes it a car and not a box.
-  // The tank is the exception: its upper storey turns on its own, so it is a
-  // picture laid on top rather than a second box.
+  // The tank is the exception: its upper storey turns on its own.
   if (car.body === "tank") {
+    // **It is still a box.** The turret used to be laid on as a flat picture
+    // at roof height with nothing at all underneath it, so between the deck of
+    // the hull and the turret sitting on it there were seven pixels of open
+    // air - one could look straight through a tank at the place where its
+    // armour is thickest. So it gets walls like everything else here; what is
+    // different about it is only that they are placed at the angle of the gun
+    // rather than the angle of the tracks, and they are the one set of walls
+    // in the city that turns while the vehicle under them stands still.
+    const turret = cabinOutline(car.body);
+    panels(
+      ctx,
+      view,
+      placed(turret, car, car.turret),
+      wallFaces(turret),
+      {
+        base: tiers.belt,
+        top: tiers.tall,
+        fade,
+        soot,
+        paint,
+        lean: null,
+      },
+      (face, mirror) =>
+        vehicleWall(
+          car.body,
+          paint,
+          police,
+          face,
+          true,
+          spin,
+          car.locked,
+          mirror,
+          car.driven,
+        ),
+    );
     drawTurret(ctx, view, car, tiers.tall, fade, soot);
   } else {
     // The cabin, whose walls lean: a windscreen that slopes back takes the
@@ -3902,7 +5207,13 @@ function drawCar(
 
   if (police && LAMP_SIDES[car.body] === undefined) {
     beacon(ctx, view, car, tiers, fade, now);
-  } else if (police) {
+  } else if (police && twoWheeled(car.body)) {
+    // **Two wheels, not "everything without a light bar".** The tank is in
+    // that second list as well - it has no roof to stand a bar on either - and
+    // it was being given the motorbike's three blue lamps: sixty tons of
+    // tracked steel flashing away at the traffic like a squad car. The army
+    // does not run a blue light on one, and neither does this one.
+    //
     // A bike has no roof to stand a light bar on. It carries three lamps
     // instead - one beside each grip and one in the middle of the tail - and
     // they keep the same left-then-right beat the bar does, the tail lamp
@@ -4062,11 +5373,20 @@ function beacon(
  * @param tiers - how high it stands
  * @param fade - how much of it a house in front lets through
  * @remarks
- * The same little box the light bar is, and built by the same routine: a sign
- * stands **on** a roof, and a yellow rectangle painted into the roof itself
- * reads as a sticker - it has no thickness, it catches nothing from the side
- * and from flat on it disappears into the paint. This one is short, square on
- * in plan, and wears a dark band down the middle where the word goes.
+ * **A little box with the word on its two big faces**, which is what a taxi
+ * sign is: wide across the car, only a couple of pixels deep, and tall enough
+ * to carry four letters. So TAXI goes on the face that looks forward and on
+ * the face that looks back, not on the lid - one reads it from in front of the
+ * taxi or from behind it, the way one does on the street, rather than from
+ * directly overhead where nobody stands.
+ *
+ * That also means the word shows when the taxi is pointing up or down the
+ * screen and not when it is pointing across it, which is not a bug: this view
+ * has no perspective in it, so a face turned east or west collapses to a line.
+ * What one sees of such a taxi is the yellow box, which is enough.
+ *
+ * And it sits where it sits on a real one: **forward on the roof and over the
+ * driver**, not in the middle of it.
  */
 function taxiSign(
   ctx: CanvasRenderingContext2D,
@@ -4075,45 +5395,145 @@ function taxiSign(
   tiers: VehicleTiers,
   fade: number,
 ): void {
-  const middle = (tiers.cabinFront - tiers.rake + tiers.cabinBack) / 2;
+  const along = tiers.cabinFront - tiers.rake - SIGN_BACK;
+  const across = -SIGN_ASIDE;
   const foot = tiers.tall;
+  const lid = foot + SIGN_TALL;
+  const feet = placed(
+    [
+      { x: along - SIGN_LONG, y: across - SIGN_WIDE },
+      { x: along + SIGN_LONG, y: across - SIGN_WIDE },
+      { x: along + SIGN_LONG, y: across + SIGN_WIDE },
+      { x: along - SIGN_LONG, y: across + SIGN_WIDE },
+    ],
+    car,
+    car.angle,
+  ).map((corner) => project(view, corner.x, corner.y));
+
+  // The four walls, furthest first, so the near ones cover the far ones. The
+  // two that run the width of the sign - the first and the third edge - are
+  // the faces with the word on them.
+  const walls = feet.map((from, at) => {
+    const to = feet[(at + 1) % feet.length] ?? from;
+    return { at, from, to, depth: (from.y + to.y) / 2 };
+  });
+  walls.sort((one, other) => one.depth - other.depth);
   ctx.save();
   ctx.globalAlpha = fade;
-  boxOnRoof(
-    ctx,
-    view,
-    placed(
-      [
-        { x: middle - SIGN_LONG, y: -SIGN_WIDE },
-        { x: middle + SIGN_LONG, y: -SIGN_WIDE },
-        { x: middle + SIGN_LONG, y: SIGN_WIDE },
-        { x: middle - SIGN_LONG, y: SIGN_WIDE },
-      ],
-      car,
-      car.angle,
-    ),
-    foot,
-    foot + SIGN_TALL,
-    SIGN_SIDE,
-    SIGN_LID,
+  for (const wall of walls) {
+    const quad = new Path2D();
+    quad.moveTo(wall.from.x, wall.from.y - foot);
+    quad.lineTo(wall.to.x, wall.to.y - foot);
+    quad.lineTo(wall.to.x, wall.to.y - lid);
+    quad.lineTo(wall.from.x, wall.from.y - lid);
+    quad.closePath();
+    ctx.fillStyle = SIGN_SIDE;
+    ctx.fill(quad);
+    if (wall.at % 2 === 1) {
+      signWord(ctx, wall.from, wall.to, foot, lid);
+    }
+  }
+  const top = new Path2D();
+  feet.forEach((spot, at) => {
+    if (at === 0) {
+      top.moveTo(spot.x, spot.y - lid);
+    } else {
+      top.lineTo(spot.x, spot.y - lid);
+    }
+  });
+  top.closePath();
+  ctx.fillStyle = SIGN_LID;
+  ctx.fill(top);
+  ctx.restore();
+}
+
+/**
+ * The word across one face of the sign.
+ *
+ * @param ctx - what to draw on
+ * @param from - one bottom corner of the face, on screen
+ * @param to - the other
+ * @param foot - how high the bottom of the face is
+ * @param lid - and its top
+ * @remarks
+ * The face is a parallelogram: it runs along the edge on the ground and
+ * straight up from it, so the word is laid on with the same shear - along the
+ * edge across, and straight down the wall for its height.
+ *
+ * **Turned about where the edge points left**, which is the same trick the
+ * lettering on a patrol car's doors uses: printed one way round it would read
+ * backwards from one end of the street, and a taxi that says IXAT from behind
+ * is worse than one that says nothing.
+ */
+function signWord(
+  ctx: CanvasRenderingContext2D,
+  from: Vec,
+  to: Vec,
+  foot: number,
+  lid: number,
+): void {
+  const run = { x: to.x - from.x, y: to.y - from.y };
+  // A face turned east or west collapses to a line in this view, and a word
+  // squeezed into a line is a smudge.
+  if (Math.abs(run.x) < SIGN_EDGE) {
+    return;
+  }
+  const turn = run.x < 0 ? -1 : 1;
+  const span = SIGN_WIDE * 2;
+  ctx.save();
+  ctx.transform(
+    (run.x * turn) / span,
+    (run.y * turn) / span,
+    0,
+    1,
+    (from.x + to.x) / 2,
+    (from.y + to.y) / 2 - (foot + lid) / 2,
   );
+  ctx.fillStyle = SIGN_INK;
+  ctx.font = `700 ${String(SIGN_TALL * SIGN_TEXT)}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("TAXI", 0, 0);
   ctx.restore();
 }
 
 /** How far the sign reaches along the roof, from its middle. */
-const SIGN_LONG = 1.4;
+const SIGN_LONG = 0.9;
 
-/** And across it. */
-const SIGN_WIDE = 3;
+/** And across it, which is the way the word runs. */
+const SIGN_WIDE = 3.2;
 
-/** How high it stands off the roof. */
-const SIGN_TALL = 1.5;
+/** How high it stands off the roof - tall enough to carry four letters. */
+const SIGN_TALL = 2.4;
+
+/** How far back from the front of the roof it is bolted on. */
+const SIGN_BACK = 3;
+
+/** And how far over towards the driver's door, which is the left one. */
+const SIGN_ASIDE = 3;
+
+/** Below this much width on screen a face is edge on, in pixels. */
+const SIGN_EDGE = 2;
 
 /** What its sides are painted. */
 const SIGN_SIDE = "#eab308";
 
 /** And its top, which is the lit face. */
 const SIGN_LID = "#fde047";
+
+/** What is written on the two big faces of it. */
+const SIGN_INK = "#1c1917";
+
+/**
+ * How tall the letters are, as a share of the sign.
+ *
+ * @remarks
+ * Four bold capitals come out about two and a half times as wide as they are
+ * tall, so a sign six pixels across carries letters of about two and a half -
+ * which is most of the height of this one and exactly the point of building it
+ * tall rather than flat.
+ */
+const SIGN_TEXT = 0.85;
 
 /**
  * Whether this car's blue lights are burning at this instant.
@@ -4707,6 +6127,10 @@ const LAMP_HIGH = 0.55;
 
 /** And the ones that hang somewhere else. */
 const LAMP_HIGH_OF: Readonly<Partial<Record<VehicleBody, number>>> = {
+  // On a tractor the lamps are up on the corners of the bonnet and on the cab
+  // roof, not down by the axle - it is a machine one is meant to see over a
+  // hedge, and a lamp halfway up its bodyside would be behind the wheel.
+  tractor: 0.88,
   car: 0.64,
   patrol: 0.64,
   corsa: 0.64,
@@ -4727,6 +6151,9 @@ const LAMP_BACK = 0.55;
 
 /** And the ones that hang somewhere else. */
 const LAMP_BACK_OF: Readonly<Partial<Record<VehicleBody, number>>> = {
+  // Right at the top of the wings, where a tractor carries them. Halfway up
+  // put them behind the back wheel, which is two thirds of the bodyside.
+  tractor: 0.98,
   car: 0.88,
   patrol: 0.88,
   corsa: 0.88,
@@ -5850,8 +7277,16 @@ function drawWalker(
   // back along the road, so the figure is simply drawn from further up the
   // picture and nothing else in it has to know.
   const up = { x: player.x, y: player.y - high / DEPTH };
-  if (high > 0) {
-    thrust(ctx, view, up, state.time, fade);
+  // **The pack is on while he is in the air and off once he is down.** He
+  // wears it when he is flying with it, and the moment he lands - on the road
+  // or on a roof - he is walking about again and it is not on his back any
+  // more. Off the ground is the whole test: above whatever is under him, he is
+  // flying; level with it, he is standing on it.
+  //
+  // It goes on **before** the figure, so what shows of it is what stands proud
+  // of his shoulders rather than a box across his chest.
+  if (player.jetpack && high > roofAt(state.cells, player.x, player.y)) {
+    jetpack(ctx, view, up, player.angle, fade);
   }
   drawFigure(
     ctx,
@@ -5884,47 +7319,213 @@ function drawWalker(
     },
     fade,
   );
+  // And the flames **after** him, because they come out under his feet and
+  // anything drawn there before the figure is drawn behind his legs. A flame
+  // over a boot reads as a flame; a flame hidden behind one reads as nothing.
+  if (player.thrust) {
+    thrust(ctx, view, up, player.angle, state.time, fade);
+  }
 }
 
 /**
- * The two flames out of the jetpack, under a player who is off the ground.
+ * The jetpack on the player's back.
  *
  * @param ctx - what to paint on
  * @param view - where the camera is
  * @param at - where the figure is drawn, already lifted
+ * @param angle - which way he is facing
+ * @param fade - how solid to paint it
+ * @remarks
+ * Two steel bottles strapped between his shoulders, standing a little proud of
+ * them - which from above is the whole of it: one sees the tops of the
+ * cylinders and a strip of frame between them. On his **back**, so it sits
+ * opposite the way he is facing and turns with him; a pack painted in the
+ * middle of the figure is a rucksack seen from directly overhead, and there is
+ * no angle in this view from which that reads as anything at all.
+ *
+ * It is drawn at shoulder height rather than on the ground so that it hangs on
+ * him rather than beside him, and the figure is painted **after** it: what one
+ * should see is a man with two bottles showing behind his shoulders, not a man
+ * with a box in front of his chest.
+ */
+function jetpack(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  at: Vec,
+  angle: number,
+  fade: number,
+): void {
+  const back = angle + Math.PI;
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.lineWidth = 0.8;
+  ctx.strokeStyle = PACK_EDGE;
+  for (const side of [-1, 1]) {
+    const spot = project(
+      view,
+      at.x + Math.cos(back) * PACK_BACK - Math.sin(back) * side * PACK_APART,
+      at.y + Math.sin(back) * PACK_BACK + Math.cos(back) * side * PACK_APART,
+      PACK_HIGH,
+    );
+    const bottle = new Path2D();
+    bottle.ellipse(spot.x, spot.y, PACK_FAT, PACK_FAT * DEPTH, 0, 0, Math.PI * 2);
+    ctx.fillStyle = PACK_STEEL;
+    ctx.fill(bottle);
+    ctx.stroke(bottle);
+    const cap = new Path2D();
+    cap.ellipse(
+      spot.x,
+      spot.y,
+      PACK_FAT * 0.45,
+      PACK_FAT * 0.45 * DEPTH,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fillStyle = PACK_CAP;
+    ctx.fill(cap);
+  }
+  ctx.restore();
+}
+
+/**
+ * How far behind the middle of the figure the pack sits, in city pixels.
+ *
+ * @remarks
+ * Far enough back that **both** bottles clear his shoulders. Closer in, the
+ * one on the near side of him disappeared under the figure and what one saw
+ * was a man with a single canister growing out of one shoulder.
+ */
+const PACK_BACK = 4.6;
+
+/** And how far either side of his spine. */
+const PACK_APART = 2.8;
+
+/** How fat one bottle is. */
+const PACK_FAT = 2.4;
+
+/** How high up him it is strapped. */
+const PACK_HIGH = 12;
+
+/**
+ * And how high the nozzles under it are.
+ *
+ * @remarks
+ * Down by his heels, which is where the flame of one of these comes out: the
+ * bottles are on his shoulders and the pipes run down his back. Drawn at the
+ * height of the bottles the flame came out of his ears.
+ */
+const PACK_FOOT = 2;
+
+/** What it is made of. */
+const PACK_STEEL = "#94a3b8";
+
+/** The cap on top of each bottle. */
+const PACK_CAP = "#475569";
+
+/** And the line round it. */
+const PACK_EDGE = "#1e293b";
+
+/**
+ * The two flames out of the jetpack, under a player who is pushing on it.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param at - where the figure is drawn, already lifted
+ * @param angle - which way he is facing, for where the nozzles are
  * @param time - the clock, so the flame flickers
  * @param fade - how solid to paint it
+ * @remarks
+ * **Short, and pointing down.** They come out of the bottom of the bottles,
+ * which are behind his shoulders, and they go straight at the road - so in
+ * this view they hang below the pack and a little towards the camera, since
+ * down the screen is what down is here. They used to be two soft plumes the
+ * size of the man, in the middle of him, burning whenever he was off the
+ * ground - including all the way down, which is a jetpack nobody switched off.
  */
 function thrust(
   ctx: CanvasRenderingContext2D,
   view: View,
   at: Vec,
+  angle: number,
   time: number,
   fade: number,
 ): void {
-  const flicker = 0.7 + Math.abs(Math.sin(time * 22)) * 0.5;
+  const back = angle + Math.PI;
+  const flicker = FLAME_LOW + Math.abs(Math.sin(time * FLAME_BEAT)) * FLAME_WAG;
   ctx.save();
   ctx.globalAlpha = fade;
   for (const side of [-1, 1]) {
-    const spot = project(view, at.x + side * 4.5, at.y + 2, 8);
-    const flame = ctx.createRadialGradient(
+    const spot = project(
+      view,
+      at.x + Math.cos(back) * PACK_BACK - Math.sin(back) * side * PACK_APART,
+      at.y + Math.sin(back) * PACK_BACK + Math.cos(back) * side * PACK_APART,
+      PACK_FOOT,
+    );
+    // The soft part first, then the bright core inside it: a flame is a
+    // gradient with a white middle, and at this size the middle is two pixels.
+    const glow = ctx.createRadialGradient(
       spot.x,
-      spot.y,
+      spot.y + FLAME_LONG * flicker * 0.4,
       0,
       spot.x,
-      spot.y,
-      9 * flicker,
+      spot.y + FLAME_LONG * flicker * 0.4,
+      FLAME_LONG * flicker,
     );
-    flame.addColorStop(0, "#fef3c7");
-    flame.addColorStop(0.45, "#fb923c");
-    flame.addColorStop(1, "rgba(249,115,22,0)");
-    ctx.fillStyle = flame;
+    glow.addColorStop(0, "rgba(251,146,60,0.85)");
+    glow.addColorStop(1, "rgba(249,115,22,0)");
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.ellipse(spot.x, spot.y, 5, 10 * flicker, 0, 0, Math.PI * 2);
+    ctx.ellipse(
+      spot.x,
+      spot.y + FLAME_LONG * flicker * 0.4,
+      FLAME_WIDE,
+      FLAME_LONG * flicker,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.fillStyle = FLAME_CORE;
+    ctx.beginPath();
+    ctx.ellipse(
+      spot.x,
+      spot.y + FLAME_LONG * flicker * 0.3,
+      FLAME_WIDE * 0.4,
+      FLAME_LONG * flicker * 0.5,
+      0,
+      0,
+      Math.PI * 2,
+    );
     ctx.fill();
   }
   ctx.restore();
 }
+
+/** How long a flame is at its shortest, as a share of its full length. */
+const FLAME_LOW = 0.7;
+
+/** And how much more it reaches at the top of the flicker. */
+const FLAME_WAG = 0.5;
+
+/** How fast it flickers, in radians a second. */
+const FLAME_BEAT = 22;
+
+/**
+ * How far it reaches down the screen, in pixels.
+ *
+ * @remarks
+ * A jet, not a bonfire. Two thirds of the length of the man above it is a
+ * rocket taking off; this is about a third, which is what one of these puts
+ * out to hold somebody up.
+ */
+const FLAME_LONG = 3.8;
+
+/** And how wide it is. */
+const FLAME_WIDE = 1.8;
+
+/** The white middle of it. */
+const FLAME_CORE = "#fef3c7";
 
 /**
  * Which figure the player is drawn as.

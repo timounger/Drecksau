@@ -417,10 +417,9 @@ export const ON_THE_ROAD: readonly VehicleBody[] = [
   // Police going about their business. Most of what the police do is drive
   // around, and one that is not after anybody has its blue lights off - which
   // is the whole reason they are in this list rather than only turning up when
-  // the player has earned it. **Two cars to one motorbike**: a bike on the
-  // beat is a traffic patrol and there are fewer of those than there are
-  // crews in a car.
-  "patrol",
+  // the player has earned it. **One of each and no more**: the point of a
+  // patrol in the traffic is that one comes past now and then, and with two
+  // cars in the list there was one at every other junction.
   "patrol",
   "patrolbike",
   "bike",

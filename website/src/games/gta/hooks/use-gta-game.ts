@@ -30,6 +30,7 @@ import {
 import {
   VIEW_HEIGHT,
   VIEW_WIDTH,
+  DEPTH,
   worldAt,
 } from "@/games/gta/components/projection";
 import { DEFAULT_ZOOM } from "@/games/gta/settings/app-settings";
@@ -229,6 +230,8 @@ export type GtaSession = {
   readonly onFire: (down: boolean) => void;
   /** The right button, once per press: one charge on the ground. */
   readonly onPlant: () => void;
+  /** And the same button held down, which is the tank's machine gun. */
+  readonly onSpray: (down: boolean) => void;
 
   /** Whether the other cheat is on: no damage, and one of everything. */
   readonly god: boolean;
@@ -351,6 +354,8 @@ export function useGtaGame(): GtaSession {
   // The right button is an edge, not a state: one press, one charge on the
   // ground - see layCharge in the engine.
   const plantEdge = useRef(false);
+  // And held, for the gun on the tank.
+  const spraying = useRef(false);
   // What was pressed in the panel at a counter, spent by the next frame.
   const pending = useRef<Order | null>(null);
   // Shift, held. There is no button for it any more: a key one holds is not a
@@ -434,6 +439,19 @@ export function useGtaGame(): GtaSession {
   /** The other button: put one down. */
   const onPlant = useCallback(() => {
     plantEdge.current = true;
+  }, []);
+
+  /**
+   * And the same button held: the machine gun on the tank.
+   *
+   * @remarks
+   * Both readings of one button, and they do not fight: the edge lays a charge
+   * on foot, where the held flag does nothing, and the held flag works the gun
+   * from the driver's seat, where the edge does nothing. Which of the two the
+   * press means is decided by whether one is sitting in a tank.
+   */
+  const onSpray = useCallback((down: boolean) => {
+    spraying.current = down;
   }, []);
 
   /** Something pressed at a counter: it rides along with the next frame. */
@@ -624,14 +642,24 @@ export function useGtaGame(): GtaSession {
         zoom.current,
       );
       const push = finger?.move ?? { x: 0, y: 0 };
+      // The stick, turned from the screen into the city. Only the depth of the
+      // view is undone: the picture squashes north and south, so a thumb
+      // pushed straight down wants a heading that is more southerly than the
+      // same push read flat - otherwise the car goes where the thumb points on
+      // the **screen** rather than where it points on the **map**.
+      const reach = Math.hypot(push.x, push.y);
+      const steer =
+        reach > STICK_GATE ? { x: push.x, y: push.y / DEPTH } : null;
       const input: Input = {
         ...keys.current,
+        steer,
         up: keys.current.up || push.y < -STICK_GATE,
         down: keys.current.down || push.y > STICK_GATE,
         left: keys.current.left || push.x < -STICK_GATE,
         right: keys.current.right || push.x > STICK_GATE,
         use: useEdge.current || (touch.current?.consumeUse() ?? false),
         plant: plantEdge.current || (touch.current?.consumePlant() ?? false),
+        spray: spraying.current || (touch.current?.sprayHeld() ?? false),
         aim,
         fire:
           firing.current ||
@@ -724,6 +752,7 @@ export function useGtaGame(): GtaSession {
     onPointer,
     onFire,
     onPlant,
+    onSpray,
     god,
     toggleGod,
     restart,

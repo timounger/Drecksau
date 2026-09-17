@@ -662,6 +662,41 @@ export type Car = {
    */
   readonly locked: boolean;
   /**
+   * The earliest a stopped computer driver will pull away again.
+   *
+   * @remarks
+   * **A reaction time.** Everything about a queue up to now was instant: the
+   * moment the car in front moved out of the way, the car behind it moved, and
+   * a line of six at a red light pulled away as one piece, all six noses
+   * keeping the same gap all the way up the street. Nobody drives like that.
+   *
+   * So a car that has been brought to a stand keeps pushing this half a second
+   * ahead of the clock, and when whatever was in its way clears, that half
+   * second still has to run out. The car in front sets off, the one behind
+   * waits its own half second, then the next - and the queue unzips from the
+   * front the way a real one does. Nothing sets it up: the cascade falls out
+   * of every driver reacting to the one ahead.
+   */
+  readonly wakeAt: number;
+  /**
+   * The heading a computer driver is steering **to**, in radians.
+   *
+   * @remarks
+   * **The driver and the car are two different things.** A computer driver
+   * thinks in compass points - north, south, east, west - because the city is
+   * a grid and that is what a grid affords. He used to be given that heading
+   * and the car simply *had* it: at a junction the whole vehicle pivoted
+   * ninety degrees on the spot, in one frame, and drove off sideways. Nothing
+   * in the world turns like that.
+   *
+   * So this is what he wants, {@link Car.angle} is where the machine actually
+   * points, and the second comes round to the first at {@link TRAFFIC_TURN}.
+   * The gap between them is the corner - a second or so of arc through the
+   * junction, with the nose swinging and a motorbike leaning into it, because
+   * the lean is read off the same turn rate.
+   */
+  readonly want: number;
+  /**
    * How far a two-wheeler is leaning into the corner, in pixels of offset.
    *
    * @remarks
@@ -972,9 +1007,22 @@ export type Player = {
    *
    * @remarks
    * Zero on the ground, which is where everybody without a jetpack stays. Above
-   * {@link ROOF_HEIGHT} the houses are below him and he goes over them.
+   * {@link ROOF_HEIGHT} the houses are below him and he goes over them, and
+   * anywhere between the two he is standing on a roof - see `roofAt`.
    */
   readonly height: number;
+  /**
+   * Whether the jetpack is burning this instant.
+   *
+   * @remarks
+   * Not the same question as being off the ground, which is why it is its own
+   * flag. A man who lets go of the button over a roof stands on the roof:
+   * height above nought, jets out. A man who lets go over the street is on his
+   * way down with them out as well. What the two flames under him mean is
+   * **thrust**, and a jetpack that goes on burning all the way down is a
+   * jetpack nobody has to switch off.
+   */
+  readonly thrust: boolean;
   /**
    * Simulation time the star count last went up at.
    *
@@ -1013,6 +1061,19 @@ export type Player = {
   readonly crashUntil: number;
   /** Simulation time the next shot may be fired at. */
   readonly reloadAt: number;
+  /**
+   * Simulation time the tank's machine gun may fire its next round at.
+   *
+   * @remarks
+   * **Its own clock**, and it has to be one. The gun and the cannon on a tank
+   * are two weapons that fire together: a gunner lays the main armament on
+   * something worth a shell and keeps the coaxial going at everything else
+   * while he does it. Shared with {@link Player.reloadAt}, a burst of machine
+   * gun fire would reset the cannon's reload eleven times a second and one
+   * could fire a shell as fast as one could rattle - or, the other way round,
+   * one shell would silence the gun for as long as it took to load the next.
+   */
+  readonly gunAt: number;
   /**
    * How many blows have been struck by hand.
    *
@@ -1061,6 +1122,22 @@ export type Input = {
   readonly left: boolean;
   /** East on foot, the wheel to the right in a car. */
   readonly right: boolean;
+  /**
+   * Where a thumb is pointing on the drive stick, in city pixels, or null.
+   *
+   * @remarks
+   * **A compass, not a steering wheel.** The four keys above are a wheel: up
+   * is the throttle and left and right are the lock, both read against
+   * whichever way the car happens to be pointing. A thumb on a phone is not
+   * that - one pushes the stick towards where one wants to go, and down means
+   * **south**, not reverse. So the stick sends its direction as well, and
+   * behind a wheel that is what gets used: the car steers itself round towards
+   * the heading and drives there.
+   *
+   * Null on a keyboard, and null while no thumb is on the stick. On foot it is
+   * ignored, because walking was already a compass.
+   */
+  readonly steer: Vec | null;
   /** True on the frame the player gets in or out of a car. */
   readonly use: boolean;
   /**
@@ -1076,6 +1153,20 @@ export type Input = {
   readonly aim: Vec;
   /** True while the mouse button is down. */
   readonly fire: boolean;
+  /**
+   * True while the **right** button is held down.
+   *
+   * @remarks
+   * Its own flag rather than a held version of {@link Input.plant}, because
+   * the two are different questions about the same button. Putting a charge
+   * down is an event - one press, one charge - and holding the button must not
+   * lay a hundred of them. The machine gun on the tank is the opposite: it
+   * fires for as long as one holds the button, and an edge would give one
+   * round per click.
+   *
+   * On foot it does nothing at all. In a tank it is the coaxial gun.
+   */
+  readonly spray: boolean;
   /** Shift: the debug turbo. See {@link CHEAT_WALK}. */
   readonly boost: boolean;
   /** Notches the mouse wheel turned this frame: the weapon in the hand. */
@@ -1126,10 +1217,12 @@ export const IDLE_INPUT: Input = {
   down: false,
   left: false,
   right: false,
+  steer: null,
   use: false,
   plant: false,
   aim: { x: 0, y: 0 },
   fire: false,
+  spray: false,
   boost: false,
   wheel: 0,
   god: false,
@@ -1156,6 +1249,26 @@ export const JET_FALL = 65;
  * figure simply leaves the top of the screen.
  */
 export const JET_CEILING = 110;
+
+/**
+ * The lowest a house is built, in pixels.
+ *
+ * @remarks
+ * Here rather than in the picture because a roof is not only something to
+ * draw: one can **stand on it**. How high a house is therefore has to be an
+ * answer the engine can give - see `roofAt` - and a number the engine gives
+ * and the picture uses is a number that belongs to the engine.
+ */
+export const HOUSE_LOW = 26;
+
+/** The tallest a house is built - downtown, and only there. */
+export const HOUSE_HIGH = 74;
+
+/** How tall a shed on the military base stands. */
+export const HUT_HIGH = 34;
+
+/** And a barn out in the country. */
+export const BARN_HIGH = 40;
 
 /**
  * How high one has to be to clear the roofs, in pixels.
@@ -1315,11 +1428,48 @@ export const HAND_LOCK = 0.25;
 /** And how much more the nose comes round with the back end loose. */
 export const HAND_TURN = 1.4;
 
+/**
+ * How fast a computer driver swings the nose round, in radians a second.
+ *
+ * @remarks
+ * Turn rate against speed is a **radius**: at {@link TRAFFIC_SPEED} of 110
+ * this is a corner of about twenty five pixels, which is half a street wide -
+ * a car turning into a side road, drawn at the size the side road is. Faster
+ * and it snaps round again; slower and a car leaves the junction still
+ * pointing at the pavement.
+ */
+export const TRAFFIC_TURN = 4.4;
+
+/**
+ * How far off the wanted heading still counts as mid-corner, in radians.
+ *
+ * @remarks
+ * Inside this the driver is going where he meant to and the lane pull may have
+ * him back. Outside it he is **in** the corner, and pulling him sideways
+ * towards a lane he is halfway out of fights the turn: the car crabs through
+ * the junction instead of driving round it.
+ */
+export const TURN_DONE = 0.12;
+
 /** How long a black mark stays on the road, in seconds. */
 export const MARK_LIFE = 22;
 
 /** How often a sliding tyre lays one down, in seconds. */
 export const MARK_EVERY = 0.03;
+
+/**
+ * How long a tank's tracks stay in the ground, in seconds.
+ *
+ * @remarks
+ * Shorter than rubber, for a reason that is arithmetic rather than taste: a
+ * tank lays a pair of these every {@link MARK_EVERY} the whole time it is
+ * moving, where a car lays a pair only while it is actually sliding. At this
+ * life the trail behind a tank that never stops is six hundred marks, which
+ * sits inside {@link MARK_MAX} and leaves everybody else's skids alone. Twice
+ * as long and one tank driving about would quietly rub out every black line in
+ * the city.
+ */
+export const TRACK_LIFE = 9;
 
 /** How many are kept at once; the oldest go first. */
 export const MARK_MAX = 800;
@@ -1576,6 +1726,16 @@ export const BOARD_GRACE = 0.25;
  * on pushing at the wall until somebody pressed the key again.
  */
 export const BOARD_PATIENCE = 4;
+
+/**
+ * How far off the wanted heading the stick still counts as straight ahead.
+ *
+ * @remarks
+ * In radians, and it is an easing rather than a dead zone: the closer the nose
+ * gets to where the thumb is pointing, the less lock goes on. Steered flat out
+ * until the last degree, a car hunts either side of the line for ever.
+ */
+export const STICK_EASE = 0.4;
 
 /** How close counts as arriving at a job marker. */
 export const MARKER_RANGE = 40;
@@ -1890,8 +2050,15 @@ export const CRASH_FLOOR = 90;
 /** How long a body lies in the street before it is gone, in seconds. */
 export const BODY_SECONDS = 5;
 
-/** How long somebody knocked over lies there before getting up, in seconds. */
-export const FLOOR_SECONDS = 2.2;
+/**
+ * How long somebody knocked over lies there before getting up, in seconds.
+ *
+ * @remarks
+ * Long enough to be a price and short enough to stay a price. At two and a
+ * bit one sat and watched the street go past; what being run over should cost
+ * is the car one was about to reach, not the next minute of the game.
+ */
+export const FLOOR_SECONDS = 0.9;
 
 /**
  * How fast something has to be moving to knock somebody over, in pixels a
@@ -2087,7 +2254,36 @@ export type Mark = {
   readonly angle: number;
   /** The clock reading it was laid at, for fading it out again. */
   readonly at: number;
+  /**
+   * Which vehicle laid it, and which of its tyres.
+   *
+   * @remarks
+   * So that the marks can be **joined up**. Drawn one by one, each along the
+   * way its tyre was pointing at the time, a corner comes out as a row of
+   * separate straight dashes fanned out either side of the line the car
+   * actually took - every one of them a tangent, none of them the curve. Told
+   * which mark follows which, the picture can instead run a line from each to
+   * the next, and that line is the curve.
+   */
+  readonly car: number;
+  /** Which tyre of it: negative for the left, positive for the right. */
+  readonly lane: number;
+  /**
+   * What laid it, which is what it is drawn and faded as.
+   *
+   * @remarks
+   * A tyre dragged sideways leaves black rubber on tarmac: narrow, dark, and
+   * gone in twenty seconds. **A track is not that.** A tank leaves one
+   * wherever it goes rather than only where it slides, it is as wide as the
+   * steel that pressed it, it is the colour of the ground it churned rather
+   * than of rubber, and the cleats print a ladder along it. Two different
+   * things on the road, so the mark says which of them it is.
+   */
+  readonly tread: Tread;
 };
+
+/** What pressed a mark into the road. */
+export type Tread = "rubber" | "track";
 
 /**
  * One remote charge, lying where it was put down.

@@ -21,6 +21,7 @@ import {
   garageBay,
   garageMouth,
   isOpen,
+  roofAt,
   isRoadAt,
   onMotorway,
   lightAt,
@@ -57,6 +58,9 @@ import {
   HAND_TURN,
   MARK_EVERY,
   MARK_LIFE,
+  TRACK_LIFE,
+  TRAFFIC_TURN,
+  TURN_DONE,
   MARK_MAX,
   SLIP_SMOKE,
   LIGHT_LOOK,
@@ -145,6 +149,7 @@ import {
   LEAN_STIFF,
   PADDLE_BACK,
   PATROL_STARS,
+  STICK_EASE,
   FOE_DAMAGE,
   HELI_LOOK,
   TANK_STARS,
@@ -736,11 +741,19 @@ function swapSeat(state: GameState): GameState {
   } else if (state.player.boarding !== null) {
     // Second press: he changes his mind and stands where he is.
     next = { ...state, player: { ...state.player, boarding: null } };
-  } else if (near !== null && twoWheeled(near.body)) {
+  } else if (
+    near !== null &&
+    (noDoor(near.body) || doorSpot(state, near) === null)
+  ) {
     // **Nothing to walk round and nothing to open.** A motorbike has no
     // driver's door and no left-hand side worth the name: one stands next to
-    // it, swings a leg over and is on it. Whichever side one happens to be
-    // standing on is the right one.
+    // it, swings a leg over and is on it, and whichever side one happens to be
+    // standing on is the right one. The same goes for a tank, which is entered
+    // through a hatch on the deck.
+    //
+    // And the same for a car wedged so tightly that neither of its doors has a
+    // pavement to stand on. Getting in has to **work**: where the walk cannot
+    // be made, it is skipped rather than attempted and failed.
     next = enterCar(state, near);
   } else {
     // **Not in yet.** The key starts him walking round to the driver's door;
@@ -760,6 +773,29 @@ function swapSeat(state: GameState): GameState {
 }
 
 /**
+ * Whether one simply gets on this rather than walking round to a door.
+ *
+ * @param body - which sort of vehicle
+ * @returns true where there is no door to walk to
+ * @remarks
+ * **A tank has no driver's door.** The driver climbs onto the deck and drops
+ * through a hatch, from whichever side he happened to be standing on - and
+ * that is not a detail, it is the difference between a vehicle one can take
+ * and one one cannot. The walk-to-the-door routine aims at a spot
+ * {@link DOOR_STAND} out from the middle, which on a machine forty-six pixels
+ * wide is eleven pixels clear of the flank; a man walking at it runs into the
+ * side of the tank and stands there pushing, for ever, because arriving means
+ * getting within {@link DOOR_REACH} of a spot he cannot reach. One could not
+ * get into the tank at all.
+ *
+ * The two-wheelers are here for the older reason: one does not open a
+ * motorbike, one swings a leg over it.
+ */
+function noDoor(body: VehicleBody): boolean {
+  return twoWheeled(body) || body === "tank";
+}
+
+/**
  * Where the driver's door of a vehicle is stood at.
  *
  * @param car - the vehicle
@@ -772,18 +808,27 @@ function swapSeat(state: GameState): GameState {
  * On two wheels there is no door and no left either, but one still mounts a
  * motorbike from that side, so the walk is the same walk.
  */
-function doorSpot(state: GameState, car: Car): Vec {
+function doorSpot(state: GameState, car: Car): Vec | null {
   const left = car.angle - Math.PI / 2;
   const stand = (out: number): Vec => ({
     x: car.x + Math.cos(out) * DOOR_STAND,
     y: car.y + Math.sin(out) * DOOR_STAND,
   });
   const door = stand(left);
+  const other = stand(left + Math.PI);
   // **Unless there is a wall where the door is.** A car parked hard against a
   // house has a driver's door one cannot stand at, and a man walking round to
   // a spot inside a building never gets there. In that case one gets in the
-  // other side and slides across, which is what anybody does.
-  return isOpen(state.cells, door.x, door.y) ? door : stand(left + Math.PI);
+  // other side and slides across, which is what anybody does - and if that
+  // side is in a wall as well, there is no spot to walk to at all and the
+  // caller is told so.
+  let spot: Vec | null = null;
+  if (isOpen(state.cells, door.x, door.y)) {
+    spot = door;
+  } else if (isOpen(state.cells, other.x, other.y)) {
+    spot = other;
+  }
+  return spot;
 }
 
 /**
@@ -846,7 +891,8 @@ const DOOR_SWERVE = 0.45;
 function boardCar(state: GameState, input: Input, dt: number): GameState {
   const board = state.player.boarding;
   const car = state.cars.find((each) => each.id === board?.car) ?? null;
-  const away = car === null ? 0 : far(doorSpot(state, car), state.player);
+  const spot = car === null ? null : doorSpot(state, car);
+  const away = spot === null ? 0 : far(spot, state.player);
   const steered =
     (input.left ? 1 : 0) +
     (input.right ? 1 : 0) +
@@ -859,7 +905,6 @@ function boardCar(state: GameState, input: Input, dt: number): GameState {
     car.health <= 0 ||
     (steered > 0 && state.time > board.from + BOARD_GRACE) ||
     away > BOARD_GIVE_UP ||
-    state.time > board.from + BOARD_PATIENCE ||
     state.time < state.player.floorUntil
   ) {
     next = walk(
@@ -867,10 +912,20 @@ function boardCar(state: GameState, input: Input, dt: number): GameState {
       input,
       dt,
     );
+  } else if (spot === null || state.time > board.from + BOARD_PATIENCE) {
+    // **He gets in anyway.** Either the spot beside the door has gone - the
+    // car has been shoved against a wall since he set off - or he has been
+    // walking at it for {@link BOARD_PATIENCE} seconds without arriving, which
+    // means there is no way to stand there. Standing outside a car one has
+    // asked to get into is not an outcome; the walk is the nice version of
+    // getting in, not a condition of it.
+    next = enterCar(
+      { ...state, player: { ...state.player, boarding: null } },
+      car,
+    );
   } else if (board.openAt === null) {
     // Walking round to it. He keeps facing where the mouse points - the door
     // is where his feet are going, not where his eyes are.
-    const spot = doorSpot(state, car);
     const way = wayRoundTo(state, car, spot);
     const gone =
       away <= DOOR_REACH
@@ -986,7 +1041,13 @@ function layMarks(state: GameState, input: Input): GameState {
         car.id === state.player.car &&
         input.lift &&
         Math.abs(car.speed) > MARK_CRAWL;
-      if ((sliding || locked) && car.health > 0) {
+      // **A tank marks the road by driving on it.** Nothing has to be sliding:
+      // the whole weight of the thing stands on two strips of steel, and what
+      // is under them is flattened whichever way it was going. So it lays its
+      // pair every time it moves, and what is behind it is a trail rather than
+      // the odd black line out of a fast corner.
+      const churning = car.body === "tank" && Math.abs(car.speed) > MARK_CRAWL;
+      if ((sliding || locked || churning) && car.health > 0) {
         const back = -shape.length * WHEEL_BACK;
         const side = shape.width * WHEEL_SIDE;
         for (const wheel of TYRE_TRACKS[car.body] ?? BOTH_TRACKS) {
@@ -1001,12 +1062,17 @@ function layMarks(state: GameState, input: Input): GameState {
               Math.cos(car.angle) * side * wheel,
             angle: car.angle,
             at: state.time,
+            car: car.id,
+            lane: wheel,
+            tread: car.body === "tank" ? "track" : "rubber",
           });
         }
       }
     }
     const kept = [...state.marks, ...fresh].filter(
-      (mark) => state.time - mark.at < MARK_LIFE,
+      (mark) =>
+        state.time - mark.at <
+        (mark.tread === "track" ? TRACK_LIFE : MARK_LIFE),
     );
     next = {
       ...state,
@@ -1706,6 +1772,7 @@ function leaveCar(state: GameState): GameState {
                 speed: 0,
                 braking: false,
                 locked: false,
+                wakeAt: 0,
                 lean: 0,
               }
             : each,
@@ -1764,20 +1831,19 @@ function walk(
   const length = Math.hypot(dx, dy);
   const pace = WALK_SPEED * sprint(state.player.god, input.boost, false);
   const step = length === 0 ? 0 : (pace * dt) / length;
-  // Over the roofs there are no walls: the ground is simply further away, and
-  // the only thing left to stay inside of is the map itself.
-  const grounded = state.player.height < ROOF_HEIGHT;
-  const want = grounded
-    ? slide(state.cells, state.player, dx * step, dy * step)
-    : {
-        x: inside(state.player.x + dx * step),
-        y: inside(state.player.y + dy * step),
-      };
+  // **Where a wall is depends on how high he is.** On the pavement a house is
+  // a wall; on its roof it is the floor; over the top of everything there is
+  // nothing in the way at all. One question, asked of the height - see
+  // {@link clears} - which is also what lets somebody walk off the edge of a
+  // roof and start falling instead of being stopped at it by nothing.
+  const high = state.player.height;
+  const want = slide(state.cells, state.player, dx * step, dy * step, high);
   // Bodywork is solid: neither the player nor anybody on the pavement walks
-  // through a car. Up in the air it is not, for the same reason.
+  // through a car. Once his feet are off the road it is not, for the same
+  // reason - a man on a roof is not in anybody's boot.
   const moved =
     state.time < state.player.floorUntil ||
-    (grounded && blocked(state, want, state.player))
+    (high <= 0 && blocked(state, want, state.player))
       ? { x: state.player.x, y: state.player.y }
       : want;
   const aimed = Math.atan2(input.aim.y - moved.y, input.aim.x - moved.x);
@@ -1975,11 +2041,22 @@ function drive(state: GameState, input: Input, dt: number): GameState {
     const held = hand
       ? Math.sign(car.speed) * Math.max(0, Math.abs(car.speed) - HAND_DRAG * dt)
       : car.speed;
+    // **The thumb points where the car is to go.** With a stick down, up and
+    // down stop meaning throttle and brake: the car drives, and it turns
+    // itself towards the heading the thumb is pointing at. Pushing the stick
+    // south used to reverse a car that was heading north, which is what the
+    // key underneath it does and is not what one asked for.
+    // Null-ish rather than null: an input built without the field at all is a
+    // keyboard as far as this is concerned, not a stick pointing at nowhere.
+    const stick = input.steer ?? null;
+    const pointed = stick !== null && (stick.x !== 0 || stick.y !== 0);
+    const off = pointed ? turned(car.angle, Math.atan2(stick.y, stick.x)) : 0;
+    const gas = pointed || input.up;
+    const slow = !pointed && input.down;
     const push =
-      (input.up && !dead ? shape.accel * boost : 0) -
-      (input.down ? CAR_BRAKE : 0);
+      (gas && !dead ? shape.accel * boost : 0) - (slow ? CAR_BRAKE : 0);
     const drag = Math.sign(held) * CAR_DRAG;
-    const raw = held + (push - (input.up || input.down ? 0 : drag)) * dt;
+    const raw = held + (push - (gas || slow ? 0 : drag)) * dt;
     // Backwards: half the top speed on four wheels, walking pace on two. A
     // motorbike has no reverse gear - the rider puts his feet down and paddles
     // it back, and that is as fast as paddling gets.
@@ -1992,15 +2069,19 @@ function drive(state: GameState, input: Input, dt: number): GameState {
     // circle around itself.
     const floor = CAR_TURN_FLOOR * (hand ? HAND_LOCK : 1);
     const rolling = Math.min(1, Math.abs(speed) / floor);
-    const turn = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    // Eased rather than slammed: full lock while the nose is a long way off the
+    // heading, tailing away as it comes round, so the car settles on the line
+    // instead of hunting either side of it.
+    const turn = pointed
+      ? Math.max(-1, Math.min(1, off / STICK_EASE))
+      : (input.right ? 1 : 0) - (input.left ? 1 : 0);
     const rate = shape.turn * (hand ? HAND_TURN : 1);
     const swing = turn * rate * rolling * Math.sign(speed || 1) * dt;
     // What the tyres can hold sideways this step. On the brakes they bite; on
     // the throttle they let go a little, which is why one can bring the back
     // round by going faster and straighten it by braking.
     const bite =
-      shape.grip *
-      (hand ? HAND_GRIP : input.down ? GRIP_BRAKE : input.up ? GRIP_PUSH : 1);
+      shape.grip * (hand ? HAND_GRIP : slow ? GRIP_BRAKE : gas ? GRIP_PUSH : 1);
     const moved = rollCar(state.cells, car, swing, speed, bite, dt);
     const angle = moved.angle;
     const lean = leaning(car, swing / dt, speed, dt);
@@ -2012,7 +2093,7 @@ function drive(state: GameState, input: Input, dt: number): GameState {
     // **Only while the pedal is still slowing it down.** Past nought the same
     // key is the reverse throttle, not the brake, and a car backing out of a
     // space with its brake lights on is a car doing two things at once.
-    const braking = hand || (input.down && car.speed > 1);
+    const braking = hand || (slow && car.speed > 1);
     // The turret looks where the mouse looks, not where the tracks point.
     // Straight away rather than swinging round: the shell is meant to land on
     // the crosshair, and a turret that lags puts it somewhere else.
@@ -2187,11 +2268,12 @@ function slide(
   body: Vec,
   dx: number,
   dy: number,
+  high = 0,
 ): { x: number; y: number } {
   const hops = Math.max(1, Math.ceil(Math.hypot(dx, dy) / HOP));
   let at = { x: body.x, y: body.y };
   for (let hop = 0; hop < hops; hop += 1) {
-    at = nudge(cells, at, dx / hops, dy / hops);
+    at = nudge(cells, at, dx / hops, dy / hops, high);
   }
   return at;
 }
@@ -2278,15 +2360,55 @@ function nudge(
   body: Vec,
   dx: number,
   dy: number,
+  high = 0,
 ): { x: number; y: number } {
   const stepX = { x: body.x + dx, y: body.y };
-  const okX = isOpen(cells, stepX.x, stepX.y) ? stepX.x : body.x;
+  const okX = clears(cells, stepX, high) ? stepX.x : body.x;
   const stepY = { x: okX, y: body.y + dy };
-  const okY = isOpen(cells, stepY.x, stepY.y) ? stepY.y : body.y;
+  const okY = clears(cells, stepY, high) ? stepY.y : body.y;
   return {
     x: Math.max(0, Math.min(CITY_SIZE, okX)),
     y: Math.max(0, Math.min(CITY_SIZE, okY)),
   };
+}
+
+/**
+ * Whether somebody at this height gets past whatever is at a point.
+ *
+ * @param cells - the city floor
+ * @param at - the point
+ * @param high - how far off the road they are, in pixels
+ * @returns true where they may stand or pass
+ * @remarks
+ * Three answers in one, and the middle one is the new one:
+ *
+ * - **Open ground** is open to anybody, which is every case but a building,
+ *   the water and the wire.
+ * - **A roof one has reached** is ground. At or above the height of the
+ *   building under a point, one walks onto it: that is what landing on a roof
+ *   means, and it is also what makes walking off the far side of one a matter
+ *   of walking off it rather than of being stopped by a handrail that is not
+ *   there.
+ * - **Above {@link ROOF_HEIGHT}** nothing is in the way at all, because that
+ *   is above everything - including the water and the fence, which have no
+ *   roof to land on and are solid at every height below it.
+ */
+function clears(cells: readonly Cell[], at: Vec, high: number): boolean {
+  // Asked in this order because of what it costs. Every car in the city tests
+  // every step it takes against this, and all of them are on the road: the two
+  // cheap answers settle it for everything with tyres, and the height of the
+  // building only has to be worked out for somebody who is actually off the
+  // ground and up against one.
+  let ok: boolean;
+  if (isOpen(cells, at.x, at.y) || high >= ROOF_HEIGHT) {
+    ok = true;
+  } else if (high <= 0) {
+    ok = false;
+  } else {
+    const roof = roofAt(cells, at.x, at.y);
+    ok = roof > 0 && high >= roof;
+  }
+  return ok;
 }
 
 /* ----------------------------------------------------------------- shots */
@@ -2317,6 +2439,16 @@ function shoot(state: GameState, input: Input, dt: number): GameState {
     state.time >= player.reloadAt &&
     state.time >= player.floorUntil &&
     (armed || turret);
+  // **The other trigger.** Held, not pressed, and it belongs to the tank: the
+  // machine gun goes on for as long as the button is down. It is checked apart
+  // from the chain below because both may fire in the same frame - that is
+  // what having two weapons on one vehicle means.
+  const rattling =
+    turret &&
+    seat !== null &&
+    input.spray &&
+    state.time >= player.gunAt &&
+    state.time >= player.floorUntil;
   let next = state;
   if (ready && turret && seat !== null) {
     // The one thing that shoots from a seat, because the seat is a tank.
@@ -2342,6 +2474,13 @@ function shoot(state: GameState, input: Input, dt: number): GameState {
         reloadAt: state.time + gun.reload,
         ammo: firedOne(next.player.ammo, player.weapon),
       },
+    };
+  }
+  if (rattling && seat !== null) {
+    next = fireCoax(next, seat, input.aim);
+    next = {
+      ...next,
+      player: { ...next.player, gunAt: state.time + COAX_RELOAD },
     };
   }
   return flyBullets(next, dt);
@@ -2510,6 +2649,70 @@ function fireShell(state: GameState, tank: Car, aim: Vec): GameState {
 
 /** How far in front of the tank a shell appears - clear of its own nose. */
 const SHELL_MUZZLE = 44;
+
+/**
+ * The machine gun mounted beside the tank's main gun.
+ *
+ * @param state - the city
+ * @param tank - the machine it is bolted to
+ * @param aim - where the crosshair is
+ * @returns the city with one round of it in the air
+ * @remarks
+ * **A tank is two weapons, not one.** The cannon is for what is worth a shell;
+ * everything else - a man in the road, a car that will not get out of the way,
+ * a window - is what the coaxial is for, and a tank without one is a very slow
+ * vehicle with a single-shot gun on it.
+ *
+ * It is bolted **beside the barrel**, so it points where the turret points and
+ * not where the hull does, and it throws its rounds with a little spread on
+ * them: a burst that all goes through the same hole is not a machine gun. It
+ * is not part of the belt one carries and has no ammunition of its own - the
+ * rounds are in the tank, and there are a great many of them.
+ */
+function fireCoax(state: GameState, tank: Car, aim: Vec): GameState {
+  const drawn = nextRandom(state.rng);
+  const angle = tank.turret + (drawn.value - HALF) * COAX_SPREAD * 2;
+  return {
+    ...state,
+    rng: drawn.state,
+    bullets: [
+      ...state.bullets,
+      {
+        id: nextBulletId(state),
+        x: state.player.x + Math.cos(angle) * COAX_MUZZLE,
+        y: state.player.y + Math.sin(angle) * COAX_MUZZLE,
+        angle,
+        left: Math.min(
+          COAX_RANGE,
+          Math.max(0, far(state.player, aim) - COAX_MUZZLE),
+        ),
+        speed: COAX_SPEED,
+        damage: COAX_DAMAGE,
+        shape: "shot",
+        from: "player",
+        blowAt: null,
+      },
+    ],
+  };
+}
+
+/** How long between two rounds of it, in seconds: about eleven a second. */
+const COAX_RELOAD = 0.09;
+
+/** What one round takes off, which is a machine gun round and no more. */
+const COAX_DAMAGE = 11;
+
+/** How far it carries, in pixels. */
+const COAX_RANGE = 560;
+
+/** How fast the round flies. */
+const COAX_SPEED = 860;
+
+/** How far off the barrel a round may go, in radians either way. */
+const COAX_SPREAD = 0.045;
+
+/** And where it appears: beside the barrel, clear of the turret. */
+const COAX_MUZZLE = 30;
 
 /** The id the next shot gets. */
 function nextBulletId(state: GameState): number {
@@ -3035,6 +3238,7 @@ function damageCar(
           // burns where the rocket touched it.
           fireAt:
             car.fireAt === null &&
+            burns(car.body) &&
             (health <= 0 ||
               (torch && (car.body !== "tank" || shells >= TANK_HITS)))
               ? state.time
@@ -3044,6 +3248,24 @@ function damageCar(
       return after;
     }),
   };
+}
+
+/**
+ * Whether shooting this to pieces sets it alight.
+ *
+ * @param body - which sort of vehicle
+ * @returns true for everything with a fuel tank in it
+ * @remarks
+ * **A bicycle has nothing to burn.** No tank, no fuel, no engine - what
+ * happens when one shoots at it is that it stops being a bicycle: the frame
+ * bends, the wheels go, and it lies in the road. So it never gets a
+ * {@link Car.fireAt}, which in one go takes away the smoke, the flames, the
+ * countdown and the bang at the end of it - all four of them ask this first.
+ * What is left is the soot the picture puts on any wreck, which is exactly
+ * what one wants: broken, not burnt.
+ */
+function burns(body: VehicleBody): boolean {
+  return body !== "cycle";
 }
 
 /**
@@ -3127,8 +3349,128 @@ function moveTraffic(state: GameState, dt: number): GameState {
     }
     return next;
   });
-  return { ...state, cars, rng };
+  return { ...state, cars: keepApart(state, cars, dt), rng };
 }
+
+/**
+ * Cars that ended the step inside one another, pushed back out of it.
+ *
+ * @param state - the city, for the floor and where the player is
+ * @param cars - the traffic as the driving step left it
+ * @param dt - seconds since the last step
+ * @returns the same list with the overlaps eased apart
+ * @remarks
+ * **A last resort, and it has to exist.** Everything upstream is a driver
+ * making decisions - keep your distance, stop at a red, give way at a junction
+ * - and every one of those can be beaten: two cars turn into the same gap from
+ * different streets, a parked car is dropped where somebody is already
+ * standing, one is shoved into another by a tank. A driver cannot un-crash;
+ * what he can do is not sit inside somebody else's boot while it happens, and
+ * that is all this does.
+ *
+ * Each car is taken as **two discs** rather than one, a wheel's distance
+ * either side of its middle and as wide as the car is. One disc makes a
+ * saloon a circle a car-length across, which would shove the whole kerb apart
+ * and break every car park in the city; two give a shape that is long and
+ * narrow the way the car is, at four distance checks a pair.
+ *
+ * Only computer-driven traffic is moved, and only near the player. Parked cars
+ * stay where they were parked - a row at the kerb is a row at the kerb, and
+ * something has to be the fixed thing for the rest to be pushed out of - and
+ * the player's own car is nobody's to shove.
+ */
+function keepApart(
+  state: GameState,
+  cars: readonly Car[],
+  dt: number,
+): readonly Car[] {
+  return cars.map((car) => {
+    const mine =
+      car.kind === "traffic" &&
+      !car.driven &&
+      car.health > 0 &&
+      near(state.player, car);
+    if (!mine) {
+      return car;
+    }
+    let push = { x: 0, y: 0 };
+    for (const other of cars) {
+      if (other.id === car.id || other.health <= 0) {
+        continue;
+      }
+      const span =
+        (VEHICLES[car.body].length + VEHICLES[other.body].length) / 2;
+      if (far(car, other) > span) {
+        continue;
+      }
+      const out = wedged(car, other);
+      push = { x: push.x + out.x, y: push.y + out.y };
+    }
+    const deep = Math.hypot(push.x, push.y);
+    if (deep === 0) {
+      return car;
+    }
+    // Half the overlap a frame, and never more than a car can be shoved in
+    // one: a jam clears in three or four frames and nothing teleports.
+    const most = Math.min(deep * UNJAM_SHARE, UNJAM_MOST * dt);
+    const moved = slide(
+      state.cells,
+      car,
+      (push.x / deep) * most,
+      (push.y / deep) * most,
+    );
+    return { ...car, x: moved.x, y: moved.y };
+  });
+}
+
+/**
+ * How far one car has to move to stop being inside another, and which way.
+ *
+ * @param car - the one that will be moved
+ * @param other - the one it is inside
+ * @returns the shove, in pixels; zero where the two are clear of each other
+ */
+function wedged(car: Car, other: Car): Vec {
+  const mine = discs(car);
+  const theirs = discs(other);
+  const room = (VEHICLES[car.body].width + VEHICLES[other.body].width) / 2;
+  let worst = { x: 0, y: 0 };
+  let deepest = 0;
+  for (const one of mine) {
+    for (const two of theirs) {
+      const dx = one.x - two.x;
+      const dy = one.y - two.y;
+      const away = Math.hypot(dx, dy);
+      const into = room - away;
+      if (into > deepest) {
+        deepest = into;
+        // Dead centre on top of each other: any way out will do, and along
+        // its own nose is the one that looks least like a shunt.
+        worst =
+          away === 0
+            ? { x: Math.cos(car.angle) * into, y: Math.sin(car.angle) * into }
+            : { x: (dx / away) * into, y: (dy / away) * into };
+      }
+    }
+  }
+  return worst;
+}
+
+/** The two discs a vehicle is taken as: one over each axle. */
+function discs(car: Car): readonly Vec[] {
+  const shape = VEHICLES[car.body];
+  const reach = Math.max(0, (shape.length - shape.width) / 2);
+  return [
+    { x: car.x + Math.cos(car.angle) * reach, y: car.y + Math.sin(car.angle) * reach },
+    { x: car.x - Math.cos(car.angle) * reach, y: car.y - Math.sin(car.angle) * reach },
+  ];
+}
+
+/** How much of the overlap is taken out in one frame. */
+const UNJAM_SHARE = 0.5;
+
+/** And the most a car may be shoved in a second, in pixels. */
+const UNJAM_MOST = 240;
 
 /**
  * A car that has driven out of the world, brought back into it.
@@ -3192,10 +3534,12 @@ function comeRound(
             x: spot.x,
             y: spot.y,
             angle: inwards ?? car.angle,
+            want: inwards ?? car.angle,
             speed: 0,
             slip: 0,
             braking: false,
             locked: false,
+            wakeAt: 0,
             lean: 0,
             rolled: 0,
             turnAt: state.time,
@@ -3267,19 +3611,47 @@ function driveTraffic(
   // then goes back to being traffic. Otherwise being rammed looked like the
   // other driver simply setting off again in a new direction.
   const shoved = Math.abs(car.speed) > TRAFFIC_SPEED * SHOVED_OVER;
-  const picked = headingFor(state, car, rng);
-  const angle = picked.angle;
+  // **The driver decides, the car swings.** He is asked in compass points -
+  // and asked from the heading he is *steering to*, not from wherever the nose
+  // happens to have got round to, or a car halfway through a right hander
+  // would be told there is no road that way and pick a fresh direction every
+  // frame. What comes back is where he wants to be pointing; the machine gets
+  // there at its own rate, and that arc is the corner.
+  const picked = headingFor(state, { ...car, angle: car.want }, rng);
+  const want = picked.angle;
+  const off = turned(car.angle, want);
+  const swing = TRAFFIC_TURN * dt;
+  const angle =
+    Math.abs(off) <= swing ? want : car.angle + Math.sign(off) * swing;
   // Anything at all in front: the player on foot, the car in the queue ahead,
   // or a junction showing red. All three come out as the same thing - a driver
   // with his foot on the brake - which is why the brake lights need no case of
   // their own.
-  const held =
+  const shut =
     beingOpened(state, car) ||
     inTheWay(state, car, angle) ||
     queueAhead(state, car, angle) ||
     redAhead(state, car, angle);
-  const pace = held ? 0 : TRAFFIC_SPEED;
-  const sideways = laneDrift(state.cells, car, angle, dt);
+  // **And then he has to notice.** A driver standing still keeps his own
+  // clock running half a second ahead; when the road clears, that half second
+  // still has to pass before he moves. One car in front of another therefore
+  // sets off half a second earlier than it, and a queue unzips from the front
+  // instead of pulling away in one piece.
+  const stopped = Math.abs(car.speed) < QUEUE_CRAWL;
+  const wakeAt = shut && stopped ? state.time + QUEUE_WAKE : car.wakeAt;
+  const held = shut || state.time < car.wakeAt;
+  // **A bicycle is not a car with thinner tyres.** Traffic all ran at the one
+  // speed, so the man pedalling to work kept up with the Golf beside him -
+  // which is the one thing about a bicycle in traffic that nobody has ever
+  // seen. He does his own pace; everything with an engine does the other.
+  const cruise =
+    car.body === "cycle" ? TRAFFIC_SPEED * PEDAL_SHARE : TRAFFIC_SPEED;
+  const pace = held ? 0 : cruise;
+  // No lane pull while the nose is still coming round: a car being dragged
+  // sideways towards a lane it is halfway out of crabs through the junction
+  // instead of driving round it.
+  const sideways =
+    Math.abs(off) > TURN_DONE ? 0 : laneDrift(state.cells, car, angle, dt);
   const dx = Math.cos(angle) * pace * dt - Math.sin(angle) * sideways;
   const dy = Math.sin(angle) * pace * dt + Math.cos(angle) * sideways;
   const moved = slide(state.cells, car, dx, dy);
@@ -3294,6 +3666,11 @@ function driveTraffic(
           ...slideCar(state.cells, car, car.angle, coast, dt),
           braking: false,
           locked: false,
+          wakeAt: 0,
+          // Shoved out of line, he steers where he is now pointing: a driver
+          // who has just been hit does not carry on towards the junction he
+          // was aiming at.
+          want: car.angle,
           lean: 0,
         }
       : {
@@ -3301,8 +3678,10 @@ function driveTraffic(
           x: moved.x,
           y: moved.y,
           angle,
+          want,
           speed: pace,
           braking: held,
+          wakeAt,
           lean: leaning(car, turned(car.angle, angle) / dt, pace, dt),
           locked: false,
           // How far it actually got, which is what its wheels will show. A
@@ -3616,6 +3995,20 @@ const QUEUE_WIDE = 16;
 
 /** Below this a car counts as standing rather than driving, in pixels a second. */
 const QUEUE_CRAWL = 12;
+
+/** How long a stopped driver takes to notice that the road is clear. */
+const QUEUE_WAKE = 0.5;
+
+/**
+ * How much of the traffic's pace somebody on a bicycle keeps up, as a share.
+ *
+ * @remarks
+ * Just over half: at {@link TRAFFIC_SPEED} of 110 that is sixty pixels a
+ * second, which against a city street is a man riding to work rather than a
+ * man in a race. It also puts him firmly in the way, which is the point of
+ * having him there.
+ */
+const PEDAL_SHARE = 0.55;
 
 /**
  * Whether the junction ahead is showing red.
@@ -4719,10 +5112,12 @@ function callPolice(state: GameState): GameState {
         id,
         kind: "police",
         body,
+        want: angle,
         shells: 0,
         hitched: null,
         braking: false,
         locked: false,
+        wakeAt: 0,
         lean: 0,
         rolled: 0,
         seats: 0,
@@ -5220,10 +5615,12 @@ function barge(state: GameState, car: Car, hit: readonly Car[]): GameState {
         after = {
           ...each,
           angle: Math.atan2(each.y - car.y, each.x - car.x),
+          want: Math.atan2(each.y - car.y, each.x - car.x),
           speed: Math.min(RAM_FLING, force * heft * RAM_SHARE),
           slip: 0,
           braking: false,
           locked: false,
+          wakeAt: 0,
           lean: 0,
         };
       } else if (each.id === car.id) {
@@ -5826,16 +6223,6 @@ export function districtName(
 /* ------------------------------------------------------------- spray shop */
 
 /**
- * That coordinate, kept on the map.
- *
- * @param along - an x or a y in city pixels
- * @returns the same, pulled back inside the edge if it had left it
- */
-function inside(along: number): number {
-  return Math.max(0, Math.min(CITY_SIZE, along));
-}
-
-/**
  * What Shift is worth this frame.
  *
  * @param god - whether the cheat is on
@@ -5875,16 +6262,25 @@ function fly(state: GameState, input: Input, dt: number): GameState {
   const player = state.player;
   const lifting =
     player.jetpack && player.car === null && !player.flying && input.lift;
+  // **What is under him is what he lands on.** It used to be the road,
+  // always - so letting go of the button over the middle of a block sank him
+  // through the roof, the flat and the shop below it and stood him in the
+  // street. The floor is now whatever {@link roofAt} says is there, which
+  // makes coming down on a roof landing on it, and walking off the edge of
+  // one falling off it: the floor drops to nought under his next step and he
+  // goes with it.
+  const floor = roofAt(state.cells, player.x, player.y);
   const height = Math.max(
-    0,
+    floor,
     Math.min(
       JET_CEILING,
       player.height + (lifting ? JET_RISE : -JET_FALL) * dt,
     ),
   );
-  return player.flying || height === player.height
+  return player.flying ||
+    (height === player.height && lifting === player.thrust)
     ? state
-    : { ...state, player: { ...player, height } };
+    : { ...state, player: { ...player, height, thrust: lifting } };
 }
 
 /**
