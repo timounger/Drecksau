@@ -158,7 +158,7 @@ function inTown(col: number, row: number): Cell {
     // it. The streets round the outside are untouched, because the footprint
     // stops at them.
     cell = prisonCell(gaol, col, row);
-  } else if (isRoad(col) || isRoad(row)) {
+  } else if (isRoad(col, true) || isRoad(row, false)) {
     cell = "road";
   } else if (onCarPark(col, row)) {
     // The tarmac round the supermarket, which is where its own pavement would
@@ -166,7 +166,7 @@ function inTown(col: number, row: number): Cell {
     // grid, so the traffic never turns on to it and nobody on foot treats
     // crossing it as crossing a road.
     cell = "dock";
-  } else if (nextToRoad(col) || nextToRoad(row)) {
+  } else if (nextToRoad(col, true) || nextToRoad(row, false)) {
     cell = "walk";
   } else if (
     !builtBlock(Math.floor(col / BLOCK_TILES), Math.floor(row / BLOCK_TILES))
@@ -250,14 +250,33 @@ export function isPrisonBlock(blockX: number, blockY: number): boolean {
  */
 function prisonCell(anchor: Vec, col: number, row: number): Cell {
   const plot = prisonPlot(anchor.x, anchor.y);
+  // **The wire, right at the edge.** Round the whole of it, a square out from
+  // the building: the strip between the two is the sterile ground every prison
+  // keeps clear, and it is what makes the fence read as a fence rather than as
+  // a pattern painted along the bottom of the wall.
+  const wired =
+    col < plot.left + PRISON_FENCE ||
+    col >= plot.right - PRISON_FENCE ||
+    row < plot.top + PRISON_FENCE ||
+    row >= plot.bottom - PRISON_FENCE;
+  if (wired) {
+    return "fence";
+  }
+  const inset = PRISON_FENCE + PRISON_WING;
   const ring =
-    col < plot.left + PRISON_WING ||
-    col >= plot.right - PRISON_WING ||
-    row < plot.top + PRISON_WING ||
-    row >= plot.bottom - PRISON_WING;
+    col < plot.left + inset ||
+    col >= plot.right - inset ||
+    row < plot.top + inset ||
+    row >= plot.bottom - inset;
   const hut = prisonHut(plot);
-  const middle = col === hut.x && row === hut.y;
-  return ring || middle ? "building" : "dock";
+  const shed =
+    col >= hut.x &&
+    col < hut.x + PRISON_SHED &&
+    row >= hut.y &&
+    row < hut.y + PRISON_SHED;
+  // **The yard is grass**, not concrete: a prison yard is a field with a court
+  // worn into it, and the floor says so as plainly as the picture does.
+  return ring || shed ? "building" : "park";
 }
 
 /**
@@ -269,11 +288,13 @@ function prisonCell(anchor: Vec, col: number, row: number): Cell {
  * Its own function because two things have to agree about it to the square:
  * the floor, which makes it solid, and the picture, which draws it.
  *
- * **In the corner, not in the middle.** A hut in the middle of the yard is a
- * hut in the middle of everything - it stood in the basketball court, the men
- * walking their circuits walked through it, and there was nowhere left to put
- * anything else. In the top left corner it is a building at the edge of a
- * yard, which is where the workshop of one of these is.
+ * **Up in the corner, and standing clear of the walls.** A shed in the middle
+ * of the yard is a shed in the middle of everything - it stood in the
+ * basketball court, the men walking their circuits walked through it, and
+ * there was nowhere left to put anything else. Up at the top left it is a
+ * building at the edge of a yard, which is where the workshop of one of these
+ * is; a square in from the ranges, so one can walk round it, which is what
+ * makes it a building in a yard rather than a lump on the wall.
  */
 export function prisonHut(plot: {
   readonly left: number;
@@ -282,10 +303,68 @@ export function prisonHut(plot: {
   readonly bottom: number;
 }): Vec {
   return {
-    x: plot.left + PRISON_WING,
-    y: plot.top + PRISON_WING,
+    x: plot.left + PRISON_FENCE + PRISON_WING + SHED_IN,
+    y: plot.top + PRISON_FENCE + PRISON_WING + SHED_IN,
   };
 }
+
+/**
+ * Which square of the wire the way in is at.
+ *
+ * @param plot - the prison's footprint, in squares
+ * @returns that square
+ * @remarks
+ * The middle of the south side, which is where the gate of the building is -
+ * the two have to line up, or one drives up to a barrier and finds the wall
+ * behind it. Both the picture of the fence and the picture of the range take
+ * the answer from here.
+ */
+export function prisonGate(plot: {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}): Vec {
+  return {
+    x: Math.floor((plot.left + plot.right) / 2),
+    y: plot.bottom - 1,
+  };
+}
+
+/**
+ * Where the four watchtowers of a prison stand.
+ *
+ * @param plot - its footprint, in squares
+ * @returns the middle of each corner square of the range, in pixels
+ * @remarks
+ * One answer for two questions that must not disagree: where the picture puts
+ * the towers, and where the engine puts the men who shoot out of them. A
+ * searchlight that swings from one corner while the shot comes from another is
+ * two prisons on the same block.
+ */
+export function prisonTowers(plot: {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}): readonly Vec[] {
+  const left = (plot.left + PRISON_FENCE) * TILE + TILE / 2;
+  const right = (plot.right - PRISON_FENCE) * TILE - TILE / 2;
+  const top = (plot.top + PRISON_FENCE) * TILE + TILE / 2;
+  const down = (plot.bottom - PRISON_FENCE) * TILE - TILE / 2;
+  return [
+    { x: left, y: top },
+    { x: right, y: top },
+    { x: left, y: down },
+    { x: right, y: down },
+  ];
+}
+
+/** How many squares across the workshop in the yard is. */
+export const PRISON_SHED = 2;
+
+/** And how far it stands clear of the ranges, in squares. */
+const SHED_IN = 1;
 
 /**
  * Which squares of one block line are not street.
@@ -305,11 +384,14 @@ export function prisonHut(plot: {
  * in the city and three quarters of the blocks are within a lane of a
  * motorway one way or the other.
  */
-function openSpan(block: number): { from: number; to: number } {
+function openSpan(
+  block: number,
+  across: boolean,
+): { from: number; to: number } {
   let from = BLOCK_TILES;
   let to = -1;
   for (let into = 0; into < BLOCK_TILES; into += 1) {
-    if (!isRoad(block * BLOCK_TILES + into)) {
+    if (!isRoad(block * BLOCK_TILES + into, across)) {
       from = Math.min(from, into);
       to = Math.max(to, into);
     }
@@ -326,12 +408,76 @@ function openSpan(block: number): { from: number; to: number } {
  * motorway is here: three squares of tarmac instead of one, so it reads as a
  * fast road from two blocks away and a chase down one has room to overtake.
  */
-function isRoad(at: number): boolean {
+function isRoad(at: number, across: boolean): boolean {
   const into = ((at % BLOCK_TILES) + BLOCK_TILES) % BLOCK_TILES;
-  return (
-    into <= ROAD_HALF || into >= BLOCK_TILES - ROAD_HALF || motorwayNear(at)
-  );
+  const block = Math.floor(at / BLOCK_TILES);
+  let road: boolean;
+  if (into <= ROAD_HALF) {
+    road = street(block, across);
+  } else if (into >= BLOCK_TILES - ROAD_HALF) {
+    road = street(block + 1, across);
+  } else {
+    road = false;
+  }
+  return road || motorwayNear(at);
 }
+
+/**
+ * Whether the plan actually puts a street on this line between two blocks.
+ *
+ * @param line - which boundary, counted in blocks
+ * @param across - true for a street running up and down, false for one along
+ * @returns true where there is tarmac, false where the two blocks run together
+ * @remarks
+ * **A city is not graph paper.** Every eighth line was a street in both
+ * directions, without exception, which gives a grid of identical squares with
+ * an identical gap round every one of them - and the thing one never sees in a
+ * real town, which is two buildings standing side by side. Every house in Los
+ * Santos was an island.
+ *
+ * So a quarter of the boundaries are simply not built: where one is left out,
+ * the two blocks either side of it run together into one long plot, and the
+ * houses on it end up against each other. Asked **per axis**, so a stretch can
+ * have its up-and-down streets and none of its across ones - which is the
+ * shape of half the streets anybody has ever lived on.
+ *
+ * Two rules keep it a city rather than a field:
+ *
+ * - **A motorway is never left out.** It is the one road one drives the length
+ *   of, and a gap in it is a gap in the map.
+ * - **Two blocks may run together; three may not.** A boundary that wants to
+ *   go checks whether the one before it went, and stays if it did. Without
+ *   that, a run of unlucky rolls gives a block a quarter of a mile long with
+ *   nothing to turn off into.
+ */
+function street(line: number, across: boolean): boolean {
+  let built: boolean;
+  if (isMotorway(line * BLOCK_TILES)) {
+    built = true;
+  } else if (hash(line, across ? STREET_ACROSS : STREET_DOWN) >= STREET_SKIP) {
+    built = true;
+  } else {
+    built = hash(line - 1, across ? STREET_ACROSS : STREET_DOWN) < STREET_SKIP;
+  }
+  return built;
+}
+
+/**
+ * How many of the boundaries between blocks carry no street.
+ *
+ * @remarks
+ * A quarter. Enough that one meets a pair of joined blocks every street or
+ * two - which is what makes a walk through the city read as a place somebody
+ * laid out rather than as a sheet of graph paper - and few enough that one is
+ * never far from a turning.
+ */
+const STREET_SKIP = 0.25;
+
+/** What the dice are asked with for the streets that run up and down. */
+const STREET_ACROSS = 613;
+
+/** And for the ones that run along. */
+const STREET_DOWN = 947;
 
 /**
  * How many squares of tarmac lie either side of an ordinary street line.
@@ -356,11 +502,18 @@ function motorwayNear(at: number): boolean {
 }
 
 /** Whether this line is the pavement beside a street. */
-function nextToRoad(at: number): boolean {
+function nextToRoad(at: number, across: boolean): boolean {
   const into = ((at % BLOCK_TILES) + BLOCK_TILES) % BLOCK_TILES;
-  return (
-    into <= ROAD_HALF + WALK_RING || into >= BLOCK_TILES - ROAD_HALF - WALK_RING
-  );
+  const block = Math.floor(at / BLOCK_TILES);
+  let walk: boolean;
+  if (into <= ROAD_HALF + WALK_RING) {
+    walk = street(block, across);
+  } else if (into >= BLOCK_TILES - ROAD_HALF - WALK_RING) {
+    walk = street(block + 1, across);
+  } else {
+    walk = false;
+  }
+  return walk;
 }
 
 /** Whether a square is inside a rectangle of the map. */
@@ -993,8 +1146,8 @@ export function builtPlot(
   blockX: number,
   blockY: number,
 ): { left: number; top: number; right: number; bottom: number } {
-  const across = builtSpan(blockX);
-  const down = builtSpan(blockY);
+  const across = builtSpan(blockX, true);
+  const down = builtSpan(blockY, false);
   return {
     left: blockX * BLOCK_TILES + across.from,
     top: blockY * BLOCK_TILES + down.from,
@@ -1021,10 +1174,10 @@ export function prisonPlot(
   blockY: number,
 ): { left: number; top: number; right: number; bottom: number } {
   const last = PRISON_BLOCKS - 1;
-  const across = openSpan(blockX);
-  const down = openSpan(blockY);
-  const right = openSpan(blockX + last);
-  const under = openSpan(blockY + last);
+  const across = openSpan(blockX, true);
+  const down = openSpan(blockY, false);
+  const right = openSpan(blockX + last, true);
+  const under = openSpan(blockY + last, false);
   return {
     left: blockX * BLOCK_TILES + across.from,
     top: blockY * BLOCK_TILES + down.from,
@@ -1050,16 +1203,31 @@ export function prisonPlot(
  */
 const PRISON_BLOCKS = 2;
 
-/** How many squares thick the ring of building round the yard is. */
-export const PRISON_WING = 2;
+/**
+ * How many squares thick the ring of building round the yard is.
+ *
+ * @remarks
+ * One, since the fence went up. The footprint is what the street grid leaves
+ * and not a square more, so the wire had to come out of it - and it came out
+ * of the building rather than out of the yard: a range half as deep still
+ * reads as a range, because what one sees of it is the height of its wall,
+ * while a yard two squares smaller each way has no room left for a court.
+ */
+export const PRISON_WING = 1;
+
+/** And how many the wire round the outside of it takes. */
+export const PRISON_FENCE = 1;
 
 /** Which squares of one block, along one axis, are neither road nor pavement. */
-function builtSpan(block: number): { from: number; to: number } {
+function builtSpan(
+  block: number,
+  across: boolean,
+): { from: number; to: number } {
   let from = BLOCK_TILES;
   let to = -1;
   for (let into = 0; into < BLOCK_TILES; into += 1) {
     const at = block * BLOCK_TILES + into;
-    if (!isRoad(at) && !nextToRoad(at)) {
+    if (!isRoad(at, across) && !nextToRoad(at, across)) {
       from = Math.min(from, into);
       to = Math.max(to, into);
     }
@@ -1593,7 +1761,7 @@ export function myHouses(): readonly Vec[] {
  * @returns true where a line of the grid meets another one
  */
 export function atCrossing(col: number, row: number): boolean {
-  return inCity(col, row) && isRoad(col) && isRoad(row);
+  return inCity(col, row) && isRoad(col, true) && isRoad(row, false);
 }
 
 /**
@@ -1832,9 +2000,218 @@ export function buildingAt(blockX: number, blockY: number): Building {
   const spare =
     (ONE_ONLY.includes(drawn) && !isTheOne(drawn, blockX, blockY)) ||
     (ONE_PER_QUARTER.includes(drawn) && !isTheLocalOne(drawn, blockX, blockY)) ||
-    (drawn === "prison" && !roomForPrison(blockX, blockY));
-  return BUILDINGS[spare ? "house" : drawn];
+    (drawn === "prison" && !roomForPrison(blockX, blockY)) ||
+    (drawn === "police" && !isTheStation(blockX, blockY));
+  // **The station comes last, and it can overrule a house.** Every other
+  // landmark can only ever be thinned out - where the plan drew a second bank,
+  // a house goes up instead - which is fine for a bank and wrong for this one:
+  // a quarter of town with no police station in it is a quarter with nowhere
+  // for the patrol cars to come from. So the quarter that the dice gave none
+  // gets one anyway, in the plainest block nearest its middle.
+  const posted = isTheStation(blockX, blockY);
+  return BUILDINGS[posted ? "police" : spare ? "house" : drawn];
 }
+
+/**
+ * Whether this block holds the police station of its quarter.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the same, down
+ * @returns true for the one block a quarter, and only that one
+ */
+function isTheStation(blockX: number, blockY: number): boolean {
+  const one = stationIn(quarterOf(blockX, blockY));
+  return one !== null && one.x === blockX && one.y === blockY;
+}
+
+/**
+ * Where the police station of a quarter stands.
+ *
+ * @param district - which quarter of town
+ * @returns the block, or null for a quarter with nothing built in it
+ * @remarks
+ * **One a quarter, and always one.** The plan used to scatter them like any
+ * other sign - three in the city, two of them within four blocks of each other
+ * in the same corner, and two whole quarters with none. A police station is
+ * not a barber: it is the building one is looking for when something has gone
+ * wrong, and one looks for it in the part of town one is standing in.
+ *
+ * Asked in two passes, so that the answer is a station somewhere sensible
+ * rather than wherever the dice happened to fall:
+ *
+ * 1. **The one the plan drew**, nearest the middle of the quarter. Where the
+ *    dice already put a station in this quarter, that one keeps the job.
+ * 2. **Otherwise the plainest block nearest the middle.** Only an ordinary
+ *    house is taken over - never a bank, a hospital or a night club, because
+ *    those are one of a kind too, and trading a landmark for a landmark leaves
+ *    the city no better off.
+ *
+ * Worked out once a quarter and remembered: it is the same city every time,
+ * and both the plan and the map ask on every frame.
+ */
+function stationIn(district: District): Vec | null {
+  const known = STATION_BLOCKS.get(district);
+  if (known !== undefined) {
+    return known;
+  }
+  const blocks = CITY_TILES / BLOCK_TILES;
+  const span = BLOCK_TILES * TILE;
+  const middle = districtCentre(district);
+  let drawn: Vec | null = null;
+  let drawnAway = Number.POSITIVE_INFINITY;
+  let plain: Vec | null = null;
+  let plainAway = Number.POSITIVE_INFINITY;
+  for (let blockY = 0; blockY < blocks; blockY += 1) {
+    for (let blockX = 0; blockX < blocks; blockX += 1) {
+      if (
+        !builtBlock(blockX, blockY) ||
+        quarterOf(blockX, blockY) !== district ||
+        gaoled(blockX, blockY)
+      ) {
+        continue;
+      }
+      const away = Math.hypot(
+        (blockX + HALF) * span - middle.x,
+        (blockY + HALF) * span - middle.y,
+      );
+      const kind = rawKindAt(blockX, blockY);
+      if (kind === "police" && away < drawnAway) {
+        drawn = { x: blockX, y: blockY };
+        drawnAway = away;
+      }
+      if (PLAIN_BLOCKS.includes(kind) && away < plainAway) {
+        plain = { x: blockX, y: blockY };
+        plainAway = away;
+      }
+    }
+  }
+  const best = drawn ?? plain;
+  STATION_BLOCKS.set(district, best);
+  return best;
+}
+
+/**
+ * Whether a prison stands on this block, anchor or swallowed neighbour.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the same, down
+ * @returns true where the wire already has this ground
+ * @remarks
+ * Asked of the **plan**, not of {@link buildingAt}, and that is the whole
+ * reason it exists: `buildingAt` now asks where the station of this quarter is,
+ * so anything the station hunt asks back of `buildingAt` closes a ring and the
+ * stack runs out. Everything here reads `rawKindAt` and the prison's own
+ * footprint test instead, neither of which asks anybody anything.
+ */
+function gaoled(blockX: number, blockY: number): boolean {
+  let under = false;
+  for (let down = 0; down < PRISON_BLOCKS; down += 1) {
+    for (let across = 0; across < PRISON_BLOCKS; across += 1) {
+      const anchorX = blockX - across;
+      const anchorY = blockY - down;
+      if (
+        rawKindAt(anchorX, anchorY) === "prison" &&
+        roomForPrison(anchorX, anchorY)
+      ) {
+        under = true;
+      }
+    }
+  }
+  return under;
+}
+
+/** Which sorts a station may be built over, having no sign of their own. */
+const PLAIN_BLOCKS: readonly BuildingKind[] = [
+  "house",
+  "double",
+  "terrace",
+  "tower",
+];
+
+/** Where each quarter keeps its station, worked out once. */
+const STATION_BLOCKS = new Map<District, Vec | null>();
+
+/** The four quarters, in the order a listing of the stations comes out in. */
+const DISTRICTS: readonly District[] = ["grove", "ballas", "beach", "vagos"];
+
+/**
+ * The four police stations, and the pavement round each one.
+ *
+ * @returns one entry a station: where it stands, and where there is room
+ *   outside it, in pixels
+ * @remarks
+ * For whoever has to put something outside one - the patrol cars at the kerb
+ * and the men walking about between them. The list is the plan's, not a second
+ * copy of it, so a station can never be built in one place and staffed in
+ * another.
+ *
+ * **The ring comes back as candidates, not as places.** This module knows
+ * where the plot is and nothing about what is actually on the ground at any
+ * one square: a station on the corner of a motorway has no pavement on two of
+ * its sides, and a square with a lamp post or somebody's car already on it is
+ * no use either. So the ring is offered **south first**, then north, then the
+ * two ends - the front of a building being the side one sees - and whoever
+ * asks takes the first few that are any good.
+ */
+export function stations(): readonly CopShop[] {
+  const found: CopShop[] = [];
+  for (const district of DISTRICTS) {
+    const block = stationIn(district);
+    if (block === null) {
+      continue;
+    }
+    const plot = builtPlot(block.x, block.y);
+    const ring: Vec[] = [];
+    for (const row of [plot.bottom + HALF, plot.top - HALF]) {
+      for (
+        let col = plot.left - YARD_OUT;
+        col <= plot.right + YARD_OUT;
+        col += YARD_APART
+      ) {
+        ring.push({ x: col * TILE, y: row * TILE });
+      }
+    }
+    for (const col of [plot.right + HALF, plot.left - HALF]) {
+      for (
+        let row = plot.top - YARD_OUT;
+        row <= plot.bottom + YARD_OUT;
+        row += YARD_APART
+      ) {
+        ring.push({ x: col * TILE, y: row * TILE });
+      }
+    }
+    found.push({
+      at: {
+        x: ((plot.left + plot.right) / 2) * TILE,
+        y: ((plot.top + plot.bottom) / 2) * TILE,
+      },
+      ring,
+    });
+  }
+  return found;
+}
+
+/** A police station: where it stands, and the pavement round it. */
+export type CopShop = {
+  /** The middle of the building, in pixels. */
+  readonly at: Vec;
+  /** Spots on the ring outside it, the likeliest first. */
+  readonly ring: readonly Vec[];
+};
+
+/**
+ * How far past the corner of the plot the ring reaches, in squares.
+ *
+ * @remarks
+ * Half a square each way, so that a station whose only kerb is down one side
+ * still has somewhere to put four cars and four men. What falls on a road or
+ * in a wall is thrown away by whoever asks, so reaching too far costs nothing
+ * and reaching too short costs a station its cars.
+ */
+const YARD_OUT = 0.5;
+
+/** And how far apart two spots on it are. */
+const YARD_APART = 0.8;
 
 /**
  * Whether four blocks here can be given over to a prison.

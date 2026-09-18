@@ -20,6 +20,7 @@ export type VehicleBody =
   | "patrolbike"
   | "suv"
   | "taxi"
+  | "transporter"
   | "bike"
   | "cycle"
   | "corsa"
@@ -123,13 +124,50 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     seats: 2,
     grip: 15,
   },
+  /**
+   * The parcel van, and the biggest thing in the traffic that is not a tank.
+   *
+   * @remarks
+   * A box on wheels: six metres of it, two and a bit across, and a load space
+   * one could stand up in. At the scale the rest of the city is drawn at -
+   * the Golf's 4284 millimetres are 44 pixels - that is 62 by 22, which makes
+   * it a third longer than a patrol car and half as wide again as a Golf.
+   *
+   * It drives like what it is. Slow off the mark and slow at the top, because
+   * a laden van is; and it corners **badly on purpose** - a high box with its
+   * weight up in the roof leans on its outside tyres and washes wide, which is
+   * what the low grip number says. What it is good at is being in the way.
+   */
+  transporter: {
+    body: "transporter",
+    name: "Transporter",
+    length: 62,
+    width: 22,
+    top: 300,
+    accel: 170,
+    turn: 1.9,
+    health: 170,
+    gun: false,
+    seats: 2,
+    grip: 11,
+  },
   dmc: {
     body: "dmc",
     name: "DMC-12",
-    // Low, wide and quick: the fastest thing on four wheels in this city, and
-    // the only one that is never painted - it is bare stainless steel.
-    length: 46,
-    width: 27,
+    // Low and quick: the fastest thing on four wheels in this city, and the
+    // only one that is never painted - it is bare stainless steel.
+    //
+    // **Measured off the model**, not guessed. It was 46 by 27, and the 27 is
+    // 2,63 metres across - wider than the tank is at the tracks, wider than a
+    // tractor at the back axle, and half a metre wider than the thing has ever
+    // been. It looked like a wedge-shaped barge from above and it drove like
+    // one, because the width is what the traffic keeps its distance by. The
+    // mesh says 429,0 by 179,4 centimetres over the bodywork and 198,9 over
+    // the door mirrors; at 10,25 pixels to the metre that is 44 by 18,4, and
+    // 18,6 at the widest point over the rear wheels. **A DeLorean is exactly
+    // as wide as a Golf.** It only looks wider because it is a foot lower.
+    length: 44,
+    width: 18.6,
     top: 520,
     accel: 320,
     turn: 2.45,
@@ -414,6 +452,10 @@ export const ON_THE_ROAD: readonly VehicleBody[] = [
   "suv",
   "taxi",
   "taxi",
+  // One van to the dozen. A delivery round is a thing one sees a few times a
+  // day, not a thing one sees at every junction - and at sixty-two pixels of
+  // brown box it is the one vehicle in the traffic one cannot see past.
+  "transporter",
   // Police going about their business. Most of what the police do is drive
   // around, and one that is not after anybody has its blue lights off - which
   // is the whole reason they are in this list rather than only turning up when

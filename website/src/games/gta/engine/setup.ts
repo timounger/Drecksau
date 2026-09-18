@@ -15,7 +15,7 @@ import {
   isOpen,
   isRoadAt,
 } from "./city";
-import { carParks, createCity, myHouses, openBay } from "./city";
+import { carParks, createCity, myHouses, openBay, stations } from "./city";
 import { createRandom, nextInt, nextRandom, type RandomState } from "./random";
 import { newTrain } from "./train";
 import {
@@ -157,6 +157,12 @@ const GUARD_ROWS = 4;
 /** What they carry: the base is not patrolled with truncheons. */
 const GUARD_ARMS: readonly WeaponKind[] = ["mg", "pistol", "mg"];
 
+/** How many patrol cars stand at the kerb outside one police station. */
+const STATION_CARS = 4;
+
+/** And how many men walk about between them. */
+const STATION_MEN = 4;
+
 /** How far the car you start beside stands from you, in pixels. */
 const FIRST_CAR_AWAY = 30;
 
@@ -205,10 +211,10 @@ export function createGame(seed: number): GameState {
   rng = first.rng;
   cars.push(first.car);
   for (let at = 0; at < TRAFFIC_COUNT; at += 1) {
-    const spot = findSpot(cells, rng, "road");
-    rng = spot.rng;
     const pick = pickBody(rng);
     rng = pick.rng;
+    const spot = freeSpot(cells, rng, "road", cars, pick.body);
+    rng = spot.rng;
     const made = makeCar(rng, cars.length, "traffic", spot.at, pick.body);
     rng = made.rng;
     const who = nextInt(rng, CAR_SEATS);
@@ -220,10 +226,10 @@ export function createGame(seed: number): GameState {
   // that are parked belong on the pavement edge, and the road belongs to the
   // ones that are driving.
   for (let at = 0; at < PARKED_COUNT; at += 1) {
-    const spot = findSpot(cells, rng, "walk");
-    rng = spot.rng;
     const pick = pickBody(rng);
     rng = pick.rng;
+    const spot = freeSpot(cells, rng, "walk", cars, pick.body);
+    rng = spot.rng;
     // Not in somebody garage. The bay is hollowed out of the house before the
     // cars are placed, and a hollow in a house is a square of pavement as far
     // as anybody looking for a parking space is concerned - so three of them
@@ -243,16 +249,21 @@ export function createGame(seed: number): GameState {
     if (roll.value < LOT_TAKEN) {
       const pick = pickBody(rng);
       rng = pick.rng;
-      const made = makeCar(rng, cars.length, "parked", bay.at, pick.body);
-      rng = made.rng;
-      cars.push({ ...made.car, angle: bay.angle });
+      // The bays are a fixed grid, so this cannot be moved - but something
+      // else may already have been dropped on it, and a bay with two cars in
+      // it is worse than a bay with none.
+      if (clearOf(bay.at, pick.body, cars)) {
+        const made = makeCar(rng, cars.length, "parked", bay.at, pick.body);
+        rng = made.rng;
+        cars.push({ ...made.car, angle: bay.angle });
+      }
     }
   }
   // A couple of tanks, standing about. Finding one should be an event, so they
   // are parked rather than driven and there are only ever a handful.
   // Three silver wedges, parked where somebody left them.
   for (let at = 0; at < DELOREANS; at += 1) {
-    const spot = findSpot(cells, rng, "walk");
+    const spot = freeSpot(cells, rng, "walk", cars, "dmc");
     rng = spot.rng;
     const made = makeCar(rng, cars.length, "parked", spot.at, "dmc");
     rng = made.rng;
@@ -311,6 +322,54 @@ export function createGame(seed: number): GameState {
       stillUntil: null,
       boardAt: null,
     });
+  }
+
+  // **The police stations, and what is outside one.** A building with POLIZEI
+  // over the door and nothing in front of it is a sign on a wall; what says
+  // police station from across the road is the row of patrol cars at the kerb
+  // and the men standing about between them.
+  //
+  // The plan offers the pavement round each one and this takes the first
+  // spots that are any good, cars first and then men - so a station on a
+  // corner where two of its sides front a motorway simply puts everything
+  // down the side that has a kerb. The men are **guards**, not a patrol: they
+  // belong to the place rather than to a car, so they mill about outside their
+  // own station and only leave it for somebody who has come to them with stars
+  // on. See walkCop in ./engine.
+  for (const shop of stations()) {
+    let parked = 0;
+    let posted = 0;
+    for (const spot of shop.ring) {
+      if (cellUnder(cells, spot.x, spot.y) !== "walk") {
+        continue;
+      }
+      if (parked < STATION_CARS && clearOf(spot, "patrol", cars)) {
+        const made = makeCar(rng, cars.length, "parked", spot, "patrol");
+        rng = made.rng;
+        cars.push({ ...made.car, angle: alongKerb(cells, spot) });
+        parked += 1;
+      } else if (posted < STATION_MEN) {
+        guards.push({
+          id: guards.length,
+          carId: -1,
+          x: spot.x,
+          y: spot.y,
+          angle: Math.atan2(shop.at.y - spot.y, shop.at.x - spot.x),
+          walked: 0,
+          pace: 0,
+          health: COP_HEALTH,
+          holds: "pistol",
+          reloadAt: 0,
+          readyAt: 0,
+          post: (posted * Math.PI * 2) / STATION_MEN,
+          guards: spot,
+          burst: 0,
+          stillUntil: null,
+          boardAt: null,
+        });
+        posted += 1;
+      }
+    }
   }
 
   const people: Person[] = [];
@@ -419,6 +478,7 @@ export function createGame(seed: number): GameState {
       hooded: false,
       jetpack: false,
       thrust: false,
+      spotted: null,
       aboard: false,
       flying: false,
       height: 0,
@@ -550,6 +610,73 @@ export function findSpot(
   }
   return { at: dryLand(cells), rng: state };
 }
+
+/**
+ * A spot of that sort of ground with no car standing on it already.
+ *
+ * @param cells - the city floor
+ * @param rng - the generator
+ * @param kind - the sort of ground wanted
+ * @param cars - what has been placed so far
+ * @param body - what is about to be placed
+ * @returns the spot and the generator afterwards
+ * @remarks
+ * **Two hundred cars were thrown at the map and none of them looked.** Every
+ * one was dropped on a random square of the right sort of ground, and the only
+ * thing stopping two landing on the same one was that there are a lot of
+ * squares - so every game opened with a handful of pairs standing inside each
+ * other, which is the one thing about a parked car that cannot be explained
+ * away.
+ *
+ * The runtime has {@link keepApart} for this, but it only moves **traffic**,
+ * and only near the player: a parked car is the fixed thing that everything
+ * else is pushed out of, so two parked inside each other stay there for ever.
+ * The place to get it right is when they are put down.
+ *
+ * Measured as a **circle of half the length**, which is the biggest a vehicle
+ * is in any direction. Exact boxes would be better and cannot be had here: the
+ * angle a car ends up parked at is decided after this, by the kerb it is
+ * standing on. A circle that always clears is worth more than a box that is
+ * sometimes wrong.
+ *
+ * It gives up after {@link SPOT_TRIES} and takes the last spot it was offered.
+ * A city that is full is a city that is full, and one overlap is better than a
+ * loop that does not end.
+ */
+function freeSpot(
+  cells: readonly Cell[],
+  rng: RandomState,
+  kind: "road" | "walk",
+  cars: readonly Car[],
+  body: VehicleBody,
+): { at: Vec; rng: RandomState } {
+  let spin = rng;
+  let at: Vec = { x: 0, y: 0 };
+  for (let tries = 0; tries < SPOT_TRIES; tries += 1) {
+    const spot = findSpot(cells, spin, kind);
+    spin = spot.rng;
+    at = spot.at;
+    if (clearOf(at, body, cars)) {
+      break;
+    }
+  }
+  return { at, rng: spin };
+}
+
+/** Whether a vehicle of this sort would stand clear of everything placed. */
+function clearOf(
+  at: Vec,
+  body: VehicleBody,
+  cars: readonly Car[],
+): boolean {
+  const mine = VEHICLES[body].length / 2;
+  return !cars.some(
+    (car) => far(at, car) < mine + VEHICLES[car.body].length / 2,
+  );
+}
+
+/** How many spots are tried before one is taken anyway. */
+const SPOT_TRIES = 12;
 
 /**
  * Which way a car parked here should point.

@@ -37,13 +37,14 @@ export const GTA_RULES: GameRules = {
     {
       title: "Fahrzeuge",
       body: [
-        "Sechs Sorten: Wagen, Taxi, Geländewagen, Motorrad, Fahrrad und Panzer. Sie unterscheiden sich in Tempo, Beschleunigung, Wendigkeit und Blech - ein Fahrrad ist langsam und aus Papier, ein Geländewagen träge und zäh.",
+        "Sieben Sorten: Wagen, Taxi, Geländewagen, Transporter, Motorrad, Fahrrad und Panzer. Sie unterscheiden sich in Tempo, Beschleunigung, Wendigkeit und Blech - ein Fahrrad ist langsam und aus Papier, ein Geländewagen träge und zäh, und der braune ups-Transporter ist das größte und sperrigste, was im Verkehr mitfährt.",
         "Auf dem Militärgelände steht außerdem ein Hubschrauber, den man fliegen kann: E steigt ein, Leertaste steigt, W fliegt. Rings um den Zaun stehen vier Luftabwehrstellungen, die auf alles schießen, was dort in der Luft ist.",
         "Oben links liegt Bauernland mit Feldern, Scheunen und Traktoren - der Traktor hat eine Anhängerkupplung und kann andere Fahrzeuge abschleppen. Unten links steht ein Berg, auf den ein Feldweg hinaufführt.",
         "Tag und Nacht sind standardmäßig aus. In den Einstellungen kann man sie anschalten - dann läuft oben rechts eine Uhr, nachts wird es dunkel, und zum Sonnenauf- und -untergang liegt die Stadt in Orange. Ein ganzer Tag dauert 24 Minuten.",
         "Wer umkommt, lässt sein Geld liegen - vom Passanten 60 Euro, vom Snob 260. Penner haben nichts, Polizisten tragen keins bei sich.",
         "Autos haben Gewicht: Wer zu schnell einlenkt, steht quer und qualmt - Bremsen zieht den Wagen gerade, Vollgas lässt das Heck kommen. Die Leertaste ist im Auto die Handbremse: damit bremst man quer, driftet absichtlich und dreht Donuts, und die schwarzen Striche bleiben eine Weile auf der Straße liegen. Jedes Fahrzeug hat dabei seine eigene Haftung, vom Motorrad, das nie rutscht, bis zum DMC-12, der es gern tut.",
         "Im Panzer schiebt man jedes Fahrzeug einfach zur Seite und fährt ohne Tempoverlust weiter - dafür braucht es keinen Cheat.",
+        "Der Gefängnishof ist von außen nicht zu erreichen - der Bau geht lückenlos im Viereck herum, und darum steht ein Zaun mit Stacheldraht. Der einzige Weg hinein ist über die Mauer, also der Jetpack. Sobald du drin bist, schwenken alle vier Scheinwerfer auf dich, und kurz darauf schießen die Wachtürme. Der Weg hinaus ist derselbe wie der Weg hinein.",
         "Der Panzer ist kaum kaputtzukriegen und hat als einziges Fahrzeug zwei Waffen: die Kanone auf der linken Maustaste, die dorthin schießt, wo der Turm zeigt, und das Maschinengewehr daneben auf der rechten, solange du sie hältst. Es gibt genau einen, und der steht hinter dem Zaun des Militärgeländes in der Wüste - wer dort hineingeht, hat sofort sechs Sterne und zehn bewaffnete Wachen am Hals. Der andere Weg zu einem Panzer ist, ihn der Polizei wegzunehmen, die bei sechs Sternen selbst einen schickt.",
       ],
     },

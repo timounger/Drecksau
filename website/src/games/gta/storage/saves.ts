@@ -267,6 +267,9 @@ function rebuild(stored: Stored): GameState {
       // A stand written before the jetpack had a flame has no switch for it,
       // and it is off: nobody is saved mid-climb.
       thrust: stored.player.thrust ?? false,
+      // Nobody is saved standing in a prison yard with the lights on him: a
+      // stand written before the towers watched has no alarm to restore.
+      spotted: stored.player.spotted ?? null,
       // A stand written before the tank had a machine gun on it has no clock
       // for it, and a gun that may next fire at undefined never fires.
       gunAt: stored.player.gunAt ?? 0,

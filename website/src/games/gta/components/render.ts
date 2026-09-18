@@ -27,6 +27,10 @@ import {
   prisonPlot,
   prisonHut,
   prisonUnder,
+  prisonGate,
+  prisonTowers,
+  PRISON_FENCE,
+  PRISON_SHED,
   PRISON_WING,
   houseHeight,
   roofAt,
@@ -145,6 +149,7 @@ import {
   turretSprite,
   TURRET_SIZE,
   vehicleSprite,
+  VAN_PAINT,
   vehicleWall,
   type VehicleFace,
   type VehicleSide,
@@ -433,7 +438,7 @@ export function draw(
   ctx.translate(-view.width / 2, -view.height / 2);
   drawGround(ctx, state, view, seen);
   drawMarkers(ctx, state, view);
-  drawPickups(ctx, state, view, seen);
+  drawPickups(ctx, state, view, seen, zoom);
   drawCharges(ctx, state, view);
   drawScene(ctx, state, view, seen);
   drawChargeLights(ctx, state, view);
@@ -945,7 +950,28 @@ function drawScenery(
         drawSignals(ctx, view, state, col, row);
       }
       if (cell === "fence") {
-        drawFence(ctx, view, col, row);
+        // Two sorts of wire in this city and the same picture for both: round
+        // the military base, and round a prison - which gets barbs on top of
+        // it, because a prison fence is there to keep people in.
+        const gaol = prisonUnder(col, row);
+        const plot = gaol === null ? null : prisonPlot(gaol.x, gaol.y);
+        const way = plot === null ? null : prisonGate(plot);
+        drawFence(
+          ctx,
+          view,
+          col,
+          row,
+          plot === null
+            ? BASE
+            : {
+                left: plot.left,
+                top: plot.top,
+                right: plot.right - 1,
+                bottom: plot.bottom - 1,
+              },
+          plot !== null,
+          way !== null && col === way.x && row === way.y,
+        );
       }
       if (cell === "rock" && spread(col + 5, row + 11) > 0.84) {
         drawBoulder(ctx, view, col, row);
@@ -1184,55 +1210,233 @@ const TIE_THICK = 7;
 const GAUGE = 20;
 
 /**
- * One square of the fence round the military base.
+ * One square of wire: round the military base, or round a prison.
  *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param col - the square, across
+ * @param row - the square, down
+ * @param box - the rectangle the fence runs round, in squares
+ * @param barbed - whether it carries barbed wire and stands on gravel
+ * @param gate - whether this square is the way in
  * @remarks
  * Posts and wire rather than a wall, because that is what it is: one can see
  * the tank from outside and stand there looking at it. What stops anybody is
  * the floor underneath saying no, and the ten men behind it saying it louder.
+ *
+ * **Laid flat**, as a line on the ground, and not stood up. A fence is the one
+ * upright thing here that is better drawn as a plan: a run of it going away
+ * from the camera has no face to show - this projection squashes depth and
+ * leaves width alone - so half of any standing fence comes out as a bare line
+ * anyway, and the two halves never look like the same fence.
+ *
+ * **And the corner is a corner.** Which way a square ran used to be decided by
+ * one question - is this the left or the right column? - so a corner square,
+ * which is a column **and** a row, came out as an upright run only and the run
+ * along the top stopped a square short at each end. Both questions are asked
+ * now; and a corner square draws each of its two runs only from the middle
+ * outwards, in the direction that run carries on, so the two meet in an L at
+ * the corner post and neither is drawn over the other.
  */
 function drawFence(
   ctx: CanvasRenderingContext2D,
   view: View,
   col: number,
   row: number,
+  box: {
+    readonly left: number;
+    readonly right: number;
+    readonly top: number;
+    readonly bottom: number;
+  },
+  barbed: boolean,
+  gate = false,
 ): void {
-  const upright = col === BASE.left || col === BASE.right;
   const at = project(view, col * TILE, row * TILE);
   const across = TILE;
   const deep = TILE * DEPTH;
+  // Which runs this square carries. A corner carries two, and drawing both is
+  // the whole of closing it.
+  const west = col === box.left;
+  const east = col === box.right;
+  const north = row === box.top;
+  const south = row === box.bottom;
+  const upright = west || east;
+  const flat = north || south;
+  const corner = upright && flat;
   ctx.save();
   ctx.translate(at.x, at.y);
-  ctx.strokeStyle = "rgba(203,213,225,0.75)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  // The mesh: a few strands each way, which at this size reads as wire.
-  for (let strand = 1; strand < MESH; strand += 1) {
-    const part = strand / MESH;
-    if (upright) {
-      ctx.moveTo(across / 2 - WIRE_WIDE / 2, part * deep);
-      ctx.lineTo(across / 2 + WIRE_WIDE / 2, part * deep);
-    } else {
-      ctx.moveTo(part * across, deep / 2 - (WIRE_WIDE * DEPTH) / 2);
-      ctx.lineTo(part * across, deep / 2 + (WIRE_WIDE * DEPTH) / 2);
-    }
+  if (barbed) {
+    // **The sterile strip.** The ground under the wire round the base is
+    // desert, and the same sand round a prison in the middle of a city is a
+    // beach. What is actually kept clear between a prison fence and its wall
+    // is raked gravel, so that is what this one stands on.
+    ctx.fillStyle = STRIP_GRAVEL;
+    ctx.fillRect(0, 0, across, deep);
   }
-  ctx.stroke();
-  // And the posts, one to a square.
-  ctx.fillStyle = "#57534e";
+  if (gate) {
+    // **The way in.** No wire across this square: a pair of posts and a
+    // barrier over the gap, which is what the front of a prison has - one
+    // drives up to it and somebody decides. It is down, like everything else
+    // on the way in here.
+    ctx.fillStyle = GATE_POST;
+    for (const post of [0, across - GATE_POST_WIDE]) {
+      ctx.fillRect(
+        post,
+        deep / 2 - GATE_POST_WIDE,
+        GATE_POST_WIDE,
+        GATE_POST_WIDE * 2,
+      );
+    }
+    const from = GATE_POST_WIDE;
+    const span = across - GATE_POST_WIDE * 2;
+    for (let band = 0; band < BARRIER_BANDS; band += 1) {
+      ctx.fillStyle = band % 2 === 0 ? BARRIER_RED : BARRIER_WHITE;
+      ctx.fillRect(
+        from + (span / BARRIER_BANDS) * band,
+        deep / 2 - BARRIER_THICK / 2,
+        span / BARRIER_BANDS,
+        BARRIER_THICK,
+      );
+    }
+    ctx.restore();
+    return;
+  }
+  // Where each run starts and stops inside this square. A run through the
+  // middle of a side crosses the whole square; a run that ends at a corner
+  // stops at the corner post, which is the middle of the square.
+  const alongFrom = corner ? (west ? across / 2 : 0) : 0;
+  const alongTo = corner ? (west ? across : across / 2) : across;
+  const downFrom = corner ? (north ? deep / 2 : 0) : 0;
+  const downTo = corner ? (north ? deep : deep / 2) : deep;
+  if (flat) {
+    fenceRun(ctx, { from: alongFrom, to: alongTo }, deep / 2, false, barbed);
+  }
   if (upright) {
-    ctx.fillRect(across / 2 - 2, 0, 4, deep);
+    fenceRun(ctx, { from: downFrom, to: downTo }, across / 2, true, barbed);
+  }
+  // The post. On a corner it stands where the two runs meet; on a straight it
+  // stands across the middle of the square.
+  ctx.fillStyle = FENCE_POST;
+  if (corner) {
+    ctx.fillRect(
+      across / 2 - POST_WIDE,
+      deep / 2 - POST_WIDE,
+      POST_WIDE * 2,
+      POST_WIDE * 2,
+    );
+  } else if (upright) {
+    ctx.fillRect(across / 2 - POST_WIDE, 0, POST_WIDE * 2, deep);
   } else {
-    ctx.fillRect(0, deep / 2 - 2 * DEPTH, across, 4 * DEPTH);
+    ctx.fillRect(0, deep / 2 - POST_WIDE * DEPTH, across, POST_WIDE * 2 * DEPTH);
   }
   ctx.restore();
 }
 
-/** How many strands of wire are drawn across one square. */
+/**
+ * One run of wire inside a square: the mesh, and the barbs along it.
+ *
+ * @param ctx - what to paint on, with the square's corner at the origin
+ * @param span - where along the square the run starts and stops
+ * @param at - how far across the square the line of it lies
+ * @param upright - true where the run goes up and down rather than across
+ * @param barbed - whether it carries barbed wire
+ */
+function fenceRun(
+  ctx: CanvasRenderingContext2D,
+  span: { readonly from: number; readonly to: number },
+  at: number,
+  upright: boolean,
+  barbed: boolean,
+): void {
+  const thick = upright ? WIRE_WIDE : WIRE_WIDE * DEPTH;
+  ctx.strokeStyle = FENCE_WIRE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  // The mesh: a few strands across the width of the wire, which at this size
+  // reads as something one can see through.
+  for (let strand = 1; strand < MESH; strand += 1) {
+    const over = at - thick / 2 + (thick * strand) / MESH;
+    if (upright) {
+      ctx.moveTo(over, span.from);
+      ctx.lineTo(over, span.to);
+    } else {
+      ctx.moveTo(span.from, over);
+      ctx.lineTo(span.to, over);
+    }
+  }
+  ctx.stroke();
+  if (barbed) {
+    // The barbs: a brighter strand down the middle with a tick every so often,
+    // which is what a coil of it looks like from overhead.
+    ctx.strokeStyle = BARB_WIRE;
+    ctx.beginPath();
+    for (let barb = 0; barb <= BARBS; barb += 1) {
+      const part = span.from + ((span.to - span.from) * barb) / BARBS;
+      if (upright) {
+        ctx.moveTo(at - BARB_OUT, part);
+        ctx.lineTo(at + BARB_OUT, part);
+      } else {
+        ctx.moveTo(part, at - BARB_OUT * DEPTH);
+        ctx.lineTo(part, at + BARB_OUT * DEPTH);
+      }
+    }
+    if (upright) {
+      ctx.moveTo(at, span.from);
+      ctx.lineTo(at, span.to);
+    } else {
+      ctx.moveTo(span.from, at);
+      ctx.lineTo(span.to, at);
+    }
+    ctx.stroke();
+  }
+}
+
+/** How many strands of wire are drawn across one run. */
 const MESH = 4;
 
-/** How tall the wire stands, in pixels. */
+/** How wide the wire is drawn, in pixels. */
 const WIRE_WIDE = 16;
+
+/** What the mesh is drawn in. */
+const FENCE_WIRE = "rgba(203,213,225,0.75)";
+
+/** The posts. */
+const FENCE_POST = "#57534e";
+
+/** How thick one is, in pixels. */
+const POST_WIDE = 2;
+
+/** What barbed wire is drawn in. */
+const BARB_WIRE = "#e2e8f0";
+
+/** How many barbs there are to a square. */
+const BARBS = 3;
+
+/** And how far each one sticks out, in pixels. */
+const BARB_OUT = 2.5;
+
+/** What the ground between a prison fence and its wall is. */
+const STRIP_GRAVEL = "#6e6a63";
+
+/** The two posts the barrier swings between. */
+const GATE_POST = "#3f3f46";
+
+/** How thick one of them is, in pixels. */
+const GATE_POST_WIDE = 4;
+
+/** How many red and white bands the barrier pole is painted in. */
+const BARRIER_BANDS = 6;
+
+/** The red of them. */
+const BARRIER_RED = "#dc2626";
+
+/** And the white. */
+const BARRIER_WHITE = "#f8fafc";
+
+/** How thick the pole is drawn, in pixels. */
+const BARRIER_THICK = 3;
+
 
 /**
  * The mountain.
@@ -3518,6 +3722,14 @@ function collectHouses(
         // always agree about which corner holds the night club.
         const sort = buildingAt(blockX, blockY);
         const gaol = covering !== null;
+        // **One of the three houses is yours.** It is the one with the garage
+        // cut into it, so that is how it is recognised - no flag, no field,
+        // just the fact that the plan put a bay here.
+        const home = state.garages.find(
+          (bay) =>
+            Math.floor(bay.x / span) === blockX &&
+            Math.floor(bay.y / span) === blockY,
+        );
         // The houses of a block sit inside its ring of pavement - and inside
         // the motorway, where one runs past. Asked of the plan, not assumed.
         // A prison is the one that is built over the pavement as well, and
@@ -3555,9 +3767,29 @@ function collectHouses(
             bottom: foot.y,
           },
           paint: (fade) =>
-            gaol
-              ? drawPrison(ctx, view, plot, height, sort, state.time, fade)
-              : drawHouse(ctx, view, plot, height, look, sort, fade),
+            home !== undefined
+              ? drawHome(ctx, view, plot, height, sort, home, fade)
+              : gaol
+              ? drawPrison(
+                  ctx,
+                  view,
+                  plot,
+                  height,
+                  sort,
+                  state.time,
+                  hunted(state, plot),
+                  fade,
+                )
+              : drawHouse(
+                  ctx,
+                  view,
+                  state.cells,
+                  plot,
+                  height,
+                  look,
+                  sort,
+                  fade,
+                ),
         });
       }
     }
@@ -3601,14 +3833,24 @@ function drawPrison(
   height: number,
   sort: Building,
   now: number,
+  alarm: Alarm | null,
   fade: number,
 ): void {
   const wing = PRISON_WING * TILE;
+  // The building stands a square in from the footprint; the square it leaves
+  // is the wire and the sterile strip inside it, which the ground pass draws.
+  const wired = PRISON_FENCE * TILE;
+  const walls = {
+    left: plot.left + wired,
+    top: plot.top + wired,
+    right: plot.right - wired,
+    bottom: plot.bottom - wired,
+  };
   const yard = {
-    left: plot.left + wing,
-    top: plot.top + wing,
-    right: plot.right - wing,
-    bottom: plot.bottom - wing,
+    left: walls.left + wing,
+    top: walls.top + wing,
+    right: walls.right - wing,
+    bottom: walls.bottom - wing,
   };
   const range = {
     high: height,
@@ -3620,15 +3862,15 @@ function drawPrison(
   const wall = { ...range, bars: false };
 
   // The far range first, then the yard, then the near one.
-  prisonBox(ctx, view, { ...plot, bottom: plot.top + wing }, range, fade);
+  prisonBox(ctx, view, { ...walls, bottom: walls.top + wing }, range, fade);
   prisonBox(
     ctx,
     view,
     {
-      left: plot.left,
-      top: plot.top + wing,
-      right: plot.left + wing,
-      bottom: plot.bottom - wing,
+      left: walls.left,
+      top: walls.top + wing,
+      right: walls.left + wing,
+      bottom: walls.bottom - wing,
     },
     wall,
     fade,
@@ -3637,18 +3879,19 @@ function drawPrison(
     ctx,
     view,
     {
-      left: plot.right - wing,
-      top: plot.top + wing,
-      right: plot.right,
-      bottom: plot.bottom - wing,
+      left: walls.right - wing,
+      top: walls.top + wing,
+      right: walls.right,
+      bottom: walls.bottom - wing,
     },
     wall,
     fade,
   );
-  towerAt(ctx, view, plot.left, plot.top, height, fade, now);
-  towerAt(ctx, view, plot.right, plot.top, height, fade, now);
+  towerAt(ctx, view, walls.left, walls.top, height, fade, now, alarm, 1);
+  towerAt(ctx, view, walls.right - TILE, walls.top, height, fade, now, alarm, -1);
 
   yardFloor(ctx, view, yard, fade);
+  searchlights(ctx, view, plot, yard, now, alarm, fade);
   // What stands in the yard, north to south: the hut, then the men, then the
   // benches along the near edge. The hut is on the square the floor made
   // solid, which is a rounding both sides have to do the same way.
@@ -3661,41 +3904,39 @@ function drawPrison(
   const shed = {
     left: cell.x * TILE,
     top: cell.y * TILE,
-    right: (cell.x + 1) * TILE,
-    bottom: (cell.y + 1) * TILE,
+    right: (cell.x + PRISON_SHED) * TILE,
+    bottom: (cell.y + PRISON_SHED) * TILE,
   };
-  prisonBox(ctx, view, shed, { ...wall, high: height * HUT_RISE }, fade);
-  // What the shed is for, written over it. A prison workshop is a going
-  // concern with a name over the door, and this is the name over the door.
-  const over = project(view, (shed.left + shed.right) / 2, shed.top, height * HUT_RISE);
-  ctx.save();
-  ctx.globalAlpha = fade;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  ctx.font = `bold ${String(SHED_TEXT)}px system-ui, sans-serif`;
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = SHED_EDGE;
-  ctx.strokeText(SHED_NAME, over.x, over.y - SHED_UP);
-  ctx.fillStyle = SHED_INK;
-  ctx.fillText(SHED_NAME, over.x, over.y - SHED_UP);
-  ctx.textAlign = "left";
-  ctx.restore();
+  const shedHigh = height * HUT_RISE;
+  prisonBox(ctx, view, shed, { ...wall, high: shedHigh }, fade);
+  workshop(ctx, view, shed, shedHigh, now, fade);
   yardFolk(ctx, view, yard, now, fade);
 
-  prisonBox(ctx, view, { ...plot, top: plot.bottom - wing }, range, fade);
-  towerAt(ctx, view, plot.left, plot.bottom, height, fade, now);
-  towerAt(ctx, view, plot.right, plot.bottom, height, fade, now);
+  prisonBox(ctx, view, { ...walls, top: walls.bottom - wing }, range, fade);
+  gateway(ctx, view, walls, height, fade);
+  towerAt(ctx, view, walls.left, walls.bottom - TILE, height, fade, now, alarm, 1);
+  towerAt(
+    ctx,
+    view,
+    walls.right - TILE,
+    walls.bottom - TILE,
+    height,
+    fade,
+    now,
+    alarm,
+    -1,
+  );
 
   // And its name over the middle of the near range, like every other place
   // with one - over the middle of it rather than across the whole front,
   // because the front is six hundred pixels wide and a sign that long is a
   // hoarding.
-  const middle = (plot.left + plot.right) / 2;
-  const board = ((plot.right - plot.left) * SIGN_SHARE) / 2;
+  const middle = (walls.left + walls.right) / 2;
+  const board = ((walls.right - walls.left) * SIGN_SHARE) / 2;
   signOver(
     ctx,
     view,
-    { ...plot, left: middle - board, right: middle + board },
+    { ...walls, left: middle - board, right: middle + board },
     height,
     sort,
     fade,
@@ -3712,18 +3953,25 @@ const BLOCK_MIDDLE = BLOCK_TILES / 2;
 const HALF = 0.5;
 
 /**
- * The floor of the yard: concrete, a basketball court and the benches on it.
+ * The floor of the yard: grass, the court worn into it, and the benches.
  *
  * @param ctx - what to paint on
  * @param view - where the camera is
  * @param yard - the open ground inside the ranges, in city pixels
  * @param fade - how solid to paint it
  * @remarks
- * All of it flat on the ground, so all of it is one rectangle after another in
- * the same projection the road markings use. The court is where the eye goes:
- * it is the one thing in a prison yard that has a shape everybody knows, and
- * at this size the key and the centre circle are what say basketball rather
- * than tennis.
+ * **A yard is a field with a court worn into it**, not a concrete apron. It
+ * was concrete, and concrete has no history in it: every square foot of it
+ * looks the same whether a thousand men have walked there or none.
+ *
+ * So the ground is grass, and what the men have done to it shows. Under each
+ * basket - where everybody stands, turns and lands, all day, every day - the
+ * grass is gone and the bare earth is through, and it fades back into the
+ * green rather than stopping at a line, because that is what worn ground does.
+ * The lines of the court are painted straight onto that.
+ *
+ * All of it flat on the ground, so all of it is one shape after another in the
+ * same projection the road markings use.
  */
 function yardFloor(
   ctx: CanvasRenderingContext2D,
@@ -3736,30 +3984,52 @@ function yardFloor(
   const at = project(view, yard.left, yard.top);
   ctx.save();
   ctx.globalAlpha = fade;
-  ctx.fillStyle = YARD_GROUND;
+  ctx.fillStyle = YARD_GRASS;
   ctx.fillRect(at.x, at.y, wide, deep * DEPTH);
 
   // **The court stands up the yard, not across it.** A basketball court is
   // nearly twice as long as it is wide, and the long way of it is the way one
   // plays: basket to basket. Laid the other way round - wide and shallow - it
-  // reads as a tennis court with the net missing. The hut is out of its way in
-  // the top left corner, so it can sit in the middle where it belongs.
+  // reads as a tennis court with the net missing. It sits in the middle of the
+  // yard, with the workshop up in one corner and the benches either side of
+  // it.
   const court = {
-    left: yard.left + wide * COURT_IN,
-    right: yard.right - wide * COURT_IN,
+    left: yard.left + wide * (COURT_IN + COURT_OVER),
+    right: yard.right - wide * (COURT_IN - COURT_OVER),
     top: yard.top + deep * COURT_TOP,
     bottom: yard.top + deep * COURT_LOW,
   };
   const box = project(view, court.left, court.top);
   const across = court.right - court.left;
   const down = (court.bottom - court.top) * DEPTH;
-  ctx.fillStyle = COURT_TARMAC;
-  ctx.fillRect(box.x, box.y, across, down);
+
+  // The ground under each basket, walked bare and fading back into the grass.
+  for (const end of [0, 1]) {
+    const line = box.y + down * end;
+    const into = end === 0 ? 1 : -1;
+    const spot = { x: box.x + across / 2, y: line + into * down * WORN_IN };
+    const reach = across * WORN_WIDE;
+    const worn = ctx.createRadialGradient(
+      spot.x,
+      spot.y,
+      0,
+      spot.x,
+      spot.y,
+      reach,
+    );
+    worn.addColorStop(0, WORN_EARTH);
+    worn.addColorStop(WORN_SOLID, WORN_EARTH);
+    worn.addColorStop(1, WORN_GONE);
+    ctx.fillStyle = worn;
+    ctx.beginPath();
+    ctx.ellipse(spot.x, spot.y, reach, reach * DEPTH, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // The lines, painted straight onto whatever is under them.
   ctx.strokeStyle = COURT_PAINT;
   ctx.lineWidth = 1.5;
   ctx.strokeRect(box.x, box.y, across, down);
-  // The halfway line, the centre circle, and a key at each end with the hoop
-  // standing on the line behind it.
   ctx.beginPath();
   ctx.moveTo(box.x, box.y + down / 2);
   ctx.lineTo(box.x + across, box.y + down / 2);
@@ -3786,42 +4056,156 @@ function yardFloor(
       down * COURT_DEEP * into,
     );
     ctx.stroke();
-    // The board and the hoop, which stand a little outside the end line.
-    ctx.fillStyle = COURT_BOARD;
-    ctx.fillRect(
-      box.x + across * (HALF - COURT_POST / 2),
-      line - (end === 0 ? 2 : 0),
-      across * COURT_POST,
-      2,
-    );
-    ctx.strokeStyle = COURT_HOOP;
-    ctx.beginPath();
-    ctx.ellipse(
-      box.x + across / 2,
-      line + into * 3,
-      3,
-      3 * DEPTH,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.stroke();
+    basket(ctx, box.x + across / 2, line, across * COURT_POST, into);
     ctx.strokeStyle = COURT_PAINT;
   }
 
-  // The benches, in the bottom right corner of the yard: a short row of them
-  // out of the way of the court, which is where the benches of a yard are.
-  for (let seat = 0; seat < BENCHES; seat += 1) {
-    bench(ctx, view, benchAt(yard, seat), fade);
+  // The benches: a pair down each side of the court, standing on end so they
+  // face it. Laid across, as they were, one sits with one own back to the game.
+  for (const side of [-1, 1]) {
+    for (let seat = 0; seat < BENCHES; seat += 1) {
+      bench(ctx, view, benchAt(yard, side, seat), fade);
+    }
   }
   ctx.restore();
 }
 
 /**
+ * One basket, seen from above.
+ *
+ * @param ctx - what to paint on
+ * @param x - the middle of the end line, on screen
+ * @param y - the end line itself
+ * @param wide - how wide the backboard is, in pixels
+ * @param into - which way the court lies from it: 1 for the far end, -1 near
+ * @remarks
+ * It was an orange circle. A basket is four things, and from above one can see
+ * all four: the **post** and the arm that carries it out over the line, the
+ * **backboard** with its target square painted on it, the **ring** bolted to
+ * the front of that, and the **net** hanging inside the ring - which from
+ * overhead is the one thing that makes the ring read as a hoop rather than as
+ * a painted circle, because one looks straight down through it.
+ *
+ * Everything is drawn from the end line outwards, so the same routine does
+ * both ends: `into` is the way the court goes, and the post is always the
+ * other way.
+ */
+function basket(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  wide: number,
+  into: number,
+): void {
+  const back = -into;
+  ctx.save();
+  // The post, behind the line, and the arm out to the board.
+  ctx.fillStyle = HOOP_STEEL;
+  ctx.fillRect(
+    x - HOOP_POST / 2,
+    y + back * HOOP_STAND - HOOP_POST / 2,
+    HOOP_POST,
+    HOOP_POST,
+  );
+  ctx.fillRect(
+    x - HOOP_ARM / 2,
+    y + Math.min(0, back * HOOP_STAND),
+    HOOP_ARM,
+    HOOP_STAND,
+  );
+  // The backboard, and the target square on it.
+  ctx.fillStyle = HOOP_EDGE;
+  ctx.fillRect(x - wide / 2, y - HOOP_BOARD / 2, wide, HOOP_BOARD);
+  ctx.fillStyle = COURT_BOARD;
+  ctx.fillRect(
+    x - wide / 2 + 1,
+    y - HOOP_BOARD / 2 + 0.5,
+    wide - 2,
+    HOOP_BOARD - 1,
+  );
+  ctx.fillStyle = HOOP_TARGET;
+  ctx.fillRect(x - wide * HOOP_SQUARE, y - HOOP_BOARD / 2 + 0.5, wide * HOOP_SQUARE * 2, 1);
+  // The ring, out in front of the board, and the net hanging in it.
+  const ring = { x, y: y + into * HOOP_OUT };
+  ctx.strokeStyle = COURT_HOOP;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(ring.x, ring.y, HOOP_RING, HOOP_RING * DEPTH, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = HOOP_NET;
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  for (let cord = 0; cord < HOOP_CORDS; cord += 1) {
+    const way = (cord / HOOP_CORDS) * Math.PI * 2;
+    ctx.moveTo(
+      ring.x + Math.cos(way) * HOOP_RING,
+      ring.y + Math.sin(way) * HOOP_RING * DEPTH,
+    );
+    ctx.lineTo(
+      ring.x + Math.cos(way) * HOOP_RING * HOOP_TUCK,
+      ring.y + Math.sin(way) * HOOP_RING * HOOP_TUCK * DEPTH,
+    );
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(
+    ring.x,
+    ring.y,
+    HOOP_RING * HOOP_TUCK,
+    HOOP_RING * HOOP_TUCK * DEPTH,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** How thick the backboard is, in pixels. */
+const HOOP_BOARD = 3;
+
+/** How far behind the line the post stands. */
+const HOOP_STAND = 7;
+
+/** How thick the post is. */
+const HOOP_POST = 4;
+
+/** And the arm out to the board. */
+const HOOP_ARM = 2;
+
+/** How wide the target square on the board is, as a share of it. */
+const HOOP_SQUARE = 0.22;
+
+/** How far the ring stands out in front of the board, in pixels. */
+const HOOP_OUT = 4;
+
+/** How big the ring is. */
+const HOOP_RING = 3.4;
+
+/** How many cords the net has. */
+const HOOP_CORDS = 8;
+
+/** And how far in they draw before the net closes, as a share of the ring. */
+const HOOP_TUCK = 0.5;
+
+/** What the post and the arm are made of. */
+const HOOP_STEEL = "#6b7280";
+
+/** The line round the backboard. */
+const HOOP_EDGE = "#4b5563";
+
+/** The square painted on it. */
+const HOOP_TARGET = "#dc2626";
+
+/** And what the net is. */
+const HOOP_NET = "#f1f5f9";
+
+/**
  * Where one of the benches stands.
  *
  * @param yard - the open ground, in city pixels
- * @param seat - which bench, counting from the back of the row
+ * @param side - which side of the court: negative for the left
+ * @param seat - which bench down that side
  * @returns its top left corner
  * @remarks
  * Its own function because two things want the answer: the floor of the yard,
@@ -3830,16 +4214,33 @@ function yardFloor(
  */
 function benchAt(
   yard: { left: number; top: number; right: number; bottom: number },
+  side: number,
   seat: number,
 ): Vec {
+  const wide = yard.right - yard.left;
   const deep = yard.bottom - yard.top;
   return {
-    x: yard.right - BENCH_OUT - BENCH_LONG,
+    x:
+      side < 0
+        ? yard.left + wide * (COURT_IN + COURT_OVER) - BENCH_OFF - BENCH_WIDE
+        : yard.right - wide * (COURT_IN - COURT_OVER) + BENCH_OFF,
     y: yard.top + deep * (BENCH_FROM + BENCH_STEP * seat),
   };
 }
 
-/** One bench: a slab with its slats and the two legs under it. */
+/**
+ * One bench, standing on end: a slab with its slats and the shadow under it.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param at - its top left corner, in city pixels
+ * @param fade - how solid to paint it
+ * @remarks
+ * Turned a quarter round from how they used to lie. A bench beside a court
+ * runs **along** the touchline, so that whoever is on it is looking at the
+ * game; laid across it, one sits with one shoulder to the play. The slats turn
+ * with it, because slats run the length of a bench.
+ */
 function bench(
   ctx: CanvasRenderingContext2D,
   view: View,
@@ -3847,18 +4248,19 @@ function bench(
   fade: number,
 ): void {
   const spot = project(view, at.x, at.y);
+  const long = BENCH_LONG * DEPTH;
   ctx.globalAlpha = fade;
   ctx.fillStyle = BENCH_SHADE;
-  ctx.fillRect(spot.x + 1, spot.y + 1, BENCH_LONG, BENCH_WIDE * DEPTH);
+  ctx.fillRect(spot.x + 1, spot.y + 1, BENCH_WIDE, long);
   ctx.fillStyle = BENCH_WOOD;
-  ctx.fillRect(spot.x, spot.y, BENCH_LONG, BENCH_WIDE * DEPTH);
+  ctx.fillRect(spot.x, spot.y, BENCH_WIDE, long);
   ctx.strokeStyle = BENCH_SEAM;
   ctx.lineWidth = 0.8;
   ctx.beginPath();
   for (let slat = 1; slat < BENCH_SLATS; slat += 1) {
-    const down = spot.y + (BENCH_WIDE * DEPTH * slat) / BENCH_SLATS;
-    ctx.moveTo(spot.x, down);
-    ctx.lineTo(spot.x + BENCH_LONG, down);
+    const over = spot.x + (BENCH_WIDE * slat) / BENCH_SLATS;
+    ctx.moveTo(over, spot.y);
+    ctx.lineTo(over, spot.y + long);
   }
   ctx.stroke();
 }
@@ -3933,24 +4335,63 @@ function yardFolk(
       fade,
     );
   }
-  // And the two who are sitting, each on a bench of the row rather than beside
-  // one, facing across the yard at the court.
-  for (const seat of [0, SEATED_TWO]) {
-    const spot = benchAt(yard, seat);
+  // **And the two warders walking the yard.** Somebody has to be watching the
+  // men in it from the same ground they are on - four lamps on the corners
+  // watch the yard, not the people in it. They go round the outside of it, the
+  // opposite way to the men, at the steady pace of somebody who has walked
+  // this circuit every day for years.
+  for (let guard = 0; guard < WARDERS; guard += 1) {
+    const turn =
+      -now * (WARDER_PACE / ((wide + deep) / 4)) +
+      (guard / WARDERS) * Math.PI * 2;
+    const at = {
+      x: middle.x + Math.cos(turn) * wide * WARDER_ROUND,
+      y: middle.y + Math.sin(turn) * deep * WARDER_ROUND,
+    };
+    const way = Math.atan2(
+      -deep * Math.cos(turn),
+      wide * Math.sin(turn),
+    );
     drawFigure(
       ctx,
       view,
-      { x: spot.x + BENCH_LONG / 2, y: spot.y + BENCH_WIDE / 2 },
+      at,
+      {
+        shirt: WARDER_SHIRT,
+        trousers: WARDER_TROUSERS,
+        skin: CONVICT_SKIN,
+        hair: WARDER_HAIR,
+        facing: way,
+        heading: way,
+        walked: now * WARDER_PACE,
+        pace: WARDER_PACE / WALK_SPEED,
+        time: now + guard,
+        arms: "swing",
+        hand: "right",
+        style: "cop",
+      },
+      fade,
+    );
+  }
+
+  // And the two who are sitting, one on a bench down each side, each facing
+  // across the court at the game.
+  for (const side of [-1, 1]) {
+    const spot = benchAt(yard, side, 0);
+    drawFigure(
+      ctx,
+      view,
+      { x: spot.x + BENCH_WIDE / 2, y: spot.y + BENCH_LONG / 2 },
       {
         shirt: CONVICT_SHIRT,
         trousers: CONVICT_TROUSERS,
         skin: CONVICT_SKIN,
         hair: CONVICT_HAIR,
-        facing: Math.PI,
-        heading: Math.PI,
+        facing: side < 0 ? 0 : Math.PI,
+        heading: side < 0 ? 0 : Math.PI,
         walked: 0,
         pace: 0,
-        time: now + seat,
+        time: now + side,
         arms: "swing",
         hand: "right",
         style: "convict",
@@ -3960,6 +4401,165 @@ function yardFolk(
     );
   }
 }
+
+/** Whoever the searchlights of one prison have, and for how long. */
+type Alarm = {
+  /** Where he is, in city pixels. */
+  readonly at: Vec;
+  /** How long the lights have had him, in seconds. */
+  readonly since: number;
+};
+
+/**
+ * Whether this prison has somebody inside it, for the picture.
+ *
+ * @param state - the city
+ * @param plot - the prison's footprint, in city pixels
+ * @returns where he is and how long they have had him, or null
+ * @remarks
+ * The engine keeps one number for the whole alarm - {@link Player.spotted} -
+ * and this is the picture reading it. Asked per prison rather than globally,
+ * because there is no reason the lights of one should swing at a man standing
+ * in another.
+ */
+function hunted(
+  state: GameState,
+  plot: { left: number; top: number; right: number; bottom: number },
+): Alarm | null {
+  const seen = state.player.spotted;
+  const inside =
+    state.player.x >= plot.left &&
+    state.player.x < plot.right &&
+    state.player.y >= plot.top &&
+    state.player.y < plot.bottom;
+  return seen === null || !inside
+    ? null
+    : { at: { x: state.player.x, y: state.player.y }, since: state.time - seen };
+}
+
+/**
+ * The four searchlights, sweeping the yard - or all four on one man.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param plot - the prison's footprint, in city pixels
+ * @param yard - the open ground inside it
+ * @param now - the clock
+ * @param alarm - whoever is inside, or null
+ * @param fade - how solid to paint it
+ * @remarks
+ * **A yard nobody is watching is a lawn.** Each tower throws a beam across the
+ * grass and each sweeps on its own slow arc, out of step with the others,
+ * which is what makes the place look manned from the street.
+ *
+ * And when somebody is in there, all four swing onto him and stay. The swing
+ * takes {@link LIGHT_SWING} - long enough to see it happen, short enough to be
+ * a warning rather than a spectacle - and it is the only notice one gets
+ * before the towers open fire, which they do {@link PRISON_AIM} after the
+ * lights find him. The beams and the shots leave from the same four corners,
+ * because both come out of `prisonTowers`.
+ *
+ * Clipped to the yard: a searchlight is a pool of light on the ground, and a
+ * pool of light lying over the roof of the range it is mounted on is a lamp
+ * somebody has pointed at the ceiling.
+ */
+function searchlights(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  plot: { left: number; top: number; right: number; bottom: number },
+  yard: { left: number; top: number; right: number; bottom: number },
+  now: number,
+  alarm: Alarm | null,
+  fade: number,
+): void {
+  const towers = prisonTowers({
+    left: plot.left / TILE,
+    top: plot.top / TILE,
+    right: plot.right / TILE,
+    bottom: plot.bottom / TILE,
+  });
+  const middle = {
+    x: (yard.left + yard.right) / 2,
+    y: (yard.top + yard.bottom) / 2,
+  };
+  const corner = project(view, yard.left, yard.top);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    corner.x,
+    corner.y,
+    yard.right - yard.left,
+    (yard.bottom - yard.top) * DEPTH,
+  );
+  ctx.clip();
+  towers.forEach((tower, at) => {
+    // Where it would be looking on its own, and where it is looking now.
+    const base = Math.atan2(middle.y - tower.y, middle.x - tower.x);
+    const sweep =
+      base + Math.sin(now * SWEEP_RATE + at * SWEEP_APART) * SWEEP_ARC;
+    let angle = sweep;
+    let lit = BEAM_DARK;
+    if (alarm !== null) {
+      const onto = Math.atan2(alarm.at.y - tower.y, alarm.at.x - tower.x);
+      const over = Math.min(1, alarm.since / LIGHT_SWING);
+      angle = sweep + turnGap(sweep, onto) * over;
+      lit = BEAM_DARK + (BEAM_LIT - BEAM_DARK) * over;
+    }
+    const tip = {
+      x: tower.x + Math.cos(angle) * BEAM_LONG,
+      y: tower.y + Math.sin(angle) * BEAM_LONG,
+    };
+    const side = angle + Math.PI / 2;
+    const from = project(view, tower.x, tower.y);
+    const one = project(
+      view,
+      tip.x + Math.cos(side) * BEAM_WIDE,
+      tip.y + Math.sin(side) * BEAM_WIDE,
+    );
+    const two = project(
+      view,
+      tip.x - Math.cos(side) * BEAM_WIDE,
+      tip.y - Math.sin(side) * BEAM_WIDE,
+    );
+    const end = project(view, tip.x, tip.y);
+    const glow = ctx.createLinearGradient(from.x, from.y, end.x, end.y);
+    glow.addColorStop(0, `rgba(254,243,199,${String(lit)})`);
+    glow.addColorStop(1, "rgba(254,243,199,0)");
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(one.x, one.y);
+    ctx.lineTo(two.x, two.y);
+    ctx.closePath();
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+/** How fast a lamp sweeps its arc, in radians a second. */
+const SWEEP_RATE = 0.35;
+
+/** How far out of step the four of them are. */
+const SWEEP_APART = 1.7;
+
+/** And how far each one swings either side of the middle of the yard. */
+const SWEEP_ARC = 0.5;
+
+/** How long the four take to come round onto somebody, in seconds. */
+const LIGHT_SWING = 0.7;
+
+/** How bright a beam is while it is only sweeping. */
+const BEAM_DARK = 0.13;
+
+/** And once it has somebody. */
+const BEAM_LIT = 0.42;
+
+/** How far a beam reaches, in pixels. */
+const BEAM_LONG = 520;
+
+/** And how wide the pool at the end of it is. */
+const BEAM_WIDE = 30;
 
 /**
  * One watchtower: the shaft, the cabin on top of it, and the warder in it.
@@ -3985,12 +4585,21 @@ function yardFolk(
 function towerAt(
   ctx: CanvasRenderingContext2D,
   view: View,
-  x: number,
-  y: number,
+  corner: number,
+  down: number,
   height: number,
   fade: number,
   now: number,
+  alarm: Alarm | null,
+  along: number,
 ): void {
+  // **On the corner of the building, not hanging off it.** Both boxes used to
+  // be laid out from the corner point itself, so half of each stood out over
+  // the ground outside the prison and the cabin overhung further still: four
+  // turrets bolted to the outside of the wall. They are now centred on the
+  // corner **square** of the range, and both fit inside it.
+  const x = corner + TILE / 2;
+  const y = down + TILE / 2;
   const shaft = TILE * TOWER_SHAFT;
   const cabin = TILE * TOWER_CABIN;
   const high = height * TOWER_RISE;
@@ -4020,29 +4629,163 @@ function towerAt(
   // which is what somebody standing at a window looks like from outside. Drawn
   // in the middle of the cabin he would come out above its roof instead, half
   // a cabin further north being half a cabin further up the screen.
+  //
+  // **And he does not stand there all night.** Every so often he walks out
+  // along the roof of the range, as far as {@link PATROL_REACH}, and comes
+  // back - which is what a man on a twelve hour watch does and is the one
+  // thing that tells a manned tower from a model of one. The moment the lights
+  // have somebody, he is back at his post and stays there.
+  const beat = alarm === null ? ((now * PATROL_RATE + corner) % 1 + 1) % 1 : 0;
+  const out =
+    beat < POST_SHARE
+      ? 0
+      : Math.sin(((beat - POST_SHARE) / (1 - POST_SHARE)) * Math.PI);
+  const warder: Figure = {
+    shirt: WARDER_SHIRT,
+    trousers: WARDER_TROUSERS,
+    skin: CONVICT_SKIN,
+    hair: WARDER_HAIR,
+    // Looking out over the wall, which from a corner is away from the
+    // middle of the prison - south from the near pair, north from the far.
+    facing: out > 0 ? (along > 0 ? 0 : Math.PI) : Math.PI / 2,
+    heading: out > 0 ? (along > 0 ? 0 : Math.PI) : Math.PI / 2,
+    walked: out > 0 ? now * WALK_SPEED * PATROL_PACE : 0,
+    pace: out > 0 ? PATROL_PACE : 0,
+    time: now + x,
+    arms: "swing",
+    hand: "right",
+    style: "cop",
+  };
   drawFigure(
     ctx,
     view,
-    { x, y: y + cabin * GUARD_AT - high / DEPTH },
-    {
-      shirt: WARDER_SHIRT,
-      trousers: WARDER_TROUSERS,
-      skin: CONVICT_SKIN,
-      hair: WARDER_HAIR,
-      // Looking out over the wall, which from a corner is away from the
-      // middle of the prison - south from the near pair, north from the far.
-      facing: Math.PI / 2,
-      heading: Math.PI / 2,
-      walked: 0,
-      pace: 0,
-      time: now + x,
-      arms: "swing",
-      hand: "right",
-      style: "cop",
-    },
+    out > PATROL_OFF
+      ? { x: x + along * out * PATROL_REACH, y: y - height / DEPTH }
+      : { x, y: y + cabin * GUARD_AT - high / DEPTH },
+    warder,
     fade,
   );
 }
+
+/** How many of his rounds a warder walks in an hour, near enough. */
+const PATROL_RATE = 0.03;
+
+/** How much of each one he spends at his post. */
+const POST_SHARE = 0.62;
+
+/** How far out along the roof he goes, in pixels. */
+const PATROL_REACH = 170;
+
+/** Below this much of the walk he is still in the cabin. */
+const PATROL_OFF = 0.04;
+
+/** And how fast he walks it, as a share of an ordinary walk. */
+const PATROL_PACE = 0.7;
+
+/**
+ * The gate in the front of the prison.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param walls - the building, in city pixels
+ * @param high - how tall its range is
+ * @param fade - how solid to paint it
+ * @remarks
+ * **A way in that is shut.** Every prison has one place where a van goes in,
+ * and it is the one thing a blank wall of cell windows does not say. So the
+ * middle of the front range is an archway with a pair of steel doors across
+ * it: braced, studded, and closed - the ring stays sealed, which is what the
+ * floor underneath it says too.
+ *
+ * It lines up with the barrier in the wire out in front of it, because both
+ * take their place from {@link prisonGate}: a gate one drives up to and a wall
+ * behind it would be a joke at the driver's expense.
+ */
+function gateway(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  walls: { left: number; top: number; right: number; bottom: number },
+  high: number,
+  fade: number,
+): void {
+  const foot = project(view, walls.left, walls.bottom);
+  const middle = foot.x + (walls.right - walls.left) / 2;
+  const wide = TILE * GATE_WIDE;
+  const tall = high * GATE_TALL;
+  ctx.save();
+  ctx.globalAlpha = fade;
+
+  // The arch: the opening cut into the wall, and the stonework round it.
+  ctx.fillStyle = GATE_SURROUND;
+  ctx.fillRect(
+    middle - wide / 2 - GATE_JAMB,
+    foot.y - tall - GATE_JAMB,
+    wide + GATE_JAMB * 2,
+    tall + GATE_JAMB,
+  );
+  ctx.fillStyle = GATE_DARK;
+  ctx.fillRect(middle - wide / 2, foot.y - tall, wide, tall);
+
+  // The two leaves, shut, with the shut line down the middle of them.
+  for (const leaf of [-1, 1]) {
+    const from = leaf < 0 ? middle - wide / 2 : middle;
+    ctx.fillStyle = GATE_STEEL;
+    ctx.fillRect(from + GATE_GAP, foot.y - tall + GATE_GAP, wide / 2 - GATE_GAP * 2, tall - GATE_GAP);
+    // The bracing: two rails across each leaf and the studs along them.
+    ctx.fillStyle = GATE_BRACE;
+    for (const rail of [GATE_RAIL_LOW, GATE_RAIL_HIGH]) {
+      ctx.fillRect(
+        from + GATE_GAP,
+        foot.y - tall * rail,
+        wide / 2 - GATE_GAP * 2,
+        GATE_BRACE_THICK,
+      );
+    }
+  }
+  // The lamp over it, which is the one light on this wall.
+  ctx.fillStyle = GATE_LAMP;
+  ctx.fillRect(middle - GATE_LAMP_WIDE / 2, foot.y - tall - GATE_JAMB - 1, GATE_LAMP_WIDE, 2);
+  ctx.restore();
+}
+
+/** How wide the gateway is, in squares. */
+const GATE_WIDE = 1.5;
+
+/** And how far up the wall it reaches, as a share of its height. */
+const GATE_TALL = 0.82;
+
+/** How far the stonework stands out round it, in pixels. */
+const GATE_JAMB = 3;
+
+/** The gap between a leaf and the jamb. */
+const GATE_GAP = 1.5;
+
+/** What is behind the doors. */
+const GATE_DARK = "#0c0a09";
+
+/** The stonework round the opening. */
+const GATE_SURROUND = "#6b655d";
+
+/** What the doors are made of. */
+const GATE_STEEL = "#3f4650";
+
+/** The rails braced across them. */
+const GATE_BRACE = "#242a33";
+
+/** How thick one of those is, in pixels. */
+const GATE_BRACE_THICK = 2;
+
+/** Where the lower one sits, as a share of the height of the gate. */
+const GATE_RAIL_LOW = 0.3;
+
+/** And the upper. */
+const GATE_RAIL_HIGH = 0.72;
+
+/** The lamp over the gate. */
+const GATE_LAMP = "#fde68a";
+
+/** How wide it is, in pixels. */
+const GATE_LAMP_WIDE = 10;
 
 /**
  * One block of the prison: its south wall and its roof.
@@ -4078,20 +4821,28 @@ function prisonBox(
   ctx.fillStyle = look.wall;
   ctx.fillRect(foot.x, foot.y - high, wide, high - base);
   if (look.bars) {
-    // The windows of a cell block: a row of narrow slots with a bar down each,
-    // all at one height, which is what a range of cells looks like from
-    // outside and is the one thing on the wall that says prison.
-    ctx.fillStyle = CELL_GLASS;
+    // **Windows with grilles over them**, not a row of scratches. Each one is
+    // a reveal cut into the wall, the dark of the cell behind it, and a grille
+    // of three uprights and a transom across the middle - which is the one
+    // thing on the front of a building that says prison and nothing else. They
+    // used to be three pixels wide with a single line down them, and at that
+    // size a row of them reads as a fence painted on the wall.
     const sill = foot.y - high * CELL_SILL;
+    const tall = high * CELL_TALL;
     for (
       let at = foot.x + CELL_STEP;
       at < foot.x + wide - CELL_WIDE;
       at += CELL_STEP
     ) {
-      ctx.fillRect(at, sill, CELL_WIDE, high * CELL_TALL);
-      ctx.fillStyle = CELL_BAR;
-      ctx.fillRect(at + CELL_WIDE / 2 - 0.5, sill, 1, high * CELL_TALL);
+      ctx.fillStyle = CELL_FRAME;
+      ctx.fillRect(at - 1, sill - 1, CELL_WIDE + 2, tall + 2);
       ctx.fillStyle = CELL_GLASS;
+      ctx.fillRect(at, sill, CELL_WIDE, tall);
+      ctx.fillStyle = CELL_BAR;
+      for (let bar = 1; bar < CELL_BARS; bar += 1) {
+        ctx.fillRect(at + (CELL_WIDE * bar) / CELL_BARS - HALF, sill, 1, tall);
+      }
+      ctx.fillRect(at, sill + tall / 2 - HALF, CELL_WIDE, 1);
     }
   }
   ctx.fillStyle = look.roof;
@@ -4127,17 +4878,27 @@ function prisonBox(
   }
 }
 
-/** How far the shaft of a tower reaches from its corner, in squares. */
-const TOWER_SHAFT = 0.72;
+/** How far the shaft of a tower reaches from the middle of its square. */
+const TOWER_SHAFT = 0.34;
 
-/** And the cabin on top of it, which overhangs it. */
-const TOWER_CABIN = 1.02;
+/** And the cabin on top of it, which overhangs it - but not the building. */
+const TOWER_CABIN = 0.5;
 
 /** How much taller than the range the shaft stands, as a share. */
 const TOWER_RISE = 1.3;
 
-/** How tall the cabin on top of that is, in squares. */
-const TOWER_ROOM = 0.44;
+/**
+ * How tall the cabin on top of that is, in squares.
+ *
+ * @remarks
+ * **A room, not a letterbox.** It may not get any wider - it has to stay
+ * inside the corner square of the range, which is what stops the tower hanging
+ * off the outside of the building - so what it can be given is height, and
+ * height is most of what one sees of it anyway: the glass is a band across the
+ * front of the tower, and a band twice as deep is a cabin one can see a man
+ * standing up in.
+ */
+const TOWER_ROOM = 0.86;
 
 /**
  * How far forward in the cabin the warder stands, as a share of it.
@@ -4149,7 +4910,7 @@ const TOWER_ROOM = 0.44;
  * above its roof; at this he stands on its floor, a third of the way up the
  * glass, which is a man at a window.
  */
-const GUARD_AT = 0.82;
+const GUARD_AT = 0.6;
 
 /** How wide a corner post of the cabin is, in pixels. */
 const TOWER_FRAME = 2.5;
@@ -4163,17 +4924,266 @@ const TOWER_ROOF = "#4b4540";
 /** The glass of the cabin on top. */
 const TOWER_GLASS = "#33404f";
 
-/** Its lid. */
-const TOWER_LID = "#5b554e";
+/**
+ * Its lid - and it is a roof, which is why it is a colour of its own.
+ *
+ * @remarks
+ * Dark red, so that the four corners read as towers from across the block
+ * rather than as four more grey boxes on a grey building. It is the only
+ * colour anywhere on the prison, and the eye goes straight to the four things
+ * that matter about it.
+ */
+const TOWER_LID = "#7f1d1d";
 
 /** And the posts at its corners. */
 const TOWER_POST = "#2f2b28";
 
-/** How tall the hut in the middle of the yard is, as a share of the range. */
-const HUT_RISE = 0.62;
+/**
+ * The workshop in the yard: its name board, its chimney and the smoke off it.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param shed - what the building stands on, in city pixels
+ * @param high - how tall it is
+ * @param now - the clock, for the smoke
+ * @param fade - how solid to paint it
+ * @remarks
+ * **The name is on a board on the wall.** It used to be lettering floating in
+ * the air over the roof, which is a label rather than a sign - what a works
+ * has is a painted board screwed to the front of it, and at this size the
+ * board is what one reads first: a pale rectangle on a dark wall, with the
+ * name across it.
+ *
+ * And a **chimney beside it, smoking**, because that is what says the place is
+ * working rather than standing empty. The smoke is four puffs off the clock,
+ * each higher, wider and fainter than the one below it - the same plume the
+ * burning cars use, drawn small.
+ */
+function workshop(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  shed: { left: number; top: number; right: number; bottom: number },
+  high: number,
+  now: number,
+  fade: number,
+): void {
+  const foot = project(view, shed.left, shed.bottom);
+  const wide = shed.right - shed.left;
+  ctx.save();
+  ctx.globalAlpha = fade;
 
-/** The concrete of the yard. */
-const YARD_GROUND = "#8a8a84";
+  // The door in the middle of the front and a window either side of it,
+  // which is what a workshop has and what makes it a building rather than a
+  // block with a name on it.
+  ctx.fillStyle = WORKS_DOOR;
+  ctx.fillRect(
+    foot.x + wide * (HALF - WORKS_DOOR_WIDE / 2),
+    foot.y - high * WORKS_DOOR_TALL,
+    wide * WORKS_DOOR_WIDE,
+    high * WORKS_DOOR_TALL,
+  );
+  ctx.fillStyle = WORKS_HANDLE;
+  ctx.fillRect(
+    foot.x + wide * (HALF + WORKS_DOOR_WIDE / 2) - 2.5,
+    foot.y - high * WORKS_DOOR_TALL * HALF,
+    1.5,
+    1.5,
+  );
+  for (const side of [-1, 1]) {
+    const at = foot.x + wide * (HALF + side * WORKS_WIN_OUT) - (wide * WORKS_WIN_WIDE) / 2;
+    ctx.fillStyle = WORKS_FRAME;
+    ctx.fillRect(
+      at - 1,
+      foot.y - high * WORKS_WIN_TOP - 1,
+      wide * WORKS_WIN_WIDE + 2,
+      high * WORKS_WIN_TALL + 2,
+    );
+    ctx.fillStyle = WORKS_GLASS;
+    ctx.fillRect(
+      at,
+      foot.y - high * WORKS_WIN_TOP,
+      wide * WORKS_WIN_WIDE,
+      high * WORKS_WIN_TALL,
+    );
+  }
+
+  // The board, up under the eaves, with the name across it.
+  const board = {
+    x: foot.x + wide * (HALF - BOARD_WIDE / 2),
+    y: foot.y - high * BOARD_UP,
+    w: wide * BOARD_WIDE,
+    h: high * BOARD_TALL,
+  };
+  ctx.fillStyle = BOARD_BACK;
+  ctx.fillRect(board.x, board.y, board.w, board.h);
+  ctx.strokeStyle = BOARD_EDGE;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(board.x, board.y, board.w, board.h);
+  ctx.fillStyle = BOARD_INK;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  let size = SHED_TEXT;
+  ctx.font = `bold ${String(size)}px system-ui, sans-serif`;
+  while (ctx.measureText(SHED_NAME).width > board.w - 4 && size > SHED_SMALL) {
+    size -= 1;
+    ctx.font = `bold ${String(size)}px system-ui, sans-serif`;
+  }
+  ctx.fillText(SHED_NAME, board.x + board.w / 2, board.y + board.h / 2);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+
+  // The chimney, on the far corner of the roof, and the smoke going up out of
+  // it. Both are drawn from the corner of the building rather than beside it:
+  // a stack standing on the grass is a pipe, a stack on the roof is a works.
+  const stack = project(
+    view,
+    shed.right - TILE * STACK_IN,
+    shed.top + TILE * STACK_IN,
+    high,
+  );
+  ctx.fillStyle = STACK_BRICK;
+  ctx.fillRect(stack.x - STACK_WIDE / 2, stack.y - STACK_HIGH, STACK_WIDE, STACK_HIGH);
+  ctx.fillStyle = STACK_LIP;
+  ctx.fillRect(stack.x - STACK_WIDE / 2, stack.y - STACK_HIGH, STACK_WIDE, 1.5);
+  for (let puff = 0; puff < STACK_PUFFS; puff += 1) {
+    // Each puff drifts up and to one side on its own turn of the clock, so
+    // the plume leans and breathes instead of pulsing on the spot.
+    const age = ((now * STACK_RATE + puff / STACK_PUFFS) % 1 + 1) % 1;
+    const up = STACK_HIGH + age * STACK_RISE;
+    const size = STACK_SMALL + age * STACK_GROW;
+    ctx.globalAlpha = fade * STACK_DARK * (1 - age);
+    ctx.fillStyle = STACK_GREY;
+    ctx.beginPath();
+    ctx.ellipse(
+      stack.x + Math.sin(age * Math.PI + puff) * STACK_LEAN,
+      stack.y - up,
+      size,
+      size * DEPTH,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** What is written on the board on the workshop. */
+const SHED_NAME = "Prison Industry";
+
+/** How big, in pixels, and how small it may shrink to fit the board. */
+const SHED_TEXT = 8;
+
+/** The floor of that. */
+const SHED_SMALL = 5;
+
+/** How wide the board is, as a share of the front of the building. */
+const BOARD_WIDE = 0.86;
+
+/** How tall, as a share of its height. */
+const BOARD_TALL = 0.26;
+
+/** And how far up the wall the top of it sits, the same way. */
+const BOARD_UP = 0.97;
+
+/** How wide the door is, as a share of the front. */
+const WORKS_DOOR_WIDE = 0.16;
+
+/** And how far up it reaches, as a share of the height. */
+const WORKS_DOOR_TALL = 0.55;
+
+/** What it is painted. */
+const WORKS_DOOR = "#2a2f38";
+
+/** And the handle on it. */
+const WORKS_HANDLE = "#cbd5e1";
+
+/** How far either side of the door the windows are, as a share of the front. */
+const WORKS_WIN_OUT = 0.28;
+
+/** How wide one is, the same way. */
+const WORKS_WIN_WIDE = 0.18;
+
+/** How far up the wall its top is, as a share of the height. */
+const WORKS_WIN_TOP = 0.56;
+
+/** And how deep it is. */
+const WORKS_WIN_TALL = 0.24;
+
+/** What is behind it. */
+const WORKS_GLASS = "#20303f";
+
+/** And the frame round it. */
+const WORKS_FRAME = "#7a736a";
+
+/** What the board is painted. */
+const BOARD_BACK = "#0f172a";
+
+/** The line round it. */
+const BOARD_EDGE = "#64748b";
+
+/** And the name on it. */
+const BOARD_INK = "#f8fafc";
+
+/** How far in from the corner of the roof the chimney stands, in squares. */
+const STACK_IN = 0.3;
+
+/** How wide it is, in pixels. */
+const STACK_WIDE = 5;
+
+/** And how high it stands off the roof. */
+const STACK_HIGH = 13;
+
+/** What it is built of. */
+const STACK_BRICK = "#6b4b3a";
+
+/** And the cap on it. */
+const STACK_LIP = "#3f2f26";
+
+/** How many puffs are in the plume at once. */
+const STACK_PUFFS = 5;
+
+/** How many plumes a second go up. */
+const STACK_RATE = 0.4;
+
+/** How far one climbs before it is gone, in pixels. */
+const STACK_RISE = 26;
+
+/** How far it leans off the stack on the way. */
+const STACK_LEAN = 4;
+
+/** How big a fresh puff is. */
+const STACK_SMALL = 2.4;
+
+/** And how much it swells. */
+const STACK_GROW = 4.5;
+
+/** How dark the thickest of it is. */
+const STACK_DARK = 0.55;
+
+/** What it is made of. */
+const STACK_GREY = "#d6d3d1";
+
+/** How tall the workshop in the yard is, as a share of the range. */
+const HUT_RISE = 0.82;
+
+/** The grass of the yard. */
+const YARD_GRASS = "#4a6b23";
+
+/** The bare earth under the baskets, where it has been walked through. */
+const WORN_EARTH = "#6e5a3c";
+
+/** And the same with nothing left of it, for the edge of the patch. */
+const WORN_GONE = "rgba(110,90,60,0)";
+
+/** How far the bare ground reaches, as a share of the width of the court. */
+const WORN_WIDE = 0.42;
+
+/** How much of that is bare through before it starts to fade. */
+const WORN_SOLID = 0.45;
+
+/** How far in from the end line its middle sits, as a share of the court. */
+const WORN_IN = 0.1;
 
 /** The line round every part of the building. */
 const PRISON_EDGE = "#292524";
@@ -4187,20 +5197,23 @@ const CELL_GLASS = "#1f2937";
 /** The bar down the middle of it. */
 const CELL_BAR = "#9ca3af";
 
-/** How wide one is, in pixels. */
-const CELL_WIDE = 3;
+/** The reveal cut into the wall round one. */
+const CELL_FRAME = "#57534e";
 
-/** How far apart they are. */
-const CELL_STEP = 11;
+/** How wide one is, in pixels. */
+const CELL_WIDE = 7;
+
+/** How many uprights the grille over it has. */
+const CELL_BARS = 3;
+
+/** How far apart the windows are. */
+const CELL_STEP = 16;
 
 /** How far down the wall they start, as a share of its height. */
-const CELL_SILL = 0.74;
+const CELL_SILL = 0.76;
 
 /** And how tall they are, the same way. */
-const CELL_TALL = 0.34;
-
-/** The tarmac of the basketball court. */
-const COURT_TARMAC = "#6f6f6a";
+const CELL_TALL = 0.4;
 
 /** The lines painted on it. */
 const COURT_PAINT = "#e8e6df";
@@ -4212,7 +5225,18 @@ const COURT_BOARD = "#d6d3cc";
 const COURT_HOOP = "#ea580c";
 
 /** How far in from the side of the yard the court starts, as a share. */
-const COURT_IN = 0.3;
+const COURT_IN = 0.33;
+
+/**
+ * And how far over to the right of the middle it sits, the same way.
+ *
+ * @remarks
+ * The workshop is up in the left hand corner, so the ground on that side is
+ * spoken for and the ground on the right is not. Dead centre the court sat
+ * with its touchline a pace from the shed and half the yard empty beyond it;
+ * moved over, the space either side of it is the same.
+ */
+const COURT_OVER = 0.16;
 
 /** Where its top edge is, down the yard. */
 const COURT_TOP = 0.09;
@@ -4232,35 +5256,17 @@ const COURT_DEEP = 0.15;
 /** How wide a backboard is, as a share of the court. */
 const COURT_POST = 0.3;
 
-/** How many benches stand in the corner of the yard. */
-const BENCHES = 3;
+/** How many benches stand down each side of the court. */
+const BENCHES = 2;
 
 /** Where the first one is, down the yard. */
-const BENCH_FROM = 0.64;
+const BENCH_FROM = 0.42;
 
 /** And how far apart they are, the same way. */
-const BENCH_STEP = 0.11;
+const BENCH_STEP = 0.26;
 
-/** Which of them the second man sits on. */
-const SEATED_TWO = 2;
-
-/** What is written over the shed in the yard. */
-const SHED_NAME = "Prison Industry";
-
-/** How big, in pixels. */
-const SHED_TEXT = 9;
-
-/** How far above its roof. */
-const SHED_UP = 4;
-
-/** What it is written in. */
-const SHED_INK = "#f8fafc";
-
-/** And what is drawn round the letters so they read on any wall. */
-const SHED_EDGE = "#1c1917";
-
-/** How far in from the wall they stand, in pixels. */
-const BENCH_OUT = 10;
+/** How far clear of the touchline they stand, in pixels. */
+const BENCH_OFF = 9;
 
 /** How long one is. */
 const BENCH_LONG = 26;
@@ -4282,6 +5288,15 @@ const BENCH_SHADE = "#6d6d68";
 
 /** How many men are walking the yard. */
 const YARD_MEN = 7;
+
+/** How many warders walk it with them. */
+const WARDERS = 2;
+
+/** How far out their round goes, as a share of the yard. */
+const WARDER_ROUND = 0.42;
+
+/** And how fast they walk it, in pixels a second. */
+const WARDER_PACE = 34;
 
 /** How slowly the slowest of them goes, in pixels a second. */
 const YARD_SLOW = 22;
@@ -4328,6 +5343,7 @@ const WARDER_HAIR = "#292524";
 function drawHouse(
   ctx: CanvasRenderingContext2D,
   view: View,
+  cells: readonly Cell[],
   plot: { left: number; top: number; right: number; bottom: number },
   height: number,
   look: number,
@@ -4338,6 +5354,32 @@ function drawHouse(
   const parts = sort.shape === "two" ? 2 : sort.shape === "row" ? 5 : 1;
   const gap = parts === 1 ? 0 : 2;
   const each = (wide - gap * (parts - 1)) / parts;
+  // **The drives, before anything is built on the plot.** Plenty of houses
+  // here have one, which is the other half of what a house in a city with two
+  // hundred cars in it is: somewhere off the street to leave one. They go on
+  // the ground in front, so they are all laid before any wall goes up -
+  // otherwise the house next door would be standing behind its neighbour's
+  // tarmac.
+  //
+  // **One per house, not one per plot.** A terrace is five houses on one
+  // block, and a single bay drawn across the block would belong to whichever
+  // two of the five it happened to land in front of. Each asks the dice for
+  // itself, so a row comes out with a bay in front of some of them.
+  if (sort.name === "") {
+    for (let part = 0; part < parts; part += 1) {
+      const dice = scatter(Math.round(look * 71), 13 + part * 29);
+      const from = plot.left + part * (each + gap);
+      // **Only where there is pavement to lay it on.** A block that fronts
+      // straight onto a motorway has no kerb and no verge - the tarmac starts
+      // where the wall stops - and a bay drawn there is a bay in the fast
+      // lane. So the plan is asked what is actually in front of this house
+      // before anything is painted on it.
+      const kerb = cellUnder(cells, from + each / 2, plot.bottom + TILE / 2);
+      if (dice < DRIVE_SHARE && kerb === "walk") {
+        drive(ctx, view, plot.bottom, from, each, dice, fade);
+      }
+    }
+  }
   for (let part = 0; part < parts; part += 1) {
     // Each house of a pair or a row sits a little lower or higher than its
     // neighbour, the same way every time.
@@ -4350,6 +5392,254 @@ function drawHouse(
     signOver(ctx, view, plot, height, sort, fade);
   }
 }
+
+/**
+ * The player's own house: the one with the garage in it.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param plot - the ground it stands on, in city pixels
+ * @param height - how tall it is
+ * @param sort - the block's colours, for the roof
+ * @param garage - the pavement outside its bay
+ * @param fade - how solid to paint it
+ * @remarks
+ * **It was one of four thousand.** Three houses in this city are yours, and
+ * the only thing that said so was a roller door in the middle of an ordinary
+ * terrace - one drove home to a building one could not pick out of the street
+ * it stood in. A place one keeps things is a place one should be able to find.
+ *
+ * So it is built as the good house on the street: stone rather than render,
+ * quoins up the corners, a cornice under the eaves, a **portico** on two
+ * columns over the front door with a lamp either side of it, and two rows of
+ * tall windows. In front of the garage there is a **parking space** marked out
+ * on the pavement, which is the other half of what a house of one's own is
+ * for: somewhere to leave the car that nobody else is entitled to.
+ *
+ * The one thing it must not do is draw over its own garage door - that is its
+ * own picture, laid on afterwards - so the windows are dealt out across the
+ * front and any that fall in the mouth of the bay are left out.
+ */
+function drawHome(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  plot: { left: number; top: number; right: number; bottom: number },
+  height: number,
+  sort: Building,
+  garage: Vec,
+  fade: number,
+): void {
+  const foot = project(view, plot.left, plot.bottom);
+  const back = project(view, plot.left, plot.top, height);
+  const wide = plot.right - plot.left;
+  ctx.save();
+  ctx.globalAlpha = fade;
+
+  // **The parking space**, on the pavement in front of the bay: an apron of
+  // concrete with the bay painted on it.
+  const apron = project(view, garage.x - TILE / 2, garage.y - TILE / 2);
+  ctx.fillStyle = HOME_APRON;
+  ctx.fillRect(apron.x, apron.y, TILE, TILE * DEPTH);
+  ctx.strokeStyle = HOME_BAY;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(apron.x + BAY_IN, apron.y);
+  ctx.lineTo(apron.x + BAY_IN, apron.y + TILE * DEPTH - BAY_IN);
+  ctx.lineTo(apron.x + TILE - BAY_IN, apron.y + TILE * DEPTH - BAY_IN);
+  ctx.lineTo(apron.x + TILE - BAY_IN, apron.y);
+  ctx.stroke();
+
+  // The front wall, its plinth and its cornice.
+  ctx.fillStyle = HOME_WALL;
+  ctx.fillRect(foot.x, foot.y - height, wide, height);
+  ctx.fillStyle = HOME_PLINTH;
+  ctx.fillRect(foot.x, foot.y - height * PLINTH_UP, wide, height * PLINTH_UP);
+  ctx.fillStyle = HOME_STONE;
+  ctx.fillRect(
+    foot.x,
+    foot.y - height,
+    wide,
+    Math.max(2, height * CORNICE_TALL),
+  );
+  // The quoins: stone blocks up both corners, alternating, which is most of
+  // what says stone house rather than rendered box.
+  for (const side of [0, wide - QUOIN_WIDE]) {
+    for (let block = 0; block * QUOIN_TALL < height; block += 1) {
+      if (block % 2 === 0) {
+        ctx.fillStyle = HOME_STONE;
+        ctx.fillRect(
+          foot.x + side,
+          foot.y - height + block * QUOIN_TALL,
+          QUOIN_WIDE,
+          QUOIN_TALL,
+        );
+      }
+    }
+  }
+
+  // The windows: two rows across the front, less whatever the garage mouth
+  // takes out of the lower one.
+  const mouth = foot.x + (garage.x - plot.left);
+  for (let bay = 0; bay < HOME_BAYS; bay += 1) {
+    const at = foot.x + wide * ((bay + 1) / (HOME_BAYS + 1));
+    for (const row of [WIN_LOW, WIN_HIGH]) {
+      const clear =
+        row === WIN_HIGH || Math.abs(at - mouth) > TILE * MOUTH_KEEP;
+      if (clear) {
+        homeWindow(ctx, at, foot.y - height * row, height);
+      }
+    }
+  }
+
+  // The portico: two columns, a pediment over them, the door under it, and a
+  // lamp either side.
+  const porch = foot.x + wide * PORCH_AT;
+  const tall = height * PORCH_TALL;
+  ctx.fillStyle = HOME_DOOR;
+  ctx.fillRect(porch - DOOR_WIDE / 2, foot.y - tall * DOOR_SHARE, DOOR_WIDE, tall * DOOR_SHARE);
+  ctx.fillStyle = HOME_BRASS;
+  ctx.fillRect(porch + DOOR_WIDE / 2 - 2, foot.y - tall * DOOR_SHARE * HALF, 1.5, 1.5);
+  ctx.fillStyle = HOME_STONE;
+  for (const post of [-1, 1]) {
+    ctx.fillRect(porch + post * PORCH_SPAN - COLUMN / 2, foot.y - tall, COLUMN, tall);
+  }
+  ctx.beginPath();
+  ctx.moveTo(porch - PORCH_SPAN - COLUMN, foot.y - tall);
+  ctx.lineTo(porch + PORCH_SPAN + COLUMN, foot.y - tall);
+  ctx.lineTo(porch, foot.y - tall - PEDIMENT);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = HOME_LAMP;
+  for (const post of [-1, 1]) {
+    ctx.fillRect(porch + post * PORCH_SPAN - 1, foot.y - tall * LAMP_UP, 2, 2);
+  }
+
+  // And the roof over the lot.
+  ctx.fillStyle = sort.roof;
+  ctx.fillRect(back.x, back.y, wide, foot.y - height - back.y);
+  ctx.strokeStyle = HOME_EDGE;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(back.x, back.y, wide, foot.y - back.y);
+  ctx.beginPath();
+  line(
+    ctx,
+    { x: foot.x, y: foot.y - height },
+    { x: foot.x + wide, y: foot.y - height },
+  );
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** One window of it: a frame, its glass and the sill under it. */
+function homeWindow(
+  ctx: CanvasRenderingContext2D,
+  at: number,
+  sill: number,
+  height: number,
+): void {
+  const wide = WIN_WIDE;
+  const tall = height * WIN_TALL;
+  ctx.fillStyle = HOME_FRAME;
+  ctx.fillRect(at - wide / 2 - 1, sill - 1, wide + 2, tall + 2);
+  ctx.fillStyle = HOME_GLASS;
+  ctx.fillRect(at - wide / 2, sill, wide, tall);
+  // The glazing bars: one up, one across, which is a sash window at this size.
+  ctx.fillStyle = HOME_FRAME;
+  ctx.fillRect(at - HALF, sill, 1, tall);
+  ctx.fillRect(at - wide / 2, sill + tall / 2 - HALF, wide, 1);
+  ctx.fillStyle = HOME_STONE;
+  ctx.fillRect(at - wide / 2 - 2, sill + tall + 1, wide + 4, 1.5);
+}
+
+/** The stone the good house is built of. */
+const HOME_WALL = "#c8bda6";
+
+/** The dressed stone of its quoins, cornice and pediment. */
+const HOME_STONE = "#e6ddc8";
+
+/** The plinth course along the bottom. */
+const HOME_PLINTH = "#8d8471";
+
+/** How far up the wall that reaches, as a share of its height. */
+const PLINTH_UP = 0.12;
+
+/** How deep the cornice band under the eaves is, the same way. */
+const CORNICE_TALL = 0.07;
+
+/** How wide a quoin block is, in pixels. */
+const QUOIN_WIDE = 5;
+
+/** And how tall. */
+const QUOIN_TALL = 5;
+
+/** How many window bays the front is dealt into. */
+const HOME_BAYS = 5;
+
+/** Where the lower row sits, as a share of the height. */
+const WIN_LOW = 0.56;
+
+/** And the upper. */
+const WIN_HIGH = 0.9;
+
+/** How wide one is, in pixels. */
+const WIN_WIDE = 7;
+
+/** And how tall, as a share of the wall. */
+const WIN_TALL = 0.2;
+
+/** How far either side of the garage mouth is kept clear, in squares. */
+const MOUTH_KEEP = 0.6;
+
+/** Where along the front the porch stands, as a share of it. */
+const PORCH_AT = 0.2;
+
+/** How tall it is, as a share of the wall. */
+const PORCH_TALL = 0.52;
+
+/** How much of that the door itself is. */
+const DOOR_SHARE = 0.86;
+
+/** How wide the door is, in pixels. */
+const DOOR_WIDE = 9;
+
+/** How far out the columns stand either side of it. */
+const PORCH_SPAN = 8;
+
+/** How thick one is. */
+const COLUMN = 3;
+
+/** How high the pediment rises above them. */
+const PEDIMENT = 5;
+
+/** Where the lamps hang, as a share of the porch. */
+const LAMP_UP = 0.72;
+
+/** What the front door is made of. */
+const HOME_DOOR = "#4a2f1c";
+
+/** The handle on it. */
+const HOME_BRASS = "#fcd34d";
+
+/** And the lamps either side. */
+const HOME_LAMP = "#fde68a";
+
+/** A window frame. */
+const HOME_FRAME = "#f8fafc";
+
+/** What is behind it. */
+const HOME_GLASS = "#25405c";
+
+/** The line round the house. */
+const HOME_EDGE = "#292524";
+
+/** The concrete of the parking space. */
+const HOME_APRON = "#b6b2a8";
+
+/** And the bay painted on it. */
+const HOME_BAY = "#f8fafc";
+
+/** How far in from the edge of the square that marking runs, in pixels. */
+const BAY_IN = 5;
 
 /** One house of a block: its wall, its windows and its roof. */
 function houseBox(
@@ -4370,7 +5660,14 @@ function houseBox(
   // tilted, not turned, so the east and west walls project to nothing.
   ctx.fillStyle = sort.wall;
   ctx.fillRect(foot.x, foot.y - height, wide, height);
-  drawWindows(ctx, foot, wide, height, look, fade);
+  // **The way in first, the windows round it.** A veranda post through the
+  // middle of a window is the one thing worse than no veranda at all, and with
+  // the door in the middle of the front and the windows spread evenly across
+  // it there is nothing stopping the two landing in the same place. So the
+  // entrance is drawn first and says how much of the wall it wants; the
+  // windows then skip whichever of their columns falls inside that.
+  const clear = frontage(ctx, foot, wide, height, look, sort, fade);
+  drawWindows(ctx, foot, wide, height, look, fade, clear);
 
   // The roof, and the line where it meets the wall.
   ctx.globalAlpha = fade;
@@ -4428,7 +5725,228 @@ function signOver(
   ctx.restore();
 }
 
-/** Windows down the front of a house, lit or dark and always the same ones. */
+/**
+ * What a building has at street level: a door, a step, and sometimes a porch.
+ *
+ * @param ctx - what to paint on
+ * @param foot - the bottom left corner of the front wall, on screen
+ * @param wide - how wide it is
+ * @param height - how tall
+ * @param look - the block's own dice roll
+ * @param sort - what sort of building it is
+ * @param fade - how solid to paint it
+ * @returns how much of the wall, across, the entrance has taken for itself
+ * @remarks
+ * **A wall with lit windows in it is a warehouse.** Every building in the city
+ * was one flat panel with a grid of glowing squares on it and nothing else -
+ * no way in, nothing at the height a person stands at, nothing to tell a house
+ * from an office block from the side of a multi-storey car park.
+ *
+ * Three things fix that and all three are at the bottom, which is where one
+ * looks:
+ *
+ * - **A door**, in the middle, with its frame and a step out onto the
+ *   pavement. Every building gets one: whatever else it is, somebody goes in.
+ * - **A course of stone** along the foot of the wall, which is what stops the
+ *   panel reading as a panel.
+ * - **And a veranda** on some of the houses - a roof across the front on two
+ *   posts, with the door under it. Not on a bank and not on a fire station;
+ *   the plain houses only, and not all of them, because a street on which
+ *   every house has the same porch is the same warehouse again.
+ */
+function frontage(
+  ctx: CanvasRenderingContext2D,
+  foot: Screen,
+  wide: number,
+  height: number,
+  look: number,
+  sort: Building,
+  fade: number,
+): { from: number; to: number } {
+  const plain = sort.name === "";
+  const middle = foot.x + wide / 2;
+  const tall = Math.min(height * FRONT_UP, FRONT_MOST);
+  const leaf = Math.min(wide * FRONT_SHARE, FRONT_WIDEST);
+  ctx.save();
+  ctx.globalAlpha = fade;
+
+  // The course along the foot of the wall.
+  ctx.fillStyle = FOOT_STONE;
+  ctx.fillRect(foot.x, foot.y - height * FOOT_UP, wide, height * FOOT_UP);
+
+  // A veranda on some of the houses: a roof band across the front of it and a
+  // post at each end, with the door under the middle of it.
+  const porch = plain && scatter(Math.round(look * 97), 31) < PORCH_SHARE;
+  const span = Math.max(
+    leaf + PORCH_ROOM,
+    Math.min(wide * PORCH_SHARE_WIDE, PORCH_WIDEST),
+  );
+  const took = porch ? span : leaf + PORCH_ROOM;
+  if (porch) {
+    ctx.fillStyle = PORCH_ROOF;
+    ctx.fillRect(middle - span / 2, foot.y - tall * PORCH_UP, span, PORCH_DEEP);
+    ctx.fillStyle = PORCH_POST;
+    for (const post of [-1, 1]) {
+      ctx.fillRect(
+        middle + (post * span) / 2 - PORCH_POST_WIDE / 2,
+        foot.y - tall * PORCH_UP,
+        PORCH_POST_WIDE,
+        tall * PORCH_UP,
+      );
+    }
+  }
+
+  // The door: its frame, the leaf, a handle and the step out to the pavement.
+  ctx.fillStyle = FRONT_FRAME;
+  ctx.fillRect(middle - leaf / 2 - 1, foot.y - tall - 1, leaf + 2, tall + 1);
+  ctx.fillStyle = plain ? FRONT_WOOD : FRONT_GLASS;
+  ctx.fillRect(middle - leaf / 2, foot.y - tall, leaf, tall);
+  if (!plain) {
+    // A shop front is two leaves of glass with the mullion between them.
+    ctx.fillStyle = FRONT_FRAME;
+    ctx.fillRect(middle - 0.5, foot.y - tall, 1, tall);
+  }
+  ctx.fillStyle = FRONT_HANDLE;
+  ctx.fillRect(middle + leaf * FRONT_GRIP, foot.y - tall * HALF, 1.5, 1.5);
+  ctx.fillStyle = FOOT_STONE;
+  ctx.fillRect(middle - leaf / 2 - 2, foot.y - 1, leaf + 4, 2);
+  ctx.restore();
+  return { from: middle - took / 2, to: middle + took / 2 };
+}
+
+/**
+ * The drive in front of a house.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param front - where the front wall of the house stands, in city pixels
+ * @param from - the left edge of this one house, the same way
+ * @param each - how wide it is
+ * @param look - this house's own dice roll
+ * @param fade - how solid to paint it
+ * @remarks
+ * Flat on the pavement, off to one side of the front door so that the two do
+ * not fight over the same yard of kerb, with the bay painted on it. Which side
+ * comes out of the same dice roll everything else about the block does, so a
+ * street does not have every drive on the same side of every house.
+ */
+function drive(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  front: number,
+  from: number,
+  each: number,
+  look: number,
+  fade: number,
+): void {
+  const side = look < HALF ? DRIVE_IN : 1 - DRIVE_IN - DRIVE_WIDE;
+  const left = from + each * side;
+  const at = project(view, left, front);
+  const wide = each * DRIVE_WIDE;
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = DRIVE_SLAB;
+  ctx.fillRect(at.x, at.y, wide, DRIVE_DEEP * DEPTH);
+  ctx.strokeStyle = DRIVE_BAY;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(at.x + 2, at.y);
+  ctx.lineTo(at.x + 2, at.y + DRIVE_DEEP * DEPTH - 2);
+  ctx.lineTo(at.x + wide - 2, at.y + DRIVE_DEEP * DEPTH - 2);
+  ctx.lineTo(at.x + wide - 2, at.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** How far up the wall a door reaches, as a share of its height. */
+const FRONT_UP = 0.34;
+
+/** And the most it may be, in pixels, so a tower block has a door not a gate. */
+const FRONT_MOST = 15;
+
+/** How wide it is, as a share of the front. */
+const FRONT_SHARE = 0.11;
+
+/** And the most that may be. */
+const FRONT_WIDEST = 11;
+
+/** Where the handle sits across the leaf, as a share of it. */
+const FRONT_GRIP = 0.3;
+
+/** The frame round it. */
+const FRONT_FRAME = "#3f3f46";
+
+/** What the door of a house is made of. */
+const FRONT_WOOD = "#5b3a24";
+
+/** And of anything with a name over it. */
+const FRONT_GLASS = "#1e3a5f";
+
+/** The handle. */
+const FRONT_HANDLE = "#e2e8f0";
+
+/** The stone course along the foot of a wall. */
+const FOOT_STONE = "#57534e";
+
+/** How far up the wall it goes, as a share of its height. */
+const FOOT_UP = 0.08;
+
+/** How many of the plain houses have a veranda. */
+const PORCH_SHARE = 0.4;
+
+/** How wide it is, as a share of the front. */
+const PORCH_SHARE_WIDE = 0.3;
+
+/** And at the least, how much wall it wants either side of the door. */
+const PORCH_ROOM = 9;
+
+/** And the most that may be, in pixels. */
+const PORCH_WIDEST = 46;
+
+/** How far above the door its roof sits, as a share of the door. */
+const PORCH_UP = 1.3;
+
+/** How thick that roof is drawn. */
+const PORCH_DEEP = 3;
+
+/** What it is made of. */
+const PORCH_ROOF = "#8a7a67";
+
+/** The posts under it. */
+const PORCH_POST = "#6b5d4d";
+
+/** How thick one is, in pixels. */
+const PORCH_POST_WIDE = 2.5;
+
+/** How many of the plain houses have a drive. */
+const DRIVE_SHARE = 0.7;
+
+/** How far in from the edge of the plot it sits, as a share of the front. */
+const DRIVE_IN = 0.08;
+
+/** How wide it is, the same way. */
+const DRIVE_WIDE = 0.42;
+
+/** And how far out onto the pavement it reaches, in pixels. */
+const DRIVE_DEEP = 22;
+
+/** What it is paved with. */
+const DRIVE_SLAB = "#9a968e";
+
+/** And the bay painted on it. */
+const DRIVE_BAY = "#d6d3d1";
+
+/**
+ * Windows down the front of a house, lit or dark and always the same ones.
+ *
+ * @param ctx - what to paint on
+ * @param foot - the bottom left corner of the front wall, on screen
+ * @param wide - how wide it is
+ * @param height - how tall
+ * @param look - the block's own dice roll
+ * @param fade - how solid to paint it
+ * @param clear - the stretch of wall the front door has taken, on screen
+ */
 function drawWindows(
   ctx: CanvasRenderingContext2D,
   foot: Screen,
@@ -4436,6 +5954,7 @@ function drawWindows(
   height: number,
   look: number,
   fade: number,
+  clear: { readonly from: number; readonly to: number },
 ): void {
   const across = Math.max(2, Math.round(wide / 30));
   const floors = Math.max(1, Math.floor((height - 8) / 18));
@@ -4443,13 +5962,58 @@ function drawWindows(
   for (let column = 0; column < across; column += 1) {
     for (let floor = 0; floor < floors; floor += 1) {
       const lit = scatter(column * 7 + floor, Math.round(look * 100)) > 0.55;
-      ctx.fillStyle = lit ? "#fde68a" : "#3f3f46";
-      ctx.globalAlpha = (lit ? 0.8 : 0.55) * fade;
+      const top = foot.y - PANE_UP - floor * FLOOR_UP;
+      // The ground floor gives way to the door and its veranda; the floors
+      // above it are over the roof of that and carry on as they were. A window
+      // that would land on the entrance is **moved aside**, not thrown away:
+      // a front with a door and no windows at all is as odd as one with a
+      // veranda post through the glass. Only where a house is too narrow to
+      // hold both does the window go.
+      const under =
+        floor === 0 && top + PANE_TALL > foot.y - height * FOOT_ROOM;
+      const even = foot.x + column * gap + gap / 2 - PANE_WIDE / 2;
+      const left = under ? beside(foot, wide, clear, column, across) : even;
+      if (left === null) {
+        continue;
+      }
+      // The frame first, a shade darker than the wall whatever the wall is,
+      // then the glass inside it. A pane with a line round it reads as a hole
+      // in a wall; a pane without one reads as a sticker on it.
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = PANE_FRAME;
       ctx.fillRect(
-        foot.x + column * gap + gap / 2 - 5,
-        foot.y - 12 - floor * 18,
-        10,
-        9,
+        left - PANE_EDGE,
+        top - PANE_EDGE,
+        PANE_WIDE + PANE_EDGE * 2,
+        PANE_TALL + PANE_EDGE * 2,
+      );
+      ctx.fillStyle = lit ? PANE_LIT : PANE_DARK;
+      ctx.globalAlpha = (lit ? 0.8 : 0.55) * fade;
+      ctx.fillRect(left, top, PANE_WIDE, PANE_TALL);
+      // The glazing bars: one up, one across. Four small panes rather than one
+      // big one, which is the difference between a window and a windscreen.
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = PANE_FRAME;
+      ctx.fillRect(
+        left + PANE_WIDE / 2 - PANE_BAR / 2,
+        top,
+        PANE_BAR,
+        PANE_TALL,
+      );
+      ctx.fillRect(
+        left,
+        top + PANE_TALL / 2 - PANE_BAR / 2,
+        PANE_WIDE,
+        PANE_BAR,
+      );
+      // And the sill under it, which is the bit that catches the light and
+      // tells one at a glance which way up the building is.
+      ctx.fillStyle = PANE_SILL;
+      ctx.fillRect(
+        left - PANE_OUT,
+        top + PANE_TALL + PANE_EDGE,
+        PANE_WIDE + PANE_OUT * 2,
+        PANE_EDGE * 2,
       );
     }
   }
@@ -4457,19 +6021,122 @@ function drawWindows(
 }
 
 /**
+ * Where a ground-floor window goes once the front door has had its say.
+ *
+ * @param foot - the bottom left corner of the front wall, on screen
+ * @param wide - how wide it is
+ * @param clear - the stretch of wall the door and its veranda have taken
+ * @param column - which window of the row this is
+ * @param across - how many there are
+ * @returns the left edge of the pane, or null where there is no room for it
+ * @remarks
+ * **Two stretches of wall, not one.** The windows of a floor are spread evenly
+ * across the front, which is right everywhere above the door and wrong at the
+ * door: a pane there lands on the veranda posts. The first fix was to shove
+ * each offending pane out to the edge of the entrance, and that made its own
+ * mess - two panes shoved the same way ended up touching, which is a shop
+ * window, not a pair of house windows.
+ *
+ * So the ground floor is laid out in the two pieces of wall the entrance
+ * leaves: the windows that belong to the left of it are spread evenly down the
+ * left piece, and those that belong to the right down the right piece. Every
+ * pane keeps its neighbours and its spacing, and nothing lands on the door.
+ * A piece with no room for even one pane gives its windows up.
+ */
+function beside(
+  foot: Screen,
+  wide: number,
+  clear: { readonly from: number; readonly to: number },
+  column: number,
+  across: number,
+): number | null {
+  // Which side of the entrance this window belongs to: the one it would have
+  // stood on had the door not been there.
+  const gap = wide / across;
+  const even = foot.x + column * gap + gap / 2;
+  const west = even < (clear.from + clear.to) / 2;
+  const from = west ? foot.x : clear.to;
+  const to = west ? clear.from : foot.x + wide;
+  // How many share that side, and which of them this one is.
+  let mine = 0;
+  let count = 0;
+  for (let other = 0; other < across; other += 1) {
+    const at = foot.x + other * gap + gap / 2;
+    if (at < (clear.from + clear.to) / 2 === west) {
+      if (other < column) {
+        mine += 1;
+      }
+      count += 1;
+    }
+  }
+  const room = to - from;
+  const edge = PANE_OUT + PANE_EDGE;
+  return room < PANE_WIDE + edge * 2
+    ? null
+    : from + (room * (mine + HALF)) / count - PANE_WIDE / 2;
+}
+
+/** How wide one pane is drawn, in pixels. */
+const PANE_WIDE = 10;
+
+/** And how tall. */
+const PANE_TALL = 9;
+
+/** How far above the pavement the ground floor sits. */
+const PANE_UP = 12;
+
+/** And how far apart the floors are. */
+const FLOOR_UP = 18;
+
+/** How thick the frame round a pane is. */
+const PANE_EDGE = 1;
+
+/** How thick the glazing bars across it are. */
+const PANE_BAR = 1;
+
+/** How far the sill stands out past the frame on each side. */
+const PANE_OUT = 1.5;
+
+/** How far up the wall the front door and its veranda may reach. */
+const FOOT_ROOM = 0.75;
+
+/** What the frame and the bars are drawn in. */
+const PANE_FRAME = "#27272a";
+
+/** The sill, which is stone wherever the wall is not. */
+const PANE_SILL = "#a8a29e";
+
+/** Glass with a light on behind it. */
+const PANE_LIT = "#fde68a";
+
+/** And glass with nobody home. */
+const PANE_DARK = "#3f3f46";
+
+/**
  * The weapons and vests lying about, and what each one looks like.
  *
+ * @param zoom - how close the camera stands
  * @remarks
  * Flat on the road rather than standing up: they are part of the floor, and a
  * box that stood up would be one more thing to lose behind a house. The gentle
  * pulse is the only thing that says "this is not paint".
+ *
+ * **The same size on the screen at every zoom.** Everything else in the city
+ * is drawn through the lens, and rightly: a car twice as far away should look
+ * half as big. A pickup is not part of the city, it is a **mark on it** - the
+ * same sort of thing as the icon of it in the corner panel - and a mark that
+ * shrinks with the lens is a mark one stops being able to read exactly when
+ * one has zoomed out to look for it. So it is drawn at one over the zoom,
+ * which cancels the lens and leaves it the size it always is.
  */
 function drawPickups(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   view: View,
   seen: Seen,
+  zoom: number,
 ): void {
+  const flat = 1 / zoom;
   for (const drop of state.pickups) {
     if (drop.backAt === null && inPicture(drop, seen)) {
       const spot = project(view, drop.x, drop.y);
@@ -4481,11 +6148,11 @@ function drawPickups(
       ctx.globalAlpha = 0.35;
       ctx.fillStyle = drop.holds === "armour" ? "#38bdf8" : "#facc15";
       ctx.beginPath();
-      ctx.arc(0, 0, 13 * beat, 0, Math.PI * 2);
+      ctx.arc(0, 0, 13 * beat * flat, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
       ctx.restore();
-      drawKit(ctx, spot, drop.holds, 1);
+      drawKit(ctx, spot, drop.holds, flat);
     }
   }
 }
@@ -6264,6 +7931,11 @@ function paintOf(car: Car): string {
   switch (car.body) {
     case "dmc":
       paint = STEEL;
+      break;
+    // One firm, one livery: a parcel van that came in seven colours would be a
+    // van, not a parcel van.
+    case "transporter":
+      paint = VAN_PAINT;
       break;
     case "tractor":
       paint = TRACTOR_GREEN;
@@ -8100,13 +9772,23 @@ function drawMinimap(
       dot(drop, drop.holds === "armour" ? "#38bdf8" : "#facc15", 1.5);
     }
   }
+  // **Nobody who is after you is on your map.** A patrol standing at a kerb is
+  // worth marking - it is a car one might want - but the moment it is hunting,
+  // a live blue dot creeping up the street behind one turns a chase into a
+  // board game: one drives by the corner of the screen and never looks up.
+  // Being followed should be something one notices in the mirror.
+  const hunted = state.player.stars > 0;
   for (const car of state.cars) {
-    if (car.kind === "police") {
+    if (car.kind === "police" && !(hunted && car.crew > 0)) {
       dot(car, "#2563eb", 2.5);
     }
   }
   for (const cop of state.cops) {
-    dot(cop, "#60a5fa", 2);
+    // The men on the military base are not chasing anybody; they are standing
+    // where they always stand, and that is worth knowing before one flies in.
+    if (!(hunted && (cop.guards ?? null) === null)) {
+      dot(cop, "#60a5fa", 2);
+    }
   }
   // The night clubs, so the one place people gather can be found on purpose.
   for (const door of CLUBS) {

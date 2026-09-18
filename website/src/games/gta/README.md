@@ -1165,6 +1165,70 @@ fährt jetzt `PEDAL_SHARE` davon, also gut die Hälfte: sechzig Pixel die
 Sekunde gegen hundertzehn. Das macht ihn nebenbei zum Hindernis, was der Grund
 ist, ihn überhaupt auf die Straße zu stellen.
 
+## Der Transporter ist ein Kasten auf Rädern
+
+Sechs Meter davon, gut zwei breit, ein Laderaum, in dem man stehen kann: 62 mal
+22 Pixel, ein Drittel länger als ein Streifenwagen. Er fährt wie das, was er
+ist - träge los, träge oben, und **absichtlich schlecht um die Kurve**: Ein
+hoher Kasten mit dem Gewicht im Dach legt sich auf die Außenreifen und schiebt
+über die Vorderachse, was die niedrige Haftungszahl sagt. Wozu er taugt, ist im
+Weg zu stehen.
+
+**Hoch, aber nicht so hoch wie zuerst.** Fünfundzwanzig Pixel sind bei 8,6
+Pixeln pro Meter 2,9 Meter, und das ist ein Kastenwagen mit Hochdach; im
+Verkehr las er sich auch so. Einundzwanzig sind 2,44 Meter - ein gewöhnlicher
+Lieferwagen, und immer noch das Höchste auf der Straße, was kein Lastwagen
+ist.
+
+Er ist das einzige Fahrzeug der Stadt, dessen **oberes** Stockwerk das größere
+ist. Bei einem Auto ist die Kabine ein Glashaus auf einer Motorhaube; bei einem
+Transporter ist sie der Laderaum, sie ist über die volle Breite, sie fängt
+hinter dem Fahrer an und geht bis an die hintere Stoßstange. Und das Dach des
+Fahrerhauses liegt auf derselben Höhe wie das des Kastens, weshalb das obere
+Stockwerk über die ganze Länge reicht - sonst läge die Windschutzscheibe einen
+Stock zu tief.
+
+Gezeichnet wird alles als Kasten: quadratisch hinten, quadratisch an den
+Seiten, nur vorn zieht sich das Fahrerhaus ein. Alles, was ein Auto zum Auto
+macht - die verjüngte Schnauze, die gefasten Ecken, das umlaufende Fensterband
+-, ist genau das, was dieser nicht haben darf.
+
+Der Name steht in Gelb auf den **Flanken und der Hecktür**, wo eine Firma ihn
+hinmalt und wo man ihn vom Gehweg aus liest - nicht auf der Front, und nicht in
+der Draufsicht. Und er muss seitenrichtig stehen, egal, wohin der Wagen fährt.
+Das ist `WallJob.mirror`, und die Frage davor war falsch gestellt: Eine
+gespiegelte Kopie einer Wand bekam nur, **wer Räder auf dieser Wand hat** -
+also die untere Flanke eines Streifenwagens oder eines Taxis. Beim Transporter
+steht die Schrift aber auf dem **oberen** Stockwerk, also gab es die zweite
+Kopie nie, und beide Flanken bekamen dasselbe Bild, gezeichnet mit der Nase
+nach rechts. Nach links gefahren stand da `sdu`. Gefragt wird jetzt, welche
+Wände **beschriftet** sind, und das ist pro Karosserie eine andere Antwort.
+
+Drei Dinge daran waren Bilder von Teilen statt Teile:
+
+- **Keine Räder auf Bug und Heck.** Da standen zwei ganze runde Räder mitten
+  auf den Hecktüren. Von hinten sieht man von einem Transporter die äußere
+  Flanke der Reifen um die Ecke und sonst nichts - also derselbe schmale
+  Streifen Gummi an jeder Kante, den auch das Heck des DeLorean bekommt.
+- **Keine Reifen in der Draufsicht.** Was dieses Bild außerhalb des Umrisses
+  zeichnet, stempelt der Ring flach auf die Straße - genau dafür ist er da, und
+  bei einem Auto, dessen Reifen über die Flanken stehen, stimmt das auch. Beim
+  Transporter lagen dadurch vier schwarze Balken im Rinnstein neben Rädern, die
+  die Flankenwände längst richtig gezeichnet hatten. Die Reifen stecken hier
+  unter dem Kasten, und gezeichnet werden sie nur auf den Wänden.
+- **Die Spiegel gehören neben die Fahrertür** - und **innerhalb** des
+  Umrisses. Mit ihnen ging es zweimal schief, und beide Male endeten sie als
+  Müll auf der Straße: an der Nase hingen sie einen Pixel frei vor der gefasten
+  Ecke, und nach hinten ans Fahrerhaus versetzt standen sie immer noch über die
+  Flanke hinaus - und was über den Umriss hinaussteht, stempelt der Ring flach
+  auf den Asphalt. Zu sehen war ein kleiner schwarzer Balken unter dem
+  Vorderrad. Sie sitzen jetzt da, wo jeder andere Spiegel der Stadt sitzt:
+  innen an der Blechkante, gezeichnet auf der Flankenwand.
+
+Und **keine Windschutzscheibe in der Draufsicht**: Die Nasenwand hat schon eine,
+und eine zweite kommt als Glasband direkt dahinter heraus - derselbe Fehler, den
+vorher das Panzerrohr gemacht hat.
+
 ## Ein Traktor ist sein Hinterrad
 
 Es gibt genau ein Fahrzeug, dessen Proportionen man benennen kann, ohne den
@@ -1291,6 +1355,88 @@ die ihre Lampen woanders tragen.
 > Silber - also kam der **zweite** Radkasten, der hintere, als zwei blassgraue
 > Ohren links und rechts des Hinterreifens heraus. Farbe wird jetzt im
 > Durchlauf gesetzt, nicht davor.
+
+## Der DMC-12 war einen halben Meter zu breit
+
+Auch zu diesem Auto gibt es ein 3D-Modell
+(`game_instructions/GTA/Fahrzeuge/DMC-12/.../DeLorean.obj`, 143 549 Punkte,
+143 379 Flächen), und es hat dasselbe getan wie das des Golf: Es hat gezeigt,
+dass die Zahlen geraten waren.
+
+Das Mesh misst **429,0 mal 179,4 mal 115,9 Zentimeter** über das Blech, 198,9
+über die Außenspiegel. Bei 10,25 Pixeln pro Meter im Grundriss und 8,6 in der
+Höhe sind das 44 lang, 18,4 breit und 10 hoch. Im Spiel stand **46 mal 27**.
+
+27 Pixel sind 2,63 Meter. Damit war der DMC-12 breiter als der Panzer über den
+Ketten, breiter als ein Traktor über der Hinterachse und einen halben Meter
+breiter, als das Auto je gewesen ist. Von oben las er sich als keilförmiger
+Lastkahn, und **gefahren hat er sich auch so**, denn die Breite ist die Zahl,
+nach der der Verkehr Abstand hält. Ein DeLorean ist genau so breit wie ein
+Golf. Er sieht nur breiter aus, weil er einen Fuß flacher ist.
+
+**Was die Schnitte sonst noch verraten haben**, Scheibe für Scheibe am Mesh
+abgelesen:
+
+- **Die Gürtellinie liegt bei 88 von 115,9 Zentimetern.** Drei Viertel der
+  Höhe sind Blech, und zwar Blech von konstanter Breite - die Karosserie zieht
+  sich von der Straße bis 88 Zentimeter kein Stück ein. Erst darüber fängt das
+  Glas an. Ein Golf hat sieben Zehntel, und der Unterschied ist genau das, was
+  den DMC-12 zum Briefkastenschlitz macht. Im Spiel stand die Gürtellinie bei
+  0,63 der Höhe.
+- **Das Glashaus läuft von 0,38 bis 0,93 der Länge** - fast bis ans Heck, weil
+  der Motor dahinter sitzt und die Heckscheibe flach darüber liegt. Beide Enden
+  davon sind riesige Neigungen, so wie beim Cybertruck: Das eigentliche Dach
+  ist nur 0,48 bis 0,76, also lehnt die Frontscheibe 4,4 Pixel zurück und das
+  Fließheck 7,5. Vorher war das Dach ein Kasten von 0,4 bis 0,73 ohne jede
+  Neigung.
+- **Beide Enden ziehen sich ein**, das Heck so stark wie die Nase. Die alte
+  Tabelle sagte, das Heck tue das nicht.
+- **Die Nase ist 67 Zentimeter hoch, die Gürtellinie 88.** Die Haube fällt also
+  über das vordere Drittel um ein Viertel der Seitenhöhe ab - _das_ ist der
+  Keil. Gezeichnet war ein Abfall von anderthalb Pixeln auf den letzten zwei,
+  also eine Limousine mit abgeschrägter Kante.
+- **Die Achsen stehen bei 0,20 und 0,78**, nicht symmetrisch um die Mitte. Das
+  ist es, was dem Wagen den langen Überhang hinten gibt.
+
+Die Bandgrenzen stehen jetzt an einer Stelle (`DMC_AT`) und werden von allen
+vier Bildern benutzt - Grundriss, Flanke, Bug, Heck -, damit die Haube auf der
+Flanke dort aufhört, wo sie im Grundriss aufhört. Ein Auto, dessen
+Windschutzscheibe je nach Blickrichtung woanders anfängt, ist genau das, was
+diese Tabelle verhindert.
+
+Und zwei Dinge, die keine Maße sind, sondern Beobachtung:
+
+- **Der schwarze Schurz musste weg.** Gezeichnet war das untere Drittel der
+  Flanke in Schwarz. Ein DMC-12 hat das nicht - er hat eine dünne Zierleiste
+  auf der Sicke in halber Höhe, schwarze Schweller und schwarze Stoßfänger, und
+  dazwischen geht das blanke Blech bis auf die Straße.
+- **Die Spiegel standen außerhalb des Umrisses.** Derselbe Fehler wie beim
+  Transporter, und dieselbe Folge: Was dieses Bild außerhalb der Silhouette
+  zeichnet, stempelt der Ring flach auf den Asphalt - ein schwarzer Krümel
+  neben dem Vorderrad. Dieselbe Falle hat gleich darauf die **Zierleiste**
+  erwischt: Ein Streifen in gleichbleibender Breite an der Flanke entlang läuft
+  an beiden Enden aus dem sich einziehenden Umriss heraus. Sie wird jetzt auf
+  die Karosserieform geclippt.
+- **Keine Rücklichter im Grundriss.** Die Heckwand hat sie schon, und ein
+  zweites Paar in der Draufsicht kommt als roter Fleck direkt über den echten
+  heraus - derselbe Fehler wie das doppelte Panzerrohr und die doppelte
+  Windschutzscheibe des Transporters.
+
+**Und ein Fehler, der alle Autos der Stadt betraf**, aufgefallen erst am
+DeLorean: `wheelAt` hat seinen Stift liegen lassen. Die Funktion endet mit
+`strokeStyle` auf dem polierten Felgenrand, und jeder Aufrufer, der zwei Räder
+in einer Schleife zeichnet, hat damit das **zweite** Radhaus umrandet statt mit
+Tinte - ein blassgrauer Keil links und rechts neben dem Hinterreifen, bei jedem
+Auto, seit es Radhäuser gibt. Die Funktion setzt jetzt `save()`/`restore()` um
+sich herum, und nichts, was sie einstellt, kommt mehr heraus.
+
+Gefunden wurde das nicht am Bild, sondern mit einem **Mitschnitt-Kontext**: ein
+`CanvasRenderingContext2D`, der nichts zeichnet, sondern jeden `fill` und
+`stroke` mit Farbe und Bounding Box protokolliert. Damit lässt sich eine
+Fahrzeugwand in Node zeichnen und Zeile für Zeile lesen, was wo in welcher
+Farbe liegt. Zwei Zeilen untereinander, `stroke #0f172a` für das vordere
+Radhaus und `stroke #94a3b8` für das hintere, und der Fehler war klar - am
+Screenshot war das ein Wackeln von drei Pixeln.
 
 ## Der Opel Corsa F, dreimal
 
@@ -1550,6 +1696,38 @@ dahinter - die Schlange **reißt von vorne auf**, wie eine echte. Niemand
 organisiert das: Die Staffel fällt daraus ab, dass jeder Fahrer auf den vor ihm
 reagiert.
 
+## Wer schießt, sieht einen dabei an
+
+Ein Polizist geht nicht zum Spieler, sondern auf **seinen Platz im Ring** um
+ihn herum - sechs Mann an einem Fleck sind eine Rauferei, sechs Mann um ein
+Auto sind eine Festnahme. Er blickte aber dorthin, wohin er ging, also stand
+ein Angekommener mit dem Rücken zu genau dem Menschen, wegen dem er da war,
+und drehte sich für die Länge eines Schusses um, bevor er sich wieder wegdrehte.
+
+Wohin er sieht, ist jetzt eine andere Frage als wohin seine Füße gehen: Wer
+jagt oder bewacht, sieht den Spieler an - beim Hingehen, beim Davorstehen und
+beim Schießen.
+
+## Wer einen jagt, steht nicht auf der Karte
+
+Eine Streife am Bordstein ist eine Markierung wert, das ist ein Auto, das man
+vielleicht haben will. In dem Moment, in dem sie jagt, macht ein blauer Punkt,
+der einem die Straße hinauf nachkriecht, aus einer Verfolgung ein Brettspiel:
+Man fährt nach der Bildschirmecke und sieht nie mehr auf. Verfolgt zu werden
+soll etwas sein, das man im Rückspiegel merkt.
+
+Die Wachen auf dem Militärgelände bleiben drauf - die jagen niemanden, die
+stehen, wo sie immer stehen, und das ist es wert, vor dem Hinfliegen zu wissen.
+
+## Was auf dem Boden liegt, ist gleich groß
+
+Alles in der Stadt wird durch die Linse gezeichnet, und das zu Recht: Ein Auto
+doppelt so weit weg soll halb so groß aussehen. Ein Gegenstand am Boden ist
+aber nicht Teil der Stadt, sondern eine **Markierung darauf** - dasselbe wie
+sein Symbol in der Ecke -, und eine Markierung, die mit der Linse schrumpft,
+ist genau dann nicht mehr lesbar, wenn man herausgezoomt hat, um sie zu suchen.
+Sie wird deshalb mit eins durch Zoom gezeichnet, was die Linse aufhebt.
+
 ## Der Fahrer entscheidet, das Auto schwenkt
 
 Ein Computerfahrer denkt in Himmelsrichtungen, weil die Stadt ein Raster ist
@@ -1576,6 +1754,31 @@ Gemessen: Die größte Richtungsänderung eines Autos in einem Bild ist jetzt
 0,073 Radiant - die Obergrenze - statt 1,571, also statt eines rechten Winkels.
 
 ## Autos stehen nicht ineinander
+
+**Auch nicht in der ersten Sekunde.** Zweihundert Autos wurden auf die Karte
+geworfen und keines hat hingesehen: Jedes bekam ein zufälliges Feld der
+richtigen Bodenart, und das Einzige, was zwei davon vom selben Feld abhielt,
+war, dass es viele Felder gibt. Jedes Spiel fing also mit einer Handvoll Paare
+an, die ineinander standen - das eine, was sich an einem geparkten Auto nicht
+wegerklären lässt.
+
+`keepApart` unten hilft dagegen nicht: Es bewegt nur **fahrenden** Verkehr und
+nur in der Nähe des Spielers, denn ein geparktes Auto ist das Feste, aus dem
+alles andere herausgeschoben wird - zwei geparkte ineinander bleiben für immer
+so stehen. Die Stelle, an der das stimmen muss, ist die, an der sie hingestellt
+werden: `freeSpot` würfelt bis zu zwölfmal und nimmt den ersten Platz, auf dem
+noch nichts steht.
+
+Gemessen wird dabei als **Kreis von halber Fahrzeuglänge**, also dem Größten,
+was ein Fahrzeug in irgendeine Richtung ist. Genaue Kästen wären besser und
+sind hier nicht zu haben: Der Winkel, in dem ein Auto am Ende parkt, wird erst
+danach entschieden, vom Bordstein, an dem es steht. Ein Kreis, der immer frei
+ist, ist mehr wert als ein Kasten, der manchmal falsch liegt.
+
+Gemessen: **0** ineinander steckende Paare beim Start und **0** nach dreißig
+Sekunden Stadtverkehr.
+
+## Autos stehen nicht ineinander (im Betrieb)
 
 Alles davor ist ein Fahrer, der Entscheidungen trifft - Abstand halten, an Rot
 stehen bleiben, an der Kreuzung Vorfahrt geben -, und jede davon lässt sich
@@ -1780,6 +1983,55 @@ zurückgehen. Daran hängen drei Dinge, und alle drei mussten sein:
 3. **Sie rennen nicht quer über die Karte.** Nur wenn der Spieler näher als
    `GUARD_REACH` an ihrem Posten ist, verlassen sie ihn.
 
+## Eine Polizeiwache pro Stadtteil
+
+`POLIZEI` stand schon in der Gebäudetabelle, und der Plan hat die Wachen
+gestreut wie jedes andere Schild: drei in der Stadt, zwei davon vier Blöcke
+auseinander in derselben Ecke, und zwei ganze Stadtteile ohne eine. Eine
+Polizeiwache ist aber kein Frisör - sie ist das Gebäude, das man sucht, wenn
+etwas schiefgegangen ist, und man sucht es in dem Viertel, in dem man steht.
+
+`stationIn(district)` fragt deshalb in zwei Durchgängen, und der zweite ist der
+Unterschied zu allem anderen in dieser Tabelle:
+
+1. **Die, die der Plan gewürfelt hat**, und zwar die mittigste des Viertels.
+2. **Sonst der schlichteste Block nahe der Mitte.** Jedes andere Wahrzeichen
+   kann nur _ausgedünnt_ werden - wo der Plan eine zweite Bank zeichnet, steht
+   danach ein Haus. Hier geht es andersherum: Ein Viertel, dem die Würfel keine
+   Wache gegeben haben, bekommt trotzdem eine. Übernommen wird nur ein
+   gewöhnliches Haus, nie ein Krankenhaus, ein Club oder eine Bank - ein
+   Wahrzeichen gegen ein Wahrzeichen zu tauschen bringt der Stadt nichts.
+
+Dabei ist ein Kreis entstanden, den man sich merken sollte: `buildingAt` fragt
+jetzt, wo die Wache des Viertels steht, also darf die Wachensuche nichts mehr
+fragen, was seinerseits `buildingAt` fragt. Der erste Versuch prüfte mit
+`prisonUnder`, ob auf dem Block schon ein Gefängnis steht - und `prisonUnder`
+fragt `buildingAt`. Der Stack war nach einem Frame voll. `gaoled()` liest
+stattdessen `rawKindAt` und den Grundriss-Test des Gefängnisses, und beide
+fragen niemanden.
+
+**Und davor steht etwas.** Ein Gebäude mit POLIZEI über der Tür und nichts
+davor ist ein Schild an einer Wand; was von der anderen Straßenseite aus
+Polizeiwache sagt, sind die Streifenwagen am Bordstein und die Leute, die
+dazwischen herumstehen. Der Plan bietet den Gehsteig rings um das Grundstück an
+(`stations()`), und `createGame` nimmt sich davon, was taugt - erst Wagen, dann
+Männer:
+
+- **Angeboten, nicht vorgeschrieben.** Der Plan weiß, wo das Grundstück liegt,
+  und nichts darüber, was auf einem einzelnen Feld wirklich ist. Eine Wache an
+  einer Autobahnecke hat auf zwei Seiten keinen Gehweg. Also kommt der Ring als
+  Vorschlagsliste zurück, Südseite zuerst, und wer fragt, wirft weg, was auf
+  der Fahrbahn oder in einer Wand liegt.
+- **Wagen und Männer wechseln sich von selbst ab.** Ein Streifenwagen belegt
+  gut ein Feld, die Ringpunkte liegen 0,8 Felder auseinander, also scheitert
+  der jeweils nächste Wagen an `clearOf` - und auf den Punkt stellt sich dann
+  ein Mann. Niemand musste das so schreiben, es fällt aus dem Abstand heraus.
+- **Die Männer sind Wachen, keine Streife.** `guards` zeigt auf ihren Fleck vor
+  der Wache: Sie gehören zu einem Ort statt zu einem Auto, sie steigen in
+  nichts ein, sie zählen nicht als Streife im Einsatz, und sie verlassen den
+  Gehweg nur für jemanden, der ihnen mit Sternen zu nahe kommt. Das ist
+  dieselbe Mechanik wie beim Militärgelände, einen Abschnitt weiter oben.
+
 ## Auf dem Dach landen
 
 Der Jetpack war eine Zahl nach oben und dieselbe Zahl nach unten, und der Boden
@@ -1969,6 +2221,88 @@ Schritt hinter ihm - derselbe Bahnsteig kann ihn nicht zweimal fangen. Ein
 Mitfahrer ist ebenfalls keine eigene Mechanik: `player.aboard`, und die Position
 des zweiten Wagens wird ihm jeden Schritt zugewiesen.
 
+## Nicht jede Linie ist eine Straße
+
+**Eine Stadt ist kein Karopapier.** Jede achte Linie war eine Straße, in beide
+Richtungen, ausnahmslos - das ergibt ein Raster aus gleichen Quadraten mit einem
+gleichen Abstand um jedes herum, und genau das eine, was man in einer echten
+Stadt nie sieht: zwei Häuser, die nebeneinanderstehen. Jedes Haus war eine
+Insel.
+
+`street(line, across)` entscheidet deshalb **pro Achse**, ob auf einer
+Blockgrenze überhaupt Asphalt liegt. Ein Viertel der Grenzen wird schlicht nicht
+gebaut; wo eine fehlt, laufen die beiden Blöcke links und rechts davon zu einer
+langen Parzelle zusammen, und die Häuser darauf stehen Wand an Wand. Weil die
+Frage pro Achse gestellt wird, gibt es Züge, die nur ihre Nord-Süd-Straßen haben
+und keine Querstraßen - was die Form der halben Straßen ist, in denen jemals
+jemand gewohnt hat.
+
+Zwei Regeln halten das Ganze bei einer Stadt statt bei einer Wiese:
+
+- **Eine Autobahn fällt nie aus.** Sie ist die eine Straße, die man der Länge
+  nach fährt, und eine Lücke darin ist eine Lücke in der Karte.
+- **Zwei Blöcke dürfen zusammenlaufen, drei nicht.** Eine Grenze, die ausfallen
+  will, sieht nach, ob die vorige ausgefallen ist, und bleibt stehen, wenn ja.
+  Ohne das ergibt eine Pechsträhne einen Block von einem Vierteldorf Länge, in
+  den man nirgends abbiegen kann.
+
+`isRoad` und `nextToRoad` fragen beide dieselbe Funktion, und alles, was von
+ihnen abhängt - `builtSpan`, `openSpan`, `builtPlot`, `prisonPlot`,
+`atCrossing`, der Boden selbst - bekommt die Achse mit durchgereicht. Das ist
+der ganze Umbau: **eine** Antwort, an einer Stelle, und der Rest der Stadt zieht
+nach.
+
+## Ein Haus hat eine Tür
+
+**Eine Wand mit beleuchteten Fenstern ist ein Lagerhaus.** Jedes Gebäude war
+eine flache Platte mit einem Raster leuchtender Quadrate darauf und sonst
+nichts - kein Weg hinein, nichts auf der Höhe, auf der ein Mensch steht, nichts,
+was ein Wohnhaus von einem Bürohaus oder von der Flanke eines Parkhauses
+unterscheidet.
+
+Vier Dinge beheben das, und alle vier sind unten, wo man hinsieht:
+
+- **Eine Haustür**, mittig, mit Zarge, Klinke und einer Stufe auf den Gehweg
+  hinaus. Jedes Gebäude bekommt eine: Was es sonst auch ist, irgendwer geht dort
+  hinein. Wohnhäuser bekommen ein Blatt aus Holz, alles mit einem Namen darüber
+  zwei Flügel Glas mit dem Pfosten dazwischen.
+- **Ein Sockel** aus Stein am Fuß der Wand, und der ist das, was die Platte
+  aufhört, als Platte zu lesen.
+- **Fenster mit Rahmen, Sprossen und Bank** statt flacher Rechtecke. Ein Feld
+  mit einem Strich drumherum liest sich als Loch in einer Wand; eines ohne als
+  Aufkleber darauf. Vier kleine Scheiben statt einer großen sind der
+  Unterschied zwischen einem Fenster und einer Windschutzscheibe.
+- **Und eine Veranda** auf manchen Wohnhäusern - ein Dach über die Front auf
+  zwei Pfosten, die Tür darunter. Nicht auf einer Bank und nicht auf einer
+  Feuerwache; nur auf den namenlosen Häusern, und nicht auf allen, weil eine
+  Straße, in der jedes Haus dieselbe Veranda hat, wieder dasselbe Lagerhaus
+  ist.
+
+**Der Eingang fragt zuerst, die Fenster weichen aus.** Ein Verandapfosten mitten
+durch ein Fenster ist das Einzige, was schlimmer ist als gar keine Veranda, und
+bei mittiger Tür und gleichmäßig verteilten Fenstern hält nichts die beiden
+davon ab, auf derselben Stelle zu landen. `frontage` zeichnet deshalb zuerst und
+gibt zurück, wie viel Wand der Eingang für sich beansprucht hat; `drawWindows`
+verteilt das Erdgeschoss danach auf die **zwei** Wandstücke, die übrig bleiben -
+die Fenster links davon gleichmäßig über das linke Stück, die rechts davon über
+das rechte. Der erste Versuch, jedes störende Fenster nur zur Seite zu schieben,
+machte seinen eigenen Schlamassel: Zwei in dieselbe Richtung geschobene Scheiben
+berührten sich, und das ist ein Schaufenster, kein Paar Hausfenster. Die
+Obergeschosse liegen über dem Verandadach und bleiben, wie sie waren.
+
+**Und Parkplätze.** `drive` legt vor manche Häuser eine Bucht mit aufgemalter
+Markierung, flach auf den Gehweg, seitlich neben der Tür, damit sich die beiden
+nicht um denselben Meter Bordstein streiten. Zwei Dinge daran sind die Arbeit:
+
+- **Eine pro Haus, nicht eine pro Parzelle.** Eine Reihenhauszeile sind fünf
+  Häuser auf einem Block; eine einzelne Bucht quer darüber gehörte denen, vor
+  denen sie zufällig landete. Jedes Haus würfelt für sich.
+- **Nur wo Gehweg ist, auf den man sie legen kann.** Ein Block, der direkt an
+  eine Autobahn grenzt, hat keinen Bordstein und keinen Streifen - der Asphalt
+  beginnt, wo die Wand aufhört -, und eine Bucht dort ist eine Bucht auf der
+  Überholspur. `drawHouse` fragt deshalb den Plan, was vor diesem Haus wirklich
+  liegt, bevor irgendetwas darauf gemalt wird.
+
 ## Spielstände ohne den Boden
 
 `storage/saves.ts` schreibt alles außer `GameState.cells`. Der Boden sind
@@ -2056,6 +2390,26 @@ mühsam beisammenhält, nimmt man nicht mit.
   die Alternative wären vier Gangmitglieder, die im Dauerlauf hinter einem
   Wagen herhecheln, und das war der Grund, warum eine Crew wertlos wurde,
   sobald man sich hinters Steuer setzte.
+
+## Das eigene Haus sieht aus wie das eigene Haus
+
+Drei Häuser dieser Stadt gehören dir, und das Einzige, was das sagte, war ein
+Rolltor mitten in einer gewöhnlichen Häuserzeile: Man fuhr nach Hause zu einem
+Gebäude, das man aus der Straße, in der es steht, nicht heraussehen konnte. Ein
+Ort, an dem man Dinge aufbewahrt, sollte ein Ort sein, den man findet.
+
+Es wird deshalb als das gute Haus der Straße gebaut - Stein statt Putz,
+Eckquader die Ecken hoch, ein Gesims unter der Traufe, ein **Portikus** auf
+zwei Säulen über der Haustür mit je einer Lampe daneben, und zwei Reihen hoher
+Sprossenfenster. Vor der Garage ist ein **Stellplatz** auf den Gehweg gemalt,
+was die andere Hälfte dessen ist, wofür ein eigenes Haus da ist: ein Platz für
+den Wagen, auf den sonst niemand Anspruch hat.
+
+Erkannt wird es daran, dass der Plan dort eine Garage hineingeschnitten hat -
+kein Flag, kein Feld. Und das Einzige, was es nicht tun darf, ist über sein
+eigenes Garagentor zu malen: Das ist ein Bild für sich und kommt danach obenauf,
+also werden die Fenster über die Front verteilt und die, die in die Toröffnung
+fallen, weggelassen.
 
 ## Das Garagentor ist eine Wand, kein Bild
 
@@ -2354,11 +2708,54 @@ Was ein Gefängnis von oben ausmacht, ist seine **Form**:
 - **Ein Zellentrakt einmal ringsherum**, zwei Felder dick, an jeder Ecke
   geschlossen. Kein Tor, keine Lücke, nichts, wodurch man sehen könnte.
 - **Auf jeder der vier Ecken ein Wachturm**: ein Schaft, darauf eine verglaste
-  Kanzel, die über ihn hinausragt, und darin ein Wächter in Uniform, der über
-  die Mauer schaut.
-- **In der Mitte der Hof**: Beton, ein aufgemaltes Basketballfeld mit
-  Mittelkreis, Zonen und Körben, die Baracke oben links mit *Prison Industry*
-  darüber und die Sitzbänke unten rechts.
+  Kanzel, und darin ein Wächter in Uniform, der über die Mauer schaut. Die
+  Kanzel ist dabei so **hoch**, wie sie breit sein dürfte: Breiter geht nicht,
+  sie muss im Eckfeld des Trakts bleiben - also bekommt sie Höhe, und Höhe ist
+  ohnehin das meiste, was man von ihr sieht, denn das Glas ist ein Band über
+  der Turmfront. Beide
+  Kästen stehen **auf** dem Eckfeld des Trakts und nicht darüber hinaus -
+  vorher waren sie vom Eckpunkt aus aufgespannt, also stand je die Hälfte
+  außerhalb des Gefängnisses und die Kanzel noch weiter: vier Türmchen, außen
+  an die Mauer geschraubt.
+- **Vorn ein Torbogen mit zwei Stahlflügeln**, zu. Jedes Gefängnis hat die eine
+  Stelle, an der ein Wagen hineinfährt, und sie ist genau das, was eine blanke
+  Wand aus Zellenfenstern nicht sagt. Der Ring bleibt trotzdem dicht - die Tore
+  sind geschlossen, und der Boden darunter sagt dasselbe.
+- **In jedem Turm ein Scheinwerfer**, der den Hof abstreicht - jeder auf seinem
+  eigenen Bogen, außer Takt mit den anderen, was das Ganze von der Straße aus
+  bemannt aussehen lässt.
+- **Und um das Ganze ein Zaun mit Stacheldraht**, der **flach liegt**: Ein
+  aufrecht gezeichneter Zaun war der Versuch, ihn wie jedes andere stehende
+  Ding zu behandeln, und er ist daran gescheitert, dass diese Projektion die
+  Tiefe staucht und die Breite in Ruhe lässt. Ein Lauf, der von der Kamera
+  weggeht, hat gar kein Gesicht zu zeigen - die Hälfte jedes stehenden Zauns
+  kam als nackter Strich heraus, und die beiden Hälften sahen nie nach
+  demselben Zaun aus. Ein Zaun ist das eine aufrechte Ding hier, das sich als
+  Grundriss besser liest als als Wand.
+  Offen bleiben die **Ecken** trotzdem nicht: Welche Richtung ein Feld hat,
+  entschied früher eine einzige Frage (linke oder rechte Spalte?), also kamen
+  die Eckfelder als reine Längsläufe heraus und der Querlauf hörte an jedem
+  Ende ein Feld zu früh auf. Beide Fragen werden jetzt getrennt gestellt, und
+  ein Eckfeld zeichnet **beide** Läufe - jeden aber nur von der Mitte des
+  Feldes aus nach außen, in die Richtung, in die er weitergeht. So treffen sie
+  sich am Eckpfosten zu einem sauberen **L**, und keiner wird über den anderen
+  gemalt. Dazu ein Einlass, ein Feld vor dem Gebäude, mit einer **Schranke**
+  genau vor dem Tor. Beide nehmen ihre Stelle aus
+  `prisonGate`: ein Tor, an das man heranfährt, und dahinter eine Mauer wäre
+  ein Witz auf Kosten des Fahrers. Der
+  Streifen dazwischen ist der freigehaltene Boden, den jedes Gefängnis hat, und
+  er ist das, was den Zaun als Zaun lesbar macht statt als Muster am Fuß der
+  Mauer. Bezahlt wird er aus dem **Gebäude**, nicht aus dem Hof: Der Grundriss
+  ist, was das Straßenraster übrig lässt, und keinen Meter mehr - ein halb so
+  tiefer Trakt liest sich immer noch als Trakt, weil man von ihm die Höhe
+  seiner Wand sieht, ein zwei Felder kleinerer Hof dagegen hat keinen Platz
+  mehr für ein Spielfeld. Der Boden unter dem Draht ist geharkter Kies; der
+  Sand, auf dem der Zaun des Militärgeländes steht, wäre mitten in der Stadt
+  ein Strand.
+- **In der Mitte der Hof**: Wiese, ein Basketballfeld mit Mittelkreis, Zonen
+  und Körben, unter den Körben die ausgetretene Erde, die Werkstatt oben links
+  mit ihrem Schild und ihrem rauchenden Schornstein, und je zwei Sitzbänke
+  links und rechts des Feldes.
 - **Und Männer darin**, die ihre Runden gehen. Zwei sitzen auf den Bänken, weil
   in jedem Hof jemand sitzt.
 
@@ -2424,15 +2821,100 @@ stand, im Freien, mit nichts vor sich, machte das ganze Gefängnis durchsichtig.
 Der Kasten hört jetzt am **hinteren Rand des vorderen Trakts** auf: Er deckt
 genau den ab, den diese Mauer verbirgt, und niemanden dahinter im Hof.
 
+### Ein Hof ist eine Wiese, in die ein Feld getreten ist
+
+Beton hat keine Geschichte: Jeder Quadratmeter davon sieht gleich aus, ob
+tausend Mann dort gelaufen sind oder keiner. Der Hof ist deshalb **Wiese** -
+auch im Boden, nicht nur im Bild: `prisonCell` gibt dort `park` zurück, also
+dasselbe, was jede Grünfläche der Stadt ist.
+
+Und was die Männer damit gemacht haben, sieht man. **Unter jedem Korb** - wo
+den ganzen Tag jeder steht, sich dreht und landet - ist das Gras weg und die
+nackte Erde durch, und sie läuft zum Grün hin aus, statt an einer Kante
+aufzuhören: Ein Radialverlauf mit einem harten Kern und einem transparenten
+Rand, weil ausgetretener Boden genau so aussieht. Die Linien des Feldes sind
+direkt darauf gemalt - es gibt keine Asphaltplatte mehr, denn eine Platte wäre
+wieder eine Fläche ohne Geschichte.
+
+### Fenster mit Gittern, keine Kratzer
+
+Die Trakte hatten drei Pixel breite Schlitze mit je einem Strich darin, und in
+dieser Größe liest sich eine Reihe davon als aufgemalter Zaun. Jedes Fenster
+ist jetzt eine **Laibung in der Mauer, das Dunkel der Zelle dahinter und ein
+Gitter darüber** - drei Stäbe hochkant, ein Riegel quer. Das ist das eine
+Ding an einer Hausfront, das Gefängnis sagt und sonst nichts.
+
 ### Das Feld steht hochkant
 
 Ein Basketballfeld ist fast doppelt so lang wie breit, und die lange Seite ist
 die, auf der gespielt wird: von Korb zu Korb. Quer gelegt - breit und flach -
-liest es sich als Tennisplatz ohne Netz. Es steht deshalb der Länge nach im
-Hof, und damit es dort Platz hat, ist die **Baracke in die obere linke Ecke**
-gerückt: In der Mitte stand sie mitten im Feld, die Männer liefen ihre Runden
-durch sie hindurch, und für Bänke war kein Platz mehr. Die stehen jetzt unten
-rechts, zwei der Sitzenden darauf.
+liest es sich als Tennisplatz ohne Netz. Es steht deshalb der Länge nach mitten
+im Hof, und damit es dort Platz hat, ist die **Werkstatt in die obere linke
+Ecke** gerückt: In der Mitte stand sie mitten im Feld, die Männer liefen ihre
+Runden durch sie hindurch, und für Bänke war kein Platz mehr.
+
+Das Feld sitzt dabei ein Stück **rechts der Mitte** (`COURT_OVER`): Links oben
+steht die Werkstatt, der Boden dort ist also vergeben, der rechts nicht - genau
+mittig stand das Feld mit der Seitenlinie eine Schrittlänge vor der Werkstatt
+und einer leeren halben Hofbreite daneben.
+
+Die **Bänke stehen je zwei links und rechts des Feldes und hochkant**, also
+entlang der Seitenlinie: Wer auf einer quer liegenden Bank sitzt, sitzt mit der
+Schulter zum Spiel. Die Latten drehen sich mit, denn Latten laufen der Länge
+einer Bank nach.
+
+### Die Werkstatt steht frei, und sie arbeitet
+
+Sie ist doppelt so groß (zwei Felder im Geviert) und steht ein Feld von den
+Trakten ab, sodass man um sie herumgehen kann - das ist der Unterschied
+zwischen einem Gebäude im Hof und einer Beule an der Mauer. Ihr Name steht auf
+einem **Schild an der Wand** statt frei schwebend über dem Dach: Was ein Werk
+hat, ist ein Brett an der Front, und in dieser Größe ist das Brett das, was man
+zuerst liest - ein helles Rechteck auf dunkler Wand mit dem Namen quer darüber.
+
+Sie hat dazu eine **Tür und zwei Fenster** - was ein Gebäude von einem Klotz
+mit einem Namen darauf unterscheidet - und das Schild sitzt oben unter der
+Traufe statt auf halber Wand, wo die Tür hingehört.
+
+Daneben, auf der hinteren Dachecke, ein **Schornstein, der raucht**: fünf
+Wolken aus der Uhr, jede höher, breiter und blasser als die darunter. Ein
+Schornstein, der auf der Wiese stünde, wäre ein Rohr; einer auf dem Dach ist
+ein Betrieb.
+
+### Wer hineinkommt, wird angeleuchtet und dann beschossen
+
+Der Ring hat keinen Durchgang, der einzige Weg hinein ist über die Mauer - und
+ein Ort, in den man sich fallen lassen, in dem man herumlaufen und aus dem man
+wieder herausspazieren kann, ist ein Park mit einem Zaun drum.
+
+Was antwortet, sind die vier Türme. In dem Moment, in dem er irgendwo innerhalb
+des Grundrisses ist - auf der Wiese, auf dem Dach, im Auto, am Jetpack -,
+finden ihn die Scheinwerfer (`Player.spotted`), und `PRISON_AIM` später fangen
+sie an zu schießen: eine Kugel aus jeder Ecke alle `PRISON_RATE`. Das ist keine
+Schießerei, die man im Stehen gewinnt; es ist ein Grund, so wieder zu
+verschwinden, wie man gekommen ist.
+
+**Eine Zahl für den ganzen Alarm.** `Player.spotted` sagt dreierlei auf einmal,
+und es ist dasselbe: dass die Lampen ihn haben (das Bild liest es), dass die
+Türme ihn haben (der Motor liest es), und wie lange schon - woraus sich der
+erste Schuss ergibt. Wann der nächste fällt, wird aus derselben Zahl gerechnet
+statt in einer zweiten gespeichert: Man fragt, ob dieser Schritt die nächste
+Vielfache überschreitet.
+
+Zwei Dinge daran waren erst falsch, und beide sind lehrreich:
+
+- **Die Kugel starb in der eigenen Mauer.** Ein Turm steht auf einem Feld
+  Gebäude, und ein Geschoss hält alles Feste auf - bei der üblichen
+  Mündungsentfernung von zwölf Pixeln war es noch im Turm. `PRISON_MUZZLE` ist
+  vierzig, also weiter als die Ecke eines Feldes (34) vom Mittelpunkt entfernt.
+- **Und sie ging daneben.** Ein Treffer zählt innerhalb von zwölf Pixeln; über
+  eine Hofbreite hinweg sind ein Zehntel Radiant Streuung dreißig Pixel, also
+  vier Türme, die die ganze Nacht schießen und niemanden berühren.
+  `PRISON_SPREAD` ist deshalb 0,04 - gemessen trifft damit gut die Hälfte.
+
+Gemessen an einem, der sich nicht bewegt: nach zwei Sekunden 79 Blech, nach
+sechs 16. Das ist Zeit genug, um wieder über die Mauer zu kommen, und keine
+Zeit, sich umzusehen.
 
 ### Der Hof ist Wetter, keine Geschichte
 
@@ -2447,6 +2929,18 @@ Hof, den man über eine Mauer hinweg ansieht.
 Der einzige Weg hinein ist über die Mauer, also der Jetpack, und der einzige
 Weg hinaus derselbe. Ein Hof, den nichts erreicht, ist kein Versehen - er ist
 der eine Ort der Stadt, zu dem man fliegen muss.
+
+Die **Scheinwerfer** hängen an derselben Funktion wie die Schüsse
+(`prisonTowers`), damit das Licht, das auf einem liegt, und die Kugel, die
+kommt, aus derselben Ecke stammen. Sie sind auf den Hof geklemmt: Ein
+Lichtkegel ist ein Fleck auf dem Boden, und ein Fleck auf dem Dach des Trakts,
+auf dem die Lampe montiert ist, ist eine Lampe, die jemand an die Decke
+gehalten hat.
+
+Dazu laufen zwei **Wärter ihre Runde im Hof** - vier Lampen auf den Ecken
+bewachen den Hof, nicht die Leute darin -, und der Mann in jedem Turm geht ab
+und zu über das Dach des Trakts und kommt zurück. Sobald die Lampen jemanden
+haben, steht er wieder auf seinem Posten.
 
 Gezeichnet wird **von Norden nach Süden** statt als ein Kasten, denn das Ding
 hat ein Innen: erst der ferne Trakt mit seinen Türmen, dann der Hofboden, dann
@@ -2789,11 +3283,12 @@ wird sich treffend gezeichnet.
 **Und zwischen Turm und Deck war Luft.** Der Turm wurde als flaches Bild auf
 Dachhöhe gelegt, mit nichts darunter: sieben Pixel offener Himmel genau dort,
 wo die Panzerung am dicksten ist. Jetzt ist er ein Kasten wie alles andere hier
+
 - nur steht er im Winkel des **Rohrs** statt im Winkel der Ketten, und er ist
-damit die einzige Wand der Stadt, die sich dreht, während das Fahrzeug darunter
-steht. Dazu gehören auch eigene Maße im Kasten (`TIERS.tank.cabin*`): Es waren
-die der Wanne, vierunddreißig Pixel breit, was solange egal war, wie niemand
-darauf stand.
+  damit die einzige Wand der Stadt, die sich dreht, während das Fahrzeug darunter
+  steht. Dazu gehören auch eigene Maße im Kasten (`TIERS.tank.cabin*`): Es waren
+  die der Wanne, vierunddreißig Pixel breit, was solange egal war, wie niemand
+  darauf stand.
 
 **Und er blinkte.** Ein Polizeipanzer fiel in den Zweig für Fahrzeuge ohne
 Dachbalken und bekam die drei Blaulichter des Motorrads: sechzig Tonnen

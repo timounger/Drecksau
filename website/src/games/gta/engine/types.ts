@@ -1024,6 +1024,22 @@ export type Player = {
    */
   readonly thrust: boolean;
   /**
+   * When the prison searchlights found him, or null while they have not.
+   *
+   * @remarks
+   * **One number for the whole alarm.** It says three things at once and they
+   * are all the same thing: the lights are on him (the picture reads it), the
+   * towers have him (the engine reads it), and how long they have had him -
+   * which is what decides when the first shot comes. Nought would not do: he
+   * has to be *findable*, and null is the only honest way to say "they have
+   * not".
+   *
+   * Set the moment he is anywhere inside the wire, whether he walked in, drove
+   * in, or came over the wall with a jetpack, and cleared the moment he is
+   * out. There is no cooling off: a prison does not lose interest.
+   */
+  readonly spotted: number | null;
+  /**
    * Simulation time the star count last went up at.
    *
    * @remarks
@@ -1456,6 +1472,62 @@ export const MARK_LIFE = 22;
 
 /** How often a sliding tyre lays one down, in seconds. */
 export const MARK_EVERY = 0.03;
+
+/**
+ * How long the towers take to aim after the lights find somebody, in seconds.
+ *
+ * @remarks
+ * Long enough to be a warning and short enough to be a threat. Four
+ * searchlights swinging onto you is the whole of the warning one gets, and if
+ * the shot came with it there would be nothing to read: the pause is what
+ * turns being seen into a decision about whether to stay.
+ */
+export const PRISON_AIM = 1.6;
+
+/**
+ * And how often each tower fires after that, in seconds.
+ *
+ * @remarks
+ * Four towers on this beat is a round every three tenths of a second from four
+ * directions - enough that standing still in the yard is a way of dying and
+ * not enough that there is nothing to be done about it. Measured against a man
+ * who does not move: eight or nine seconds from full health, which is time to
+ * get back over the wall and no time at all to look around.
+ */
+export const PRISON_RATE = 1.1;
+
+/** How far one of those shots carries, in pixels. */
+export const PRISON_RANGE = 900;
+
+/** How fast it flies. */
+export const PRISON_SPEED = 780;
+
+/**
+ * How far out of the tower a round starts, in pixels.
+ *
+ * @remarks
+ * **Clear of the tower's own square.** A bullet is stopped by anything solid,
+ * and a watchtower stands on a square of building - so a round born at the
+ * ordinary muzzle distance died in the wall it came out of, and four towers
+ * fired all night at a man who never heard a thing. Half a square is
+ * twenty-four pixels, a corner of one thirty-four; this clears either.
+ */
+export const PRISON_MUZZLE = 40;
+
+/** And what it takes off. */
+export const PRISON_HURT = 7;
+
+/**
+ * How far off the line a tower shoots, in radians either way.
+ *
+ * @remarks
+ * Tight, because the range is long: a shot only counts if it passes within
+ * twelve pixels of somebody, and across the width of a yard a tenth of a
+ * radian is thirty pixels of scatter - four towers firing all night and never
+ * touching anybody. At this, about half the rounds tell, which is a prison one
+ * leaves rather than one one dies in.
+ */
+export const PRISON_SPREAD = 0.04;
 
 /**
  * How long a tank's tracks stay in the ground, in seconds.

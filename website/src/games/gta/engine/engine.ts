@@ -21,6 +21,9 @@ import {
   garageBay,
   garageMouth,
   isOpen,
+  prisonPlot,
+  prisonTowers,
+  prisonUnder,
   roofAt,
   isRoadAt,
   onMotorway,
@@ -58,6 +61,13 @@ import {
   HAND_TURN,
   MARK_EVERY,
   MARK_LIFE,
+  PRISON_AIM,
+  PRISON_HURT,
+  PRISON_MUZZLE,
+  PRISON_RANGE,
+  PRISON_RATE,
+  PRISON_SPEED,
+  PRISON_SPREAD,
   TRACK_LIFE,
   TRAFFIC_TURN,
   TURN_DONE,
@@ -295,6 +305,7 @@ export function step(state: GameState, input: Input, dt: number): GameState {
     next = fadeBlasts(next);
     next = clearBodies(next);
     next = onTheBase(next);
+    next = onThePrison(next, slice);
     next = runAck(next);
     next = coolDown(next);
     next = cashIn(next);
@@ -4877,10 +4888,21 @@ function walkCop(state: GameState, cop: Cop, dt: number): Cop {
   // guard who guards the base for ninety seconds and then stops existing.
   const atDoor =
     !chasing && !minding && home !== undefined && away <= BOARD_RANGE;
+  // **Where he looks is not where his feet take him.** His place is a spot in
+  // the ring round the player rather than the player himself - so a man who
+  // had arrived stood with his back to the very person he was there for, and
+  // turned round for the length of one shot before turning away again. A
+  // policeman who is after somebody looks at him, whether he is walking at
+  // him, standing in front of him or firing.
+  const watching =
+    chasing || (minding && guard !== null && far(state.player, cop) < GUARD_REACH);
+  const facing = watching
+    ? Math.atan2(state.player.y - cop.y, state.player.x - cop.x)
+    : angle;
   return {
     ...cop,
     ...moved,
-    angle,
+    angle: facing,
     walked: cop.walked + step,
     pace: dt === 0 ? 0 : step / dt / WALK_SPEED,
     boardAt: atDoor ? (cop.boardAt ?? state.time + BOARD_SECONDS) : null,
@@ -6281,6 +6303,90 @@ function fly(state: GameState, input: Input, dt: number): GameState {
     (height === player.height && lifting === player.thrust)
     ? state
     : { ...state, player: { ...player, height, thrust: lifting } };
+}
+
+/**
+ * The prison, once somebody is inside the wire.
+ *
+ * @param state - the city
+ * @param dt - seconds since the last step
+ * @returns it, with the lights on him and the towers firing
+ * @remarks
+ * **Nothing guards the yard, and something has to.** The ring has no way
+ * through it, so the only way in is over the wall - and a place one can drop
+ * into, walk about in and stroll out of is a park with a fence round it.
+ *
+ * What answers is the four towers. The moment he is anywhere inside the
+ * footprint - on the grass, on the roof, in a car, hanging off a jetpack - the
+ * searchlights find him ({@link Player.spotted}), and {@link PRISON_AIM} later
+ * they start shooting, one round from each corner every {@link PRISON_RATE}.
+ * That is four rounds a second from four directions, which is not a fight one
+ * wins standing still; it is a reason to leave the way one came.
+ *
+ * The shots are worked out from {@link prisonTowers}, the same function the
+ * picture hangs the searchlights on, so the light that is on you and the shot
+ * that is coming leave from the same corner.
+ */
+function onThePrison(state: GameState, dt: number): GameState {
+  const player = state.player;
+  const gaol = prisonUnder(
+    Math.floor(player.x / TILE),
+    Math.floor(player.y / TILE),
+  );
+  let next = state;
+  if (gaol === null) {
+    // Out again: the lights lose him, and with them the whole alarm.
+    next =
+      player.spotted === null
+        ? state
+        : { ...state, player: { ...player, spotted: null } };
+  } else if (player.spotted === null) {
+    next = {
+      ...state,
+      player: { ...player, spotted: state.time },
+      log: note(state.log, "Die Scheinwerfer haben dich."),
+    };
+  } else {
+    // How long they have been aiming, and whether this step is the one that
+    // crosses the next round. Counted off the clock rather than kept in a
+    // second field: the whole alarm is one number.
+    const since = state.time - player.spotted - PRISON_AIM;
+    const before = since - dt;
+    const fires =
+      since >= 0 &&
+      Math.floor(since / PRISON_RATE) > Math.floor(before / PRISON_RATE);
+    next = fires ? volley(state, gaol) : state;
+  }
+  return next;
+}
+
+/** One round from each of the four towers, at whoever is inside. */
+function volley(state: GameState, gaol: Vec): GameState {
+  const plot = prisonPlot(gaol.x, gaol.y);
+  let next = state;
+  let id = nextBulletId(state);
+  const shots: Bullet[] = [];
+  for (const tower of prisonTowers(plot)) {
+    const draw = nextRandom(next.rng);
+    next = { ...next, rng: draw.state };
+    const angle =
+      Math.atan2(state.player.y - tower.y, state.player.x - tower.x) +
+      (draw.value - HALF) * PRISON_SPREAD * 2;
+    shots.push({
+      id,
+      x: tower.x + Math.cos(angle) * PRISON_MUZZLE,
+      y: tower.y + Math.sin(angle) * PRISON_MUZZLE,
+      angle,
+      left: PRISON_RANGE,
+      speed: PRISON_SPEED,
+      damage: PRISON_HURT,
+      shape: "shot",
+      from: "police",
+      blowAt: null,
+    });
+    id += 1;
+  }
+  return startle({ ...next, bullets: [...next.bullets, ...shots] }, state.player, EARSHOT);
 }
 
 /**
