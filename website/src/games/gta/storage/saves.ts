@@ -18,12 +18,13 @@ import {
   createCity,
   myHouses,
   openBay,
+  openStations,
   openGaol,
   prisonAnchors,
   prisonUnder,
   setGarage,
 } from "@/games/gta/engine/city";
-import { newAcks, newChopper, prisonGuards } from "@/games/gta/engine/setup";
+import { newAcks, newChoppers, prisonGuards } from "@/games/gta/engine/setup";
 import type { GameState } from "@/games/gta/engine/types";
 import { TILE } from "@/games/gta/engine/types";
 import {
@@ -231,7 +232,7 @@ function rebuild(stored: Stored): GameState {
   // which put the player's own garage door through the prison wall. Nothing is
   // lost by recomputing them, because nothing in the game ever moves one.
   const homes = myHouses();
-  let floor = createCity();
+  let floor = openStations(createCity());
   for (const home of homes) {
     floor = openBay(floor, home);
   }
@@ -307,19 +308,33 @@ function rebuild(stored: Stored): GameState {
       // A stand written before the tank had a machine gun on it has no clock
       // for it, and a gun that may next fire at undefined never fires.
       gunAt: stored.player.gunAt ?? 0,
+      // Nobody is saved in the air either: a stand written before there were
+      // five machines has no note of which one is being flown, and `flying`
+      // comes back false in any case.
+      chopper: stored.player.chopper ?? null,
       // Nobody is halfway into a car in a saved game: a stand written mid-walk
       // comes back with him standing beside it, which is where the key left
       // him anyway.
       boarding: stored.player.boarding ?? null,
     },
     people: stored.people.map((one) => ({ ...one, pace: one.pace ?? 0 })),
-    cops: cops.map((one) => ({ ...one, pace: one.pace ?? 0 })),
+    // A stand written before a car could knock a policeman down has nobody
+    // lying in the road, and nobody carrying a first knock about either.
+    cops: cops.map((one) => ({
+      ...one,
+      pace: one.pace ?? 0,
+      floorUntil: one.floorUntil ?? null,
+    })),
     // A stand written before the yard could be taken has nobody down in it.
     jailbreak: broken,
     train: { ...stored.train, speed: stored.train.speed ?? 0 },
     // A stand written before there was a helicopter has none; it belongs on
     // its pad, which is where a new one starts.
-    chopper: stored.chopper ?? newChopper(),
+    // A stand written when there was one flying machine in the city has no
+    // list of them; it gets the five of them where they belong. Nobody is
+    // saved mid-flight - `flying` comes back false - so where the old one
+    // happened to be parked is not worth carrying over.
+    choppers: stored.choppers ?? newChoppers(floor),
     ackAt: stored.ackAt ?? 0,
     acks: stored.acks ?? newAcks(),
     cells: garage === undefined ? floor : setGarage(floor, garage, true),

@@ -50,6 +50,7 @@ import {
 import {
   BUILDINGS,
   THE_BLOCKS,
+  wallHeight,
   type Building,
   type BuildingKind,
 } from "./buildings";
@@ -174,7 +175,13 @@ function inTown(col: number, row: number): Cell {
     // crossing it as crossing a road.
     cell = "dock";
   } else if (nextToRoad(col, true) || nextToRoad(row, false)) {
-    cell = "walk";
+    // **Unless the house is standing on it.** The ring is a square wide on
+    // every side that has tarmac beyond it, and a block whose front is a
+    // motorway gives its back strip to the building instead - see
+    // {@link builtSpan}. That square is drawn as wall, so it has to *be* wall:
+    // left as pavement it was a strip of floor inside somebody's shop, and the
+    // city dutifully parked a car and stood three people in it.
+    cell = builtOver(col, row) ? "building" : "walk";
   } else if (
     !builtBlock(Math.floor(col / BLOCK_TILES), Math.floor(row / BLOCK_TILES))
   ) {
@@ -187,6 +194,32 @@ function inTown(col: number, row: number): Cell {
     cell = "building";
   }
   return cell;
+}
+
+/**
+ * Whether a square of a block's pavement ring has the building on it.
+ *
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns true where {@link builtPlot} reaches over the ring
+ * @remarks
+ * Asked only of the ring, because everything inside it is building anyway and
+ * everything outside is tarmac. One question, asked of the same function the
+ * picture draws from, so that the wall one can see is the wall one walks into.
+ */
+function builtOver(col: number, row: number): boolean {
+  const blockX = Math.floor(col / BLOCK_TILES);
+  const blockY = Math.floor(row / BLOCK_TILES);
+  let over = false;
+  if (builtBlock(blockX, blockY)) {
+    const plot = builtPlot(blockX, blockY);
+    over =
+      col >= plot.left &&
+      col < plot.right &&
+      row >= plot.top &&
+      row < plot.bottom;
+  }
+  return over;
 }
 
 /**
@@ -590,13 +623,44 @@ function isRoad(at: number, across: boolean): boolean {
   const block = Math.floor(at / BLOCK_TILES);
   let road: boolean;
   if (into <= ROAD_HALF) {
-    road = street(block, across);
+    road =
+      street(block, across) && !(into === ROAD_HALF && handsBack(block, 1));
   } else if (into >= BLOCK_TILES - ROAD_HALF) {
-    road = street(block + 1, across);
+    road =
+      street(block + 1, across) &&
+      !(into === BLOCK_TILES - ROAD_HALF && handsBack(block, 0));
   } else {
     road = false;
   }
   return road || motorwayNear(at);
+}
+
+/**
+ * Whether the street at one end of a block hands its outer square back.
+ *
+ * @param block - the block, in blocks
+ * @param side - 0 for the street at its far end, 1 for the one at its near end
+ * @returns true where this block is squeezed by a motorway at the other end
+ * @remarks
+ * **Every block is three squares, always.** A street is three squares wide and
+ * takes two of them out of the block on one side and one out of the block on
+ * the other, which leaves eight less two less one less two of pavement: three
+ * to build on. A motorway is five, so it takes one more square than a street
+ * does out of each of its neighbours - and those two blocks came out at two
+ * squares instead of three. Against a motorway that is bad luck; with a
+ * pavement now standing between the wall and the outside lane it was a shop
+ * two squares wide with its name written across the whole front.
+ *
+ * So the square is taken off the **other** end, where an ordinary street can
+ * spare it: the street on the far side of a squeezed block gives up its outer
+ * square and is two squares wide instead of three along that block. Which
+ * streets those are follows from the plan rather than from the block - a
+ * motorway every {@link MOTORWAY_EVERY} lines means the street either side of
+ * one, all the way along it - so the carriageway never jogs: it is narrow for
+ * its whole length or wide for its whole length.
+ */
+function handsBack(block: number, side: number): boolean {
+  return isMotorway((block + side) * BLOCK_TILES);
 }
 
 /**
@@ -678,19 +742,37 @@ function motorwayNear(at: number): boolean {
   return into <= MOTORWAY_HALF || into >= step - MOTORWAY_HALF;
 }
 
-/** Whether this line is the pavement beside a street. */
+/**
+ * Whether this line is the pavement beside a street.
+ *
+ * @param at - the line, in squares
+ * @param across - true for one running up and down, false for one along
+ * @returns true where somebody on foot belongs
+ * @remarks
+ * **A motorway has a kerb too.** The ring was measured from the middle of an
+ * ordinary street - one square of tarmac each way, then the pavement - and a
+ * motorway is three each way, so its outer lanes ran straight over the squares
+ * the pavement would have been on. The building then started where the fast
+ * lane stopped: one stepped out of a shop door into the outside lane, and
+ * every block along a motorway had its front wall in the traffic.
+ *
+ * So the ring is asked of the tarmac rather than of the line: whatever is one
+ * square outside the road, however wide the road is, is pavement. See
+ * {@link besideMotorway}.
+ */
 function nextToRoad(at: number, across: boolean): boolean {
-  const into = ((at % BLOCK_TILES) + BLOCK_TILES) % BLOCK_TILES;
-  const block = Math.floor(at / BLOCK_TILES);
-  let walk: boolean;
-  if (into <= ROAD_HALF + WALK_RING) {
-    walk = street(block, across);
-  } else if (into >= BLOCK_TILES - ROAD_HALF - WALK_RING) {
-    walk = street(block + 1, across);
-  } else {
-    walk = false;
+  let near = false;
+  for (let step = 1; step <= WALK_RING && !near; step += 1) {
+    near = isRoad(at - step, across) || isRoad(at + step, across);
   }
-  return walk;
+  return near && !isRoad(at, across);
+}
+
+/** Whether this square is the one just outside a motorway's outside lane. */
+function besideMotorway(at: number): boolean {
+  const step = BLOCK_TILES * MOTORWAY_EVERY;
+  const into = ((at % step) + step) % step;
+  return into === MOTORWAY_HALF + 1 || into === step - MOTORWAY_HALF - 1;
 }
 
 /** Whether a square is inside a rectangle of the map. */
@@ -921,9 +1003,10 @@ export function roofAt(cells: readonly Cell[], x: number, y: number): number {
     const gaol = prisonUnder(col, row);
     const blockX = gaol?.x ?? Math.floor(col / BLOCK_TILES);
     const blockY = gaol?.y ?? Math.floor(row / BLOCK_TILES);
-    high =
-      houseHeight(blockX, blockY, scatter(blockX, blockY)) *
-      buildingAt(blockX, blockY).rise;
+    high = wallHeight(
+      buildingAt(blockX, blockY),
+      houseHeight(blockX, blockY, scatter(blockX, blockY)),
+    );
   }
   return high;
 }
@@ -1328,8 +1411,10 @@ const ROADS: readonly Route[] = ROUTES.map((route) => ({
  *
  * Now the picture asks the same two questions the floor asks - is this line a
  * street, is it a pavement - and builds on what is left. A block beside a
- * motorway simply gets a smaller house, which is what happens when a motorway
- * is put through a neighbourhood.
+ * motorway simply gets a narrower house, which is what happens when a motorway
+ * is put through a neighbourhood - and it keeps its **depth**, because the
+ * pavement the motorway forces in front of it is taken off the back instead.
+ * See {@link builtSpan}.
  */
 export function builtPlot(
   blockX: number,
@@ -1421,7 +1506,25 @@ function builtSpan(
       to = Math.max(to, into);
     }
   }
-  return { from, to };
+  // **What the motorway takes off the front, the back gives back.** The
+  // pavement a motorway forces in front of a building (see {@link nextToRoad})
+  // comes out of the building, and a shop three squares deep that loses one of
+  // them to a kerb is two squares deep with its name written across the whole
+  // of it. So it is taken off the other end instead: the house grows back into
+  // the strip of pavement behind it, which is the side nobody walks on - the
+  // way in, the sign and the windows are all on the front.
+  //
+  // Only down the page, and only where the back is pavement rather than
+  // tarmac. Across, the building simply comes out narrower: a pavement on both
+  // sides is what a building between two streets has.
+  const front = block * BLOCK_TILES + to + 1;
+  const back = block * BLOCK_TILES + from - 1;
+  //
+  // And never past the top of the block: where two blocks run together with no
+  // street between them, the square behind belongs to the neighbour, and a
+  // house that grew into it would stand inside the one next door.
+  const took = !across && to >= 0 && from > 0 && besideMotorway(front);
+  return took && !isRoad(back, across) ? { from: from - 1, to } : { from, to };
 }
 
 /**
@@ -1835,6 +1938,93 @@ export function doorsOf(kind: BuildingKind): readonly Vec[] {
 }
 
 /**
+ * The three bays of a fire station: where an engine stands and drives out.
+ *
+ * @param plot - the ground the station stands on, in squares
+ * @returns one rectangle per bay, in squares, the far edges exclusive
+ * @remarks
+ * **The doors never shut**, so this is not a door at all: it is a piece of the
+ * building that is simply not there. Each bay is one square across and two
+ * deep - a van is sixty-two pixels long and a square is forty-eight, so one
+ * square deep would leave the back of every engine hanging out in the street -
+ * and the three of them take the whole width of the front, which is what a
+ * fire station looks like from the road.
+ *
+ * Read by the floor, which cuts them out, and by the picture, which draws the
+ * openings; neither of them measures anything of its own.
+ */
+export function fireBays(plot: {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}): readonly { left: number; top: number; right: number; bottom: number }[] {
+  const deep = Math.min(BAY_DEEP, plot.bottom - plot.top - 1);
+  const bays: { left: number; top: number; right: number; bottom: number }[] =
+    [];
+  for (let at = plot.left; at < plot.right; at += 1) {
+    bays.push({
+      left: at,
+      top: plot.bottom - deep,
+      right: at + 1,
+      bottom: plot.bottom,
+    });
+  }
+  return bays;
+}
+
+/** How many squares deep a bay is cut into the building. */
+const BAY_DEEP = 2;
+
+/**
+ * The ground every building of one sort stands on.
+ *
+ * @param kind - the sort to look for
+ * @returns one rectangle per block, in squares, the far edges exclusive
+ * @remarks
+ * The same walk as {@link doorsOf} and for the same reason: the plan is the
+ * same every time, so whoever wants to put an engine in a fire station or a
+ * helicopter on a hospital asks once and remembers. What comes back is the
+ * **built plot** rather than the block, because that is the rectangle the
+ * picture draws the building on.
+ */
+export function plotsOf(
+  kind: BuildingKind,
+): readonly { left: number; top: number; right: number; bottom: number }[] {
+  const blocks = CITY_TILES / BLOCK_TILES;
+  const plots: { left: number; top: number; right: number; bottom: number }[] =
+    [];
+  for (let blockY = 0; blockY < blocks; blockY += 1) {
+    for (let blockX = 0; blockX < blocks; blockX += 1) {
+      if (
+        buildingAt(blockX, blockY).kind === kind &&
+        builtBlock(blockX, blockY)
+      ) {
+        plots.push(builtPlot(blockX, blockY));
+      }
+    }
+  }
+  return plots;
+}
+
+/**
+ * The landing pad on the roof of every hospital.
+ *
+ * @returns the middle of each hospital block, where the H is painted
+ * @remarks
+ * The middle of the plot, which is where the picture puts the circle - the two
+ * read the same rectangle, so the machine stands on the paint rather than
+ * beside it. How high that is, is {@link roofAt}: whoever wants to put
+ * something down there asks the floor, the same way the jetpack does.
+ */
+export function padsOf(): readonly Vec[] {
+  return plotsOf("hospital").map((plot) => ({
+    x: ((plot.left + plot.right) / 2) * TILE,
+    y: ((plot.top + plot.bottom) / 2) * TILE,
+  }));
+}
+
+/**
  * The garage: the square a car comes to rest in, two deep into the house.
  *
  * @param garage - the pavement outside the door, as the game stores it
@@ -1874,6 +2064,38 @@ export function garageMouth(garage: Vec): Vec {
  */
 export function openBay(cells: readonly Cell[], garage: Vec): readonly Cell[] {
   return cellSet(cells, garageBay(garage), "walk");
+}
+
+/**
+ * The city floor with the engine bays cut out of every fire station.
+ *
+ * @param cells - the floor as the plan laid it out
+ * @returns the same floor with three squares of each station open
+ * @remarks
+ * Done once, when the game is made, and never undone: the doors of a fire
+ * station stand open. What is cut is what {@link fireBays} says, so the floor
+ * one drives on and the openings one can see are the same three rectangles.
+ *
+ * Open as **road** rather than as pavement: an engine drives out of one, and
+ * the traffic behind it treats the mouth of the bay as a turning rather than
+ * as something to steer round.
+ */
+export function openStations(cells: readonly Cell[]): readonly Cell[] {
+  let floor = cells;
+  for (const plot of plotsOf("fire")) {
+    for (const bay of fireBays(plot)) {
+      for (let row = bay.top; row < bay.bottom; row += 1) {
+        for (let col = bay.left; col < bay.right; col += 1) {
+          floor = cellSet(
+            floor,
+            { x: col * TILE + TILE / 2, y: row * TILE + TILE / 2 },
+            "road",
+          );
+        }
+      }
+    }
+  }
+  return floor;
 }
 
 /**
@@ -2305,8 +2527,15 @@ export function streetRun(at: number): {
     const middle = Math.round(at / step) * step;
     run = { from: middle - MOTORWAY_HALF, to: middle + MOTORWAY_HALF };
   } else {
-    const middle = Math.round(at / BLOCK_TILES) * BLOCK_TILES;
-    run = { from: middle - ROAD_HALF, to: middle + ROAD_HALF };
+    // The same sum the floor does, so a car's lane is on the tarmac it is
+    // actually driving on: a street beside a motorway is two squares wide
+    // rather than three, because it handed one back. See {@link handsBack}.
+    const line = Math.round(at / BLOCK_TILES);
+    const middle = line * BLOCK_TILES;
+    run = {
+      from: middle - ROAD_HALF + (handsBack(line - 1, 0) ? 1 : 0),
+      to: middle + ROAD_HALF - (handsBack(line, 1) ? 1 : 0),
+    };
   }
   return run;
 }
@@ -2477,7 +2706,16 @@ export function buildingAt(blockX: number, blockY: number): Building {
   // for the patrol cars to come from. So the quarter that the dice gave none
   // gets one anyway, in the plainest block nearest its middle.
   const posted = isTheStation(blockX, blockY);
-  return BUILDINGS[posted ? "police" : spare ? "house" : drawn];
+  // **And so can the hospital and the fire station**, for the same reason and
+  // one step behind it: thinning alone can only ever take landmarks away, so a
+  // quarter whose dice never rolled one would have none at all - and these are
+  // the buildings one is let out of after every death and the ones the engines
+  // come from. See {@link ONE_EACH}. The police station is asked first and
+  // keeps its block; these were steered clear of it.
+  const filled = posted
+    ? undefined
+    : ONE_EACH.find((kind) => isTheLocalOne(kind, blockX, blockY));
+  return BUILDINGS[posted ? "police" : (filled ?? (spare ? "house" : drawn))];
 }
 
 /**
@@ -2716,14 +2954,21 @@ function roomForPrison(blockX: number, blockY: number): boolean {
  * The sorts there is one of in each quarter rather than one in the city.
  *
  * @remarks
- * A night club. Four of them in Los Santos, one to a district, is a night out;
- * one on every other corner is a shopping centre, and nobody arranges to meet
- * anybody at the third club on the left. It is the same thinning as
- * {@link ONE_ONLY}, counted per quarter instead of per city - the four
- * districts are what the gangs are fought over, so they are the size of thing
- * a place of one own belongs to.
+ * A night club and a hospital. Four of each in Los Santos, one to a district,
+ * is a night out and somewhere to wake up; one on every other corner is a
+ * shopping centre, and nobody arranges to meet anybody at the third club on
+ * the left. It is the same thinning as {@link ONE_ONLY}, counted per quarter
+ * instead of per city - the four districts are what the gangs are fought over,
+ * so they are the size of thing a place of one's own belongs to.
+ *
+ * **A hospital is a landmark, not a chain.** It is the building one is let out
+ * of after a death, so one ends up looking at it more often than at anything
+ * else in town - and a dozen of them meant the one that took you in was
+ * whichever happened to be nearest, which is to say a different one every
+ * time and none of them ever learnt. Four, one to a quarter, is the same
+ * arrangement the police stations have.
  */
-const ONE_PER_QUARTER: readonly BuildingKind[] = ["club"];
+const ONE_PER_QUARTER: readonly BuildingKind[] = ["club", "hospital", "fire"];
 
 /** Whether this block is the one of its sort in its own quarter. */
 function isTheLocalOne(
@@ -2777,8 +3022,102 @@ function theOneIn(kind: BuildingKind, district: District): Vec | null {
       }
     }
   }
-  QUARTER_BLOCKS.set(key, best);
-  return best;
+  // **And a quarter that the dice gave none of still gets one**, if it is the
+  // sort of building a quarter cannot do without: the plainest block nearest
+  // its middle, exactly as the police station is placed. A district with no
+  // hospital in it is a district one is carried out of into somebody else's.
+  //
+  // Never the station's own block - that one is claimed last in
+  // {@link buildingAt} and would simply overrule this - and never a block the
+  // dice gave a name to, because thinning is allowed to take a landmark away
+  // and is not allowed to invent one on top of another.
+  const posted = stationIn(district);
+  const filled =
+    best ?? (ONE_EACH.includes(kind) ? plainestIn(district, posted) : null);
+  QUARTER_BLOCKS.set(key, filled);
+  return filled;
+}
+
+/**
+ * Whether the plan ends up putting ordinary housing on this block.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the same, down
+ * @returns true where a house goes up, drawn as one or thinned into one
+ * @remarks
+ * **Not the same question as "did the dice say house".** Most of the plain
+ * blocks in this city were never drawn plain: they are the second bank, the
+ * fourth night club, the police station of a quarter that already has one -
+ * landmarks that {@link buildingAt} thins back into housing. Asked the narrow
+ * way, the beach quarter looked as though it had nowhere to put a hospital,
+ * when what it has is three blocks and one of them is a house.
+ *
+ * It is the thinning test out of `buildingAt`, with the sorts in
+ * {@link ONE_EACH} left out. Those are what ask this, through
+ * {@link theOneIn}, and a ring between the two runs the stack out.
+ */
+function housing(blockX: number, blockY: number): boolean {
+  const drawn = rawKindAt(blockX, blockY);
+  return (
+    PLAIN_BLOCKS.includes(drawn) ||
+    (ONE_ONLY.includes(drawn) && !isTheOne(drawn, blockX, blockY)) ||
+    (ONE_PER_QUARTER.includes(drawn) &&
+      !ONE_EACH.includes(drawn) &&
+      !isTheLocalOne(drawn, blockX, blockY)) ||
+    (drawn === "prison" && !roomForPrison(blockX, blockY)) ||
+    (drawn === "police" && !isTheStation(blockX, blockY))
+  );
+}
+
+/**
+ * The sorts every quarter has one of, whatever its own dice said.
+ *
+ * @remarks
+ * A club a quarter may do without - one walks to the next one. The hospital is
+ * the building one is let out of after a death, so a quarter without one hands
+ * its dead to the neighbours.
+ */
+const ONE_EACH: readonly BuildingKind[] = ["hospital", "fire"];
+
+/**
+ * The plainest block nearest the middle of a quarter.
+ *
+ * @param district - which quarter of town
+ * @param taken - a block already spoken for, or null
+ * @returns a block of ordinary housing, or null if the quarter has none
+ * @remarks
+ * Reads the **plan** and nothing else - `rawKindAt`, `builtBlock`, the
+ * prison's own footprint - so that nothing here ever asks `buildingAt` what
+ * is on a block. `buildingAt` is what asks this, and a ring between the two
+ * runs the stack out; it has done twice before.
+ */
+function plainestIn(district: District, taken: Vec | null): Vec | null {
+  const blocks = CITY_TILES / BLOCK_TILES;
+  const span = BLOCK_TILES * TILE;
+  const middle = districtCentre(district);
+  let plain: Vec | null = null;
+  let plainAway = Number.POSITIVE_INFINITY;
+  for (let blockY = 0; blockY < blocks; blockY += 1) {
+    for (let blockX = 0; blockX < blocks; blockX += 1) {
+      const away = Math.hypot(
+        (blockX + HALF) * span - middle.x,
+        (blockY + HALF) * span - middle.y,
+      );
+      const free = taken === null || taken.x !== blockX || taken.y !== blockY;
+      if (
+        free &&
+        builtBlock(blockX, blockY) &&
+        !gaoled(blockX, blockY) &&
+        quarterOf(blockX, blockY) === district &&
+        housing(blockX, blockY) &&
+        away < plainAway
+      ) {
+        plain = { x: blockX, y: blockY };
+        plainAway = away;
+      }
+    }
+  }
+  return plain;
 }
 
 /** The answers to {@link theOneIn}, once each. */
@@ -3002,11 +3341,17 @@ export function carPark(
 } | null {
   let lot = null;
   if (builtBlock(blockX, blockY) && marketBlock(blockX, blockY)) {
+    // Everything of the block that is not tarmac: the pavement ring and what
+    // would have been built on it. Asked of the plan rather than counted off
+    // the edge of the block, because not every block gives the same number of
+    // squares to the streets round it - see {@link handsBack}.
+    const across = openSpan(blockX, true);
+    const down = openSpan(blockY, false);
     lot = {
-      left: blockX * BLOCK_TILES + ROAD_HALF + WALK_RING,
-      top: blockY * BLOCK_TILES + ROAD_HALF + WALK_RING,
-      right: (blockX + 1) * BLOCK_TILES - ROAD_HALF,
-      bottom: (blockY + 1) * BLOCK_TILES - ROAD_HALF,
+      left: blockX * BLOCK_TILES + across.from,
+      top: blockY * BLOCK_TILES + down.from,
+      right: blockX * BLOCK_TILES + across.to + 1,
+      bottom: blockY * BLOCK_TILES + down.to + 1,
     };
   }
   return lot;

@@ -139,6 +139,7 @@ import {
   CITY_SIZE,
   COOL_SECONDS,
   COPS_PER_CAR,
+  COP_FLOOR,
   COP_HEALTH,
   COP_RELOAD,
   COP_FORM,
@@ -223,6 +224,7 @@ import {
   type BulletFrom,
   type BulletShape,
   type Car,
+  type Chopper,
   type Cell,
   type Cop,
   type Mark,
@@ -1243,35 +1245,91 @@ function boardOrder(state: GameState): GameState {
  * Exported for the button row, which offers Einsteigen for this as well.
  */
 export function onThePad(state: GameState): boolean {
-  return (
-    state.player.car === null &&
-    !state.player.aboard &&
-    state.chopper.height <= 0 &&
-    far(state.chopper, state.player) < CHOP_REACH
-  );
+  return padUnder(state) !== null;
 }
+
+/**
+ * Which machine one is standing beside, if any.
+ *
+ * @param state - the city
+ * @returns the nearest one within reach and on the ground, or null
+ * @remarks
+ * **On the ground means on whatever is under it**, not at nought: four of the
+ * five stand on hospital roofs, eighty-four pixels up, and a test against sea
+ * level would have said they were all still in the air. What counts is that
+ * the skids are down on the floor beneath them - and that the player is up
+ * there with them, which the height test does for free: on the pavement below,
+ * a machine on the roof is out of reach.
+ */
+function padUnder(state: GameState): Chopper | null {
+  if (state.player.car !== null || state.player.aboard) {
+    return null;
+  }
+  let best: Chopper | null = null;
+  let bestAway = CHOP_REACH;
+  for (const machine of state.choppers) {
+    const away = far(machine, state.player);
+    const down = machine.height <= floorUnder(state, machine) + LANDED;
+    const level = Math.abs(machine.height - state.player.height) < CHOP_STEP;
+    if (down && level && away < bestAway) {
+      best = machine;
+      bestAway = away;
+    }
+  }
+  return best;
+}
+
+/** Which machine one is flying, if any. */
+function flownBy(state: GameState): Chopper | null {
+  const which = state.player.chopper;
+  return which === null
+    ? null
+    : (state.choppers.find((machine) => machine.id === which) ?? null);
+}
+
+/** What is under a machine at this moment: a roof, or the street. */
+function floorUnder(state: GameState, at: Vec): number {
+  return roofAt(state.cells, at.x, at.y);
+}
+
+/** How far up or down a machine may be and still be climbed into. */
+const CHOP_STEP = 12;
 
 /** Climbing in: the rotor starts and the walking keys become the stick. */
 function takeOff(state: GameState): GameState {
-  return {
-    ...state,
-    player: {
-      ...state.player,
-      flying: true,
-      x: state.chopper.x,
-      y: state.chopper.y,
-      height: state.chopper.height,
-    },
-    log: note(
-      state.log,
-      "Im Hubschrauber. Leertaste steigt, W fliegt, E steigt wieder aus.",
-    ),
-  };
+  const machine = padUnder(state);
+  return machine === null
+    ? state
+    : {
+        ...state,
+        player: {
+          ...state.player,
+          flying: true,
+          chopper: machine.id,
+          x: machine.x,
+          y: machine.y,
+          height: machine.height,
+        },
+        log: note(
+          state.log,
+          machine.kind === "rescue"
+            ? "Im Rettungshubschrauber. Leertaste steigt, W fliegt, E steigt wieder aus."
+            : "Im Hubschrauber. Leertaste steigt, W fliegt, E steigt wieder aus.",
+        ),
+      };
 }
 
 /** And climbing out, which only works once the skids are down. */
 function landed(state: GameState): GameState {
-  const down = state.chopper.height <= LANDED;
+  const machine = flownBy(state);
+  if (machine === null) {
+    return state;
+  }
+  // **Down is down on whatever is underneath**, which on a hospital is a roof
+  // eighty-four pixels up. Getting out there leaves one standing on the roof,
+  // at the roof's height, which is what the floor says is under one's feet.
+  const floor = floorUnder(state, machine);
+  const down = machine.height <= floor + LANDED;
   return !down
     ? {
         ...state,
@@ -1282,13 +1340,10 @@ function landed(state: GameState): GameState {
         player: {
           ...state.player,
           flying: false,
-          height: 0,
-          x:
-            state.chopper.x +
-            Math.cos(state.chopper.angle + Math.PI / 2) * OFF_PAD,
-          y:
-            state.chopper.y +
-            Math.sin(state.chopper.angle + Math.PI / 2) * OFF_PAD,
+          chopper: null,
+          height: floor,
+          x: machine.x + Math.cos(machine.angle + Math.PI / 2) * OFF_PAD,
+          y: machine.y + Math.sin(machine.angle + Math.PI / 2) * OFF_PAD,
         },
         log: note(state.log, "Ausgestiegen."),
       };
@@ -1317,11 +1372,14 @@ const OFF_PAD = 40;
  * traffic, it is a thing standing in a yard.
  */
 function flyChopper(state: GameState, input: Input, dt: number): GameState {
-  const chopper = state.chopper;
+  const chopper = flownBy(state);
   let next = state;
-  if (state.player.flying) {
+  if (state.player.flying && chopper !== null) {
+    // The floor is whatever is under it - a roof, or the road. Letting go over
+    // a hospital puts the machine down on the hospital, the same way the
+    // jetpack does; letting go over the street puts it in the street.
     const height = Math.max(
-      0,
+      floorUnder(state, chopper),
       Math.min(
         CHOP_CEILING,
         chopper.height + (input.lift ? CHOP_RISE : -CHOP_FALL) * dt,
@@ -1352,20 +1410,33 @@ function flyChopper(state: GameState, input: Input, dt: number): GameState {
         : slide(state.cells, chopper, want.x - chopper.x, want.y - chopper.y);
     next = {
       ...state,
-      chopper: {
-        ...chopper,
-        ...moved,
-        angle,
-        height,
-        speed,
-        spin: chopper.spin + CHOP_SPIN * dt,
-      },
+      choppers: state.choppers.map((machine) =>
+        machine.id === chopper.id
+          ? {
+              ...machine,
+              ...moved,
+              angle,
+              height,
+              speed,
+              spin: machine.spin + CHOP_SPIN * dt,
+            }
+          : machine,
+      ),
       // The player is in it, so he is wherever it is - and his height is the
       // machine's, which is what the camera and the jetpack both read.
       player: { ...state.player, ...moved, height, angle, heading: angle },
     };
-  } else if (chopper.spin !== 0) {
-    next = { ...state, chopper: { ...chopper, spin: 0, speed: 0 } };
+  } else if (state.choppers.some((machine) => machine.spin !== 0)) {
+    // Every machine nobody is in has a rotor at rest. One line rather than
+    // one per machine: whatever is not being flown is standing still.
+    next = {
+      ...state,
+      choppers: state.choppers.map((machine) =>
+        machine.id === state.player.chopper
+          ? machine
+          : { ...machine, spin: 0, speed: 0 },
+      ),
+    };
   }
   return next;
 }
@@ -1690,6 +1761,7 @@ function throwOut(state: GameState, car: Car): GameState {
       post: ((car.id + seat) * Math.PI * 2) / COP_POSTS,
       burst: COP_BURST,
       stillUntil: null,
+      floorUntil: null,
       boardAt: null,
     });
   }
@@ -3068,8 +3140,22 @@ function dropArms(
       };
 }
 
-/** How much of a shot's damage a car's bodywork feels. */
-const CAR_TOUGHNESS = 1.2;
+/**
+ * How much of a shot's damage a car's bodywork feels.
+ *
+ * @remarks
+ * **A car is not a person with more health.** At one and a fifth, a policeman
+ * with a machine gun took a hundred of bodywork apart in a second of holding
+ * the trigger down - nine damage a round, eleven rounds a second - so a chase
+ * was over before it was a chase: not caught, simply shot off the road at the
+ * second junction.
+ *
+ * Down to a third. The same burst now costs a saloon a tenth of its panels,
+ * which makes the bar in the corner what it is meant to be: a thing one
+ * watches while driving, and a reason to take the next corner wide rather than
+ * the moment one's day ends.
+ */
+const CAR_TOUGHNESS = 0.35;
 
 /**
  * An explosion: everything close to it takes something, the nearer the more.
@@ -4850,6 +4936,7 @@ function unload(state: GameState, car: Car): GameState {
       post: ((car.id * COPS_PER_CAR + door) * Math.PI * 2) / COP_POSTS,
       burst: COP_BURST,
       stillUntil: null,
+      floorUntil: null,
       boardAt: null,
     });
   }
@@ -4873,14 +4960,18 @@ function unload(state: GameState, car: Car): GameState {
  */
 function moveCops(state: GameState, dt: number): GameState {
   let next = state;
+  // Whoever is flat on the tarmac stays there until his own clock lets him up,
+  // and then walks on from where he fell - see {@link floored}.
   const cops = state.cops.map((cop) =>
-    cop.health > 0 ? walkCop(next, cop, dt) : cop,
+    cop.health > 0 && !floored(cop, state.time) ? walkCop(next, cop, dt) : cop,
   );
   next = { ...next, cops };
   for (const cop of next.cops) {
     const gun = WEAPONS[cop.holds];
     const canShoot =
       cop.health > 0 &&
+      // Nobody fires from under a car.
+      !floored(cop, next.time) &&
       // A car is a target too: whoever sits in one and waits gets his
       // bodywork taken apart rather than being politely ignored.
       far(cop, next.player) < gun.range &&
@@ -4928,7 +5019,10 @@ function moveCops(state: GameState, dt: number): GameState {
     ? putAboard(
         next,
         next.cops.filter(
-          (cop) => cop.health > 0 && (cop.guards ?? null) === null,
+          (cop) =>
+            cop.health > 0 &&
+            !floored(cop, next.time) &&
+            (cop.guards ?? null) === null,
         ),
       )
     : next;
@@ -5035,6 +5129,12 @@ function walkCop(state: GameState, cop: Cop, dt: number): Cop {
 /** What being caught in a prison yard is worth. */
 const GAOL_STARS = 2;
 
+/** How long after one visit to the garage the next may start, in seconds. */
+const GARAGE_AGAIN = 3;
+
+/** How fast the car still has to be going to count as arriving, in px a second. */
+const GARAGE_ROLL = 2;
+
 /** How near his post a policeman has to get before he stops walking. */
 const COP_STAND = 18;
 
@@ -5044,7 +5144,10 @@ function boardCars(state: GameState): GameState {
     state,
     state.cops.filter(
       (cop) =>
-        cop.health > 0 && cop.boardAt !== null && state.time >= cop.boardAt,
+        cop.health > 0 &&
+        !floored(cop, state.time) &&
+        cop.boardAt !== null &&
+        state.time >= cop.boardAt,
     ),
   );
 }
@@ -5059,12 +5162,22 @@ function boardCars(state: GameState): GameState {
  * - and both mean the same thing to the car, so they share this.
  */
 function putAboard(state: GameState, who: readonly Cop[]): GameState {
+  // **Never into the car the player is driving.** A patrol car keeps its id
+  // when it is taken off the police, and the men who were thrown out of it
+  // still have that id written on them - so when the chase ended they climbed
+  // back into it, wherever it happened to be. Which was how a stolen patrol
+  // car driven home and parked turned out to have two policemen in it, who
+  // then got out inside the garage.
+  const mine = state.player.car;
   return who.length === 0
     ? state
     : {
         ...state,
         cars: state.cars.map((car) => {
-          const back = who.filter((cop) => cop.carId === car.id).length;
+          const back =
+            car.id === mine
+              ? 0
+              : who.filter((cop) => cop.carId === car.id).length;
           return back === 0
             ? car
             : {
@@ -5072,6 +5185,10 @@ function putAboard(state: GameState, who: readonly Cop[]): GameState {
                 crew: Math.min(VEHICLES[car.body].seats, car.crew + back),
               };
         }),
+        // They all leave the street either way. The men whose car is now the
+        // player's simply have nowhere to leave it to - and left standing
+        // about they would wait outside his house for ever, walking at a door
+        // they can never open.
         cops: state.cops.filter((cop) => !who.includes(cop)),
       };
 }
@@ -5381,8 +5498,13 @@ function fallHeli(state: GameState, heli: Heli, dt: number): GameState {
 
 /** One step of the helicopter: closing in, turning, and firing down. */
 function steerHeli(state: GameState, heli: Heli, dt: number): GameState {
-  const away = far(heli, state.player);
-  const angle = Math.atan2(state.player.y - heli.y, state.player.x - heli.x);
+  // The helicopter searches with the rest of them: while the player is out of
+  // sight in his garage it flies its own corner of the streets round the
+  // house, and it does not fire at a roof. See {@link lost}.
+  const hiding = lost(state);
+  const goal = hiding ? searchAt(state, HELI_SEARCH) : state.player;
+  const away = far(heli, goal);
+  const angle = Math.atan2(goal.y - heli.y, goal.x - heli.x);
   const step = away > HELI_HOLD ? HELI_SPEED * dt : 0;
   const flown: Heli = {
     ...heli,
@@ -5392,6 +5514,7 @@ function steerHeli(state: GameState, heli: Heli, dt: number): GameState {
     spin: heli.spin + ROTOR_SPIN * dt,
   };
   const shooting =
+    !hiding &&
     state.player.car === null &&
     away < HELI_RANGE &&
     state.time >= heli.reloadAt;
@@ -5629,6 +5752,78 @@ function hitThings(state: GameState): GameState {
   return car === null ? onFoot(state) : inCar(state, car);
 }
 
+/**
+ * Whether a policeman is lying in the road at the moment.
+ *
+ * @param cop - the man
+ * @param now - the simulation clock
+ * @returns true while he is down and cannot do anything about it
+ * @remarks
+ * He is alive: this is the two or three seconds after a bonnet caught him, not
+ * a body. Everything a policeman does - walking, looking, firing, climbing
+ * into his car, holding somebody still for an arrest - asks this first.
+ */
+function floored(cop: Cop, now: number): boolean {
+  return cop.floorUntil !== null && now < cop.floorUntil;
+}
+
+/**
+ * Policemen the player has driven into: down once, dead the second time.
+ *
+ * @param state - the city
+ * @param car - the one the player is driving
+ * @returns the city with whoever was in the way in the road
+ * @remarks
+ * **A car is not a bullet.** Driving into a man knocks him over; it does not
+ * shoot him. So the first time the bonnet catches a policeman he goes down,
+ * lies there for {@link COP_FLOOR} seconds and gets back up - which is the
+ * only thing about the police one can undo, and the reason it is worth doing
+ * at all: a man on his back is not firing, not chasing, and not part of the
+ * ring closing round the car.
+ *
+ * **The second time kills him.** Whether it is the same run or ten minutes
+ * later does not matter - `floorUntil` is left standing after he gets up, so
+ * the man carries the first knock about with him for the rest of the game. One
+ * is an accident and two is intent, and this is the game saying so.
+ *
+ * Above {@link CRASH_FLOOR} only, so creeping up to a policeman in a parked
+ * car is not a hit-and-run; and never twice in the same fall, because whoever
+ * is already down is not in the way any more.
+ */
+function runDownCops(state: GameState, car: Car): GameState {
+  if (Math.abs(car.speed) <= CRASH_FLOOR) {
+    return state;
+  }
+  const struck = state.cops.filter(
+    (cop) =>
+      cop.health > 0 &&
+      !floored(cop, state.time) &&
+      far(cop, car) < bodyRadius(car.body) + PERSON_RADIUS,
+  );
+  let next = state;
+  for (const cop of struck) {
+    // The second knock goes through `hurtCop` rather than simply setting the
+    // health to nought: that is where his weapon falls out of his hand and
+    // where the rest of them close up round the gap he leaves.
+    // "Has been under a car before", which is what a stack that is not null
+    // means once he is back on his feet.
+    const again = cop.floorUntil !== null;
+    next = again
+      ? hurtCop(next, cop.id, cop.health)
+      : {
+          ...next,
+          cops: next.cops.map((each) =>
+            each.id === cop.id
+              ? { ...each, floorUntil: state.time + COP_FLOOR, pace: 0 }
+              : each,
+          ),
+        };
+  }
+  return struck.length === 0
+    ? next
+    : wanted(next, SHOT_STARS, "Polizist angefahren");
+}
+
 /** Running people over, and crashing into cars. */
 function inCar(state: GameState, car: Car): GameState {
   let next = state;
@@ -5653,6 +5848,9 @@ function inCar(state: GameState, car: Car): GameState {
     };
     next = trouble(next, 1, "Passant angefahren");
   }
+  // And the men in uniform, who are a list of their own and take it
+  // differently: see {@link runDownCops}.
+  next = runDownCops(next, car);
   // Then metal on metal: both cars take it, and the player's own bodywork too.
   // Either side may be the fast one - a patrol car ramming a parked player is
   // a crash as much as the other way round, and without that a chase could be
@@ -5876,7 +6074,10 @@ function cornered(state: GameState, dt: number): GameState {
       (each) => onWatch(state, each) && far(each, at) < BUST_RANGE,
     ) ||
       state.cops.some(
-        (cop) => cop.health > 0 && far(cop, at) < BUST_RANGE / 2,
+        (cop) =>
+          cop.health > 0 &&
+          !floored(cop, state.time) &&
+          far(cop, at) < BUST_RANGE / 2,
       ));
   const pinned = held ? state.player.pinned + dt : 0;
   let next: GameState = { ...state, player: { ...state.player, pinned } };
@@ -6692,11 +6893,23 @@ function runDoor(state: GameState): GameState {
  *   what he carries, which through a shut garage door would be a man firing
  *   at a building on the off-chance.
  *
- * Measured from the bay rather than from the door, so it means "in the
- * garage" and not "somewhere near the house".
+ * Asked of the **squares**, not of a radius. It used to be "within
+ * twenty-six pixels of the middle of the bay", which is half a square: park a
+ * hand's breadth off centre, or get out and stand beside the car, and one was
+ * out in the open again as far as the police were concerned - inside one's own
+ * garage. The garage is two squares. Being on either of them is being in it.
  */
 function lost(state: GameState): boolean {
-  return far(state.player, garageBay(homeOf(state))) < GARAGE_RANGE;
+  const home = homeOf(state);
+  const at = {
+    x: Math.floor(state.player.x / TILE),
+    y: Math.floor(state.player.y / TILE),
+  };
+  return [garageBay(home), garageMouth(home)].some(
+    (square) =>
+      Math.floor(square.x / TILE) === at.x &&
+      Math.floor(square.y / TILE) === at.y,
+  );
 }
 
 /**
@@ -6714,17 +6927,34 @@ function lost(state: GameState): boolean {
 function searchAt(state: GameState, who: number): Vec {
   const home = homeOf(state);
   const way = (who * Math.PI * 2) / SEARCH_WAYS;
-  return {
-    x: home.x + Math.cos(way) * SEARCH_RING,
-    y: home.y + Math.sin(way) * SEARCH_RING,
-  };
+  // **Snapped to a crossing.** Somebody looking for a car that went round a
+  // corner looks along the streets, not at a point in the middle of a wood -
+  // and a point on a plain circle round the house lands in a wood about as
+  // often as it lands on tarmac.
+  return nearestCrossing(
+    home.x + Math.cos(way) * SEARCH_RING,
+    home.y + Math.sin(way) * SEARCH_RING,
+  );
 }
 
-/** How far from the house they search, in pixels. */
-const SEARCH_RING = 260;
+/**
+ * How far from the house they search, in pixels.
+ *
+ * @remarks
+ * **Out of sight, which means further than it sounds.** At two hundred and
+ * sixty they were searching the garden - one looked out of one's own garage at
+ * six policemen standing round the hedge. The screen is about a thousand
+ * pixels across, so anything under five hundred is still in the picture;
+ * at nine hundred they are three streets away, which is where somebody looking
+ * for a car that went round a corner would actually be.
+ */
+const SEARCH_RING = 900;
 
 /** And into how many directions they spread while they do it. */
 const SEARCH_WAYS = 7;
+
+/** Which of those the helicopter takes. */
+const HELI_SEARCH = 3;
 
 /**
  * Which of the three houses is yours right now.
@@ -6739,7 +6969,7 @@ export function homeOf(state: GameState): Vec {
 }
 
 /**
- * Driving into your own garage: the door shuts, and the car comes out new.
+ * Driving into your own garage: the door shuts, and the car comes out mended.
  *
  * @remarks
  * Your house, so no bill - and **behind the door they have not seen you**.
@@ -6760,29 +6990,37 @@ function checkGarage(state: GameState): GameState {
   // in the bay and the door can come down behind it.
   const inside =
     car !== null && far(car, garageBay(homeOf(state))) < GARAGE_RANGE;
+  // **Every time one drives in, not only the first.** It used to ask whether
+  // there was anything to *do* - stars to lose, dents to beat out, or no
+  // previous visit at all - and on the second trip in with a sound car and a
+  // clean sheet the answer was no, so the door did not come down. A garage
+  // that shuts for some arrivals and not for others is a garage one cannot
+  // trust to shut. All it wants is a moment between one closing and the next,
+  // so that sitting in the bay does not roll the door up and down for ever.
   const worthIt =
     inside &&
-    (state.player.stars > 0 ||
-      car.health < VEHICLES[car.body].health ||
-      state.garageAt === null);
+    // **Still rolling**, which is what tells arriving from sitting there. A
+    // car parked in the bay is inside it for as long as one leaves it, and
+    // without this the door would come down, go up and come down again every
+    // few seconds round a car that is not going anywhere.
+    car !== null &&
+    Math.abs(car.speed) > GARAGE_ROLL &&
+    (state.garageAt === null || state.time >= state.garageAt + GARAGE_AGAIN);
   let next = state;
   if (inside && worthIt && car !== null) {
     next = {
       ...state,
       garageAt: state.time,
+      // **Repaired, not resprayed.** A new coat of paint every time one
+      // drives in meant one never got to keep a car one liked the colour of,
+      // and it bought nothing: what shakes off a chase is being out of sight,
+      // not being a different colour - see {@link lost}.
       cars: state.cars.map((each) =>
         each.id === car.id
-          ? {
-              ...each,
-              health: VEHICLES[each.body].health,
-              colour: each.colour + 1,
-            }
+          ? { ...each, health: VEHICLES[each.body].health }
           : each,
       ),
-      log: note(
-        state.log,
-        "Umlackiert und repariert. Sie suchen dich draußen.",
-      ),
+      log: note(state.log, "Repariert. Sie suchen dich draußen."),
     };
   }
   return next;
@@ -7166,8 +7404,15 @@ function filled(
 /** Whether the day is over, one way or the other. */
 function checkEnd(state: GameState): GameState {
   const all = DISTRICTS.every((district) => state.districts[district].owned);
-  const car = carOf(state);
-  const dead = state.player.health <= 0 || (car !== null && car.health <= 0);
+  // **The bodywork is not the driver.** This used to end the day the moment
+  // the car one was sitting in ran out of bodywork: the bar emptied and the
+  // screen said WASTED, with the driver untouched at the wheel of a car that
+  // had not even caught fire yet. A car that has been shot to pieces stops -
+  // it has no engine left - and then it smokes, catches and goes off, and all
+  // of that is {@link burnCars}, which is several seconds long and is a
+  // question: the door handle, or not. Dying in the bang is an answer to it.
+  // Being killed by the bar emptying is not.
+  const dead = state.player.health <= 0;
   let next = state;
   if (all) {
     next = {

@@ -49,9 +49,79 @@ export type Building = {
   readonly shape: BuildingShape;
   /** How tall it builds, against the height the block would have anyway. */
   readonly rise: number;
+  /**
+   * How tall it builds whatever the block, in pixels, or null for {@link rise}.
+   *
+   * @remarks
+   * **Some buildings are a height rather than a share of one.** A tower block
+   * downtown ought to be taller than one on the edge of town, and `rise` gives
+   * it that. A single-storey shop ought not: a barber's is one room with a
+   * window and a door in front of it, and it is that whether it stands between
+   * two office blocks or out in the suburbs. Where this is set, the block's
+   * own dice are simply not asked. See {@link wallHeight}.
+   */
+  readonly flat: number | null;
   /** The colour of the sign, if it has one. */
   readonly sign: string;
+  /**
+   * Whether the ground floor is a shop window rather than a wall with panes.
+   *
+   * @remarks
+   * **A shop shows what it sells.** A barber's, a gun shop, a restaurant and a
+   * supermarket all have the same thing at street level: one sheet of glass
+   * either side of the door, floor to lintel, with the mullions between the
+   * panes and nothing else. Two small windows with sills and glazing bars is
+   * what a **house** has - on a shop it reads as somebody's front room with a
+   * sign screwed over it.
+   *
+   * Only the ground floor. Whatever is above a shop is flats, and flats have
+   * windows.
+   */
+  readonly glass: boolean;
 };
+
+/**
+ * How tall a fire station is, in pixels.
+ *
+ * @remarks
+ * Sixty-eight: the bay itself is four metres to the lintel, and what stands on
+ * top of it is the rest of the building.
+ */
+const FIRE_HIGH = 68;
+
+/**
+ * How tall a hospital is, in pixels.
+ *
+ * @remarks
+ * Eighty-four: three storeys of {@link STOREY} - three metres each at eight
+ * and a half pixels to the metre - and a parapet over them for the sign and
+ * the edge of the landing pad.
+ */
+const HOSPITAL_HIGH = 84;
+
+/**
+ * How tall a barber's shop is, in pixels.
+ *
+ * @remarks
+ * Thirty-four, which at eight and a half pixels to the metre is four metres:
+ * a shopfront of about two and a half and a band of wall over it for the name.
+ */
+const BARBER_HIGH = 34;
+
+/**
+ * How tall one of these stands, in pixels.
+ *
+ * @param sort - what is built there
+ * @param blockHigh - what the block's own dice rolled for it
+ * @returns the height of its front wall
+ * @remarks
+ * Asked by the picture and by the floor - the roof one lands a jetpack on has
+ * to be the roof one can see - so the two read the same sentence rather than
+ * each multiplying the same two numbers and one of them forgetting.
+ */
+export function wallHeight(sort: Building, blockHigh: number): number {
+  return sort.flat ?? blockHigh * sort.rise;
+}
 
 /** Every sort there is. */
 export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
@@ -62,7 +132,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#78716c",
     shape: "one",
     rise: 1,
+    flat: null,
     sign: "#e2e8f0",
+    glass: false,
   },
   double: {
     kind: "double",
@@ -71,7 +143,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#9a8c78",
     shape: "two",
     rise: 0.85,
+    flat: null,
     sign: "#e2e8f0",
+    glass: false,
   },
   terrace: {
     kind: "terrace",
@@ -80,7 +154,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#8d6e63",
     shape: "row",
     rise: 0.75,
+    flat: null,
     sign: "#e2e8f0",
+    glass: false,
   },
   tower: {
     kind: "tower",
@@ -89,7 +165,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#64748b",
     shape: "one",
     rise: 1.9,
+    flat: null,
     sign: "#e2e8f0",
+    glass: false,
   },
   bank: {
     kind: "bank",
@@ -98,7 +176,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#a8a29e",
     shape: "one",
     rise: 1.3,
+    flat: null,
     sign: "#facc15",
+    glass: false,
   },
   mint: {
     kind: "mint",
@@ -110,7 +190,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#52525b",
     shape: "one",
     rise: 1.15,
+    flat: null,
     sign: "#eab308",
+    glass: false,
   },
   guns: {
     kind: "guns",
@@ -119,7 +201,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#57534e",
     shape: "one",
     rise: 0.85,
+    flat: null,
     sign: "#b91c1c",
+    glass: true,
   },
   fire: {
     kind: "fire",
@@ -128,7 +212,13 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#7f1d1d",
     shape: "one",
     rise: 0.9,
+    // **Two storeys and the drill tower behind them.** An engine bay is high
+    // before it is anything else - a ladder truck has to get in under the
+    // lintel - and over it go the dormitory and the hose tower. At the height
+    // the block rolled it was a garage with a sign on it.
+    flat: FIRE_HIGH,
     sign: "#fde047",
+    glass: false,
   },
   hospital: {
     kind: "hospital",
@@ -137,7 +227,14 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#cbd5e1",
     shape: "one",
     rise: 1.4,
+    // **Three floors and a landing pad, the same in all four quarters.** A
+    // hospital that is a bungalow on the edge of town and a tower downtown is
+    // two different buildings with the same sign; this is the one the
+    // ambulance and the helicopter both come to, so it is a height rather
+    // than a share of one.
+    flat: HOSPITAL_HIGH,
     sign: "#ef4444",
+    glass: false,
   },
   police: {
     kind: "police",
@@ -146,7 +243,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#1e293b",
     shape: "one",
     rise: 1.1,
+    flat: null,
     sign: "#93c5fd",
+    glass: false,
   },
   barber: {
     kind: "barber",
@@ -155,7 +254,14 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#94a3b8",
     shape: "one",
     rise: 0.7,
+    // **One storey, and the same one everywhere.** Four metres to the eaves:
+    // room for a shop window, a door a person walks through without ducking
+    // and a band of wall over them for the name. At the block's own height it
+    // was under three metres, which is a wall with a letterbox in it, and
+    // downtown it would have been a barber's shop in a tower.
+    flat: BARBER_HIGH,
     sign: "#ef4444",
+    glass: true,
   },
   restaurant: {
     kind: "restaurant",
@@ -164,7 +270,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#78350f",
     shape: "one",
     rise: 0.8,
+    flat: null,
     sign: "#fde047",
+    glass: true,
   },
   casino: {
     kind: "casino",
@@ -173,7 +281,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#581c87",
     shape: "one",
     rise: 1.5,
+    flat: null,
     sign: "#fde047",
+    glass: false,
   },
   hall: {
     kind: "hall",
@@ -182,7 +292,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#a8a29e",
     shape: "one",
     rise: 1.2,
+    flat: null,
     sign: "#0f172a",
+    glass: false,
   },
   market: {
     kind: "market",
@@ -191,7 +303,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#115e59",
     shape: "one",
     rise: 0.65,
+    flat: null,
     sign: "#f8fafc",
+    glass: true,
   },
   club: {
     kind: "club",
@@ -200,7 +314,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#312e81",
     shape: "one",
     rise: 0.9,
+    flat: null,
     sign: "#f472b6",
+    glass: false,
   },
   prison: {
     kind: "prison",
@@ -209,7 +325,9 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     wall: "#44403c",
     shape: "one",
     rise: 1,
+    flat: null,
     sign: "#f97316",
+    glass: false,
   },
 };
 

@@ -113,6 +113,19 @@ export const TRAIN_HURT = 90;
  * the keys say: nose round, forward, and up while the space bar is held.
  */
 export type Chopper = {
+  /** Which machine this is: they are told apart by this and nothing else. */
+  readonly id: number;
+  /**
+   * Which sort it is.
+   *
+   * @remarks
+   * The one on the pad at the military base is olive and the four on the
+   * hospital roofs are yellow, and that is the whole of the difference: they
+   * fly the same, neither of them is armed, and both are boarded by walking up
+   * to one and pressing the same key. A second flying model would have been a
+   * second set of bugs.
+   */
+  readonly kind: ChopperKind;
   readonly x: number;
   readonly y: number;
   /** Which way the nose points, in radians. */
@@ -124,6 +137,9 @@ export type Chopper = {
   /** Where the rotor is in its turn, in radians. */
   readonly spin: number;
 };
+
+/** Which sort of flying machine one has climbed into. */
+export type ChopperKind = "army" | "rescue";
 
 /** How fast the helicopter climbs, in pixels a second. */
 export const CHOP_RISE = 70;
@@ -780,7 +796,15 @@ export type GameState = {
   /** The train going round the map. */
   readonly train: Train;
   /** The helicopter on the pad at the base, whoever is or is not in it. */
-  readonly chopper: Chopper;
+  /**
+   * Every machine one can fly, wherever it happens to be standing.
+   *
+   * @remarks
+   * One on the pad at the base and one on the roof of each hospital. They are
+   * not traffic and not vehicles: nothing drives them, nothing shoots at them,
+   * and with nobody aboard a machine simply sits where it was left.
+   */
+  readonly choppers: readonly Chopper[];
   /** The clock reading the anti-aircraft guns may fire their next volley at. */
   readonly ackAt: number;
   /** The four launchers round the base, wrecked or whole. */
@@ -1019,6 +1043,16 @@ export type Player = {
   readonly aboard: boolean;
   /** Whether he is at the controls of the helicopter. */
   readonly flying: boolean;
+  /**
+   * Which machine one is flying, or null on the ground.
+   *
+   * @remarks
+   * {@link Player.flying} says *whether*, this says *which* - and with five of
+   * them standing about the city the second question has an answer that is not
+   * simply "the helicopter". Null whenever `flying` is false; the two are set
+   * and cleared together.
+   */
+  readonly chopper: number | null;
   /**
    * How high above the road he is, in pixels.
    *
@@ -1628,15 +1662,6 @@ export const BRAKE_RANGE = 74;
 export const BRAKE_WIDTH = 26;
 
 /**
- * How long after its bodywork runs out a wreck smokes lightly, in seconds.
- *
- * @remarks
- * The bar in the corner is the warning while there is bodywork left; the smoke
- * is what happens after it is gone. Four stages, and each one is a chance to
- * get out: a wisp, a black plume, flames, and then the bang. A wreck that went
- * up the moment the bar emptied would be a death, not a decision.
- */
-/**
  * How many rockets or shells it takes to set a tank alight.
  *
  * @remarks
@@ -1657,16 +1682,32 @@ export const TANK_HITS = 3;
  */
 export const TANK_ARMOUR = 0.25;
 
-export const SMOKE_STAGE = 0.8;
+/**
+ * How long after its bodywork runs out a wreck smokes lightly, in seconds.
+ *
+ * @remarks
+ * The bar in the corner is the warning while there is bodywork left; the smoke
+ * is what happens after it is gone. Four stages, and each one is a chance to
+ * get out: a wisp, a black plume, flames, and then the bang. A wreck that went
+ * up the moment the bar emptied would be a death, not a decision.
+ *
+ * **All four are times since the fire started, and they are in order.** They
+ * used to run smoke at 0.8, flames at 2.2 and the black plume at 4 - so the
+ * thick smoke arrived two seconds *after* the thing was already alight, which
+ * is not how anything burns, and the whole business was over in four and a
+ * half seconds. That is not long enough to be a question: the door takes a
+ * moment, and then one still has to get out of the blast.
+ */
+export const SMOKE_STAGE = 1;
 
 /** How long after that the smoke turns thick and black. */
-export const FUMES_STAGE = 4;
+export const FUMES_STAGE = 3.5;
 
 /** How long after that it is properly alight. */
-export const FIRE_STAGE = 2.2;
+export const FIRE_STAGE = 6;
 
 /** How long a wreck lasts altogether before it goes off, in seconds. */
-export const BURN_SECONDS = 4.5;
+export const BURN_SECONDS = 9.5;
 
 /** How long an explosion is drawn for, in seconds. */
 export const BLAST_SECONDS = 0.5;
@@ -2202,6 +2243,22 @@ export type Cop = {
   /** Simulation time the body is cleared away at, or null while alive. */
   readonly stillUntil: number | null;
   /**
+   * Simulation time he gets back on his feet, or null if he never went down.
+   *
+   * @remarks
+   * **What a car does to a policeman, and what the second car does.** A man
+   * hit by a bonnet is knocked off his feet; he is not shot. He lies in the
+   * road for {@link COP_FLOOR} seconds, gets up and goes back to work - which
+   * is the difference between running one over and murdering one, and the
+   * reason this is a clock rather than a hole in his health.
+   *
+   * It is not cleared when he stands up, and that is the whole of the second
+   * half: a stack that is null is a man who has never been under a car, and a
+   * stack that holds a time in the past is a man who has been under one
+   * already. The next one kills him. See runDownCops in ./engine.
+   */
+  readonly floorUntil: number | null;
+  /**
    * Simulation time they finish climbing back into their car, or null.
    *
    * @remarks
@@ -2244,6 +2301,16 @@ export type Heli = {
    */
   readonly fallAt: number | null;
 };
+
+/**
+ * How long a run-over policeman lies in the road before he gets up.
+ *
+ * @remarks
+ * Longer than the second {@link FLOOR_SECONDS} costs the player, and on
+ * purpose: the point of driving at the man on the pavement is to be somewhere
+ * else before he is on his feet again.
+ */
+export const COP_FLOOR = 4;
 
 /** How long a hit helicopter takes to come down, in seconds. */
 export const HELI_FALL = 2.4;

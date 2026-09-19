@@ -33,6 +33,7 @@ import {
   railLine,
   carPark,
   builtPlot,
+  fireBays,
   prisonPlot,
   prisonHut,
   prisonUnder,
@@ -100,6 +101,7 @@ import {
   type Ack,
   type Bullet,
   type Car,
+  type Chopper,
   type Cell,
   type Charge,
   type Animal,
@@ -140,7 +142,7 @@ import {
   animalHead,
 } from "@/games/gta/components/animal-art";
 import { buildingAt } from "@/games/gta/engine/city";
-import type { Building } from "@/games/gta/engine/buildings";
+import { wallHeight, type Building } from "@/games/gta/engine/buildings";
 import {
   VEHICLES,
   twoWheeled,
@@ -158,6 +160,8 @@ import {
   turretSprite,
   TURRET_SIZE,
   vehicleSprite,
+  FIRE_PAINT,
+  RTW_WHITE,
   VAN_PAINT,
   vehicleWall,
   type VehicleFace,
@@ -999,6 +1003,10 @@ function drawScenery(
     }
   }
   drawCarParks(ctx, view, fromCol, fromRow, toCol, toRow);
+  // The villa's own paving: the drive, the cobbled yard and what grows on the
+  // lawn between them. All of it floor, so all of it here rather than with the
+  // house - see `villaGround`.
+  villaGround(ctx, view, state);
   drawTrack(ctx, view, fromCol, fromRow, toCol, toRow);
   drawBase(ctx, state, view);
   drawRunway(ctx, view);
@@ -3056,12 +3064,23 @@ function drawScene(
       });
     }
   }
-  movers.push({
-    depth: state.chopper.y,
-    at: { x: state.chopper.x, y: state.chopper.y },
-    mine: state.player.flying,
-    paint: () => drawChopper(ctx, state, view),
-  });
+  for (const machine of state.choppers) {
+    // **A machine standing on a roof is sorted with that roof, not with the
+    // ground under it.** Its own y is the middle of the block it sits on,
+    // which puts it behind the building - so it was drawn, and then the
+    // hospital was drawn over the top of it. Given the depth of the front of
+    // the block it stands on, it comes out in front of its own building and
+    // behind whatever is south of that, which is what one wants of anything
+    // on a roof.
+    const roof = roofAt(state.cells, machine.x, machine.y);
+    const standing = machine.height <= roof + ROOF_REST;
+    movers.push({
+      depth: standing && roof > 0 ? machine.y + ROOF_FRONT : machine.y,
+      at: { x: machine.x, y: machine.y },
+      mine: state.player.flying && state.player.chopper === machine.id,
+      paint: () => drawChopper(ctx, machine, view),
+    });
+  }
   // The train, before the list is read rather than after it: pushed in later
   // it was in no list at all, and a train nobody paints is a train nobody sees.
   for (const wagon of trainCars(state.train)) {
@@ -3615,10 +3634,9 @@ const TAIL_SPAN = 5.1;
  */
 function drawChopper(
   ctx: CanvasRenderingContext2D,
-  state: GameState,
+  chopper: Chopper,
   view: View,
 ): void {
-  const chopper = state.chopper;
   const up = chopper.height / CHOP_CEILING;
   shadow(
     ctx,
@@ -3629,14 +3647,22 @@ function drawChopper(
     chopper.angle,
     0.45 - up * 0.2,
   );
-  paintHeli(
-    ctx,
-    project(view, chopper.x, chopper.y, chopper.height),
-    chopper.angle,
-    chopper.spin,
-    ARMY_PAINT,
-  );
+  const spot = project(view, chopper.x, chopper.y, chopper.height);
+  if (chopper.kind === "rescue") {
+    rescueHeli(ctx, spot.x, spot.y, RESCUE_LONG, chopper.angle, chopper.spin);
+  } else {
+    paintHeli(ctx, spot, chopper.angle, chopper.spin, ARMY_PAINT);
+  }
 }
+
+/** How long the air ambulance is drawn, in pixels. */
+const RESCUE_LONG = 40;
+
+/** How far above its roof a machine still counts as standing on it. */
+const ROOF_REST = 4;
+
+/** And how far forward that puts it in the order things are drawn in. */
+const ROOF_FRONT = 220;
 
 /** How far a falling helicopter slews round, in radians over the whole fall. */
 const FALL_SLEW = 2.6;
@@ -3811,7 +3837,7 @@ function collectHouses(
         const top = box.top * TILE;
         const right = box.right * TILE;
         const bottom = box.bottom * TILE;
-        const height = houseHeight(blockX, blockY, look) * sort.rise;
+        const height = wallHeight(sort, houseHeight(blockX, blockY, look));
         const plot = { left, top, right, bottom };
         const foot = project(view, left, bottom);
         // **What a prison can hide is its near range, not its yard.** This
@@ -3828,9 +3854,17 @@ function collectHouses(
         // and nobody in the yard beyond it.
         const capTop = gaol ? bottom - PRISON_WING * TILE : top;
         const roof = project(view, left, capTop, height);
+        // **A fire station is sorted by the back of its bays, not by its front
+        // wall.** Its engines stand *inside* it, a square or two north of the
+        // front, so sorted by the front wall the building was painted over the
+        // three vehicles it is there to hold. Given the depth of the back of
+        // the bays it comes out behind them - and behind anything else in the
+        // doorway - while everything further south is still in front of it.
+        const sorted =
+          sort.kind === "fire" ? bottom - BAY_DEPTH * TILE - 4 : bottom;
         houses.push({
           wall: {
-            depth: bottom,
+            depth: sorted,
             left: foot.x,
             right: foot.x + (right - left),
             top: roof.y,
@@ -5483,11 +5517,11 @@ function drawHouse(
     for (let part = 0; part < parts; part += 1) {
       const dice = scatter(Math.round(look * 71), 13 + part * 29);
       const from = plot.left + part * (each + gap);
-      // **Only where there is pavement to lay it on.** A block that fronts
-      // straight onto a motorway has no kerb and no verge - the tarmac starts
-      // where the wall stops - and a bay drawn there is a bay in the fast
-      // lane. So the plan is asked what is actually in front of this house
-      // before anything is painted on it.
+      // **Only where there is pavement to lay it on.** Not every front has
+      // one: a block can run straight up to open ground, to the sand along the
+      // shore or to a car park, and a bay painted on any of those is a bay in
+      // the middle of nowhere. So the plan is asked what is actually in front
+      // of this house before anything is painted on it.
       const kerb = cellUnder(cells, from + each / 2, plot.bottom + TILE / 2);
       if (dice < DRIVE_SHARE && kerb === "walk") {
         drive(ctx, view, plot.bottom, from, each, dice, fade);
@@ -5725,7 +5759,7 @@ function drawVilla(
   ctx.save();
   ctx.globalAlpha = fade;
 
-  garden(ctx, view, plot, garage);
+  garden(ctx, view);
 
   // **The wing first, then the main block.** The tall one is drawn over the
   // low one where they meet, which is what a two-storey wall does to the roof
@@ -5840,7 +5874,8 @@ function drawVilla(
   // at the very front edge of the tiles, half off the house; a stack comes out
   // of the middle of a roof. This one stands about two thirds of the way back
   // down the slope of the big roof and in the middle of it across, which on
-  // the photograph is where the smoke is coming from.
+  // the photograph is where the smoke is coming from - a little right of the
+  // middle across, clear of the gabled wing on the left end.
   const stack = {
     x: foot.x + split * CHIMNEY_AT - CHIMNEY_WIDE / 2,
     y: back.y + (foot.y - height - back.y) * CHIMNEY_BACK,
@@ -6235,31 +6270,36 @@ const VILLA_GLASS_LIT = "#f3d9a4";
  * right: the paved forecourt with the bay marked on it, hedge either side of
  * the opening, a row of cypresses up the left, and agaves in the gravel.
  */
-function garden(
+function villaGround(
   ctx: CanvasRenderingContext2D,
   view: View,
-  plot: { left: number; top: number; right: number; bottom: number },
-  garage: Vec,
+  state: GameState,
 ): void {
   const block = villaBlock();
   if (block === null) {
     return;
   }
-  // **Everything here is in the property's own coordinates, not the house's.**
-  // The house is one corner of a lawn twelve squares across now; a hedge laid
-  // round the house is a hedge through the middle of the garden.
   const grounds = villaGrounds(block.x, block.y);
   const yard = villaYard(block.x, block.y);
-  const edge = project(view, grounds.left * TILE, grounds.top * TILE);
-  const down = (grounds.bottom - grounds.top) * TILE * DEPTH;
-  const kerb = project(view, plot.left, plot.bottom);
-  const deep = (grounds.bottom * TILE - plot.bottom) * DEPTH;
+  const plot = villaPlot(block.x, block.y);
+  const garage = state.garages.find(
+    (bay) =>
+      bay.x >= grounds.left * TILE &&
+      bay.x < grounds.right * TILE &&
+      bay.y >= grounds.top * TILE &&
+      bay.y < grounds.bottom * TILE,
+  );
+  if (garage === undefined) {
+    return;
+  }
+  const kerb = project(view, plot.left * TILE, plot.bottom * TILE);
+  const deep = (grounds.bottom - plot.bottom) * TILE * DEPTH;
 
-  // **And flowers in the grass.** Not scattered at random: every clump comes
-  // out of `scatter` on the square it stands on, so the same border is in the
-  // same place every time one comes home. Only on the lawn - the plan is asked
-  // what is under each one rather than the corners of the property being
-  // guessed at, so nothing grows out of the roof.
+  // **Flowers in the grass.** Not scattered at random: every clump comes out
+  // of `scatter` on the square it stands on, so the same border is in the same
+  // place every time one comes home. Only on the lawn - the plan is asked what
+  // is under each one rather than the corners of the property being guessed
+  // at, so nothing grows out of the roof.
   //
   // And **before** the drive and the yard are laid, not after: the drive is
   // painted over squares the plan still calls lawn, so flowers put down last
@@ -6276,15 +6316,15 @@ function garden(
   // front of the house is lawn, which the floor itself lays - it is park
   // there, so the ground pass has already painted grass and this only has to
   // put the hard standing on it. Clamped to the property: the bay is cut out
-  // of the last column of the house, so a drive laid a square either side of
-  // it runs out past the hedge and on to the public pavement.
+  // of the wing, so a drive laid a square either side of it runs out past the
+  // hedge and on to the public pavement.
   const drive = {
     from: Math.max(garage.x - TILE, grounds.left * TILE),
     to: Math.min(garage.x + TILE, grounds.right * TILE),
   };
   ctx.fillStyle = VILLA_PAVE;
   ctx.fillRect(
-    kerb.x + drive.from - plot.left,
+    kerb.x + drive.from - plot.left * TILE,
     kerb.y,
     drive.to - drive.from,
     deep,
@@ -6299,8 +6339,8 @@ function garden(
     joint < kerb.y + deep;
     joint += PAVE_STEP
   ) {
-    ctx.moveTo(kerb.x + drive.from - plot.left, joint);
-    ctx.lineTo(kerb.x + drive.to - plot.left, joint);
+    ctx.moveTo(kerb.x + drive.from - plot.left * TILE, joint);
+    ctx.lineTo(kerb.x + drive.to - plot.left * TILE, joint);
   }
   ctx.stroke();
 
@@ -6321,16 +6361,45 @@ function garden(
   // built once and laid from the **corner of the yard**, so they stay put on
   // the ground instead of crawling about as the camera moves.
   const lot = project(view, yard.left * TILE, yard.top * TILE);
-  const wide = (yard.right - yard.left) * TILE;
-  const tall = (yard.bottom - yard.top) * TILE * DEPTH;
   const stones = cobbles(ctx);
   if (stones !== null) {
     ctx.save();
     ctx.translate(lot.x, lot.y);
     ctx.fillStyle = stones;
-    ctx.fillRect(0, 0, wide, tall);
+    ctx.fillRect(
+      0,
+      0,
+      (yard.right - yard.left) * TILE,
+      (yard.bottom - yard.top) * TILE * DEPTH,
+    );
     ctx.restore();
   }
+}
+
+/**
+ * The hedge round the property, which is the only part of it that stands up.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @remarks
+ * **The ground of this garden is not drawn here**, and that is the point of
+ * the split: the drive, the cobbled yard, the bay and the flowers are all
+ * floor, and floor belongs in the ground pass with the rest of the city's
+ * paving - see {@link villaGround}. Drawn here, with the house, they went on
+ * **over** the cars standing on them, and a car park one cannot see the cars
+ * on is a patio.
+ *
+ * A hedge is the other thing. It is six feet of box and it stands in front of
+ * whatever is behind it, so it belongs with the building.
+ */
+function garden(ctx: CanvasRenderingContext2D, view: View): void {
+  const block = villaBlock();
+  if (block === null) {
+    return;
+  }
+  const grounds = villaGrounds(block.x, block.y);
+  const edge = project(view, grounds.left * TILE, grounds.top * TILE);
+  const down = (grounds.bottom - grounds.top) * TILE * DEPTH;
 
   // **The hedge is the line between the pavement and the garden**, not the
   // line between the garden and the street: it stands **inside** the footway
@@ -6557,8 +6626,17 @@ const CHIMNEY_LIP = 1.5;
 /** How deep the vent slots under it are. */
 const CHIMNEY_SLOT = 2;
 
-/** Where it stands across the two-storey block, as a share of it. */
-const CHIMNEY_AT = 0.5;
+/**
+ * Where it stands across the two-storey block, as a share of it.
+ *
+ * @remarks
+ * Right of the middle, not on it. The left end of the block is the gabled
+ * wing, and a stack on the centre line came up out of the ridge of that
+ * gable - which is where a chimney cannot be, because there is a roof in the
+ * way. Two thirds across puts it on the flat part beside the gable, which is
+ * where the smoke is on the photograph.
+ */
+const CHIMNEY_AT = 0.68;
 
 /** And how far back down the roof, as a share of its depth. */
 const CHIMNEY_BACK = 0.62;
@@ -6866,6 +6944,20 @@ function houseBox(
   sort: Building,
   fade: number,
 ): void {
+  // **The hospital is not a house with a sign screwed to it.** Three storeys
+  // of curtain wall, a red cross on the front and a landing pad on the roof -
+  // none of which is a variation on a wall with panes in it, so it is drawn
+  // somewhere else. See {@link hospitalBox}.
+  if (sort.kind === "hospital") {
+    hospitalBox(ctx, view, plot, from, wide, height, sort, fade);
+    return;
+  }
+  // And the fire station, which is a wall with three holes in it. See
+  // {@link fireBox}.
+  if (sort.kind === "fire") {
+    fireBox(ctx, view, plot, from, wide, height, sort, fade);
+    return;
+  }
   const foot = project(view, from, plot.bottom);
   const back = project(view, from, plot.top, height);
   ctx.globalAlpha = fade;
@@ -6880,24 +6972,818 @@ function houseBox(
   // entrance is drawn first and says how much of the wall it wants; the
   // windows then skip whichever of their columns falls inside that.
   const clear = frontage(ctx, foot, wide, height, look, sort, fade);
-  drawWindows(ctx, foot, wide, height, look, fade, clear);
+  // A shop's ground floor is its window, so the panes start a storey up. See
+  // {@link shopFront}.
+  drawWindows(ctx, foot, wide, height, look, fade, clear, sort.glass ? 1 : 0);
 
-  // The roof, and the line where it meets the wall.
+  // **The roof.** Which sort is not a flag: it is whether anybody lives there,
+  // and what says so is that there is no sign over the door. A shop, a bank or
+  // a hospital keeps its flat roof - that is where the plant and the parapet
+  // with the name on it go - and a house has tiles. See {@link pitchedRoof}.
   ctx.globalAlpha = fade;
-  ctx.fillStyle = sort.roof;
-  ctx.fillRect(back.x, back.y, wide, foot.y - height - back.y);
+  const eave = foot.y - height;
+  if (sort.name === "") {
+    pitchedRoof(ctx, foot.x, eave, wide, back.y, sort.wall, look, fade);
+  } else {
+    ctx.fillStyle = sort.roof;
+    ctx.fillRect(back.x, back.y, wide, eave - back.y);
+    ctx.strokeStyle = "#292524";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(back.x, back.y, wide, foot.y - back.y);
+  }
+  // And the line where the roof meets the wall, which on a house is the line
+  // the gable end stands on.
   ctx.strokeStyle = "#292524";
   ctx.lineWidth = 1;
-  ctx.strokeRect(back.x, back.y, wide, foot.y - back.y);
   ctx.beginPath();
-  line(
-    ctx,
-    { x: foot.x, y: foot.y - height },
-    { x: foot.x + wide, y: foot.y - height },
-  );
+  line(ctx, { x: foot.x, y: eave }, { x: foot.x + wide, y: eave });
   ctx.stroke();
   ctx.globalAlpha = 1;
 }
+
+/**
+ * The fire station: three open bays with an engine standing in each.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param plot - the ground it stands on, in city pixels
+ * @param from - the left edge of the building, the same way
+ * @param wide - how wide it is
+ * @param height - how tall its front wall is
+ * @param sort - its colours and its name
+ * @param fade - how solid to paint it
+ * @remarks
+ * **The doors are not drawn because there are none.** A fire station stands
+ * open: what one sees at street level is three square holes with an engine in
+ * each, and the picture says so by leaving the wall out there rather than by
+ * painting a shut door on it. The same three rectangles are cut out of the
+ * floor - see `fireBays` and `openStations` in ../engine/city - so one drives
+ * in exactly where the opening is.
+ *
+ * Over them the rest of the building: the band of wall the name sits on and a
+ * row of windows for the men upstairs, because everything above an engine bay
+ * is where the watch lives.
+ */
+function fireBox(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  plot: { left: number; top: number; right: number; bottom: number },
+  from: number,
+  wide: number,
+  height: number,
+  sort: Building,
+  fade: number,
+): void {
+  const foot = project(view, from, plot.bottom);
+  const back = project(view, from, plot.top, height);
+  const eave = foot.y - height;
+  ctx.save();
+  ctx.globalAlpha = fade;
+
+  // The roof and the wall under it.
+  ctx.fillStyle = sort.roof;
+  ctx.fillRect(back.x, back.y, wide, eave - back.y);
+  ctx.strokeStyle = "#292524";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(back.x, back.y, wide, foot.y - back.y);
+  ctx.fillStyle = sort.wall;
+  ctx.fillRect(foot.x, eave, wide, height);
+
+  // The band of white above the bays, which is what a fire station has
+  // instead of a shopfront: the lintel the three doorways hang from.
+  ctx.fillStyle = FIRE_BAND;
+  ctx.fillRect(foot.x, foot.y - BAY_TALL - FIRE_LINTEL, wide, FIRE_LINTEL);
+
+  // The bays themselves, in the same places the floor has them open.
+  const squares = {
+    left: plot.left / TILE,
+    top: plot.top / TILE,
+    right: plot.right / TILE,
+    bottom: plot.bottom / TILE,
+  };
+  for (const bay of fireBays(squares)) {
+    const left = foot.x + bay.left * TILE - plot.left + FIRE_PIER;
+    const span = (bay.right - bay.left) * TILE - FIRE_PIER * 2;
+    ctx.fillStyle = FIRE_INSIDE;
+    ctx.fillRect(left, foot.y - BAY_TALL, span, BAY_TALL);
+    // The reveal down each side of the opening, which is the one thing that
+    // says this is a hole in a wall rather than a black rectangle painted on
+    // one.
+    ctx.fillStyle = FIRE_REVEAL;
+    ctx.fillRect(left, foot.y - BAY_TALL, FIRE_EDGE, BAY_TALL);
+    ctx.fillRect(
+      left + span - FIRE_EDGE,
+      foot.y - BAY_TALL,
+      FIRE_EDGE,
+      BAY_TALL,
+    );
+    // And the apron on the pavement in front of it: red and white, which is
+    // what tells a driver not to park across the doors.
+    ctx.fillStyle = FIRE_APRON;
+    ctx.fillRect(left, foot.y - 1, span, FIRE_KERB);
+  }
+
+  // The windows of the watch room, over the lintel.
+  const row = foot.y - BAY_TALL - FIRE_LINTEL - FIRE_SILL;
+  for (let pane = 0; pane < FIRE_PANES; pane += 1) {
+    const at = foot.x + (wide * (pane + HALF)) / FIRE_PANES - PANE_WIDE / 2;
+    windowPane(ctx, at, row, pane % 2 === 0, fade);
+  }
+  ctx.restore();
+  ctx.globalAlpha = fade;
+}
+
+/** How many squares deep the bays are, which is what the plan cuts out. */
+const BAY_DEPTH = 2;
+
+/**
+ * How tall an engine bay is, in pixels.
+ *
+ * @remarks
+ * **Taller than the lintel needs to be, because one is looking *into* it.**
+ * In this view a vehicle standing inside a building is drawn up the front
+ * wall of it - the further in, the higher - so an opening the height of an
+ * engine showed an engine standing in front of a wall. At forty-four it is
+ * the opening that reaches up behind the whole machine, and what one sees is
+ * a hall with an engine in it.
+ */
+const BAY_TALL = 44;
+
+/** How far in from the edge of its square each opening stands. */
+const FIRE_PIER = 4;
+
+/** How wide the reveal down the side of one is. */
+const FIRE_EDGE = 1.2;
+
+/** What one sees through a doorway with the lights off. */
+const FIRE_INSIDE = "#17110f";
+
+/** And the edge of the wall the light catches. */
+const FIRE_REVEAL = "#5f2222";
+
+/** The band of wall over the doors. */
+const FIRE_BAND = "#e7e5e4";
+
+/** How deep that band is. */
+const FIRE_LINTEL = 3;
+
+/** The paint on the pavement in front of a bay. */
+const FIRE_APRON = "#fbbf24";
+
+/** How far out onto it that reaches. */
+const FIRE_KERB = 2;
+
+/**
+ * How far over the lintel the windows of the watch room sit.
+ *
+ * @remarks
+ * High enough to clear the engines standing in the bays. They are drawn over
+ * this building - they have to be, or the wall would cover them - so a window
+ * at the height of a truck roof is a window one never sees.
+ */
+const FIRE_SILL = 24;
+
+/** And how many of them there are across the front. */
+const FIRE_PANES = 4;
+
+/**
+ * The hospital: glass, a red cross and somewhere for the helicopter to land.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param plot - the ground it stands on, in city pixels
+ * @param from - the left edge of the building, the same way
+ * @param wide - how wide it is
+ * @param height - how tall its front wall is
+ * @param sort - its colours and its name
+ * @param fade - how solid to paint it
+ * @remarks
+ * Four things, and none of them is a house:
+ *
+ * - **Ribbon glazing, not windows.** A hospital is a curtain wall: a band of
+ *   glass the whole way across each floor, mullions every few feet, a strip of
+ *   spandrel between the floors. Punched holes with sills and glazing bars are
+ *   what a terrace has.
+ * - **A pier up the middle with the red cross on it.** The one thing on this
+ *   building anybody looks for, so it stands on the one piece of solid wall,
+ *   over the door, where it can be read from the end of the street.
+ * - **A sliding door.** Two leaves of glass that part in the middle, as wide
+ *   as a trolley and the two porters pushing it, under a canopy - not the
+ *   front door of a semi.
+ * - **And the landing pad on the roof**, which is a circle, a ring and an H.
+ *   The roof is at `wallHeight`, so the pad one can see is the height one
+ *   lands at.
+ */
+function hospitalBox(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  plot: { left: number; top: number; right: number; bottom: number },
+  from: number,
+  wide: number,
+  height: number,
+  sort: Building,
+  fade: number,
+): void {
+  const foot = project(view, from, plot.bottom);
+  const back = project(view, from, plot.top, height);
+  const eave = foot.y - height;
+  const middle = foot.x + wide / 2;
+  ctx.save();
+  ctx.globalAlpha = fade;
+
+  // The roof and the pad on it.
+  ctx.fillStyle = sort.roof;
+  ctx.fillRect(back.x, back.y, wide, eave - back.y);
+  ctx.strokeStyle = "#292524";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(back.x, back.y, wide, foot.y - back.y);
+  const pad = {
+    x: middle,
+    y: (back.y + eave) / 2,
+    size: Math.min(wide, eave - back.y) * PAD_SHARE,
+  };
+  // The pad, and nothing on it: the machine that stands here is a real one
+  // out of `state.choppers`, drawn with everything else that moves - which is
+  // what lets one fly it away and leaves the pad empty afterwards.
+  helipad(ctx, pad.x, pad.y, pad.size);
+
+  // The wall, its plinth, and the pier up the middle that carries the cross.
+  ctx.fillStyle = sort.wall;
+  ctx.fillRect(foot.x, eave, wide, height);
+  ctx.fillStyle = FOOT_STONE;
+  ctx.fillRect(foot.x, foot.y - CLINIC_PLINTH, wide, CLINIC_PLINTH);
+
+  // **The glazing, floor by floor.** Each band runs the width of the front and
+  // stops at the pier; the ground floor stops at the doorway instead, which is
+  // wider. A floor is STOREY up from the one below it, so the bands line up
+  // with the windows of every other building in the city.
+  const floors = Math.max(1, Math.floor(height / STOREY));
+  for (let floor = 0; floor < floors; floor += 1) {
+    const top = foot.y - floor * STOREY - GLAZE_HEAD;
+    const gap = floor === 0 ? DOOR_BAY : PIER_WIDE;
+    for (const band of [
+      { from: foot.x + GLAZE_EDGE, to: middle - gap / 2 - GLAZE_EDGE },
+      { from: middle + gap / 2 + GLAZE_EDGE, to: foot.x + wide - GLAZE_EDGE },
+    ]) {
+      // **The ground floor is two panes, not four - and the panes are the same
+      // size.** That is the foyer: one walks in through it, and it is a
+      // shorter run of the same glazing, centred in the wall it stands in,
+      // rather than the same run with the mullions pulled apart. Widening the
+      // panes made the ground floor a different building from the two floors
+      // over it.
+      const run = band.to - band.from;
+      const foyer = floor === 0 && run > GLASS_BAY * LOBBY_PANES;
+      ribbon(
+        ctx,
+        foyer ? band.from + (run - GLASS_BAY * LOBBY_PANES) / 2 : band.from,
+        top,
+        foyer ? GLASS_BAY * LOBBY_PANES : run,
+        GLAZE_TALL,
+        GLASS_BAY,
+      );
+    }
+  }
+
+  // The way in: two leaves of glass that part in the middle, the canopy over
+  // them and the mat one walks out onto.
+  const door = { from: middle - DOOR_BAY / 2, to: middle + DOOR_BAY / 2 };
+  ctx.fillStyle = CANOPY_SLAB;
+  ctx.fillRect(
+    door.from - CANOPY_OUT,
+    foot.y - SLIDER_TALL - CANOPY_DEEP,
+    DOOR_BAY + CANOPY_OUT * 2,
+    CANOPY_DEEP,
+  );
+  ribbon(
+    ctx,
+    door.from,
+    foot.y - SLIDER_TALL,
+    DOOR_BAY,
+    SLIDER_TALL - 1,
+    DOOR_BAY,
+  );
+  ctx.fillStyle = FRONT_FRAME;
+  ctx.fillRect(
+    middle - SLIDER_JOIN / 2,
+    foot.y - SLIDER_TALL,
+    SLIDER_JOIN,
+    SLIDER_TALL - 1,
+  );
+  ctx.fillStyle = FOOT_STONE;
+  ctx.fillRect(
+    door.from - CANOPY_OUT,
+    foot.y - 1,
+    DOOR_BAY + CANOPY_OUT * 2,
+    2,
+  );
+
+  // And the cross, on the pier, over the door.
+  const arm = Math.min(PIER_WIDE - 4, CROSS_MOST);
+  const at = { x: middle, y: eave + CROSS_UP + arm / 2 };
+  ctx.fillStyle = CROSS_RED;
+  ctx.fillRect(at.x - arm / 2, at.y - CROSS_THICK / 2, arm, CROSS_THICK);
+  ctx.fillRect(at.x - CROSS_THICK / 2, at.y - arm / 2, CROSS_THICK, arm);
+  ctx.restore();
+  ctx.globalAlpha = fade;
+}
+
+/**
+ * The rescue helicopter standing on the hospital roof.
+ *
+ * @param ctx - what to paint on
+ * @param at - the middle of the pad on screen, across
+ * @param up - and down the page
+ * @param long - how long the machine is drawn, in pixels
+ * @param angle - which way the nose points
+ * @param spin - where the rotor is in its turn
+ * @remarks
+ * **Not the Black Hawk.** The police fly a UH-60 and it is drawn to the
+ * manufacturer's dimensions - a long, narrow body with a boom on the back,
+ * stub wings, wheels. An air ambulance is the other shape entirely: a short
+ * bubble of a cabin on skids, all glass at the front, with the boom and the
+ * fin behind it. It is the machine this game drew before the police got their
+ * own, kept because it is the right silhouette for this one.
+ *
+ * Yellow all over - the one colour in this city that means *that* helicopter -
+ * with the red cross on the boom, where it is on the real thing and where
+ * there is room for it.
+ *
+ * The blades turn when somebody is in it and stand still when nobody is -
+ * `spin` says which, and with nobody aboard the engine stops advancing it. A
+ * rotor that turned for ever on a roof nobody ever takes off from would be a
+ * fairground ride.
+ */
+function rescueHeli(
+  ctx: CanvasRenderingContext2D,
+  at: number,
+  up: number,
+  long: number,
+  angle: number,
+  spin: number,
+): void {
+  const size = long / HELI_LONG;
+  ctx.save();
+  ctx.translate(at, up);
+  ctx.scale(size, size * DEPTH);
+  ctx.rotate(angle);
+  ctx.fillStyle = RESCUE_BODY;
+  ctx.strokeStyle = RESCUE_TRIM;
+  ctx.lineWidth = 1.5;
+
+  // The tail boom, tapering, with the fin swept up at the end of it.
+  const boom = new Path2D();
+  boom.moveTo(-2, -4.6);
+  boom.lineTo(-HELI_LONG * 0.46, -2.2);
+  boom.lineTo(-HELI_LONG * 0.46, 2.2);
+  boom.lineTo(-2, 4.6);
+  boom.closePath();
+  ctx.fill(boom);
+  ctx.stroke(boom);
+  const fin = new Path2D();
+  fin.moveTo(-HELI_LONG * 0.46, -2.6);
+  fin.lineTo(-HELI_LONG / 2 - 2, -8.5);
+  fin.lineTo(-HELI_LONG / 2 + 1.5, -9);
+  fin.lineTo(-HELI_LONG * 0.42, 2.6);
+  fin.closePath();
+  ctx.fill(fin);
+  ctx.stroke(fin);
+  const plane = new Path2D();
+  plane.roundRect(-HELI_LONG * 0.44, -7.5, 5, 15, 1.2);
+  ctx.fill(plane);
+  ctx.stroke(plane);
+
+  // The cabin: square-shouldered, with a nose that comes to a point.
+  const cabin = new Path2D();
+  cabin.moveTo(-3, -8.4);
+  cabin.lineTo(9, -8.4);
+  cabin.lineTo(15, -4.6);
+  cabin.lineTo(16.5, 0);
+  cabin.lineTo(15, 4.6);
+  cabin.lineTo(9, 8.4);
+  cabin.lineTo(-3, 8.4);
+  cabin.closePath();
+  ctx.fill(cabin);
+  ctx.stroke(cabin);
+
+  // Stub wings over the doors and the engine deck between them.
+  ctx.fillStyle = RESCUE_TRIM;
+  for (const side of [-1, 1]) {
+    const wing = new Path2D();
+    wing.roundRect(-1.5, side * 8.4 - (side > 0 ? 0 : 3.4), 9, 3.4, 1.2);
+    ctx.fill(wing);
+  }
+  const deck = new Path2D();
+  deck.roundRect(-3.5, -5, 7, 10, 2);
+  ctx.fill(deck);
+
+  // The windscreen and the two door windows.
+  ctx.fillStyle = RESCUE_GLASS;
+  const glass = new Path2D();
+  glass.moveTo(9.4, -7.4);
+  glass.lineTo(14.4, -4.2);
+  glass.lineTo(15.6, 0);
+  glass.lineTo(14.4, 4.2);
+  glass.lineTo(9.4, 7.4);
+  glass.closePath();
+  ctx.fill(glass);
+  ctx.stroke(glass);
+  for (const side of [-1, 1]) {
+    ctx.fillRect(2, side * 8.4 - (side > 0 ? 2.6 : 0), 5.5, 2.6);
+  }
+
+  // The cross on the boom, which is what it is here for.
+  ctx.fillStyle = RESCUE_CROSS;
+  const arm = HELI_LONG * RESCUE_ARM;
+  const thick = arm * RESCUE_THICK;
+  const mark = -HELI_LONG * RESCUE_BACK;
+  ctx.fillRect(mark - arm / 2, -thick / 2, arm, thick);
+  ctx.fillRect(mark - thick / 2, -arm / 2, thick, arm);
+
+  // The skids.
+  ctx.strokeStyle = RESCUE_SKID;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  for (const side of [-1, 1]) {
+    ctx.moveTo(-3, side * 10.5);
+    ctx.lineTo(12, side * 10.5);
+  }
+  ctx.stroke();
+
+  // The blades, standing still: four on the head, four on the tail.
+  ctx.strokeStyle = RESCUE_BLADE;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  for (let blade = 0; blade < ROTOR_BLADES; blade += 1) {
+    const turn = RESCUE_SET + spin + (blade * Math.PI * 2) / ROTOR_BLADES;
+    ctx.moveTo(4, 0);
+    ctx.lineTo(4 + Math.cos(turn) * ROTOR_SPAN, Math.sin(turn) * ROTOR_SPAN);
+  }
+  ctx.stroke();
+  ctx.fillStyle = RESCUE_TRIM;
+  ctx.beginPath();
+  ctx.ellipse(4, 0, 2, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // And the disc, once it is turning fast enough to be one.
+  if (spin !== 0) {
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = RESCUE_BLADE;
+    ctx.beginPath();
+    ctx.ellipse(4, 0, ROTOR_SPAN, ROTOR_SPAN, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.strokeStyle = RESCUE_BLADE;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let blade = 0; blade < TAIL_BLADES; blade += 1) {
+    const turn = RESCUE_SET - spin * 1.6 + (blade * Math.PI * 2) / TAIL_BLADES;
+    ctx.moveTo(-HELI_LONG / 2, -6.5);
+    ctx.lineTo(
+      -HELI_LONG / 2 + Math.cos(turn) * TAIL_SPAN * 0.7,
+      -6.5 + Math.sin(turn) * TAIL_SPAN,
+    );
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** The yellow of an air ambulance. */
+const RESCUE_BODY = "#f5b301";
+
+/** The darker yellow of its wings, deck and rotor head. */
+const RESCUE_TRIM = "#b37f00";
+
+/** What one sees of the inside of it. */
+const RESCUE_GLASS = "#20304a";
+
+/** The red of the cross on the boom. */
+const RESCUE_CROSS = "#c81e1e";
+
+/** How long the arms of that cross are, as a share of the length. */
+const RESCUE_ARM = 0.17;
+
+/** How thick they are, as a share of their length. */
+const RESCUE_THICK = 0.3;
+
+/** And how far back along the boom it sits. */
+const RESCUE_BACK = 0.3;
+
+/** The skids it stands on. */
+const RESCUE_SKID = "#3f3f46";
+
+/** And the blades, which are not turning. */
+const RESCUE_BLADE = "#e2e8f0";
+
+/** Where they have come to rest. */
+const RESCUE_SET = 0.35;
+
+/**
+ * One band of curtain wall: the frame, the glass and the mullions in it.
+ *
+ * @param ctx - what to paint on
+ * @param left - where the band starts on screen
+ * @param top - its head
+ * @param wide - how far it runs
+ * @param tall - and how deep it is
+ * @param bay - how wide one pane between two mullions is
+ */
+function ribbon(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  wide: number,
+  tall: number,
+  bay: number,
+): void {
+  if (wide < GLAZE_LEAST) {
+    return;
+  }
+  ctx.fillStyle = FRONT_FRAME;
+  ctx.fillRect(left - 1, top - 1, wide + 2, tall + 2);
+  ctx.fillStyle = FRONT_GLASS;
+  ctx.fillRect(left, top, wide, tall);
+  ctx.fillStyle = GLASS_SKY;
+  ctx.fillRect(left, top, wide, tall * GLASS_SHEEN);
+  ctx.fillStyle = FRONT_FRAME;
+  const bays = Math.max(1, Math.round(wide / bay));
+  for (let bar = 1; bar < bays; bar += 1) {
+    ctx.fillRect(left + (wide * bar) / bays - HALF, top, 1, tall);
+  }
+}
+
+/** How many panes of glazing the foyer has either side of the door. */
+const LOBBY_PANES = 2;
+
+/**
+ * The landing pad on the hospital roof: a circle, a ring and an H.
+ *
+ * @param ctx - what to paint on
+ * @param at - the middle of it on screen, across
+ * @param up - and down the page
+ * @param size - how wide across the ring is
+ */
+function helipad(
+  ctx: CanvasRenderingContext2D,
+  at: number,
+  up: number,
+  size: number,
+): void {
+  ctx.fillStyle = PAD_DECK;
+  ctx.beginPath();
+  ctx.ellipse(at, up, size / 2, (size / 2) * DEPTH, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = PAD_PAINT;
+  ctx.lineWidth = PAD_RING;
+  ctx.beginPath();
+  ctx.ellipse(
+    at,
+    up,
+    size / 2 - PAD_RING,
+    (size / 2 - PAD_RING) * DEPTH,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.stroke();
+  // The H: two uprights and the bar between them, drawn rather than written,
+  // so that it keeps its shape at any size.
+  const tall = size * PAD_LETTER * DEPTH;
+  const span = size * PAD_LETTER * HALF;
+  ctx.fillStyle = PAD_PAINT;
+  for (const side of [-1, 1]) {
+    ctx.fillRect(
+      at + (side * span) / 2 - PAD_STROKE / 2,
+      up - tall / 2,
+      PAD_STROKE,
+      tall,
+    );
+  }
+  ctx.fillRect(at - span / 2, up - PAD_STROKE / 2, span, PAD_STROKE);
+}
+
+/** How much of the roof the landing pad takes, across. */
+const PAD_SHARE = 0.62;
+
+/** What the pad itself is surfaced with. */
+const PAD_DECK = "#52525b";
+
+/** And what is painted on it. */
+const PAD_PAINT = "#f8fafc";
+
+/** How thick the ring round it is, in pixels. */
+const PAD_RING = 2;
+
+/** How much of the pad the H takes. */
+const PAD_LETTER = 0.42;
+
+/** And how thick its strokes are. */
+const PAD_STROKE = 2.4;
+
+/** How far up the wall of the hospital the plinth reaches, in pixels. */
+const CLINIC_PLINTH = 3;
+
+/** How wide the solid pier up the middle of the front is. */
+const PIER_WIDE = 22;
+
+/** How far in from the corner the glazing starts. */
+const GLAZE_EDGE = 3;
+
+/** How far below each floor the head of its band of glass sits. */
+const GLAZE_HEAD = 22;
+
+/** And how deep the band is. */
+const GLAZE_TALL = 15;
+
+/** The shortest band worth drawing, in pixels. */
+const GLAZE_LEAST = 5;
+
+/** How wide the doorway is. */
+const DOOR_BAY = 26;
+
+/** How tall the sliding doors are. */
+const SLIDER_TALL = 20;
+
+/** How wide the joint where the two leaves meet is. */
+const SLIDER_JOIN = 1.5;
+
+/** How far the canopy stands out past the doorway on each side. */
+const CANOPY_OUT = 4;
+
+/** And how deep it is. */
+const CANOPY_DEEP = 2.5;
+
+/** What it is made of. */
+const CANOPY_SLAB = "#e2e8f0";
+
+/** The red of the cross. */
+const CROSS_RED = "#dc2626";
+
+/** How thick its arms are, in pixels. */
+const CROSS_THICK = 5;
+
+/** The longest the arms may be. */
+const CROSS_MOST = 18;
+
+/** And how far below the parapet it hangs. */
+const CROSS_UP = 6;
+
+/**
+ * A tiled roof over one house: two slopes, a ridge, and the gable end.
+ *
+ * @param ctx - what to paint on
+ * @param left - the left edge of this house on screen
+ * @param eave - the top of its front wall, which is where the gable stands
+ * @param wide - how wide the house is
+ * @param back - the far edge of its roof
+ * @param wall - what its walls are painted, for the gable end
+ * @param look - the block's own dice roll, for the window in the gable
+ * @param fade - how solid to paint it
+ * @remarks
+ * **Every house in the city had a flat roof**, which is what an office block
+ * or a car park has. From up here the roof is most of what one sees of a
+ * building, so a flat one is most of what made a street of houses read as a
+ * row of boxes.
+ *
+ * The ridge runs from the back of the house to the front, so the two slopes
+ * face east and west and the **gable end faces the street** - which is what
+ * puts a triangle on the front wall, and the triangle is the part one
+ * recognises. At this size the only thing that says "two slopes" is that they
+ * are not quite the same grey: the one the sun is on is a shade lighter, and
+ * the ridge caps the join. The courses run with the slope, down the page.
+ *
+ * Grey tiles, not red: the villa in the south-east has the red ones, and it is
+ * meant to be the odd house out on its street.
+ */
+function pitchedRoof(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  eave: number,
+  wide: number,
+  back: number,
+  wall: string,
+  look: number,
+  fade: number,
+): void {
+  const middle = left + wide / 2;
+  const rise = Math.min(wide * ROOF_PITCH, ROOF_PEAK);
+  // How far above the line of the eaves the roof is at this point across it:
+  // nothing at either verge, the whole rise at the ridge. Every edge of this
+  // roof - the slopes, the courses, the ridge, both gables - is this one
+  // number applied to a line that would otherwise be straight.
+  const lift = (at: number) => (1 - Math.abs(at - middle) / (wide / 2)) * rise;
+
+  for (const slope of [
+    { from: left, to: middle, tint: ROOF_SUN },
+    { from: middle, to: left + wide, tint: ROOF_SHADE },
+  ]) {
+    ctx.fillStyle = slope.tint;
+    ctx.beginPath();
+    ctx.moveTo(slope.from, back - lift(slope.from));
+    ctx.lineTo(slope.to, back - lift(slope.to));
+    ctx.lineTo(slope.to, eave - lift(slope.to));
+    ctx.lineTo(slope.from, eave - lift(slope.from));
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.strokeStyle = ROOF_COURSE;
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  for (
+    let course = left + ROOF_STEP;
+    course < left + wide;
+    course += ROOF_STEP
+  ) {
+    const up = lift(course);
+    ctx.moveTo(course, back - up);
+    ctx.lineTo(course, eave - up);
+  }
+  ctx.stroke();
+  ctx.fillStyle = ROOF_RIDGE;
+  ctx.fillRect(middle - RIDGE_THICK / 2, back - rise, RIDGE_THICK, eave - back);
+
+  // **A gable end at each end, not one.** The ridge runs from the back of the
+  // house to the front, so both ends of it are gables - and a roof drawn with
+  // a triangle at the front and a straight line at the back is a roof that has
+  // been sawn off. The near one is wall, because one is looking at it; the far
+  // one is the edge of the tiles against the sky, so it is the same triangle
+  // in the same place with nothing filled in behind it.
+  const peak = eave - rise;
+  ctx.fillStyle = wall;
+  ctx.beginPath();
+  ctx.moveTo(left, eave);
+  ctx.lineTo(middle, peak);
+  ctx.lineTo(left + wide, eave);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = ROOF_VERGE;
+  ctx.lineWidth = VERGE_THICK;
+  for (const end of [
+    { at: eave, out: VERGE_OUT },
+    { at: back, out: 0 },
+  ]) {
+    ctx.beginPath();
+    ctx.moveTo(left - end.out, end.at);
+    ctx.lineTo(middle, end.at - rise - end.out);
+    ctx.lineTo(left + wide + end.out, end.at);
+    ctx.stroke();
+  }
+  // **And a window in the near gable, the same window as every other.** There
+  // is a room up there, and a room has a window - the same frame, glass, bars
+  // and sill as the rows below it, lit or dark on the same dice. Only where
+  // the triangle is too small to hold one is there none: a terraced house is
+  // nine feet wide at the front, its gable is five pixels tall, and a window
+  // drawn in it would stick out through both slopes.
+  const room = eave - GABLE_SILL - PANE_TALL - PANE_EDGE;
+  if (rise >= PANE_TALL + GABLE_SILL + GABLE_HEAD) {
+    windowPane(
+      ctx,
+      middle - PANE_WIDE / 2,
+      room,
+      scatter(GABLE_DICE, Math.round(look * 100)) > 0.55,
+      fade,
+    );
+  }
+}
+
+/** How far above the eaves the sill of the gable window sits, in pixels. */
+const GABLE_SILL = 2;
+
+/** And how much roof there has to be over its head for it to fit at all. */
+const GABLE_HEAD = 3;
+
+/** Which throw of the block's dice says whether the light is on up there. */
+const GABLE_DICE = 99;
+
+/** The slope of a tiled roof the sun is on. */
+const ROOF_SUN = "#9ca3af";
+
+/** And the one it is not. */
+const ROOF_SHADE = "#6b7280";
+
+/**
+ * The line between two courses of tiles.
+ *
+ * @remarks
+ * A shadow rather than a colour, so that it reads the same on the slope the
+ * sun is on and on the one it is not. Drawn in grey it was black on the light
+ * half and invisible on the dark one, which made a roof of corrugated iron.
+ */
+const ROOF_COURSE = "rgba(0,0,0,0.13)";
+
+/** How far apart those courses are drawn, in pixels. */
+const ROOF_STEP = 6;
+
+/** The ridge capping the join. */
+const ROOF_RIDGE = "#cbd5e1";
+
+/** The tiles along the verge of the gable end. */
+const ROOF_VERGE = "#4b5563";
+
+/** How steep the gable is, as a share of the width of the house. */
+const ROOF_PITCH = 0.2;
+
+/** And the most it may rise, so a wide house does not get a spire. */
+const ROOF_PEAK = 22;
 
 /**
  * The sign over the door of a place with a name.
@@ -6978,8 +7864,16 @@ function frontage(
 ): { from: number; to: number } {
   const plain = sort.name === "";
   const middle = foot.x + wide / 2;
-  const tall = Math.min(height * FRONT_UP, FRONT_MOST);
-  const leaf = Math.min(wide * FRONT_SHARE, FRONT_WIDEST);
+  // **A door is a door's height, not a share of the wall.** It used to be a
+  // third of whatever the block had rolled, capped: a bungalow got a door of
+  // one metre and a barber's shop a hatch. A door is the one thing on a front
+  // whose size is known - somebody walks through it - so it is two and a bit
+  // metres, always, and only a building too low to hold one gets less.
+  const tall = Math.min(FRONT_TALL, height * FRONT_MOST);
+  const leaf = Math.min(
+    Math.max(wide * FRONT_SHARE, FRONT_LEAST),
+    FRONT_WIDEST,
+  );
   ctx.save();
   ctx.globalAlpha = fade;
 
@@ -7009,6 +7903,15 @@ function frontage(
     }
   }
 
+  // **A shop's ground floor is glass.** Drawn before the door and up to the
+  // stretch the door has taken, so the two sheets stop either side of it.
+  if (sort.glass) {
+    shopFront(ctx, foot, wide, height, tall, {
+      from: middle - took / 2,
+      to: middle + took / 2,
+    });
+  }
+
   // The door: its frame, the leaf, a handle and the step out to the pavement.
   ctx.fillStyle = FRONT_FRAME;
   ctx.fillRect(middle - leaf / 2 - 1, foot.y - tall - 1, leaf + 2, tall + 1);
@@ -7026,6 +7929,92 @@ function frontage(
   ctx.restore();
   return { from: middle - took / 2, to: middle + took / 2 };
 }
+
+/**
+ * The window a shop has instead of a ground floor.
+ *
+ * @param ctx - what to paint on
+ * @param foot - the bottom left corner of the front wall, on screen
+ * @param wide - how wide the front is
+ * @param height - how tall the wall is
+ * @param tall - how tall the door beside it is
+ * @param clear - the stretch of wall the door has taken for itself
+ * @remarks
+ * One sheet either side of the door, and that is the whole of it: a stall
+ * riser along the bottom so the glass does not sit in the gutter, the glass
+ * above it, a mullion every {@link GLASS_BAY} pixels, and the transom across
+ * the top. It goes a little higher than the door, because a shop window that
+ * stops at the lintel is a hatch - and it is held clear of the eaves, so that
+ * on a one-storey shop there is still a band of wall left for the name.
+ */
+function shopFront(
+  ctx: CanvasRenderingContext2D,
+  foot: Screen,
+  wide: number,
+  height: number,
+  tall: number,
+  clear: { readonly from: number; readonly to: number },
+): void {
+  const head = Math.min(tall + GLASS_OVER, height * GLASS_MOST);
+  const top = foot.y - head;
+  const deep = head - GLASS_FOOT;
+  for (const pane of [
+    { from: foot.x + GLASS_EDGE, to: clear.from - GLASS_GAP },
+    { from: clear.to + GLASS_GAP, to: foot.x + wide - GLASS_EDGE },
+  ]) {
+    const span = pane.to - pane.from;
+    if (span < GLASS_LEAST) {
+      continue;
+    }
+    ctx.fillStyle = FRONT_FRAME;
+    ctx.fillRect(pane.from - 1, top - 1, span + 2, deep + 2);
+    ctx.fillStyle = FRONT_GLASS;
+    ctx.fillRect(pane.from, top, span, deep);
+    // What one actually reads as glass: the sky caught in the top of it.
+    ctx.fillStyle = GLASS_SKY;
+    ctx.fillRect(pane.from, top, span, deep * GLASS_SHEEN);
+    ctx.fillStyle = FRONT_FRAME;
+    const bays = Math.max(1, Math.round(span / GLASS_BAY));
+    for (let bar = 1; bar < bays; bar += 1) {
+      ctx.fillRect(pane.from + (span * bar) / bays - HALF, top, 1, deep);
+    }
+    // The stall riser under it and the transom over it.
+    ctx.fillStyle = FOOT_STONE;
+    ctx.fillRect(pane.from - 1, foot.y - GLASS_FOOT, span + 2, GLASS_FOOT);
+    ctx.fillStyle = FRONT_FRAME;
+    ctx.fillRect(pane.from - 1, top - 1, span + 2, GLASS_BAR);
+  }
+}
+
+/** How far in from the corner of the building a shop window starts. */
+const GLASS_EDGE = 3;
+
+/** And how far it keeps off the door. */
+const GLASS_GAP = 1.5;
+
+/** The narrowest sheet worth drawing, in pixels. */
+const GLASS_LEAST = 6;
+
+/** How much higher than the door the glass goes. */
+const GLASS_OVER = 4;
+
+/** The most of the wall it may take, so the name still has a band to sit on. */
+const GLASS_MOST = 0.62;
+
+/** How tall the stall riser under it is. */
+const GLASS_FOOT = 2.5;
+
+/** How wide one pane between two mullions is. */
+const GLASS_BAY = 13;
+
+/** How thick the transom across the top is. */
+const GLASS_BAR = 1.5;
+
+/** The sky caught in the top of the glass. */
+const GLASS_SKY = "#3c6390";
+
+/** How much of the sheet that reflection takes, as a share. */
+const GLASS_SHEEN = 0.34;
 
 /**
  * The drive in front of a house.
@@ -7071,14 +8060,24 @@ function drive(
   ctx.restore();
 }
 
-/** How far up the wall a door reaches, as a share of its height. */
-const FRONT_UP = 0.34;
+/**
+ * How tall a front door is drawn, in pixels.
+ *
+ * @remarks
+ * Eighteen, which at eight and a half pixels to the metre is two metres and a
+ * bit: the height of a door, which is the height of the person going through
+ * it plus a hand. The same on a shed and on a tower block, because it is.
+ */
+const FRONT_TALL = 18;
 
-/** And the most it may be, in pixels, so a tower block has a door not a gate. */
-const FRONT_MOST = 15;
+/** How much of a very low wall a door may take, so a shed still has a roof. */
+const FRONT_MOST = 0.72;
 
 /** How wide it is, as a share of the front. */
 const FRONT_SHARE = 0.11;
+
+/** The least that may be, so a narrow house still has a way in. */
+const FRONT_LEAST = 8;
 
 /** And the most that may be. */
 const FRONT_WIDEST = 11;
@@ -7159,6 +8158,7 @@ const DRIVE_BAY = "#d6d3d1";
  * @param look - the block's own dice roll
  * @param fade - how solid to paint it
  * @param clear - the stretch of wall the front door has taken, on screen
+ * @param from - the first floor to draw, which is one up on a shop
  */
 function drawWindows(
   ctx: CanvasRenderingContext2D,
@@ -7168,14 +8168,28 @@ function drawWindows(
   look: number,
   fade: number,
   clear: { readonly from: number; readonly to: number },
+  from: number,
 ): void {
   const across = Math.max(2, Math.round(wide / 30));
-  const floors = Math.max(1, Math.floor((height - 8) / 18));
+  // **A storey is three metres.** The rows used to be eighteen pixels apart,
+  // which is two metres and a bit - so a two-storey house had both its rows
+  // huddled at the bottom with a third of the wall empty above them, and a
+  // tall one got seven floors into what should have been five. At `STOREY`
+  // apart the rows land where the floors of the building are.
+  const floors = Math.max(1, Math.floor(height / STOREY));
   const gap = wide / across;
   for (let column = 0; column < across; column += 1) {
-    for (let floor = 0; floor < floors; floor += 1) {
+    for (let floor = from; floor < floors; floor += 1) {
       const lit = scatter(column * 7 + floor, Math.round(look * 100)) > 0.55;
-      const top = foot.y - PANE_UP - floor * FLOOR_UP;
+      // **A window sits at a window's height.** The head of the ground-floor
+      // pane used to be twelve pixels up, which puts its sill at forty
+      // centimetres - a window one steps over rather than looks out of. Two
+      // and a quarter metres to the head and a metre and a bit to the sill is
+      // where a window is in every room anybody has ever stood in. Only a wall
+      // too low to carry one that high has it lower, and then the window comes
+      // down with the roof rather than through it.
+      const up = Math.min(PANE_UP, height * PANE_MOST);
+      const top = foot.y - up - floor * STOREY;
       // The ground floor gives way to the door and its veranda; the floors
       // above it are over the roof of that and carry on as they were. A window
       // that would land on the entrance is **moved aside**, not thrown away:
@@ -7189,48 +8203,62 @@ function drawWindows(
       if (left === null) {
         continue;
       }
-      // The frame first, a shade darker than the wall whatever the wall is,
-      // then the glass inside it. A pane with a line round it reads as a hole
-      // in a wall; a pane without one reads as a sticker on it.
-      ctx.globalAlpha = fade;
-      ctx.fillStyle = PANE_FRAME;
-      ctx.fillRect(
-        left - PANE_EDGE,
-        top - PANE_EDGE,
-        PANE_WIDE + PANE_EDGE * 2,
-        PANE_TALL + PANE_EDGE * 2,
-      );
-      ctx.fillStyle = lit ? PANE_LIT : PANE_DARK;
-      ctx.globalAlpha = (lit ? 0.8 : 0.55) * fade;
-      ctx.fillRect(left, top, PANE_WIDE, PANE_TALL);
-      // The glazing bars: one up, one across. Four small panes rather than one
-      // big one, which is the difference between a window and a windscreen.
-      ctx.globalAlpha = fade;
-      ctx.fillStyle = PANE_FRAME;
-      ctx.fillRect(
-        left + PANE_WIDE / 2 - PANE_BAR / 2,
-        top,
-        PANE_BAR,
-        PANE_TALL,
-      );
-      ctx.fillRect(
-        left,
-        top + PANE_TALL / 2 - PANE_BAR / 2,
-        PANE_WIDE,
-        PANE_BAR,
-      );
-      // And the sill under it, which is the bit that catches the light and
-      // tells one at a glance which way up the building is.
-      ctx.fillStyle = PANE_SILL;
-      ctx.fillRect(
-        left - PANE_OUT,
-        top + PANE_TALL + PANE_EDGE,
-        PANE_WIDE + PANE_OUT * 2,
-        PANE_EDGE * 2,
-      );
+      windowPane(ctx, left, top, lit, fade);
     }
   }
   ctx.globalAlpha = fade;
+}
+
+/**
+ * One window: its frame, the glass in it, the bars across it and its sill.
+ *
+ * @param ctx - what to paint on
+ * @param left - the left edge of the glass on screen
+ * @param top - and the top of it
+ * @param lit - whether somebody is in
+ * @param fade - how solid to paint it
+ * @remarks
+ * **One window, drawn in one place.** The rows down a front and the one in a
+ * gable end are the same window and have to look it - the gable used to get a
+ * little dark rectangle of its own, which at four pixels by three read as a
+ * vent or as a hole rather than as the window of the room in the roof.
+ *
+ * The frame goes first, a shade darker than the wall whatever the wall is,
+ * then the glass inside it: a pane with a line round it reads as a hole in a
+ * wall, one without reads as a sticker on it. The bars make four small panes
+ * out of one, which is the difference between a window and a windscreen, and
+ * the sill under it is the bit that catches the light and tells one at a
+ * glance which way up the building is.
+ */
+function windowPane(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  lit: boolean,
+  fade: number,
+): void {
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = PANE_FRAME;
+  ctx.fillRect(
+    left - PANE_EDGE,
+    top - PANE_EDGE,
+    PANE_WIDE + PANE_EDGE * 2,
+    PANE_TALL + PANE_EDGE * 2,
+  );
+  ctx.fillStyle = lit ? PANE_LIT : PANE_DARK;
+  ctx.globalAlpha = (lit ? 0.8 : 0.55) * fade;
+  ctx.fillRect(left, top, PANE_WIDE, PANE_TALL);
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = PANE_FRAME;
+  ctx.fillRect(left + PANE_WIDE / 2 - PANE_BAR / 2, top, PANE_BAR, PANE_TALL);
+  ctx.fillRect(left, top + PANE_TALL / 2 - PANE_BAR / 2, PANE_WIDE, PANE_BAR);
+  ctx.fillStyle = PANE_SILL;
+  ctx.fillRect(
+    left - PANE_OUT,
+    top + PANE_TALL + PANE_EDGE,
+    PANE_WIDE + PANE_OUT * 2,
+    PANE_EDGE * 2,
+  );
 }
 
 /**
@@ -7295,11 +8323,21 @@ const PANE_WIDE = 10;
 /** And how tall. */
 const PANE_TALL = 9;
 
-/** How far above the pavement the ground floor sits. */
-const PANE_UP = 12;
+/** How far above the pavement the head of a ground-floor window sits. */
+const PANE_UP = 20;
 
-/** And how far apart the floors are. */
-const FLOOR_UP = 18;
+/** How far up a low wall it may go instead, as a share of the height. */
+const PANE_MOST = 0.62;
+
+/**
+ * How far apart two floors of a building are, in pixels.
+ *
+ * @remarks
+ * Twenty-six, which at eight and a half pixels to the metre is three metres:
+ * a storey. It says two things at once - where the next row of windows goes,
+ * and how many rows a wall of a given height has room for.
+ */
+const STOREY = 26;
 
 /** How thick the frame round a pane is. */
 const PANE_EDGE = 1;
@@ -8085,7 +9123,11 @@ function drawCar(
     taxiSign(ctx, view, car, tiers, fade);
   }
 
-  if (police && LAMP_SIDES[car.body] === undefined) {
+  // **And the ambulance and the fire engine carry one too.** Blue lamps,
+  // dark: they are standing outside a hospital and inside a fire station, not
+  // on a call - and `onCall` only ever lights the bar of a police car, so
+  // these get the box and the lenses and no flashing.
+  if ((police || blueLight(car.body)) && LAMP_SIDES[car.body] === undefined) {
     beacon(ctx, view, car, tiers, fade, now);
   } else if (police && twoWheeled(car.body)) {
     // **Two wheels, not "everything without a light bar".** The tank is in
@@ -8126,6 +9168,20 @@ function drawCar(
   // thing on the screen that could not be part of the city.
   lamps(ctx, view, car, tiers, fade);
   drawDamage(ctx, view, car, now, fade);
+}
+
+/**
+ * Whether this body carries a light bar whoever is driving it.
+ *
+ * @param body - the sort of vehicle
+ * @returns true for the ambulance and the fire engine
+ * @remarks
+ * The police have theirs because they are police; these two have theirs
+ * because of what they are - and neither of them flashes it standing at a
+ * kerb, which is what {@link onCall} already sees to.
+ */
+function blueLight(body: VehicleBody): boolean {
+  return body === "ambulance" || body === "firetruck";
 }
 
 /**
@@ -9150,6 +10206,15 @@ function paintOf(car: Car): string {
     case "transporter":
       paint = VAN_PAINT;
       break;
+    // And one livery for the other van: an ambulance is white, everywhere,
+    // and the red is what is painted on top of it.
+    case "ambulance":
+      paint = RTW_WHITE;
+      break;
+    // The third of them, and the least argued over: a fire engine is red.
+    case "firetruck":
+      paint = FIRE_PAINT;
+      break;
     case "tractor":
       paint = TRACTOR_GREEN;
       break;
@@ -10067,7 +11132,11 @@ function drawCop(
     hair: "#1e293b",
     style: "cop" as const,
   };
-  if (cop.health <= 0) {
+  // Dead, or knocked off his feet by a car and not up yet. The two look the
+  // same from a moving car, which is the point: whoever ran him over does not
+  // find out which it was until the man either gets up or does not.
+  const down = cop.floorUntil !== null && now < cop.floorUntil;
+  if (cop.health <= 0 || down) {
     // A policeman dies the same way anybody else does, and lies there the same
     // way: the uniform is the only difference, and that is in the outfit.
     lyingDown(ctx, view, cop, { ...worn, arms: "swing", hand: "right" }, fade);

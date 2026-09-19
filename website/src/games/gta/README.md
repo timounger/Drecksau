@@ -47,7 +47,8 @@ geparkte Wagen, die Lackiererei und der erste Auftrag.
 
 Ein Stern für jeden Wagen, den du jemandem wegnimmst, für jeden angefahrenen
 Passanten und für jeden Streifenwagen, den **du** rammst. Auf jemanden zu
-schießen kostet zwei - eine Kugel ist keine Unachtsamkeit. Ein geparkter Wagen
+schießen kostet zwei - eine Kugel ist keine Unachtsamkeit -, und einen
+Polizisten umzufahren kostet dasselbe. Ein geparkter Wagen
 kostet nichts - das ist der ganze Handel dieses Spiels: Der schnellste Weg
 irgendwohin ist der, der einen Stern kostet.
 
@@ -723,7 +724,8 @@ statt zwei und zwei Zehnteln (`FLOOR_SECONDS`): lang genug, um ein Preis zu
 sein, und kurz genug, um einer zu bleiben. Bei zwei Sekunden saß man da und
 sah der Straße beim Vorbeiziehen zu - was Überfahrenwerden kosten soll, ist
 das Auto, das man gerade erreichen wollte, nicht die nächste Spielminute.
-Dieselbe Zahl gilt für umgefahrene Polizisten.
+Dieselbe Zahl gilt für umgefahrene Passanten. Polizisten liegen länger - siehe
+unten.
 
 **Und wenn an der Fahrertür eine Wand steht, nimmt er die andere Seite.** Ein
 Wagen, der dicht an einem Haus parkt, hat eine Fahrertür, an der niemand stehen
@@ -1766,6 +1768,30 @@ gefahren und abgestellt hat, behält seine Art - zurück ins eigene Auto zu
 steigen war jedes Mal einen Stern wert. Gemessen: geparkt 0 Sterne, Verkehr mit
 Insassen 1 Stern, leergefahrener Verkehrswagen 0 Sterne.
 
+## Ein Auto ist keine Kugel: Polizisten stehen wieder auf
+
+Wer einen Polizisten anfährt, **erschießt** ihn nicht - er wirft ihn um. Beim
+ersten Mal geht der Mann zu Boden, liegt vier Sekunden (`COP_FLOOR`) auf der
+Straße und steht dann wieder auf: Er läuft von dort weiter, wo er gefallen ist,
+und macht da weiter, wo er aufgehört hat. Das ist das Einzige an der Polizei,
+was sich rückgängig machen lässt, und genau deshalb lohnt es sich - wer liegt,
+schießt nicht, verfolgt nicht und gehört nicht zum Ring, der sich um den Wagen
+schließt.
+
+**Beim zweiten Mal ist er tot.** Ob in derselben Fahrt oder zehn Minuten später,
+spielt keine Rolle: `floorUntil` wird beim Aufstehen nicht zurückgesetzt, also
+trägt der Mann den ersten Anstoß den Rest des Spiels mit sich herum. Einmal ist
+ein Versehen, zweimal ist Absicht, und das Spiel sagt das so. Der Tod läuft
+dabei über denselben Weg wie ein tödlicher Treffer (`hurtCop`) - die Waffe fällt
+ihm aus der Hand, und die anderen schließen die Lücke.
+
+Zwei Bedingungen: Es zählt nur oberhalb von `CRASH_FLOOR`, damit das Heranrollen
+an einen Streifenpolizisten keine Fahrerflucht ist, und nie zweimal im selben
+Sturz, denn wer schon liegt, steht nicht mehr im Weg. Gekostet hat es zwei
+Sterne, wie das Schießen auf einen Polizisten. Gemessen: erster Anstoß bei 1,1 s
+(34 HP, liegt), wieder auf den Beinen bei 5,2 s, zweiter Anstoß bei 10,3 s
+(0 HP).
+
 ## Geschosse liegen obenauf
 
 Ein Geschoss war ein Ding in der Tiefensortierung wie jedes andere, und das ist
@@ -2357,11 +2383,438 @@ nicht um denselben Meter Bordstein streiten. Zwei Dinge daran sind die Arbeit:
 - **Eine pro Haus, nicht eine pro Parzelle.** Eine Reihenhauszeile sind fünf
   Häuser auf einem Block; eine einzelne Bucht quer darüber gehörte denen, vor
   denen sie zufällig landete. Jedes Haus würfelt für sich.
-- **Nur wo Gehweg ist, auf den man sie legen kann.** Ein Block, der direkt an
-  eine Autobahn grenzt, hat keinen Bordstein und keinen Streifen - der Asphalt
-  beginnt, wo die Wand aufhört -, und eine Bucht dort ist eine Bucht auf der
-  Überholspur. `drawHouse` fragt deshalb den Plan, was vor diesem Haus wirklich
-  liegt, bevor irgendetwas darauf gemalt wird.
+- **Nur wo Gehweg ist, auf den man sie legen kann.** Nicht jede Front hat
+  einen: Ein Block kann an offenes Land grenzen, an den Sand am Ufer oder an
+  einen Parkplatz, und eine Bucht auf einem davon ist eine Bucht im Nirgendwo.
+  `drawHouse` fragt deshalb den Plan, was vor diesem Haus wirklich liegt, bevor
+  irgendetwas darauf gemalt wird.
+
+## Eine Tür ist zwei Meter hoch, egal wie hoch das Haus ist
+
+Drei Maße am Haus waren Anteile der Wand, und Anteile sind für drei Dinge
+falsch, die ein Mensch benutzt:
+
+- **Die Haustür** war ein Drittel der Wandhöhe, gedeckelt bei 15 Pixeln. Auf
+  einem Bungalow ergab das eine Tür von einem Meter, auf dem Barber eine Klappe.
+  Jetzt ist sie `FRONT_TALL` = 18 Pixel, also bei 8,6 Pixeln je Meter gut zwei
+  Meter - dieselbe Tür auf dem Schuppen wie auf dem Hochhaus, weil sie dieselbe
+  ist. Nur eine Wand, die zu niedrig für eine ganze Tür ist, bekommt eine
+  kleinere (`FRONT_MOST`).
+- **Die Fensterhöhe.** Der Sturz saß zwölf Pixel über dem Boden, die Bank damit
+  bei vierzig Zentimetern - ein Fenster, über das man steigt, statt eines, aus
+  dem man sieht. Jetzt 20 Pixel Sturz: Bank auf gut einem Meter, Oberkante auf
+  zweieinviertel. Wieder mit Deckel für niedrige Wände (`PANE_MOST`), damit
+  kein Fenster durch das Dach stößt.
+- **Der Geschossabstand.** Die Fensterreihen lagen 18 Pixel auseinander, also
+  gut zwei Meter. Ein zweistöckiges Haus hatte damit beide Reihen unten
+  zusammengedrängt und ein Drittel Wand leer darüber, ein hohes bekam sieben
+  Reihen in etwas, das fünf Stockwerke hat. `STOREY` = 26 Pixel sind drei
+  Meter, und dieselbe Zahl sagt beides: wo die nächste Reihe hinkommt und wie
+  viele Reihen eine Wand überhaupt trägt (`floor(height / STOREY)`).
+- **Die Höhe mancher Gebäude selbst.** Siehe unten.
+
+## Ein Barber ist einstöckig, ein Hochhaus nicht
+
+Die Tabelle in `engine/buildings.ts` kannte nur `rise` - einen Faktor auf die
+Höhe, die der Block ohnehin gewürfelt hätte. Für ein Hochhaus ist das genau
+richtig: eines in der Innenstadt soll höher sein als eines am Stadtrand. Für
+einen Laden ist es falsch. Ein Friseur ist ein Raum mit einem Schaufenster und
+einer Tür davor, und das ist er zwischen zwei Bürotürmen genauso wie in der
+Vorstadt - am Blockwürfel hing er mal bei knapp drei Metern (eine Wand mit
+Briefschlitz) und wäre in der Innenstadt ein Friseur im Hochhaus gewesen.
+
+Deshalb gibt es `flat`: eine feste Höhe in Pixeln, oder `null` für den alten
+Weg. Der Barber bekommt 34 Pixel, also vier Meter - Schaufenster, Tür und ein
+Band Wand darüber für den Namen, eine Fensterreihe, ein Stockwerk. Gelesen wird
+das an **einer** Stelle, `wallHeight`, und zwar vom Bild und vom Boden: Das
+Dach, auf dem der Jetpack landet, muss das Dach sein, das man sieht.
+
+## Wo kein Schild über der Tür ist, wohnt jemand
+
+Jedes Haus der Stadt hatte ein Flachdach - das, was ein Bürohaus oder ein
+Parkhaus hat. Von hier oben ist das Dach das meiste, was man von einem Gebäude
+sieht, also war das Flachdach auch das meiste, was eine Wohnstraße wie eine
+Reihe Kisten aussehen ließ.
+
+`pitchedRoof` legt ein Satteldach mit grauen Ziegeln darauf. Der First läuft
+von hinten nach vorn, die beiden Schrägen zeigen also nach Osten und Westen und
+der **Giebel zeigt zur Straße** - das ist das Dreieck auf der Vorderwand, und
+das Dreieck ist der Teil, den man wiedererkennt.
+
+**Im Giebel sitzt ein richtiges Fenster.** Dort oben ist ein Zimmer, und ein
+Zimmer hat ein Fenster - dasselbe wie in den Reihen darunter, mit Rahmen,
+Sprossen und Bank, hell oder dunkel nach demselben Würfel. Vorher war es ein
+dunkles Rechteck von vier mal drei Pixeln, und das liest sich als Lüftungsgitter
+oder als Loch. Gezeichnet wird es jetzt von `windowPane` - **eine** Funktion für
+jedes Fenster im Spiel, damit das im Giebel gar nicht anders aussehen _kann_ als
+die anderen. Wo das Dreieck zu klein dafür ist, bleibt es weg: Ein Reihenhaus
+ist knapp drei Meter breit, sein Giebel fünf Pixel hoch, und ein Fenster darin
+stünde aus beiden Schrägen heraus.
+
+**Und zwar an beiden Enden.** Ein First hat zwei Giebel; ein Dach mit einem
+Dreieck vorn und einer geraden Kante hinten ist ein abgesägtes Dach. Beide
+Enden bekommen deshalb dieselbe Überhöhung: Eine Funktion (`lift`) sagt, wie
+weit das Dach an dieser Stelle quer über der Traufenlinie liegt - null an den
+beiden Ortgängen, die volle Höhe am First -, und jede Kante, die sonst gerade
+wäre, wird damit angehoben: die beiden Schrägen, die Ziegelreihen, der First
+und beide Giebel. Der vordere ist Wand, weil man ihn ansieht; der hintere ist
+die Kante der Ziegel gegen den Himmel, also dasselbe Dreieck ohne Füllung. In dieser Größe sagt nur die
+Farbe, dass es zwei Schrägen sind: Die eine ist einen Hauch heller, der First
+deckt die Naht ab, und die Ziegelreihen laufen mit der Schräge nach unten - als
+Schatten (`rgba(0,0,0,0.13)`) statt als graue Linie, sonst ist es auf der
+hellen Hälfte Wellblech und auf der dunklen unsichtbar.
+
+Welche Gebäude eines bekommen, ist **kein Extrafeld**: Es ist die Frage, ob
+dort jemand wohnt, und was das sagt, ist, dass kein Schild über der Tür hängt
+(`sort.name === ""`). Wohnhaus, Doppelhaus, Reihenhaus und Hochhaus bekommen
+Ziegel; Laden, Bank und Krankenhaus behalten ihr Flachdach, denn dort sitzt die
+Attika mit dem Namen drauf. Die Villa im Südosten zeichnet ihr eigenes Dach und
+bleibt rot - sie soll das andere Haus an ihrer Straße sein.
+
+## Ein Krankenhaus je Stadtteil, und es sieht aus wie eins
+
+Ein Krankenhaus alle paar Straßen ist eine Kette. Es ist das Gebäude, aus dem
+man nach jedem Tod wieder herauskommt, also sieht man es öfter an als alles
+andere in der Stadt - und bei einem Dutzend davon war das, das einen aufnimmt,
+immer das nächstgelegene, also jedes Mal ein anderes. Es steht jetzt in
+`ONE_PER_QUARTER`, neben dem Nachtclub: vier in Los Santos, eines je Viertel.
+
+**Ausdünnen allein reicht dafür nicht.** `buildingAt` konnte Wahrzeichen bisher
+nur wegnehmen - wo der Plan ein zweites zeichnete, ging ein Wohnhaus hoch -,
+und ein Viertel, dessen Würfel nie ein Krankenhaus zeigten, hatte damit keines.
+Gemessen: zwei der vier Viertel gingen leer aus. Also bekommt das Krankenhaus
+dieselbe Nachrücker-Regel wie das Polizeirevier (`ONE_EACH`): den schlichtesten
+Block nächst der Viertelsmitte, und nie den, auf dem schon das Revier steht.
+
+Dabei ist noch etwas aufgefallen. Die Frage „ist dieser Block schlicht" wurde
+als `PLAIN_BLOCKS.includes(rawKindAt(...))` gestellt - und das ist nicht
+dieselbe Frage. Die meisten schlichten Blöcke dieser Stadt wurden nie schlicht
+gezeichnet: Sie sind die zweite Bank, der vierte Nachtclub, das Revier eines
+Viertels, das schon eines hat - Wahrzeichen, die `buildingAt` zu Wohnhäusern
+ausdünnt. Das Strandviertel hat drei bebaute Blöcke, einer davon ein Haus, und
+sah so trotzdem aus wie eines ohne Platz. `housing()` stellt jetzt dieselbe
+Prüfung an wie `buildingAt` - bis auf die eine Zeile, die das Krankenhaus
+selbst betrifft, denn die ruft hier an, und ein Ring zwischen beiden sprengt
+den Stack. Das ist in diesem Modul schon zweimal passiert.
+
+**Und gezeichnet wird es eigens** (`hospitalBox`), weil vier Dinge daran kein
+Wohnhaus sind:
+
+- **Bandfassade statt Fenstern.** Ein Glasband über die ganze Front je Etage,
+  Pfosten alle paar Fuß, dazwischen ein Streifen Brüstung. Löcher mit Bank und
+  Sprossen hat ein Reihenhaus.
+- **Ein Pfeiler in der Mitte mit dem roten Kreuz.** Das Einzige, wonach hier
+  überhaupt jemand sucht, also steht es auf dem einen Stück massiver Wand, über
+  der Tür, wo man es vom Ende der Straße lesen kann.
+- **Eine Schiebetür**: zwei Glasflügel, die in der Mitte auseinandergehen, so
+  breit wie eine Trage samt den beiden, die sie schieben, unter einem Vordach.
+- **Der Landeplatz auf dem Dach** - Kreis, Ring und ein H. Die Dachhöhe kommt
+  aus `wallHeight`, also ist der Platz, den man sieht, die Höhe, auf der man
+  aufsetzt. Gemessen: alle vier Dächer 84 Pixel.
+
+Die Höhe ist dabei fest (`flat`), nicht gewürfelt: drei Etagen zu je `STOREY`,
+also knapp zehn Meter. Ein Krankenhaus, das am Stadtrand ein Bungalow ist und
+in der Innenstadt ein Turm, sind zwei Gebäude mit demselben Schild - und der
+Hubschrauber landet auf beiden.
+
+## Die Feuerwache hat keine Tore, sondern Löcher
+
+Drei Tore, die immer offen stehen, sind keine Tore: Sie sind ein Stück
+Gebäude, das nicht da ist. `fireBays(plot)` sagt, wo - drei Rechtecke, je ein
+Feld breit und zwei tief, nebeneinander über die ganze Front - und diese
+**eine** Antwort lesen beide Seiten: `openStations` schneidet sie aus dem
+Boden (als `road`, denn da fährt man hinein), und `fireBox` malt die Öffnungen
+an genau dieselben Stellen. Zwei Felder tief, weil ein Transporter
+zweiundsechzig Pixel lang ist und ein Feld achtundvierzig: Bei einem Feld
+hinge das Heck jedes Fahrzeugs auf dem Gehweg.
+
+Geschnitten wird beim Aufbau **und beim Laden**, denn der Boden wird nicht
+gespeichert - dieselbe Zeile wie bei den drei Garagen.
+
+**Und sie wird hinter ihre eigenen Fahrzeuge sortiert.** Die drei Löschzüge
+stehen _innen_, also ein bis zwei Felder nördlich der Vorderkante - nach der
+Vorderkante sortiert malte das Haus sich über genau die drei Fahrzeuge, für
+die es da ist. Die Wache bekommt deshalb die Tiefe der Torrückwand: damit
+liegt sie hinter allem, was in der Einfahrt steht, und vor nichts, was weiter
+südlich ist.
+
+Dazu stehen die Fahrzeuge mit der **Stoßstange auf der Schwelle** statt mittig
+in der Halle. In dieser Ansicht klettert alles, was in einem Gebäude steht,
+dessen Vorderwand hinauf - je weiter nördlich, desto höher im Bild -, und ein
+Wagen hinten in der Halle hatte seine Leiter quer über dem Namen an der Wand.
+
+**Die Tore sind höher als ihr Sturz sein müsste**, und zwar weil man in sie
+hineinsieht: In dieser Ansicht wird ein Fahrzeug, das in einem Gebäude steht,
+an dessen Vorderwand hinaufgezeichnet. Eine Öffnung in Fahrzeughöhe zeigte
+deshalb einen Löschzug **vor** einer Wand. Bei vierundvierzig Pixeln reicht das
+dunkle Tor hinter die ganze Maschine, und was man sieht, ist eine Halle mit
+einem Fahrzeug darin.
+
+Die Wache ist außerdem fest achtundsechzig Pixel hoch (`flat`), also acht
+Meter: Ein Tor, durch das eine Drehleiter passt, ist vier Meter hoch, und
+darüber liegt der Rest des Hauses. Bei der gewürfelten Blockhöhe war es eine
+Garage mit einem Schild.
+
+**Eine je Stadtteil**, wie Revier, Klinik und Nachtclub - mit derselben
+Nachrücker-Regel (`ONE_EACH`) wie das Krankenhaus, und deshalb auch mit
+derselben Einschränkung: Das Strandviertel hat drei bebaute Blöcke, und zwei
+davon sind schon Revier und Krankenhaus. Dort steht keine.
+
+## Auf dem eigenen Hof parkt niemand
+
+Der Hof neben der Villa ist gepflastert und leer, und genau das mochte die
+Parkplatzsuche: Einer der drei DeLoreans stand bei jedem Spielstart darauf,
+und ein paar geparkte Wagen dazu. Das ist kein Fundstück mehr, das ist jemand,
+der in der eigenen Einfahrt parkt. `privateGround` - dieselbe Frage, die schon
+die Fußgänger vom Grundstück fernhält - gilt jetzt auch für alles, was am
+Bordstein abgestellt wird, und der DeLorean sucht sich notfalls achtmal einen
+neuen Platz. Gemessen über drei Startwerte: null Fahrzeuge auf dem Grundstück,
+und weiterhin drei DeLoreans in der Stadt.
+
+## Das Löschfahrzeug ist der dritte Transporter
+
+Dieselben Maße, dieselbe Kabine, dieselben Wände - `vanLike` sagt jetzt bei
+drei Aufbauten ja. Unterschiedlich ist, was daraufgemalt wird: ganz in Rot,
+und auf dem Dach die Leiter, zwei Holme über die Länge des Kastens mit den
+Sprossen dazwischen. Von senkrecht oben ist das das Einzige, was ihn von
+irgendeinem anderen roten Kasten unterscheidet - und es ist eine gerade Linie
+in einem Bild, in dem sonst nichts auf diesem Dach gerade ist.
+
+An der Seite steht **FEUERWEHR** statt des Firmennamens - `vanName` bekommt
+das Wort und die Farbe jetzt mitgegeben, statt beides zu wissen; ein
+Löschfahrzeug mit `ups` auf der Flanke war ein Paketwagen mit Leiter.
+
+**Und zwar groß, und nur dort.** Das Wort hat neun Buchstaben, `ups` hat drei -
+in denselben Platz geschrumpft kam es drei Pixel hoch heraus, also als Fleck.
+Höhe und erlaubte Breite werden deshalb mitgegeben: zwei Drittel der
+Kastenhöhe, und die Breite so bemessen, dass das Wort über dem Laderaum steht
+und vor dem Fahrerfenster aufhört.
+
+**Und es bleibt dort, wenn der Wagen andersherum fährt.** Beide Flanken werden
+aus demselben Bild gemalt, und welche Fassung genommen wird, hängt davon ab,
+wohin das Fahrzeug zeigt - bei der gespiegelten wurde der Versatz **negiert**.
+Das setzt das Wort aber nicht an dieselbe Stelle der anderen Seite, sondern ans
+**andere Ende derselben Wand**: Nach Osten saß der Name hinter dem Fahrerhaus,
+wo er hingehört, nach Westen quer über der Scheibe der Fahrertür. Gespiegelt
+wird jetzt nur die Schrift selbst, nicht ihr Platz. Wo dieses Fenster anfängt, ist dabei eine
+Zahl, die beide lesen (`VAN_GLASS_AT`) - ausgeschrieben an zwei Stellen war die
+zweite geraten und um ein Pixel daneben, und das letzte R saß in der Scheibe.
+Auf den **Hecktüren** steht dafür gar nichts mehr: Die Rückseite eines
+Transporters ist zweiundzwanzig Pixel breit, und neun Buchstaben darauf waren
+ein grauer Strich. Was dort bleibt, sind die beiden Türflügel mit ihren
+Griffen. Und er
+hat dasselbe Blaulicht auf dem Dach wie der Rettungswagen: dieselbe kleine
+Kiste, dunkel, weil er in der Halle steht und nicht auf Fahrt ist.
+
+Die Sicken hat er nicht, so wenig wie der Rettungswagen: Die gehören zum
+Kofferaufbau des Paketwagens. Schwerer und träger als die beiden anderen, dafür
+hält er mehr aus als alles auf der Straße außer dem Panzer - er fährt ein
+Wassertank spazieren.
+
+## Aus einem Hubschrauber werden fünf
+
+`GameState.chopper` war **eine** Maschine, weil es eine gab: die olivgrüne auf
+dem Landeplatz des Militärgeländes. Mit einem Rettungshubschrauber auf jedem
+Krankenhausdach sind es fünf, also ist daraus `choppers` geworden - eine Liste
+mit `id` und `kind` je Maschine - und aus `player.flying` (ob) zusätzlich
+`player.chopper` (welche). Beide werden zusammen gesetzt und zusammen gelöscht.
+
+Drei Dinge waren dabei die eigentliche Arbeit, und alle drei kommen daher, dass
+diese vier Maschinen **auf einem Dach** stehen:
+
+- **„Gelandet" heißt auf dem, was darunter ist.** `roofAt` sagt, wie hoch das
+  Dach über einem Punkt ist - dieselbe Zahl, mit der der Jetpack auf Dächern
+  landet -, und Einsteigen, Aussteigen und das Sinken klemmen jetzt darauf
+  statt auf null. Vorher hätte der Motor gesagt: Die Maschine ist
+  vierundachtzig Pixel über dem Boden, also in der Luft.
+- **Einsteigen fragt auch nach der eigenen Höhe.** Wer unten auf dem Gehweg
+  steht, ist zwar waagerecht drei Meter von einer Maschine entfernt, aber eben
+  drei Stockwerke darunter. `padUnder` verlangt deshalb, dass Spieler und
+  Maschine auf derselben Ebene stehen - was ganz nebenbei die einzige Antwort
+  auf „wie komme ich da hoch" ist: Jetpack, oder mit der anderen Maschine.
+- **Und sie wird vor ihrem eigenen Haus gezeichnet.** Ihr y ist die Mitte des
+  Blocks, auf dem sie steht, also lag sie in der Tiefensortierung _hinter_ dem
+  Krankenhaus - gezeichnet, und dann vom Haus übermalt. Steht sie auf einem
+  Dach, bekommt sie die Tiefe der Blockvorderkante und kommt damit vor ihr
+  eigenes Gebäude, aber hinter alles, was südlich davon steht.
+
+Schießen kann keine der fünf, und das war keine Arbeit: Der fliegbare
+Hubschrauber hatte noch nie eine Waffe. Was die Polizei in der Luft hat, ist
+eine andere Sache (`state.heli`) und hat mit diesen hier nichts zu tun.
+
+Der Grundriss-Hubschrauber, den das Krankenhaus vorher selbst auf sein Dach
+malte, ist weg: Was dort steht, ist jetzt eine echte Maschine aus der Liste -
+sonst stünde nach dem Wegfliegen noch ein gemalter da.
+
+## Zwei Streifen, nicht drei
+
+Am Krankenwagen laufen genau zwei rote Streifen die Seite entlang: einer an der
+Oberkante des Kastens, einer an dessen Unterkante - also direkt über den Rädern
+und knapp unter dem Fahrerfenster, wo der Streifen an einem Rettungswagen
+verläuft. Ein dritter quer über die Mitte war ein Feuerwehrauto. Das Kreuz
+sitzt dazwischen.
+
+**Auf dem Dach liegt gar nichts.** Erst lagen dort auch zwei Streifen und ein
+Kreuz - und sie waren das Einzige, was man an dem Wagen ansah, obwohl sie nicht
+das sind, woran man ihn erkennt. Von oben ist ein Rettungswagen ein weißes Dach
+mit einem Balken vorn drauf; das Rot gehört an die Seiten, wo es am echten
+Fahrzeug auch ist.
+
+**Und die Rippen sind die des Paketwagens.** Ein Kofferaufbau ist gesicktes
+Blech, und die Querrippen über Dach und Flanken sagen genau das; ein
+Rettungswagen hat eine glatte Kunststoffkabine, und ein Dutzend grauer Striche
+quer über ein weißes Dach liest sich als Schmutz auf dem Bild statt als
+Beplankung. Dieselbe Zeile in `paintVan` und in `vanWall`, einmal gefragt: ist
+das hier der Paketwagen.
+
+Dazu das **Blaulicht**: dieselbe kleine Kiste, die der Streifenwagen auf dem
+Dach hat (`beacon`) - Lampen, Steuerkasten, Deckel -, aber dunkel. `onCall`
+lässt nur die Balken von Polizeifahrzeugen blinken, also bekommt dieser die
+Linsen und das Gehäuse und blitzt nicht: Er steht vor einem Krankenhaus, nicht
+auf einer Fahrt.
+
+## Das Foyer sind zwei Scheiben in Normalgröße
+
+Der erste Versuch hat unten zwar zwei Scheiben gemacht, aber indem er die
+Pfosten auseinandergezogen hat - zwei Scheiben in doppelter Breite. Damit war
+das Erdgeschoss ein anderes Gebäude als die zwei Stockwerke darüber. Richtig
+ist dasselbe Raster auf kürzerer Strecke: zwei Scheiben in der Breite der
+oberen, das Band dafür kürzer und mittig in der Wand, in der es steht.
+
+## Der Rettungshubschrauber ist der alte Hubschrauber
+
+Die Polizei fliegt eine UH-60, nach den Maßen des Herstellers - ein langer,
+schmaler Rumpf mit einem Ausleger hinten dran, Stummelflügel, Räder. Ein
+Rettungshubschrauber ist die andere Silhouette: eine kurze Kanzel auf Kufen,
+vorn fast nur Glas, dahinter Ausleger und Seitenleitwerk. Das ist genau die
+Maschine, die dieses Spiel gezeichnet hat, **bevor** die Polizei ihre eigene
+bekam - also steht sie wieder im Code, für den einen Zweck, für den ihre Form
+die richtige ist.
+
+Gelb über alles, mit dem roten Kreuz auf dem Ausleger. Und sie **steht**: Die
+Blätter stehen still und es liegt keine Rotorscheibe darüber. Ein Rotor, der
+sich ewig auf einem Dach dreht, von dem nie jemand abhebt, ist ein Karussell.
+
+## Der Krankenwagen ist der Transporter in Weiß
+
+Kein neues Blech, eine neue Lackierung. Ein Kasten auf einem Fahrerhaus ist ein
+Kasten auf einem Fahrerhaus - Paketwagen und Rettungswagen sind dasselbe
+Fahrzeug auf derselben Straße, und ein zweites von Grund auf zu zeichnen hieße,
+das erste noch einmal zu zeichnen und beim zweiten Mal danebenzuliegen.
+`vanLike(body)` beantwortet deshalb jede Frage nach der **Form** für beide
+zugleich: welche Stockwerkstabelle gilt, welche Wandroutine zeichnet, ob ein
+Firmenname auf den Kasten gehört. Unterschiedlich ist nur, was daraufgemalt
+wird - und dass er schneller fährt und besser am Boden liegt, denn er ist das
+eine Fahrzeug der Stadt, das gebaut ist, um von Berufs wegen schnell gefahren
+zu werden.
+
+Wo der Paketwagen seinen Firmennamen hat, hat dieser den Streifen: einen längs
+über den Kasten, einen über das Chassis und das Kreuz dahinter. **Und auf dem
+Dach, gut innerhalb der Kanten.** Was man von einem Dach sieht, ist nicht das
+ganze Dach: Der Grundriss wird auf Kastenhöhe gestempelt und an der geneigten
+Kabine beschnitten, der äußere Streifen liegt also hinter den Flanken, zu denen
+er gehört. Ein Streifen auf der Kante war ein Streifen, den nie jemand sah. Die
+beiden liegen jetzt 4,2 Pixel neben dem Grat, das Kreuz dazwischen - und weil
+das von dieser Kamera aus die Ansicht ist, die man den ganzen Tag sieht, ist es
+die, auf die es ankommt.
+
+Einen gibt es je Krankenhaus, am Bordstein neben der Tür statt davor: Diese
+Stelle ist die, an der man nach jedem Tod wieder aufwacht.
+
+## Das Foyer ist zwei Scheiben, die Station acht
+
+Die Bandfassade zieht sich über alle drei Etagen, aber nicht mit demselben
+Raster: Das Erdgeschoss ist das Foyer, da geht man hinein, und ein Eingang, der
+in dieselben schmalen Felder geteilt ist wie die Zimmer darüber, liest sich als
+Aktenschrank. Unten also zwei Scheiben je Seite (`LOBBY_BAY`), darüber der
+normale Pfostenabstand.
+
+## Ein Laden zeigt, was er verkauft
+
+Der Barber hatte im Erdgeschoss zwei kleine Fenster mit Sprossen und Fensterbank
+
+- also das, was ein **Wohnhaus** hat, mit einem Ladenschild darüber
+  geschraubt. Ein Laden hat links und rechts der Tür eine Scheibe, vom Sockel bis
+  zum Sturz, mit den Pfosten dazwischen und sonst nichts.
+
+`shopFront` zeichnet genau das: Sockelblech unten, Glas darüber, alle
+`GLASS_BAY` Pixel ein Pfosten, ein Riegel obendrüber und im oberen Drittel der
+Scheibe der Himmel - das Einzige, was sich in dieser Größe als Glas liest. Das
+Glas geht etwas höher als die Tür (ein Schaufenster, das am Sturz aufhört, ist
+eine Luke) und bleibt unter der Traufe, damit bei einem einstöckigen Laden noch
+ein Band Wand für den Namen bleibt.
+
+Geschaltet wird es über `glass` in der Tabelle, und nur das Erdgeschoss ist
+betroffen: Was über einem Laden liegt, sind Wohnungen, und Wohnungen haben
+Fenster (`drawWindows` fängt dort bei Stockwerk 1 an). Glas haben Barber,
+Waffenladen, Restaurant und Supermarkt - die vier, in die man von der Straße
+aus hineingeht.
+
+## Auch eine Autobahn hat einen Bordstein
+
+Der Gehwegring war von der Mitte einer gewöhnlichen Straße gemessen - ein Feld
+Asphalt je Seite, dann der Gehweg. Eine Autobahn ist drei je Seite, ihre
+äußeren Spuren lagen also genau auf den Feldern, auf denen der Gehweg gewesen
+wäre. Das Haus fing an, wo die Überholspur aufhörte: Man trat aus der Ladentür
+auf die linke Spur.
+
+`nextToRoad` fragt jetzt den **Asphalt** statt die Linie: Ein Feld ist Gehweg,
+wenn es selbst keine Fahrbahn ist, aber eines der `WALK_RING` Felder daneben
+eine. Damit zieht der Ring automatisch mit, egal wie breit die Straße dort
+gerade ist - auch bei allem, was weiter unten noch an den Breiten gedreht wird.
+
+Und weil dieser Gehweg dem Gebäude abgeht, holt es ihn sich hinten zurück:
+**Was die Autobahn vorn nimmt, gibt die Rückseite her.** Nach hinten ist der
+Streifen entbehrlich - Eingang, Schild und Fenster liegen alle vorn. Nur nach
+unten, nur wo hinten Gehweg statt Asphalt liegt, und nie über die Blockgrenze
+hinaus: Wo zwei Blöcke ohne Straße zusammenlaufen, gehört das Feld dahinter dem
+Nachbarn.
+
+**Der Boden muss dabei dem Bild folgen.** `builtPlot` sagt, wo die Wand
+gezeichnet wird; `inTown` sagt, wo man laufen kann - und das Feld, das sich das
+Haus nach hinten holt, hielt der Boden weiter für Gehweg. Das Ergebnis war ein
+Streifen Fußboden **im** Laden: Die Stadt parkte pflichtschuldig ein Auto darauf
+und stellte drei Leute daneben, alle innerhalb der Mauer. `builtOver` fragt
+deshalb für jedes Ringfeld dieselbe Funktion, aus der das Bild zeichnet.
+
+## Ein Block ist drei Felder breit, immer
+
+Eine Straße ist drei Felder und nimmt zwei davon aus dem Block links und eines
+aus dem Block rechts; acht minus zwei minus eins minus zwei Felder Gehweg macht
+drei zum Bebauen. Eine Autobahn ist fünf - sie nimmt jedem ihrer beiden Nachbarn
+ein Feld mehr weg als eine Straße, und mit dem Bordstein von oben kamen diese
+Blöcke auf **zwei** statt drei heraus. Gemessen über alle 441 Blöcke: 265 davon
+hatten eine Seite von zwei Feldern, der Barber war ein Laden von zwei Feldern
+Breite mit seinem Namen über der ganzen Front.
+
+Also wird das Feld am **anderen** Ende geholt, wo eine gewöhnliche Straße es
+entbehren kann (`handsBack`): Die Straße auf der abgewandten Seite eines
+eingeklemmten Blocks gibt ihr äußeres Feld her und ist dort zwei Felder breit
+statt drei. Weil eine Autobahn jede `MOTORWAY_EVERY`-te Linie ist, betrifft das
+immer die Straße unmittelbar neben einer Autobahn - und zwar auf ihrer ganzen
+Länge. Die Fahrbahn springt also nirgends: Sie ist durchgehend schmal oder
+durchgehend breit.
+
+Danach: 3×3 als häufigster Block, keine einzige Seite unter drei Feldern mehr,
+und die Spur, die `laneDrift` ansteuert, stimmt weiterhin mit dem Asphalt
+überein, weil `streetRun` dieselbe Rechnung macht wie der Boden. Zwei Felder
+sind 96 Pixel, also gut 48 je Richtung - bei einem Auto von 18 Pixeln Breite
+immer noch zwei Wagenbreiten je Spur.
+
+## Vor dem Haus steht kein Streifenwagen
+
+Geparkte Autos wurden aus derselben Liste gezogen wie der Verkehr, und im
+Verkehr **soll** ein Streifenwagen sein: Das meiste, was die Polizei tut, ist
+mit ausgeschaltetem Blaulicht herumfahren. Stehend ist es etwas anderes - ein
+Streifenwagen vor einem fremden Haus, bei null Sternen, bevor das Spiel
+angefangen hat, liest sich als Razzia statt als Kulisse, und er ist ein
+geschenkter Polizeiwagen für jeden, der vorbeikommt.
+
+`AT_THE_KERB` ist deshalb dieselbe Mischung ohne alles in Polizeifarben, und
+`pickParked` zieht daraus - am Bordstein wie auf dem Supermarktparkplatz.
+Gemessen über drei Startwerte: 192 geparkte Fahrzeuge, davon 16 in
+Polizeifarben, und alle 16 stehen an einer der vier Wachen. Im Verkehr fahren
+weiterhin sechs bis elf Streifenwagen herum.
 
 ## Spielstände ohne den Boden
 
@@ -2501,7 +2954,9 @@ Vier Dinge tragen diesen Bautyp, und mehr braucht es nicht:
 - **Ein Schornstein mitten auf dem Dach.** Er stand an der Vorderkante der
   Ziegel, halb neben dem Haus; ein Schlot kommt aus der Mitte eines Daches. Er
   steht jetzt knapp zwei Drittel hinten auf der Schräge des großen Daches und
-  quer in dessen Mitte - da, wo auf dem Foto der Rauch herauskommt - und er ist
+  etwas rechts der Mitte - da, wo auf dem Foto der Rauch herauskommt, und
+  daneben statt auf dem Giebel des linken Flügels, denn durch ein Satteldach
+  kommt kein Schlot. Er ist
   fast doppelt so breit, mit Schattenseite, Lüftungsschlitzen und Abdeckplatte.
 - **Ein Giebel über dem linken Ende.** Auf dem Foto ist die linke Seite ein
   eigener Flügel unter einem Satteldach, und was man davon von der Straße aus
@@ -2625,6 +3080,13 @@ fragte dafür `villaTook` - was über `villaBlock` und `myHouses` wieder bei
 wie die Villa, und pro Viertel gibt es nur ein eigenes Haus. Übersprungen wird
 er im **Bild**, wo der Prison-Umbau dieselbe Prüfung schon hat.
 
+**Und der Boden liegt unter den Autos.** Auffahrt, Pflasterhof, Stellplatz und
+Blumen werden im Bodendurchgang gezeichnet, bei den übrigen Belägen der Stadt
+(`villaGround`), nicht beim Haus. Beim Haus gezeichnet gingen sie **über** die
+Wagen, die darauf standen, und ein Hof, auf dem man die Autos nicht sieht, ist
+eine Terrasse. Die Hecke ist das andere: Die steht anderthalb Meter hoch vor
+dem, was hinter ihr ist, also gehört sie zum Gebäude.
+
 Darauf liegt dann der Rest, und zwar in den Koordinaten des **Grundstücks**,
 nicht des Hauses - das Haus ist eine Ecke einer Wiese von zwölf Feldern Breite,
 und eine Hecke ums Haus wäre eine Hecke quer durch den Garten. Also: die
@@ -2653,23 +3115,59 @@ oder her. Eine Tür, durch die man verfolgt werden kann, ist kein Versteck,
 sondern eine Sackgasse.
 
 Alles daran folgt jetzt aus einem Satz, und der steht in `lost()`: **Durch eine
-Wand sieht niemand.** Vier Stellen lesen ihn:
+Wand sieht niemand.** Vier Stellen lesen ihn.
+
+Gefragt wird nach **Feldern**, nicht nach einem Radius. Erst stand da „höchstens
+sechsundzwanzig Pixel von der Mitte der Bucht", also ein halbes Feld: eine
+Handbreit schief eingeparkt, oder ausgestiegen und neben dem Wagen gestanden,
+und man war für die Polizei wieder im Freien - in der eigenen Garage. Eine
+Garage sind zwei Felder. Auf einem davon zu stehen heißt, drin zu sein.
 
 - `coolDown` zählt ihn nicht mehr als gesehen, also läuft die Uhr, die ihm die
   Sterne abnimmt. **Nicht sofort** - die Garage ist keine Begnadigung, sie ist
   ein Ort, in den sie nicht hineinsehen können. Gemessen: mit drei Sternen
   hineingefahren, nach zwanzig Sekunden zwei, nach vierzig einer, nach sechzig
   „Die Luft ist rein".
-- Die Männer und die Wagen fahren nicht mehr auf ihn zu, sondern auf **die
-  Straßen um das Haus herum**, jeder auf seinen eigenen Punkt eines Rings
-  (`searchAt`). Das ist es, was sie in die Nebenstraßen verteilt, statt sie
-  alle vor der Tür aufzustapeln.
+- Die Männer, die Wagen **und der Hubschrauber** fahren nicht mehr auf ihn zu,
+  sondern auf die Straßen um das Haus herum, jeder auf seinen eigenen Punkt
+  eines Rings (`searchAt`). Der Ring ist neunhundert Pixel weit und auf die
+  nächste Kreuzung gerastet - bei zweihundertsechzig durchsuchten sie den
+  Vorgarten, man sah aus der eigenen Garage sechs Polizisten um die Hecke
+  stehen, und der Bildschirm ist tausend Pixel breit. Neunhundert sind drei
+  Straßen weiter, also aus dem Bild. Und die Kreuzung, weil jemand, der ein um
+  die Ecke verschwundenes Auto sucht, die Straßen absucht und nicht einen Punkt
+  mitten im Wald.
 - Niemand schießt. Ein Polizist feuert auf alles in Reichweite seiner Waffe,
   was durch ein geschlossenes Garagentor hindurch ein Mann wäre, der auf gut
   Glück auf ein Gebäude schießt.
 - Und niemand verhaftet. Ein Ring Polizisten um ein Haus ist kein Ring um den
   Mann darin - stillzusitzen ist genau das, was man in einer Garage tut, und
   genau das war die Verhaftungsbedingung.
+
+**Umlackiert wird nicht mehr**, nur repariert. Ein neuer Lack bei jeder Einfahrt
+hieß, dass man nie ein Auto in einer Farbe behalten konnte, die einem gefällt -
+und er kaufte nichts: Was eine Fahndung abschüttelt, ist, nicht gesehen zu
+werden, nicht, eine andere Farbe zu haben.
+
+**Und das Tor schließt bei jeder Einfahrt.** Es fragte vorher, ob es überhaupt
+etwas zu _tun_ gäbe - Sterne loszuwerden, Beulen auszubeulen, oder noch nie
+dagewesen zu sein -, und bei der zweiten Fahrt mit heilem Wagen und weißer
+Weste war die Antwort nein, also blieb es oben. Eine Garage, die bei manchen
+Ankünften schließt und bei anderen nicht, ist eine Garage, auf die kein Verlass
+ist. Was es jetzt fragt, ist, ob der Wagen noch **rollt**: Das unterscheidet
+Ankommen vom Dastehen, und ohne diesen Unterschied ginge das Tor um einen
+geparkten Wagen herum alle paar Sekunden auf und zu. Gemessen: dreißig Sekunden
+stillgestanden, ein einziger Torwechsel, keine zweite Reparatur.
+
+**Es steigt auch niemand mehr aus dem geklauten Streifenwagen aus.** Ein
+Polizeiauto behält seine Nummer, wenn man es der Polizei abnimmt, und die
+Männer, die man herausgezerrt hat, haben diese Nummer weiterhin auf sich stehen
+
+- am Ende der Fahndung stiegen sie also wieder ein, wo der Wagen gerade stand.
+  So kam es, dass ein geklauter Streifenwagen, nach Hause gefahren und abgestellt,
+  plötzlich zwei Polizisten enthielt, die dann in der Garage ausstiegen.
+  `putAboard` lässt sie jetzt von der Straße verschwinden wie alle anderen, setzt
+  sie aber in kein Auto, das dem Spieler gehört.
 
 ## Das Garagentor ist eine Wand, kein Bild
 
@@ -2750,6 +3248,38 @@ aushält und ob er schießt. Nur zwei Fragen stellt der Motor über die Art selb
 und beide betreffen die Banden - wer ist auf welcher Seite, und wen darf eine
 Kugel treffen. Grün geht auf Orange, Orange auf Grün und auf dich; alle anderen
 laufen weiter und rennen, wenn es laut wird.
+
+## Der leere Blechbalken ist kein Tod
+
+Zwei Zeilen haben zusammen dafür gesorgt, dass eine Verfolgungsjagd im Auto
+nach ein paar Sekunden vorbei war, ohne dass der Spieler je getroffen wurde:
+
+- `checkEnd` fragte `state.player.health <= 0 || car.health <= 0`. Der zweite
+  Teil ist falsch: Das Blech ist nicht der Fahrer. Der Balken lief leer, und
+  der Bildschirm sagte WASTED - bei einem Mann ohne einen Kratzer, in einem
+  Wagen, der noch nicht einmal qualmte. Jetzt steht dort nur noch die eigene
+  Gesundheit.
+- `CAR_TOUGHNESS` war 1,2: Blech nahm **mehr** Schaden als ein Mensch. Ein
+  Polizist mit Maschinengewehr macht neun Schaden elfmal die Sekunde, also
+  rund hundert - genau das, was ein Mittelklassewagen an Blech hat. Eine
+  Sekunde Dauerfeuer, und der Wagen war hin. Jetzt sind es 0,35.
+
+Gemessen mit einem MG und zwei Pistolen, alle drei im Dauerfeuer auf einen
+stehenden Wagen: **vorher 4,6 Sekunden bis WASTED**, nachher 11,6 Sekunden, bis
+das Blech leer ist - und dann geht es erst los.
+
+Denn was danach passiert, gab es schon, es kam nur nie jemand lebend dort an:
+Der Wagen hat keinen Motor mehr, rollt aus und bleibt stehen, raucht erst
+dünn, dann dick und schwarz, brennt und fliegt auseinander. Die vier Stufen
+waren allerdings weder in der richtigen Reihenfolge - Flammen bei 2,2
+Sekunden, schwarzer Qualm erst bei 4 - noch lang genug: viereinhalb Sekunden
+insgesamt. Das ist keine Frage, das ist ein Countdown, den man nicht gewinnen
+kann. Jetzt: Qualm ab 1, schwarz ab 3,5, Flammen ab 6, Explosion bei 9,5.
+
+Gemessen: aussteigen nach 1,1 Sekunden und weglaufen bringt einen 978 Pixel
+weit, die Explosion tut einem dort nichts, und das Spiel läuft weiter. Wer
+sitzen bleibt, ist bei 9,5 Sekunden tot. Sitzen bleiben ist jetzt eine
+Entscheidung.
 
 ## Wer wem was tut
 

@@ -309,6 +309,25 @@ const TIERS: Readonly<Record<VehicleBody, VehicleTiers>> = {
     cabinWide: 21,
     rake: 0,
   },
+  // The ambulance is the same box on the same cab: one set of numbers, so the
+  // two can never drift apart. See {@link vanLike}.
+  ambulance: {
+    tall: 21,
+    belt: 10,
+    cabinBack: -31,
+    cabinFront: 30,
+    cabinWide: 21,
+    rake: 0,
+  },
+  // And the fire engine is the third of them.
+  firetruck: {
+    tall: 21,
+    belt: 10,
+    cabinBack: -31,
+    cabinFront: 30,
+    cabinWide: 21,
+    rake: 0,
+  },
   // Tall and narrow: a tractor is mostly cab, and the cab sits over the back
   // axle rather than in the middle.
   //
@@ -902,10 +921,9 @@ export function vehicleWall(
   // first question was why the van's name came out back to front the moment it
   // drove west: nothing on an upper wall ever got a mirrored copy, so both
   // flanks were handed the one picture drawn nose to the right.
-  const lettered =
-    body === "transporter"
-      ? upper && face !== "nose"
-      : wheels && (police || body === "taxi");
+  const lettered = vanLike(body)
+    ? upper && face !== "nose"
+    : wheels && (police || body === "taxi");
   const other = lettered && mirror;
   const own = twoWheeled(body) && mine;
   const key = `${body}|${paint}|${police ? "p" : "-"}|${face}|${upper ? "u" : "l"}|${turn}|${stuck ? "h" : "-"}|${other ? "m" : "-"}|${own ? "me" : "-"}`;
@@ -1001,8 +1019,8 @@ function paintVehicle(
     paintPatrolBike(ctx, paint, police, mine);
   } else if (body === "cycle") {
     paintTwoWheeler(ctx, body, paint, police, mine);
-  } else if (body === "transporter") {
-    paintVan(ctx, paint);
+  } else if (vanLike(body)) {
+    paintVan(ctx, body, paint);
   } else if (body === "tank") {
     paintTank(ctx, step);
   } else if (body === "dmc") {
@@ -1691,8 +1709,12 @@ function paintTwoWheeler(
  * front. The name goes on the flanks and the back door, where it is on the
  * real thing and where one actually reads it from the street.
  */
-function paintVan(ctx: CanvasRenderingContext2D, paint: string): void {
-  const shape = VEHICLES.transporter;
+function paintVan(
+  ctx: CanvasRenderingContext2D,
+  body: VehicleBody,
+  paint: string,
+): void {
+  const shape = VEHICLES[body];
   const long = shape.length / 2;
   const wide = shape.width / 2;
 
@@ -1706,11 +1728,11 @@ function paintVan(ctx: CanvasRenderingContext2D, paint: string): void {
   ctx.strokeStyle = INK;
 
   // The body: square, the full width, with the corners barely taken off.
-  const body = pathOf(bodyOutline("transporter"));
+  const shell = pathOf(bodyOutline(body));
   ctx.fillStyle = paint;
   ctx.lineWidth = PEN;
-  ctx.fill(body);
-  ctx.stroke(body);
+  ctx.fill(shell);
+  ctx.stroke(shell);
 
   // The roof of the box: a panel inset from the sides, running from the back
   // door to where the cab begins, with the ribs across it. On a van that is
@@ -1722,14 +1744,20 @@ function paintVan(ctx: CanvasRenderingContext2D, paint: string): void {
   lid.rect(-long + 2, -wide + 2.2, long * 2 - 4, (wide - 2.2) * 2);
   ctx.fill(lid);
   ctx.stroke(lid);
-  ctx.strokeStyle = shade(shade(paint));
-  ctx.lineWidth = 0.6;
-  ctx.beginPath();
-  for (let rib = -long + 6; rib < long - VAN_SCREEN; rib += 5.5) {
-    ctx.moveTo(rib, -wide + 3.4);
-    ctx.lineTo(rib, wide - 3.4);
+  // **The ribs are the parcel van's, not the ambulance's.** A box van is
+  // corrugated steel and the ribs across the roof are what say so; an
+  // ambulance is a smooth glassfibre body, and a dozen grey lines across a
+  // white roof read as dirt on the picture rather than as panelling.
+  if (body === "transporter") {
+    ctx.strokeStyle = shade(shade(paint));
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    for (let rib = -long + 6; rib < long - VAN_SCREEN; rib += 5.5) {
+      ctx.moveTo(rib, -wide + 3.4);
+      ctx.lineTo(rib, wide - 3.4);
+    }
+    ctx.stroke();
   }
-  ctx.stroke();
   ctx.strokeStyle = INK;
   const vent = new Path2D();
   vent.roundRect(-long + 9, -4, 7, 8, 1);
@@ -1758,6 +1786,77 @@ function paintVan(ctx: CanvasRenderingContext2D, paint: string): void {
     ctx.fill(mirror);
     ctx.stroke(mirror);
   }
+
+  // **Nothing red up here.** The stripes and the cross are on the sides,
+  // where they are on the real thing: from overhead an ambulance is a white
+  // roof with a light bar at the front of it. Painted on the roof as well,
+  // the two stripes and the cross between them were the one thing one looked
+  // at, and it is not the thing one recognises.
+
+  // **The fire engine carries its ladder up there**, and from directly above
+  // that is the one thing that tells it from any other red van: two rails the
+  // length of the body with the rungs across them. Nothing else on this roof
+  // is a straight line, so it reads as a ladder and not as panelling.
+  if (body === "firetruck") {
+    const ladder = { from: -long + LADDER_END, to: long - VAN_SCREEN };
+    ctx.fillStyle = LADDER_ALLOY;
+    for (const side of [-1, 1]) {
+      ctx.fillRect(
+        ladder.from,
+        side * LADDER_APART - LADDER_RAIL / 2,
+        ladder.to - ladder.from,
+        LADDER_RAIL,
+      );
+    }
+    for (
+      let rung = ladder.from + LADDER_STEP;
+      rung < ladder.to;
+      rung += LADDER_STEP
+    ) {
+      ctx.fillRect(
+        rung - LADDER_RAIL / 2,
+        -LADDER_APART,
+        LADDER_RAIL,
+        LADDER_APART * 2,
+      );
+    }
+  }
+}
+
+/** What a ladder is made of. */
+const LADDER_ALLOY = "#d4d4d8";
+
+/** How far in from the back of the box it starts, in city pixels. */
+const LADDER_END = 4;
+
+/** How far either side of the ridge its rails run. */
+const LADDER_APART = 3.6;
+
+/** How thick a rail or a rung is. */
+const LADDER_RAIL = 1.2;
+
+/** And how far apart the rungs are. */
+const LADDER_STEP = 5;
+
+/** The red a fire engine is painted, and the only colour it comes in. */
+export const FIRE_PAINT = "#c1121f";
+
+/** The white an ambulance is painted, and the only colour it comes in. */
+export const RTW_WHITE = "#f4f6f8";
+
+/**
+ * Whether this body is the van, in whichever livery.
+ *
+ * @param body - the sort of vehicle
+ * @returns true for the parcel van, the ambulance and the fire engine
+ * @remarks
+ * Every question about the shape of a van - which tier table to read, which
+ * wall routine to call, whether the name goes on the box - is a question about
+ * the box and the cab, and those are the same on both. Only the paint and what
+ * is written on it differ, and that is decided where it is drawn.
+ */
+export function vanLike(body: VehicleBody): boolean {
+  return body === "transporter" || body === "ambulance" || body === "firetruck";
 }
 
 /** How much of the nose is cab rather than box, in city pixels. */
@@ -2357,6 +2456,63 @@ function buildWall(
   return made;
 }
 
+/**
+ * The red on the side of an ambulance: one stripe and one cross.
+ *
+ * @param ctx - what to paint on
+ * @param half - half the width of this wall
+ * @param high - how tall it is
+ * @remarks
+ * Where the parcel van has the name of the firm. A stripe the length of the
+ * box at the height of a bonnet, and the cross behind it - which between them
+ * are what one recognises at the end of a street, in a picture where the whole
+ * vehicle is sixty pixels long.
+ */
+function vanStripe(
+  ctx: CanvasRenderingContext2D,
+  half: number,
+  high: number,
+): void {
+  // **Two, and where they are is the whole of it.** One along the top edge of
+  // the box, one along the bottom of it - which is directly over the wheels
+  // and just under the cab window, where the stripe on an ambulance runs. A
+  // third one across the middle was a fire engine.
+  ctx.fillStyle = WALL_RED;
+  for (const band of [TOP_BAND_AT, LOW_BAND_AT]) {
+    ctx.fillRect(-half, high * band, half * 2, high * BAND_TALL);
+  }
+  // And the cross between them, towards the back of the box.
+  const arm = high * WALL_CROSS_ARM;
+  const at = { x: -half * WALL_CROSS_BACK, y: high * WALL_CROSS_UP };
+  const thick = arm * WALL_CROSS_THICK;
+  ctx.fillRect(at.x - arm / 2, at.y - thick / 2, arm, thick);
+  ctx.fillRect(at.x - thick / 2, at.y - arm / 2, thick, arm);
+}
+
+/** The red on the side of an ambulance. */
+const WALL_RED = "#c81e1e";
+
+/** How far down the box the upper of the two stripes sits. */
+const TOP_BAND_AT = 0.05;
+
+/** And the lower one, which is above the wheels and under the cab window. */
+const LOW_BAND_AT = 0.79;
+
+/** How deep each of them is, as a share of the height of the box. */
+const BAND_TALL = 0.14;
+
+/** How long the arms of the cross are, as a share of the height. */
+const WALL_CROSS_ARM = 0.4;
+
+/** How thick they are, as a share of their length. */
+const WALL_CROSS_THICK = 0.34;
+
+/** How far back along the box it sits. */
+const WALL_CROSS_BACK = 0.42;
+
+/** And how far up: between the two stripes rather than across one. */
+const WALL_CROSS_UP = 0.45;
+
 /** Which routine draws which wall. */
 function paintWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
   if (onGolfWalls(job.body)) {
@@ -2367,7 +2523,7 @@ function paintWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
     golfWall(ctx, job);
   } else if (job.body === "suv") {
     cyberWall(ctx, job);
-  } else if (job.body === "transporter") {
+  } else if (vanLike(job.body)) {
     vanWall(ctx, job);
   } else if (job.body === "tank") {
     tankWall(ctx, job);
@@ -5836,14 +5992,18 @@ function vanWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
     ctx.fillStyle = job.paint;
     ctx.fill(box);
     ctx.stroke(box);
-    ctx.strokeStyle = shade(job.paint);
-    ctx.lineWidth = 0.6;
-    ctx.beginPath();
-    for (let rib = -half + 3; rib < half - 2; rib += 5) {
-      ctx.moveTo(rib, high * 0.12);
-      ctx.lineTo(rib, high * 0.92);
+    // Corrugations on the parcel van, smooth panels on the ambulance: see
+    // paintVan for the same line on the roof.
+    if (job.body === "transporter") {
+      ctx.strokeStyle = shade(job.paint);
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      for (let rib = -half + 3; rib < half - 2; rib += 5) {
+        ctx.moveTo(rib, high * 0.12);
+        ctx.lineTo(rib, high * 0.92);
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
     ctx.strokeStyle = INK;
     if (job.face === "tail") {
       // The back doors, which is where the load goes in: two leaves, a shut
@@ -5863,20 +6023,62 @@ function vanWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
       ctx.fillStyle = GLASS;
       ctx.lineWidth = PEN * 0.7;
       const glass = new Path2D();
-      glass.rect(half * 0.56, high * 0.3, half * 0.38, high * 0.5);
+      glass.rect(half * VAN_GLASS_AT, high * 0.3, half * 0.38, high * 0.5);
       ctx.fill(glass);
       ctx.stroke(glass);
       ctx.fillStyle = "#d4d4d8";
       ctx.fillRect(half * 0.5, high * 0.26, half * 0.08, 1.2);
-      vanName(
-        ctx,
-        half * VAN_WORD_BACK,
-        high,
-        job.mirror,
-        -half * VAN_WORD_OFF,
-      );
+      if (job.body === "ambulance") {
+        vanStripe(ctx, half, high);
+      } else if (job.body === "firetruck") {
+        // **Across the whole flank, and as tall as the box will carry.** Nine
+        // letters shrunk into the space three were written in came out at
+        // three pixels high, which from the street is a smudge. It is the one
+        // word on this vehicle, so it gets the side to itself.
+        vanName(
+          ctx,
+          half,
+          high,
+          job.mirror,
+          -half * FIRE_WORD_OFF,
+          FIRE_WORD,
+          FIRE_LETTERS,
+          FIRE_WORD_TALL,
+          FIRE_WORD_WIDE,
+        );
+      } else {
+        vanName(
+          ctx,
+          half * VAN_WORD_BACK,
+          high,
+          job.mirror,
+          -half * VAN_WORD_OFF,
+          VAN_WORD,
+          VAN_GOLD,
+          VAN_WORD_TALL,
+          VAN_WORD_WIDE,
+        );
+      }
     } else if (job.face === "tail") {
-      vanName(ctx, half, high, job.mirror, 0);
+      // **Nothing on the back doors of a fire engine.** The word is nine
+      // letters and the back of a van is twenty-two pixels across: shrunk to
+      // fit it was a grey line. What is on the back of the real thing is
+      // chevrons, and what is on this one is the doors themselves.
+      if (job.body === "ambulance") {
+        vanStripe(ctx, half, high);
+      } else if (job.body !== "firetruck") {
+        vanName(
+          ctx,
+          half,
+          high,
+          job.mirror,
+          0,
+          VAN_WORD,
+          VAN_GOLD,
+          VAN_WORD_TALL,
+          VAN_WORD_WIDE,
+        );
+      }
     } else {
       // Head on there is a windscreen across the whole of it and nothing else:
       // a firm paints its name where the street reads it, not on the front of
@@ -5978,6 +6180,11 @@ function vanWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
  * @param half - half the width of the wall
  * @param high - how tall it is
  * @param mirror - whether the writing has to go on back to front
+ * @param along - how far back along the wall it sits
+ * @param word - what it says
+ * @param paint - what colour it is written in
+ * @param tall - how tall the letters are, as a share of the wall
+ * @param room - how much of the wall the word may take, as a share of half
  * @remarks
  * Drawn upside down and then flipped, because the wall pictures are painted
  * with the ground along the bottom and the y axis pointing **up** - text laid
@@ -5989,27 +6196,78 @@ function vanName(
   high: number,
   mirror: boolean,
   along: number,
+  word: string,
+  paint: string,
+  tall: number,
+  room: number,
 ): void {
   ctx.save();
-  ctx.translate(mirror ? -along : along, high * VAN_WORD_UP);
+  // **The word keeps its place and only turns round.** Both flanks of a van
+  // are painted from the same picture, and which copy is used depends on which
+  // way the vehicle is pointing - see `reads` in panels. The offset used to be
+  // negated for the mirrored copy, which does not move the word to the same
+  // spot on the other side: it moves it to the **other end of the same wall**.
+  // Driving east the name sat behind the cab where it belongs; driving west
+  // the same name sat across the driver's window.
+  ctx.translate(along, high * VAN_WORD_UP);
   ctx.scale(mirror ? -1 : 1, -1);
-  ctx.fillStyle = VAN_GOLD;
+  ctx.fillStyle = paint;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  let size = high * VAN_WORD_TALL;
+  let size = high * tall;
   ctx.font = `700 ${String(size)}px sans-serif`;
-  while (ctx.measureText(VAN_WORD).width > half * VAN_WORD_WIDE && size > 1) {
+  while (ctx.measureText(word).width > half * room && size > 1) {
     size -= 0.5;
     ctx.font = `700 ${String(size)}px sans-serif`;
   }
-  ctx.fillText(VAN_WORD, 0, 0);
+  ctx.fillText(word, 0, 0);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.restore();
 }
 
-/** What is written on the side of one. */
+/** What is written on the side of a parcel van. */
 const VAN_WORD = "ups";
+
+/** And on the side of a fire engine, which is not a parcel firm. */
+const FIRE_WORD = "FEUERWEHR";
+
+/**
+ * Where the cab window starts along the flank, as a share of half of it.
+ *
+ * @remarks
+ * Read twice: once to draw the glass, once to keep the name off it. Written
+ * out in both places, the second one was a guess that turned out a pixel
+ * short, and the last letter of FEUERWEHR sat in the driver's window.
+ */
+const VAN_GLASS_AT = 0.56;
+
+/** The white it is written in. */
+const FIRE_LETTERS = "#f8fafc";
+
+/** How tall those letters are, as a share of the box. */
+const FIRE_WORD_TALL = 0.66;
+
+/**
+ * How much of the flank the word may take, as a share of half of it.
+ *
+ * @remarks
+ * Its right-hand end has to stay clear of {@link VAN_GLASS_AT}: the word is
+ * centred at {@link FIRE_WORD_OFF} behind the middle, so half of this plus
+ * that offset is where it stops - which at these two numbers is a good few
+ * pixels short of the glass, whatever the font measures out at.
+ */
+const FIRE_WORD_WIDE = 1.2;
+
+/**
+ * And how far back from the middle it sits.
+ *
+ * @remarks
+ * Over the load space rather than over the cab: that is where the name is
+ * painted on the real thing, and it is the half of the flank that has nothing
+ * else on it.
+ */
+const FIRE_WORD_OFF = 0.34;
 
 /** How tall the letters are, as a share of the box. */
 const VAN_WORD_TALL = 0.52;

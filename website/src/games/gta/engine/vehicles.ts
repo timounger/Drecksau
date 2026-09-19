@@ -21,6 +21,8 @@ export type VehicleBody =
   | "suv"
   | "taxi"
   | "transporter"
+  | "ambulance"
+  | "firetruck"
   | "bike"
   | "cycle"
   | "corsa"
@@ -150,6 +152,54 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     gun: false,
     seats: 2,
     grip: 11,
+  },
+  /**
+   * The ambulance: the same van, in the other livery.
+   *
+   * @remarks
+   * **Not a new shape, a new paint job.** A box on a cab is a box on a cab -
+   * the parcel van and the ambulance are the same vehicle on the same street,
+   * and drawing a second one from scratch would be drawing the first one
+   * twice and getting it slightly wrong the second time. What differs is what
+   * is written on the side and what happens when one is in it.
+   *
+   * Quicker than the van and rather better held: it is the one vehicle in the
+   * city built to be driven fast by somebody whose job it is.
+   */
+  ambulance: {
+    body: "ambulance",
+    name: "Krankenwagen",
+    length: 62,
+    width: 22,
+    top: 345,
+    accel: 210,
+    turn: 2,
+    health: 170,
+    gun: false,
+    seats: 2,
+    grip: 12,
+  },
+  /**
+   * The fire engine: the same van again, in the third livery.
+   *
+   * @remarks
+   * Heavier than the other two and slower with it - it is carrying a tank of
+   * water and a ladder - but it takes more shooting at than anything on the
+   * road bar the tank. Three of them stand in every fire station, and they are
+   * the only vehicles in the city that live indoors.
+   */
+  firetruck: {
+    body: "firetruck",
+    name: "Löschfahrzeug",
+    length: 62,
+    width: 22,
+    top: 290,
+    accel: 160,
+    turn: 1.8,
+    health: 220,
+    gun: false,
+    seats: 2,
+    grip: 12,
   },
   dmc: {
     body: "dmc",
@@ -467,6 +517,24 @@ export const ON_THE_ROAD: readonly VehicleBody[] = [
   "bike",
   "cycle",
 ];
+
+/**
+ * What stands at a kerb, and how often.
+ *
+ * @remarks
+ * **The same mix, without the police.** Parked cars are drawn from the traffic
+ * list, and the traffic list has a patrol car in it on purpose - most of what
+ * the police do is drive about with their lights off. Standing still at a kerb
+ * it is a different thing: a police car outside somebody's house, at nought
+ * stars, before the game has started, which reads as a raid rather than as
+ * scenery - and it is a free patrol car for anybody who walks past.
+ *
+ * Police vehicles that are standing rather than driving belong outside a
+ * police station, where the plan puts four of them. See stations in ./city.
+ */
+export const AT_THE_KERB: readonly VehicleBody[] = ON_THE_ROAD.filter(
+  (body) => body !== "patrol" && body !== "patrolbike",
+);
 
 /**
  * How many tanks stand about the city.

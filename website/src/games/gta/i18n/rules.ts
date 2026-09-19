@@ -61,7 +61,9 @@ export const GTA_RULES: GameRules = {
       title: "Die Häuser",
       body: [
         "Jeder Block ist etwas: ein Haus, ein Doppelhaus, ein Reihenhaus oder ein Hochhaus - oder ein Ort mit Namen. Bank, Feuerwehr, Krankenhaus, Polizeirevier, Barber, Restaurant, Casino, Rathaus, Supermarkt, Nachtclub und Gefängnis stehen mit Schild über der Tür da.",
+        "Die Feuerwache hat drei Tore, die immer offen stehen - du kannst hineinfahren. In jedem steht ein Löschfahrzeug: wie der Transporter, ganz in Rot, mit der Leiter auf dem Dach, FEUERWEHR an der Seite und Blaulicht obendrauf. Der Schlüssel steckt, wie bei jedem leeren Fahrzeug.",
         "Welcher Block was ist, steht fest und ändert sich nie. Nach einer Weile weißt du, wo das Krankenhaus steht - und das ist der Sinn der Sache.",
+        "Von Polizeirevier, Nachtclub, Krankenhaus und Feuerwache gibt es genau eines je Stadtteil - vier in der Stadt, nicht zwölf. Das Krankenhaus erkennst du von weitem: drei Stockwerke Glasfassade, ein rotes Kreuz an der Wand, eine Schiebetür unter dem Vordach und ein Hubschrauberlandeplatz auf dem Dach, auf dem du auch wirklich landen kannst - dort steht der gelbe Rettungshubschrauber, den du genauso fliegen kannst wie den vom Militärgelände - hinaufkommst du mit dem Jetpack oder mit der anderen Maschine. Am Bordstein davor steht ein Krankenwagen: weiß, mit zwei roten Streifen an jeder Seite und Blaulicht auf dem Dach.",
       ],
     },
     {
@@ -81,6 +83,7 @@ export const GTA_RULES: GameRules = {
         "Beim ersten Stern kommt ein Streifenwagen. Jeder weitere Stern bringt einen weiteren dazu, höchstens sechs. Neue kommen einzeln und mit Abstand nach.",
         "Fünf Sterne sind das Höchste.",
         "Die Sterne fallen von selbst wieder ab, wenn dich eine Weile niemand sieht. Ein ausgeschalteter Streifenwagen sieht auch nichts mehr - wer den letzten los wird und wegfährt, ist die Fahndung nach einer Weile los.",
+        "Einen Polizisten umzufahren wirft ihn erst einmal nur um: Er liegt ein paar Sekunden auf der Straße und steht dann wieder auf. Beim zweiten Mal ist er tot - egal, wie viel Zeit dazwischen liegt. Zwei Sterne kostet schon der erste Anstoß.",
         "Bist du zu Fuß, fährt die Streife neben dich, hält an, und die Polizisten steigen aus und schießen. Verhaftet wird dabei niemand - zu Fuß ist die Gefahr das Schießen.",
         "Bist du im Auto, wird verfolgt und gerammt - das kostet Blech, nicht Gesundheit. Und nur hier gibt es die Zelle: Haben sie dich zum Stehen gebracht und halten dich ein paar Sekunden fest, bist du verhaftet. Wer wieder anfährt oder aussteigt und rennt, ist es nicht.",
         "Der blaue Ring ist die Lackiererei: reinfahren, zahlen, Fahndung weg.",
@@ -89,8 +92,8 @@ export const GTA_RULES: GameRules = {
     {
       title: "Krankenhaus und Zelle",
       body: [
-        "Im Auto nimmst nicht du den Schaden, sondern das Blech. Wie viel davon noch da ist, zeigt der orange Balken oben rechts.",
-        "Ist der Balken leer, fährt der Wagen nicht mehr - er rollt nur noch aus. Dann raucht er erst leicht, dann dick und schwarz, dann brennt er, und nach neun Sekunden fliegt er auseinander. Wer dann noch drinsitzt, geht mit hoch.",
+        "Im Auto nimmst nicht du den Schaden, sondern das Blech. Wie viel davon noch da ist, zeigt der orange Balken oben rechts. Kugeln kosten es nur ein Drittel dessen, was sie einem Menschen antun - Dauerfeuer von drei Polizisten hält ein Wagen gut zehn Sekunden aus.",
+        "Ist der Balken leer, stirbst du nicht: Der Wagen fährt nur nicht mehr, er rollt aus und bleibt stehen. Dann raucht er erst leicht, dann dick und schwarz, dann brennt er, und nach neuneinhalb Sekunden fliegt er auseinander. Wer dann noch drinsitzt, geht mit hoch - aussteigen und weglaufen ist die Antwort darauf, und weg heißt weiter als ein paar Schritte.",
         "Endest du im Krankenhaus, kostet das Geld. Erwischt dich die Polizei zu Fuß, zahlst du Kaution.",
         "Beides ist kein Spielende: Du stehst wieder auf der Straße, ohne Sterne und ohne Auto.",
       ],

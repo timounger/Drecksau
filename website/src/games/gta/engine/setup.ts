@@ -12,6 +12,11 @@ import {
   districtAt,
   districtCentre,
   doorsOf,
+  fireBays,
+  openStations,
+  padsOf,
+  plotsOf,
+  roofAt,
   isOpen,
   isRoadAt,
 } from "./city";
@@ -72,6 +77,7 @@ import {
   type PersonKind,
 } from "./people";
 import {
+  AT_THE_KERB,
   DELOREANS,
   ON_THE_ROAD,
   TANKS,
@@ -122,6 +128,8 @@ export function newAcks(): readonly Ack[] {
  */
 export function newChopper(): Chopper {
   return {
+    id: 0,
+    kind: "army",
     x: BASE_PAD.x * TILE,
     y: BASE_PAD.y * TILE,
     angle: -Math.PI / 2,
@@ -129,6 +137,34 @@ export function newChopper(): Chopper {
     speed: 0,
     spin: 0,
   };
+}
+
+/**
+ * Every machine there is: the olive one on the base, one yellow one per
+ * hospital.
+ *
+ * @param cells - the city floor, which is what says how high a roof is
+ * @returns the five of them, standing where they belong
+ * @remarks
+ * The rescue machines start **on the roof**, at the height the floor gives
+ * that roof - not at nought with a building drawn round them. Which is also
+ * how one gets to them: over the wall with a jetpack, or in another
+ * helicopter.
+ */
+export function newChoppers(cells: readonly Cell[]): readonly Chopper[] {
+  return [
+    newChopper(),
+    ...padsOf().map((pad, at) => ({
+      id: at + 1,
+      kind: "rescue" as const,
+      x: pad.x,
+      y: pad.y,
+      angle: -Math.PI / 2,
+      height: roofAt(cells, pad.x, pad.y),
+      speed: 0,
+      spin: 0,
+    })),
+  ];
 }
 
 /** How many guards stand in one row inside the wire. */
@@ -195,6 +231,7 @@ export function prisonGuards(from: number): Cop[] {
         guards: spot,
         burst: 0,
         stillUntil: null,
+        floorUntil: null,
         boardAt: null,
       });
     }
@@ -220,6 +257,9 @@ function privateGround(at: Vec, roll: number): boolean {
   // hemmed in by a hedge and a road fill up and stay full.
   return cell === null ? false : cell !== "walk" || roll > VILLA_PASSERS;
 }
+
+/** How many spots are tried before a DeLorean settles for one. */
+const YARD_TRIES = 8;
 
 /** How many of the people who would start on the villa's footway do. */
 const VILLA_PASSERS = 0.3;
@@ -263,7 +303,11 @@ export function createGame(seed: number): GameState {
   // the middle of San Andreas is open water with a mountain beside it, and a
   // game that starts in a field starts by looking lost.
   const start = { at: roadNear(plan, homes[homes.length - 1]), rng };
-  const cells = homes.reduce((floor, home) => openBay(floor, home), plan);
+  // The three garages, and the three bays of every fire station: both are
+  // holes cut in a building, and both are cut once, here.
+  const cells = openStations(
+    homes.reduce((floor, home) => openBay(floor, home), plan),
+  );
   const cars: Car[] = [];
   // A car of your own, right there. Every game of this sort starts by handing
   // you the keys to something, and hunting for the first car on foot is the
@@ -290,7 +334,7 @@ export function createGame(seed: number): GameState {
   // that are parked belong on the pavement edge, and the road belongs to the
   // ones that are driving.
   for (let at = 0; at < PARKED_COUNT; at += 1) {
-    const pick = pickBody(rng);
+    const pick = pickParked(rng);
     rng = pick.rng;
     const spot = freeSpot(cells, rng, "walk", cars, pick.body);
     rng = spot.rng;
@@ -298,7 +342,11 @@ export function createGame(seed: number): GameState {
     // cars are placed, and a hollow in a house is a square of pavement as far
     // as anybody looking for a parking space is concerned - so three of them
     // used to be queued up the drive and through the door of your own house.
-    const blocking = homes.some((home) => far(spot.at, home) < GARAGE_KEEP);
+    // Not in somebody's garage, and not on the villa's own forecourt either:
+    // what stands in your yard should be what you left there.
+    const blocking =
+      homes.some((home) => far(spot.at, home) < GARAGE_KEEP) ||
+      privateGround(spot.at, 1);
     if (!blocking) {
       const made = makeCar(rng, cars.length, "parked", spot.at, pick.body);
       rng = made.rng;
@@ -311,7 +359,7 @@ export function createGame(seed: number): GameState {
     const roll = nextRandom(rng);
     rng = roll.state;
     if (roll.value < LOT_TAKEN) {
-      const pick = pickBody(rng);
+      const pick = pickParked(rng);
       rng = pick.rng;
       // The bays are a fixed grid, so this cannot be moved - but something
       // else may already have been dropped on it, and a bay with two cars in
@@ -325,10 +373,22 @@ export function createGame(seed: number): GameState {
   }
   // A couple of tanks, standing about. Finding one should be an event, so they
   // are parked rather than driven and there are only ever a handful.
-  // Three silver wedges, parked where somebody left them.
+  // Three silver wedges, parked where somebody left them - but not on your own
+  // forecourt. The yard beside the villa is paved and empty, so the search for
+  // a parking space liked it: one of the three stood on it at the start of
+  // every game, which is a car somebody left in your drive rather than
+  // something to go and find. See {@link privateGround}.
   for (let at = 0; at < DELOREANS; at += 1) {
-    const spot = freeSpot(cells, rng, "walk", cars, "dmc");
+    let spot = freeSpot(cells, rng, "walk", cars, "dmc");
     rng = spot.rng;
+    for (
+      let again = 0;
+      again < YARD_TRIES && privateGround(spot.at, 1);
+      again += 1
+    ) {
+      spot = freeSpot(cells, rng, "walk", cars, "dmc");
+      rng = spot.rng;
+    }
     const made = makeCar(rng, cars.length, "parked", spot.at, "dmc");
     rng = made.rng;
     cars.push(made.car);
@@ -384,6 +444,7 @@ export function createGame(seed: number): GameState {
       guards: spot,
       burst: 0,
       stillUntil: null,
+      floorUntil: null,
       boardAt: null,
     });
   }
@@ -429,10 +490,55 @@ export function createGame(seed: number): GameState {
           guards: spot,
           burst: 0,
           stillUntil: null,
+          floorUntil: null,
           boardAt: null,
         });
         posted += 1;
       }
+    }
+  }
+
+  // **And three engines in every fire station.** They stand in the bays the
+  // floor has just had cut out of the building - one to a bay, nose to the
+  // street, which is how an engine waits. The only vehicles in this city that
+  // live indoors.
+  for (const plot of plotsOf("fire")) {
+    for (const bay of fireBays(plot)) {
+      // **Nose at the doorway**, not in the middle of the bay. In this view
+      // anything standing inside a building climbs its front wall - the
+      // further north it is, the higher up the picture it is drawn - so an
+      // engine parked at the back of its bay had its ladder across the name
+      // over the door. Pulled forward until the bumper is on the threshold it
+      // sits where one expects it and the wall above it is still a wall.
+      const at = {
+        x: ((bay.left + bay.right) / 2) * TILE,
+        y: bay.bottom * TILE - ENGINE_IN,
+      };
+      const made = makeCar(rng, cars.length, "parked", at, "firetruck");
+      rng = made.rng;
+      cars.push({ ...made.car, angle: Math.PI / 2 });
+    }
+  }
+
+  // **And an ambulance outside every hospital.** One to a quarter, standing
+  // at the kerb where the door is - which is the same spot one is let out of
+  // after a death, so it is parked a square to the side of it rather than
+  // across it. A hospital with nothing outside it is a sign over a door.
+  for (const door of doorsOf("hospital")) {
+    const beside = [
+      { x: door.x + TILE, y: door.y },
+      { x: door.x - TILE, y: door.y },
+      { x: door.x, y: door.y + TILE },
+      { x: door.x, y: door.y - TILE },
+    ].find(
+      (spot) =>
+        cellUnder(cells, spot.x, spot.y) === "walk" &&
+        clearOf(spot, "ambulance", cars),
+    );
+    if (beside !== undefined) {
+      const made = makeCar(rng, cars.length, "parked", beside, "ambulance");
+      rng = made.rng;
+      cars.push({ ...made.car, angle: alongKerb(cells, beside) });
     }
   }
 
@@ -564,6 +670,7 @@ export function createGame(seed: number): GameState {
       spotted: null,
       aboard: false,
       flying: false,
+      chopper: null,
       height: 0,
       loot: 0,
       heat: 0,
@@ -594,7 +701,7 @@ export function createGame(seed: number): GameState {
     districts: emptyDistricts(),
     garages: homes,
     train: newTrain(),
-    chopper: newChopper(),
+    choppers: newChoppers(cells),
     ackAt: 0,
     acks: newAcks(),
     marks: [],
@@ -755,6 +862,9 @@ function clearOf(at: Vec, body: VehicleBody, cars: readonly Car[]): boolean {
   );
 }
 
+/** How far back from the threshold a fire engine stands, in pixels. */
+const ENGINE_IN = 34;
+
 /** How many spots are tried before one is taken anyway. */
 const SPOT_TRIES = 12;
 
@@ -885,6 +995,12 @@ function makeCar(
 function pickBody(rng: RandomState): { body: VehicleBody; rng: RandomState } {
   const draw = nextInt(rng, ON_THE_ROAD.length);
   return { body: ON_THE_ROAD[draw.value] ?? "car", rng: draw.state };
+}
+
+/** One body out of the mix that stands at a kerb: no police among them. */
+function pickParked(rng: RandomState): { body: VehicleBody; rng: RandomState } {
+  const draw = nextInt(rng, AT_THE_KERB.length);
+  return { body: AT_THE_KERB[draw.value] ?? "car", rng: draw.state };
 }
 
 /** One person, walking some way. */
