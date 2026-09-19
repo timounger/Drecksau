@@ -16,6 +16,15 @@
 import {
   STATIONS,
   cellUnder,
+  districtAt,
+  villaBlock,
+  VILLA_KERB,
+  villaCell,
+  VILLA_MAIN,
+  villaGrounds,
+  villaTook,
+  villaYard,
+  villaPlot,
   roadLines,
   doorsOf,
   garageBay,
@@ -949,13 +958,20 @@ function drawScenery(
       if (cell === "road") {
         drawSignals(ctx, view, state, col, row);
       }
-      if (cell === "fence") {
-        // Two sorts of wire in this city and the same picture for both: round
-        // the military base, and round a prison - which gets barbs on top of
-        // it, because a prison fence is there to keep people in.
-        const gaol = prisonUnder(col, row);
-        const plot = gaol === null ? null : prisonPlot(gaol.x, gaol.y);
-        const way = plot === null ? null : prisonGate(plot);
+      // Two sorts of wire in this city and the same picture for both: round
+      // the military base, and round a prison - which gets barbs on top of it,
+      // because a prison fence is there to keep people in.
+      //
+      // **The gate is drawn whether or not the floor is still wire.** Opening
+      // the prison turns that one square into open ground, so asking the floor
+      // what to draw there would have the barrier and its two posts vanish at
+      // the moment they are most worth looking at. The gate is a place, not a
+      // sort of square, and the plan knows where it is.
+      const gaol = prisonUnder(col, row);
+      const plot = gaol === null ? null : prisonPlot(gaol.x, gaol.y);
+      const way = plot === null ? null : prisonGate(plot);
+      const atGate = way !== null && col === way.x && row === way.y;
+      if (cell === "fence" || atGate) {
         drawFence(
           ctx,
           view,
@@ -970,7 +986,8 @@ function drawScenery(
                 bottom: plot.bottom - 1,
               },
           plot !== null,
-          way !== null && col === way.x && row === way.y,
+          atGate,
+          atGate && state.jailbreak !== null,
         );
       }
       if (cell === "rock" && spread(col + 5, row + 11) > 0.84) {
@@ -1251,6 +1268,7 @@ function drawFence(
   },
   barbed: boolean,
   gate = false,
+  lifted = false,
 ): void {
   const at = project(view, col * TILE, row * TILE);
   const across = TILE;
@@ -1288,16 +1306,32 @@ function drawFence(
         GATE_POST_WIDE * 2,
       );
     }
-    const from = GATE_POST_WIDE;
-    const span = across - GATE_POST_WIDE * 2;
+    // **Down across the gap, or standing up beside its post.** A barrier that
+    // is up is not a barrier that has gone: it is the same striped pole, hinged
+    // at the left post and swung through a right angle, so from overhead it is
+    // the same length of stripes lying **along** the square instead of across
+    // it. Which is the one way this projection can show an upright pole at all.
+    const from = lifted ? GATE_POST_WIDE : GATE_POST_WIDE;
+    const span = lifted
+      ? deep - GATE_POST_WIDE * 2
+      : across - GATE_POST_WIDE * 2;
     for (let band = 0; band < BARRIER_BANDS; band += 1) {
       ctx.fillStyle = band % 2 === 0 ? BARRIER_RED : BARRIER_WHITE;
-      ctx.fillRect(
-        from + (span / BARRIER_BANDS) * band,
-        deep / 2 - BARRIER_THICK / 2,
-        span / BARRIER_BANDS,
-        BARRIER_THICK,
-      );
+      if (lifted) {
+        ctx.fillRect(
+          GATE_POST_WIDE - BARRIER_THICK / 2,
+          from + (span / BARRIER_BANDS) * band,
+          BARRIER_THICK,
+          span / BARRIER_BANDS,
+        );
+      } else {
+        ctx.fillRect(
+          from + (span / BARRIER_BANDS) * band,
+          deep / 2 - BARRIER_THICK / 2,
+          span / BARRIER_BANDS,
+          BARRIER_THICK,
+        );
+      }
     }
     ctx.restore();
     return;
@@ -1328,7 +1362,12 @@ function drawFence(
   } else if (upright) {
     ctx.fillRect(across / 2 - POST_WIDE, 0, POST_WIDE * 2, deep);
   } else {
-    ctx.fillRect(0, deep / 2 - POST_WIDE * DEPTH, across, POST_WIDE * 2 * DEPTH);
+    ctx.fillRect(
+      0,
+      deep / 2 - POST_WIDE * DEPTH,
+      across,
+      POST_WIDE * 2 * DEPTH,
+    );
   }
   ctx.restore();
 }
@@ -1436,7 +1475,6 @@ const BARRIER_WHITE = "#f8fafc";
 
 /** How thick the pole is drawn, in pixels. */
 const BARRIER_THICK = 3;
-
 
 /**
  * The mountain.
@@ -2293,11 +2331,7 @@ function drawBase(
  * - **A door with a canopy over it and a step under it**, in the middle, where
  *   the old black oblong was.
  */
-function drawHut(
-  ctx: CanvasRenderingContext2D,
-  view: View,
-  hut: Island,
-): void {
+function drawHut(ctx: CanvasRenderingContext2D, view: View, hut: Island): void {
   const across = (hut.right - hut.left + 1) * TILE;
   const deep = (hut.bottom - hut.top + 1) * TILE;
   const at = project(view, hut.left * TILE, hut.top * TILE, HUT_HIGH);
@@ -2953,7 +2987,15 @@ function drawScene(
     }
   }
   for (const cop of state.cops) {
-    if (inPicture(cop, seen)) {
+    // **Not the men in a prison yard.** Everything that moves is painted here
+    // and sorted by how far down the screen it is, and a whole prison counts
+    // as one thing standing at the front of its own block - so anybody inside
+    // the walls is painted first and then covered by the building he is
+    // standing in the middle of. That is why the convicts are drawn by
+    // `drawPrison` rather than here, and the warders go with them.
+    const inside =
+      prisonUnder(Math.floor(cop.x / TILE), Math.floor(cop.y / TILE)) !== null;
+    if (!inside && inPicture(cop, seen)) {
       movers.push({
         depth: cop.y,
         at: cop,
@@ -3014,14 +3056,6 @@ function drawScene(
       });
     }
   }
-  for (const shot of state.bullets) {
-    movers.push({
-      depth: shot.y,
-      at: null,
-      paint: () => drawShot(ctx, shot, view),
-    });
-  }
-
   movers.push({
     depth: state.chopper.y,
     at: { x: state.chopper.x, y: state.chopper.y },
@@ -3089,6 +3123,16 @@ function drawScene(
     ) {
       thing.paint(GHOST);
     }
+  }
+  // **The shots, over everything.** A round in the air is a mark on the city
+  // rather than a thing standing in it - the same sort of thing as a pickup -
+  // and a mark that goes behind a wall is a mark one stops being able to read.
+  // Sorted in with the buildings it was worse than that: a whole prison counts
+  // as one thing standing at the front of its own block, so every round fired
+  // inside the yard was painted first and then covered by the building it was
+  // fired in. One shot in a gunfight one could not see.
+  for (const shot of state.bullets) {
+    drawShot(ctx, shot, view);
   }
   drawHeli(ctx, state, view);
   // And you, always, whether anything is in the way or not.
@@ -3714,8 +3758,13 @@ function collectHouses(
         blockX * BLOCK_TILES + BLOCK_MIDDLE,
         blockY * BLOCK_TILES + BLOCK_MIDDLE,
       );
+      // **And the villa swallows the block next door**, for the same reason:
+      // the floor there is lawn and car park now, so a house drawn on it
+      // would be a house standing on somebody's tarmac.
       const swallowed =
-        covering !== null && (covering.x !== blockX || covering.y !== blockY);
+        (covering !== null &&
+          (covering.x !== blockX || covering.y !== blockY)) ||
+        villaTook(blockX, blockY);
       if (builtBlock(blockX, blockY) && !swallowed) {
         const look = scatter(blockX, blockY);
         // What it is comes from the table, so that the city and the picture
@@ -3725,18 +3774,39 @@ function collectHouses(
         // **One of the three houses is yours.** It is the one with the garage
         // cut into it, so that is how it is recognised - no flag, no field,
         // just the fact that the plan put a bay here.
-        const home = state.garages.find(
-          (bay) =>
-            Math.floor(bay.x / span) === blockX &&
-            Math.floor(bay.y / span) === blockY,
+        //
+        // **Except the villa's, which is not on the villa's block.** Its
+        // property is two blocks wide and its garage is cut out of the wing,
+        // three columns in from the left of a house five columns long - which
+        // on this block lands the other side of the boundary. Asked by block,
+        // the villa came out as an ordinary house and the plain house next
+        // door as the villa's - which is to say as nothing at all, that block
+        // being swallowed and never drawn. So the villa's own ground is asked
+        // instead of the grid.
+        const grand = villaBlock();
+        const mine = grand !== null && grand.x === blockX && grand.y === blockY;
+        const land = mine ? villaGrounds(blockX, blockY) : null;
+        const home = state.garages.find((bay) =>
+          land === null
+            ? Math.floor(bay.x / span) === blockX &&
+              Math.floor(bay.y / span) === blockY
+            : bay.x >= land.left * TILE &&
+              bay.x < land.right * TILE &&
+              bay.y >= land.top * TILE &&
+              bay.y < land.bottom * TILE,
         );
         // The houses of a block sit inside its ring of pavement - and inside
         // the motorway, where one runs past. Asked of the plan, not assumed.
         // A prison is the one that is built over the pavement as well, and
         // both the floor and this take that shape from the same function.
+        // **The villa stands on more ground than an ordinary house.** It
+        // takes the block next door as well, and the floor says the same - see
+        // `villaPlot`, which both of them read.
         const box = gaol
           ? prisonPlot(blockX, blockY)
-          : builtPlot(blockX, blockY);
+          : mine
+            ? villaPlot(blockX, blockY)
+            : builtPlot(blockX, blockY);
         const left = box.left * TILE;
         const top = box.top * TILE;
         const right = box.right * TILE;
@@ -3770,26 +3840,34 @@ function collectHouses(
             home !== undefined
               ? drawHome(ctx, view, plot, height, sort, home, fade)
               : gaol
-              ? drawPrison(
-                  ctx,
-                  view,
-                  plot,
-                  height,
-                  sort,
-                  state.time,
-                  hunted(state, plot),
-                  fade,
-                )
-              : drawHouse(
-                  ctx,
-                  view,
-                  state.cells,
-                  plot,
-                  height,
-                  look,
-                  sort,
-                  fade,
-                ),
+                ? drawPrison(
+                    ctx,
+                    view,
+                    plot,
+                    height,
+                    sort,
+                    state.time,
+                    hunted(state, plot),
+                    state.jailbreak,
+                    state.cops.filter(
+                      (cop) =>
+                        cop.x >= plot.left &&
+                        cop.x < plot.right &&
+                        cop.y >= plot.top &&
+                        cop.y < plot.bottom,
+                    ),
+                    fade,
+                  )
+                : drawHouse(
+                    ctx,
+                    view,
+                    state.cells,
+                    plot,
+                    height,
+                    look,
+                    sort,
+                    fade,
+                  ),
         });
       }
     }
@@ -3834,6 +3912,8 @@ function drawPrison(
   sort: Building,
   now: number,
   alarm: Alarm | null,
+  broken: number | null,
+  warders: readonly Cop[],
   fade: number,
 ): void {
   const wing = PRISON_WING * TILE;
@@ -3887,11 +3967,15 @@ function drawPrison(
     wall,
     fade,
   );
-  towerAt(ctx, view, walls.left, walls.top, height, fade, now, alarm, 1);
-  towerAt(ctx, view, walls.right - TILE, walls.top, height, fade, now, alarm, -1);
+  towerAt(ctx, view, walls.left, walls.top, height, fade);
+  towerAt(ctx, view, walls.right - TILE, walls.top, height, fade);
 
   yardFloor(ctx, view, yard, fade);
-  searchlights(ctx, view, plot, yard, now, alarm, fade);
+  // **The lights go out with the last man.** A swept yard over a yard full of
+  // bodies is a building claiming something its own ground denies.
+  if (broken === null) {
+    searchlights(ctx, view, plot, yard, now, alarm, fade);
+  }
   // What stands in the yard, north to south: the hut, then the men, then the
   // benches along the near edge. The hut is on the square the floor made
   // solid, which is a rounding both sides have to do the same way.
@@ -3910,22 +3994,38 @@ function drawPrison(
   const shedHigh = height * HUT_RISE;
   prisonBox(ctx, view, shed, { ...wall, high: shedHigh }, fade);
   workshop(ctx, view, shed, shedHigh, now, fade);
-  yardFolk(ctx, view, yard, now, fade);
+  yardFolk(ctx, view, yard, walls, now, broken, fade);
 
   prisonBox(ctx, view, { ...walls, top: walls.bottom - wing }, range, fade);
-  gateway(ctx, view, walls, height, fade);
-  towerAt(ctx, view, walls.left, walls.bottom - TILE, height, fade, now, alarm, 1);
-  towerAt(
-    ctx,
-    view,
-    walls.right - TILE,
-    walls.bottom - TILE,
-    height,
-    fade,
-    now,
-    alarm,
-    -1,
-  );
+  gateway(ctx, view, walls, height, broken !== null, fade);
+  towerAt(ctx, view, walls.left, walls.bottom - TILE, height, fade);
+  towerAt(ctx, view, walls.right - TILE, walls.bottom - TILE, height, fade);
+
+  // **And the men who are paid to be there**, on the same ground and in the
+  // same pass as the men who are not. They are ordinary policemen out of
+  // `state.cops` - the six who hold the yard, and whoever else has walked in
+  // through the gate since it was opened - drawn here rather than with the
+  // rest of the city's traffic because the building would otherwise be painted
+  // straight over them, and drawn **last** so that the near range and the two
+  // towers standing in front of them cannot do it either.
+  //
+  // **All six of them on the grass, and nobody at a window.** The cabins used
+  // to have a figure painted into each of them, and that figure was the
+  // trouble: it looked like the man who was shooting and it could not be shot
+  // back at. A man drawn in a tower stands on a square of building, and a wall
+  // stops every round fired at whoever is behind it - measured, a man on the
+  // tower square took nothing at all from twelve seconds of machine-gun fire
+  // from ten yards away.
+  //
+  // Drawing him in the cabin and leaving his hitbox on the grass below fixes
+  // the shooting and breaks the picture instead: aiming here is flat, so he
+  // came out hovering over the yard a good yard clear of his own tower. So the
+  // cabins are empty and the four of them stand at the feet of their towers,
+  // where one can see them and hit them. What says a tower is manned is its
+  // searchlight, and that goes out with the last of them.
+  for (const cop of warders) {
+    drawCop(ctx, cop, view, now, fade);
+  }
 
   // And its name over the middle of the near range, like every other place
   // with one - over the middle of it rather than across the whole front,
@@ -4124,7 +4224,12 @@ function basket(
     HOOP_BOARD - 1,
   );
   ctx.fillStyle = HOOP_TARGET;
-  ctx.fillRect(x - wide * HOOP_SQUARE, y - HOOP_BOARD / 2 + 0.5, wide * HOOP_SQUARE * 2, 1);
+  ctx.fillRect(
+    x - wide * HOOP_SQUARE,
+    y - HOOP_BOARD / 2 + 0.5,
+    wide * HOOP_SQUARE * 2,
+    1,
+  );
   // The ring, out in front of the board, and the net hanging in it.
   const ring = { x, y: y + into * HOOP_OUT };
   ctx.strokeStyle = COURT_HOOP;
@@ -4290,22 +4395,38 @@ function yardFolk(
   ctx: CanvasRenderingContext2D,
   view: View,
   yard: { left: number; top: number; right: number; bottom: number },
+  walls: { left: number; top: number; right: number; bottom: number },
   now: number,
+  broken: number | null,
   fade: number,
 ): void {
   const wide = yard.right - yard.left;
   const deep = yard.bottom - yard.top;
-  const middle = { x: (yard.left + yard.right) / 2, y: (yard.top + yard.bottom) / 2 };
+  const middle = {
+    x: (yard.left + yard.right) / 2,
+    y: (yard.top + yard.bottom) / 2,
+  };
+  // **The clock stops at the break.** Everything in this yard is worked out
+  // from the time of day, which is what keeps it free of saved state - but a
+  // man who is walking out cannot still be going round his circuit as well. So
+  // once the gate is open the circuit is frozen at the moment it opened, and
+  // where each man goes from there is measured off the same number.
+  const clock = broken ?? now;
+  const away = broken === null ? null : now - broken;
+  const gate = { x: (walls.left + walls.right) / 2, y: walls.bottom };
   for (let man = 0; man < YARD_MEN; man += 1) {
     // His own dice roll, from where his prison stands, so that two prisons do
     // not have the same dozen men walking in step.
     const own = scatter(Math.round(yard.left) + man * 31, Math.round(yard.top));
-    const spin = scatter(Math.round(yard.top) + man * 17, Math.round(yard.left));
+    const spin = scatter(
+      Math.round(yard.top) + man * 17,
+      Math.round(yard.left),
+    );
     const rx = wide * (WALK_IN + WALK_OUT * own);
     const ry = deep * (WALK_IN + WALK_OUT * spin);
     const pace = YARD_SLOW + (YARD_QUICK - YARD_SLOW) * own;
     const round = (spin < HALF ? -1 : 1) * (pace / ((rx + ry) / 2));
-    const turn = now * round + own * Math.PI * 2;
+    const turn = clock * round + own * Math.PI * 2;
     const at = {
       x: middle.x + Math.cos(turn) * rx,
       y: middle.y + Math.sin(turn) * ry,
@@ -4314,19 +4435,23 @@ function yardFolk(
       Math.sign(round) * ry * Math.cos(turn),
       -Math.sign(round) * rx * Math.sin(turn),
     );
+    const leaving = walkOut(at, gate, away, man);
+    if (leaving === null) {
+      continue;
+    }
     drawFigure(
       ctx,
       view,
-      at,
+      leaving.at,
       {
         shirt: CONVICT_SHIRT,
         trousers: CONVICT_TROUSERS,
         skin: CONVICT_SKIN,
         hair: CONVICT_HAIR,
-        facing: way,
-        heading: way,
-        walked: now * pace,
-        pace: pace / WALK_SPEED,
+        facing: leaving.gone ? leaving.way : way,
+        heading: leaving.gone ? leaving.way : way,
+        walked: now * (leaving.gone ? OUT_PACE : pace),
+        pace: (leaving.gone ? leaving.pace : pace) / WALK_SPEED,
         time: now,
         arms: "swing",
         hand: "right",
@@ -4335,72 +4460,119 @@ function yardFolk(
       fade,
     );
   }
-  // **And the two warders walking the yard.** Somebody has to be watching the
-  // men in it from the same ground they are on - four lamps on the corners
-  // watch the yard, not the people in it. They go round the outside of it, the
-  // opposite way to the men, at the steady pace of somebody who has walked
-  // this circuit every day for years.
-  for (let guard = 0; guard < WARDERS; guard += 1) {
-    const turn =
-      -now * (WARDER_PACE / ((wide + deep) / 4)) +
-      (guard / WARDERS) * Math.PI * 2;
-    const at = {
-      x: middle.x + Math.cos(turn) * wide * WARDER_ROUND,
-      y: middle.y + Math.sin(turn) * deep * WARDER_ROUND,
-    };
-    const way = Math.atan2(
-      -deep * Math.cos(turn),
-      wide * Math.sin(turn),
-    );
-    drawFigure(
-      ctx,
-      view,
-      at,
-      {
-        shirt: WARDER_SHIRT,
-        trousers: WARDER_TROUSERS,
-        skin: CONVICT_SKIN,
-        hair: WARDER_HAIR,
-        facing: way,
-        heading: way,
-        walked: now * WARDER_PACE,
-        pace: WARDER_PACE / WALK_SPEED,
-        time: now + guard,
-        arms: "swing",
-        hand: "right",
-        style: "cop",
-      },
-      fade,
-    );
-  }
 
-  // And the two who are sitting, one on a bench down each side, each facing
-  // across the court at the game.
+  // And the two who were sitting, one on a bench down each side, each facing
+  // across the court at the game - until the gate opens, when they get up and
+  // go with the rest.
   for (const side of [-1, 1]) {
     const spot = benchAt(yard, side, 0);
+    const sat = { x: spot.x + BENCH_WIDE / 2, y: spot.y + BENCH_LONG / 2 };
+    const leaving = walkOut(sat, gate, away, side < 0 ? 0 : YARD_MEN);
+    if (leaving === null) {
+      continue;
+    }
     drawFigure(
       ctx,
       view,
-      { x: spot.x + BENCH_WIDE / 2, y: spot.y + BENCH_LONG / 2 },
+      leaving.at,
       {
         shirt: CONVICT_SHIRT,
         trousers: CONVICT_TROUSERS,
         skin: CONVICT_SKIN,
         hair: CONVICT_HAIR,
-        facing: side < 0 ? 0 : Math.PI,
-        heading: side < 0 ? 0 : Math.PI,
-        walked: 0,
-        pace: 0,
+        facing: leaving.gone ? leaving.way : side < 0 ? 0 : Math.PI,
+        heading: leaving.gone ? leaving.way : side < 0 ? 0 : Math.PI,
+        walked: now * OUT_PACE,
+        pace: leaving.pace / WALK_SPEED,
         time: now + side,
         arms: "swing",
         hand: "right",
         style: "convict",
-        sits: true,
+        sits: leaving.gone ? false : away === null,
       },
       fade,
     );
   }
 }
+
+/**
+ * Where one man in the yard is once the gate has been opened.
+ *
+ * @param from - where he was standing when it happened
+ * @param gate - the doorway through the near range, in city pixels
+ * @param away - how long the gate has been open, or null while it is shut
+ * @param queue - his place in the line, so they do not all set off at once
+ * @returns where to draw him and how, or null once he is out of sight
+ * @remarks
+ * **Two legs and a queue.** He crosses the yard to the gate and then walks
+ * straight out of it down the road, and he sets off a moment after the man in
+ * front of him - four hundred men trying to fit through one doorway at the
+ * same instant is a crowd, and a crowd at this scale is a smear. A queue is
+ * what a prison emptying actually looks like from above.
+ *
+ * Past {@link OUT_GONE} he is simply not drawn any more. He has gone; the
+ * picture does not follow people home, and a yard that empties and then has
+ * twelve men standing in the street outside it forever is a yard that has not
+ * emptied at all.
+ */
+function walkOut(
+  from: Vec,
+  gate: Vec,
+  away: number | null,
+  queue: number,
+): { at: Vec; way: number; pace: number; gone: boolean } | null {
+  let out: { at: Vec; way: number; pace: number; gone: boolean } | null = {
+    at: from,
+    way: 0,
+    pace: 0,
+    gone: false,
+  };
+  const since = away === null ? null : away - queue * OUT_WAIT;
+  if (since !== null && since > 0) {
+    const across = Math.hypot(gate.x - from.x, gate.y - from.y);
+    const legOne = across / OUT_PACE;
+    if (since < legOne) {
+      const part = since / legOne;
+      out = {
+        at: {
+          x: from.x + (gate.x - from.x) * part,
+          y: from.y + (gate.y - from.y) * part,
+        },
+        way: Math.atan2(gate.y - from.y, gate.x - from.x),
+        pace: OUT_PACE,
+        gone: true,
+      };
+    } else {
+      const down = (since - legOne) * OUT_PACE;
+      out =
+        down > OUT_GONE
+          ? null
+          : {
+              at: { x: gate.x, y: gate.y + down },
+              way: Math.PI / 2,
+              pace: OUT_PACE,
+              gone: true,
+            };
+    }
+  }
+  return out;
+}
+
+/**
+ * How long each man waits behind the one in front, in seconds.
+ *
+ * @remarks
+ * Long enough that the yard empties over half a minute rather than in five
+ * seconds. A prison letting go of everybody in it at once is a puff of smoke;
+ * one man at a time through one doorway is something one stands and watches.
+ */
+const OUT_WAIT = 1.6;
+
+/** How fast a man walks out, in pixels a second. */
+const OUT_PACE = 62;
+
+/** And how far past the gate he gets before he is out of the picture. */
+const OUT_GONE = 520;
 
 /** Whoever the searchlights of one prison have, and for how long. */
 type Alarm = {
@@ -4434,7 +4606,10 @@ function hunted(
     state.player.y < plot.bottom;
   return seen === null || !inside
     ? null
-    : { at: { x: state.player.x, y: state.player.y }, since: state.time - seen };
+    : {
+        at: { x: state.player.x, y: state.player.y },
+        since: state.time - seen,
+      };
 }
 
 /**
@@ -4589,9 +4764,6 @@ function towerAt(
   down: number,
   height: number,
   fade: number,
-  now: number,
-  alarm: Alarm | null,
-  along: number,
 ): void {
   // **On the corner of the building, not hanging off it.** Both boxes used to
   // be laid out from the corner point itself, so half of each stood out over
@@ -4624,63 +4796,7 @@ function towerAt(
     },
     fade,
   );
-  // **The man at the window.** He stands on the floor of the cabin, towards
-  // the front of it, and he is painted over the glass rather than behind it -
-  // which is what somebody standing at a window looks like from outside. Drawn
-  // in the middle of the cabin he would come out above its roof instead, half
-  // a cabin further north being half a cabin further up the screen.
-  //
-  // **And he does not stand there all night.** Every so often he walks out
-  // along the roof of the range, as far as {@link PATROL_REACH}, and comes
-  // back - which is what a man on a twelve hour watch does and is the one
-  // thing that tells a manned tower from a model of one. The moment the lights
-  // have somebody, he is back at his post and stays there.
-  const beat = alarm === null ? ((now * PATROL_RATE + corner) % 1 + 1) % 1 : 0;
-  const out =
-    beat < POST_SHARE
-      ? 0
-      : Math.sin(((beat - POST_SHARE) / (1 - POST_SHARE)) * Math.PI);
-  const warder: Figure = {
-    shirt: WARDER_SHIRT,
-    trousers: WARDER_TROUSERS,
-    skin: CONVICT_SKIN,
-    hair: WARDER_HAIR,
-    // Looking out over the wall, which from a corner is away from the
-    // middle of the prison - south from the near pair, north from the far.
-    facing: out > 0 ? (along > 0 ? 0 : Math.PI) : Math.PI / 2,
-    heading: out > 0 ? (along > 0 ? 0 : Math.PI) : Math.PI / 2,
-    walked: out > 0 ? now * WALK_SPEED * PATROL_PACE : 0,
-    pace: out > 0 ? PATROL_PACE : 0,
-    time: now + x,
-    arms: "swing",
-    hand: "right",
-    style: "cop",
-  };
-  drawFigure(
-    ctx,
-    view,
-    out > PATROL_OFF
-      ? { x: x + along * out * PATROL_REACH, y: y - height / DEPTH }
-      : { x, y: y + cabin * GUARD_AT - high / DEPTH },
-    warder,
-    fade,
-  );
 }
-
-/** How many of his rounds a warder walks in an hour, near enough. */
-const PATROL_RATE = 0.03;
-
-/** How much of each one he spends at his post. */
-const POST_SHARE = 0.62;
-
-/** How far out along the roof he goes, in pixels. */
-const PATROL_REACH = 170;
-
-/** Below this much of the walk he is still in the cabin. */
-const PATROL_OFF = 0.04;
-
-/** And how fast he walks it, as a share of an ordinary walk. */
-const PATROL_PACE = 0.7;
 
 /**
  * The gate in the front of the prison.
@@ -4706,6 +4822,7 @@ function gateway(
   view: View,
   walls: { left: number; top: number; right: number; bottom: number },
   high: number,
+  open: boolean,
   fade: number,
 ): void {
   const foot = project(view, walls.left, walls.bottom);
@@ -4726,27 +4843,46 @@ function gateway(
   ctx.fillStyle = GATE_DARK;
   ctx.fillRect(middle - wide / 2, foot.y - tall, wide, tall);
 
-  // The two leaves, shut, with the shut line down the middle of them.
+  // **The two leaves - shut, or folded back against the jambs.** A gate that
+  // is open is not a gate that has vanished: both doors are still there, they
+  // are simply standing flat against the wall either side of the hole, and
+  // what one sees between them is the dark of the archway. Which is also the
+  // only way this projection can show it, an east-facing door being a door
+  // with no face to the camera at all.
+  const leafWide = open ? GATE_SHUT * (wide / 2) : wide / 2;
   for (const leaf of [-1, 1]) {
-    const from = leaf < 0 ? middle - wide / 2 : middle;
+    const from = leaf < 0 ? middle - wide / 2 : middle + wide / 2 - leafWide;
     ctx.fillStyle = GATE_STEEL;
-    ctx.fillRect(from + GATE_GAP, foot.y - tall + GATE_GAP, wide / 2 - GATE_GAP * 2, tall - GATE_GAP);
+    ctx.fillRect(
+      from + GATE_GAP,
+      foot.y - tall + GATE_GAP,
+      leafWide - GATE_GAP * 2,
+      tall - GATE_GAP,
+    );
     // The bracing: two rails across each leaf and the studs along them.
     ctx.fillStyle = GATE_BRACE;
     for (const rail of [GATE_RAIL_LOW, GATE_RAIL_HIGH]) {
       ctx.fillRect(
         from + GATE_GAP,
         foot.y - tall * rail,
-        wide / 2 - GATE_GAP * 2,
+        leafWide - GATE_GAP * 2,
         GATE_BRACE_THICK,
       );
     }
   }
   // The lamp over it, which is the one light on this wall.
   ctx.fillStyle = GATE_LAMP;
-  ctx.fillRect(middle - GATE_LAMP_WIDE / 2, foot.y - tall - GATE_JAMB - 1, GATE_LAMP_WIDE, 2);
+  ctx.fillRect(
+    middle - GATE_LAMP_WIDE / 2,
+    foot.y - tall - GATE_JAMB - 1,
+    GATE_LAMP_WIDE,
+    2,
+  );
   ctx.restore();
 }
+
+/** How much of its own width a leaf is left when it is folded back. */
+const GATE_SHUT = 0.22;
 
 /** How wide the gateway is, in squares. */
 const GATE_WIDE = 1.5;
@@ -4900,18 +5036,6 @@ const TOWER_RISE = 1.3;
  */
 const TOWER_ROOM = 0.86;
 
-/**
- * How far forward in the cabin the warder stands, as a share of it.
- *
- * @remarks
- * Nearly at the front, and the number is not taste: a figure is drawn from its
- * feet, and every pixel further north in the cabin is {@link DEPTH} of a pixel
- * further **up** the screen. Stood in the middle of the cabin his feet land
- * above its roof; at this he stands on its floor, a third of the way up the
- * glass, which is a man at a window.
- */
-const GUARD_AT = 0.6;
-
 /** How wide a corner post of the cabin is, in pixels. */
 const TOWER_FRAME = 2.5;
 
@@ -4990,7 +5114,10 @@ function workshop(
     1.5,
   );
   for (const side of [-1, 1]) {
-    const at = foot.x + wide * (HALF + side * WORKS_WIN_OUT) - (wide * WORKS_WIN_WIDE) / 2;
+    const at =
+      foot.x +
+      wide * (HALF + side * WORKS_WIN_OUT) -
+      (wide * WORKS_WIN_WIDE) / 2;
     ctx.fillStyle = WORKS_FRAME;
     ctx.fillRect(
       at - 1,
@@ -5042,13 +5169,18 @@ function workshop(
     high,
   );
   ctx.fillStyle = STACK_BRICK;
-  ctx.fillRect(stack.x - STACK_WIDE / 2, stack.y - STACK_HIGH, STACK_WIDE, STACK_HIGH);
+  ctx.fillRect(
+    stack.x - STACK_WIDE / 2,
+    stack.y - STACK_HIGH,
+    STACK_WIDE,
+    STACK_HIGH,
+  );
   ctx.fillStyle = STACK_LIP;
   ctx.fillRect(stack.x - STACK_WIDE / 2, stack.y - STACK_HIGH, STACK_WIDE, 1.5);
   for (let puff = 0; puff < STACK_PUFFS; puff += 1) {
     // Each puff drifts up and to one side on its own turn of the clock, so
     // the plume leans and breathes instead of pulsing on the spot.
-    const age = ((now * STACK_RATE + puff / STACK_PUFFS) % 1 + 1) % 1;
+    const age = (((now * STACK_RATE + puff / STACK_PUFFS) % 1) + 1) % 1;
     const up = STACK_HIGH + age * STACK_RISE;
     const size = STACK_SMALL + age * STACK_GROW;
     ctx.globalAlpha = fade * STACK_DARK * (1 - age);
@@ -5289,15 +5421,6 @@ const BENCH_SHADE = "#6d6d68";
 /** How many men are walking the yard. */
 const YARD_MEN = 7;
 
-/** How many warders walk it with them. */
-const WARDERS = 2;
-
-/** How far out their round goes, as a share of the yard. */
-const WARDER_ROUND = 0.42;
-
-/** And how fast they walk it, in pixels a second. */
-const WARDER_PACE = 34;
-
 /** How slowly the slowest of them goes, in pixels a second. */
 const YARD_SLOW = 22;
 
@@ -5321,15 +5444,6 @@ const CONVICT_SKIN = "#f2c9a0";
 
 /** And their hair. */
 const CONVICT_HAIR = "#1c1917";
-
-/** What a warder wears. */
-const WARDER_SHIRT = "#1e3a8a";
-
-/** His trousers. */
-const WARDER_TROUSERS = "#172554";
-
-/** And his hair. */
-const WARDER_HAIR = "#292524";
 
 /**
  * One block: one house, a pair, a row of them, or a place with a name.
@@ -5429,6 +5543,14 @@ function drawHome(
   garage: Vec,
   fade: number,
 ): void {
+  // **Three houses, and one of them is not the same house.** The one in the
+  // south-east quarter is a villa off a photograph - see {@link drawVilla} -
+  // and which it is comes off the plan rather than out of a flag: whichever
+  // quarter of town the garage stands in is the quarter the house is in.
+  if (districtAt(garage.x, garage.y) === "vagos") {
+    drawVilla(ctx, view, plot, height, garage, fade);
+    return;
+  }
   const foot = project(view, plot.left, plot.bottom);
   const back = project(view, plot.left, plot.top, height);
   const wide = plot.right - plot.left;
@@ -5496,12 +5618,27 @@ function drawHome(
   const porch = foot.x + wide * PORCH_AT;
   const tall = height * PORCH_TALL;
   ctx.fillStyle = HOME_DOOR;
-  ctx.fillRect(porch - DOOR_WIDE / 2, foot.y - tall * DOOR_SHARE, DOOR_WIDE, tall * DOOR_SHARE);
+  ctx.fillRect(
+    porch - DOOR_WIDE / 2,
+    foot.y - tall * DOOR_SHARE,
+    DOOR_WIDE,
+    tall * DOOR_SHARE,
+  );
   ctx.fillStyle = HOME_BRASS;
-  ctx.fillRect(porch + DOOR_WIDE / 2 - 2, foot.y - tall * DOOR_SHARE * HALF, 1.5, 1.5);
+  ctx.fillRect(
+    porch + DOOR_WIDE / 2 - 2,
+    foot.y - tall * DOOR_SHARE * HALF,
+    1.5,
+    1.5,
+  );
   ctx.fillStyle = HOME_STONE;
   for (const post of [-1, 1]) {
-    ctx.fillRect(porch + post * PORCH_SPAN - COLUMN / 2, foot.y - tall, COLUMN, tall);
+    ctx.fillRect(
+      porch + post * PORCH_SPAN - COLUMN / 2,
+      foot.y - tall,
+      COLUMN,
+      tall,
+    );
   }
   ctx.beginPath();
   ctx.moveTo(porch - PORCH_SPAN - COLUMN, foot.y - tall);
@@ -5529,6 +5666,1082 @@ function drawHome(
   ctx.stroke();
   ctx.restore();
 }
+
+/**
+ * The villa in the south-east: two storeys of white stucco under red tiles.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param plot - the ground it stands on, in city pixels
+ * @param height - how tall its main block is
+ * @param garage - the bay cut into it
+ * @param fade - how solid to paint it
+ * @remarks
+ * Drawn off a photograph rather than invented, and it is a different sort of
+ * building from everything else in this city: a Spanish villa. Four things
+ * carry that and nothing else has to:
+ *
+ * - **The roof is tile, and it is what one mostly sees.** Terracotta, laid in
+ *   courses, with a ridge along the top and the eaves standing out past the
+ *   wall all the way round. From above that roof is nine tenths of the house.
+ * - **Two masses, not one box.** The main block is two storeys and takes the
+ *   left of the plot; to the right of it a single-storey wing runs forward
+ *   under its own lower roof, and the far end of that wing is open - a
+ *   carport, which is where the second car lives.
+ * - **Arches.** The ground floor of both is a loggia: round-headed openings
+ *   in deep shade, with the front door in the middle of them and a flight of
+ *   steps down to the drive.
+ * - **And a balcony** over the door with an iron rail and pots along it,
+ *   which is the one thing at first-floor level that says somebody lives here.
+ *
+ * The garden is on the pavement in front, because the plot itself is all
+ * building: a paved forecourt with the bay marked on it, clipped hedge either
+ * side, a row of cypresses up the left and agaves in the gravel. Everything in
+ * the photograph that could be got in at three squares across.
+ */
+function drawVilla(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  plot: { left: number; top: number; right: number; bottom: number },
+  height: number,
+  garage: Vec,
+  fade: number,
+): void {
+  const foot = project(view, plot.left, plot.bottom);
+  const wide = plot.right - plot.left;
+  // **The wing is where the garage is**, and how much of the house it takes
+  // comes off the plan rather than off the door: `VILLA_MAIN` squares of
+  // two-storey block, the rest wing, and the bay cut out of the middle of the
+  // wing. Worked out from the door instead, the wing ended up starting exactly
+  // where the door did and the door sat on the corner of it.
+  const mouth = {
+    from: garage.x - TILE / 2 - plot.left,
+    to: garage.x + TILE / 2 - plot.left,
+  };
+  const split = TILE * VILLA_MAIN;
+  const low = height * VILLA_LOW;
+  const back = project(view, plot.left, plot.top, height);
+  const backLow = project(view, plot.left, plot.top, low);
+  ctx.save();
+  ctx.globalAlpha = fade;
+
+  garden(ctx, view, plot, garage);
+
+  // **The wing first, then the main block.** The tall one is drawn over the
+  // low one where they meet, which is what a two-storey wall does to the roof
+  // of the single-storey thing built against it.
+  villaRoof(
+    ctx,
+    backLow.x + split,
+    backLow.y,
+    wide - split,
+    foot.y - low - backLow.y,
+  );
+  ctx.fillStyle = VILLA_WALL;
+  ctx.fillRect(foot.x + split, foot.y - low, wide - split, low);
+  ctx.fillStyle = VILLA_SHADE;
+  ctx.fillRect(
+    foot.x + split,
+    foot.y - low * VILLA_SKIRT,
+    wide - split,
+    low * VILLA_SKIRT,
+  );
+  // The carport: the opening the car drives into, over the bay itself.
+  ctx.fillStyle = VILLA_DARK;
+  ctx.fillRect(
+    foot.x + mouth.from,
+    foot.y - low * VILLA_PORT_TALL,
+    mouth.to - mouth.from,
+    low * VILLA_PORT_TALL,
+  );
+  // And an arch in whatever wing wall is left either side of the opening.
+  for (const bay of [
+    { from: split, to: mouth.from },
+    { from: mouth.to, to: wide },
+  ]) {
+    if (bay.to - bay.from > TILE * PORT_ARCH) {
+      archRow(
+        ctx,
+        foot.x + bay.from + 2,
+        foot.y,
+        bay.to - bay.from - 4,
+        low,
+        VILLA_WING_ARCHES,
+      );
+    }
+  }
+
+  villaRoof(ctx, back.x, back.y, split, foot.y - height - back.y);
+  // **The two-storey wall stands above the wing's roof**, which is what makes
+  // the wing read as built against the house rather than beside it: a strip of
+  // stucco up the join, from the wing's ridge to the eaves of the big roof.
+  ctx.fillStyle = VILLA_WALL;
+  ctx.fillRect(
+    foot.x + split,
+    backLow.y,
+    JOIN_WIDE,
+    foot.y - height - backLow.y,
+  );
+  ctx.fillStyle = VILLA_SHADE;
+  ctx.fillRect(
+    foot.x + split + JOIN_WIDE,
+    backLow.y,
+    1.5,
+    foot.y - height - backLow.y,
+  );
+  ctx.fillStyle = VILLA_WALL;
+  ctx.fillRect(foot.x, foot.y - height, split, height);
+  ctx.fillStyle = VILLA_SHADE;
+  ctx.fillRect(
+    foot.x,
+    foot.y - height * VILLA_SKIRT,
+    split,
+    height * VILLA_SKIRT,
+  );
+
+  // The front of the main block: a loggia of arches with the door in the
+  // middle of it, two shuttered windows over it and the balcony between them.
+  // Nothing has to dodge the garage door any more - that is round the corner
+  // in the wing, which is the point of putting it there.
+  const middle = foot.x + split / 2;
+  for (const side of [-1, 1]) {
+    villaWindow(
+      ctx,
+      middle + side * split * VILLA_PANE_AT,
+      foot.y - height * VILLA_UPPER,
+      height * VILLA_PANE,
+    );
+  }
+  balcony(ctx, middle, foot.y - height * VILLA_RAIL, split * VILLA_BALCONY);
+  archRow(
+    ctx,
+    foot.x + 2,
+    foot.y,
+    split - 4,
+    height * VILLA_GROUND,
+    VILLA_ARCHES,
+  );
+  // The door fills the middle arch, so it is told how wide one is.
+  frontDoor(
+    ctx,
+    middle,
+    foot.y,
+    height * VILLA_GROUND,
+    ((split - 4) / VILLA_ARCHES) * ARCH_SHARE,
+  );
+
+  // **The gable over the left end.** On the photograph the left of the house
+  // is a wing of its own that comes forward under a pitched roof, and what one
+  // sees of it from the street is a triangle. It is the one thing about this
+  // house that is not a flat-topped box, so it is worth the dozen lines.
+  gable(ctx, foot.x, foot.y - height, split * GABLE_SHARE, back.y);
+
+  // **The chimney, up on the roof rather than on the eaves.** It used to sit
+  // at the very front edge of the tiles, half off the house; a stack comes out
+  // of the middle of a roof. This one stands about two thirds of the way back
+  // down the slope of the big roof and in the middle of it across, which on
+  // the photograph is where the smoke is coming from.
+  const stack = {
+    x: foot.x + split * CHIMNEY_AT - CHIMNEY_WIDE / 2,
+    y: back.y + (foot.y - height - back.y) * CHIMNEY_BACK,
+  };
+  ctx.fillStyle = VILLA_SHADE;
+  ctx.fillRect(stack.x, stack.y, CHIMNEY_WIDE, CHIMNEY_UP + CHIMNEY_TALL);
+  ctx.fillStyle = VILLA_WALL;
+  ctx.fillRect(
+    stack.x,
+    stack.y,
+    CHIMNEY_WIDE - CHIMNEY_SIDE,
+    CHIMNEY_UP + CHIMNEY_TALL,
+  );
+  // The vent slots under the cap, which is where the smoke goes sideways out.
+  ctx.fillStyle = VILLA_TRIM;
+  ctx.fillRect(stack.x + 1, stack.y + 1, CHIMNEY_WIDE - 2, CHIMNEY_SLOT);
+  // And the cap on top of it.
+  ctx.fillStyle = VILLA_DARK;
+  ctx.fillRect(
+    stack.x - CHIMNEY_LIP,
+    stack.y - CHIMNEY_CAP,
+    CHIMNEY_WIDE + CHIMNEY_LIP * 2,
+    CHIMNEY_CAP,
+  );
+  ctx.restore();
+}
+
+/** And how much of that is needed before an arch is worth putting in it. */
+const PORT_ARCH = 0.8;
+
+/**
+ * The pitched end of the villa: a ridge over it and a triangle under it.
+ *
+ * @param ctx - what to paint on
+ * @param left - where the gabled part starts on screen
+ * @param eave - the top of the wall, which is where the triangle stands
+ * @param wide - how wide the gabled part is
+ * @param back - the far edge of the roof
+ * @remarks
+ * **Two halves and a line between them.** A pitched roof seen from overhead is
+ * two slopes meeting at a ridge, and the only thing that says so at this size
+ * is that the two are not quite the same colour: the half the sun is on is a
+ * shade lighter than the half it is not, and the ridge runs down the join.
+ *
+ * Under it, on the wall, the triangle - the gable end itself. That is the part
+ * one actually recognises from the street, and it is drawn in the wall colour
+ * with the tiles carried down its two slopes, because that is what the verge
+ * of a tiled roof looks like from the front.
+ */
+function gable(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  eave: number,
+  wide: number,
+  back: number,
+): void {
+  const middle = left + wide / 2;
+  // The two slopes, over the roof plan the flat roof has already laid.
+  ctx.fillStyle = GABLE_SUN;
+  ctx.fillRect(left, back, wide / 2, eave - back);
+  ctx.fillStyle = GABLE_SHADE;
+  ctx.fillRect(middle, back, wide / 2, eave - back);
+  ctx.fillStyle = VILLA_RIDGE;
+  ctx.fillRect(middle - RIDGE_THICK / 2, back, RIDGE_THICK, eave - back);
+
+  // The triangle on the wall, and the tiles down its two verges.
+  const peak = eave - wide * GABLE_PITCH;
+  ctx.fillStyle = VILLA_WALL;
+  ctx.beginPath();
+  ctx.moveTo(left, eave);
+  ctx.lineTo(middle, peak);
+  ctx.lineTo(left + wide, eave);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = VILLA_EAVE;
+  ctx.lineWidth = VERGE_THICK;
+  ctx.beginPath();
+  ctx.moveTo(left - VERGE_OUT, eave);
+  ctx.lineTo(middle, peak - VERGE_OUT);
+  ctx.lineTo(left + wide + VERGE_OUT, eave);
+  ctx.stroke();
+  // A round window in it, which is what is in the gable of a house like this.
+  ctx.fillStyle = VILLA_DARK;
+  ctx.beginPath();
+  ctx.ellipse(middle, eave - EYE_UP, EYE_WIDE, EYE_WIDE, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = VILLA_TRIM;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+/** How much of the two-storey block is gabled. */
+const GABLE_SHARE = 0.52;
+
+/** How steep the gable is, as a share of its width. */
+const GABLE_PITCH = 0.34;
+
+/** The slope of it the sun is on. */
+const GABLE_SUN = "#d27f45";
+
+/** And the one it is not. */
+const GABLE_SHADE = "#b3672f";
+
+/** How thick the tiles along the verge are drawn. */
+const VERGE_THICK = 2;
+
+/** And how far they stand out past the wall. */
+const VERGE_OUT = 1.5;
+
+/** How far up the gable the round window sits, in pixels. */
+const EYE_UP = 5;
+
+/** And how big it is. */
+const EYE_WIDE = 2.2;
+
+/**
+ * One roof of the villa: tiles in courses, a ridge, and eaves round it.
+ *
+ * @param ctx - what to paint on
+ * @param x - its left edge on screen
+ * @param y - its back edge
+ * @param wide - how wide it is
+ * @param deep - and how far it comes forward
+ */
+function villaRoof(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  wide: number,
+  deep: number,
+): void {
+  ctx.fillStyle = VILLA_TILE;
+  ctx.fillRect(x, y, wide, deep);
+  // **The courses, and not too many of them.** A line every four pixels came
+  // out as corrugated sheeting; at seven, and in a colour only a shade off the
+  // tile, they read as what they are - rows of pantiles running down a slope.
+  ctx.strokeStyle = VILLA_COURSE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (
+    let course = y + TILE_COURSE;
+    course < y + deep - 2;
+    course += TILE_COURSE
+  ) {
+    ctx.moveTo(x, course);
+    ctx.lineTo(x + wide, course);
+  }
+  ctx.stroke();
+  // The ridge along the back, the hips down the two ends, and the eaves
+  // standing out past the wall. The hips are what tell one roof from the one
+  // built against it.
+  ctx.fillStyle = VILLA_RIDGE;
+  ctx.fillRect(x, y, wide, RIDGE_THICK);
+  ctx.fillRect(x, y, RIDGE_THICK, deep);
+  ctx.fillRect(x + wide - RIDGE_THICK, y, RIDGE_THICK, deep);
+  ctx.fillStyle = VILLA_EAVE;
+  ctx.fillRect(x, y + deep - EAVE_THICK, wide, EAVE_THICK);
+}
+
+/**
+ * A run of round-headed openings along the foot of a wall.
+ *
+ * @param ctx - what to paint on
+ * @param x - where the run starts on screen
+ * @param foot - the pavement line
+ * @param wide - how far it runs
+ * @param high - how tall the storey is
+ * @param count - how many openings
+ */
+function archRow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  foot: number,
+  wide: number,
+  high: number,
+  count: number,
+): void {
+  const each = wide / count;
+  const span = each * ARCH_SHARE;
+  const tall = high * ARCH_TALL;
+  for (let at = 0; at < count; at += 1) {
+    const middle = x + each * (at + HALF);
+    ctx.fillStyle = VILLA_DARK;
+    ctx.beginPath();
+    ctx.moveTo(middle - span / 2, foot);
+    ctx.lineTo(middle - span / 2, foot - tall + span / 2);
+    ctx.quadraticCurveTo(
+      middle,
+      foot - tall - span / 4,
+      middle + span / 2,
+      foot - tall + span / 2,
+    );
+    ctx.lineTo(middle + span / 2, foot);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/** One shuttered window of the upper floor. */
+function villaWindow(
+  ctx: CanvasRenderingContext2D,
+  at: number,
+  sill: number,
+  tall: number,
+): void {
+  ctx.fillStyle = VILLA_DARK;
+  ctx.fillRect(at - VILLA_PANE_WIDE / 2, sill, VILLA_PANE_WIDE, tall);
+  ctx.fillStyle = VILLA_SHUTTER;
+  for (const side of [-1, 1]) {
+    ctx.fillRect(
+      at + (side * VILLA_PANE_WIDE) / 2 - (side < 0 ? SHUTTER : 0),
+      sill,
+      SHUTTER,
+      tall,
+    );
+  }
+  ctx.fillStyle = VILLA_TRIM;
+  ctx.fillRect(
+    at - VILLA_PANE_WIDE / 2 - SHUTTER,
+    sill + tall,
+    VILLA_PANE_WIDE + SHUTTER * 2,
+    1.5,
+  );
+}
+
+/** The balcony over the door: a slab, an iron rail and the pots on it. */
+function balcony(
+  ctx: CanvasRenderingContext2D,
+  middle: number,
+  at: number,
+  span: number,
+): void {
+  ctx.fillStyle = VILLA_TRIM;
+  ctx.fillRect(middle - span / 2, at, span, SLAB_THICK);
+  ctx.strokeStyle = VILLA_IRON;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(middle - span / 2, at - RAIL_TALL);
+  ctx.lineTo(middle + span / 2, at - RAIL_TALL);
+  for (let bar = 0; bar <= RAIL_BARS; bar += 1) {
+    const over = middle - span / 2 + (span * bar) / RAIL_BARS;
+    ctx.moveTo(over, at - RAIL_TALL);
+    ctx.lineTo(over, at);
+  }
+  ctx.stroke();
+  // The pots along it, which is what is actually on this balcony.
+  ctx.fillStyle = VILLA_POT;
+  for (const pot of [-1, 0, 1]) {
+    ctx.fillRect(
+      middle + (pot * span) / 3 - POT_WIDE / 2,
+      at - POT_TALL,
+      POT_WIDE,
+      POT_TALL,
+    );
+  }
+  ctx.fillStyle = VILLA_LEAF;
+  for (const pot of [-1, 0, 1]) {
+    ctx.fillRect(
+      middle + (pot * span) / 3 - POT_WIDE / 2,
+      at - POT_TALL - 1.5,
+      POT_WIDE,
+      1.5,
+    );
+  }
+}
+
+/** The way in: a dark opening, its surround, and the steps down to the drive. */
+function frontDoor(
+  ctx: CanvasRenderingContext2D,
+  at: number,
+  foot: number,
+  high: number,
+  span: number,
+): void {
+  const tall = high * ARCH_TALL;
+  const wide = span * DOOR_FILLS;
+  const leaf = wide / 2;
+  // **The opening, not a plank stuck on the wall.** The door is what is in the
+  // middle arch of the loggia, so it is as wide as that arch is: a stone
+  // surround, the round head of the arch over it, and two leaves filling the
+  // whole of it. Seven pixels of timber in the middle of a twenty-pixel arch
+  // was a cat flap in a cathedral.
+  ctx.fillStyle = VILLA_TRIM;
+  ctx.beginPath();
+  ctx.moveTo(at - wide / 2 - DOOR_JAMB, foot);
+  ctx.lineTo(at - wide / 2 - DOOR_JAMB, foot - tall + wide / 2);
+  ctx.quadraticCurveTo(
+    at,
+    foot - tall - wide / 4,
+    at + wide / 2 + DOOR_JAMB,
+    foot - tall + wide / 2,
+  );
+  ctx.lineTo(at + wide / 2 + DOOR_JAMB, foot);
+  ctx.closePath();
+  ctx.fill();
+
+  // The two leaves, with the shut line between them and the fanlight over.
+  ctx.fillStyle = VILLA_TIMBER;
+  ctx.beginPath();
+  ctx.moveTo(at - wide / 2, foot);
+  ctx.lineTo(at - wide / 2, foot - tall + wide / 2);
+  ctx.quadraticCurveTo(at, foot - tall, at + wide / 2, foot - tall + wide / 2);
+  ctx.lineTo(at + wide / 2, foot);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = VILLA_DARK;
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(at, foot);
+  ctx.lineTo(at, foot - tall + wide / 2);
+  // The panels: two down each leaf, which is what a pair of timber doors has.
+  for (const side of [-1, 1]) {
+    for (const panel of [0, 1]) {
+      const from = foot - DOOR_PANEL_UP - panel * DOOR_PANEL_TALL;
+      ctx.rect(
+        at + (side < 0 ? -leaf + DOOR_PANEL_IN : DOOR_PANEL_IN),
+        from - DOOR_PANEL_TALL + DOOR_PANEL_IN,
+        leaf - DOOR_PANEL_IN * 2,
+        DOOR_PANEL_TALL - DOOR_PANEL_IN * 2,
+      );
+    }
+  }
+  ctx.stroke();
+  // The fanlight in the head of the arch, which is where the light in a hall
+  // like this actually comes from.
+  ctx.fillStyle = VILLA_GLASS_LIT;
+  ctx.beginPath();
+  ctx.moveTo(at - wide / 2 + 1, foot - tall + wide / 2);
+  ctx.quadraticCurveTo(
+    at,
+    foot - tall + 1,
+    at + wide / 2 - 1,
+    foot - tall + wide / 2,
+  );
+  ctx.closePath();
+  ctx.fill();
+  // Two handles where the leaves meet.
+  ctx.fillStyle = VILLA_BRASS;
+  for (const side of [-1, 1]) {
+    ctx.fillRect(at + side * DOOR_GRIP, foot - tall * HALF, 1.2, 1.6);
+  }
+
+  // The steps, three of them, spreading a little as they come down.
+  ctx.fillStyle = VILLA_STEP;
+  for (let step = 0; step < STEPS; step += 1) {
+    const out = wide + 3 + step * 3;
+    ctx.fillRect(at - out / 2, foot + step * STEP_DEEP, out, STEP_DEEP);
+  }
+  // A lamp either side of it.
+  ctx.fillStyle = VILLA_LAMP;
+  for (const side of [-1, 1]) {
+    ctx.fillRect(
+      at + side * (wide / 2 + DOOR_JAMB + 2),
+      foot - tall * 0.78,
+      1.6,
+      2.4,
+    );
+  }
+}
+
+/** How much of its arch the front door fills. */
+const DOOR_FILLS = 0.82;
+
+/** How far the stone surround stands out past it, in pixels. */
+const DOOR_JAMB = 1.5;
+
+/** How far up a leaf the lower panel starts. */
+const DOOR_PANEL_UP = 3;
+
+/** How tall one panel is. */
+const DOOR_PANEL_TALL = 5;
+
+/** And how far in from the edge of the leaf it sits. */
+const DOOR_PANEL_IN = 1.2;
+
+/** How far either side of the shut line the handles are. */
+const DOOR_GRIP = 1;
+
+/** The fanlight over the door, which is lit. */
+const VILLA_GLASS_LIT = "#f3d9a4";
+
+/**
+ * What is planted round the villa, on the pavement in front of it.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param plot - the ground the house stands on
+ * @param garage - the bay cut into it
+ * @remarks
+ * The plot is all house, so the garden is the strip of pavement between the
+ * front wall and the kerb - which is where the photograph has it too. Left to
+ * right: the paved forecourt with the bay marked on it, hedge either side of
+ * the opening, a row of cypresses up the left, and agaves in the gravel.
+ */
+function garden(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  plot: { left: number; top: number; right: number; bottom: number },
+  garage: Vec,
+): void {
+  const block = villaBlock();
+  if (block === null) {
+    return;
+  }
+  // **Everything here is in the property's own coordinates, not the house's.**
+  // The house is one corner of a lawn twelve squares across now; a hedge laid
+  // round the house is a hedge through the middle of the garden.
+  const grounds = villaGrounds(block.x, block.y);
+  const yard = villaYard(block.x, block.y);
+  const edge = project(view, grounds.left * TILE, grounds.top * TILE);
+  const down = (grounds.bottom - grounds.top) * TILE * DEPTH;
+  const kerb = project(view, plot.left, plot.bottom);
+  const deep = (grounds.bottom * TILE - plot.bottom) * DEPTH;
+
+  // **And flowers in the grass.** Not scattered at random: every clump comes
+  // out of `scatter` on the square it stands on, so the same border is in the
+  // same place every time one comes home. Only on the lawn - the plan is asked
+  // what is under each one rather than the corners of the property being
+  // guessed at, so nothing grows out of the roof.
+  //
+  // And **before** the drive and the yard are laid, not after: the drive is
+  // painted over squares the plan still calls lawn, so flowers put down last
+  // came up through the tarmac.
+  for (let row = grounds.top; row < grounds.bottom; row += 1) {
+    for (let col = grounds.left; col < grounds.right; col += 1) {
+      if (villaCell(col, row) === "park") {
+        flowers(ctx, view, col, row);
+      }
+    }
+  }
+
+  // **The drive, and only the drive, is paved.** The rest of the strip in
+  // front of the house is lawn, which the floor itself lays - it is park
+  // there, so the ground pass has already painted grass and this only has to
+  // put the hard standing on it. Clamped to the property: the bay is cut out
+  // of the last column of the house, so a drive laid a square either side of
+  // it runs out past the hedge and on to the public pavement.
+  const drive = {
+    from: Math.max(garage.x - TILE, grounds.left * TILE),
+    to: Math.min(garage.x + TILE, grounds.right * TILE),
+  };
+  ctx.fillStyle = VILLA_PAVE;
+  ctx.fillRect(
+    kerb.x + drive.from - plot.left,
+    kerb.y,
+    drive.to - drive.from,
+    deep,
+  );
+  ctx.strokeStyle = VILLA_JOINT;
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  // Courses across the drive rather than down it: laid the other way they
+  // read as decking, and nobody decks a forecourt.
+  for (
+    let joint = kerb.y + PAVE_STEP;
+    joint < kerb.y + deep;
+    joint += PAVE_STEP
+  ) {
+    ctx.moveTo(kerb.x + drive.from - plot.left, joint);
+    ctx.lineTo(kerb.x + drive.to - plot.left, joint);
+  }
+  ctx.stroke();
+
+  // The bay in front of the garage door.
+  const bay = project(view, garage.x - TILE / 2, garage.y - TILE / 2);
+  ctx.strokeStyle = VILLA_BAY;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(bay.x + BAY_IN, bay.y);
+  ctx.lineTo(bay.x + BAY_IN, bay.y + TILE * DEPTH - BAY_IN);
+  ctx.lineTo(bay.x + TILE - BAY_IN, bay.y + TILE * DEPTH - BAY_IN);
+  ctx.lineTo(bay.x + TILE - BAY_IN, bay.y);
+  ctx.stroke();
+
+  // **The yard is paved, not marked out.** Bays painted on it made it a
+  // supermarket car park; what belongs beside a villa is a cobbled forecourt
+  // one leaves the cars on wherever they end up. The stones are a pattern
+  // built once and laid from the **corner of the yard**, so they stay put on
+  // the ground instead of crawling about as the camera moves.
+  const lot = project(view, yard.left * TILE, yard.top * TILE);
+  const wide = (yard.right - yard.left) * TILE;
+  const tall = (yard.bottom - yard.top) * TILE * DEPTH;
+  const stones = cobbles(ctx);
+  if (stones !== null) {
+    ctx.save();
+    ctx.translate(lot.x, lot.y);
+    ctx.fillStyle = stones;
+    ctx.fillRect(0, 0, wide, tall);
+    ctx.restore();
+  }
+
+  // **The hedge is the line between the pavement and the garden**, not the
+  // line between the garden and the street: it stands **inside** the footway
+  // that runs down either side of the property, so one walks past the villa on
+  // paving with a hedge at one's elbow.
+  //
+  // **Three sides, not four.** Down both sides and along the back, and nothing
+  // at all along the front - a house one cannot see from the road is a house
+  // with a hedge in front of it, and the whole of this one is worth looking
+  // at. The front is open lawn to the kerb, with the drive across it.
+  const inner = project(view, (grounds.left + VILLA_KERB) * TILE, 0).x;
+  const outer = project(view, (grounds.right - VILLA_KERB) * TILE, 0).x;
+  hedgeRun(ctx, edge.y, edge.y + down, inner, true);
+  hedgeRun(ctx, edge.y, edge.y + down, outer - HEDGE_DEEP, true);
+  hedgeRun(ctx, inner, outer, edge.y, false);
+}
+
+/**
+ * What is growing on one square of the villa's lawn.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param col - the square, across
+ * @param row - the square, down
+ * @remarks
+ * A handful of clumps a square, each one a few petals round a middle, in
+ * whichever of the bedding colours its own dice roll picks. Dice that are not
+ * dice: the square's coordinates, so the garden is the same garden every time
+ * and nothing has to be written down.
+ */
+function flowers(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  col: number,
+  row: number,
+): void {
+  for (let clump = 0; clump < BEDS; clump += 1) {
+    const own = scatter(col * 7 + clump, row * 13 + clump * 5);
+    const spin = scatter(row * 11 + clump * 3, col * 17 + clump);
+    if (own < BED_BARE) {
+      continue;
+    }
+    const at = project(
+      view,
+      (col + BED_IN + own * (1 - BED_IN * 2)) * TILE,
+      (row + BED_IN + spin * (1 - BED_IN * 2)) * TILE,
+    );
+    ctx.fillStyle = BED_LEAF;
+    ctx.fillRect(at.x - 1, at.y, 2, 2);
+    ctx.fillStyle = BEDS_IN[Math.floor(spin * BEDS_IN.length)] ?? BED_LEAF;
+    for (const petal of [-1, 1]) {
+      ctx.fillRect(
+        at.x + petal * PETAL - PETAL / 2,
+        at.y - PETAL,
+        PETAL,
+        PETAL,
+      );
+      ctx.fillRect(at.x - PETAL / 2, at.y - PETAL * (1 + petal), PETAL, PETAL);
+    }
+    ctx.fillStyle = BED_HEART;
+    ctx.fillRect(at.x - PETAL / 2, at.y - PETAL, PETAL, PETAL);
+  }
+}
+
+/** How many clumps of flowers one square of lawn may hold. */
+const BEDS = 3;
+
+/** Below this the clump is not there at all, so the lawn is not a meadow. */
+const BED_BARE = 0.42;
+
+/** How far in from the edge of a square one may stand, as a share of it. */
+const BED_IN = 0.18;
+
+/** How big one petal is drawn, in pixels. */
+const PETAL = 1.6;
+
+/** The stalk and the leaves. */
+const BED_LEAF = "#2f6b2a";
+
+/** What is in the middle of a flower. */
+const BED_HEART = "#fde68a";
+
+/** And what they come in. */
+const BEDS_IN: readonly string[] = [
+  "#e879a0",
+  "#f0b429",
+  "#dc5a4a",
+  "#f5f0e6",
+  "#a86ed6",
+];
+
+/**
+ * One run of clipped hedge.
+ *
+ * @param ctx - what to paint on
+ * @param from - where it starts on screen
+ * @param to - and where it stops
+ * @param at - the other coordinate: the line it runs along
+ * @param down - true for a run down the screen rather than across it
+ */
+function hedgeRun(
+  ctx: CanvasRenderingContext2D,
+  from: number,
+  to: number,
+  at: number,
+  down: boolean,
+): void {
+  if (to <= from) {
+    return;
+  }
+  // **Three tones and a lumpy top.** A hedge from up here is a long low mound:
+  // dark where the ground is, its own colour up the body, and a line of
+  // clipped tops catching the light down the side the sun is on. Flat green
+  // with a scallop on it was a snooker cushion; what makes it a hedge is that
+  // the three do not line up - each lump sits a shade off where the last one
+  // did, because nobody clips one straight.
+  ctx.fillStyle = VILLA_HEDGE_DARK;
+  if (down) {
+    ctx.fillRect(at, from, HEDGE_DEEP, to - from);
+  } else {
+    ctx.fillRect(from, at, to - from, HEDGE_DEEP);
+  }
+  ctx.fillStyle = VILLA_HEDGE;
+  if (down) {
+    ctx.fillRect(at, from, HEDGE_DEEP - HEDGE_SHADE, to - from);
+  } else {
+    ctx.fillRect(from, at, to - from, HEDGE_DEEP - HEDGE_SHADE);
+  }
+  for (let lump = from; lump < to; lump += HEDGE_LUMP) {
+    const along = Math.min(lump + HEDGE_LUMP / 2, to);
+    const own = scatter(Math.round(lump), Math.round(at));
+    const fat = HEDGE_LUMP / 2 - 0.4 + own;
+    const off = (own - HALF) * HEDGE_ROUGH;
+    ctx.fillStyle = own < HALF ? VILLA_HEDGE_TOP : VILLA_HEDGE_LIT;
+    ctx.beginPath();
+    ctx.ellipse(
+      down ? at + HEDGE_DEEP * HEDGE_CREST + off : along,
+      down ? along : at + HEDGE_DEEP * HEDGE_CREST + off,
+      down ? HEDGE_DEEP * HEDGE_TOP : fat,
+      down ? fat : HEDGE_DEEP * HEDGE_TOP,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+}
+
+/** How wide the strip of two-storey wall above the wing's roof is. */
+const JOIN_WIDE = 3;
+
+/** How tall the single-storey wing is against it. */
+const VILLA_LOW = 0.72;
+
+/** And how far up the wing the opening goes. */
+const VILLA_PORT_TALL = 0.78;
+
+/** How many arches the wing carries, and how many the main block does. */
+const VILLA_WING_ARCHES = 1;
+
+/** And the loggia of the main block. */
+const VILLA_ARCHES = 3;
+
+/** How much of a storey an arched opening takes. */
+const ARCH_TALL = 0.72;
+
+/** And how much of its bay it is wide. */
+const ARCH_SHARE = 0.62;
+
+/** How far up the wall the darker skirt reaches. */
+const VILLA_SKIRT = 0.1;
+
+/** Where the upper windows sit, as a share of the height. */
+const VILLA_UPPER = 0.86;
+
+/** How tall one is. */
+const VILLA_PANE = 0.2;
+
+/** Where the balcony slab sits. */
+const VILLA_RAIL = 0.68;
+
+/** And how much of the front it spans. */
+const VILLA_BALCONY = 0.44;
+
+/** How much of a storey the ground floor is. */
+const VILLA_GROUND = 0.66;
+
+/** Where the upper windows sit either side of the balcony. */
+const VILLA_PANE_AT = 0.34;
+
+/** How many steps come down from it. */
+const STEPS = 3;
+
+/** And how deep one is drawn. */
+const STEP_DEEP = 1.6;
+
+/** How far apart the courses of tiles are drawn, in pixels. */
+const TILE_COURSE = 7;
+
+/** How thick the ridge along the top is. */
+const RIDGE_THICK = 2;
+
+/** And the eaves along the bottom. */
+const EAVE_THICK = 2;
+
+/** How wide a chimney is. */
+const CHIMNEY_WIDE = 9;
+
+/** How much of that is the shaded side of it. */
+const CHIMNEY_SIDE = 3;
+
+/** How far above the roof it starts. */
+const CHIMNEY_UP = 11;
+
+/** How tall its shaft is. */
+const CHIMNEY_TALL = 4;
+
+/** And the cap on it. */
+const CHIMNEY_CAP = 3;
+
+/** How far the cap stands out past the shaft, in pixels. */
+const CHIMNEY_LIP = 1.5;
+
+/** How deep the vent slots under it are. */
+const CHIMNEY_SLOT = 2;
+
+/** Where it stands across the two-storey block, as a share of it. */
+const CHIMNEY_AT = 0.5;
+
+/** And how far back down the roof, as a share of its depth. */
+const CHIMNEY_BACK = 0.62;
+
+/** How wide an upper window is. */
+const VILLA_PANE_WIDE = 5;
+
+/** And how wide a shutter beside it is. */
+const SHUTTER = 1.5;
+
+/** How thick the balcony slab is. */
+const SLAB_THICK = 1.5;
+
+/** How tall its rail is. */
+const RAIL_TALL = 4;
+
+/** How many uprights that rail has. */
+const RAIL_BARS = 6;
+
+/** How wide a pot on it is. */
+const POT_WIDE = 2.5;
+
+/** And how tall. */
+const POT_TALL = 2;
+
+/** How far apart the joints in the paving are. */
+const PAVE_STEP = 9;
+
+/** How deep the hedge along the kerb is. */
+const HEDGE_DEEP = 9;
+
+/** How much of that is the shaded side of it. */
+const HEDGE_SHADE = 2.5;
+
+/** Where along its width the clipped tops sit, as a share of its depth. */
+const HEDGE_CREST = 0.36;
+
+/** And how fat one of them is, the same way. */
+const HEDGE_TOP = 0.3;
+
+/** How far a lump may wander off the line, in pixels. */
+const HEDGE_ROUGH = 1.6;
+
+/**
+ * The cobbles of the villa's yard, as a pattern.
+ *
+ * @param ctx - the canvas the pattern is for
+ * @returns it, or null where no canvas can be made
+ * @remarks
+ * Built once and kept: a courtyard three squares by four is a hundred and
+ * fifty stones, and drawing each of them every frame is a hundred and fifty
+ * rectangles a frame for a piece of ground nobody looks at twice.
+ *
+ * Laid in courses with every other one offset by half a stone, which is how
+ * setts are actually laid and is also the only thing that stops a grid of
+ * rectangles reading as tiling. Four tones, picked off the stone's place in
+ * the pattern rather than at random, so the yard is the same yard every time.
+ */
+function cobbles(ctx: CanvasRenderingContext2D): CanvasPattern | null {
+  if (SETTS === undefined) {
+    const sheet = document.createElement("canvas");
+    sheet.width = SETT_WIDE * 2;
+    sheet.height = SETT_TALL * 2;
+    const paint = sheet.getContext("2d");
+    if (paint === null) {
+      SETTS = null;
+    } else {
+      paint.fillStyle = SETT_JOINT;
+      paint.fillRect(0, 0, sheet.width, sheet.height);
+      for (let row = 0; row < 2; row += 1) {
+        for (let stone = -1; stone < 2; stone += 1) {
+          const over = stone * SETT_WIDE + (row % 2 === 0 ? 0 : SETT_WIDE / 2);
+          paint.fillStyle =
+            SETT_STONES[(row * 2 + stone + 4) % SETT_STONES.length] ??
+            SETT_JOINT;
+          paint.fillRect(
+            over,
+            row * SETT_TALL,
+            SETT_WIDE - SETT_GAP,
+            SETT_TALL - SETT_GAP,
+          );
+        }
+      }
+      SETTS = ctx.createPattern(sheet, "repeat");
+    }
+  }
+  return SETTS;
+}
+
+/** The pattern, built once. */
+let SETTS: CanvasPattern | null | undefined = undefined;
+
+/** How wide one sett is, in pixels. */
+const SETT_WIDE = 7;
+
+/** And how deep, which is less because the ground is squashed. */
+const SETT_TALL = 4;
+
+/** How much of that is the joint between two of them. */
+const SETT_GAP = 1;
+
+/** What is between the stones. */
+const SETT_JOINT = "#6f6a63";
+
+/** And the stones themselves, which are not all the same colour. */
+const SETT_STONES: readonly string[] = [
+  "#9a948a",
+  "#8e887e",
+  "#a49d92",
+  "#948d83",
+];
+
+/** How wide one clipped lump along the top of the hedge is. */
+const HEDGE_LUMP = 7;
+
+/** The stucco of the villa. */
+const VILLA_WALL = "#e7ded0";
+
+/** The shade along the foot of it. */
+const VILLA_SHADE = "#cdc2b1";
+
+/** What is inside an arch, which is nothing one can see. */
+const VILLA_DARK = "#2a2521";
+
+/** The tiles. */
+const VILLA_TILE = "#c8753a";
+
+/** The line between two courses of them. */
+const VILLA_COURSE = "#b96a33";
+
+/** The ridge along the top. */
+const VILLA_RIDGE = "#d98a4e";
+
+/** And the eaves, which are in their own shadow. */
+const VILLA_EAVE = "#7a4523";
+
+/** The stone round a window or under a balcony. */
+const VILLA_TRIM = "#d8cdba";
+
+/** The shutters. */
+const VILLA_SHUTTER = "#4a3c2c";
+
+/** The ironwork. */
+const VILLA_IRON = "#2b2b2b";
+
+/** A pot on the balcony. */
+const VILLA_POT = "#b1795a";
+
+/** And what is growing out of it. */
+const VILLA_LEAF = "#4e7a3a";
+
+/** The front door. */
+const VILLA_TIMBER = "#5b3a24";
+
+/** Its handle. */
+const VILLA_BRASS = "#d4af37";
+
+/** The steps down to the drive. */
+const VILLA_STEP = "#ddd2bf";
+
+/** The lamps either side of the door. */
+const VILLA_LAMP = "#fde68a";
+
+/** What the forecourt is paved with. */
+const VILLA_PAVE = "#b98c6a";
+
+/** The joints in it. */
+const VILLA_JOINT = "#9a7051";
+
+/** And the bay painted on it. */
+const VILLA_BAY = "#e8ddc8";
+
+/** The clipped hedge along the kerb. */
+const VILLA_HEDGE = "#3f6b2f";
+
+/** The light along the top of it. */
+const VILLA_HEDGE_TOP = "#5c8a3f";
+
+/** The shade along the foot of it. */
+const VILLA_HEDGE_DARK = "#2c4d21";
+
+/** And the tops the sun is actually on. */
+const VILLA_HEDGE_LIT = "#6d9c49";
 
 /** One window of it: a frame, its glass and the sill under it. */
 function homeWindow(
@@ -9040,7 +10253,15 @@ function jetpack(
       PACK_HIGH,
     );
     const bottle = new Path2D();
-    bottle.ellipse(spot.x, spot.y, PACK_FAT, PACK_FAT * DEPTH, 0, 0, Math.PI * 2);
+    bottle.ellipse(
+      spot.x,
+      spot.y,
+      PACK_FAT,
+      PACK_FAT * DEPTH,
+      0,
+      0,
+      Math.PI * 2,
+    );
     ctx.fillStyle = PACK_STEEL;
     ctx.fill(bottle);
     ctx.stroke(bottle);

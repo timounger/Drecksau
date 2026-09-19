@@ -158,6 +158,13 @@ function inTown(col: number, row: number): Cell {
     // it. The streets round the outside are untouched, because the footprint
     // stops at them.
     cell = prisonCell(gaol, col, row);
+  } else if (villaCell(col, row) !== null) {
+    // **The villa has grounds, and the floor knows it.** Asked before the
+    // streets, not after them, for the same reason the prison is: the property
+    // is two blocks wide and the street that used to run between them is
+    // inside it. Asked in the other order that street won and there was a
+    // road through the middle of somebody's garden.
+    cell = villaCell(col, row) ?? "walk";
   } else if (isRoad(col, true) || isRoad(row, false)) {
     cell = "road";
   } else if (onCarPark(col, row)) {
@@ -358,6 +365,176 @@ export function prisonTowers(plot: {
     { x: left, y: down },
     { x: right, y: down },
   ];
+}
+
+/**
+ * Where the warders of a prison stand.
+ *
+ * @param plot - its footprint, in squares
+ * @returns one spot a man, in pixels
+ * @remarks
+ * **On the grass, where one can shoot back at them.** The yard used to be
+ * held by nobody at all: four rounds a second came out of the corners of the
+ * building from nothing that was drawn and nothing that could be hit, so
+ * standing in the yard was standing in a room that took health off you. That
+ * is not a guard, it is a hazard - and the difference matters, because a
+ * hazard has no answer and a guard has six.
+ *
+ * So the men are real: ordinary policemen with a post, the same sort as the
+ * ten on the military base. Four of them stand under the four towers, one by
+ * one with the searchlights above them, and two more walk the middle of the
+ * yard. Shoot all six and the place has nobody left in it, which is the whole
+ * point of counting them.
+ *
+ * They stand **a square inside the ranges**, not in the corners of the
+ * building itself: a man drawn inside a wall is a man whose own wall stops
+ * every bullet fired at him, and a guard one cannot hit is the hazard again
+ * with a hat on.
+ */
+export function warderPosts(plot: {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}): readonly Vec[] {
+  const inset = PRISON_FENCE + PRISON_WING + WARDER_IN;
+  const left = (plot.left + inset) * TILE;
+  const right = (plot.right - inset) * TILE;
+  const top = (plot.top + inset) * TILE;
+  const down = (plot.bottom - inset) * TILE;
+  const middle = { x: (left + right) / 2, y: (top + down) / 2 };
+  // **And none of them inside the workshop.** The hut stands a square in from
+  // the ranges in one corner of the yard, which is exactly where the man under
+  // that tower would otherwise be put - and a warder inside a building is the
+  // thing this whole arrangement exists to avoid. Whoever lands on it is moved
+  // clear of it, along the top of the yard, which is still under his tower.
+  const hut = prisonHut(plot);
+  const shed = {
+    left: hut.x * TILE,
+    top: hut.y * TILE,
+    right: (hut.x + PRISON_SHED) * TILE,
+    bottom: (hut.y + PRISON_SHED) * TILE,
+  };
+  return [
+    { x: left, y: top },
+    { x: right, y: top },
+    { x: left, y: down },
+    { x: right, y: down },
+    { x: middle.x - WARDER_APART * TILE, y: middle.y },
+    { x: middle.x + WARDER_APART * TILE, y: middle.y },
+  ].map((spot) =>
+    spot.x >= shed.left &&
+    spot.x < shed.right &&
+    spot.y >= shed.top &&
+    spot.y < shed.bottom
+      ? { x: spot.x + PRISON_SHED * TILE, y: spot.y }
+      : spot,
+  );
+}
+
+/**
+ * How far inside the ranges a warder stands, in squares.
+ *
+ * @remarks
+ * A whole one, so that he is on the grass with room round him rather than
+ * pressed against his own wall - and **not** in the tower above him, which was
+ * the first idea and is impossible. A bullet stops at anything solid and a
+ * watchtower stands on a square of building, so every round fired at a man up
+ * there died in the wall below him: measured, twelve seconds of machine-gun
+ * fire from ten yards away took nothing off him at all. A guard one cannot hit
+ * is the thing this whole arrangement exists to get rid of.
+ */
+const WARDER_IN = 1;
+
+/** And how far either side of the middle the two in the yard stand. */
+const WARDER_APART = 2;
+
+/**
+ * Every prison the plan drew.
+ *
+ * @returns the anchor block of each, worked out once
+ * @remarks
+ * There is one, and the code says "every" anyway: whoever has to staff them
+ * should not have to know how many the plan happened to leave standing after
+ * the motorways had taken their share.
+ */
+export function prisonAnchors(): readonly Vec[] {
+  if (GAOLS !== null) {
+    return GAOLS;
+  }
+  const blocks = CITY_TILES / BLOCK_TILES;
+  const found: Vec[] = [];
+  for (let blockY = 0; blockY < blocks; blockY += 1) {
+    for (let blockX = 0; blockX < blocks; blockX += 1) {
+      if (isPrisonBlock(blockX, blockY)) {
+        found.push({ x: blockX, y: blockY });
+      }
+    }
+  }
+  GAOLS = found;
+  return found;
+}
+
+/** The answer to {@link prisonAnchors}, worked out once. */
+let GAOLS: readonly Vec[] | null = null;
+
+/**
+ * The prison, opened.
+ *
+ * @param cells - the city floor
+ * @param anchor - the block the prison is anchored on
+ * @returns the floor with a way through the gate
+ * @remarks
+ * Two squares: the doorway through the range and the square of wire in front
+ * of it, both on the line {@link prisonGate} puts the gate on. That is the
+ * whole of it - a corridor one square wide from the street into the yard,
+ * which is what a prison gate is when it is open.
+ *
+ * The floor and the picture change in the same breath, the way the garage door
+ * does: what one can see and what one can walk through must never disagree.
+ */
+export function openGaol(cells: readonly Cell[], anchor: Vec): readonly Cell[] {
+  const plot = prisonPlot(anchor.x, anchor.y);
+  const gate = prisonGate(plot);
+  let floor = cells;
+  for (let row = gate.y; row > gate.y - PRISON_FENCE - PRISON_WING; row -= 1) {
+    floor = cellSet(
+      floor,
+      { x: gate.x * TILE + TILE / 2, y: row * TILE + TILE / 2 },
+      "park",
+    );
+  }
+  return floor;
+}
+
+/**
+ * The prison, shut again.
+ *
+ * @param cells - the city floor
+ * @param anchor - the block the prison is anchored on
+ * @returns the floor with the gate closed
+ * @remarks
+ * The other half of {@link openGaol}, and it does not remember what it
+ * replaced: it asks the **plan** what belongs on those two squares and puts
+ * that back. A door that restored whatever happened to be underneath it would
+ * be a door that has to be told what it was covering, which is one more thing
+ * to get wrong.
+ */
+export function closeGaol(
+  cells: readonly Cell[],
+  anchor: Vec,
+): readonly Cell[] {
+  const plot = prisonPlot(anchor.x, anchor.y);
+  const gate = prisonGate(plot);
+  let floor = cells;
+  for (let row = gate.y; row > gate.y - PRISON_FENCE - PRISON_WING; row -= 1) {
+    floor = cellSet(
+      floor,
+      { x: gate.x * TILE + TILE / 2, y: row * TILE + TILE / 2 },
+      cellAt(gate.x, row),
+    );
+  }
+  return floor;
 }
 
 /** How many squares across the workshop in the yard is. */
@@ -677,12 +854,28 @@ export function houseHeight(
   look: number,
 ): number {
   const blocks = CITY_TILES / BLOCK_TILES;
-  const away = Math.hypot(blockX + HALF - blocks / 2, blockY + HALF - blocks / 2);
+  const away = Math.hypot(
+    blockX + HALF - blocks / 2,
+    blockY + HALF - blocks / 2,
+  );
   const downtown = Math.max(0, 1 - away / (blocks / 2));
+  const block = villaBlock();
+  // **The villa stands taller than its street.** Two proper storeys with a
+  // tiled roof over them, against the bungalow the dice would otherwise have
+  // rolled for this corner. Done here rather than in the picture so that the
+  // roof one lands a jetpack on is the roof one can see - `roofAt` reads the
+  // same number.
+  const mine =
+    block !== null && block.x === blockX && block.y === blockY ? VILLA_RISE : 1;
   return (
-    HOUSE_LOW + (HOUSE_HIGH - HOUSE_LOW) * downtown * (TOWN_FLOOR + TOWN_SPREAD * look)
+    mine *
+    (HOUSE_LOW +
+      (HOUSE_HIGH - HOUSE_LOW) * downtown * (TOWN_FLOOR + TOWN_SPREAD * look))
   );
 }
+
+/** How much taller the villa is than the block it stands on would be. */
+const VILLA_RISE = 1.6;
 
 /** How much of its local maximum the shortest block on a street reaches. */
 const TOWN_FLOOR = 0.35;
@@ -709,11 +902,7 @@ const TOWN_SPREAD = 0.65;
  * city, whose height is its own formula times whatever the table says that
  * kind of building rises to.
  */
-export function roofAt(
-  cells: readonly Cell[],
-  x: number,
-  y: number,
-): number {
+export function roofAt(cells: readonly Cell[], x: number, y: number): number {
   if (cellUnder(cells, x, y) !== "building") {
     return 0;
   }
@@ -1726,6 +1915,44 @@ function cellSet(cells: readonly Cell[], at: Vec, cell: Cell): readonly Cell[] {
  * end in a garage in Las Venturas rather than in a ferry queue.
  */
 export function myHouses(): readonly Vec[] {
+  return homeDoors().map((best) => {
+    // **The villa's door is not in the middle of its front.** Its garage is in
+    // the carport, three columns in from the left-hand end of the house -
+    // which is where a carport is on the photograph this house is drawn from.
+    // Worked out from the same four numbers {@link villaPlot} uses, so the
+    // hole in the wall and the hole in the floor cannot end up in different
+    // places.
+    const span = BLOCK_TILES * TILE;
+    const blockX = Math.floor(best.x / span);
+    return districtAt(best.x, best.y) === "vagos"
+      ? {
+          x:
+            (blockX * BLOCK_TILES +
+              openSpan(blockX, true).from +
+              VILLA_KERB +
+              VILLA_LAWN +
+              VILLA_BAY_IN +
+              HALF) *
+            TILE,
+          y: best.y,
+        }
+      : best;
+  });
+}
+
+/**
+ * The three front doors, before the villa's is moved along its own front.
+ *
+ * @returns one door an island: the house nearest the middle of it
+ * @remarks
+ * Its own function because {@link villaBlock} has to ask which block the villa
+ * is on, and it cannot ask {@link myHouses}: that one moves the villa's door
+ * to the garage column, which on a property two blocks wide can land in the
+ * **other** block - whereupon the villa would decide it was standing next
+ * door to itself, and the whole property would walk sideways a block at a
+ * time.
+ */
+function homeDoors(): readonly Vec[] {
   // The prison swallowed three blocks, and a door on one of them is a door
   // into a wall - see doorsOf, which now leaves those blocks out. The three
   // homes are picked from what is left.
@@ -1751,6 +1978,246 @@ export function myHouses(): readonly Vec[] {
     }
     return best;
   });
+}
+
+/**
+ * Which block the villa stands on.
+ *
+ * @returns it, or null before there is a city at all
+ * @remarks
+ * The house in the south-east quarter - see `drawVilla` in the renderer. Worked
+ * out once and remembered, because the floor asks it of every square it lays.
+ */
+export function villaBlock(): Vec | null {
+  if (VILLA_AT === undefined) {
+    const span = BLOCK_TILES * TILE;
+    const home = homeDoors().find(
+      (house) => districtAt(house.x, house.y) === "vagos",
+    );
+    VILLA_AT =
+      home === undefined
+        ? null
+        : { x: Math.floor(home.x / span), y: Math.floor(home.y / span) };
+  }
+  return VILLA_AT;
+}
+
+/** The answer to {@link villaBlock}, worked out once. */
+let VILLA_AT: Vec | null | undefined = undefined;
+
+/**
+ * Whether the villa has swallowed the block next door.
+ *
+ * @returns true where the property runs over two blocks
+ * @remarks
+ * **The house next door comes down.** The property is two blocks across, which
+ * means the street between them is inside it - the same thing a prison does to
+ * the crossing in its middle, and the same rule applies: an ordinary street
+ * may be swallowed, a **motorway** may not. A motorway is the one road one
+ * drives the length of, and a garden across it is a hole in the map.
+ *
+ * Only a plain house is taken. A bank, a hospital or a night club is one of a
+ * kind and worth more where it stands than as somebody's lawn.
+ */
+export function villaWide(): boolean {
+  const block = villaBlock();
+  if (block === null) {
+    return false;
+  }
+  if (VILLA_TWO === undefined) {
+    const next = { x: block.x + 1, y: block.y };
+    const street = next.x * BLOCK_TILES;
+    VILLA_TWO =
+      builtBlock(next.x, next.y) &&
+      PLAIN_BLOCKS.includes(buildingAt(next.x, next.y).kind) &&
+      !gaoled(next.x, next.y) &&
+      !isMotorway(street);
+  }
+  return VILLA_TWO;
+}
+
+/** The answer to {@link villaWide}, worked out once. */
+let VILLA_TWO: boolean | undefined = undefined;
+
+/**
+ * Whether a block has been swallowed by the villa next door.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the same, down
+ * @returns true for the block whose house came down
+ */
+export function villaTook(blockX: number, blockY: number): boolean {
+  const block = villaBlock();
+  return (
+    block !== null &&
+    villaWide() &&
+    blockX === block.x + 1 &&
+    blockY === block.y
+  );
+}
+
+/**
+ * The ground the villa itself stands on.
+ *
+ * @param blockX - its block, across
+ * @param blockY - the same, down
+ * @returns the footprint, in squares
+ * @remarks
+ * **Wider than an ordinary house, and no deeper.** Across, it takes the whole
+ * of the block that is not tarmac - which is the pavement down its two sides
+ * as well, the way a house with grounds does. Down, it keeps to what every
+ * other house gets, so that the strip in front of it and the strip behind it
+ * are left over for the garden.
+ */
+export function villaPlot(
+  blockX: number,
+  blockY: number,
+): { left: number; top: number; right: number; bottom: number } {
+  const grounds = villaGrounds(blockX, blockY);
+  const down = builtSpan(blockY, false);
+  const left = grounds.left + VILLA_KERB + VILLA_LAWN;
+  return {
+    left,
+    top: blockY * BLOCK_TILES + down.from,
+    right: left + VILLA_ROOMS,
+    bottom: blockY * BLOCK_TILES + down.to + 1,
+  };
+}
+
+/**
+ * How the property is laid out across, in squares.
+ *
+ * @remarks
+ * Left to right, and every number here is one strip of it: pavement, lawn with
+ * the hedge along its outer edge, the house, lawn, the paved yard, and
+ * pavement again. **The house does not stand on the boundary**, which is the
+ * whole difference between a villa in its grounds and a terrace with a big
+ * garden - one walks round a villa.
+ *
+ * Read by {@link villaPlot}, {@link villaYard} and by `myHouses`, which cuts
+ * the garage out of the house. All three from the same numbers, so the hole in
+ * the wall, the hole in the floor and the tarmac outside it cannot drift
+ * apart.
+ */
+export const VILLA_KERB = 1;
+
+/** How wide the strip of lawn inside the hedge is. */
+const VILLA_LAWN = 1;
+
+/** How many squares the house itself takes. */
+const VILLA_ROOMS = 5;
+
+/** Of those, how many are the two-storey block rather than the wing. */
+export const VILLA_MAIN = 2;
+
+/** And which column of the house the garage is cut out of. */
+export const VILLA_BAY_IN = 3;
+
+/**
+ * The ground round it: lawn in front of the house and behind it.
+ *
+ * @param blockX - its block, across
+ * @param blockY - the same, down
+ * @returns the whole property, in squares
+ */
+export function villaGrounds(
+  blockX: number,
+  blockY: number,
+): { left: number; top: number; right: number; bottom: number } {
+  const across = openSpan(blockX, true);
+  const down = openSpan(blockY, false);
+  const over = villaWide() ? 1 : 0;
+  const far = openSpan(blockX + over, true);
+  return {
+    left: blockX * BLOCK_TILES + across.from,
+    top: blockY * BLOCK_TILES + down.from,
+    right: (blockX + over) * BLOCK_TILES + far.to + 1,
+    bottom: blockY * BLOCK_TILES + down.to + 1,
+  };
+}
+
+/**
+ * The car park to the right of the house.
+ *
+ * @param blockX - the villa's block, across
+ * @param blockY - the same, down
+ * @returns the hard standing, in squares
+ * @remarks
+ * Everything between the end of the house and the far edge of the property,
+ * and it runs **down to the kerb**: a car park one cannot drive into off the
+ * street is a yard. Concrete rather than road, the same as the one behind the
+ * supermarket - the traffic never turns on to it of its own accord, and
+ * nobody on foot treats crossing it as crossing a road.
+ */
+export function villaYard(
+  blockX: number,
+  blockY: number,
+): { left: number; top: number; right: number; bottom: number } {
+  const grounds = villaGrounds(blockX, blockY);
+  const house = villaPlot(blockX, blockY);
+  // **Straight off the end of the house**, with the lawn on the far side of
+  // it rather than between the two: one walks out of the carport on to the
+  // stones, not across a strip of grass to get to them.
+  return {
+    left: house.right,
+    top: house.top,
+    right: grounds.right - VILLA_KERB - VILLA_LAWN,
+    bottom: grounds.bottom,
+  };
+}
+
+/**
+ * What one square of the villa's property is.
+ *
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns the floor there, or null for a square that is not its business
+ * @remarks
+ * Two answers and nothing else: the house is building, and everything else
+ * inside the property is **grass**. That is what turns the strip in front of
+ * it from public pavement into a front lawn, and it costs nothing - both are
+ * ground one can walk on, so nothing that moves has to know about it.
+ */
+export function villaCell(col: number, row: number): Cell | null {
+  const block = villaBlock();
+  const near =
+    block !== null &&
+    Math.floor(row / BLOCK_TILES) === block.y &&
+    (Math.floor(col / BLOCK_TILES) === block.x ||
+      villaTook(Math.floor(col / BLOCK_TILES), block.y));
+  if (block === null || !near) {
+    return null;
+  }
+  const grounds = villaGrounds(block.x, block.y);
+  const inside =
+    col >= grounds.left &&
+    col < grounds.right &&
+    row >= grounds.top &&
+    row < grounds.bottom;
+  if (!inside) {
+    return null;
+  }
+  // The pavement down either side of the property, which is what one walks
+  // past it on: the hedge stands inside that, and the lawn inside the hedge.
+  if (col < grounds.left + VILLA_KERB || col >= grounds.right - VILLA_KERB) {
+    return "walk";
+  }
+  const house = villaPlot(block.x, block.y);
+  const built =
+    col >= house.left &&
+    col < house.right &&
+    row >= house.top &&
+    row < house.bottom;
+  if (built) {
+    return "building";
+  }
+  const yard = villaYard(block.x, block.y);
+  const parked =
+    col >= yard.left &&
+    col < yard.right &&
+    row >= yard.top &&
+    row < yard.bottom;
+  return parked ? "dock" : "park";
 }
 
 /**
@@ -1999,7 +2466,8 @@ export function buildingAt(blockX: number, blockY: number): Building {
   const drawn = rawKindAt(blockX, blockY);
   const spare =
     (ONE_ONLY.includes(drawn) && !isTheOne(drawn, blockX, blockY)) ||
-    (ONE_PER_QUARTER.includes(drawn) && !isTheLocalOne(drawn, blockX, blockY)) ||
+    (ONE_PER_QUARTER.includes(drawn) &&
+      !isTheLocalOne(drawn, blockX, blockY)) ||
     (drawn === "prison" && !roomForPrison(blockX, blockY)) ||
     (drawn === "police" && !isTheStation(blockX, blockY));
   // **The station comes last, and it can overrule a house.** Every other

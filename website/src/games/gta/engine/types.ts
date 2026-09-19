@@ -841,6 +841,23 @@ export type GameState = {
    */
   readonly prison: PrisonState | null;
   /**
+   * When the last warder of the prison in the city fell, or null while one of
+   * them is still on his feet.
+   *
+   * @remarks
+   * Not the same prison as {@link GameState.prison}, which is the little world
+   * one is locked into. This is the **building on the block** - the yard with
+   * the towers round it - and this number is the one thing about it that is
+   * history rather than weather: six men hold it, and once they are all down
+   * the gate stands open and the men inside walk out. That cannot be worked
+   * out from the clock, so it is written down.
+   *
+   * The clock reading rather than a flag, because everything that follows is
+   * timed off it: the doors swing back, the barrier goes up, and the convicts
+   * cross the yard and leave one after another.
+   */
+  readonly jailbreak: number | null;
+  /**
    * The printing works, while a job is on inside it, or null out in the city.
    *
    * @remarks
@@ -1485,51 +1502,6 @@ export const MARK_EVERY = 0.03;
 export const PRISON_AIM = 1.6;
 
 /**
- * And how often each tower fires after that, in seconds.
- *
- * @remarks
- * Four towers on this beat is a round every three tenths of a second from four
- * directions - enough that standing still in the yard is a way of dying and
- * not enough that there is nothing to be done about it. Measured against a man
- * who does not move: eight or nine seconds from full health, which is time to
- * get back over the wall and no time at all to look around.
- */
-export const PRISON_RATE = 1.1;
-
-/** How far one of those shots carries, in pixels. */
-export const PRISON_RANGE = 900;
-
-/** How fast it flies. */
-export const PRISON_SPEED = 780;
-
-/**
- * How far out of the tower a round starts, in pixels.
- *
- * @remarks
- * **Clear of the tower's own square.** A bullet is stopped by anything solid,
- * and a watchtower stands on a square of building - so a round born at the
- * ordinary muzzle distance died in the wall it came out of, and four towers
- * fired all night at a man who never heard a thing. Half a square is
- * twenty-four pixels, a corner of one thirty-four; this clears either.
- */
-export const PRISON_MUZZLE = 40;
-
-/** And what it takes off. */
-export const PRISON_HURT = 7;
-
-/**
- * How far off the line a tower shoots, in radians either way.
- *
- * @remarks
- * Tight, because the range is long: a shot only counts if it passes within
- * twelve pixels of somebody, and across the width of a yard a tenth of a
- * radian is thirty pixels of scatter - four towers firing all night and never
- * touching anybody. At this, about half the rounds tell, which is a prison one
- * leaves rather than one one dies in.
- */
-export const PRISON_SPREAD = 0.04;
-
-/**
  * How long a tank's tracks stay in the ground, in seconds.
  *
  * @remarks
@@ -1846,16 +1818,6 @@ export const GARAGE_SHUT = 1.4;
  * rather than standing open all day.
  */
 export const GARAGE_OPEN = 90;
-
-/**
- * How close a policeman has to be to see who went in, in pixels.
- *
- * @remarks
- * The one hole in the trick: a fresh coat of paint only works on somebody who
- * did not watch it being applied. Drive in with a patrol on your bumper and
- * you come out just as wanted as you went in.
- */
-export const GARAGE_SEEN = 130;
 
 /** What a stay in hospital costs. */
 export const HOSPITAL_COST = 200;

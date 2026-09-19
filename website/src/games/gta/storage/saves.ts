@@ -18,10 +18,14 @@ import {
   createCity,
   myHouses,
   openBay,
+  openGaol,
+  prisonAnchors,
+  prisonUnder,
   setGarage,
 } from "@/games/gta/engine/city";
-import { newAcks, newChopper } from "@/games/gta/engine/setup";
+import { newAcks, newChopper, prisonGuards } from "@/games/gta/engine/setup";
 import type { GameState } from "@/games/gta/engine/types";
+import { TILE } from "@/games/gta/engine/types";
 import {
   readStored,
   removeStored,
@@ -231,6 +235,36 @@ function rebuild(stored: Stored): GameState {
   for (const home of homes) {
     floor = openBay(floor, home);
   }
+  // **The prison is opened again on the way in.** Whether its gate stands open
+  // is the one thing about that building that is written down rather than
+  // worked out, so the floor - which is worked out, every time, from the plan -
+  // has to be told about it again before anybody walks through the doorway
+  // they can see standing open.
+  const broken = stored.jailbreak ?? null;
+  if (broken !== null) {
+    for (const anchor of prisonAnchors()) {
+      floor = openGaol(floor, anchor);
+    }
+  }
+  // **And it is given its warders back if it never had any.** A stand written
+  // before there were six men in the yard has none in it, and a prison with
+  // nobody holding it is a prison whose gate falls open the moment one steps
+  // into the yard. Only where the gate is still shut, and only where there is
+  // not a man of them left in the file - once they exist, alive or dead, the
+  // file is the truth and this keeps its hands off it. A body counts: it is
+  // how the game knows somebody did that.
+  const warders = stored.cops.some(
+    (cop) =>
+      cop.guards !== null &&
+      prisonUnder(
+        Math.floor(cop.guards.x / TILE),
+        Math.floor(cop.guards.y / TILE),
+      ) !== null,
+  );
+  const cops =
+    warders || broken !== null
+      ? stored.cops
+      : [...stored.cops, ...prisonGuards(stored.cops.length)];
   const open = stored.garageOpen;
   const garage = open === null ? undefined : homes[open];
   return {
@@ -279,7 +313,9 @@ function rebuild(stored: Stored): GameState {
       boarding: stored.player.boarding ?? null,
     },
     people: stored.people.map((one) => ({ ...one, pace: one.pace ?? 0 })),
-    cops: stored.cops.map((one) => ({ ...one, pace: one.pace ?? 0 })),
+    cops: cops.map((one) => ({ ...one, pace: one.pace ?? 0 })),
+    // A stand written before the yard could be taken has nobody down in it.
+    jailbreak: broken,
     train: { ...stored.train, speed: stored.train.speed ?? 0 },
     // A stand written before there was a helicopter has none; it belongs on
     // its pad, which is where a new one starts.

@@ -1719,6 +1719,66 @@ soll etwas sein, das man im Rückspiegel merkt.
 Die Wachen auf dem Militärgelände bleiben drauf - die jagen niemanden, die
 stehen, wo sie immer stehen, und das ist es wert, vor dem Hinfliegen zu wissen.
 
+## Zivilisten gehen nicht auf die Gleise
+
+Eine Straße wird ab und zu überquert, absichtlich, von jemandem, der sich dazu
+entschlossen hat - dafür gibt es `crossingMood`. Ein Gleis nicht. Der Zug fährt
+durch alles hindurch, was darauf steht, und ist nicht aufzuhalten, also ist ein
+Gehweg, dessen Spaziergänger auf die Schwellen wandern, ein Gehweg, der den
+Fahrplan füttert. Genau das passierte an jedem Bahnübergang der Stadt.
+
+`keepToPath` dreht sie deshalb genauso vom Gleis weg wie von der Fahrbahn, nur
+ohne die Ausnahme fürs Überqueren. Eine Ausnahme gibt es trotzdem, und sie ist
+die, die den Rest erst zur Regel macht: Ein Penner hat nirgendwo hinzukommen,
+und ein Mann, der ab und zu auf der Strecke steht, ist der Unterschied zwischen
+einer Stadt mit einer Eisenbahn und einer Stadt mit einem Zaun darum.
+
+Gemessen über zwei Minuten Stadt, vierzig Stichproben, 658 Leute: **kein
+einziger** Passant auf dem Gleis.
+
+Der Zug selbst bleibt, wie er ist - er schiebt alles beiseite und ist nicht
+kaputtzukriegen. Ein Zug, den man abschießen kann, ist kein Zug.
+
+## Streifenwagen, die schon dastehen
+
+Ein Streifenwagen am Bordstein vor seiner Wache ist ein Auto mit Funk. Daran
+vorbeizufahren, mit Sternen, und ihn dastehen zu sehen, ist das Einzige, was
+sagt, dass die Stadt Kulisse ist.
+
+`rousePatrols` macht aus jedem geparkten Streifenwagen in Reichweite einen auf
+Streife: `kind` wird `"police"`, die Besatzung wird aufgefüllt - und das
+Blaulicht geht von selbst an, weil `onCall` im Bild genau diese eine Frage
+stellt. Das **fügt keine Polizei hinzu**: Er zählt zur Quote wie jeder von der
+Wache geschickte Wagen, es entscheidet nur, woher sie kommt.
+
+## Der Stern ist für die Leute, nicht für das Auto
+
+Ein Wagen, in dem niemand sitzt, geht niemanden etwas an. Er kann am Bordstein
+stehen, er kann einer sein, den der Verkehr schon geleert hat, er kann der
+sein, den man selbst vor zwei Minuten dort abgestellt hat - und ein Polizist,
+der zusieht, wie jemand in ein leeres Auto steigt, hat gesehen, wie jemand in
+ein Auto steigt. Sitzt jemand drin, ist es ein Carjacking, und zwar deshalb,
+weil der Betreffende danach auf der Straße steht: Das ist, was die Polizei
+tatsächlich sieht.
+
+Gefragt wird deshalb `seats` und nicht mehr `kind`. Ein Auto, das der Spieler
+gefahren und abgestellt hat, behält seine Art - zurück ins eigene Auto zu
+steigen war jedes Mal einen Stern wert. Gemessen: geparkt 0 Sterne, Verkehr mit
+Insassen 1 Stern, leergefahrener Verkehrswagen 0 Sterne.
+
+## Geschosse liegen obenauf
+
+Ein Geschoss war ein Ding in der Tiefensortierung wie jedes andere, und das ist
+es nicht: Es ist eine **Markierung auf der Stadt**, dieselbe Sorte Ding wie ein
+Gegenstand auf der Straße, und eine Markierung, die hinter einer Wand
+verschwindet, ist eine, die man nicht mehr lesen kann.
+
+Einsortiert war es schlimmer als das. Ein ganzes Gefängnis zählt als _ein_ Ding,
+das an der Vorderkante seines Blocks steht - also wurde jeder Schuss, der im Hof
+fiel, zuerst gemalt und danach von dem Gebäude übermalt, in dem er fiel. Eine
+Schießerei, von der man kein einziges Geschoss sah. Sie werden jetzt nach allem
+anderen gezeichnet.
+
 ## Was auf dem Boden liegt, ist gleich groß
 
 Alles in der Stadt wird durch die Linse gezeichnet, und das zu Recht: Ein Auto
@@ -2393,7 +2453,9 @@ mühsam beisammenhält, nimmt man nicht mit.
 
 ## Das eigene Haus sieht aus wie das eigene Haus
 
-Drei Häuser dieser Stadt gehören dir, und das Einzige, was das sagte, war ein
+Drei Häuser dieser Stadt gehören dir - zwei davon so, wie dieser Abschnitt sie
+beschreibt, und das dritte ist die Villa im Südosten, die einen eigenen
+Abschnitt hat. Das Einzige, was ein eigenes Haus früher sagte, war ein
 Rolltor mitten in einer gewöhnlichen Häuserzeile: Man fuhr nach Hause zu einem
 Gebäude, das man aus der Straße, in der es steht, nicht heraussehen konnte. Ein
 Ort, an dem man Dinge aufbewahrt, sollte ein Ort sein, den man findet.
@@ -2410,6 +2472,204 @@ kein Flag, kein Feld. Und das Einzige, was es nicht tun darf, ist über sein
 eigenes Garagentor zu malen: Das ist ein Bild für sich und kommt danach obenauf,
 also werden die Fenster über die Front verteilt und die, die in die Toröffnung
 fallen, weggelassen.
+
+## Die Villa im Südosten
+
+Drei Häuser gehören dem Spieler, eines je Insel, und seit Kurzem ist eines davon
+nicht dasselbe Haus. Das im **Südosten** ist nach einem Foto gezeichnet - einer
+spanischen Villa -, und welches es ist, steht nicht in einem Flag, sondern im
+Plan: In welchem Stadtviertel die Garage liegt, in dem liegt das Haus
+(`districtAt`).
+
+Vier Dinge tragen diesen Bautyp, und mehr braucht es nicht:
+
+- **Das Dach ist Ziegel, und es ist das meiste, was man sieht.** Terrakotta, in
+  Reihen, mit First oben, Graten an beiden Enden und einem Dachüberstand als
+  Schattenkante unten. Von hier oben sind neun Zehntel des Hauses Dach. Die
+  Reihen liefen zuerst alle vier Pixel - das war Wellblech; bei sieben und in
+  einer Farbe, die nur einen Hauch vom Ziegel abweicht, liest es sich als
+  Pfannen auf einer Schräge.
+- **Zwei Baukörper, keine Kiste.** Links der zweigeschossige Hauptbau, rechts
+  daneben ein einstöckiger Flügel unter eigenem, tieferem Dach, dessen Ende
+  offen ist: der Carport. Dass der Flügel _angebaut_ ist und nicht danebensteht,
+  sagt ein schmaler Streifen Putz an der Fuge - die zweigeschossige Wand, die
+  über dem Flügeldach stehen bleibt.
+- **Bögen.** Beide Erdgeschosse sind Loggia: rundbogige Öffnungen in tiefem
+  Schatten, die Haustür mittendrin und eine Treppe hinunter zur Auffahrt.
+- **Und ein Balkon** über der Tür, mit schmiedeeisernem Geländer und Töpfen
+  darauf - das Einzige im Obergeschoss, das sagt, dass hier jemand wohnt.
+- **Ein Schornstein mitten auf dem Dach.** Er stand an der Vorderkante der
+  Ziegel, halb neben dem Haus; ein Schlot kommt aus der Mitte eines Daches. Er
+  steht jetzt knapp zwei Drittel hinten auf der Schräge des großen Daches und
+  quer in dessen Mitte - da, wo auf dem Foto der Rauch herauskommt - und er ist
+  fast doppelt so breit, mit Schattenseite, Lüftungsschlitzen und Abdeckplatte.
+- **Ein Giebel über dem linken Ende.** Auf dem Foto ist die linke Seite ein
+  eigener Flügel unter einem Satteldach, und was man davon von der Straße aus
+  sieht, ist ein Dreieck. Von oben sind es zwei Schrägen, die sich am First
+  treffen, und das Einzige, was das in dieser Größe sagt, ist, dass die beiden
+  nicht ganz dieselbe Farbe haben. Darunter auf der Wand das Dreieck selbst,
+  mit den Ziegeln über beide Schrägen gezogen und einem Ochsenauge darin.
+- **Und die Haustür ist die mittlere Arkade**, nicht ein Brett davor. Sie ist
+  so breit wie der Bogen: Steingewände, Rundbogen darüber, zwei Flügel mit
+  Kassetten, ein beleuchtetes Oberlicht im Bogenfeld. Sieben Pixel Holz in
+  einem zwanzig Pixel breiten Bogen waren eine Katzenklappe in einer
+  Kathedrale.
+
+**Die Garage steht im Carport, und das ist eine Planänderung.** Jedes Haus der
+Stadt bekommt sein Tor in der Mitte der Front (`DOOR_ACROSS`), und bei einem
+Haus von drei Feldern nimmt ein autobreites Tor ein Drittel der Front mit -
+Haustür, Balkon und Fenster lagen alle dahinter. Die Villa hat ihren Carport am
+rechten Ende, also wird die Bucht dort aus der **letzten Spalte** des
+Grundstücks geschnitten statt aus der mittleren. Gerechnet wird das in
+`myHouses` und in `villaPlot` aus derselben Quelle (`openSpan`), damit das Loch
+in der Wand und das Loch im Boden nicht an verschiedenen Stellen landen können.
+Der Flügel legt sich dann von selbst über die Öffnung: Wo die Bucht ist, ist der
+Carport, und dort fährt man hinein.
+
+**Und sie hat ein Grundstück, und zwar über zwei Blöcke.** Das Haus nebenan
+kommt dafür weg. Damit liegt die Straße zwischen den beiden Blöcken _innerhalb_
+des Grundstücks - dasselbe, was ein Gefängnis mit der Kreuzung in seiner Mitte
+macht, und es gilt dieselbe Regel: Eine gewöhnliche Straße darf geschluckt
+werden, eine **Autobahn** nicht. Genommen wird außerdem nur ein gewöhnliches
+Haus; eine Bank, ein Krankenhaus oder ein Club ist einmalig und an seinem Platz
+mehr wert als als Rasenfläche.
+
+**Quer aufgeteilt wird es in Streifen**, und jede Zahl davon steht an einer
+Stelle (`VILLA_KERB`, `VILLA_LAWN`, `VILLA_ROOMS`, `VILLA_MAIN`,
+`VILLA_BAY_IN`): Gehweg, Hecke, Wiese, das Haus, gleich anschließend der
+gepflasterte Hof, dann Wiese, Hecke, Gehweg. Die **Hecke ist die Linie zwischen
+Gehweg und Garten**, nicht die zwischen Garten und Straße: Sie steht innerhalb
+des Fußwegs, der an beiden Seiten vorbeiführt, und läuft auch hinten am
+Grundstück entlang. Man geht also an der Villa auf Pflaster vorbei mit einer
+Hecke am Ellbogen.
+
+**Drei Seiten, nicht vier.** Vorn an der Straße steht keine: Ein Haus, das man
+von der Straße aus nicht sieht, ist ein Haus mit einer Hecke davor, und dieses
+ist zum Ansehen da. Die Hecke selbst ist neun Pixel tief statt fünf und aus
+drei Tönen gebaut - dunkel am Boden, ihre eigene Farbe im Körper, und eine
+Reihe geschnittener Köpfe auf der Sonnenseite, von denen kein einziger genau
+auf der Linie sitzt. Flaches Grün mit einer Wellenlinie darauf war eine
+Billardbande.
+
+**Auf der Wiese blühen Blumen.** Jedes Büschel kommt aus `scatter` auf dem Feld,
+auf dem es steht - dieselbe Rabatte an derselben Stelle, jedes Mal, ohne dass
+irgendetwas aufgeschrieben wird. Und sie werden **vor** der Auffahrt und dem
+Hof gezeichnet, nicht danach: Die Auffahrt liegt auf Feldern, die der Plan
+weiterhin Wiese nennt, also wuchsen zuletzt gezeichnete Blumen durch den
+Asphalt.
+
+**Und Zivilisten haben auf dem Grundstück nichts verloren.** Es ist
+Privatgrund - Wiese, Pflaster, Haus, alles hinter einer Hecke -, und das
+Einzige, was die Öffentlichkeit davon angeht, ist der Fußweg an beiden Seiten.
+Den Boden kümmert das nicht, Gras ist Gras; gesagt wird es also dem
+Spaziergänger, genau wie bei der Fahrbahn und beim Gleis. Gemessen über eine
+Minute Stadt, dreißig Stichproben: **null** Leute auf dem Grundstück.
+
+**Hingesetzt wird dort ohnehin niemand mehr**, und das hat einen zweiten Grund,
+der beim Nachsehen herauskam: Die Garagenbucht ist ein Feld `walk`, das mitten
+aus dem Haus geschnitten ist, damit ein Auto hineinpasst - und `findSpot` sucht
+Fußgängern Felder vom Typ `walk`. Zu Spielbeginn stand also in jedem Spiel ein
+Passant in der eigenen Garage. Auf dem Fußweg neben dem Grundstück wird
+außerdem nur noch jeder Dritte abgesetzt (`VILLA_PASSERS`): ein Dutzend Felder
+Pflaster, eingeklemmt zwischen Hecke und Fahrbahn, läuft sonst voll und bleibt
+voll. Wer später von selbst hereinspaziert, ist willkommen.
+
+Herauskommen tun sie auch wieder: Gemessen, fünf Leute auf den Fußweg gesetzt,
+nach siebzig Sekunden sind vier davon über die Straße auf die andere Seite
+gegangen. Das ist `crossingMood`, dieselbe Laune, nach der überall in der Stadt
+jemand eine Straße überquert. **Das Haus steht nicht auf der Grenze** -
+das ist der ganze Unterschied zwischen einer Villa in ihrem Grundstück und
+einem Reihenhaus mit großem Garten: Um eine Villa geht man herum.
+
+`villaCell` legt danach vier Sorten Boden: `walk` an den beiden Rändern,
+`building` für das Haus, `dock` für den Hof und `park` für alles andere. Das
+kostet nichts, weil alle vier begehbar sind - niemand, der sich bewegt, muss
+davon wissen. Der Hof reicht **bis an den Bordstein**: ein Platz, auf den man
+nicht von der Straße fahren kann, ist ein Hinterhof.
+
+**Der Hof ist gepflastert, nicht eingezeichnet.** Aufgemalte Buchten haben
+daraus einen Supermarktparkplatz gemacht; was neben eine Villa gehört, ist ein
+Kopfsteinpflaster, auf dem die Wagen stehen, wo sie eben stehen. Die Steine
+sind ein `CanvasPattern`, einmal gebaut und behalten - ein Hof von drei mal
+vier Feldern sind hundertfünfzig Steine, und die jedes Bild einzeln zu zeichnen
+sind hundertfünfzig Rechtecke pro Bild für einen Boden, den niemand zweimal
+ansieht. Gelegt wird das Muster ab der **Ecke des Hofes**, sonst kriecht es
+unter der Kamera weg statt auf dem Boden liegen zu bleiben.
+
+**Und das Garagentor sitzt mitten im Anbau.** Der Anbau ist dafür breiter (drei
+Felder statt zwei) und höher (`VILLA_LOW` 0,72 statt 0,62): Das Tor ist 38
+Bildpunkte hoch, und ein Anbau, der niedriger ist als sein eigenes Tor, ist ein
+Tor, das über die Traufe hinausragt. Wie viel vom Haus Anbau ist, kommt jetzt
+aus dem Plan statt aus der Torposition - andersherum gerechnet fing der Anbau
+genau dort an, wo das Tor anfing, und das Tor saß auf seiner Kante.
+
+Dabei ist ein dritter Zirkelschluss aufgefallen, und ein hübscher: `villaBlock`
+fragte `myHouses`, und `myHouses` verschiebt die Tür der Villa auf die
+Garagenspalte - die auf einem Grundstück von zwei Blöcken Breite im **anderen**
+Block liegt. Damit hielt die Villa sich für ihren eigenen Nachbarn, und das
+ganze Grundstück wanderte bei jeder Abfrage einen Block weiter nach rechts.
+`homeDoors` liefert jetzt die ungeschobenen Türen, und `villaBlock` fragt die.
+
+Aus demselben Grund findet das Bild das eigene Haus nicht mehr über den Block,
+sondern über das Grundstück: Nach Block gefragt kam die Villa als gewöhnliches
+Haus heraus und das schlichte Haus nebenan als Villa - also als gar nichts, weil
+dieser Block geschluckt ist und nie gezeichnet wird.
+
+Gemessen, ob die geschluckte Straße den Verkehr staut: nach neunzig Sekunden
+stehen an der Sackgasse zwei Wagen, keiner davon still.
+
+Dabei ist ein zweiter Ring aufgefallen, dieselbe Sorte wie beim
+Polizeiwachen-Umbau: `doorsOf` wollte den geschluckten Block überspringen und
+fragte dafür `villaTook` - was über `villaBlock` und `myHouses` wieder bei
+`doorsOf` landet. Nötig war es ohnehin nicht: Der Block liegt im selben Viertel
+wie die Villa, und pro Viertel gibt es nur ein eigenes Haus. Übersprungen wird
+er im **Bild**, wo der Prison-Umbau dieselbe Prüfung schon hat.
+
+Darauf liegt dann der Rest, und zwar in den Koordinaten des **Grundstücks**,
+nicht des Hauses - das Haus ist eine Ecke einer Wiese von zwölf Feldern Breite,
+und eine Hecke ums Haus wäre eine Hecke quer durch den Garten. Also: die
+gepflasterte Auffahrt, auf das Grundstück geklemmt, mit dem Stellplatz darauf;
+geschnittene Hecke rings herum mit zwei Lücken - der Auffahrt zur Garage und
+der ganzen Einfahrt des Parkplatzes, denn eine Hecke quer vor einem Parkplatz
+ist ein Parkplatz, auf dem nie ein Auto steht; eine Reihe Zypressen und ein
+paar Agaven im Gras. Die
+Pflasterfugen laufen quer zur Auffahrt statt längs - andersherum sieht es aus
+wie eine Holzterrasse, und niemand dielt einen Vorplatz. Die Hecke ist eine
+Reihe geschnittener Buckel und kein grüner Balken; ein grüner Balken ist ein
+Billardtisch.
+
+**Höher ist sie auch**, und zwar in `houseHeight` statt im Bild: zwei richtige
+Geschosse mit Ziegeldach darüber, statt des Bungalows, den die Würfel für diese
+Ecke gerollt hätten. Dort, weil `roofAt` dieselbe Zahl liest - das Dach, auf dem
+man mit dem Jetpack landet, muss das Dach sein, das man sieht.
+
+## Hinter dem Garagentor können sie einen nicht sehen
+
+Die Polizei hat durch die Wand geguckt, und zwar an vier Stellen auf einmal.
+Wer in seiner eigenen Garage saß, wurde weiterhin angefahren, beschossen,
+eingekesselt und verhaftet - und die Fahndung lief nicht ab, weil `coolDown`
+jeden Polizisten innerhalb von `SEEN_RANGE` als Augenzeugen zählt, Mauer hin
+oder her. Eine Tür, durch die man verfolgt werden kann, ist kein Versteck,
+sondern eine Sackgasse.
+
+Alles daran folgt jetzt aus einem Satz, und der steht in `lost()`: **Durch eine
+Wand sieht niemand.** Vier Stellen lesen ihn:
+
+- `coolDown` zählt ihn nicht mehr als gesehen, also läuft die Uhr, die ihm die
+  Sterne abnimmt. **Nicht sofort** - die Garage ist keine Begnadigung, sie ist
+  ein Ort, in den sie nicht hineinsehen können. Gemessen: mit drei Sternen
+  hineingefahren, nach zwanzig Sekunden zwei, nach vierzig einer, nach sechzig
+  „Die Luft ist rein".
+- Die Männer und die Wagen fahren nicht mehr auf ihn zu, sondern auf **die
+  Straßen um das Haus herum**, jeder auf seinen eigenen Punkt eines Rings
+  (`searchAt`). Das ist es, was sie in die Nebenstraßen verteilt, statt sie
+  alle vor der Tür aufzustapeln.
+- Niemand schießt. Ein Polizist feuert auf alles in Reichweite seiner Waffe,
+  was durch ein geschlossenes Garagentor hindurch ein Mann wäre, der auf gut
+  Glück auf ein Gebäude schießt.
+- Und niemand verhaftet. Ein Ring Polizisten um ein Haus ist kein Ring um den
+  Mann darin - stillzusitzen ist genau das, was man in einer Garage tut, und
+  genau das war die Verhaftungsbedingung.
 
 ## Das Garagentor ist eine Wand, kein Bild
 
@@ -2881,66 +3141,180 @@ Wolken aus der Uhr, jede höher, breiter und blasser als die darunter. Ein
 Schornstein, der auf der Wiese stünde, wäre ein Rohr; einer auf dem Dach ist
 ein Betrieb.
 
-### Wer hineinkommt, wird angeleuchtet und dann beschossen
+### Sechs Wärter halten den Hof, und sonst nichts
 
 Der Ring hat keinen Durchgang, der einzige Weg hinein ist über die Mauer - und
 ein Ort, in den man sich fallen lassen, in dem man herumlaufen und aus dem man
 wieder herausspazieren kann, ist ein Park mit einem Zaun drum.
 
-Was antwortet, sind die vier Türme. In dem Moment, in dem er irgendwo innerhalb
-des Grundrisses ist - auf der Wiese, auf dem Dach, im Auto, am Jetpack -,
-finden ihn die Scheinwerfer (`Player.spotted`), und `PRISON_AIM` später fangen
-sie an zu schießen: eine Kugel aus jeder Ecke alle `PRISON_RATE`. Das ist keine
-Schießerei, die man im Stehen gewinnt; es ist ein Grund, so wieder zu
-verschwinden, wie man gekommen ist.
+Geantwortet haben darauf erst die vier **Türme**: Sobald der Spieler irgendwo im
+Grundriss war, fanden ihn die Scheinwerfer, und `PRISON_AIM` später kam alle
+`PRISON_RATE` eine Kugel aus jeder Ecke. Das hat funktioniert und war trotzdem
+falsch, und zwar auf die Art, die man erst merkt, wenn jemand es spielt: **Da
+war niemand.** Die Schüsse kamen aus vier Gebäudeecken, in denen nichts stand,
+was gezeichnet war, und nichts, was man hätte treffen können. Im Hof zu stehen
+hieß, in einem Raum zu stehen, der einem Leben abzieht. Das ist keine Wache, das
+ist eine Falle - und der Unterschied ist genau der, dass eine Falle keine
+Antwort hat und eine Wache sechs.
 
-**Eine Zahl für den ganzen Alarm.** `Player.spotted` sagt dreierlei auf einmal,
-und es ist dasselbe: dass die Lampen ihn haben (das Bild liest es), dass die
-Türme ihn haben (der Motor liest es), und wie lange schon - woraus sich der
-erste Schuss ergibt. Wann der nächste fällt, wird aus derselben Zahl gerechnet
-statt in einer zweiten gespeichert: Man fragt, ob dieser Schritt die nächste
-Vielfache überschreitet.
+Jetzt stehen sechs Mann auf der Wiese (`warderPosts`): vier am Fuß der vier
+Türme, zwei in der Mitte des Hofes. Es sind gewöhnliche Polizisten aus
+`state.cops` mit einem Posten, dieselbe Sorte wie die zehn auf dem
+Militärgelände - sie schießen, sie sind zu treffen, und wenn sie fallen, bleiben
+sie liegen.
 
-Zwei Dinge daran waren erst falsch, und beide sind lehrreich:
+**Und die Kanzeln sind leer.** In jedem Turm war eine Figur gemalt, und genau
+die war das Problem: Sie sah aus wie der, der schießt, und zurückschießen konnte
+man auf sie nicht. Ein Mann im Turm steht auf einem Feld Gebäude, und eine Wand
+hält jede Kugel auf, die auf den dahinter abgefeuert wird - gemessen: Zwölf
+Sekunden Maschinengewehr aus zehn Metern haben ihm nichts getan.
 
-- **Die Kugel starb in der eigenen Mauer.** Ein Turm steht auf einem Feld
-  Gebäude, und ein Geschoss hält alles Feste auf - bei der üblichen
-  Mündungsentfernung von zwölf Pixeln war es noch im Turm. `PRISON_MUZZLE` ist
-  vierzig, also weiter als die Ecke eines Feldes (34) vom Mittelpunkt entfernt.
-- **Und sie ging daneben.** Ein Treffer zählt innerhalb von zwölf Pixeln; über
-  eine Hofbreite hinweg sind ein Zehntel Radiant Streuung dreißig Pixel, also
-  vier Türme, die die ganze Nacht schießen und niemanden berühren.
-  `PRISON_SPREAD` ist deshalb 0,04 - gemessen trifft damit gut die Hälfte.
+Der Ausweg, ihn in der Kanzel zu _zeichnen_ und seinen Trefferpunkt unten auf
+der Wiese zu lassen, repariert das Schießen und zerlegt dafür das Bild: Gezielt
+wird hier flach, auf einen Punkt am Boden, und jedes erhöhte Ding wird über
+seinem Standpunkt gezeichnet - der Mann schwebte also anderthalb Felder neben
+seinem eigenen Turm über der Wiese. Also stehen alle sechs unten, wo man sie
+sieht und trifft. Dass ein Turm besetzt ist, sagt sein Scheinwerfer, und der
+geht mit dem letzten von ihnen aus.
 
-Gemessen an einem, der sich nicht bewegt: nach zwei Sekunden 79 Blech, nach
-sechs 16. Das ist Zeit genug, um wieder über die Mauer zu kommen, und keine
-Zeit, sich umzusehen.
+Drei Dinge mussten dafür geradegezogen werden:
+
+- **Ein Wärter ist ein Wachmann, dessen Posten auf Gefängnisboden steht.** Kein
+  neues Feld, keine Migration, keine zweite Wahrheit: `warder(cop)` fragt den
+  Plan, was unter `cop.guards` liegt. Ein Spielstand von vorgestern beantwortet
+  dieselbe Frage von selbst richtig.
+- **Er schießt nur auf den, der in seinem Hof steht.** Alle anderen hier
+  schießen auf alles, was in die Reichweite ihrer Waffe kommt - für einen Mann
+  in einem Gefängnishof hieße das, über die eigene Mauer hinweg den Gehsteig
+  draußen zu beharken. Er wartet stattdessen auf die Scheinwerfer: erst müssen
+  die ihn haben, dann vergeht dieselbe `PRISON_AIM`-Pause wie vorher.
+- **Und er verlässt seinen Hof nie.** Ein Wachmann auf dem Militärgelände lässt
+  sich von jemandem mit Sternen vom Fleck locken, was für ein Gelände richtig
+  ist, in das man hineinfährt. Ein Gefängnishof hat keinen Ein- und keinen
+  Ausgang, also wäre ein Wärter, der losliefe, ein Wärter, der in sein eigenes
+  Gebäude läuft und den Rest des Spiels darin steht.
+- **Er sieht auch nur den an, den er beschießen würde.** `GUARD_REACH` sind
+  fünfzehnhundert Pixel - dreißig Felder, und das reicht von der Mitte eines
+  Gefängnishofs weit in die Straßen ringsum. Draußen vorbeizugehen drehte
+  deshalb alle sechs Mann auf der Wiese mit, durch die eigene Mauer hindurch.
+  Geguckt wird jetzt nach derselben Prüfung, nach der auch geschossen wird:
+  wenn die Scheinwerfer jemanden haben. Gemessen: draußen vorbei sehen null von
+  sechs her, im Hof alle sechs.
+- **Und wenn niemand da ist, schaut er seine eigene Richtung.** Ein Mann auf
+  seinem Fleck ist angekommen, also gäbe die Richtung, in die seine Füße
+  wollen, `atan2(0, 0)` - also Osten, für alle sechs, in einer Reihe. Jeder
+  nimmt stattdessen seine eigene Peilung aus `post`, und die sechs stehen da
+  und schauen in sechs Richtungen.
+
+**Und sie sind mit dem Gefängnis gezeichnet, nicht mit dem Verkehr.** Alles, was
+sich bewegt, wird nach Bildschirmtiefe sortiert gemalt, und ein ganzes Gefängnis
+zählt dabei als _ein_ Ding, das an der Vorderkante seines Blocks steht - wer im
+Hof steht, wird also zuerst gemalt und danach von dem Gebäude übermalt, in
+dessen Mitte er steht. Genau deshalb zeichnet `drawPrison` die Häftlinge selbst,
+und die Wärter gehen denselben Weg. Sechs blaue Hemden, die auf der Wiese
+standen und die man nicht sah, waren der erste Versuch.
+
+**Eine Wache braucht einen Grund, und der Grund ist ein Stern.** Wer hier
+schießt, prüft nur eines: ob jemand in Reichweite seiner Waffe steht. Für einen
+Streifenpolizisten stimmt das - der ist überhaupt nur da, weil jemand ihn
+gerufen hat. Für eine Wache stimmt es nicht: Die steht einfach da, wo sie
+arbeitet. Ohne diese Bedingung haben die vier Mann vor jeder Polizeiwache auf
+jeden geschossen, der auf dem Gehsteig vorbeilief - eine Polizeiwache, an der
+man nicht vorbeigehen kann. Die zwei Orte, an denen das bloße Dasein die
+Straftat ist, verteilen dafür Sterne, also deckt dieselbe Prüfung sie mit ab.
+
+**Und im Hof gesehen zu werden kostet zwei Sterne.** Niemand ist versehentlich
+in einem Gefängnishof; man kommt über die Mauer. Die Sterne sind zugleich das,
+was den Wärtern das Schießen erlaubt - Alarm und Fahndungsstufe sind dasselbe
+Ereignis, genau wie auf dem Militärgelände.
+
+**Ein Fehler, der dabei aufgefallen ist und alle Wachen betraf:** Am Ende von
+`moveCops` steigt, sobald die Fahndung vorbei ist, jeder wieder in sein Auto -
+und `putAboard` nimmt jeden vom Pflaster, den man ihm gibt, mit Auto oder ohne.
+Übergeben wurde ihm _jeder lebende Polizist_. Im ersten Frame jedes Spiels, bei
+null Sternen, verschwanden damit die zehn Wachen des Militärgeländes und alles
+andere mit `carId: -1` lautlos in Fahrzeugen, die es nicht gibt. Das Gelände war
+unbewacht, seit es Wachen hat. Übergeben wird jetzt nur, wer ein Auto hat - und
+das sagt `guards` bereits.
+
+### Sind alle sechs unten, steht das Tor offen
+
+Was vierhundert Männer in einem Hof hält, sind die sechs, die zusehen. Sind die
+sechs weg, hält nichts mehr die Tür.
+
+`GameState.jailbreak` ist die Uhrzeit, zu der der letzte gefallen ist - die eine
+Sache an diesem Gebäude, die Geschichte ist und nicht Wetter, und deshalb die
+eine, die aufgeschrieben wird. Drei Dinge passieren im selben Atemzug, und das
+müssen sie auch:
+
+- **Der Boden** bekommt einen ein Feld breiten Gang von der Straße durch das Tor
+  in den Hof (`openGaol`): das Torfeld im Zaun und die Durchfahrt im Trakt.
+- **Das Bild** klappt die beiden Torflügel an die Laibung, stellt die Schranke
+  auf und lässt die Scheinwerfer aus - ein abgesuchter Hof über einem Hof
+  voller Leichen wäre ein Gebäude, das etwas anderes behauptet als sein eigener
+  Boden.
+- **Die Häftlinge gehen.** Die Uhr ihres Rundgangs bleibt im Moment des
+  Ausbruchs stehen, und von da an misst sich alles an derselben Zahl: quer über
+  den Hof zum Tor, dann geradeaus die Straße hinunter, einer nach dem anderen
+  mit `OUT_WAIT` Abstand. Vierhundert Mann gleichzeitig durch eine Tür sind ein
+  Fleck; eine Schlange ist das, was ein Gefängnis beim Leerlaufen tatsächlich
+  ist. Nach `OUT_GONE` Pixeln wird keiner mehr gezeichnet - das Bild geht
+  niemandem nach Hause nach.
+
+**Und bei null Sternen ist alles wieder wie vorher.** Ein leergeräumtes
+Gefängnis bleibt nur so lange leer, wie jemand den sucht, der es leergeräumt
+hat: Sobald die Fahndung durch ist, gehen die Tore zu, die Wärter stehen wieder
+auf ihren Posten und die Männer laufen wieder im Hof.
+
+Das ist kein Rückgängigmachen - es wird nichts gemerkt und nichts aus einer
+Kopie zurückgespielt. Der Boden fragt den **Plan**, was auf die beiden
+Torfelder gehört, und die Wärter werden schlicht neu gemacht, mit demselben
+Aufruf wie beim Spielstart. Die Häftlinge brauchen gar nichts: Sie kommen aus
+der Uhr, und mit `jailbreak` wieder auf null laufen sie im nächsten Bild ihre
+Runden.
+
+Dasselbe musste auch nach einer abgesessenen Strafe passieren, und zwar aus
+einem Grund, den man erst beim Hinausgehen sieht: `onStreet` räumt **jeden**
+Polizisten aus dem Spiel - die sechs im Hof eingeschlossen. Wer seine Zeit
+abgesessen hatte, stand also vor einem Gefängnis, das in dem Moment niemand
+mehr hielt und dessen Tor hinter ihm aufging.
+
+Zwei Dinge, die nicht offensichtlich sind:
+
+- **Die Leichen der Wärter bleiben liegen.** Alle anderen werden nach einer
+  Weile abgeräumt, was für einen Gehsteig richtig ist. Diese sechs werden aber
+  _gezählt_ statt angesehen - das Tor geht auf, wenn keiner mehr lebt -, also
+  nähme das Abräumen die Zählung mit, und ein Gefängnis, dessen Wärter man
+  lediglich weggeputzt hätte, öffnete sein eigenes Tor.
+- **Ein alter Spielstand bekommt seine Wärter nachgereicht.** Ein Stand, der
+  geschrieben wurde, als noch niemand im Hof stand, hat keine - und ein
+  Gefängnis, das niemand hält, geht beim ersten Schritt in den Hof von selbst
+  auf. `rebuild` setzt sie nach, aber nur, wenn das Tor noch zu ist und in der
+  Datei kein einziger von ihnen steht. Eine Leiche zählt: sie ist der Beleg
+  dafür, dass es jemand getan hat.
 
 ### Der Hof ist Wetter, keine Geschichte
 
-Niemand kann den Hof zu Fuß erreichen - der Ring hat keinen Durchgang -, also
-rührt nichts im Spiel diese Männer an, und keiner von ihnen muss im Zustand
-stehen. Wo jeder gerade ist, kommt aus der Uhr und daraus, wo sein Gefängnis
+Die Häftlinge selbst rührt nichts an, solange das Tor zu ist, also muss keiner
+von ihnen im Zustand stehen. Wo jeder gerade ist, kommt aus der Uhr und daraus, wo sein Gefängnis
 steht, genauso wie die Farbe einer Ampel: eine eigene Ellipse je Mann, ein
 eigenes Tempo, eine eigene Richtung. Das kostet nichts je Bild und erspart es,
 ein Dutzend Personen je Gefängnis durch jeden Spielstand zu tragen - für einen
 Hof, den man über eine Mauer hinweg ansieht.
 
 Der einzige Weg hinein ist über die Mauer, also der Jetpack, und der einzige
-Weg hinaus derselbe. Ein Hof, den nichts erreicht, ist kein Versehen - er ist
-der eine Ort der Stadt, zu dem man fliegen muss.
+Weg hinaus derselbe - bis jemand die sechs Wärter erledigt und das Tor
+aufgeht. Ein Hof, den nichts erreicht, ist kein Versehen: er ist der eine Ort
+der Stadt, zu dem man fliegen muss.
 
-Die **Scheinwerfer** hängen an derselben Funktion wie die Schüsse
-(`prisonTowers`), damit das Licht, das auf einem liegt, und die Kugel, die
-kommt, aus derselben Ecke stammen. Sie sind auf den Hof geklemmt: Ein
-Lichtkegel ist ein Fleck auf dem Boden, und ein Fleck auf dem Dach des Trakts,
-auf dem die Lampe montiert ist, ist eine Lampe, die jemand an die Decke
-gehalten hat.
+Die **Scheinwerfer** sitzen auf den Türmen (`prisonTowers`) und sind auf den
+Hof geklemmt: Ein Lichtkegel ist ein Fleck auf dem Boden, und ein Fleck auf dem
+Dach des Trakts, auf dem die Lampe montiert ist, ist eine Lampe, die jemand an
+die Decke gehalten hat. Sie sind außerdem der Auslöser - erst wenn sie jemanden
+haben, machen die Männer im Hof von ihren Waffen Gebrauch.
 
-Dazu laufen zwei **Wärter ihre Runde im Hof** - vier Lampen auf den Ecken
-bewachen den Hof, nicht die Leute darin -, und der Mann in jedem Turm geht ab
-und zu über das Dach des Trakts und kommt zurück. Sobald die Lampen jemanden
-haben, steht er wieder auf seinem Posten.
+In den Kanzeln steht niemand: Was dort oben wäre, könnte man nicht treffen -
+siehe den Abschnitt über die Wärter.
 
 Gezeichnet wird **von Norden nach Süden** statt als ein Kasten, denn das Ding
 hat ein Innen: erst der ferne Trakt mit seinen Türmen, dann der Hofboden, dann

@@ -21,9 +21,11 @@ import {
   garageBay,
   garageMouth,
   isOpen,
-  prisonPlot,
-  prisonTowers,
+  closeGaol,
+  openGaol,
+  prisonAnchors,
   prisonUnder,
+  villaCell,
   roofAt,
   isRoadAt,
   onMotorway,
@@ -41,7 +43,14 @@ import { advanceMint, enterMint } from "./mint";
 import { atPlatform, rollTrain, trainCars } from "./train";
 import { advance, enterPrison } from "./prison";
 import { nextInt, nextRandom, type RandomState } from "./random";
-import { DISTRICTS, far, jobDeadline, makePerson, pickJob } from "./setup";
+import {
+  DISTRICTS,
+  far,
+  jobDeadline,
+  makePerson,
+  pickJob,
+  prisonGuards,
+} from "./setup";
 import {
   ACK_DAMAGE,
   ACK_EVERY,
@@ -62,12 +71,6 @@ import {
   MARK_EVERY,
   MARK_LIFE,
   PRISON_AIM,
-  PRISON_HURT,
-  PRISON_MUZZLE,
-  PRISON_RANGE,
-  PRISON_RATE,
-  PRISON_SPEED,
-  PRISON_SPREAD,
   TRACK_LIFE,
   TRAFFIC_TURN,
   TURN_DONE,
@@ -185,7 +188,6 @@ import {
   DOOR_REACH,
   DOOR_STAND,
   ENTER_RANGE,
-  GARAGE_SEEN,
   GARAGE_OPEN,
   GARAGE_RANGE,
   GARAGE_SHUT,
@@ -1534,13 +1536,22 @@ function nearestCar(state: GameState): Car | null {
  * Taking a car.
  *
  * @remarks
- * A car standing at the kerb is nobody's business. One with somebody in it is a
- * carjacking, and the police take an interest at once - which is the whole
- * bargain of this game: the fast way of getting anywhere is the one that costs
- * you a star.
+ * **The star is for the people one throws out, not for the sort of car.** A
+ * car with nobody in it is nobody's business: it may be standing at the kerb,
+ * it may be one the traffic has already been emptied out of, it may be the one
+ * you parked there yourself two minutes ago - and a policeman watching
+ * somebody get into an empty car has seen a man get into a car. One with
+ * somebody in it is a carjacking, and it is a carjacking because he is
+ * standing in the road afterwards; that is what the police actually see, and
+ * it is the whole bargain of this game: the fast way of getting anywhere is
+ * the one that costs you a star.
+ *
+ * Asked of `seats` rather than of `kind`, which is what it used to be. A car
+ * the player had driven and left keeps its kind, so getting back into one's
+ * own car was worth a star every time.
  */
 function enterCar(state: GameState, car: Car): GameState {
-  const jacked = car.kind === "traffic";
+  const jacked = car.seats > 0;
   const manned = car.kind === "police" && car.crew > 0;
   const took = jacked
     ? trouble(state, 1, "Autodiebstahl")
@@ -3472,8 +3483,14 @@ function discs(car: Car): readonly Vec[] {
   const shape = VEHICLES[car.body];
   const reach = Math.max(0, (shape.length - shape.width) / 2);
   return [
-    { x: car.x + Math.cos(car.angle) * reach, y: car.y + Math.sin(car.angle) * reach },
-    { x: car.x - Math.cos(car.angle) * reach, y: car.y - Math.sin(car.angle) * reach },
+    {
+      x: car.x + Math.cos(car.angle) * reach,
+      y: car.y + Math.sin(car.angle) * reach,
+    },
+    {
+      x: car.x - Math.cos(car.angle) * reach,
+      y: car.y - Math.sin(car.angle) * reach,
+    },
   ];
 }
 
@@ -4630,9 +4647,57 @@ const PERSON_TURN_EVERY = 3;
 
 /* ------------------------------------------------------------------ police */
 
+/**
+ * Patrol cars that were parked, woken up by somebody wanted driving past.
+ *
+ * @param state - the city
+ * @returns it with whoever was near enough now on the chase
+ */
+function rousePatrols(state: GameState): GameState {
+  if (state.player.stars === 0) {
+    return state;
+  }
+  let woke = false;
+  const cars = state.cars.map((car) => {
+    const theirs =
+      car.kind === "parked" &&
+      onPatrol(car.body) &&
+      car.health > 0 &&
+      car.id !== state.player.car &&
+      far(car, state.player) < ROUSE_RANGE;
+    if (theirs) {
+      woke = true;
+    }
+    return theirs
+      ? {
+          ...car,
+          kind: "police" as const,
+          crew: VEHICLES[car.body].seats,
+          wakeAt: 0,
+        }
+      : car;
+  });
+  return woke ? { ...state, cars } : state;
+}
+
+/** Whether a body is one the law drives. */
+function onPatrol(body: VehicleBody): boolean {
+  return body === "patrol" || body === "patrolbike";
+}
+
+/** How near a parked patrol car has to be before it joins in, in pixels. */
+const ROUSE_RANGE = 330;
+
 /** The law: cars that come out per star, and give chase. */
 function runPolice(state: GameState, dt: number): GameState {
   state = callOffPatrol(state);
+  // **The ones that were already parked there.** A patrol car standing at the
+  // kerb outside its station is a car with a radio in it, and driving past it
+  // with stars on and having it sit there is the one thing that says the city
+  // is scenery. Whoever comes near enough switches his light on and joins in;
+  // he counts towards the quota like anybody sent from the station, so this
+  // does not add police, it decides where they come from.
+  state = rousePatrols(state);
   // Wrecks do not count as police: take one out and the next is sent, but only
   // after a while. That gap is the whole of "shake them off and drive away".
   // How much law is already on the scene. A patrol car counts only while
@@ -4820,7 +4885,25 @@ function moveCops(state: GameState, dt: number): GameState {
       // bodywork taken apart rather than being politely ignored.
       far(cop, next.player) < gun.range &&
       next.time >= cop.readyAt &&
-      next.time >= cop.reloadAt;
+      next.time >= cop.reloadAt &&
+      // Nobody fires at a man they have lost: see {@link lost}.
+      !lost(next) &&
+      // **A guard needs a reason, and the reason is a star.** Everybody else
+      // on this list is out because somebody called them; a guard is simply
+      // standing where he works. Without this, the four men outside every
+      // police station opened fire on anyone who walked past on the pavement,
+      // which is a police station nobody can walk past. The two places where
+      // merely being there is the offence - the military base and the prison
+      // yard - hand out stars for being there, so the same test covers them.
+      ((cop.guards ?? null) === null || next.player.stars > 0) &&
+      // **A warder fires at whoever is in his yard, and at nobody else.**
+      // Everybody else here shoots at anything that comes inside the range of
+      // what he carries, which for a man standing in a prison yard would mean
+      // opening up on the pavement outside over the top of his own wall. He
+      // waits for the searchlights instead: they have to find the man first,
+      // and then the same {@link PRISON_AIM} pause as before goes by before
+      // anybody pulls a trigger.
+      (!warder(cop) || alarmed(next));
     if (canShoot) {
       // A baton is swung, not fired: the man with one has to walk right up.
       next =
@@ -4832,10 +4915,21 @@ function moveCops(state: GameState, dt: number): GameState {
   // gets back into the car he came out of, so that car is on duty again rather
   // than left standing empty for good. A body stays where it fell until
   // {@link clearBodies} takes it.
+  //
+  // **Only the men who have a car to get back into.** `putAboard` takes
+  // whoever it is handed off the street, car or no car, and this was handing
+  // it every living policeman in the game - so on the first frame of every
+  // game, with the player at nought stars, the ten guards on the military base
+  // and everybody else with `carId: -1` were quietly swept off the map into
+  // vehicles that do not exist. The base has been unguarded since the day the
+  // guards were written. A guard belongs to a place rather than to a car,
+  // which is exactly what `guards` says.
   return next.player.stars === 0
     ? putAboard(
         next,
-        next.cops.filter((cop) => cop.health > 0),
+        next.cops.filter(
+          (cop) => cop.health > 0 && (cop.guards ?? null) === null,
+        ),
       )
     : next;
 }
@@ -4855,16 +4949,29 @@ function walkCop(state: GameState, cop: Cop, dt: number): Cop {
   const guard = cop.guards ?? null;
   // A guard leaves the wire only for somebody who has come to it. Otherwise he
   // walks back to his spot, and a chase three cities away is not his business.
+  //
+  // **A warder never leaves his yard at all.** The men on the base can be
+  // drawn off their spot by somebody who comes to the wire with stars on, and
+  // that is right for a compound one drives into. A prison yard has no way in
+  // and no way out but over the wall, so a warder who set off after a chase
+  // would walk into his own building and stand in it for the rest of the game.
   const minding =
     guard !== null &&
-    (state.player.stars === 0 || far(state.player, guard) > GUARD_REACH);
+    (warder(cop) ||
+      state.player.stars === 0 ||
+      far(state.player, guard) > GUARD_REACH);
   const chasing = state.player.stars > 0 && !minding;
   // Whoever is chasing walks to his own place in the ring round the player
   // rather than at the player himself: six men in one spot is a scrum, six men
   // round a car is an arrest.
+  // Whoever is chasing walks to his own place in the ring round the player -
+  // or, while the player is out of sight in his garage, to his own corner of
+  // the streets round the house. See {@link lost}.
+  const hiding = lost(state);
+  const spot = hiding ? searchAt(state, cop.id) : state.player;
   const post = {
-    x: state.player.x + Math.cos(cop.post) * COP_RING,
-    y: state.player.y + Math.sin(cop.post) * COP_RING,
+    x: spot.x + Math.cos(cop.post) * COP_RING,
+    y: spot.y + Math.sin(cop.post) * COP_RING,
   };
   const ground = home === undefined || home.health <= 0 ? post : home;
   const goal = minding && guard !== null ? guard : chasing ? post : ground;
@@ -4894,11 +5001,27 @@ function walkCop(state: GameState, cop: Cop, dt: number): Cop {
   // turned round for the length of one shot before turning away again. A
   // policeman who is after somebody looks at him, whether he is walking at
   // him, standing in front of him or firing.
+  //
+  // **A warder watches whoever is in his yard, and nobody else.** `GUARD_REACH`
+  // is fifteen hundred pixels - thirty squares, which from the middle of a
+  // prison yard reaches well out into the streets round it - so walking past
+  // the place on the pavement turned all six men on the grass round to follow
+  // one, through their own wall. He looks at whoever he would shoot at, which
+  // is the same test the trigger uses: once the searchlights have somebody.
   const watching =
-    chasing || (minding && guard !== null && far(state.player, cop) < GUARD_REACH);
+    !hiding &&
+    (chasing ||
+      (minding &&
+        guard !== null &&
+        far(state.player, cop) < GUARD_REACH &&
+        (!warder(cop) || alarmed(state))));
+  // And with nobody to watch he faces his own way rather than due east. A man
+  // standing on his own spot has arrived, so the heading his feet would give
+  // is `atan2(0, 0)` - which is east, for all six of them, in a row.
+  const idle = warder(cop) ? cop.post : angle;
   const facing = watching
     ? Math.atan2(state.player.y - cop.y, state.player.x - cop.x)
-    : angle;
+    : idle;
   return {
     ...cop,
     ...moved,
@@ -4908,6 +5031,9 @@ function walkCop(state: GameState, cop: Cop, dt: number): Cop {
     boardAt: atDoor ? (cop.boardAt ?? state.time + BOARD_SECONDS) : null,
   };
 }
+
+/** What being caught in a prison yard is worth. */
+const GAOL_STARS = 2;
 
 /** How near his post a policeman has to get before he stops walking. */
 const COP_STAND = 18;
@@ -5046,7 +5172,26 @@ function keepToPath(state: GameState, person: Person, going: number): number {
     !fast &&
     (cellUnder(state.cells, person.x, person.y) === "road" ||
       crossingMood(person, state.time));
-  return ahead === "road" && !crossing
+  // **And off the railway.** A road is crossed now and then, on purpose, by
+  // somebody who has decided to; a railway line is not. The train goes through
+  // whatever is on the track and cannot be stopped, so a pavement whose walkers
+  // wander on to the sleepers is a pavement that feeds the timetable - which
+  // is exactly what was happening at every level crossing in the city.
+  //
+  // One exception, and it is the one that makes the rest read as a rule:
+  // somebody sleeping rough is not going anywhere in particular, and a man on
+  // the line now and then is the difference between a city with a railway in
+  // it and a city with a fence round one.
+  const railed = ahead === "rail" && KINDS[person.kind].kind !== "bum";
+  // **And off the villa's garden.** It is private ground: a lawn, a paved
+  // yard and the house, all of it behind a hedge, and the only part of the
+  // property the public has any business on is the footway down either side.
+  // Nothing stops a passer-by walking there - grass is grass as far as the
+  // floor is concerned - so it is the walker who is told, the same way he is
+  // told about the road.
+  const own = villaCell(Math.floor(look.x / TILE), Math.floor(look.y / TILE));
+  const theirs = own !== null && own !== "walk";
+  return (ahead === "road" && !crossing) || railed || theirs
     ? alongPath(state.cells, person, going, step)
     : going;
 }
@@ -5416,8 +5561,12 @@ function chase(state: GameState, car: Car, dt: number): Car {
   let next = car;
   // Beside the player on foot, not on top of him: close enough for the doors,
   // and then the handbrake.
+  // What they are driving at: the player, or - while he is out of sight in his
+  // own garage - this car's own corner of the streets round the house.
+  const away = lost(state);
+  const goal = away ? searchAt(state, car.id) : state.player;
   const holding =
-    state.player.car === null && far(car, state.player) < COP_STOP;
+    !away && state.player.car === null && far(car, state.player) < COP_STOP;
   if (car.health <= 0) {
     // A wrecked patrol car chases nobody; it rolls to a stop like any other.
     next =
@@ -5435,7 +5584,7 @@ function chase(state: GameState, car: Car, dt: number): Car {
   } else if (holding) {
     next = car.speed === 0 ? car : { ...car, speed: 0, slip: 0 };
   } else if (state.player.stars > 0 && near(state.player, car)) {
-    const straight = Math.atan2(state.player.y - car.y, state.player.x - car.x);
+    const straight = Math.atan2(goal.y - car.y, goal.x - car.x);
     const want = steerRound(state.cells, car, straight, DRIVE_LOOK);
     const turn = Math.max(
       -CAR_TURN * dt,
@@ -5716,6 +5865,11 @@ function cornered(state: GameState, dt: number): GameState {
   const held =
     state.player.stars > 0 &&
     !state.player.god &&
+    // **And they can see him.** A ring of policemen round a house is not a
+    // ring round the man inside it: sitting still in one's own garage with a
+    // patrol car in the street outside was an arrest through two walls, and
+    // sitting still is exactly what one does in a garage. See {@link lost}.
+    !lost(state) &&
     state.time >= state.player.safeUntil &&
     still &&
     (state.cars.some(
@@ -5963,8 +6117,15 @@ function clearBodies(state: GameState): GameState {
   const people = state.people.filter(
     (person) => person.mood !== "down" || state.time < person.stillUntil,
   );
+  // **A warder stays where he fell.** Everybody else is cleared away after a
+  // while, which is right for a street: a pavement covered in old bodies is a
+  // pavement nobody has walked down. The six in the prison yard are counted
+  // rather than looked at - the gate opens when none of them is alive - so
+  // taking their bodies away would take the count with them, and a prison
+  // whose warders had merely been tidied up would open its own gate.
   const cops = state.cops.filter(
-    (cop) => cop.stillUntil === null || state.time < cop.stillUntil,
+    (cop) =>
+      warder(cop) || cop.stillUntil === null || state.time < cop.stillUntil,
   );
   return people.length === state.people.length &&
     cops.length === state.cops.length
@@ -6067,12 +6228,13 @@ function coolDown(state: GameState): GameState {
   // A wrecked patrol car watches nobody. Neither does one three streets away -
   // and that is how a chase is shaken off: out of sight, and the clock runs.
   const seen =
-    state.cars.some(
+    !lost(state) &&
+    (state.cars.some(
       (car) => onWatch(state, car) && far(car, state.player) < SEEN_RANGE,
     ) ||
-    state.cops.some(
-      (cop) => cop.health > 0 && far(cop, state.player) < SEEN_RANGE,
-    );
+      state.cops.some(
+        (cop) => cop.health > 0 && far(cop, state.player) < SEEN_RANGE,
+      ));
   const cooling =
     state.player.stars > 0 && !seen && state.time >= state.player.coolAt;
   let next = state;
@@ -6328,65 +6490,150 @@ function fly(state: GameState, input: Input, dt: number): GameState {
  * that is coming leave from the same corner.
  */
 function onThePrison(state: GameState, dt: number): GameState {
+  void dt;
   const player = state.player;
   const gaol = prisonUnder(
     Math.floor(player.x / TILE),
     Math.floor(player.y / TILE),
   );
+  const held = state.cops.some((cop) => warder(cop) && cop.health > 0);
   let next = state;
-  if (gaol === null) {
-    // Out again: the lights lose him, and with them the whole alarm.
+  if (gaol === null || !held) {
+    // Out again, or nobody left up there to work the lights: either way they
+    // lose him, and with them the whole alarm.
     next =
       player.spotted === null
         ? state
         : { ...state, player: { ...player, spotted: null } };
   } else if (player.spotted === null) {
-    next = {
-      ...state,
-      player: { ...player, spotted: state.time },
-      log: note(state.log, "Die Scheinwerfer haben dich."),
-    };
-  } else {
-    // How long they have been aiming, and whether this step is the one that
-    // crosses the next round. Counted off the clock rather than kept in a
-    // second field: the whole alarm is one number.
-    const since = state.time - player.spotted - PRISON_AIM;
-    const before = since - dt;
-    const fires =
-      since >= 0 &&
-      Math.floor(since / PRISON_RATE) > Math.floor(before / PRISON_RATE);
-    next = fires ? volley(state, gaol) : state;
+    // **And being seen in there is worth two stars.** Nobody is in a prison
+    // yard by accident: one comes over the wall. The stars are also what tells
+    // the warders they may shoot - a guard fires at somebody the law is
+    // already after and at nobody else - so the alarm and the wanted level are
+    // the same event, the way they are on the military base.
+    next = wanted(
+      {
+        ...state,
+        player: { ...player, spotted: state.time },
+        log: note(state.log, "Die Scheinwerfer haben dich."),
+      },
+      GAOL_STARS,
+      "Im Gefängnishof",
+    );
   }
-  return next;
+  // **Shut again the moment the heat is off.** A prison one has emptied stays
+  // empty only as long as anybody is looking for the man who emptied it: back
+  // at nought stars the doors close, the warders are back at their posts and
+  // the men are back in the yard. Which is also what has to happen after a
+  // stretch inside - `onStreet` clears every policeman in the game, so on the
+  // way out of the cells the yard was unheld and its own gate swung open
+  // behind the man being let out of it.
+  return held
+    ? next
+    : state.player.stars === 0
+      ? shutGaol(next)
+      : thrownOpen(next);
 }
 
-/** One round from each of the four towers, at whoever is inside. */
-function volley(state: GameState, gaol: Vec): GameState {
-  const plot = prisonPlot(gaol.x, gaol.y);
-  let next = state;
-  let id = nextBulletId(state);
-  const shots: Bullet[] = [];
-  for (const tower of prisonTowers(plot)) {
-    const draw = nextRandom(next.rng);
-    next = { ...next, rng: draw.state };
-    const angle =
-      Math.atan2(state.player.y - tower.y, state.player.x - tower.x) +
-      (draw.value - HALF) * PRISON_SPREAD * 2;
-    shots.push({
-      id,
-      x: tower.x + Math.cos(angle) * PRISON_MUZZLE,
-      y: tower.y + Math.sin(angle) * PRISON_MUZZLE,
-      angle,
-      left: PRISON_RANGE,
-      speed: PRISON_SPEED,
-      damage: PRISON_HURT,
-      shape: "shot",
-      from: "police",
-      blowAt: null,
-    });
-    id += 1;
+/**
+ * The prison, put back the way it was.
+ *
+ * @param state - the city
+ * @returns it with the gate shut and six men in the yard again
+ * @remarks
+ * Not an undo: nothing is remembered and nothing is restored from a copy. The
+ * floor is asked what the plan says about those two squares, and the warders
+ * are simply made again from their posts, the same call that made them when
+ * the game began. The convicts need nothing at all - they are worked out from
+ * the clock, and with `jailbreak` back to null they are walking their circuits
+ * again on the next frame.
+ */
+function shutGaol(state: GameState): GameState {
+  const others = state.cops.filter((cop) => !warder(cop));
+  let floor = state.cells;
+  for (const anchor of prisonAnchors()) {
+    floor = closeGaol(floor, anchor);
   }
-  return startle({ ...next, bullets: [...next.bullets, ...shots] }, state.player, EARSHOT);
+  const from = state.cops.reduce((most, cop) => Math.max(most, cop.id), 0) + 1;
+  return {
+    ...state,
+    cells: floor,
+    jailbreak: null,
+    cops: [...others, ...prisonGuards(from)],
+  };
+}
+
+/**
+ * Whether the searchlights have had the player long enough to shoot at him.
+ *
+ * @param state - the city
+ * @returns true once the aiming pause is over
+ * @remarks
+ * Counted off the clock rather than kept in a field of its own: the whole
+ * alarm is one number, {@link Player.spotted}, and everything else about it is
+ * arithmetic on that.
+ */
+function alarmed(state: GameState): boolean {
+  const spotted = state.player.spotted;
+  return spotted !== null && state.time >= spotted + PRISON_AIM;
+}
+
+/**
+ * Whether this policeman is a prison warder.
+ *
+ * @param cop - one of them
+ * @returns true for a man whose post is inside a prison
+ * @remarks
+ * Read off where he stands rather than written on him. A warder is a guard
+ * whose spot is on prison ground, and the plan already answers that question
+ * for every square in the city - so the two can never fall out of step, and a
+ * save from before there were any warders needs nothing migrating.
+ */
+function warder(cop: Cop): boolean {
+  const post = cop.guards;
+  return (
+    post !== null &&
+    prisonUnder(Math.floor(post.x / TILE), Math.floor(post.y / TILE)) !== null
+  );
+}
+
+/**
+ * The prison, the moment the last warder goes down.
+ *
+ * @param state - the city
+ * @returns it with the gate open, or unchanged if it already was
+ * @remarks
+ * **Six men hold the place, and nothing else does.** The wire has no way
+ * through it and the gate is shut, so what keeps four hundred convicts inside
+ * a yard is the six who are watching them. Take all six off their feet and
+ * there is nothing left holding the door.
+ *
+ * Three things happen at once, and they have to: the floor opens a square-wide
+ * corridor from the street through the gate into the yard, the picture swings
+ * the doors back and stands the barrier up, and the clock reading is written
+ * down so that everything after it can be timed off one number. The men in the
+ * yard cross it and walk out.
+ *
+ * Once only. The reading is kept because it is the one thing about this
+ * building that is history rather than weather - a prison that had been opened
+ * and then quietly shut itself again on the next frame would be a door that
+ * does not know it is open.
+ */
+function thrownOpen(state: GameState): GameState {
+  let next = state;
+  if (state.jailbreak === null) {
+    let floor = state.cells;
+    for (const anchor of prisonAnchors()) {
+      floor = openGaol(floor, anchor);
+    }
+    next = {
+      ...state,
+      cells: floor,
+      jailbreak: state.time,
+      log: note(state.log, "Das Gefängnistor steht offen."),
+    };
+  }
+  return next;
 }
 
 /**
@@ -6427,6 +6674,59 @@ function runDoor(state: GameState): GameState {
 }
 
 /**
+ * Whether the player is out of sight in his own garage.
+ *
+ * @param state - the city
+ * @returns true while he is in the bay, behind two squares of house
+ * @remarks
+ * **This is the whole of the hiding place**, and everything else about it
+ * follows from one sentence: the police cannot see through a wall.
+ *
+ * - `coolDown` stops counting him as seen, so the clock that takes the stars
+ *   off him runs - at the ordinary rate, not instantly. The garage is not a
+ *   pardon, it is a place they cannot look into.
+ * - The men and the cars stop coming at him and start on the **streets round
+ *   the house** instead, each one to his own point on a ring, which is what
+ *   spreads them down the side roads rather than piling them on the door.
+ * - And nobody fires. A policeman shoots at whatever is inside the range of
+ *   what he carries, which through a shut garage door would be a man firing
+ *   at a building on the off-chance.
+ *
+ * Measured from the bay rather than from the door, so it means "in the
+ * garage" and not "somewhere near the house".
+ */
+function lost(state: GameState): boolean {
+  return far(state.player, garageBay(homeOf(state))) < GARAGE_RANGE;
+}
+
+/**
+ * Where one of them looks while the player is out of sight.
+ *
+ * @param state - the city
+ * @param who - the man or the car, by id
+ * @returns a spot on a ring round the house
+ * @remarks
+ * Off the id and nothing else, so each of them keeps his own corner of the
+ * search from one frame to the next instead of wandering about at random -
+ * and so the six of them fan out round the block rather than all arriving at
+ * the same lamp post.
+ */
+function searchAt(state: GameState, who: number): Vec {
+  const home = homeOf(state);
+  const way = (who * Math.PI * 2) / SEARCH_WAYS;
+  return {
+    x: home.x + Math.cos(way) * SEARCH_RING,
+    y: home.y + Math.sin(way) * SEARCH_RING,
+  };
+}
+
+/** How far from the house they search, in pixels. */
+const SEARCH_RING = 260;
+
+/** And into how many directions they spread while they do it. */
+const SEARCH_WAYS = 7;
+
+/**
  * Which of the three houses is yours right now.
  *
  * @param state - the city
@@ -6442,9 +6742,17 @@ export function homeOf(state: GameState): Vec {
  * Driving into your own garage: the door shuts, and the car comes out new.
  *
  * @remarks
- * Your house, so no bill. What it costs instead is the risk of being followed
- * in: if a policeman is close enough to see which car went through the door,
- * he knows what colour it is now, and the search goes on.
+ * Your house, so no bill - and **behind the door they have not seen you**.
+ * That used to depend on whether a policeman happened to be within a hundred
+ * and thirty pixels when the car went through: if one was, the search carried
+ * on, which meant men standing on the pavement outside a shut door firing at a
+ * building they cannot see into, and going on doing it. A door one can be
+ * followed through is not a hiding place, it is a cul-de-sac.
+ *
+ * **The stars are not wiped, though.** They run down the way they always do,
+ * on the clock in `coolDown` - what the garage buys is not a pardon, it is
+ * being **out of sight**, and the clock only runs while nobody can see you.
+ * See {@link lost}.
  */
 function checkGarage(state: GameState): GameState {
   const car = carOf(state);
@@ -6459,11 +6767,9 @@ function checkGarage(state: GameState): GameState {
       state.garageAt === null);
   let next = state;
   if (inside && worthIt && car !== null) {
-    const seen = watched(state);
     next = {
       ...state,
       garageAt: state.time,
-      player: { ...state.player, stars: seen ? state.player.stars : 0 },
       cars: state.cars.map((each) =>
         each.id === car.id
           ? {
@@ -6475,24 +6781,11 @@ function checkGarage(state: GameState): GameState {
       ),
       log: note(
         state.log,
-        seen
-          ? "Umlackiert - aber sie haben dich reinfahren sehen."
-          : "Umlackiert und repariert. Fahndung weg.",
+        "Umlackiert und repariert. Sie suchen dich draußen.",
       ),
     };
   }
   return next;
-}
-
-/** Whether anybody in uniform is close enough to see who went through. */
-function watched(state: GameState): boolean {
-  const near = (thing: Vec) => far(thing, homeOf(state)) < GARAGE_SEEN;
-  return (
-    state.cops.some((cop) => cop.health > 0 && near(cop)) ||
-    state.cars.some(
-      (car) => car.kind === "police" && car.health > 0 && near(car),
-    )
-  );
 }
 
 /**

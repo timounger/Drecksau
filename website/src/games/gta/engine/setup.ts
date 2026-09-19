@@ -16,6 +16,7 @@ import {
   isRoadAt,
 } from "./city";
 import { carParks, createCity, myHouses, openBay, stations } from "./city";
+import { prisonAnchors, prisonPlot, villaCell, warderPosts } from "./city";
 import { createRandom, nextInt, nextRandom, type RandomState } from "./random";
 import { newTrain } from "./train";
 import {
@@ -162,6 +163,69 @@ const STATION_CARS = 4;
 
 /** And how many men walk about between them. */
 const STATION_MEN = 4;
+
+/**
+ * The warders of every prison in the city.
+ *
+ * @param from - the first id to give out, so they follow the base guards
+ * @returns six men a prison, standing at their posts
+ * @remarks
+ * Its own function because a save made before there were any has to be able to
+ * ask for them - see `rebuild` in ../storage/saves. A prison with no warders
+ * in it is a prison that opens its own gate.
+ */
+export function prisonGuards(from: number): Cop[] {
+  const men: Cop[] = [];
+  for (const anchor of prisonAnchors()) {
+    const posts = warderPosts(prisonPlot(anchor.x, anchor.y));
+    for (const [at, spot] of posts.entries()) {
+      men.push({
+        id: from + men.length,
+        carId: -1,
+        x: spot.x,
+        y: spot.y,
+        angle: Math.PI / 2,
+        walked: 0,
+        pace: 0,
+        health: COP_HEALTH,
+        holds: WARDER_ARMS[at % WARDER_ARMS.length] ?? "pistol",
+        reloadAt: 0,
+        readyAt: 0,
+        post: (at * Math.PI * 2) / posts.length,
+        guards: spot,
+        burst: 0,
+        stillUntil: null,
+        boardAt: null,
+      });
+    }
+  }
+  return men;
+}
+
+/**
+ * Whether a spot is somewhere no passer-by should be put down.
+ *
+ * @param at - the spot, in pixels
+ * @returns true for the villa's grounds and for anybody's garage
+ */
+function privateGround(at: Vec, roll: number): boolean {
+  if (myHouses().some((home) => far(at, home) < GARAGE_KEEP)) {
+    return true;
+  }
+  const cell = villaCell(Math.floor(at.x / TILE), Math.floor(at.y / TILE));
+  // Off the property altogether: nobody's business but the walker's. On the
+  // garden, the yard or the house: never. On the footway down either side of
+  // it: a few, because a pavement outside a house with nobody ever on it is a
+  // street nobody lives in - but only a few, since a dozen squares of paving
+  // hemmed in by a hedge and a road fill up and stay full.
+  return cell === null ? false : cell !== "walk" || roll > VILLA_PASSERS;
+}
+
+/** How many of the people who would start on the villa's footway do. */
+const VILLA_PASSERS = 0.3;
+
+/** What a warder carries: a yard is watched over open sights, not with a bat. */
+const WARDER_ARMS: readonly WeaponKind[] = ["pistol", "mg"];
 
 /** How far the car you start beside stands from you, in pixels. */
 const FIRST_CAR_AWAY = 30;
@@ -372,11 +436,30 @@ export function createGame(seed: number): GameState {
     }
   }
 
+  // **And the six who hold the prison yard.** Guards like the ones on the
+  // base: they belong to a place, they take no part in a chase across town,
+  // and they are the only thing in the prison that shoots. Killing all six is
+  // what opens the gate - see onThePrison in ./engine - so they are counted,
+  // and so they have to be men one can actually reach.
+  guards.push(...prisonGuards(guards.length));
+
   const people: Person[] = [];
   const animals: Animal[] = [];
   for (let at = 0; at < PEOPLE_COUNT; at += 1) {
     const spot = findSpot(cells, rng, "walk");
     rng = spot.rng;
+    // **Nobody starts on the villa's ground.** Two things are pavement in
+    // there and neither of them is anybody's business: the footway down either
+    // side of the property, which is a dozen squares one does not want a
+    // crowd standing on, and the **garage bay**, which is a square of walk cut
+    // out of the middle of the house so that a car can be driven into it - and
+    // which put a passer-by inside your own garage at the start of every game.
+    // Whoever wanders in later is welcome; nobody is put there.
+    const roll = nextRandom(rng);
+    rng = roll.state;
+    if (privateGround(spot.at, roll.value)) {
+      continue;
+    }
     const made = makePerson(rng, at, spot.at);
     rng = made.rng;
     const person =
@@ -524,6 +607,7 @@ export function createGame(seed: number): GameState {
     heliAt: 0,
     bank: null,
     prison: null,
+    jailbreak: null,
     mint: null,
     crew: [],
     riders: [],
@@ -664,11 +748,7 @@ function freeSpot(
 }
 
 /** Whether a vehicle of this sort would stand clear of everything placed. */
-function clearOf(
-  at: Vec,
-  body: VehicleBody,
-  cars: readonly Car[],
-): boolean {
+function clearOf(at: Vec, body: VehicleBody, cars: readonly Car[]): boolean {
   const mine = VEHICLES[body].length / 2;
   return !cars.some(
     (car) => far(at, car) < mine + VEHICLES[car.body].length / 2,
