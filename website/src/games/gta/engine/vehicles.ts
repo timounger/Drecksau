@@ -30,7 +30,19 @@ export type VehicleBody =
   | "corsaultimate"
   | "tank"
   | "dmc"
-  | "tractor";
+  | "tractor"
+  | "boat"
+  | "patrolboat";
+
+/**
+ * Whether this body floats instead of driving.
+ *
+ * @param body - the vehicle
+ * @returns true for the ones that live in the water
+ */
+export function floats(body: VehicleBody): boolean {
+  return body === "boat" || body === "patrolboat";
+}
 
 /** One body, as numbers. */
 export type Vehicle = {
@@ -413,6 +425,59 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
     gun: false,
     seats: 1,
     grip: 120,
+  },
+  /**
+   * The one that does not go on roads at all.
+   *
+   * @remarks
+   * **A boat is a car with the map turned inside out.** Everything else in
+   * this table treats water as a wall and tarmac as the floor; this one is the
+   * other way round, and that is the whole of the difference - see `floats`
+   * and `clears` in ./engine. It is boarded the way everything else is, by
+   * walking (or swimming) up to it and pressing the key.
+   *
+   * Slower than a car and much slower to turn: a hull has no tyres and pushes
+   * water rather than gripping road. The grip is low because a boat *should*
+   * slide through its corners - that skid is what a wake is.
+   */
+  boat: {
+    body: "boat",
+    name: "Motorboot",
+    length: 56,
+    width: 21,
+    top: 290,
+    accel: 130,
+    turn: 1.5,
+    health: 90,
+    gun: false,
+    seats: 4,
+    grip: 3,
+  },
+  /**
+   * What the police put on the water.
+   *
+   * @remarks
+   * **Sie sind sonst nirgends**, und das war das Problem: Wer mit Sternen ins
+   * Wasser ging, war in Sicherheit - kein Streifenwagen faehrt hinterher, kein
+   * Hubschrauber unter fuenf Sternen, und die Meerenge ist breit. Jetzt schickt
+   * die Wache ein Boot, sobald der Gesuchte schwimmt oder selbst eines faehrt.
+   *
+   * Etwas schneller als das Motorboot am Ufer (320 gegen 290) und ein Stueck
+   * robuster - aber nicht so schnell, dass Weglaufen sinnlos waere: Wer Land
+   * erreicht, ist es los, und genau das soll die Fluchtmoeglichkeit sein.
+   */
+  patrolboat: {
+    body: "patrolboat",
+    name: "Polizeiboot",
+    length: 60,
+    width: 23,
+    top: 320,
+    accel: 150,
+    turn: 1.5,
+    health: 130,
+    gun: false,
+    seats: 2,
+    grip: 3,
   },
   tractor: {
     body: "tractor",

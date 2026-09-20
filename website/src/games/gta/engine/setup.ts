@@ -21,13 +21,26 @@ import {
   isRoadAt,
 } from "./city";
 import { carParks, createCity, myHouses, openBay, stations } from "./city";
-import { prisonAnchors, prisonPlot, villaCell, warderPosts } from "./city";
+import {
+  prisonAnchors,
+  prisonPlot,
+  villaBlock,
+  villaCell,
+  villaYard,
+  warderPosts,
+} from "./city";
 import { createRandom, nextInt, nextRandom, type RandomState } from "./random";
 import { newTrain } from "./train";
 import {
   ACK_HEALTH,
   ACK_SITES,
+  AIRPORT,
+  APRON_APART,
+  APRON_ROW,
   BASE,
+  MOORINGS,
+  PIERS,
+  PLANES,
   FARMS,
   BASE_PAD,
   CAT_COUNT,
@@ -36,6 +49,7 @@ import {
   GUARD_COUNT,
   CITY_TILES,
   COPS_PER_CAR,
+  flyerHealth,
   DOG_LEASH,
   DOG_SHARE,
   JOB_SECONDS,
@@ -60,7 +74,7 @@ import {
   type Pickup,
   type Vec,
 } from "./types";
-import { emptyBelt, type WeaponKind } from "./weapons";
+import { emptyBelt, inTheGame, type WeaponKind } from "./weapons";
 import {
   CLUB_CROWD,
   CLUB_ROAM,
@@ -135,7 +149,9 @@ export function newChopper(): Chopper {
     angle: -Math.PI / 2,
     height: 0,
     speed: 0,
+    lean: 0,
     spin: 0,
+    health: flyerHealth("army"),
   };
 }
 
@@ -152,7 +168,7 @@ export function newChopper(): Chopper {
  * helicopter.
  */
 export function newChoppers(cells: readonly Cell[]): readonly Chopper[] {
-  return [
+  const flown: Chopper[] = [
     newChopper(),
     ...padsOf().map((pad, at) => ({
       id: at + 1,
@@ -162,10 +178,33 @@ export function newChoppers(cells: readonly Cell[]): readonly Chopper[] {
       angle: -Math.PI / 2,
       height: roofAt(cells, pad.x, pad.y),
       speed: 0,
+      lean: 0,
       spin: 0,
+      health: flyerHealth("rescue"),
     })),
   ];
+  // **And the aeroplanes, on the apron.** In a row north of the runway, nose
+  // to the east, which is the way one takes off: the strip runs east and west
+  // and it is the only piece of ground long enough to get a wing flying.
+  for (let at = 0; at < PLANES; at += 1) {
+    flown.push({
+      id: flown.length,
+      kind: "plane",
+      x: (AIRPORT.left + APRON_FIRST + at * APRON_APART) * TILE,
+      y: APRON_ROW * TILE,
+      angle: 0,
+      height: 0,
+      speed: 0,
+      lean: 0,
+      spin: 0,
+      health: flyerHealth("plane"),
+    });
+  }
+  return flown;
 }
+
+/** How far in from the west fence the first aeroplane stands, in squares. */
+const APRON_FIRST = 6;
 
 /** How many guards stand in one row inside the wire. */
 const GUARD_ROW = 5;
@@ -258,6 +297,56 @@ function privateGround(at: Vec, roll: number): boolean {
   return cell === null ? false : cell !== "walk" || roll > VILLA_PASSERS;
 }
 
+/**
+ * Whether a spot is on the villa's own property.
+ *
+ * @param at - the spot, in pixels
+ * @returns true on the yard, the lawn and the house itself
+ * @remarks
+ * Narrower than {@link privateGround}: the footway down either side of the
+ * property is a public pavement and a car may stand at its kerb, and the
+ * garage door has its own keep-out - which the car one starts beside stands
+ * inside of, on purpose.
+ */
+function onTheVilla(at: Vec): boolean {
+  const cell = villaCell(Math.floor(at.x / TILE), Math.floor(at.y / TILE));
+  return cell !== null && cell !== "walk";
+}
+
+/**
+ * The middle of the villa's paved yard.
+ *
+ * @returns the spot, in pixels
+ * @remarks
+ * Worked out from the same box the floor lays the stones on, so the car
+ * cannot end up half on the grass however the property is measured. A yard
+ * with no villa on the map - which cannot happen, but the plan is asked and
+ * not told - puts it in the middle of nowhere rather than at nought, nought.
+ */
+function yardSpot(): Vec {
+  const block = villaBlock();
+  if (block === null) {
+    return { x: CITY_SIZE / 2, y: CITY_SIZE / 2 };
+  }
+  const yard = villaYard(block.x, block.y);
+  return {
+    x: ((yard.left + yard.right) / 2) * TILE,
+    y: ((yard.top + yard.bottom) / 2) * TILE,
+  };
+}
+
+/** How many boats lie along each pier. */
+const BOATS_MOORED = 3;
+
+/** How far in from the end of a pier the first one is moored, in squares. */
+const BOAT_IN = 1.5;
+
+/** How far apart they lie, the same way. */
+const BOAT_APART = 2;
+
+/** And how far off the side of the pier they float. */
+const BOAT_OFF = 1.4;
+
 /** How many spots are tried before a DeLorean settles for one. */
 const YARD_TRIES = 8;
 
@@ -266,6 +355,32 @@ const VILLA_PASSERS = 0.3;
 
 /** What a warder carries: a yard is watched over open sights, not with a bat. */
 const WARDER_ARMS: readonly WeaponKind[] = ["pistol", "mg"];
+
+/**
+ * How much of the work each part is, measured rather than guessed.
+ *
+ * @remarks
+ * Timed with the clock in a browser: the floor and the houses are about a
+ * fifteenth of it, the traffic is nothing at all, the parked cars a fifth, and
+ * the two crowds of people between them the rest. A bar whose steps are all
+ * the same size is a bar that sticks at one of them.
+ */
+const BUILT_FLOOR = 0.08;
+
+/** After the traffic, which is quick: it goes wherever the road is. */
+const BUILT_TRAFFIC = 0.1;
+
+/** After the parked cars, which each look for a kerb of their own. */
+const BUILT_PARKED = 0.3;
+
+/** After the police, the engines, the ambulances and the guards. */
+const BUILT_SERVICE = 0.45;
+
+/** After the six hundred and sixty people on the pavements. */
+const BUILT_PEOPLE = 0.85;
+
+/** And after the gangs, the club queue and the shoppers. */
+const BUILT_CROWDS = 0.95;
 
 /** How far the car you start beside stands from you, in pixels. */
 const FIRST_CAR_AWAY = 30;
@@ -294,6 +409,151 @@ const JOB_MIN_DISTANCE = 600;
  * @returns the city, filled and waiting
  */
 export function createGame(seed: number): GameState {
+  const building = buildGame(seed);
+  let step = building.next();
+  while (step.done !== true) {
+    step = building.next();
+  }
+  return step.value;
+}
+
+/**
+ * A city with nothing in it, for the moment before there is a real one.
+ *
+ * @returns a playable-looking state with an empty floor and nobody on it
+ * @remarks
+ * **Not a game, a placeholder.** The page is prerendered, so the first render
+ * needs a `GameState` to read its numbers out of - and building the real one
+ * there is exactly what made the screen sit still for seven seconds. This one
+ * costs nothing: no floor, no traffic, no passers-by. It is never drawn and
+ * never stepped; the loading screen is over it until {@link buildGame} has
+ * finished, and that is what replaces it.
+ */
+export function emptyGame(): GameState {
+  return {
+    phase: "playing",
+    time: 0,
+    rng: createRandom(0),
+    cells: [],
+    player: {
+      x: 0,
+      y: 0,
+      boarding: null,
+      angle: 0,
+      heading: 0,
+      walked: 0,
+      pace: 0,
+      health: PLAYER_HEALTH,
+      money: START_MONEY,
+      respect: 0,
+      stars: 0,
+      coolAt: 0,
+      starAt: 0,
+      floorUntil: 0,
+      diving: false,
+      swimming: false,
+      movedAt: 0,
+      striped: false,
+      masked: false,
+      hooded: false,
+      jetpack: false,
+      thrust: false,
+      spotted: null,
+      aboard: false,
+      flying: false,
+      chopper: null,
+      height: 0,
+      loot: 0,
+      heat: 0,
+      car: null,
+      safeUntil: 0,
+      pinned: 0,
+      rammedUntil: 0,
+      crashUntil: 0,
+      reloadAt: 0,
+      gunAt: 0,
+      punches: 0,
+      weapon: "fist",
+      ammo: emptyBelt(),
+      armour: 0,
+      hurtAt: 0,
+      god: false,
+    },
+    cars: [],
+    people: [],
+    animals: [],
+    cops: [],
+    bullets: [],
+    fires: [],
+    blasts: [],
+    pickups: [],
+    job: null,
+    districts: emptyDistricts(),
+    garages: [],
+    train: newTrain(),
+    choppers: [],
+    ackAt: 0,
+    acks: [],
+    marks: [],
+    markAt: 0,
+    garageAt: null,
+    garageOpen: null,
+    heli: null,
+    feud: false,
+    patrolAt: 0,
+    heliAt: 0,
+    bank: null,
+    prison: null,
+    jailbreak: null,
+    mint: null,
+    crew: [],
+    riders: [],
+    charges: [],
+    log: [],
+  };
+}
+
+/**
+ * What the loading screen is told between one part of the work and the next.
+ *
+ * @remarks
+ * `done` is how much of it is behind us, from nought to one, and `stage` is
+ * what is being worked on **now** rather than what has just finished - the
+ * screen turns that into a line of German, and a line that names the piece
+ * one has already got past is a line that lies for the whole of the next one.
+ * Neither is a guess at the clock: they are the seven pieces this function is
+ * made of, weighted by how long each of them actually takes.
+ */
+export type Building = {
+  readonly done: number;
+  readonly stage: BuildStage;
+};
+
+/** The parts of the work, in the order they happen. */
+export type BuildStage =
+  "floor" | "traffic" | "parked" | "service" | "people" | "crowds" | "ready";
+
+/**
+ * The same city, built a piece at a time.
+ *
+ * @param seed - the dice the traffic and the passers-by come out of
+ * @returns each piece as it is finished, and the city at the end
+ * @remarks
+ * **A generator, not a rewrite.** Laying out Los Santos takes several seconds
+ * in a browser - twenty-eight thousand squares of floor, three hundred and
+ * seventy vehicles, six hundred and sixty people, each of them looking for
+ * somewhere to stand - and all of it used to happen inside one call. One call
+ * is one turn of the event loop: nothing can be drawn while it runs, so the
+ * page sat there looking broken.
+ *
+ * Yielding costs nothing and changes no line of the work: every local stays
+ * exactly where it was, the dice are handed on in the same order, and the city
+ * that comes out is square for square the one that came out before. What it
+ * buys is a place for the browser to breathe, and something honest to put in a
+ * progress bar. {@link createGame} still runs the whole thing in one go, which
+ * is what the tests and the probes want.
+ */
+export function* buildGame(seed: number): Generator<Building, GameState> {
   const plan = createCity();
   let rng = createRandom(seed);
   // Which houses are yours decides where the garages are, and a garage is a
@@ -308,6 +568,7 @@ export function createGame(seed: number): GameState {
   const cells = openStations(
     homes.reduce((floor, home) => openBay(floor, home), plan),
   );
+  yield { done: BUILT_FLOOR, stage: "traffic" };
   const cars: Car[] = [];
   // A car of your own, right there. Every game of this sort starts by handing
   // you the keys to something, and hunting for the first car on foot is the
@@ -329,6 +590,7 @@ export function createGame(seed: number): GameState {
     rng = who.state;
     cars.push({ ...made.car, seats: who.value + 1 });
   }
+  yield { done: BUILT_TRAFFIC, stage: "parked" };
   // At the kerb, not in the road. A hundred and sixty cars standing about on
   // the carriageway is what made the traffic look like a car park: the ones
   // that are parked belong on the pavement edge, and the road belongs to the
@@ -353,6 +615,7 @@ export function createGame(seed: number): GameState {
       cars.push({ ...made.car, angle: alongKerb(cells, spot.at) });
     }
   }
+  yield { done: BUILT_PARKED, stage: "service" };
   // The supermarket car parks: a few cars standing in the bays, nose to the
   // shop. A car park with nothing on it is a concrete yard.
   for (const bay of carParks()) {
@@ -549,6 +812,7 @@ export function createGame(seed: number): GameState {
   // and so they have to be men one can actually reach.
   guards.push(...prisonGuards(guards.length));
 
+  yield { done: BUILT_SERVICE, stage: "people" };
   const people: Person[] = [];
   const animals: Animal[] = [];
   for (let at = 0; at < PEOPLE_COUNT; at += 1) {
@@ -594,6 +858,7 @@ export function createGame(seed: number): GameState {
       });
     }
   }
+  yield { done: BUILT_PEOPLE, stage: "crowds" };
   const gangs = makeGangs(cells, rng, people.length, homes[0]);
   rng = gangs.rng;
   people.push(...gangs.people);
@@ -624,8 +889,11 @@ export function createGame(seed: number): GameState {
       ownerId: null,
     });
   }
+  yield { done: BUILT_CROWDS, stage: "ready" };
   const pickups: Pickup[] = [];
-  for (const sort of LYING_ABOUT) {
+  for (const sort of LYING_ABOUT.filter(
+    (sort) => sort.holds === "armour" || inTheGame(sort.holds),
+  )) {
     for (let one = 0; one < sort.many; one += 1) {
       const spot = findSpot(cells, rng, "walk");
       rng = spot.rng;
@@ -640,7 +908,78 @@ export function createGame(seed: number): GameState {
       });
     }
   }
+  // **And the ones that lie along a bank**, where there is no pier at all:
+  // nose to tail, a couple of steps off the shore. See {@link MOORINGS}.
+  for (const bank of MOORINGS) {
+    for (let at = 0; at < bank.many; at += 1) {
+      const spot = {
+        x: (bank.col + at * BOAT_APART) * TILE,
+        y: bank.row * TILE,
+      };
+      if (cellUnder(cells, spot.x, spot.y) !== "water") {
+        continue;
+      }
+      const made = makeCar(rng, cars.length, "parked", spot, "boat");
+      rng = made.rng;
+      cars.push({ ...made.car, angle: 0 });
+    }
+  }
+
+  // **The boats, moored along the piers.** Three to a pier, in the water
+  // beside it, laid the way the fire engines are: told where to stand rather
+  // than sent to look for a space, because the one place a boat belongs is
+  // where one can step into it. Every spot is checked against the floor
+  // first - the coast is a formula, and a boat on the beach is worse than no
+  // boat at all.
+  for (const pier of PIERS) {
+    const long = pier.right - pier.left > pier.bottom - pier.top;
+    for (let at = 0; at < BOATS_MOORED; at += 1) {
+      const spot = long
+        ? {
+            x: (pier.right - BOAT_IN - at * BOAT_APART) * TILE,
+            y: (pier.bottom + BOAT_OFF) * TILE,
+          }
+        : {
+            x: (pier.right + BOAT_OFF) * TILE,
+            y: (pier.bottom - BOAT_IN - at * BOAT_APART) * TILE,
+          };
+      if (cellUnder(cells, spot.x, spot.y) !== "water") {
+        continue;
+      }
+      const made = makeCar(rng, cars.length, "parked", spot, "boat");
+      rng = made.rng;
+      cars.push({ ...made.car, angle: long ? 0 : Math.PI / 2 });
+    }
+  }
+
+  // **And last of all, the drive is cleared.** Every sort of vehicle above
+  // looks for its place in its own way - the parking bays are a fixed grid,
+  // the DeLoreans hunt for a space and give up after {@link YARD_TRIES}, the
+  // engines and the ambulances are told where to stand - and any of those
+  // ways can end on the paved yard beside the villa, which is the one piece
+  // of tarmac in Los Santos that belongs to somebody. Guarding each of them
+  // separately means guarding the next one too. A car standing in your drive
+  // is simply towed.
+  //
+  // Last, after everything has its number, so that no two cars can end up
+  // sharing one; and nothing is moved and no dice are thrown, so the rest of
+  // the city is laid out exactly as it was. Only the yard is emptied.
+  const towed = cars.filter(
+    (car) => car.kind !== "parked" || !onTheVilla({ x: car.x, y: car.y }),
+  );
+  // **And then your own is parked on it.** An empty drive beside a villa is a
+  // drive somebody has gone out in. The one car that belongs there is the
+  // DeLorean: the three others are out in the city to be found, this one is
+  // yours, nose to the street, ready to be driven off.
+  //
+  // After the towing, so that the sweep cannot take it away again, and with
+  // the number the list had *before* the sweep, because the cars that stayed
+  // kept theirs.
+  const mine = makeCar(rng, cars.length, "parked", yardSpot(), "dmc");
+  rng = mine.rng;
+  const standing = [...towed, { ...mine.car, angle: Math.PI / 2 }];
   const job = pickJob(cells, rng);
+  yield { done: 1, stage: "ready" };
   return {
     phase: "playing",
     time: 0,
@@ -661,6 +1000,8 @@ export function createGame(seed: number): GameState {
       coolAt: 0,
       starAt: 0,
       floorUntil: 0,
+      diving: false,
+      swimming: false,
       movedAt: 0,
       striped: false,
       masked: false,
@@ -690,11 +1031,12 @@ export function createGame(seed: number): GameState {
       hurtAt: 0,
       god: false,
     },
-    cars,
+    cars: standing,
     people,
     animals,
     cops: guards,
     bullets: [],
+    fires: [],
     blasts: [],
     pickups,
     job: job.job,

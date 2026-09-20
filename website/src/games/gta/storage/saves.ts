@@ -26,7 +26,7 @@ import {
 } from "@/games/gta/engine/city";
 import { newAcks, newChoppers, prisonGuards } from "@/games/gta/engine/setup";
 import type { GameState } from "@/games/gta/engine/types";
-import { TILE } from "@/games/gta/engine/types";
+import { flyerHealth, TILE } from "@/games/gta/engine/types";
 import {
   readStored,
   removeStored,
@@ -80,7 +80,25 @@ export function autoSave(state: GameState): void {
  */
 export function readAuto(): GameState | null {
   const stored = readStored<Stored>(autoKey(), VERSION, isGame);
-  return stored === null ? null : rebuild(stored);
+  return stored === null || !played(stored) ? null : rebuild(stored);
+}
+
+/**
+ * Whether a stand has a game in it at all.
+ *
+ * @param stored - what came off the disk
+ * @returns false for a stand written before there was a city
+ * @remarks
+ * **A town with nobody in it was never played.** While Los Santos is being
+ * laid out the game holds a placeholder - no traffic, nobody on the pavement,
+ * the player at nought, nought - and for a while it was possible to save
+ * that: the panel with the button in it sits under the picture, not behind
+ * the loading screen. Writing one is prevented now; this is for the ones
+ * already on somebody's disk, which would otherwise drop them in the top left
+ * corner of an empty city.
+ */
+function played(stored: Stored): boolean {
+  return stored.cars.length > 0 || stored.people.length > 0;
 }
 
 /**
@@ -136,7 +154,9 @@ export function saveAs(name: string, state: GameState): readonly SaveSlot[] {
  */
 export function loadSave(at: number): GameState | null {
   const entry = entries().find((each) => each.at === at);
-  return entry === undefined ? null : rebuild(entry.game);
+  return entry === undefined || !played(entry.game)
+    ? null
+    : rebuild(entry.game);
 }
 
 /**
@@ -299,6 +319,12 @@ function rebuild(stored: Stored): GameState {
     player: {
       ...stored.player,
       pace: stored.player.pace ?? 0,
+      // Nobody is saved under water either: a stand written before one could
+      // swim has him standing on the surface of it, which is to say on land.
+      diving: stored.player.diving ?? false,
+      // Ein Spielstand von vor den Bruecken weiss noch nicht, ob er im Wasser
+      // liegt; an Land aufzuwachen ist die harmlosere der beiden Annahmen.
+      swimming: stored.player.swimming ?? false,
       // A stand written before the jetpack had a flame has no switch for it,
       // and it is off: nobody is saved mid-climb.
       thrust: stored.player.thrust ?? false,
@@ -334,7 +360,23 @@ function rebuild(stored: Stored): GameState {
     // list of them; it gets the five of them where they belong. Nobody is
     // saved mid-flight - `flying` comes back false - so where the old one
     // happened to be parked is not worth carrying over.
-    choppers: stored.choppers ?? newChoppers(floor),
+    // A stand written before the machines had bodywork gives them it back
+    // full: nobody is saved in a burning aeroplane.
+    choppers: (stored.choppers ?? newChoppers(floor)).map((one) => ({
+      ...one,
+      health: one.health ?? flyerHealth(one.kind),
+      // Written before machines banked in corners: upright is the right
+      // answer for one standing on a pad anyway.
+      lean: one.lean ?? 0,
+    })),
+    // A stand written before a round knew how far it was going to go: it has
+    // got as far as it has got, so what is left of it is also its reach.
+    bullets: stored.bullets.map((shot) => ({
+      ...shot,
+      reach: shot.reach ?? shot.left,
+    })),
+    // Written before the ground could burn: nothing is alight in it.
+    fires: stored.fires ?? [],
     ackAt: stored.ackAt ?? 0,
     acks: stored.acks ?? newAcks(),
     cells: garage === undefined ? floor : setGarage(floor, garage, true),

@@ -13,7 +13,7 @@
  * else keeps walking and, when it gets loud, runs.
  */
 
-import type { WeaponKind } from "./weapons";
+import { inTheGame, type WeaponKind } from "./weapons";
 
 /** What sort of person somebody is. */
 export type PersonKind =
@@ -277,22 +277,21 @@ export const GANG_FREE = 0;
  * of the heavy weaponry in this city comes from now that so little of it lies
  * about: you take it off somebody.
  */
-export const COP_ARMS: readonly WeaponKind[] = [
-  "baton",
-  "pistol",
-  "pistol",
-  "pistol",
-  "mg",
-];
+export const COP_ARMS: readonly WeaponKind[] = (
+  ["baton", "pistol", "pistol", "pistol", "mg"] as const
+).filter(inTheGame);
 
-/** And a gang member: the knuckleduster instead of the baton. */
-export const GANG_ARMS: readonly WeaponKind[] = [
-  "knuckles",
-  "pistol",
-  "pistol",
-  "pistol",
-  "mg",
-];
+/**
+ * And a gang member: the knuckleduster instead of the baton.
+ *
+ * @remarks
+ * Both lists are sieved through {@link inTheGame}, so a weapon that has been
+ * taken out of the city is not quietly carried back into it by the people who
+ * live there - and putting it back in is still one word in one place.
+ */
+export const GANG_ARMS: readonly WeaponKind[] = (
+  ["knuckles", "pistol", "pistol", "pistol", "mg"] as const
+).filter(inTheGame);
 
 /**
  * How much faster than their own stroll a frightened person moves.

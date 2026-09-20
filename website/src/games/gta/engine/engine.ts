@@ -89,6 +89,15 @@ import {
   CHOP_FALL,
   CHOP_REACH,
   CHOP_RISE,
+  PLANE_ACCEL,
+  PLANE_CEILING,
+  PLANE_BACK,
+  PLANE_FALL,
+  PLANE_LIFT,
+  PLANE_RISE,
+  PLANE_SPEED,
+  PLANE_STOP,
+  PLANE_TURN,
   CHOP_SPEED,
   CHOP_SPIN,
   CHOP_TURN,
@@ -159,6 +168,14 @@ import {
   CAR_STARS,
   CIVIL_STARS,
   LEAN_MOST,
+  BANK_MOST,
+  BANK_STIFF,
+  FIRE_APART,
+  FIRE_BURNS,
+  FIRE_HURT,
+  FIRE_MOST,
+  FIRE_REACH,
+  DIVE_SPEED,
   LEAN_RATE,
   LEAN_STIFF,
   PADDLE_BACK,
@@ -218,6 +235,7 @@ import {
   SHOT_STARS,
   STRIDE,
   TRAFFIC_SPEED,
+  SWIM_SPEED,
   WALK_SPEED,
   WITNESS_RANGE,
   type Bullet,
@@ -225,6 +243,7 @@ import {
   type BulletShape,
   type Car,
   type Chopper,
+  type ChopperKind,
   type Cell,
   type Cop,
   type Mark,
@@ -253,7 +272,13 @@ import {
   PURSE,
   type Side,
 } from "./people";
-import { VEHICLES, bodyRadius, twoWheeled, type VehicleBody } from "./vehicles";
+import {
+  VEHICLES,
+  bodyRadius,
+  floats,
+  twoWheeled,
+  type VehicleBody,
+} from "./vehicles";
 import {
   BLAST_RADIUS,
   GRENADE_FUSE,
@@ -290,6 +315,7 @@ export function step(state: GameState, input: Input, dt: number): GameState {
     next = switchWeapon(next, input);
     next = layCharge(next, input);
     next = shoot(next, input, slice);
+    next = burnGround(next, slice);
     next = runTrain(next, slice);
     next = moveTraffic(next, slice);
     next = rollLoose(next, slice);
@@ -1249,6 +1275,19 @@ export function onThePad(state: GameState): boolean {
 }
 
 /**
+ * What sort of machine one is standing beside.
+ *
+ * @param state - the city
+ * @returns its sort, or null where there is none within reach
+ * @remarks
+ * For the button on the screen, which says what one is about to climb into
+ * rather than "helicopter" over an aeroplane.
+ */
+export function padKind(state: GameState): ChopperKind | null {
+  return padUnder(state)?.kind ?? null;
+}
+
+/**
  * Which machine one is standing beside, if any.
  *
  * @param state - the city
@@ -1312,9 +1351,11 @@ function takeOff(state: GameState): GameState {
         },
         log: note(
           state.log,
-          machine.kind === "rescue"
-            ? "Im Rettungshubschrauber. Leertaste steigt, W fliegt, E steigt wieder aus."
-            : "Im Hubschrauber. Leertaste steigt, W fliegt, E steigt wieder aus.",
+          machine.kind === "plane"
+            ? "Im Flugzeug. W gibt Gas, Leertaste zieht hoch - aber erst mit Fahrt."
+            : machine.kind === "rescue"
+              ? "Im Rettungshubschrauber. Leertaste steigt, W fliegt, E steigt wieder aus."
+              : "Im Black Hawk. Leertaste steigt, W fliegt, linke Maustaste Rakete, rechte das MG, E steigt wieder aus.",
         ),
       };
 }
@@ -1329,11 +1370,21 @@ function landed(state: GameState): GameState {
   // eighty-four pixels up. Getting out there leaves one standing on the roof,
   // at the roof's height, which is what the floor says is under one's feet.
   const floor = floorUnder(state, machine);
-  const down = machine.height <= floor + LANDED;
+  // **And an aeroplane has to have stopped.** Down is not the same as parked:
+  // a wheel on the ground at two hundred pixels a second is a landing roll,
+  // and stepping out of that is not getting out, it is falling out.
+  const rolling =
+    machine.kind === "plane" && Math.abs(machine.speed) > PLANE_STOP;
+  const down = machine.height <= floor + LANDED && !rolling;
   return !down
     ? {
         ...state,
-        log: note(state.log, "Erst landen - Leertaste loslassen und sinken."),
+        log: note(
+          state.log,
+          machine.height > floor + LANDED
+            ? "Erst landen - Leertaste loslassen und sinken."
+            : "Erst ausrollen lassen.",
+        ),
       }
     : {
         ...state,
@@ -1375,26 +1426,53 @@ function flyChopper(state: GameState, input: Input, dt: number): GameState {
   const chopper = flownBy(state);
   let next = state;
   if (state.player.flying && chopper !== null) {
+    const air = flightOf(chopper.kind);
+    // **A wing only lifts what is moving.** On a helicopter the stick is the
+    // collective and it works standing still; on an aeroplane it does nothing
+    // until the thing is rolling fast enough, which is the whole of why one
+    // needs a runway. See {@link PLANE_LIFT}.
+    // A wreck does not climb, whatever the stick says: no engine, no lift.
+    const flying =
+      input.lift && chopper.speed >= air.lift && chopper.health > 0;
     // The floor is whatever is under it - a roof, or the road. Letting go over
     // a hospital puts the machine down on the hospital, the same way the
     // jetpack does; letting go over the street puts it in the street.
     const height = Math.max(
       floorUnder(state, chopper),
       Math.min(
-        CHOP_CEILING,
-        chopper.height + (input.lift ? CHOP_RISE : -CHOP_FALL) * dt,
+        air.ceiling,
+        chopper.height + (flying ? air.rise : -air.fall) * dt,
       ),
     );
     const turn = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    const angle = chopper.angle + turn * CHOP_TURN * dt;
+    const angle = chopper.angle + turn * air.turn * dt;
     const push = (input.up ? 1 : 0) - (input.down ? 1 : 0);
+    // **Backwards is a speed below nought**, and everything downstream already
+    // reads it that way: the machine is moved along its own nose by this
+    // number, so a negative one walks it back down its own heading, and
+    // climbing out asks for the *size* of it rather than the value. Only the
+    // aeroplane has any - see {@link PLANE_BACK} - and the wing needs speed
+    // the other way to lift, so nothing goes up tail first.
+    //
+    // With the throttle shut the drag pulls towards nought from whichever
+    // side it is on: subtracting it from a negative speed would have wound the
+    // thing backwards faster and faster with nobody touching anything.
+    const rolling =
+      chopper.speed > 0
+        ? Math.max(0, chopper.speed - air.drag * dt)
+        : Math.min(0, chopper.speed + air.drag * dt);
     const speed =
       push === 0
-        ? Math.max(0, chopper.speed - CHOP_ACCEL * dt)
+        ? rolling
         : Math.max(
-            0,
-            Math.min(CHOP_SPEED, chopper.speed + push * CHOP_ACCEL * dt),
+            -air.back,
+            Math.min(air.top, chopper.speed + push * air.accel * dt),
           );
+    // **And it goes over into the corner.** The same sum the motorbike uses -
+    // turn rate times speed is the sideways pull, and that is what the machine
+    // banks against - and the same easing, so that it rolls into the turn and
+    // rolls out of it instead of snapping over on the frame a key goes down.
+    const lean = banking(chopper, turn * air.turn, speed, dt);
     const want = {
       x: chopper.x + Math.cos(angle) * speed * dt,
       y: chopper.y + Math.sin(angle) * speed * dt,
@@ -1418,6 +1496,7 @@ function flyChopper(state: GameState, input: Input, dt: number): GameState {
               angle,
               height,
               speed,
+              lean,
               spin: machine.spin + CHOP_SPIN * dt,
             }
           : machine,
@@ -1426,13 +1505,46 @@ function flyChopper(state: GameState, input: Input, dt: number): GameState {
       // machine's, which is what the camera and the jetpack both read.
       player: { ...state.player, ...moved, height, angle, heading: angle },
     };
-  } else if (state.choppers.some((machine) => machine.spin !== 0)) {
-    // Every machine nobody is in has a rotor at rest. One line rather than
-    // one per machine: whatever is not being flown is standing still.
+  }
+  // **And a wreck that reaches the ground goes off.** Which is the end of the
+  // flight and, if one was still in it, of the day: there is no door handle
+  // in the air, so the answer to being shot at up there is to get down before
+  // the bar empties rather than after.
+  const down = flownBy(next);
+  if (
+    down !== null &&
+    down.health <= 0 &&
+    down.height <= floorUnder(next, down) + LANDED
+  ) {
     next = {
-      ...state,
-      choppers: state.choppers.map((machine) =>
-        machine.id === state.player.chopper
+      ...next,
+      choppers: next.choppers.filter((machine) => machine.id !== down.id),
+      player: { ...next.player, flying: false, chopper: null, height: 0 },
+    };
+    next = blast(next, down, BLAST_FORCE);
+    next = hurt(next, PLAYER_HEALTH, "Abgestürzt.");
+  }
+  // Every machine nobody is in has a rotor at rest. One line rather than one
+  // per machine: whatever is not being flown is standing still.
+  //
+  // **Built on what the flight left**, and only for the machines nobody is
+  // in. It used to start from `state` again, which threw the whole flight
+  // above away: the rotor of the machine one was flying turns, so this ran on
+  // every frame, and every frame put the machine back where the frame had
+  // found it. One could climb in and open the throttle and go nowhere -
+  // measured, four seconds of full power left an aeroplane standing on the
+  // apron at three pixels a second, which is exactly one frame's worth of
+  // acceleration.
+  const resting = next.choppers.some(
+    (machine) =>
+      machine.id !== next.player.chopper &&
+      (machine.spin !== 0 || machine.speed !== 0),
+  );
+  if (resting) {
+    next = {
+      ...next,
+      choppers: next.choppers.map((machine) =>
+        machine.id === next.player.chopper
           ? machine
           : { ...machine, spin: 0, speed: 0 },
       ),
@@ -1440,6 +1552,120 @@ function flyChopper(state: GameState, input: Input, dt: number): GameState {
   }
   return next;
 }
+
+/**
+ * Damage on a flying machine.
+ *
+ * @param state - the city
+ * @param id - which machine
+ * @param amount - how much bodywork it costs
+ * @returns the city with that machine worse off
+ * @remarks
+ * What happens at nought is in {@link flyChopper}: the stick stops working
+ * and the thing comes down. Nothing here has to say so - a wreck is simply a
+ * machine with no bodywork left, and every line that asks whether it can
+ * climb asks that.
+ */
+function hurtFlyer(state: GameState, id: number, amount: number): GameState {
+  const hit = state.choppers.find((machine) => machine.id === id);
+  const dying = hit !== undefined && hit.health > 0 && hit.health <= amount;
+  return {
+    ...state,
+    choppers: state.choppers.map((machine) =>
+      machine.id === id
+        ? { ...machine, health: Math.max(0, machine.health - amount) }
+        : machine,
+    ),
+    log: dying
+      ? note(state.log, "Getroffen - die Maschine geht runter.")
+      : state.log,
+  };
+}
+
+/**
+ * How far over a flying machine is, after this step.
+ *
+ * @param machine - the machine as it stands
+ * @param rate - how fast its nose is coming round, in radians a second
+ * @param speed - what it is doing along that nose
+ * @param dt - seconds since the last step
+ * @returns the new bank, in radians
+ * @remarks
+ * The motorbike's `leaning`, in the air: turn rate times speed over
+ * {@link BANK_STIFF}, clamped to {@link BANK_MOST} and eased towards at
+ * {@link LEAN_RATE}. Rolling backwards banks the other way, which is what
+ * happens when one steers a thing in reverse and is worth the nothing it
+ * costs: the sum is signed all the way through.
+ */
+function banking(
+  machine: Chopper,
+  rate: number,
+  speed: number,
+  dt: number,
+): number {
+  const want = Math.max(
+    -BANK_MOST,
+    Math.min(BANK_MOST, (rate * speed) / BANK_STIFF),
+  );
+  return machine.lean + (want - machine.lean) * Math.min(1, dt * LEAN_RATE);
+}
+
+/**
+ * How one sort of flying machine behaves.
+ *
+ * @param kind - which sort it is
+ * @returns the numbers the flying model reads
+ * @remarks
+ * One table rather than a fork in every line: the two machines differ in
+ * eight numbers and in nothing else, and the one that matters is `lift` - a
+ * helicopter climbs from a standstill, an aeroplane does not climb at all
+ * until the wing has something going past it.
+ *
+ * The aeroplane is also the faster thing in the city by a street: nine
+ * hundred pixels a second is twice what the helicopter does and three times
+ * what a car does, and it keeps most of it when the throttle is let go
+ * instead of stopping in the air.
+ */
+function flightOf(kind: ChopperKind): {
+  readonly rise: number;
+  readonly fall: number;
+  readonly ceiling: number;
+  readonly turn: number;
+  readonly accel: number;
+  readonly drag: number;
+  readonly top: number;
+  readonly lift: number;
+  readonly back: number;
+} {
+  return kind === "plane"
+    ? {
+        rise: PLANE_RISE,
+        fall: PLANE_FALL,
+        ceiling: PLANE_CEILING,
+        turn: PLANE_TURN,
+        accel: PLANE_ACCEL,
+        drag: PLANE_ACCEL * PLANE_COAST,
+        top: PLANE_SPEED,
+        lift: PLANE_LIFT,
+        back: PLANE_BACK,
+      }
+    : {
+        rise: CHOP_RISE,
+        fall: CHOP_FALL,
+        ceiling: CHOP_CEILING,
+        turn: CHOP_TURN,
+        accel: CHOP_ACCEL,
+        drag: CHOP_ACCEL,
+        top: CHOP_SPEED,
+        lift: 0,
+        // A helicopter has no need of one: it turns on the spot and then
+        // flies wherever it is pointing.
+        back: 0,
+      };
+}
+
+/** How much of its power an aeroplane loses to drag with the throttle shut. */
+const PLANE_COAST = 0.3;
 
 /**
  * The anti-aircraft guns round the base.
@@ -1521,6 +1747,7 @@ function ackShot(state: GameState, at: Vec): GameState {
         y: at.y + Math.sin(angle) * MUZZLE,
         angle,
         left: ACK_RANGE,
+        reach: ACK_RANGE,
         speed: ACK_SPEED,
         damage: ACK_DAMAGE,
         shape: "shot",
@@ -1852,6 +2079,10 @@ function leaveCar(state: GameState): GameState {
           // Out of the door he got in by, which is the one on the left.
           x: car.x + Math.cos(car.angle - Math.PI / 2) * bodyRadius(car.body),
           y: car.y + Math.sin(car.angle - Math.PI / 2) * bodyRadius(car.body),
+          // **Wer aus einem Boot steigt, liegt im Wasser.** Sonst stuende er
+          // auf der See - und unter einer Bruecke sogar oben auf deren Deck,
+          // weil das Feld dort beides ist. Siehe `stillWet`.
+          swimming: floats(car.body),
         },
         cars: state.cars.map((each) =>
           // Left standing, and it stays standing. A car nobody is in is not
@@ -1923,7 +2154,14 @@ function walk(
   const dy =
     steer === null ? (input.down ? 1 : 0) - (input.up ? 1 : 0) : steer.y;
   const length = Math.hypot(dx, dy);
-  const pace = WALK_SPEED * sprint(state.player.god, input.boost, false);
+  // **In the water one swims, and swimming is slow.** Two speeds rather than
+  // one: on the surface he is paddling with his head out of it, under it he is
+  // pulling himself along and gets on a little faster - which is the one
+  // reason to dive other than getting out of the way of something.
+  const wet = swimming(state);
+  const under = wet && input.lift;
+  const base = wet ? (under ? DIVE_SPEED : SWIM_SPEED) : WALK_SPEED;
+  const pace = base * sprint(state.player.god, input.boost, false);
   const step = length === 0 ? 0 : (pace * dt) / length;
   // **Where a wall is depends on how high he is.** On the pavement a house is
   // a wall; on its roof it is the floor; over the top of everything there is
@@ -1931,7 +2169,14 @@ function walk(
   // {@link clears} - which is also what lets somebody walk off the edge of a
   // roof and start falling instead of being stopped at it by nothing.
   const high = state.player.height;
-  const want = slide(state.cells, state.player, dx * step, dy * step, high);
+  const want = slide(
+    state.cells,
+    state.player,
+    dx * step,
+    dy * step,
+    high,
+    "feet",
+  );
   // Bodywork is solid: neither the player nor anybody on the pavement walks
   // through a car. Once his feet are off the road it is not, for the same
   // reason - a man on a roof is not in anybody's boot.
@@ -1958,6 +2203,11 @@ function walk(
       walked: stridden(state.player.walked, went, dt),
       pace: dt === 0 ? 0 : went / dt / WALK_SPEED,
       movedAt: went > 0 ? state.time : state.player.movedAt,
+      // **Only in water.** Holding the space bar on dry land is the jetpack's
+      // business and nothing to do with this; a man cannot dive into a road.
+      diving: under,
+      // Und ob er ueberhaupt im Wasser ist - siehe {@link stillWet}.
+      swimming: stillWet(state.cells, moved, state.player.swimming),
     },
   };
   const speed = dt === 0 ? 0 : went / dt;
@@ -2262,7 +2512,7 @@ function slideCar(
 ): { x: number; y: number; speed: number; rolled: number } {
   const dx = Math.cos(angle) * speed * dt;
   const dy = Math.sin(angle) * speed * dt;
-  const moved = slide(cells, car, dx, dy);
+  const moved = slide(cells, car, dx, dy, 0, wayOf(car.body));
   // Stopped dead, rather than merely scraping along a wall: a car that got
   // less than half the way it wanted hit something head on.
   const went = Math.hypot(moved.x - car.x, moved.y - car.y);
@@ -2329,7 +2579,7 @@ function rollCar(
   const side = angle + Math.PI / 2;
   const dx = (Math.cos(angle) * forward + Math.cos(side) * slip) * dt;
   const dy = (Math.sin(angle) * forward + Math.sin(side) * slip) * dt;
-  const moved = slide(cells, car, dx, dy);
+  const moved = slide(cells, car, dx, dy, 0, wayOf(car.body));
   // Stopped dead rather than merely scraping along a wall: whatever got less
   // than half the way it wanted hit something head on, and a car that hits a
   // wall keeps neither its speed nor its slide.
@@ -2363,13 +2613,84 @@ function slide(
   dx: number,
   dy: number,
   high = 0,
+  how: Passable = "wheels",
 ): { x: number; y: number } {
   const hops = Math.max(1, Math.ceil(Math.hypot(dx, dy) / HOP));
   let at = { x: body.x, y: body.y };
   for (let hop = 0; hop < hops; hop += 1) {
-    at = nudge(cells, at, dx / hops, dy / hops, high);
+    at = nudge(cells, at, dx / hops, dy / hops, high, how);
   }
   return at;
+}
+
+/**
+ * Who is trying to get past something.
+ *
+ * @remarks
+ * Three answers to "is this in the way", and the floor is the same floor for
+ * all three: **wheels** stop at water and at walls, **feet** may go into the
+ * water and swim, and a **hull** may go nowhere else.
+ */
+type Passable = "wheels" | "feet" | "hull";
+
+/** Which of those a given vehicle is. */
+function wayOf(body: VehicleBody): Passable {
+  return floats(body) ? "hull" : "wheels";
+}
+
+/**
+ * Whether a point is in the water.
+ *
+ * @param cells - the city floor
+ * @param at - the point
+ * @returns true out past the sand
+ */
+export function inWater(cells: readonly Cell[], at: Vec): boolean {
+  const cell = cellUnder(cells, at.x, at.y);
+  // **Under a bridge there is water.** That is the whole point of the square:
+  // the deck is for wheels and feet, and what a hull - or a swimmer - finds
+  // there is the sea it was already in.
+  return cell === "water" || cell === "bridge";
+}
+
+/**
+ * Whether the player is swimming at this moment.
+ *
+ * @param state - the city
+ * @returns true when he is on foot and in the water
+ * @remarks
+ * Worked out from where he is standing rather than remembered: one is
+ * swimming because one is in water, and the moment one is not, one is not.
+ * Being in a boat is not a case, because there are no boats; being in a car
+ * in the water is not a case either, because a car cannot get in.
+ */
+export function swimming(state: GameState): boolean {
+  return (
+    state.player.car === null &&
+    !state.player.flying &&
+    state.player.height <= 0 &&
+    state.player.swimming
+  );
+}
+
+/**
+ * Whether somebody who was walking or swimming is in the water now.
+ *
+ * @param cells - the city floor
+ * @param at - where he has got to
+ * @param was - whether he was swimming a moment ago
+ * @returns true while he is in the water
+ * @remarks
+ * Drei Faelle, und der dritte ist der Grund fuer das Ganze: **Wasser** macht
+ * nass, **trockener Boden** macht trocken, und ein **Brueckenfeld** laesst
+ * alles, wie es war. Ein Brueckenfeld ist oben Fahrbahn und unten Meer; wer
+ * darauf zulaeuft, geht darueber, wer darauf zuschwimmt, schwimmt darunter
+ * hindurch. Vorher zaehlte nur das Feld, und damit stand jeder Schwimmer,
+ * sobald er unter eine Bruecke kam, ploetzlich oben auf ihr.
+ */
+function stillWet(cells: readonly Cell[], at: Vec, was: boolean): boolean {
+  const cell = cellUnder(cells, at.x, at.y);
+  return cell === "bridge" ? was : cell === "water";
 }
 
 /**
@@ -2395,6 +2716,7 @@ function steerRound(
   from: Vec,
   want: number,
   reach: number,
+  how: Passable = "wheels",
 ): number {
   let best = want;
   let found = false;
@@ -2403,11 +2725,18 @@ function steerRound(
       const turned = want + off;
       let clear = true;
       for (let out = LOOK_STEP; out <= reach; out += LOOK_STEP) {
+        // **Frei heisst nicht fuer jeden dasselbe.** Ein Rumpf sucht Wasser,
+        // wo Raeder Asphalt suchen; mit der Strassenfrage im Blick lenkte ein
+        // Polizeiboot vom offenen Meer weg auf die Kaimauer zu.
         if (
-          !isOpen(
+          !clears(
             cells,
-            from.x + Math.cos(turned) * out,
-            from.y + Math.sin(turned) * out,
+            {
+              x: from.x + Math.cos(turned) * out,
+              y: from.y + Math.sin(turned) * out,
+            },
+            0,
+            how,
           )
         ) {
           clear = false;
@@ -2455,11 +2784,12 @@ function nudge(
   dx: number,
   dy: number,
   high = 0,
+  how: Passable = "wheels",
 ): { x: number; y: number } {
   const stepX = { x: body.x + dx, y: body.y };
-  const okX = clears(cells, stepX, high) ? stepX.x : body.x;
+  const okX = clears(cells, stepX, high, how) ? stepX.x : body.x;
   const stepY = { x: okX, y: body.y + dy };
-  const okY = clears(cells, stepY, high) ? stepY.y : body.y;
+  const okY = clears(cells, stepY, high, how) ? stepY.y : body.y;
   return {
     x: Math.max(0, Math.min(CITY_SIZE, okX)),
     y: Math.max(0, Math.min(CITY_SIZE, okY)),
@@ -2487,14 +2817,32 @@ function nudge(
  *   is above everything - including the water and the fence, which have no
  *   roof to land on and are solid at every height below it.
  */
-function clears(cells: readonly Cell[], at: Vec, high: number): boolean {
+function clears(
+  cells: readonly Cell[],
+  at: Vec,
+  high: number,
+  how: Passable = "wheels",
+): boolean {
   // Asked in this order because of what it costs. Every car in the city tests
   // every step it takes against this, and all of them are on the road: the two
   // cheap answers settle it for everything with tyres, and the height of the
   // building only has to be worked out for somebody who is actually off the
   // ground and up against one.
   let ok: boolean;
+  // **A hull has the map the other way round.** Everything else here treats
+  // water as a wall and the rest as floor; a boat treats the water as the only
+  // floor there is, and the quay it is tied to as the wall. One question,
+  // asked first, because nothing about a boat is a special case of a car.
+  if (how === "hull") {
+    return inWater(cells, at);
+  }
   if (isOpen(cells, at.x, at.y) || high >= ROOF_HEIGHT) {
+    ok = true;
+  } else if (how === "feet" && inWater(cells, at)) {
+    // **Somebody on foot may go in.** Water is a wall to everything with
+    // wheels and to everything that is thrown, and it is not a wall to a man:
+    // he gets in and swims. Nothing else in the city asks for this, so it is
+    // off unless the caller says otherwise - see `walk`.
     ok = true;
   } else if (high <= 0) {
     ok = false;
@@ -2524,29 +2872,51 @@ function shoot(state: GameState, input: Input, dt: number): GameState {
   const gun = WEAPONS[player.weapon];
   const seat = carOf(state);
   const turret = seat !== null && VEHICLES[seat.body].gun;
+  // **And the gunship, which is a tank that flies.** The Black Hawk carries
+  // the same two weapons on the same two triggers - a rocket on the left
+  // button, the machine gun for as long as the right one is held - and like
+  // the tank it shoots along its own nose rather than at the crosshair: what
+  // one aims is the whole machine. The other two carry nothing. A rescue
+  // helicopter with a cannon on it is not a rescue helicopter, and an
+  // aeroplane here is a way of crossing the map.
+  const flown = flownBy(state);
+  const gunship = flown !== null && flown.kind === "army";
   // The detonator counts as loaded while anything of its is still lying about:
   // the last charge one puts down must not be the one that takes the button
   // out of one's hand.
   const armed = player.car === null && carried(beltOf(state), player.weapon);
+  // **Nobody shoots while swimming.** One hand is holding the weapon out of
+  // the water and the other is what is keeping him up; under the surface
+  // there is not even that. It is also what stops the harbour from being a
+  // trench one can lie in and fire from.
+  const afloat = swimming(state);
   const ready =
     input.fire &&
     state.time >= player.reloadAt &&
     state.time >= player.floorUntil &&
-    (armed || turret);
+    !afloat &&
+    (armed || turret || gunship);
   // **The other trigger.** Held, not pressed, and it belongs to the tank: the
   // machine gun goes on for as long as the button is down. It is checked apart
   // from the chain below because both may fire in the same frame - that is
   // what having two weapons on one vehicle means.
   const rattling =
-    turret &&
-    seat !== null &&
+    !afloat &&
+    ((turret && seat !== null) || gunship) &&
     input.spray &&
     state.time >= player.gunAt &&
     state.time >= player.floorUntil;
   let next = state;
   if (ready && turret && seat !== null) {
     // The one thing that shoots from a seat, because the seat is a tank.
-    next = fireShell(state, seat, input.aim);
+    next = fireShell(state, seat.turret, input.aim);
+    next = {
+      ...next,
+      player: { ...next.player, reloadAt: state.time + SHELL_RELOAD },
+    };
+  } else if (ready && gunship && flown !== null) {
+    // And the one that shoots from the air, along the nose it is pointed.
+    next = fireShell(state, flown.angle, input.aim);
     next = {
       ...next,
       player: { ...next.player, reloadAt: state.time + SHELL_RELOAD },
@@ -2570,8 +2940,14 @@ function shoot(state: GameState, input: Input, dt: number): GameState {
       },
     };
   }
-  if (rattling && seat !== null) {
-    next = fireCoax(next, seat, input.aim);
+  if (rattling && turret && seat !== null) {
+    next = fireCoax(next, seat.turret, input.aim);
+    next = {
+      ...next,
+      player: { ...next.player, gunAt: state.time + COAX_RELOAD },
+    };
+  } else if (rattling && flown !== null) {
+    next = fireCoax(next, flown.angle, input.aim);
     next = {
       ...next,
       player: { ...next.player, gunAt: state.time + COAX_RELOAD },
@@ -2658,6 +3034,10 @@ function launch(state: GameState, gun: Weapon, aim: Vec): GameState {
         : gun.kind === "grenade"
           ? "grenade"
           : "shot";
+  const aimed = Math.max(
+    SHORTEST,
+    Math.min(gun.range, far(player, aim) - MUZZLE),
+  );
   const fired: GameState = {
     ...state,
     rng: draw.state,
@@ -2668,22 +3048,33 @@ function launch(state: GameState, gun: Weapon, aim: Vec): GameState {
         x: player.x + Math.cos(angle) * MUZZLE,
         y: player.y + Math.sin(angle) * MUZZLE,
         angle,
-        // A grenade lands where it was thrown at, not as far as the arm
-        // reaches: whatever is nearer, the crosshair or the end of the throw.
-        left:
-          shape === "grenade"
-            ? Math.min(gun.range, Math.max(0, far(player, aim) - MUZZLE))
-            : gun.range,
+        // **Two of them stop at the crosshair rather than at their own
+        // maximum.** A grenade lands where it was thrown at, not as far as the
+        // arm reaches - and a jet of fire goes where it is pointed: one holds
+        // the trigger down and sweeps it over what is in front of one, and a
+        // jet that always went the full hundred and twenty pixels could not be
+        // put on the doorway two paces away. There is a floor under it, since
+        // a burst aimed at one's own boots is still a burst.
+        left: reaches(shape) ? aimed : gun.range,
         speed: gun.speed,
         damage: gun.damage,
         shape,
         from: "player",
         blowAt: shape === "grenade" ? state.time + GRENADE_FUSE : null,
+        reach: reaches(shape) ? aimed : gun.range,
       },
     ],
   };
   return startle(fired, player, EARSHOT);
 }
+
+/** Which sorts stop where they are aimed instead of where they run out. */
+function reaches(shape: BulletShape): boolean {
+  return shape === "grenade" || shape === "flame";
+}
+
+/** How short a burst may be, in pixels: one's own boots are still two paces. */
+const SHORTEST = 34;
 
 /** Seconds between two rounds from the tank. */
 const SHELL_RELOAD = 1.6;
@@ -2705,15 +3096,25 @@ const SHELL_SPEED = 540;
 const SHELL_RANGE = 2400;
 
 /**
- * The tank's gun.
+ * The heavy weapon: the tank's gun, and the Black Hawk's rockets.
  *
+ * @param state - the city
+ * @param angle - the way the machine is pointed, which is the way it shoots
+ * @param aim - where the crosshair is, which is how far the round flies
+ * @returns the city with one round of it in the air
  * @remarks
- * It fires where the tank points, not where the mouse does. There is no turret
- * that turns on its own here - lining the whole thing up is what a tank asks
- * of you, and it is what makes a tank feel like a tank rather than a heavy car.
+ * It fires where the machine points, not where the mouse does. There is no
+ * turret that turns on its own here - lining the whole thing up is what a tank
+ * asks of you, and it is what makes a tank feel like a tank rather than a
+ * heavy car. The gunship asks exactly the same, which is why it takes the
+ * heading and not the vehicle: a helicopter has no turret to read, it has a
+ * nose.
  */
-function fireShell(state: GameState, tank: Car, aim: Vec): GameState {
-  const angle = tank.turret;
+function fireShell(state: GameState, angle: number, aim: Vec): GameState {
+  const shellFar = Math.min(
+    SHELL_RANGE,
+    Math.max(0, far(state.player, aim) - SHELL_MUZZLE),
+  );
   const fired: GameState = {
     ...state,
     bullets: [
@@ -2725,10 +3126,8 @@ function fireShell(state: GameState, tank: Car, aim: Vec): GameState {
         angle,
         // It goes off on the crosshair. The range is only the ceiling, and it
         // is set high enough that a tank shoots as far as one can see.
-        left: Math.min(
-          SHELL_RANGE,
-          Math.max(0, far(state.player, aim) - SHELL_MUZZLE),
-        ),
+        left: shellFar,
+        reach: shellFar,
         speed: SHELL_SPEED,
         damage: SHELL_FORCE,
         shape: "rocket",
@@ -2745,14 +3144,15 @@ function fireShell(state: GameState, tank: Car, aim: Vec): GameState {
 const SHELL_MUZZLE = 44;
 
 /**
- * The machine gun mounted beside the tank's main gun.
+ * The machine gun mounted beside the heavy one.
  *
  * @param state - the city
- * @param tank - the machine it is bolted to
+ * @param along - the way the machine is pointed
  * @param aim - where the crosshair is
  * @returns the city with one round of it in the air
  * @remarks
- * **A tank is two weapons, not one.** The cannon is for what is worth a shell;
+ * **A tank is two weapons, not one**, and so is the gunship. The cannon is for
+ * what is worth a shell;
  * everything else - a man in the road, a car that will not get out of the way,
  * a window - is what the coaxial is for, and a tank without one is a very slow
  * vehicle with a single-shot gun on it.
@@ -2763,9 +3163,13 @@ const SHELL_MUZZLE = 44;
  * is not part of the belt one carries and has no ammunition of its own - the
  * rounds are in the tank, and there are a great many of them.
  */
-function fireCoax(state: GameState, tank: Car, aim: Vec): GameState {
+function fireCoax(state: GameState, along: number, aim: Vec): GameState {
   const drawn = nextRandom(state.rng);
-  const angle = tank.turret + (drawn.value - HALF) * COAX_SPREAD * 2;
+  const angle = along + (drawn.value - HALF) * COAX_SPREAD * 2;
+  const coaxFar = Math.min(
+    COAX_RANGE,
+    Math.max(0, far(state.player, aim) - COAX_MUZZLE),
+  );
   return {
     ...state,
     rng: drawn.state,
@@ -2776,10 +3180,8 @@ function fireCoax(state: GameState, tank: Car, aim: Vec): GameState {
         x: state.player.x + Math.cos(angle) * COAX_MUZZLE,
         y: state.player.y + Math.sin(angle) * COAX_MUZZLE,
         angle,
-        left: Math.min(
-          COAX_RANGE,
-          Math.max(0, far(state.player, aim) - COAX_MUZZLE),
-        ),
+        left: coaxFar,
+        reach: coaxFar,
         speed: COAX_SPEED,
         damage: COAX_DAMAGE,
         shape: "shot",
@@ -2857,7 +3259,14 @@ function flyBullets(state: GameState, dt: number): GameState {
     const y = shot.y + Math.sin(shot.angle) * step;
     const left = shot.left - step;
     const mine = shot.from === "player";
-    const wall = !isOpen(next.cells, x, y);
+    // **Ueber Wasser fliegt eine Kugel weiter.** Wasser ist eine Wand fuer
+    // Raeder und fuer Fuesse, nicht fuer etwas, das geworfen oder geschossen
+    // wird: Bisher war jeder Schuss am Ufer zu Ende, und damit war jeder
+    // Schusswechsel auf dem Wasser einer, bei dem nichts ankommt - ein
+    // Polizeiboot hat sechzig Sekunden lang gefeuert und keinen Treffer
+    // gelandet. Das Deck einer Bruecke zaehlt hier wie Wasser, denn darunter
+    // ist welches.
+    const wall = !isOpen(next.cells, x, y) && !inWater(next.cells, { x, y });
     const fused = shot.blowAt !== null && next.time >= shot.blowAt;
     const person = next.people.find(
       (each) =>
@@ -2880,10 +3289,13 @@ function flyBullets(state: GameState, dt: number): GameState {
       far(heliAim(next.heli), { x, y }) < HELI_HIT
         ? next.heli
         : null;
+    // **A round goes over a diver.** What is above his head is water, and
+    // that is the whole reason to go under one.
     const onPlayer =
       shot.from !== "player" &&
       shot.from !== "mine" &&
       next.player.car === null &&
+      !next.player.diving &&
       far(next.player, { x, y }) < SHOT_HIT;
     const car = next.cars.find(
       (each) =>
@@ -2948,7 +3360,14 @@ function flyBullets(state: GameState, dt: number): GameState {
         );
       }
     } else if (onPlayer) {
-      next = hurt(next, shot.damage, "Getroffen worden.");
+      // **In the air it is the machine that gets hit, not the man in it** -
+      // the same arrangement as a car, and for the same reason: what is
+      // between the bullet and the pilot is an aircraft. See {@link hurtFlyer}.
+      const flown = flownBy(next);
+      next =
+        flown === null
+          ? hurt(next, shot.damage, "Getroffen worden.")
+          : hurtFlyer(next, flown.id, shot.damage);
     } else if (car !== undefined) {
       next = damageCar(next, car.id, shot.damage * CAR_TOUGHNESS);
       next =
@@ -2958,8 +3377,95 @@ function flyBullets(state: GameState, dt: number): GameState {
     } else if (!spent) {
       alive.push({ ...shot, x, y, left });
     }
+    // **And fire stays where it landed.** Everything else that runs out of
+    // range simply stops existing; burning fuel does not. See {@link Fire}.
+    if (shot.shape === "flame" && (spent || struck)) {
+      next = dropFire(next, { x, y });
+    }
   }
   return { ...next, bullets: alive };
+}
+
+/**
+ * Sets a patch of ground alight.
+ *
+ * @param state - the city
+ * @param at - where the fuel came down
+ * @returns the city with that patch burning
+ * @remarks
+ * Tops up whatever is already burning within {@link FIRE_APART} rather than
+ * laying a second patch on top of it - see {@link Fire} - and never holds
+ * more than {@link FIRE_MOST}, the oldest going out first. Both are there for
+ * the same reason: the gun fires twenty-five times a second, and a list that
+ * grows at that rate is a list that is soon the whole of the frame.
+ */
+function dropFire(state: GameState, at: Vec): GameState {
+  const until = state.time + FIRE_BURNS;
+  const near = state.fires.find((one) => far(one, at) < FIRE_APART);
+  if (near !== undefined) {
+    return {
+      ...state,
+      fires: state.fires.map((one) =>
+        one.id === near.id ? { ...one, until } : one,
+      ),
+    };
+  }
+  const room = state.fires.slice(Math.max(0, state.fires.length - FIRE_MOST));
+  return {
+    ...state,
+    fires: [...room, { id: state.fires.length, x: at.x, y: at.y, until }],
+  };
+}
+
+/**
+ * The ground burning, and whoever is standing in it.
+ *
+ * @param state - the city
+ * @param dt - seconds since the last step
+ * @returns the city a moment later
+ * @remarks
+ * **Burning ground is not a decoration.** What makes a flamethrower worth
+ * carrying is that the place one has sprayed stays dangerous for a few
+ * seconds afterwards: one can cut a doorway off, or hose a pavement and watch
+ * whoever is on it come out of the fire rather than through it.
+ *
+ * Damage is by the second and not by the frame, so it costs the same whatever
+ * the machine is doing. It counts for everybody on foot - the crowd, the
+ * police, and the man holding the gun, who has no business standing in his
+ * own fire. Anybody in a car is inside a car, and a car is not on fire
+ * because the road under it is.
+ */
+function burnGround(state: GameState, dt: number): GameState {
+  if (state.fires.length === 0) {
+    return state;
+  }
+  const alight = state.fires.filter((one) => one.until > state.time);
+  let next: GameState = { ...state, fires: alight };
+  if (alight.length === 0) {
+    return next;
+  }
+  const bite = FIRE_HURT * dt;
+  const burning = (at: Vec): boolean =>
+    alight.some((one) => far(one, at) < FIRE_REACH);
+  for (const person of next.people) {
+    if (person.mood !== "down" && burning(person)) {
+      next = hurtPerson(next, person.id, bite);
+    }
+  }
+  for (const cop of next.cops) {
+    if (cop.health > 0 && burning(cop)) {
+      next = hurtCop(next, cop.id, bite);
+    }
+  }
+  if (
+    next.player.car === null &&
+    !next.player.flying &&
+    next.player.health > 0 &&
+    burning(next.player)
+  ) {
+    next = hurt(next, bite, "Verbrannt.");
+  }
+  return next;
 }
 
 /**
@@ -4010,7 +4516,19 @@ function laneDrift(
       Math.abs(one - now) < Math.abs(best - now) ? one : best,
     );
   const off = want - now;
-  const most = town ? LANE_PULL * dt : 0;
+  // **Lanes hold on a bridge as well.** Out in the country the road sweeps and
+  // the drivers only know four directions, so a car chasing a lane down a
+  // diagonal wanders across it the whole way. A bridge does not sweep - it is
+  // the one piece of country road that is dead straight - and it is painted
+  // with four lanes, so the traffic keeps to them.
+  const decked = cellUnder(cells, car.x, car.y) === "bridge";
+  // **Spur wird ueberall gehalten, wo es Spuren gibt.** In der Stadt ohnehin;
+  // draussen ueberall dort, wo der Asphalt Autobahnbreite hat - und genau der
+  // ist auch derjenige, auf den Spuren gemalt sind. Uebrig bleibt die schmale
+  // Landstrasse, die sich durch die Gegend schwingt: Dort waere eine Spur ein
+  // Ziel, das mit jeder Kurve auf die andere Seite springt.
+  const striped = wide >= TILE * LANES_FROM;
+  const most = town || decked || striped ? LANE_PULL * dt : 0;
   const pull = Math.max(-most, Math.min(most, off));
   // The drift is given in "to the right of the nose", so it needs the sign
   // that turns a movement across the world into a movement across the car.
@@ -4026,16 +4544,24 @@ function laneDrift(
  * Five, which is the motorway and nothing else. An ordinary street is three
  * squares wide - a comfortable lane each way, and nothing like enough for two.
  */
-const LANES_FROM = 5;
+export const LANES_FROM = 5;
 
 /** Where the one lane of an ordinary street sits, as a share of half the road. */
 const ONE_LANE = 0.42;
 
-/** And the two lanes of a motorway. */
-const INNER_LANE = 0.3;
+/**
+ * And the two lanes of a motorway.
+ *
+ * @remarks
+ * A quarter and three quarters of the half width, which is the middle of each
+ * lane when the carriageway is split into four equal ones - and that is what
+ * the lines on the bridge are painted at. A car whose lane is not the middle
+ * of the painted lane is a car driving on the paint.
+ */
+const INNER_LANE = 0.25;
 
 /** The outer one, which is the one to pass in. */
-const OUTER_LANE = 0.74;
+const OUTER_LANE = 0.75;
 
 /** How fast a car pulls across into its lane, in pixels a second. */
 const LANE_PULL = 170;
@@ -4603,6 +5129,7 @@ function gangShot(
         y: person.y + Math.sin(angle) * MUZZLE,
         angle,
         left: gun.range,
+        reach: gun.range,
         speed: GANG_SPEED,
         damage: gun.damage * FOE_DAMAGE,
         shape: "shot",
@@ -4792,15 +5319,23 @@ function runPolice(state: GameState, dt: number): GameState {
   // pavement count too**: two who got out of a car are still two policemen,
   // and sending another car because their car no longer counts is how one ends
   // up surrounded by an endless supply of them.
-  const want = policeWanted(state);
+  //
+  // **Und auf dem Wasser wird anders gezaehlt.** Dort ist das Aufgebot die
+  // Zahl der Boote, nicht die der Wagen: Ein Streifenwagen am Ufer ist gegen
+  // jemanden im Kanal genauso viel wert wie keiner, und solange er in der
+  // Quote steckte, schickte die Wache gar nichts mehr hinterher. Genau daran
+  // lag es, dass nie ein Polizeiboot kam.
+  const wet = atSea(state);
+  const want = wet ? boatsWanted(state) : policeWanted(state);
+  const have = wet ? boatsOut(state) : onDuty(state);
   // The tank is sent whether or not the six are already out. It is what turns
   // up **on top of** them at six stars, so it does not wait for a gap in the
   // count - and without this it never came at all, because six patrols out of
   // the traffic had already filled the quota before the station was asked.
   const noTank =
-    state.player.stars >= TANK_STARS && !state.cars.some(isPoliceTank);
+    !wet && state.player.stars >= TANK_STARS && !state.cars.some(isPoliceTank);
   let next = state;
-  if ((noTank || onDuty(state) < want) && state.time >= state.patrolAt) {
+  if ((noTank || have < want) && state.time >= state.patrolAt) {
     next = { ...callPolice(next), patrolAt: state.time + PATROL_EVERY };
   }
   // **Nobody in it, nobody driving it.** A patrol car whose men are out on the
@@ -4814,6 +5349,12 @@ function runPolice(state: GameState, dt: number): GameState {
   );
   next = { ...next, cars };
   next = openDoors(next);
+  // **Vom Boot aus wird geschossen.** An Land halten sie an, steigen aus und
+  // stellen sich um einen herum; auf dem Wasser geht das nicht - die Tuer
+  // ginge auf die See auf -, also bleibt die Besatzung sitzen und feuert vom
+  // Deck. Ohne das waere ein Polizeiboot ein Verfolger, der einen einholt und
+  // dann danebenherfaehrt.
+  next = seaShots(next);
   return moveCops(next, dt);
 }
 
@@ -4838,6 +5379,10 @@ function onDuty(state: GameState): number {
       car.kind === "police" &&
       car.health > 0 &&
       car.crew > 0 &&
+      // Ein Boot zaehlt hier nicht mit. Es hat seine eigene Quote - siehe
+      // {@link boatsOut} -, und solange es in dieser hier steckte, kam an
+      // Land kein Wagen mehr nach, sobald einmal eines im Wasser lag.
+      !floats(car.body) &&
       !isPoliceTank(car),
   ).length;
   const men = state.cops.filter(
@@ -4862,6 +5407,40 @@ function policeWanted(state: GameState): number {
 }
 
 /**
+ * How many police boats are already out on the water.
+ *
+ * @param state - the city
+ * @returns the ones that still have somebody at the wheel
+ */
+function boatsOut(state: GameState): number {
+  return state.cars.filter(
+    (car) =>
+      car.kind === "police" &&
+      floats(car.body) &&
+      car.health > 0 &&
+      car.crew > 0,
+  ).length;
+}
+
+/**
+ * And how many the star count is worth out there.
+ *
+ * @param state - the city
+ * @returns one per star, up to {@link BOATS_MAX}
+ * @remarks
+ * Weniger als an Land, und zwar mit Absicht: Auf dem offenen Wasser gibt es
+ * keine Ecke, um die man verschwindet, und drei Boote, die alle etwas
+ * schneller sind als das eigene, sind bereits eine Jagd, der man nur an Land
+ * entkommt.
+ */
+function boatsWanted(state: GameState): number {
+  return Math.min(BOATS_MAX, state.player.stars);
+}
+
+/** How many boats the water police ever have out at once. */
+const BOATS_MAX = 3;
+
+/**
  * Patrol cars that have pulled up beside a player on foot let their men out.
  *
  * @remarks
@@ -4881,6 +5460,8 @@ function openDoors(state: GameState): GameState {
         car.kind === "police" &&
         car.crew > 0 &&
         !car.driven &&
+        // Aus einem Boot steigt niemand aus: Die Tuer ginge aufs Wasser auf.
+        !floats(car.body) &&
         far(car, state.player) < COP_STOP;
       // The doors do not fly open the moment the handbrake goes on.
       const halted = pulled ? (car.haltAt ?? state.time) : null;
@@ -5246,6 +5827,7 @@ function copShot(state: GameState, cop: Cop, gun: Weapon): GameState {
         y: cop.y + Math.sin(angle) * MUZZLE,
         angle,
         left: gun.range,
+        reach: gun.range,
         speed: COP_BULLET_SPEED,
         damage: gun.damage * FOE_DAMAGE,
         shape: "shot",
@@ -5379,17 +5961,33 @@ function callPolice(state: GameState): GameState {
     x: state.player.x + Math.cos(angle) * POLICE_SPAWN_RANGE,
     y: state.player.y + Math.sin(angle) * POLICE_SPAWN_RANGE,
   };
-  const spot = isRoadAt(state.cells, at.x, at.y)
-    ? at
-    : nearestCrossing(at.x, at.y);
   const id = state.cars.reduce((most, car) => Math.max(most, car.id), 0) + 1;
   // What they send goes up with the stars. One star is a traffic offence and
   // gets a man on a motorbike; from two on the cars come out as well; at six
-  // they send the tank, which is also the only tank in the game.
+  // they send the tank, which is also the only tank in the game. Out on the
+  // water it is a boat, whatever the stars say.
   const body = pickPatrol(state, id);
+  // **Ein Boot kommt aus dem Wasser, nicht von der naechsten Kreuzung.** Und
+  // wenn ringsum keines ist - der Gesuchte liegt in einem Teich, zu dem kein
+  // Meer fuehrt -, faehrt eben keines: lieber keine Verstaerkung als eine, die
+  // im Sand steht.
+  const wet = floats(body);
+  const spot = wet
+    ? openWater(state.cells, at)
+    : isRoadAt(state.cells, at.x, at.y)
+      ? at
+      : nearestCrossing(at.x, at.y);
+  if (spot === null) {
+    return { ...state, rng: draw.state };
+  }
   return {
     ...state,
     rng: draw.state,
+    // Ein Boot sagt sich an: Wer im Wasser liegt, sieht es erst, wenn es
+    // schon nah ist, und bis dahin soll er wissen, dass es unterwegs ist.
+    log: wet
+      ? note(state.log, "Ein Polizeiboot ist auf dem Wasser.")
+      : state.log,
     cars: [
       ...state.cars,
       {
@@ -5422,6 +6020,40 @@ function callPolice(state: GameState): GameState {
     ],
   };
 }
+
+/**
+ * Open water near a point, for setting a boat down on.
+ *
+ * @param cells - the city floor
+ * @param at - where the boat would have come from
+ * @returns a point on the water, or null if there is none within reach
+ * @remarks
+ * Erst die Stelle selbst, dann in Ringen nach aussen - dieselbe Suche, die ein
+ * Auto an die naechste Kreuzung setzt, nur dass hier Wasser das Ziel ist.
+ * Unter einer Bruecke zaehlt auch: Dort ist Wasser, und ein Boot faehrt
+ * darunter hindurch.
+ */
+function openWater(cells: readonly Cell[], at: Vec): Vec | null {
+  for (let ring = 0; ring <= BOAT_LOOK; ring += 1) {
+    for (let step = 0; step < BOAT_TRIES; step += 1) {
+      const turn = (step / BOAT_TRIES) * Math.PI * 2;
+      const spot = {
+        x: at.x + Math.cos(turn) * ring * TILE,
+        y: at.y + Math.sin(turn) * ring * TILE,
+      };
+      if (inWater(cells, spot)) {
+        return spot;
+      }
+    }
+  }
+  return null;
+}
+
+/** How many squares out the search for open water goes. */
+const BOAT_LOOK = 14;
+
+/** And how many points it tries on each ring. */
+const BOAT_TRIES = 12;
 
 /**
  * The helicopter: sent at five stars, gone when the search is over.
@@ -5541,6 +6173,7 @@ function heliShot(state: GameState, heli: Heli): GameState {
         y: heli.y + Math.sin(angle) * MUZZLE,
         angle,
         left: HELI_RANGE,
+        reach: HELI_RANGE,
         speed: COP_BULLET_SPEED,
         damage: HELI_DAMAGE * FOE_DAMAGE,
         shape: "shot",
@@ -5551,6 +6184,95 @@ function heliShot(state: GameState, heli: Heli): GameState {
   };
   return startle(fired, heli, EARSHOT);
 }
+
+/**
+ * The police boats firing at whoever they have caught up with.
+ *
+ * @param state - the city
+ * @returns it with whatever they let off this frame
+ * @remarks
+ * Einer je Boot und Nachladezeit, mit derselben Streuung wie ein Polizist an
+ * Land. Gezielt wird auf den Gesuchten selbst, egal ob er schwimmt oder ein
+ * Boot faehrt: Beides ist auf dem Wasser dasselbe Ziel.
+ */
+function seaShots(state: GameState): GameState {
+  let next = state;
+  if (state.player.stars <= 0) {
+    return next;
+  }
+  for (const boat of state.cars) {
+    const ready =
+      boat.kind === "police" &&
+      floats(boat.body) &&
+      boat.crew > 0 &&
+      boat.health > 0 &&
+      !boat.driven &&
+      far(boat, state.player) < BOAT_RANGE &&
+      state.time >= (boat.fireAt ?? 0);
+    if (ready) {
+      next = boatShot(next, boat);
+    }
+  }
+  return next;
+}
+
+/** One shot off the deck of a police boat. */
+function boatShot(state: GameState, boat: Car): GameState {
+  const draw = nextRandom(state.rng);
+  const angle =
+    Math.atan2(state.player.y - boat.y, state.player.x - boat.x) +
+    (draw.value - HALF) * COP_SPREAD;
+  // **Die Kugel faengt ausserhalb des eigenen Rumpfes an.** Eine Muendung, die
+  // wie bei einem Mann auf der Strasse eine Handbreit vor dem Schuetzen liegt,
+  // liegt auf einem sechzig Pixel langen Boot noch mitten im Boot - und die
+  // Kugel schlug sofort in das eigene Deck. Gezaehlt: ohne das kam kein
+  // einziger Schuss an, mit ihm treffen sie.
+  const clear = MUZZLE + VEHICLES[boat.body].length / 2;
+  const fired: GameState = {
+    ...state,
+    rng: draw.state,
+    cars: state.cars.map((each) =>
+      each.id === boat.id
+        ? { ...each, fireAt: state.time + BOAT_RELOAD }
+        : each,
+    ),
+    bullets: [
+      ...state.bullets,
+      {
+        id: nextBulletId(state),
+        x: boat.x + Math.cos(angle) * clear,
+        y: boat.y + Math.sin(angle) * clear,
+        angle,
+        left: BOAT_RANGE,
+        reach: BOAT_RANGE,
+        speed: COP_BULLET_SPEED,
+        damage: BOAT_DAMAGE * FOE_DAMAGE,
+        shape: "shot",
+        from: "police",
+        blowAt: null,
+      },
+    ],
+  };
+  return startle(fired, boat, EARSHOT);
+}
+
+/** How far a police boat's crew will fire, in pixels. */
+const BOAT_RANGE = 300;
+
+/**
+ * How long between their shots, in seconds.
+ *
+ * @remarks
+ * Langsamer als ein Polizist an Land und viel langsamer als der Hubschrauber:
+ * Ein Boot faehrt, schaukelt und schiesst nebenbei. Gemessen mit zwei Booten
+ * auf einen Schwimmer, der nichts tut: gut zwanzig Sekunden bis er untergeht -
+ * genug, um wegzuschwimmen, zu tauchen oder zurueckzuschiessen, und wenig
+ * genug, dass Danebenliegen nicht kostenlos ist.
+ */
+const BOAT_RELOAD = 1.6;
+
+/** And what one of them takes off, before the difficulty is applied. */
+const BOAT_DAMAGE = 6;
 
 /** What the helicopter takes with it when it comes down. */
 const HELI_BLAST = 70;
@@ -5574,7 +6296,18 @@ const ROTOR_SPIN = 26;
  */
 function pickPatrol(state: GameState, id: number): VehicleBody {
   let body: VehicleBody = "patrolbike";
-  if (state.player.stars >= TANK_STARS && !state.cars.some(isPoliceTank)) {
+  // **Auf dem Wasser hilft kein Streifenwagen.** Wer schwimmt oder ein Boot
+  // faehrt, war bisher in Sicherheit, sobald er vom Ufer weg war: Raeder
+  // kommen nicht hinterher, und der Hubschrauber fliegt erst ab fuenf
+  // Sternen. Also schickt die Wache das, womit man dort ueberhaupt hinterher
+  // kommt - unabhaengig von der Sternzahl, denn ein Boot ist hier kein
+  // Aufgebot, sondern das einzige Fahrzeug, das ueberhaupt ankommt.
+  if (atSea(state)) {
+    body = "patrolboat";
+  } else if (
+    state.player.stars >= TANK_STARS &&
+    !state.cars.some(isPoliceTank)
+  ) {
     body = "tank";
   } else if (state.player.stars >= CAR_STARS && id % BIKE_EVERY !== 0) {
     // **Mostly cars.** It used to be every other one, which put as many men on
@@ -5588,9 +6321,24 @@ function pickPatrol(state: GameState, id: number): VehicleBody {
 /** One patrol in this many is a motorbike; the rest come in cars. */
 const BIKE_EVERY = 4;
 
+/**
+ * Whether the player is out on the water at this moment.
+ *
+ * @param state - the city
+ * @returns true in a boat, and true swimming
+ * @remarks
+ * Zwei Faelle, ein Ergebnis: Wer ein Boot faehrt, ist auf dem Wasser, und wer
+ * schwimmt, ist es auch. Danach richtet sich, was die Wache losschickt - siehe
+ * {@link pickPatrol}.
+ */
+function atSea(state: GameState): boolean {
+  const seat = carOf(state);
+  return seat === null ? swimming(state) : floats(seat.body);
+}
+
 /** Whether this body is a police machine whoever is at the wheel of it. */
 function isPatrol(body: VehicleBody): boolean {
-  return body === "patrol" || body === "patrolbike";
+  return body === "patrol" || body === "patrolbike" || body === "patrolboat";
 }
 
 /**
@@ -5708,12 +6456,19 @@ function chase(state: GameState, car: Car, dt: number): Car {
     next = car.speed === 0 ? car : { ...car, speed: 0, slip: 0 };
   } else if (state.player.stars > 0 && near(state.player, car)) {
     const straight = Math.atan2(goal.y - car.y, goal.x - car.x);
-    const want = steerRound(state.cells, car, straight, DRIVE_LOOK);
+    const way = wayOf(car.body);
+    const want = steerRound(state.cells, car, straight, DRIVE_LOOK, way);
     const turn = Math.max(
       -CAR_TURN * dt,
       Math.min(CAR_TURN * dt, angleTo(car.angle, want)),
     );
-    const speed = Math.min(POLICE_TOP_SPEED, car.speed + CAR_ACCEL * dt);
+    // **Ein Boot faehrt hoechstens so schnell, wie es kann.** Fuer Raeder
+    // gilt weiter das Tempo der Streife; ein Rumpf, der mit 360 ueber das
+    // Wasser schiesst, haengt jedes Motorboot ab, und dann waere die Flucht
+    // ueber See keine mehr. Mit 320 gegen 290 holt er langsam auf - und wer
+    // Land erreicht, ist ihn los.
+    const cap = way === "hull" ? VEHICLES[car.body].top : POLICE_TOP_SPEED;
+    const speed = Math.min(cap, car.speed + CAR_ACCEL * dt);
     // Their tyres are the same tyres: a patrol car that took a corner on rails
     // while the player's identical saloon slid would be two different games.
     const moved = rollCar(

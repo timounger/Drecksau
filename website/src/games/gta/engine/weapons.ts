@@ -70,6 +70,34 @@ export const WEAPON_ORDER: readonly WeaponKind[] = [
   "remote",
 ];
 
+/**
+ * The weapons that are in the game at present.
+ *
+ * @remarks
+ * **Taken out, not deleted.** The knuckleduster and the baton are not in this
+ * city any more - they do not lie about, the shops do not sell them, nobody
+ * carries one and the cheat does not hand one out. Everything else about them
+ * is exactly where it was: the row in {@link WEAPONS}, the price, the slot in
+ * {@link WEAPON_ORDER}, the picture of the thing in the hand. Taking a name
+ * out of this list is all it takes to have it back.
+ *
+ * The slot is deliberately left in place. The belt is an array indexed by
+ * {@link WEAPON_ORDER}, and every stand ever saved is indexed the same way:
+ * shortening that order would quietly hand everybody somebody else's
+ * ammunition.
+ */
+export const SHELVED: readonly WeaponKind[] = ["knuckles", "baton"];
+
+/**
+ * Whether a weapon is one this city has at all.
+ *
+ * @param kind - the weapon
+ * @returns false for the ones on the shelf - see {@link SHELVED}
+ */
+export function inTheGame(kind: WeaponKind): boolean {
+  return !SHELVED.includes(kind);
+}
+
 /** How much of a blast something at the very centre of it takes. */
 export const BLAST_RADIUS = 90;
 
@@ -241,7 +269,7 @@ export function refillPrice(kind: WeaponKind): number {
  * @returns everything that can be bought, in the order of the belt
  */
 export function forSale(): readonly WeaponKind[] {
-  return WEAPON_ORDER.filter((kind) => PRICES[kind] > 0);
+  return WEAPON_ORDER.filter((kind) => PRICES[kind] > 0 && inTheGame(kind));
 }
 
 /**
@@ -342,7 +370,15 @@ const CHEAT_STOCK = 3;
 
 /** A belt with everything in it, for the cheat. */
 export function fullBelt(): readonly number[] {
-  return WEAPON_ORDER.map((kind) =>
-    WEAPONS[kind].rounds < 0 ? -1 : WEAPONS[kind].rounds * CHEAT_STOCK,
-  );
+  return WEAPON_ORDER.map((kind) => {
+    let rounds: number;
+    if (!inTheGame(kind)) {
+      rounds = 0;
+    } else if (WEAPONS[kind].rounds < 0) {
+      rounds = -1;
+    } else {
+      rounds = WEAPONS[kind].rounds * CHEAT_STOCK;
+    }
+    return rounds;
+  });
 }

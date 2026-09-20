@@ -21,9 +21,13 @@
  */
 import {
   AIRPORT,
+  AIRPORT_GATE,
   BARN_HIGH,
   BASE,
   BASE_GATE,
+  CHANNEL,
+  CHANNEL_FLARE,
+  CHANNEL_NORTH,
   BASE_HUTS,
   FARMS,
   HOUSE_HIGH,
@@ -97,8 +101,18 @@ export function createCity(): readonly Cell[] {
  */
 function cellAt(col: number, row: number): Cell {
   let cell: Cell;
+  // **Ueber Wasser ist alles, was hinueberfuehrt, eine Bruecke.** Die beiden
+  // Fragen darunter werden zuerst gestellt, weil Bahn und Strassen zuerst
+  // gezeichnet werden, und ueber Wasser ist die Antwort auf beide dasselbe
+  // Feld: ein Deck mit See darunter - siehe das `"bridge"`-Feld.
+  //
+  // Frueher galt das nur in der Meerenge. Damit waren die drei aelteren
+  // Querungen im Westen weiter massiver Asphalt auf dem Meer: kein Gelaender,
+  // kein Traeger, und mit dem Boot kam man nicht darunter durch. Es ist
+  // dieselbe Sache, also ist es dieselbe Regel.
+  const spanning = !onLand(col, row);
   if (onRail(col, row)) {
-    cell = "rail";
+    cell = spanning ? "bridge" : "rail";
   } else if (onFence(col, row)) {
     cell = "fence";
   } else if (BASE_HUTS.some((hut) => inBox(hut, col, row))) {
@@ -117,13 +131,21 @@ function cellAt(col: number, row: number): Cell {
     // rather than into it.
     cell = "dock";
   } else if (onRoute(col, row)) {
-    cell = "road";
+    cell = spanning ? "bridge" : "road";
   } else if (onTrack(col, row)) {
     cell = "dirt";
   } else if (FARMS.some((farm) => inBox(farm, col, row))) {
     cell = "building";
   } else if (inBox(AIRPORT, col, row)) {
-    cell = inBox(RUNWAY, col, row) ? "runway" : "dock";
+    // **The wire first, the field after it.** An airfield with a road running
+    // onto it at every corner is a car park with a runway in it; this one has
+    // a fence round the whole of it and one gate, on the street side. The
+    // same square that stops a car is the one the picture draws the wire on.
+    cell = onAirportFence(col, row)
+      ? "fence"
+      : inBox(RUNWAY, col, row)
+        ? "runway"
+        : "dock";
   } else if (onPier(col, row)) {
     cell = "dock";
   } else if (inBox(HARBOUR, col, row) && onLand(col, row)) {
@@ -166,6 +188,11 @@ function inTown(col: number, row: number): Cell {
     // inside it. Asked in the other order that street won and there was a
     // road through the middle of somebody's garden.
     cell = villaCell(col, row) ?? "walk";
+  } else if (hallCell(col, row) !== null) {
+    // **And the town hall's ground, also before the streets.** One of those
+    // streets is the drive it swallowed - see HALL_BLOCK - and asked in the
+    // other order the drive would win and run through the building.
+    cell = hallCell(col, row) ?? "walk";
   } else if (isRoad(col, true) || isRoad(row, false)) {
     cell = "road";
   } else if (onCarPark(col, row)) {
@@ -194,6 +221,57 @@ function inTown(col: number, row: number): Cell {
     cell = "building";
   }
   return cell;
+}
+
+/**
+ * What one square of the town hall's ground is.
+ *
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns the floor there, or null for a square that is not its business
+ * @remarks
+ * Three answers over one rectangle: the building itself, a square of pavement
+ * all the way round it, and meadow for the rest - which is the ground the hall
+ * used to stand on and the drive that used to run beside it. See
+ * {@link HALL_BLOCK}.
+ */
+function hallCell(col: number, row: number): Cell | null {
+  if (!theHall(HALL_BLOCK.x, HALL_BLOCK.y)) {
+    return null;
+  }
+  const plot = builtPlot(HALL_BLOCK.x, HALL_BLOCK.y);
+  const ground = {
+    left: plot.left - 1,
+    top: plot.top - 1,
+    right: HALL_STREET.to + 2,
+    bottom: plot.bottom + HALL_UP,
+  };
+  if (
+    col < ground.left ||
+    col >= ground.right ||
+    row < ground.top ||
+    row >= ground.bottom
+  ) {
+    return null;
+  }
+  const built =
+    col >= plot.left &&
+    col < plot.right &&
+    row >= plot.top &&
+    row < plot.bottom;
+  const street = col >= HALL_STREET.from && col <= HALL_STREET.to;
+  const ring =
+    col >= plot.left - 1 &&
+    col < plot.right + 1 &&
+    row >= plot.top - 1 &&
+    row < plot.bottom + 1;
+  // The footway between the new street and the airport fence: a fence with no
+  // path along it is a fence one cannot walk past.
+  const fence = col === ground.right - 1;
+  if (built) {
+    return "building";
+  }
+  return street ? "road" : ring || fence ? "walk" : "park";
 }
 
 /**
@@ -735,6 +813,27 @@ function isMotorway(at: number): boolean {
   return at % (BLOCK_TILES * MOTORWAY_EVERY) === 0;
 }
 
+/**
+ * Which motorway lines of the grid fall between two squares.
+ *
+ * @param from - the first square, across or down
+ * @param to - the last one
+ * @returns the lines themselves, in squares
+ * @remarks
+ * For the picture: a motorway is painted with lanes, and the painter has to
+ * know where the motorways are without knowing how the grid is put together.
+ * The middle of the band is the middle of the square on the line - see
+ * {@link MOTORWAY_HALF} for how far it reaches either side.
+ */
+export function motorwaysBetween(from: number, to: number): readonly number[] {
+  const step = BLOCK_TILES * MOTORWAY_EVERY;
+  const lines: number[] = [];
+  for (let at = Math.ceil(from / step) * step; at <= to; at += step) {
+    lines.push(at);
+  }
+  return lines;
+}
+
 /** Whether this square is one of the extra lanes of a motorway. */
 function motorwayNear(at: number): boolean {
   const step = BLOCK_TILES * MOTORWAY_EVERY;
@@ -773,6 +872,27 @@ function besideMotorway(at: number): boolean {
   const step = BLOCK_TILES * MOTORWAY_EVERY;
   const into = ((at % step) + step) % step;
   return into === MOTORWAY_HALF + 1 || into === step - MOTORWAY_HALF - 1;
+}
+
+/**
+ * Whether a square is in the strait.
+ *
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns true in the water that cuts the map in two
+ * @remarks
+ * A box that opens out as it runs east - see {@link CHANNEL_NORTH}. The south
+ * bank is a straight line because Los Santos starts on the row under it; the
+ * north bank is the one that gives way, and it gives way over
+ * {@link CHANNEL_FLARE} squares so that the coast reads as a funnel rather
+ * than as a step.
+ */
+function inChannel(col: number, row: number): boolean {
+  if (col < CHANNEL.left || col > CHANNEL.right || row > CHANNEL.bottom) {
+    return false;
+  }
+  const along = Math.min(1, (col - CHANNEL.left) / CHANNEL_FLARE);
+  return row >= CHANNEL.top - Math.round(along * CHANNEL_NORTH);
 }
 
 /** Whether a square is inside a rectangle of the map. */
@@ -818,6 +938,12 @@ function onLand(col: number, row: number): boolean {
 
 /** The same question, actually asked. */
 function dryAt(col: number, row: number): boolean {
+  // **The strait is cut first.** It is dug rather than eroded - see
+  // {@link CHANNEL} - so it wins over whichever rectangles of land it crosses,
+  // and the beach rule that follows gives it sandy banks for nothing.
+  if (inChannel(col, row)) {
+    return false;
+  }
   const built = ISLANDS.some((city) => inBox(city, col, row));
   return LAND.some((box, at) => {
     const give = built ? 0 : SHORE_WANDER;
@@ -871,6 +997,30 @@ function onFence(col: number, row: number): boolean {
   const gate =
     row === BASE.bottom && col >= BASE_GATE.left && col <= BASE_GATE.right;
   return inBox(BASE, col, row) && edge && !gate;
+}
+
+/**
+ * Whether a square is part of the fence round the airport.
+ *
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns true on the wire, false in the gateway and everywhere else
+ * @remarks
+ * The same shape as {@link onFence} round the military base, with the one
+ * gateway on the **west** edge: the field runs from the prison out to the
+ * sea, so the town end is the only end anybody arrives at.
+ */
+function onAirportFence(col: number, row: number): boolean {
+  const edge =
+    col === AIRPORT.left ||
+    col === AIRPORT.right ||
+    row === AIRPORT.top ||
+    row === AIRPORT.bottom;
+  const gate =
+    col === AIRPORT.left &&
+    row >= AIRPORT_GATE.top &&
+    row <= AIRPORT_GATE.bottom;
+  return edge && !gate;
 }
 
 /**
@@ -1155,7 +1305,7 @@ function spline(before: Vec, from: Vec, to: Vec, after: Vec, at: number): Vec {
 }
 
 /** Whether a square is part of the railway. */
-function onRail(col: number, row: number): boolean {
+export function onRail(col: number, row: number): boolean {
   return railCells().has(cellKey(col, row));
 }
 
@@ -1231,7 +1381,7 @@ const MOTORWAY_EVERY = 4;
  * cars side by side still leave room for a third to come past, and wide enough
  * to read as a motorway from the far side of a block.
  */
-const MOTORWAY_HALF = 2;
+export const MOTORWAY_HALF = 2;
 
 /** One country road: the corners it passes and how wide it is, in squares. */
 type Route = {
@@ -1331,35 +1481,41 @@ const ROUTES: readonly Route[] = [
       { x: 105, y: 42 },
     ],
   },
-  // Die Landstrasse im Sueden: von Los Santos an den Hafen.
-  {
-    wide: 5,
-    points: [
-      { x: 87, y: 114 },
-      { x: 80, y: 106 },
-      { x: 74, y: 100 },
-      { x: 68, y: 90 },
-      { x: 58, y: 84 },
-      { x: 51, y: 80 },
-    ],
-  },
-  // Von Las Venturas hinunter nach Los Santos, am Ostufer entlang.
+  // **Die Landstrasse am Hafen gibt es nicht mehr.** Sie lief fuenf Felder
+  // breit am Ostufer der Bucht entlang, zwischen den Stegen und dem offenen
+  // Wasser - und damit lag um die Boote herum eine Mauer aus Asphalt. Der
+  // Hafen haengt trotzdem am Netz: Die Kaimauer stoesst im Westen an die
+  // Stadt, und ueber den Beton faehrt man wie ueber jede andere Flaeche.
+  // **Von Las Venturas herunter, und oben im Wald ist Schluss.**
+  // Hier lief bis vor Kurzem die dritte Bruecke ueber die Meerenge, und drei
+  // Bruecken ueber dasselbe Wasser sind zwei zu viel - die Stelle ist die
+  // breiteste des ganzen Kanals. Eine Faehrflaeche mit Stegen stand danach
+  // auch kurz hier; die war zwei Streifen Asphalt im Nirgendwo. Jetzt hoert
+  // die Strasse im Wald auf, und wer hinueber will, nimmt eines der Boote,
+  // die unten am Ufer liegen - siehe {@link MOORINGS}.
   {
     wide: 5,
     points: [
       { x: 138, y: 69 },
-      { x: 144, y: 84 },
-      { x: 138, y: 98 },
-      { x: 132, y: 105 },
+      { x: 142, y: 74 },
     ],
   },
-  // Die Bruecke ueber die Meerenge, von San Fierro nach Sueden.
+  // **Die Bruecke von San Fierro nach Sueden - und zwar senkrecht.**
+  // Sie lief mit drei Punkten schraeg ueber das Wasser und verzog sich dabei
+  // um eine Spalte; ein Deck, das wandert, laesst sich nicht mit geraden
+  // Traegern einfassen. Jetzt liegt der ganze Weg ueber dem Wasser auf
+  // Spalte 21,5 - also der *Mitte* einer Spalte, damit eine fuenf Felder
+  // breite Strasse fuenf Spalten ganz deckt (19 bis 23) statt sechs zur
+  // Haelfte. Die Bahn faehrt gleich daneben auf Spalte 24 ueber dasselbe
+  // Wasser, und beide zusammen tragen ein Bauwerk - siehe das Tragwerk im
+  // Bild.
   {
     wide: 5,
     points: [
-      { x: 22, y: 99 },
-      { x: 22, y: 104 },
-      { x: 24, y: 112 },
+      { x: 21.5, y: 96.5 },
+      { x: 21.5, y: 101 },
+      { x: 21.5, y: 107 },
+      { x: 21.5, y: 113 },
     ],
   },
   // Die Runde um den Berg im Suedwesten - und zwar wirklich um ihn herum.
@@ -1368,7 +1524,7 @@ const ROUTES: readonly Route[] = [
   {
     wide: 3,
     points: [
-      { x: 24, y: 112 },
+      { x: 21.5, y: 113 },
       { x: 9, y: 122 },
       { x: 9, y: 146 },
       { x: 28, y: 157 },
@@ -1378,15 +1534,28 @@ const ROUTES: readonly Route[] = [
       { x: 87, y: 129 },
     ],
   },
-  // Und die Piste durch die Wueste nach Sueden.
+  // Und die Strasse durch die Wueste nach Sueden - ueber die Meerenge und
+  // weiter bis an die erste Querstrasse von Los Santos. Sie endete frueher
+  // auf Reihe 105, und das war, bevor dort Wasser war: Seit der Kanal liegt,
+  // hoerte sie mitten auf der Bruecke auf. Eine Bruecke, der das letzte Stueck
+  // fehlt, ist keine.
   {
-    wide: 3,
+    wide: 5,
     points: [
       { x: 80, y: 30 },
       { x: 86, y: 52 },
-      { x: 88, y: 72 },
-      { x: 94, y: 92 },
-      { x: 96, y: 105 },
+      { x: 90, y: 62 },
+      // **Und ab hier schnurgerade nach Sueden.** Vier Punkte auf derselben
+      // Spalte, weil die Kurve, die `bend` aus drei Punkten macht, sonst noch
+      // in die Bruecke hineinlaeuft: Ein Deck, das sich um ein Feld
+      // verschiebt, laesst sich nicht mit geraden Traegern einfassen, und
+      // genau die machen die Haengebruecke aus. Der Bogen liegt jetzt
+      // vollstaendig noerdlich des Wassers.
+      { x: 95.5, y: 72 },
+      { x: 95.5, y: 84 },
+      { x: 95.5, y: 96 },
+      { x: 95.5, y: 108 },
+      { x: 95.5, y: 118 },
     ],
   },
 ];
@@ -1422,13 +1591,91 @@ export function builtPlot(
 ): { left: number; top: number; right: number; bottom: number } {
   const across = builtSpan(blockX, true);
   const down = builtSpan(blockY, false);
-  return {
+  const plot = {
     left: blockX * BLOCK_TILES + across.from,
     top: blockY * BLOCK_TILES + down.from,
     right: blockX * BLOCK_TILES + across.to + 1,
     bottom: blockY * BLOCK_TILES + down.to + 1,
   };
+  // **Except the town hall, which has moved and grown.** See HALL_BLOCK: the
+  // answer comes from here rather than from a second rule beside it, so that
+  // everything which asks where that building stands - the floor, the picture,
+  // the door, the parking - is told the same rectangle.
+  return theHall(blockX, blockY)
+    ? {
+        left: HALL_WEST,
+        top: plot.top - HALL_UP,
+        right: HALL_EAST,
+        bottom: plot.bottom - HALL_UP,
+      }
+    : plot;
 }
+
+/**
+ * Whether this block is the town hall that was moved.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the same, down
+ * @returns true for that one block, and only while it still holds a hall
+ * @remarks
+ * Reads the **plan** (`rawKindAt`) rather than {@link buildingAt}: this is
+ * asked from inside {@link builtPlot}, and `buildingAt` is one of the things
+ * that asks `builtPlot`. A ring between the two runs the stack out, which in
+ * this file has happened three times.
+ */
+function theHall(blockX: number, blockY: number): boolean {
+  return (
+    blockX === HALL_BLOCK.x &&
+    blockY === HALL_BLOCK.y &&
+    rawKindAt(blockX, blockY) === "hall"
+  );
+}
+
+/**
+ * The town hall of East Beach, which stands where the meadow was.
+ *
+ * @remarks
+ * **Asked for, and worth the exception.** It stood in the last row of blocks
+ * before the beach with a meadow behind it and a street beside it that went
+ * nowhere: in from the main road, down the outside of the airport fence, and
+ * over at the sand. A street that serves one building and then stops is not a
+ * street, it is a drive.
+ *
+ * So the hall moved back into the meadow, the meadow came forward to where the
+ * hall was - the two swapped, which costs the quarter nothing - and the drive
+ * was given to the building, which is why it is now five squares across
+ * instead of three. {@link HALL_EAST} is where it stops: the square beside the
+ * airport fence stays pavement, because a fence with no footway along it is a
+ * fence one cannot walk past.
+ */
+const HALL_BLOCK = { x: 12, y: 19 };
+
+/** How far back the hall moved, in squares: the depth of its own footprint. */
+const HALL_UP = 5;
+
+/**
+ * Where it stands across, in squares, the far edge exclusive.
+ *
+ * @remarks
+ * **The hall and the street changed places as well.** It stood between the
+ * motorway and the airport fence; now it stands *on* the last stretch of that
+ * motorway - which ran south past it and stopped dead at the sand - and the
+ * road runs where the hall was, from the junction down to the beach. The same
+ * two strips, the other way round, and the motorway simply ends a junction
+ * earlier than it did.
+ *
+ * Nothing about the road **grid** changes for this. The traffic reads the
+ * floor and not the formula (`isRoadAt`), and a driver who finds no road ahead
+ * turns into whatever is open - which is what every car already did where this
+ * stretch used to stop at the shore.
+ */
+const HALL_WEST = 94;
+
+/** And where it ends, the far edge exclusive. */
+const HALL_EAST = 99;
+
+/** The street that took its place, in squares, both edges inclusive. */
+const HALL_STREET = { from: 100, to: 104 };
 
 /**
  * The rectangle a prison stands on, in squares, the far edges exclusive.
@@ -1579,6 +1826,18 @@ const RAIL = { left: 24, right: 136, top: 24, bottom: 112 };
  */
 const RAIL_BEND = 18;
 
+/**
+ * And how wide the one corner is that has to be tighter than that.
+ *
+ * @remarks
+ * The two southern ones, because everything else about them is decided by the
+ * sea: the line has to cross the water **square to the bank**, or the bridge
+ * over it is a staircase of squares running diagonally across it. So each
+ * straight runs on to the far shore and the corner is taken in six squares
+ * instead of eighteen - tight for a railway, and still not a right angle.
+ */
+const RAIL_TIGHT = 6;
+
 /** How finely the loop is walked when it is turned into squares, in squares. */
 const RAIL_STEP = 0.2;
 
@@ -1606,26 +1865,44 @@ export function railLine(): readonly Vec[] {
       { x: right - bend, y: top },
     );
     runCurve(RAIL_LINE, { x: right - bend, y: top + bend }, -QUARTER, 0);
+    // **Senkrecht ueber das Wasser, und die Kurve erst dahinter.** Die
+    // Ostseite laeuft geradeaus bis unter das Suedufer der Meerenge; die
+    // Suedostecke ist dafuer enger als die anderen drei ({@link RAIL_TIGHT}).
+    // Vorher fing sie auf Reihe 94 an, also mitten im Wasser, und die Bruecke
+    // war eine Treppe aus Feldern, die schraeg ueber den Kanal lief.
     runStraight(
       RAIL_LINE,
       { x: right, y: top + bend },
-      { x: right, y: bottom - bend },
-    );
-    runCurve(RAIL_LINE, { x: right - bend, y: bottom - bend }, 0, QUARTER);
-    runStraight(
-      RAIL_LINE,
-      { x: right - bend, y: bottom },
-      { x: left + bend, y: bottom },
+      { x: right, y: bottom - RAIL_TIGHT },
     );
     runCurve(
       RAIL_LINE,
-      { x: left + bend, y: bottom - bend },
+      { x: right - RAIL_TIGHT, y: bottom - RAIL_TIGHT },
+      0,
+      QUARTER,
+      RAIL_TIGHT,
+    );
+    // **Und im Suedwesten dasselbe.** Dort quert die Bahn das Wasser vor San
+    // Fierro, gleich neben der Strassenbruecke: Mit dem weiten Bogen fing die
+    // Kurve auf Reihe 94,5 an, also weit vor dem Ufer, und die Querung lief
+    // als Treppe schraeg ueber die Bucht. Jetzt laeuft die Westgerade bis
+    // Reihe 106,5 durch - senkrecht ueber das Wasser - und die Kurve liegt
+    // vollstaendig an Land.
+    runStraight(
+      RAIL_LINE,
+      { x: right - RAIL_TIGHT, y: bottom },
+      { x: left + RAIL_TIGHT, y: bottom },
+    );
+    runCurve(
+      RAIL_LINE,
+      { x: left + RAIL_TIGHT, y: bottom - RAIL_TIGHT },
       QUARTER,
       HALF_TURN,
+      RAIL_TIGHT,
     );
     runStraight(
       RAIL_LINE,
-      { x: left, y: bottom - bend },
+      { x: left, y: bottom - RAIL_TIGHT },
       { x: left, y: top + bend },
     );
     runCurve(
@@ -1663,17 +1940,23 @@ function runStraight(into: Vec[], from: Vec, to: Vec): void {
   }
 }
 
-/** And one corner of it. */
-function runCurve(into: Vec[], middle: Vec, from: number, to: number): void {
+/** And one corner of it, at whatever radius that corner has. */
+function runCurve(
+  into: Vec[],
+  middle: Vec,
+  from: number,
+  to: number,
+  round = RAIL_BEND,
+): void {
   const steps = Math.max(
     1,
-    Math.round((Math.abs(to - from) * RAIL_BEND) / RAIL_STEP),
+    Math.round((Math.abs(to - from) * round) / RAIL_STEP),
   );
   for (let step = 0; step < steps; step += 1) {
     const turn = from + ((to - from) * step) / steps;
     into.push({
-      x: middle.x + Math.cos(turn) * RAIL_BEND,
-      y: middle.y + Math.sin(turn) * RAIL_BEND,
+      x: middle.x + Math.cos(turn) * round,
+      y: middle.y + Math.sin(turn) * round,
     });
   }
 }
@@ -1853,7 +2136,10 @@ export function isRoadAt(
   x: number,
   y: number,
 ): boolean {
-  return cellUnder(cells, x, y) === "road";
+  const cell = cellUnder(cells, x, y);
+  // A bridge is a road with a view: the traffic drives over it, keeps to its
+  // lanes on it and turns at the junction on the far side of it.
+  return cell === "road" || cell === "bridge";
 }
 
 /**
@@ -1924,6 +2210,17 @@ export function doorsOf(kind: BuildingKind): readonly Vec[] {
           doors.push({
             x: ((plot.left + plot.right) / 2) * TILE,
             y: (plot.bottom + PRISON_KERB) * TILE,
+          });
+        } else if (theHall(blockX, blockY)) {
+          // **And the town hall's door is where its front wall now is.** The
+          // ordinary door is a fixed offset inside the block, which is right
+          // for a building that stands where its block says; this one has
+          // moved back five squares (see {@link HALL_BLOCK}), and the offset
+          // would leave its door out on the sand.
+          const plot = builtPlot(blockX, blockY);
+          doors.push({
+            x: ((plot.left + plot.right) / 2) * TILE,
+            y: plot.bottom * TILE,
           });
         } else {
           doors.push({
@@ -2184,16 +2481,21 @@ function homeDoors(): readonly Vec[] {
       x: ((isle.left + isle.right) / 2) * TILE,
       y: ((isle.top + isle.bottom) / 2) * TILE,
     };
+    // **The villa has an address, and it keeps it.** See VILLA_BLOCK.
+    const home = doors.find(
+      (door) =>
+        Math.floor(door.x / (BLOCK_TILES * TILE)) === VILLA_BLOCK.x &&
+        Math.floor(door.y / (BLOCK_TILES * TILE)) === VILLA_BLOCK.y &&
+        onIsle(door, isle),
+    );
+    if (home !== undefined) {
+      return home;
+    }
     let best = doors[0] ?? middle;
     let bestAway = Number.POSITIVE_INFINITY;
     for (const door of doors) {
-      const inside =
-        door.x > isle.left * TILE &&
-        door.x < isle.right * TILE &&
-        door.y > isle.top * TILE &&
-        door.y < isle.bottom * TILE;
       const away = Math.hypot(door.x - middle.x, door.y - middle.y);
-      if (inside && away < bestAway) {
+      if (onIsle(door, isle) && away < bestAway) {
         best = door;
         bestAway = away;
       }
@@ -2201,6 +2503,41 @@ function homeDoors(): readonly Vec[] {
     return best;
   });
 }
+
+/** Whether a door stands on one of the three islands. */
+function onIsle(door: Vec, isle: Island): boolean {
+  return (
+    door.x > isle.left * TILE &&
+    door.x < isle.right * TILE &&
+    door.y > isle.top * TILE &&
+    door.y < isle.bottom * TILE
+  );
+}
+
+/**
+ * Where the villa stands, written down rather than worked out.
+ *
+ * @remarks
+ * **The one address in this city that is not a formula.** Everything else here
+ * is: ask the plan what is on a block and it answers the same thing every
+ * time, and that is what keeps the city the same city without a single saved
+ * byte. The villa was the same - *the house nearest the middle of the
+ * south-eastern island* - and that was wrong, because the answer depends on
+ * which blocks are houses at all.
+ *
+ * It was found out when the airfield grew: the field runs the length of the
+ * map now, blocks that were houses before are runway, and the nearest house to
+ * the middle of the island became a **different** house. The villa moved
+ * house. Somebody's front door is not a thing that may move because an airport
+ * two miles away got longer.
+ *
+ * So it is named here: block sixteen across, fourteen down - where it stood
+ * before the field was lengthened, a two-block property with the carport on
+ * the left, and where it stands now. Should that block ever stop being a plain
+ * house, there is no door there to find, and the old rule takes over rather
+ * than leaving the player without a home.
+ */
+const VILLA_BLOCK = { x: 16, y: 14 };
 
 /**
  * Which block the villa stands on.
@@ -2591,7 +2928,11 @@ function onTarmac(
 ): boolean {
   const x = (upright ? col : at) * TILE + TILE * HALF;
   const y = (upright ? at : row) * TILE + TILE * HALF;
-  return cellUnder(cells, x, y) === "road";
+  const cell = cellUnder(cells, x, y);
+  // A bridge deck is tarmac like any other: it is how wide the road is that
+  // decides how many lanes there are, and a deck that did not count came out
+  // as a one-lane lane in the middle of a five-lane bridge.
+  return cell === "road" || cell === "bridge";
 }
 
 /**
@@ -2692,20 +3033,24 @@ function blockAt(roll: number): Building {
  * what is on a corner.
  */
 export function buildingAt(blockX: number, blockY: number): Building {
-  const drawn = rawKindAt(blockX, blockY);
+  // **Two blocks have traded places** - see TRADED. Everything below is asked
+  // about the block one has swapped with, so the two exchange the whole
+  // building and not just the sign over its door: the walls, the height, the
+  // colour of the roof, and with them the door the robbery is at.
+  const at = traded(blockX, blockY);
+  const drawn = rawKindAt(at.x, at.y);
   const spare =
-    (ONE_ONLY.includes(drawn) && !isTheOne(drawn, blockX, blockY)) ||
-    (ONE_PER_QUARTER.includes(drawn) &&
-      !isTheLocalOne(drawn, blockX, blockY)) ||
-    (drawn === "prison" && !roomForPrison(blockX, blockY)) ||
-    (drawn === "police" && !isTheStation(blockX, blockY));
+    (ONE_ONLY.includes(drawn) && !isTheOne(drawn, at.x, at.y)) ||
+    (ONE_PER_QUARTER.includes(drawn) && !isTheLocalOne(drawn, at.x, at.y)) ||
+    (drawn === "prison" && !roomForPrison(at.x, at.y)) ||
+    (drawn === "police" && !isTheStation(at.x, at.y));
   // **The station comes last, and it can overrule a house.** Every other
   // landmark can only ever be thinned out - where the plan drew a second bank,
   // a house goes up instead - which is fine for a bank and wrong for this one:
   // a quarter of town with no police station in it is a quarter with nowhere
   // for the patrol cars to come from. So the quarter that the dice gave none
   // gets one anyway, in the plainest block nearest its middle.
-  const posted = isTheStation(blockX, blockY);
+  const posted = isTheStation(at.x, at.y);
   // **And so can the hospital and the fire station**, for the same reason and
   // one step behind it: thinning alone can only ever take landmarks away, so a
   // quarter whose dice never rolled one would have none at all - and these are
@@ -2714,9 +3059,68 @@ export function buildingAt(blockX: number, blockY: number): Building {
   // keeps its block; these were steered clear of it.
   const filled = posted
     ? undefined
-    : ONE_EACH.find((kind) => isTheLocalOne(kind, blockX, blockY));
+    : ONE_EACH.find((kind) => isTheLocalOne(kind, at.x, at.y));
   return BUILDINGS[posted ? "police" : (filled ?? (spare ? "house" : drawn))];
 }
+
+/**
+ * Which block's building stands here.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the same, down
+ * @returns itself, or the block it has traded with
+ * @remarks
+ * **The bank and the casino have swapped corners.** Both stand on the row the
+ * villa stands on, in the south-eastern quarter, three blocks apart: the bank
+ * was the near one and the casino the far one, and now it is the other way
+ * round. Asked for, and a swap is the honest way to do it - moving a landmark
+ * by hand would mean two of one sort and none of the other, because both are
+ * picked by the plan and not by a list.
+ *
+ * It only holds while the two really are the bank and the casino. Should the
+ * plan ever put something else on either block, the pair is not a pair any
+ * more and each block keeps what it drew, rather than two unrelated buildings
+ * quietly changing places.
+ */
+function traded(blockX: number, blockY: number): Vec {
+  const here = { x: blockX, y: blockY };
+  const at = TRADED.findIndex((one) => one.x === blockX && one.y === blockY);
+  if (at < 0 || !tradeOn()) {
+    return here;
+  }
+  return TRADED[TRADED.length - 1 - at] ?? here;
+}
+
+/** The two blocks that have swapped, near side first - see {@link traded}. */
+const TRADED: readonly Vec[] = [
+  { x: 15, y: 14 },
+  { x: 12, y: 14 },
+];
+
+/** And what has to stand on them for the swap to mean anything. */
+const TRADE_KINDS: readonly BuildingKind[] = ["bank", "casino"];
+
+/**
+ * Whether the pair is still the pair.
+ *
+ * @returns true while the two blocks hold the two sorts named
+ * @remarks
+ * Asked lazily and remembered, like every other answer about this city: at the
+ * moment this file is read, half the tables it would need are still being
+ * built - and the plan does not change afterwards, so once is enough.
+ */
+function tradeOn(): boolean {
+  if (TRADE_PAIR === undefined) {
+    TRADE_PAIR = TRADED.every(
+      (one, at) =>
+        rawKindAt(one.x, one.y) === TRADE_KINDS[at] && builtBlock(one.x, one.y),
+    );
+  }
+  return TRADE_PAIR;
+}
+
+/** The answer to {@link tradeOn}, worked out once. */
+let TRADE_PAIR: boolean | undefined = undefined;
 
 /**
  * Whether this block holds the police station of its quarter.
@@ -3031,9 +3435,22 @@ function theOneIn(kind: BuildingKind, district: District): Vec | null {
   // {@link buildingAt} and would simply overrule this - and never a block the
   // dice gave a name to, because thinning is allowed to take a landmark away
   // and is not allowed to invent one on top of another.
+  //
+  // **And never on top of the one before it.** The sorts in {@link ONE_EACH}
+  // are asked one after the other, and every one of them the dice skipped
+  // falls back to the plainest block nearest the middle - which is the *same*
+  // block for all of them. The beach quarter had a hospital and no fire
+  // station at all: both had claimed block four-eleven, and `buildingAt`
+  // takes the first sort that claims one. So each fills in around the ones
+  // asked before it.
   const posted = stationIn(district);
+  const wanted = ONE_EACH.indexOf(kind);
+  const already =
+    wanted < 0
+      ? []
+      : ONE_EACH.slice(0, wanted).map((one) => theOneIn(one, district));
   const filled =
-    best ?? (ONE_EACH.includes(kind) ? plainestIn(district, posted) : null);
+    best ?? (wanted < 0 ? null : plainestIn(district, [posted, ...already]));
   QUARTER_BLOCKS.set(key, filled);
   return filled;
 }
@@ -3083,7 +3500,7 @@ const ONE_EACH: readonly BuildingKind[] = ["hospital", "fire"];
  * The plainest block nearest the middle of a quarter.
  *
  * @param district - which quarter of town
- * @param taken - a block already spoken for, or null
+ * @param taken - blocks already spoken for; nulls in it are ignored
  * @returns a block of ordinary housing, or null if the quarter has none
  * @remarks
  * Reads the **plan** and nothing else - `rawKindAt`, `builtBlock`, the
@@ -3091,7 +3508,10 @@ const ONE_EACH: readonly BuildingKind[] = ["hospital", "fire"];
  * is on a block. `buildingAt` is what asks this, and a ring between the two
  * runs the stack out; it has done twice before.
  */
-function plainestIn(district: District, taken: Vec | null): Vec | null {
+function plainestIn(
+  district: District,
+  taken: readonly (Vec | null)[],
+): Vec | null {
   const blocks = CITY_TILES / BLOCK_TILES;
   const span = BLOCK_TILES * TILE;
   const middle = districtCentre(district);
@@ -3103,7 +3523,9 @@ function plainestIn(district: District, taken: Vec | null): Vec | null {
         (blockX + HALF) * span - middle.x,
         (blockY + HALF) * span - middle.y,
       );
-      const free = taken === null || taken.x !== blockX || taken.y !== blockY;
+      const free = !taken.some(
+        (one) => one !== null && one.x === blockX && one.y === blockY,
+      );
       if (
         free &&
         builtBlock(blockX, blockY) &&

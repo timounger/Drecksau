@@ -344,6 +344,27 @@ const TIERS: Readonly<Record<VehicleBody, VehicleTiers>> = {
     cabinFront: -2,
     cabinWide: 20,
   },
+  // **The boat is drawn somewhere else** - see `boatHull` in the renderer -
+  // because a hull is not a box with a cabin on it. The row is here because
+  // the table has to cover every body, and the numbers are what a small
+  // wheelhouse in the back third of a fifty-six pixel boat would be.
+  boat: {
+    rake: 0,
+    tall: 12,
+    belt: 6,
+    cabinBack: -18,
+    cabinFront: 2,
+    cabinWide: 14,
+  },
+  // Und das Polizeiboot: derselbe Rumpf, eine Handbreit laenger.
+  patrolboat: {
+    rake: 0,
+    tall: 12,
+    belt: 6,
+    cabinBack: -19,
+    cabinFront: 2,
+    cabinWide: 15,
+  },
 };
 
 /**
@@ -998,7 +1019,7 @@ const POLICE_BAND = {
 const POLICE_WORD = 0.34;
 
 /** And the blue under it, which is also what the roof bar burns. */
-const POLICE_BLUE = "#0a45a8";
+export const POLICE_BLUE = "#0a45a8";
 
 /** What a headlight is made of. */
 const LAMP = "#fef3c7";

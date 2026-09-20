@@ -17,6 +17,7 @@
 import {
   canBoard,
   onThePad,
+  padKind,
   towable,
   towing,
   counterAt,
@@ -30,6 +31,7 @@ import {
   JET_PRICE,
   MINT_CREW,
   PLAYER_HEALTH,
+  flyerName,
   type GameState,
   type Order,
 } from "@/games/gta/engine/types";
@@ -259,10 +261,13 @@ function onThePlatform(state: GameState): readonly Wanted[] {
       { order: { kind: "board" }, label: "Landen", on: true, tone: "act" },
     ];
   } else if (onThePad(state)) {
+    // What it says is what one is about to climb into: "Hubschrauber" over an
+    // aeroplane is a button that lies about the machine in front of one.
+    const kind = padKind(state);
     list = [
       {
         order: { kind: "board" },
-        label: "Hubschrauber",
+        label: kind === null ? "Einsteigen" : flyerName(kind),
         on: true,
         tone: "act",
       },

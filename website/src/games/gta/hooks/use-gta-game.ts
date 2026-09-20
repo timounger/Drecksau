@@ -56,7 +56,12 @@ import {
   taskLine as worksTask,
 } from "@/games/gta/engine/mint";
 import { taskLine } from "@/games/gta/engine/prison";
-import { DISTRICTS, createGame } from "@/games/gta/engine/setup";
+import {
+  DISTRICTS,
+  buildGame,
+  emptyGame,
+  type Building,
+} from "@/games/gta/engine/setup";
 import {
   autoSave,
   dropSave,
@@ -233,6 +238,14 @@ export type GtaSession = {
   /** And the same button held down, which is the tank's machine gun. */
   readonly onSpray: (down: boolean) => void;
 
+  /**
+   * How far the city has got, or null once it stands.
+   *
+   * @remarks
+   * Set while {@link buildGame} is working through its pieces, and what the
+   * loading screen reads. Null means there is a city and the loop is running.
+   */
+  readonly loading: Loading | null;
   /** Whether the other cheat is on: no damage, and one of everything. */
   readonly god: boolean;
   /** Switches that one. */
@@ -266,15 +279,74 @@ export type GtaSession = {
  * The city the prerender shows, before the browser deals a real one.
  *
  * @remarks
- * Built once at module level rather than during a render: the page is
- * prerendered, so the first frame has to be the same on the server and in the
- * browser, and reading it out of a ref while rendering is exactly what React
- * asks nobody to do.
+ * **Empty, and that is the point.** This used to be a whole game, built at
+ * module level - which meant that loading the page laid out Los Santos twice,
+ * once while the module was being evaluated and once again in the effect
+ * below, seven seconds each, with nothing on the screen either time. Now the
+ * module costs nothing, the real city is built a slice at a time once the
+ * page is up, and what one looks at meanwhile is the loading screen.
  */
-const START = createGame(CITY_SEED);
+const START = emptyGame();
 
 /** What the heads-up display shows before the first frame. */
 const START_HEADS = headsOf(START);
+
+/**
+ * What the loading screen is handed: the work, and a throw of the dice.
+ *
+ * @remarks
+ * The dice decide which of the lines for this piece of work the screen puts
+ * over the bar. They are thrown **here**, where a new piece is published,
+ * rather than in the screen: a component that rolls dice while it renders
+ * gives a different answer every time React asks it to draw itself, and the
+ * line would flicker through the list as the bar moves.
+ */
+export type Loading = Building & {
+  readonly roll: number;
+  /**
+   * Which picture is behind it, thrown once when the build starts.
+   *
+   * @remarks
+   * Once, not per piece of work: {@link Loading.roll} changes with every
+   * stage, because the line over the bar is meant to change with it. A
+   * picture that did the same would be a slideshow.
+   *
+   * Below nought means *not thrown yet*, and the screen then shows no picture
+   * at all. That is the state the first painted frame is in - React has the
+   * starting value and the build has not begun - and a number there would be
+   * the same number every time, so one picture would always flash up for two
+   * frames before the drawn one replaced it. Twelve loads in a row showed
+   * that; an empty frame is the honest answer.
+   */
+  readonly art: number;
+};
+
+/** No picture yet - see {@link Loading.art}. */
+const UNTHROWN = -1;
+
+/** Where the bar stands before the first slice of work is done. */
+const FIRST_SLICE: Loading = {
+  done: 0,
+  stage: "floor",
+  roll: 0,
+  art: UNTHROWN,
+};
+
+/**
+ * How big the throw for the line over the bar is.
+ *
+ * @remarks
+ * Two numbers out of one throw - see `loadingLine` in the screen: the low part
+ * picks which group of lines, the high part picks the line in it. So this has
+ * to be comfortably bigger than the two multiplied together, or the last lines
+ * of the longest group would never come up. Seven groups of at most a dozen
+ * lines is eighty-four; two hundred leaves room to write more without anybody
+ * having to remember this number exists.
+ */
+const LINE_ROLLS = 200;
+
+/** And how big the one for the picture behind it is. */
+const ART_ROLLS = 60;
 
 /**
  * How many real pixels the canvas may use per view pixel.
@@ -335,6 +407,10 @@ const KEYS: Readonly<Record<string, keyof Input>> = {
  */
 export function useGtaGame(): GtaSession {
   const world = useRef<GameState>(START);
+  // How far the city has got, or null once it is standing. The screen shows a
+  // bar while this is set, and nothing is drawn or stepped until it is not.
+  const [loading, setLoading] = useState<Loading | null>(FIRST_SLICE);
+  const ready = useRef(false);
   const [saves, setSaves] = useState<readonly SaveSlot[]>([]);
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const keys = useRef<Input>(IDLE_INPUT);
@@ -375,7 +451,6 @@ export function useGtaGame(): GtaSession {
   // is, so switching it on shows up in the next frame.
   const daylight = useRef(false);
   const [heads, setHeads] = useState<Heads>(START_HEADS);
-  const started = useRef(false);
   const counted = useRef(false);
 
   /** One notch of the wheel, one weapon - and the page stays where it is. */
@@ -489,11 +564,25 @@ export function useGtaGame(): GtaSession {
 
   /** Writes the game under a name, and shows the new list. */
   const save = useCallback((name: string) => {
+    // **Nothing is written while there is no city.** The panel with this
+    // button in it sits under the picture rather than behind the loading
+    // screen, so it can be clicked while Los Santos is still being laid out -
+    // and what would be written then is the empty placeholder, with the
+    // player standing at nought, nought. Loading that afterwards put one in
+    // the top left corner of the map with an empty town round one.
+    if (!ready.current) {
+      return;
+    }
     setSaves(saveAs(name, world.current));
   }, []);
 
   /** Reads one back and carries on from it. */
   const load = useCallback((at: number) => {
+    // And nothing is picked up while one is being built either: the build
+    // would finish a moment later and write straight over it.
+    if (!ready.current) {
+      return;
+    }
     const game = loadSave(at);
     if (game !== null) {
       world.current = game;
@@ -507,13 +596,83 @@ export function useGtaGame(): GtaSession {
     setSaves(dropSave(at));
   }, []);
 
-  const restart = useCallback(() => {
-    world.current = createGame(CITY_SEED);
-    counted.current = false;
-    setHeads(headsOf(world.current));
-    recordGameStarted(GAME_ID, Date.now());
-    invalidateStats();
+  /**
+   * Lays out a city, a piece per frame, and puts the bar on the screen.
+   *
+   * @param keep - true to take up whatever was last played once it is built
+   * @returns how to stop it, for when the screen goes away mid-build
+   */
+  const build = useCallback((keep: boolean): (() => void) => {
+    const run = buildGame(CITY_SEED);
+    // One picture for the whole of this build, however many pieces it takes.
+    const art = Math.floor(Math.random() * ART_ROLLS);
+    ready.current = false;
+    let frame = 0;
+    let timer = 0;
+    let dropped = false;
+    const slice = (): void => {
+      if (dropped) {
+        return;
+      }
+      const step = run.next();
+      if (step.done === true) {
+        // Whatever was last played, picked up here rather than during the
+        // render: the page is prerendered and the server has no disk to read.
+        const saved = keep ? readAuto() : null;
+        world.current = saved ?? step.value;
+        setSaves(listSaves());
+        setHeads(headsOf(world.current));
+        ready.current = true;
+        setLoading(null);
+        recordGameStarted(GAME_ID, Date.now());
+        invalidateStats();
+        return;
+      }
+      setLoading({
+        ...step.value,
+        roll: Math.floor(Math.random() * LINE_ROLLS),
+        art,
+      });
+      // **A frame and then a beat.** The animation frame comes before the
+      // paint, so a slice started there would run before the bar it has just
+      // moved is on the screen; the timeout hands the next slice to the queue
+      // after it.
+      frame = requestAnimationFrame(() => {
+        timer = window.setTimeout(slice, 0);
+      });
+    };
+    // **The bar goes up in its own turn of the loop, not in this one.** This
+    // is called from an effect, and setting React state straight out of one is
+    // how a render ends up chasing its own tail; it is also how the first
+    // slice would end up running before the bar it belongs to is on the
+    // screen. One beat to put the bar up, another to start work under it.
+    const begin = (): void => {
+      if (dropped) {
+        return;
+      }
+      setLoading({
+        ...FIRST_SLICE,
+        roll: Math.floor(Math.random() * LINE_ROLLS),
+        art,
+      });
+      frame = requestAnimationFrame(() => {
+        timer = window.setTimeout(slice, 0);
+      });
+    };
+    frame = requestAnimationFrame(() => {
+      timer = window.setTimeout(begin, 0);
+    });
+    return () => {
+      dropped = true;
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
   }, []);
+
+  const restart = useCallback(() => {
+    counted.current = false;
+    build(false);
+  }, [build]);
 
   const carryOn = useCallback(() => {
     world.current = respawn(world.current);
@@ -585,30 +744,35 @@ export function useGtaGame(): GtaSession {
     return subscribeSettings(read);
   }, []);
 
+  // The city, built once the page is up rather than while it is loading.
+  //
+  // **No "have we done this already" flag.** There was one, and it is exactly
+  // the wrong shape for an effect that cleans up after itself: React mounts,
+  // runs the effect, tears it down and runs it again - on a fresh mount in
+  // development, and whenever the router brings this page back. The second run
+  // saw the flag, did nothing, and the first run had already been cancelled by
+  // its own cleanup, so the bar sat at nought for ever. Coming back to the tab
+  // from the collection did it every time.
+  //
+  // An effect that starts a piece of work and returns how to stop it may be
+  // run as often as React likes: each run lays out a city, each cleanup throws
+  // that attempt away, and the last one standing is the one on the screen.
+  useEffect(() => build(true), [build]);
+
   // The loop itself.
   useEffect(() => {
-    if (!started.current) {
-      started.current = true;
-      world.current = createGame(CITY_SEED);
-      recordGameStarted(GAME_ID, Date.now());
-      invalidateStats();
-    }
     let frame = 0;
     let frames = 0;
     let last = performance.now();
     let played = last;
     let kept = played;
-    let first = true;
     const tick = (now: number) => {
-      if (first) {
-        first = false;
-        // Whatever was last played, picked up here rather than during the
-        // render: the page is prerendered and the server has no disk to read.
-        const saved = readAuto();
-        if (saved !== null) {
-          world.current = saved;
-        }
-        setSaves(listSaves());
+      // Nothing to step and nothing to draw until there is a city: while it is
+      // being laid out the loading screen has the canvas covered anyway.
+      if (!ready.current) {
+        last = now;
+        frame = requestAnimationFrame(tick);
+        return;
       }
       const dt = Math.min(MAX_FRAME, (now - last) / MS_PER_SECOND);
       last = now;
@@ -748,6 +912,7 @@ export function useGtaGame(): GtaSession {
 
   return {
     heads,
+    loading,
     attach,
     onPointer,
     onFire,

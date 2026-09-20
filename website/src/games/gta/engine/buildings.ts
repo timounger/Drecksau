@@ -100,6 +100,18 @@ const FIRE_HIGH = 68;
 const HOSPITAL_HIGH = 84;
 
 /**
+ * How tall the town hall is, in pixels.
+ *
+ * @remarks
+ * Fifty-six: two storeys of {@link STOREY}, which is what a town hall has -
+ * the hall and the offices over it - and a fixed number rather than the
+ * block's own dice, because it is that building whether it stands downtown or
+ * at the end of the last street before the beach. The pitched roof goes on top
+ * of this; see `hallBox` in the renderer.
+ */
+const HALL_HIGH = 56;
+
+/**
  * How tall a barber's shop is, in pixels.
  *
  * @remarks
@@ -285,15 +297,19 @@ export const BUILDINGS: Readonly<Record<BuildingKind, Building>> = {
     sign: "#fde047",
     glass: false,
   },
+  // **The one building in this city made of brick.** A town hall is the
+  // oldest thing on the street and looks it: red brick, stone at the foot and
+  // under the eaves, and shutters at the windows. See `hallBox` in the
+  // renderer, which is what actually lays the courses.
   hall: {
     kind: "hall",
     name: "RATHAUS",
-    roof: "#d6d3d1",
-    wall: "#a8a29e",
+    roof: "#57534e",
+    wall: "#9a3412",
     shape: "one",
     rise: 1.2,
-    flat: null,
-    sign: "#0f172a",
+    flat: HALL_HIGH,
+    sign: "#fef3c7",
     glass: false,
   },
   market: {

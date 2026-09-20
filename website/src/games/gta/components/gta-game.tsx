@@ -17,6 +17,119 @@ import { GTA_TEXTS as T } from "@/games/gta/i18n/texts";
 import { VIEW_HEIGHT, VIEW_WIDTH } from "@/games/gta/components/projection";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 
+/**
+ * The screen one looks at while the city is being laid out.
+ *
+ * @param part - how much of the work is done, from nought to one
+ * @param roll - which line to show, thrown in the hook
+ * @param art - the picture behind it, or null while there is none
+ * @returns the overlay
+ * @remarks
+ * **Over the canvas, not instead of it.** The canvas has to be in the page
+ * from the first render - the loop hands it the picture the moment there is
+ * one - so this sits on top of it and goes away when there is a city to look
+ * at instead.
+ *
+ * The picture behind it is one of the files in `public/gta/splash/` rather
+ * than anything drawn here - see {@link pick}. If there are none, the
+ * background is the dark ground underneath and nothing looks broken.
+ */
+function LoadingScreen({
+  part,
+  roll,
+  art,
+}: {
+  readonly part: number;
+  readonly roll: number;
+  readonly art: string | null;
+}): ReactElement {
+  // One line per piece of work, drawn once when that piece begins: picked on
+  // every render it would flicker through the list while the bar moves.
+  const line = loadingLine(roll);
+  return (
+    <div
+      className="absolute inset-0 z-20 flex flex-col items-start justify-end bg-zinc-950 bg-cover bg-center pb-[9%] pl-[9%]"
+      style={art === null ? undefined : { backgroundImage: `url(${art})` }}
+      data-testid="gta-loading"
+      aria-label={`${T.loadingTitle} - ${T.loadingDone(part)}`}
+    >
+      {/* **The picture is the picture.** No dark sheet over it: what one is
+          looking at while the city is laid out is the artwork, and all this
+          screen adds is a bar and a line of nonsense about what is supposedly
+          going on. Both stand low and to the left, out of the middle of the
+          picture; the bar has a dark track and a ring round it and the words
+          a shadow, so that they read on a bright picture as well as on a dark
+          one. */}
+      <p className="mb-2 text-sm font-bold text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]">
+        {line}
+      </p>
+      <div className="h-3 w-[42%] overflow-hidden rounded-full bg-black/60 ring-1 ring-white/30">
+        {/* **Kein Übergang auf der Breite.** Eine CSS-Animation auf `width`
+            läuft auf demselben Faden wie der Aufbau, und der Aufbau lässt ihn
+            nicht los: Der Balken stand gemessen bei 0 Pixeln, während der Wert
+            darüber schon auf 85 % stand - die Animation begann und kam nie
+            weiter. Ohne sie steht die Breite sofort da, wo sie hingehört. */}
+        <div
+          className="h-full rounded-full bg-amber-400"
+          style={{ width: `${String(Math.round(part * WHOLE))}%` }}
+          data-testid="gta-loading-bar"
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Which line the loading screen shows for a given throw.
+ *
+ * @param roll - the throw, from the hook
+ * @returns one of the lines in the table of them
+ * @remarks
+ * **The line has nothing to do with the piece of work any more.** It used to:
+ * each stage of the build had its own lines and one of those was shown while
+ * that stage ran. The trouble is that the stages are not the same length -
+ * the traffic is laid in two hundredths of a second and the crowds take a
+ * second and a half - so most of the jokes went past too fast to read, and two
+ * of the seven were on screen for the whole wait.
+ *
+ * Now a **category is drawn** and then a line out of it, both from the same
+ * throw. The lines are still grouped, because a group is how one writes them
+ * and what keeps them varied, but which group comes up next is chance. Every
+ * line in the file gets its turn, and none of them depends on how quick the
+ * machine is.
+ *
+ * The two numbers come out of one throw so that the hook has one thing to
+ * roll: the low part picks the group, the high part picks the line in it.
+ */
+function loadingLine(roll: number): string {
+  const groups = Object.values(T.loadingLines);
+  const group = groups[roll % Math.max(1, groups.length)] ?? [];
+  const at = Math.floor(roll / Math.max(1, groups.length));
+  return group[at % Math.max(1, group.length)] ?? T.loadingTitle;
+}
+
+/**
+ * Which picture a throw lands on.
+ *
+ * @param splashes - every file in the splash folder, as the page found them
+ * @param art - the throw, or below nought while none has been made
+ * @returns the picture's URL, or null for no picture
+ * @remarks
+ * **The throw is bigger than the folder**, on purpose: the hook does not know
+ * how many pictures there are, so it throws a large die and the folder is
+ * wrapped round it. Adding a picture is therefore adding a file and nothing
+ * else - no count anywhere in the code to keep in step with it.
+ */
+function pick(splashes: readonly string[], art: number): string | null {
+  if (art < 0 || splashes.length === 0) {
+    return null;
+  }
+  return splashes[art % splashes.length] ?? null;
+}
+
+/** A share written as a percentage. */
+const WHOLE = 100;
+
 /** Which mouse button puts a charge down - and works the tank's machine gun. */
 const RIGHT_BUTTON = 2;
 
@@ -27,11 +140,17 @@ const LINK =
 /**
  * Renders the game.
  *
+ * @param splashes - the pictures the loading screen may show, from the page
  * @returns the screen
  */
-export function GtaScreen(): ReactElement {
+export function GtaScreen({
+  splashes,
+}: {
+  readonly splashes: readonly string[];
+}): ReactElement {
   const {
     heads,
+    loading,
     attach,
     onPointer,
     onPress,
@@ -107,6 +226,13 @@ export function GtaScreen(): ReactElement {
         ref={stage}
         className="game-fullscreen relative overflow-hidden rounded-2xl border border-zinc-300 dark:border-zinc-700"
       >
+        {loading !== null && (
+          <LoadingScreen
+            part={loading.done}
+            roll={loading.roll}
+            art={pick(splashes, loading.art)}
+          />
+        )}
         <canvas
           ref={(box) => {
             shot.current = box;

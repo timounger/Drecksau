@@ -134,12 +134,75 @@ export type Chopper = {
   readonly height: number;
   /** How fast it is going forwards, in pixels a second. */
   readonly speed: number;
+  /**
+   * How far over it is in a corner, in radians - see {@link BANK_MOST}.
+   *
+   * @remarks
+   * Signed the way the motorbike's lean is: to the right of the nose is
+   * positive, which is the way it is turning. An angle rather than the bike's
+   * offset in pixels, because what is drawn with it is the **span** - a banked
+   * wing shows less of itself to somebody looking down on it, by the cosine of
+   * exactly this.
+   */
+  readonly lean: number;
   /** Where the rotor is in its turn, in radians. */
   readonly spin: number;
+  /**
+   * What is left of it, from {@link flyerHealth} down to nothing.
+   *
+   * @remarks
+   * **The same arrangement a car has**: sitting in one, what gets shot at is
+   * the machine and not the man in it, and what the bar in the corner shows is
+   * how much of the machine there is left. At nought it stops flying - the
+   * stick does nothing, it sinks - and what it does when it reaches the ground
+   * is what a wreck does.
+   */
+  readonly health: number;
 };
 
+/**
+ * How much one sort of flying machine takes before it stops flying.
+ *
+ * @param kind - which sort it is
+ * @returns its bodywork, full
+ * @remarks
+ * A military helicopter is armoured, an air ambulance is a bus with a rotor on
+ * it, and an aeroplane is aluminium foil that happens to be shaped well: the
+ * three of them are as different in this as a tank is from a bicycle.
+ */
+export function flyerHealth(kind: ChopperKind): number {
+  return kind === "army"
+    ? ARMY_HEALTH
+    : kind === "rescue"
+      ? RESCUE_HEALTH
+      : PLANE_HEALTH;
+}
+
+/** What the olive one off the base takes: it is built to be shot at. */
+const ARMY_HEALTH = 220;
+
+/** The air ambulance, which is a bus with a rotor on it. */
+const RESCUE_HEALTH = 140;
+
+/** And the aeroplane, which is aluminium shaped well. */
+const PLANE_HEALTH = 110;
+
+/**
+ * What it is called on screen.
+ *
+ * @param kind - which sort it is
+ * @returns the name that goes over the bar in the corner
+ */
+export function flyerName(kind: ChopperKind): string {
+  return kind === "army"
+    ? "Black Hawk"
+    : kind === "rescue"
+      ? "Rettungshubschrauber"
+      : "Flugzeug";
+}
+
 /** Which sort of flying machine one has climbed into. */
-export type ChopperKind = "army" | "rescue";
+export type ChopperKind = "army" | "rescue" | "plane";
 
 /** How fast the helicopter climbs, in pixels a second. */
 export const CHOP_RISE = 70;
@@ -161,6 +224,35 @@ export const CHOP_TURN = 1.5;
 
 /** How fast the rotor turns, in radians a second. */
 export const CHOP_SPIN = 26;
+
+/**
+ * How far over a flying machine goes in a corner, in radians.
+ *
+ * @remarks
+ * **Nothing in the air turns flat.** An aeroplane turns by banking - the wing
+ * is what pulls it round, so it has to be tipped over for that pull to point
+ * sideways - and a helicopter does the same thing with its rotor. One that
+ * went round a corner upright looked like a cardboard cut-out being slid
+ * across a table, which is exactly what both of them were.
+ *
+ * Six tenths of a radian is thirty-four degrees, which is a steep turn and
+ * deliberately so: the same argument as {@link LEAN_MOST}, that a bank drawn
+ * true to life is a bank nobody can make out from up here.
+ */
+export const BANK_MOST = 0.6;
+
+/**
+ * What a corner has to be worth before it banks at all.
+ *
+ * @remarks
+ * Turn rate times speed, the same sum the motorbike leans on. Set so that
+ * both machines are right over on {@link BANK_MOST} when they are flat out on
+ * full lock - the aeroplane turns at 0,85 a second and does 900, the
+ * helicopter at 1,5 and does 460, so the two hardest corners in the sky are
+ * worth 765 and 690 - and so that anything gentler is a lean rather than a
+ * flick.
+ */
+export const BANK_STIFF = 1250;
 
 /** How near one has to stand to climb in, in pixels. */
 export const CHOP_REACH = 70;
@@ -216,6 +308,47 @@ export const LAND: readonly Island[] = [
   { left: 8, top: 110, right: 44, bottom: 158 },
   { left: 40, top: 134, right: 70, bottom: 158 },
 ];
+
+/**
+ * The strait that cuts the map in two, in squares.
+ *
+ * @remarks
+ * **The bay was a pond.** The water the boats lie in ended a few hundred feet
+ * east of the piers, hemmed in by the coast road, and a boat that can only go
+ * from one side of a puddle to the other is scenery one happens to be sitting
+ * in. So the sea carries on: out of the harbour, east, and off the other edge
+ * of the map.
+ *
+ * It is a rectangle and not a wandering coast on purpose - a strait is dug,
+ * not eroded - and it is laid across the one band of the map that holds no
+ * city: {@link ISLANDS} are at rows 42-96, 12-66 and 108-156, and this runs
+ * between the last two. Nothing built loses a wall to it.
+ *
+ * What crosses it crosses on a bridge, which is what the `"bridge"` square is
+ * for: the country roads and the railway keep going, and one takes the boat
+ * underneath them.
+ */
+export const CHANNEL: Island = { left: 56, top: 98, right: 167, bottom: 107 };
+
+/**
+ * How far the strait opens out towards the east, in squares.
+ *
+ * @remarks
+ * **It is a strait at the harbour end and a sea at the other.** Nine squares
+ * across is a river: one crosses it, one does not go anywhere *in* it. So it
+ * widens northwards as it runs east - the south bank has to stay where it is,
+ * because Los Santos begins on the row below it - until by the far side of
+ * the map it is two dozen squares of open water with the far shore out of
+ * sight from the near one.
+ *
+ * Nothing built is in the way: between the northern city (rows 12-66) and the
+ * southern one (rows 108-156) there is nothing but woodland, meadow, two
+ * country roads and the railway - and those three simply get longer bridges.
+ */
+export const CHANNEL_NORTH = 15;
+
+/** Over how many squares of its length it opens out. */
+export const CHANNEL_FLARE = 54;
 
 /**
  * The mountain in the south-west, as a middle and a radius in squares.
@@ -282,13 +415,54 @@ export const HARBOUR: Island = { left: 46, top: 64, right: 60, bottom: 94 };
  * The piers that stick out of them into the water.
  *
  * @remarks
- * Concrete over the sea, one square wide apart from the wide one at the end -
- * one can drive out onto them, and there is nothing at the far end but water.
+ * Concrete over the sea: one can drive out onto them, and there is nothing at
+ * the far end but water - and moored along them, the boats one can take out.
+ *
+ * **They had drifted off the water.** The coast is a formula and the piers
+ * were three fixed rectangles, so as the shoreline moved they stopped meeting
+ * it: the northern one ended in the middle of the beach with a hundred feet of
+ * sand between it and the sea, and the southern one ran straight across the
+ * coast road - which the road wins, since `onPier` is asked after `onRoute`,
+ * so what was left of it was two stumps with tarmac between them. All three
+ * now run from the quay out over water that is actually there: two off the
+ * west side of the bay and one off the east.
  */
 export const PIERS: readonly Island[] = [
-  { left: 58, top: 68, right: 70, bottom: 69 },
   { left: 58, top: 76, right: 71, bottom: 77 },
-  { left: 58, top: 84, right: 69, bottom: 85 },
+  { left: 58, top: 80, right: 71, bottom: 81 },
+  { left: 70, top: 86, right: 77, bottom: 87 },
+];
+
+/**
+ * Wo Boote einfach am Ufer liegen, ohne Steg.
+ *
+ * @remarks
+ * **Ein Steg ist ein Bauwerk; ein Boot am Ufer ist ein Boot am Ufer.** An der
+ * Meerenge, wo einmal die dritte Bruecke stand, braucht es keines von beidem:
+ * Drei Boote liegen laengs an jedem Ufer, hintereinander, mit dem Bug nach
+ * Osten - man watet die zwei Schritte hin und faehrt los.
+ *
+ * `col` und `row` sind das erste davon, `many` wie viele dahinter folgen. Sie
+ * werden beim Aufbau gegen den Boden geprueft: Was nicht auf Wasser faellt,
+ * wird nicht hingelegt. Die Kueste ist eine Formel, und ein Boot auf dem Sand
+ * ist schlimmer als kein Boot.
+ */
+export const MOORINGS: readonly {
+  readonly col: number;
+  readonly row: number;
+  readonly many: number;
+}[] = [
+  // **Auf der Uferlinie, nicht eine Reihe daneben.** `row` ist hier keine
+  // Feldnummer, sondern ein Ort: Das Nordufer liegt auf 83, das Suedufer auf
+  // 108, und der Rumpf soll mit einer halben Bootsbreite im Wasser liegen -
+  // also 83,2 und 107,8. Eine ganze Feldnummer setzt das Boot auf die
+  // **obere** Kante seines Feldes, und am Suedufer war das ein volles Feld zu
+  // weit draussen: Man musste hinschwimmen.
+  //
+  // Und beide Reihen liegen gut oestlich der Eisenbahnbruecke (Spalte 136),
+  // damit kein Boot unter deren Traegern verschwindet.
+  { col: 142, row: 83.2, many: 3 },
+  { col: 142, row: 107.8, many: 3 },
 ];
 
 /**
@@ -388,11 +562,91 @@ export const GUARD_REACH = 1500;
 /** How many men stand about inside the wire. */
 export const GUARD_COUNT = 10;
 
-/** The airport in the south-east corner, beside Los Santos. */
-export const AIRPORT: Island = { left: 124, top: 138, right: 156, bottom: 156 };
+/**
+ * The airport along the south-east edge of Los Santos.
+ *
+ * @remarks
+ * **Long and narrow, the way an airfield is.** It used to be a square block
+ * of concrete thirty-three squares across with a stub of runway in it; a
+ * runway is the one thing on a map that has to be **long**, and one that fits
+ * inside a city block is a taxiway with markings on it.
+ *
+ * So it starts under the prison, at the street that runs down the west side
+ * of it, and runs east to the edge of the map - sixty-two squares, a third of
+ * the city - and it is eleven deep rather than nineteen. The far end of it
+ * stands on reclaimed land over the water, which is where a coastal airport
+ * puts its runway anyway.
+ */
+export const AIRPORT: Island = { left: 106, top: 146, right: 167, bottom: 156 };
 
 /** And the strip down the middle of it. */
-export const RUNWAY: Island = { left: 126, top: 145, right: 154, bottom: 148 };
+export const RUNWAY: Island = { left: 108, top: 150, right: 165, bottom: 152 };
+
+/**
+ * The way in through the airport fence, in squares of its **west** edge.
+ *
+ * @remarks
+ * One gate, at the town end: the field runs east from the prison to the sea,
+ * so the only side of it anybody arrives from is the near one, where the
+ * street already runs north and south past the corner. Three squares, which
+ * is a street's width - a gate one cannot drive a van through is a gate one
+ * has to leave the van outside.
+ */
+export const AIRPORT_GATE = { top: 148, bottom: 150 };
+
+/** Where the aeroplanes stand, in squares: the apron north of the runway. */
+export const APRON_ROW = 148.5;
+
+/** And how far apart they are parked, in squares. */
+export const APRON_APART = 12;
+
+/** How many of them there are. */
+export const PLANES = 3;
+
+/** How fast an aeroplane flies flat out, in pixels a second. */
+export const PLANE_SPEED = 900;
+
+/** How hard it picks that up, and loses it again. */
+export const PLANE_ACCEL = 170;
+
+/** How quickly the nose comes round, in radians a second. */
+export const PLANE_TURN = 0.85;
+
+/** How fast it climbs, in pixels a second. */
+export const PLANE_RISE = 55;
+
+/** And sinks, which is quicker: it is falling rather than descending. */
+export const PLANE_FALL = 75;
+
+/**
+ * How fast it has to be going to climb at all, in pixels a second.
+ *
+ * @remarks
+ * **The one thing that makes it an aeroplane rather than a slow helicopter.**
+ * A wing only lifts what is moving past it: below this the stick does nothing
+ * and the machine comes down, which is why one takes off along a runway
+ * rather than straight up off the apron.
+ */
+export const PLANE_LIFT = 430;
+
+/** How high one goes at all. */
+export const PLANE_CEILING = 210;
+
+/** How slow it has to be rolling before one can climb out of it. */
+export const PLANE_STOP = 40;
+
+/**
+ * How fast an aeroplane rolls backwards, in pixels a second.
+ *
+ * @remarks
+ * **Walking pace, and that is the point.** An aeroplane has no reverse gear:
+ * what it has is a tug, or a pilot who blips the throttle with the nose wheel
+ * turned. Seventy is a thirteenth of what it does forwards - enough to back
+ * off an apron or out of whatever one has taxied into, and nowhere near enough
+ * to be a way of getting anywhere. And since a wing needs {@link PLANE_LIFT}
+ * *forwards* to lift, nothing ever takes off backwards.
+ */
+export const PLANE_BACK = 70;
 
 /** How deep the sand along the south edge is, in tiles. */
 export const BEACH_TILES = 5;
@@ -409,6 +663,18 @@ export type Cell =
   | "water"
   /** The railway: a road one may cross, with a train on it. */
   | "rail"
+  /**
+   * A deck over water: road above, sea below.
+   *
+   * @remarks
+   * **The one square that is two things.** Everything else in this list is
+   * what one is standing on; this one is what one is standing on *and* what is
+   * underneath it, because a bridge has a boat going under it. Wheels and feet
+   * read it as road, a hull reads it as water, and the picture draws the deck
+   * with whatever is on the deck and fades whatever is beneath. See
+   * {@link CHANNEL}.
+   */
+  | "bridge"
   /** Desert and beach: open, dusty, and nobody built on it. */
   | "sand"
   /** Woodland: one drives through it, slowly and into trees. */
@@ -784,6 +1050,8 @@ export type GameState = {
   readonly animals: readonly Animal[];
   readonly cops: readonly Cop[];
   readonly bullets: readonly Bullet[];
+  /** Patches of ground the flamethrower has set alight - see {@link Fire}. */
+  readonly fires: readonly Fire[];
   readonly blasts: readonly Blast[];
   /** Weapons and vests lying about the city. */
   readonly pickups: readonly Pickup[];
@@ -984,6 +1252,31 @@ export type Player = {
    * crossing in front of traffic.
    */
   readonly floorUntil: number;
+  /**
+   * Whether he is under the surface.
+   *
+   * @remarks
+   * Held down rather than switched: the space bar takes him under and letting
+   * go brings him back up, which is the only control anybody would guess at.
+   * It is on the player rather than worked out from the floor because the
+   * floor only knows that he is in water, not how deep he has gone - and
+   * because bullets ask it: what is over a diver's head is water, and a round
+   * that would have hit him goes over him instead. See `walk` in ./engine.
+   */
+  readonly diving: boolean;
+  /**
+   * Whether he is in the water rather than on his feet.
+   *
+   * @remarks
+   * **Gemerkt und nicht abgelesen**, und zwar wegen der Bruecken. Ein
+   * Brueckenfeld ist beides: oben Fahrbahn, unten Meer. Wer vom Ufer darauf
+   * zulaeuft, geht oben darueber; wer aus dem Wasser darauf zuschwimmt,
+   * schwimmt unten hindurch - und das Feld selbst kann diese Frage nicht
+   * beantworten. Also zaehlt, wie man hingekommen ist: Wasser macht nass,
+   * trockener Boden macht trocken, und ueber einem Brueckenfeld bleibt es,
+   * wie es war. Siehe `stillWet` in ./engine.
+   */
+  readonly swimming: boolean;
   /**
    * Simulation time the player last took a step.
    *
@@ -1352,6 +1645,21 @@ export const JET_PRICE = 25000;
 
 /** How fast the player walks, in pixels per second. */
 export const WALK_SPEED = 130;
+
+/**
+ * How fast one swims, in pixels a second.
+ *
+ * @remarks
+ * **Two fifths of a walk.** Water is not a floor one happens to be wet on: it
+ * is slow, and being slow in it is the whole of what makes swimming away from
+ * something a decision rather than an escape. Fast enough to cross the harbour
+ * or to get round the end of the airport fence, far too slow to outrun
+ * anything with wheels.
+ */
+export const SWIM_SPEED = 52;
+
+/** And under the surface, where one is pulling rather than paddling. */
+export const DIVE_SPEED = 66;
 
 /**
  * How much faster Shift makes you - on foot, and behind the wheel.
@@ -2173,6 +2481,18 @@ export type Bullet = {
   readonly from: BulletFrom;
   /** For a grenade: the time it goes off at, wherever it is by then. */
   readonly blowAt: number | null;
+  /**
+   * How far it was going to go when it left the barrel, in pixels.
+   *
+   * @remarks
+   * {@link Bullet.left} counts down; this one does not move. Only the picture
+   * wants it, and only for fire: a tongue of flame is painted white at the
+   * nozzle and dull red at the end of its reach, and "the end of its reach" is
+   * a different distance for every burst now that the flamethrower stops at
+   * the crosshair. Measured against the weapon's own maximum instead, a short
+   * burst came out of the gun already burnt out.
+   */
+  readonly reach: number;
 };
 
 /** Who put something in the air. */
@@ -2180,6 +2500,44 @@ export type BulletFrom = "player" | "police" | "mine" | "rival";
 
 /** What is in the air: a bullet, a lick of fire, or something that goes off. */
 export type BulletShape = "shot" | "flame" | "rocket" | "grenade";
+
+/**
+ * A patch of ground that is still burning.
+ *
+ * @remarks
+ * **What a flamethrower actually leaves behind.** The fuel does not stop
+ * existing where the jet stops: it lands, it sticks, and it goes on burning
+ * for a while - which is the whole reason the thing is frightening. Every
+ * round that reaches the end of its reach or runs into something drops one of
+ * these, and whoever is standing in it keeps taking damage until it is out.
+ *
+ * They are **merged** as they are laid: a patch within {@link FIRE_APART} of
+ * one that is already alight only tops that one up. Twenty-five rounds a
+ * second would otherwise be twenty-five patches a second, and a wall of fire
+ * one can walk through in the gaps is not a wall of fire.
+ */
+export type Fire = {
+  readonly id: number;
+  readonly x: number;
+  readonly y: number;
+  /** The time it goes out, in simulation seconds. */
+  readonly until: number;
+};
+
+/** How long a patch of ground burns once it is alight, in seconds. */
+export const FIRE_BURNS = 6;
+
+/** How far the heat of one reaches, in pixels. */
+export const FIRE_REACH = 17;
+
+/** What standing in one costs, per second. */
+export const FIRE_HURT = 26;
+
+/** How close two patches have to be to count as one - see {@link Fire}. */
+export const FIRE_APART = 13;
+
+/** How many there may be at once, oldest first out. */
+export const FIRE_MOST = 160;
 
 /** An explosion, kept only so it can be drawn while it fades. */
 export type Blast = {

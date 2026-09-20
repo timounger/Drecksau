@@ -26,6 +26,11 @@ import {
   villaYard,
   villaPlot,
   roadLines,
+  atCrossing,
+  onRail,
+  isRoadAt,
+  motorwaysBetween,
+  MOTORWAY_HALF,
   doorsOf,
   garageBay,
   garageMouth,
@@ -54,7 +59,7 @@ import {
 import { drawActions } from "@/games/gta/components/gta-actions";
 import { trainCars, trainDue } from "@/games/gta/engine/train";
 import { builtBlock, inCity } from "@/games/gta/engine/city";
-import { carOf } from "@/games/gta/engine/engine";
+import { LANES_FROM, carOf } from "@/games/gta/engine/engine";
 import {
   BLAST_SECONDS,
   BURN_SECONDS,
@@ -76,11 +81,14 @@ import {
   MOUNTAIN,
   MINUTES_PER_SECOND,
   START_HOUR,
+  APRON_ROW,
   CHOP_CEILING,
+  FIRE_REACH,
+  flyerHealth,
+  flyerName,
   HELI_FALL,
   HELI_HEIGHT,
   JET_CEILING,
-  PIERS,
   ROOF_HEIGHT,
   SLIP_SMOKE,
   RUNWAY,
@@ -145,6 +153,7 @@ import { buildingAt } from "@/games/gta/engine/city";
 import { wallHeight, type Building } from "@/games/gta/engine/buildings";
 import {
   VEHICLES,
+  floats,
   twoWheeled,
   type VehicleBody,
 } from "@/games/gta/engine/vehicles";
@@ -161,6 +170,7 @@ import {
   TURRET_SIZE,
   vehicleSprite,
   FIRE_PAINT,
+  POLICE_BLUE,
   RTW_WHITE,
   VAN_PAINT,
   vehicleWall,
@@ -185,6 +195,10 @@ import {
 /** What each kind of ground looks like. */
 const GROUND: Readonly<Record<Cell, string>> = {
   road: "#3f3f46",
+  // A bridge deck: the same tarmac as a road, a shade lighter, because what
+  // is under it is bright water and a deck the colour of the street beside it
+  // disappears into the sea it is crossing.
+  bridge: "#52525b",
   walk: "#a1a1aa",
   building: "#57534e",
   park: "#4d7c0f",
@@ -333,6 +347,9 @@ const MAP_MAIN = "#0a0a0a";
 /** What the city looks like on that map: light streets on dark blocks. */
 const MAP_GROUND: Readonly<Record<Cell, string>> = {
   road: "#d4d4d8",
+  // On the little map a bridge is a road: it is one, and at that size the
+  // water under it is two pixels wide.
+  bridge: "#d4d4d8",
   // Pavement is drawn as part of the block: two pixels wide it would only
   // fray the edge of every block and turn the map into a mesh.
   walk: "#3f3f46",
@@ -563,6 +580,678 @@ function drawLight(
   }
 }
 
+/**
+ * The suspension bridges, wherever one stands.
+ *
+ * @param ctx - what to paint on
+ * @param state - the city, for the floor
+ * @param view - where the camera is
+ * @param seen - what is on screen
+ */
+function goldenGates(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  seen: Seen,
+): void {
+  for (const box of GATE_BOXES) {
+    goldenGate(ctx, state, view, seen, box);
+  }
+}
+
+/**
+ * One of them, drawn round whatever deck lies inside its box.
+ *
+ * @param ctx - what to paint on
+ * @param state - the city, for the floor
+ * @param view - where the camera is
+ * @param seen - what is on screen
+ * @param box - where this bridge is, in squares
+ * @remarks
+ * **Zwei Bruecken in San Andreas sind Bauwerke.** Die uebrigen Querungen sind
+ * Asphalt, unter dem zufaellig Wasser liegt; diese beiden sind das Ding, fuer
+ * das man einen Umweg faehrt, und von oben sind das vier Sachen und keine
+ * mehr:
+ *
+ * - **International Orange**, die einzige Farbe, die irgendwer mit einer
+ *   Bruecke verbindet, und der Grund, warum man sie auf einen Blick erkennt.
+ * - **Zwei Pylone** auf einem Viertel und drei Vierteln der Laenge. Von hier
+ *   oben ist ein Pylon ein Querriegel ueber der Fahrbahn mit je einem Bein
+ *   daneben, und diese Silhouette ist der halbe Wiedererkennungswert.
+ * - **Die Tragseile** an beiden Deckkanten, ueber die ganze Laenge.
+ * - **Die Haenger**, alle paar Felder ein Strich vom Seil zum Deck.
+ *
+ * Das Deck wird vom Boden abgelesen - es sind die `"bridge"`-Felder im
+ * Kasten, kein Rechteck -, und zwar Reihe fuer Reihe, damit das Bild nicht
+ * behauptet, was man nicht befaehrt. Gezeichnet wird nur der Teil, auf dem
+ * das Deck seine volle Breite hat: Wo die Kueste einen Zahn hat, hoert das
+ * Bauwerk auf und die gewoehnliche Brueckenkante macht weiter.
+ *
+ * **Und eine der beiden traegt auch die Bahn.** Im Westen laufen Strasse und
+ * Gleis nebeneinander ueber dasselbe Wasser, also traegt ein Bauwerk beides:
+ * Fahrbahn mit Strichen fuer die Autos, Schotter fuer den Zug, ein Rahmen um
+ * alles. Welche Spalten das Gleis hat, steht im Boden und nicht hier.
+ */
+function goldenGate(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  seen: Seen,
+  box: Island,
+): void {
+  const middle = {
+    x: ((box.left + box.right) / 2) * TILE,
+    y: ((box.top + box.bottom) / 2) * TILE,
+  };
+  const around = {
+    left: seen.left - GATE_REACH,
+    right: seen.right + GATE_REACH,
+    top: seen.top - GATE_REACH,
+    bottom: seen.bottom + GATE_REACH,
+  };
+  if (!inPicture(middle, around)) {
+    return;
+  }
+  // **The deck is read off the floor, and then straightened.** Which squares
+  // are bridge is the plan's business - that is what one drives on - but the
+  // structure drawn round them has to be **straight**, or the girders jog by a
+  // square wherever the coast does. So the columns are the ones the deck has
+  // for most of its length, and the ends are the rows that still have them.
+  const rows: number[] = [];
+  const lefts: number[] = [];
+  const rights: number[] = [];
+  for (let row = box.top; row <= box.bottom; row += 1) {
+    let edge = -1;
+    let far = -1;
+    for (let col = box.left; col <= box.right; col += 1) {
+      if (cellUnder(state.cells, col * TILE, row * TILE) === "bridge") {
+        edge = edge < 0 ? col : edge;
+        far = col;
+      }
+    }
+    if (edge >= 0) {
+      rows.push(row);
+      lefts.push(edge);
+      rights.push(far);
+    }
+  }
+  const from = middling(lefts);
+  const to = middling(rights);
+  // Nur die Reihen, auf denen das Deck seine volle Breite hat. Am Ufer nagt
+  // die Kueste ein Feld ab; ein Bauwerk, das dort weiterlaeuft, haette seinen
+  // Traeger neben dem Asphalt stehen.
+  const full = rows.filter(
+    (_row, at) => (lefts[at] ?? 0) <= from && (rights[at] ?? 0) >= to,
+  );
+  const first = full[0];
+  const last = full[full.length - 1];
+  if (first === undefined || last === undefined) {
+    return;
+  }
+  const deep = TILE * DEPTH + 1;
+  const lip = DECK_SHOULDER;
+  const atX = (world: number): number => project(view, world, first * TILE).x;
+  const head = project(view, from * TILE - lip, first * TILE);
+  const foot = project(view, from * TILE - lip, (last + 1) * TILE);
+  const tall = foot.y - head.y;
+  // **Welche Spalten das Gleis hat**, und was davon Fahrbahn bleibt. Die Bahn
+  // liegt an einer Kante des Decks, nie mitten darin - alles andere waere ein
+  // Gleis zwischen zwei Fahrspuren.
+  let railFrom = -1;
+  let railTo = -1;
+  const mid = Math.floor((first + last) / 2);
+  for (let col = from; col <= to; col += 1) {
+    if (onRail(col, mid)) {
+      railFrom = railFrom < 0 ? col : railFrom;
+      railTo = col;
+    }
+  }
+  const roadFrom = railFrom === from ? railTo + 1 : from;
+  const roadTo = railTo === to ? railFrom - 1 : to;
+  const deckLeft = atX(from * TILE - lip);
+  const deckRight = atX((to + 1) * TILE + lip);
+  const roadLeft = atX(roadFrom * TILE - (roadFrom === from ? lip : 0));
+  const roadRight = atX((roadTo + 1) * TILE + (roadTo === to ? lip : 0));
+  ctx.save();
+  // **Orange is the structure, not the road.** Painting the whole deck orange
+  // gives a red rectangle with cars on it; what one sees from above is a grey
+  // carriageway with a girder down each side of it, and that is what says
+  // "bridge" before the towers are even read.
+  ctx.fillStyle = GATE_PAINT;
+  ctx.fillRect(
+    deckLeft - GIRDER,
+    head.y,
+    deckRight - deckLeft + GIRDER * 2,
+    tall,
+  );
+  if (railFrom >= 0) {
+    ctx.fillStyle = GROUND.rail;
+    const railLeft = atX(railFrom * TILE - (railFrom === from ? lip : 0));
+    const railRight = atX((railTo + 1) * TILE + (railTo === to ? lip : 0));
+    ctx.fillRect(railLeft, head.y, railRight - railLeft, tall);
+  }
+  ctx.fillStyle = GATE_ROAD;
+  ctx.fillRect(roadLeft, head.y, roadRight - roadLeft, tall);
+  // **Zwei Spuren je Richtung, und die Farbe sagt welche.** Durchgezogen in
+  // der Mitte, weil dort niemand hinueber darf; durchgezogen dicht an beiden
+  // Raendern, weil das die Fahrbahnbegrenzung ist; und dazwischen je eine
+  // gestrichelte, die die beiden Spuren einer Richtung trennt. Die Zahlen sind
+  // nicht gemalt, sondern gerechnet: Sie stehen genau zwischen den Linien, auf
+  // denen der Verkehr faehrt (`INNER_LANE` und `OUTER_LANE` in ../engine), so
+  // dass die Autos mittig in ihren Spuren liegen statt daneben.
+  //
+  // Gerechnet wird mit der **Fahrbahn**, nicht mit dem Deck: Das Deck ist um
+  // die Schulter breiter als die Felder und traegt im Westen auch noch das
+  // Gleis. Mit der Deckbreite gerechnet laegen die Striche neben den Autos.
+  // Die Mitte ist die Mitte der *Felder*, nicht die des gemalten Kastens: Auf
+  // der Seite ohne Gleis kommt eine Schulter dazu und auf der anderen nicht,
+  // und um deren halbe Breite laegen sonst alle fuenf Striche daneben.
+  const centre = atX(((roadFrom + roadTo + 1) / 2) * TILE);
+  const half = ((roadTo - roadFrom + 1) * TILE) / 2;
+  ctx.strokeStyle = GATE_LINE;
+  ctx.lineWidth = LANE_PAINT;
+  const rule = (at: number, dashed: boolean): void => {
+    ctx.setLineDash(dashed ? GATE_DASH : []);
+    ctx.beginPath();
+    ctx.moveTo(at, head.y);
+    ctx.lineTo(at, foot.y);
+    ctx.stroke();
+  };
+  // Gleicher Abstand ueberall - Mitte, gestrichelt, Rand - bis auf die
+  // beiden aeusseren, die dicht an der Bordkante liegen.
+  rule(centre, false);
+  for (const side of [-1, 1]) {
+    rule(centre + side * (half - EDGE_IN), false);
+    rule(centre + side * half * LANE_SPLIT, true);
+  }
+  ctx.setLineDash([]);
+  // The two main cables, one down each girder, and the suspenders across them.
+  ctx.strokeStyle = GATE_CABLE;
+  ctx.lineCap = "round";
+  ctx.lineWidth = CABLE_THICK;
+  for (const at of [deckLeft - GIRDER / 2, deckRight + GIRDER / 2]) {
+    ctx.beginPath();
+    ctx.moveTo(at, head.y);
+    ctx.lineTo(at, foot.y);
+    ctx.stroke();
+  }
+  ctx.lineWidth = HANGER_THICK;
+  ctx.strokeStyle = GATE_HANGER;
+  ctx.beginPath();
+  for (let down = head.y; down < foot.y; down += deep * HANGER_EVERY) {
+    ctx.moveTo(deckLeft - GIRDER / 2, down);
+    ctx.lineTo(deckLeft - GIRDER / 2 + HANGER_REACH, down);
+    ctx.moveTo(deckRight + GIRDER / 2, down);
+    ctx.lineTo(deckRight + GIRDER / 2 - HANGER_REACH, down);
+  }
+  ctx.stroke();
+  // And the towers, which are what one actually recognises.
+  for (const share of [TOWER_ONE, TOWER_TWO]) {
+    const down = head.y + tall * share;
+    ctx.fillStyle = GATE_TOWER;
+    ctx.fillRect(
+      deckLeft - GIRDER - TOWER_OUT,
+      down,
+      deckRight - deckLeft + (GIRDER + TOWER_OUT) * 2,
+      deep * TOWER_DEEP,
+    );
+    // Die Fahrbahn laeuft durch den Pylon hindurch; das Gleis auch, aber das
+    // legt die Bahn selbst darueber - siehe drawTrack.
+    ctx.fillStyle = GATE_ROAD;
+    ctx.fillRect(
+      roadLeft,
+      down + deep * TOWER_INSET,
+      roadRight - roadLeft,
+      deep * TOWER_ROAD,
+    );
+    // The two legs, standing proud of the deck on either side.
+    ctx.fillStyle = GATE_TOWER;
+    for (const leg of [deckLeft - GIRDER - TOWER_OUT, deckRight + GIRDER]) {
+      ctx.fillRect(
+        leg,
+        down - TOWER_LEG,
+        TOWER_OUT,
+        deep * TOWER_DEEP + TOWER_LEG * 2,
+      );
+    }
+  }
+  ctx.lineCap = "butt";
+  ctx.restore();
+}
+
+/**
+ * The value a list of squares has most of the time.
+ *
+ * @param all - the column the deck starts or ends at, row by row
+ * @returns the one to draw the structure on
+ * @remarks
+ * The middle one after sorting, which for a deck that is straight for twenty
+ * rows and ragged for one is that straight column - and is not thrown by
+ * whichever end the coast happens to nibble.
+ */
+function middling(all: readonly number[]): number {
+  const sorted = [...all].sort((one, two) => one - two);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
+}
+
+/**
+ * Wo diese Bauwerke stehen, in Feldern.
+ *
+ * @remarks
+ * Zwei Querungen bekommen den Stahl: die in der Mitte der Meerenge, ueber die
+ * die Strasse aus der Wueste fuehrt, und die kurze vor San Fierro, auf der
+ * Strasse und Bahn nebeneinander hinueberlaufen. Aufgeschrieben statt gesucht:
+ * Das Deck darin wird vom Boden abgelesen, aber *welche* Querung den Anstrich
+ * bekommt, ist eine Entscheidung und keine Messung.
+ */
+const GATE_BOXES: readonly Island[] = [
+  { left: 91, top: 86, right: 98, bottom: 107 },
+  { left: 17, top: 96, right: 26, bottom: 110 },
+];
+
+/** How far off screen it still counts as worth drawing, in pixels. */
+const GATE_REACH = 900;
+
+/** International orange, which is the colour of exactly one bridge. */
+const GATE_PAINT = "#c0392b";
+
+/** The towers, a shade deeper so they stand off the deck. */
+const GATE_TOWER = "#96281b";
+
+/** The carriageway between the girders: tarmac like any other road. */
+const GATE_ROAD = "#3f3f46";
+
+/** How wide the girder down each side is, in pixels. */
+const GIRDER = 11;
+
+/** The broken line down the middle of it. */
+const GATE_LINE = "#e5e7eb";
+
+/** And how it is broken. */
+const GATE_DASH = [10, 12];
+
+/**
+ * How far inside the girder the edge line runs, in pixels.
+ *
+ * @remarks
+ * A carriageway marking is painted on the road and not on the parapet, so it
+ * sits a hand's width inside the steel - and outside the lane the traffic
+ * uses, which is at three quarters of the half width.
+ */
+const EDGE_IN = 6;
+
+/** How much asphalt there is beyond the squares of the road, in pixels. */
+const DECK_SHOULDER = 10;
+
+/**
+ * Where the broken line between the two lanes of one direction runs, as a
+ * share of half the **carriageway**.
+ *
+ * @remarks
+ * Halfway out, which with four equal lanes is exactly the line between the
+ * two of one direction: the middle line, this one and the edge line are then
+ * the same distance apart, and the traffic - which holds a quarter and three
+ * quarters of the half width - sits in the middle of each lane rather than on
+ * the paint.
+ */
+const LANE_SPLIT = 0.5;
+
+/** The main cables. */
+const GATE_CABLE = "#f97316";
+
+/** And the suspenders hanging off them. */
+const GATE_HANGER = "#fdba74";
+
+/** How thick a main cable is drawn, in pixels. */
+const CABLE_THICK = 3;
+
+/** And a suspender. */
+const HANGER_THICK = 1.2;
+
+/** How long one is, in pixels. */
+const HANGER_REACH = 7;
+
+/** Every how many squares one hangs. */
+const HANGER_EVERY = 2;
+
+/** Where the first tower stands, as a share of the deck's length. */
+const TOWER_ONE = 0.24;
+
+/** And the second. */
+const TOWER_TWO = 0.72;
+
+/** How far a tower stands out past the deck, in pixels. */
+const TOWER_OUT = 9;
+
+/** How deep the beam across the deck is, as a share of a square. */
+const TOWER_DEEP = 1.6;
+
+/** Where the roadway runs through it, the same way. */
+const TOWER_INSET = 0.45;
+
+/** And how much of it is roadway. */
+const TOWER_ROAD = 0.7;
+
+/** How far the legs reach past the beam, in pixels. */
+const TOWER_LEG = 5;
+
+/**
+ * The steel and the railing along every bridge on the map.
+ *
+ * @param ctx - what to paint on
+ * @param state - the city, for the floor
+ * @param view - where the camera is
+ * @param seen - what is on screen
+ * @remarks
+ * **Entlang der Linie, nicht Feld fuer Feld.** Eine Bruecke in der Kurve ist
+ * eine Treppe aus Feldern, und ein Traeger an jeder Feldkante ist eine Treppe
+ * aus Traegern. Schlimmer noch: Die Strasse wird als Band ueber ihre Felder
+ * hinaus gemalt ({@link ROAD_COVER} plus {@link VERGE}), der Stahl lag also
+ * mitten im Asphalt statt an dessen Rand.
+ *
+ * Darum sind die Kanten Striche der **Strassenlinie selbst**, seitlich bis an
+ * den Rand ihres Bandes geschoben und ueberall dort unterbrochen, wo die Linie
+ * nicht ueber Wasser laeuft. Das ist ein Stueck Code fuer jede Querung der
+ * Karte: Strassen wie Bahn, gerade wie krumme.
+ *
+ * Die Haengebruecke ist nicht dabei - die malt alles an sich selbst, und zwar
+ * danach. Siehe {@link goldenGate}.
+ */
+function drawBridgeEdges(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  seen: Seen,
+): void {
+  ctx.save();
+  ctx.lineCap = "butt";
+  ctx.setLineDash([]);
+  for (const road of roadLines()) {
+    const half = (road.wide / 2) * TILE + DECK_SHOULDER;
+    // Erst das Deck: dieselbe Breite wie das Strassenband, aber in der
+    // helleren Farbe, die ein Deck ueber hellem Wasser braucht - das Band
+    // selbst ist Strassengrau und ginge im Meer unter.
+    overWater(ctx, state, view, seen, road.points, 0, {
+      thick: half * 2,
+      paint: GROUND.bridge,
+    });
+    overWater(ctx, state, view, seen, road.points, half, {
+      thick: GIRDER_THICK,
+      paint: BRIDGE_STEEL,
+    });
+    overWater(ctx, state, view, seen, road.points, half - GIRDER_THICK, {
+      thick: PARAPET_THICK,
+      paint: PARAPET,
+    });
+  }
+  // Und die Bahn bringt ihren Schotter selbst mit: Ihre Felder sind ueber dem
+  // Wasser zu Meer geworden, also wird der Damm hier gezogen und die Schwellen
+  // kommen spaeter darauf.
+  const track = railLine();
+  overWater(ctx, state, view, seen, track, 0, {
+    thick: RAIL_SIDE * 2,
+    paint: GROUND.rail,
+  });
+  overWater(ctx, state, view, seen, track, RAIL_SIDE, {
+    thick: GIRDER_THICK,
+    paint: BRIDGE_STEEL,
+  });
+  ctx.restore();
+}
+
+/**
+ * One line pushed out sideways, drawn only where it is over water.
+ *
+ * @param ctx - what to paint on
+ * @param state - the city, for the floor
+ * @param view - where the camera is
+ * @param seen - what is on screen
+ * @param points - the middle of the road or the track, in squares
+ * @param out - how far out to push it, in pixels
+ * @param pen - how thick to stroke it, and in what
+ * @remarks
+ * Both sides in one go, and the stroke is broken wherever the square under
+ * the line is not a bridge: what is wanted is the edge of a crossing, not a
+ * grey line drawn the length of the country.
+ */
+function overWater(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  seen: Seen,
+  points: readonly Vec[],
+  out: number,
+  pen: { readonly thick: number; readonly paint: string },
+): void {
+  ctx.strokeStyle = pen.paint;
+  ctx.lineWidth = pen.thick;
+  // **Einen Punkt weiter als das Wasser reicht.** Ein Feld ist breiter als
+  // der Punkt in seiner Mitte: Hoerte der Strich beim letzten Punkt ueber
+  // Wasser auf, blieb am Ufer ein blauer Zwickel des letzten Brueckenfeldes
+  // stehen. So laeuft das Band ein Stueck auf das Land - dort, wo ein
+  // Widerlager hingehoert.
+  const spans = points.map(
+    (point) =>
+      cellUnder(state.cells, point.x * TILE, point.y * TILE) === "bridge",
+  );
+  // Ohne Versatz gibt es nur eine Linie - sonst laege sie zweimal an
+  // derselben Stelle.
+  for (const side of out === 0 ? [1] : [-1, 1]) {
+    let drawing = false;
+    ctx.beginPath();
+    points.forEach((point, at) => {
+      const middle = { x: point.x * TILE, y: point.y * TILE };
+      const spanning =
+        spans[at] === true || spans[at - 1] === true || spans[at + 1] === true;
+      if (!spanning || !inPicture(middle, seen)) {
+        drawing = false;
+        return;
+      }
+      const before = points[Math.max(0, at - 1)] ?? point;
+      const after = points[Math.min(points.length - 1, at + 1)] ?? point;
+      const across =
+        Math.atan2(after.y - before.y, after.x - before.x) + Math.PI / 2;
+      const spot = project(
+        view,
+        middle.x + Math.cos(across) * out * side,
+        middle.y + Math.sin(across) * out * side,
+      );
+      if (drawing) {
+        ctx.lineTo(spot.x, spot.y);
+      } else {
+        ctx.moveTo(spot.x, spot.y);
+        drawing = true;
+      }
+    });
+    ctx.stroke();
+  }
+}
+
+/**
+ * How far out from the middle of the track its girders run, in pixels.
+ *
+ * @remarks
+ * Breit genug, dass der Damm jedes Feld deckt, das die Bahn beansprucht -
+ * auch in der Schraege, wo die Felder als Treppe um die Linie herumliegen und
+ * die Ecken weiter aussen sitzen als eine halbe Feldbreite. Ein schmalerer
+ * Damm liess einzelne Felder als Loch im Meer stehen, auf denen man trotzdem
+ * gehen konnte.
+ */
+const RAIL_SIDE = 34;
+
+/**
+ * The lane markings of every motorway on the map.
+ *
+ * @param ctx - what to paint on
+ * @param state - the city, for the floor
+ * @param view - where the camera is
+ * @param seen - what is on screen
+ * @remarks
+ * **Five lines, and the traffic drives between them.** A solid one down the
+ * middle, a solid one just inside each kerb and a broken one between each pair
+ * - four equal lanes, two each way, and the cars sit in the middle of them
+ * because `laneDrift` in ../engine aims at exactly the quarters this paint
+ * divides. Anything narrower than a motorway gets nothing: a three-square
+ * street is one lane each way and needs no telling.
+ *
+ * Two sorts of motorway, and they are drawn from different things. The ones
+ * **in a city** are lines of the grid, so they are painted square by square
+ * straight down the line - and skipped wherever another street crosses, since
+ * a lane line painted across a junction is a lane line nobody obeys. The ones
+ * **out in the country** are the wide routes, and those bend: their lines are
+ * the route's own points pushed sideways along the normal, which is the only
+ * way to offset a curve without drawing it twice.
+ */
+function drawLanes(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  seen: Seen,
+): void {
+  ctx.save();
+  ctx.strokeStyle = GATE_LINE;
+  ctx.lineWidth = LANE_PAINT;
+  gridLanes(ctx, state, view, seen);
+  countryLanes(ctx, view, seen);
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+/** The motorways of the grid: straight, and broken at every junction. */
+function gridLanes(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  seen: Seen,
+): void {
+  const half = (MOTORWAY_HALF + HALF) * TILE;
+  const runs: readonly { readonly at: number; readonly dashed: boolean }[] = [
+    { at: 0, dashed: false },
+    { at: half * LANE_SPLIT, dashed: true },
+    { at: -half * LANE_SPLIT, dashed: true },
+    { at: half - EDGE_IN, dashed: false },
+    { at: -half + EDGE_IN, dashed: false },
+  ];
+  for (const upright of [true, false]) {
+    const from = Math.floor((upright ? seen.left : seen.top) / TILE);
+    const to = Math.ceil((upright ? seen.right : seen.bottom) / TILE);
+    const along = Math.floor((upright ? seen.top : seen.left) / TILE);
+    const until = Math.ceil((upright ? seen.bottom : seen.right) / TILE);
+    for (const line of motorwaysBetween(from, to)) {
+      const middle = (line + HALF) * TILE;
+      for (let step = along; step <= until; step += 1) {
+        // **Nichts ueber eine Kreuzung malen**, und Kreuzung heisst hier:
+        // Dort trifft eine Linie des Rasters eine andere (`atCrossing`).
+        // Vorher wurde gefragt, ob drei Felder neben der Mitte auch Asphalt
+        // liegt - das stimmt in einem Block, und es stimmt ueberhaupt nicht
+        // am Rand der Stadt, wo die Autobahn ueber offene Flaechen laeuft:
+        // Dort war alles ringsum Asphalt, also wurde gar nichts mehr gemalt.
+        const heart = upright
+          ? { x: middle, y: (step + HALF) * TILE }
+          : { x: (step + HALF) * TILE, y: middle };
+        const col = upright ? line : step;
+        const row = upright ? step : line;
+        // Und nichts auf die Bahn malen: Eine Eisenbahnbruecke ist nach dem
+        // Boden "bridge" und damit befahrbar - Spurstriche quer ueber die
+        // Schwellen hat sie deswegen noch lange nicht verdient.
+        if (
+          !isRoadAt(state.cells, heart.x, heart.y) ||
+          onRail(col, row) ||
+          atCrossing(col, row)
+        ) {
+          continue;
+        }
+        for (const run of runs) {
+          const head = upright
+            ? project(view, middle + run.at, step * TILE)
+            : project(view, step * TILE, middle + run.at);
+          const tail = upright
+            ? project(view, middle + run.at, (step + 1) * TILE)
+            : project(view, (step + 1) * TILE, middle + run.at);
+          ctx.setLineDash(run.dashed ? GATE_DASH : []);
+          ctx.beginPath();
+          ctx.moveTo(head.x, head.y);
+          ctx.lineTo(tail.x, tail.y);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+}
+
+/** And the wide roads between the cities, which bend. */
+function countryLanes(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  seen: Seen,
+): void {
+  for (const road of roadLines()) {
+    if (road.dirt || road.wide < LANES_FROM) {
+      continue;
+    }
+    const near = road.points.some(
+      (point) =>
+        point.x * TILE > seen.left - ROAD_MARGIN &&
+        point.x * TILE < seen.right + ROAD_MARGIN &&
+        point.y * TILE > seen.top - ROAD_MARGIN &&
+        point.y * TILE < seen.bottom + ROAD_MARGIN,
+    );
+    if (!near) {
+      continue;
+    }
+    // **Dieselben Abstaende wie auf der Bruecke**, und zwar auf die gleiche
+    // Art gerechnet: Mitte, halbe Fahrbahnhaelfte gestrichelt, und die
+    // Randlinie eine Handbreit innerhalb der Kante - die Kante ist die
+    // Fahrbahn plus Schulter. So laeuft der Strich ueber den Brueckenkopf
+    // hinweg weiter, statt dort zu versetzen.
+    const half = (road.wide / 2) * TILE;
+    const edge = half + DECK_SHOULDER - EDGE_IN;
+    for (const run of [
+      { at: 0, dashed: false },
+      { at: half * LANE_SPLIT, dashed: true },
+      { at: -half * LANE_SPLIT, dashed: true },
+      { at: edge, dashed: false },
+      { at: -edge, dashed: false },
+    ]) {
+      ctx.setLineDash(run.dashed ? GATE_DASH : []);
+      ctx.beginPath();
+      road.points.forEach((point, at) => {
+        const before = road.points[Math.max(0, at - 1)] ?? point;
+        const after =
+          road.points[Math.min(road.points.length - 1, at + 1)] ?? point;
+        const way = Math.atan2(after.y - before.y, after.x - before.x);
+        const side = way + Math.PI / 2;
+        const spot = project(
+          view,
+          point.x * TILE + Math.cos(side) * run.at,
+          point.y * TILE + Math.sin(side) * run.at,
+        );
+        if (at === 0) {
+          ctx.moveTo(spot.x, spot.y);
+        } else {
+          ctx.lineTo(spot.x, spot.y);
+        }
+      });
+      ctx.stroke();
+    }
+  }
+}
+
+/** How thick a lane marking is, in pixels. */
+const LANE_PAINT = 1.5;
+
+/** What the railing along a bridge is painted in. */
+const PARAPET = "#d6d3d1";
+
+/** And how thick it is, in pixels. */
+const PARAPET_THICK = 2;
+
+/** The steel under that railing, and how thick it is. */
+const BRIDGE_STEEL = "#64748b";
+
+/** How thick, in pixels. */
+const GIRDER_THICK = 4;
+
 /** The floor: one squashed rectangle per visible cell, plus the lane markings. */
 function drawGround(
   ctx: CanvasRenderingContext2D,
@@ -582,15 +1271,237 @@ function drawGround(
       const outside =
         col < 0 || row < 0 || col >= CITY_TILES || row >= CITY_TILES;
       const cell = cellUnder(state.cells, col * TILE, row * TILE);
-      ctx.fillStyle = outside ? BEYOND : GROUND[cell];
+      // **Eine Bruecke ist hier noch Meer.** Ihre Felder sind eine Treppe,
+      // und eine Treppe aus Deck, die unter dem glatten Band der Strasse
+      // hervorschaut, sieht aus wie abgebrochener Beton. Also bleibt der
+      // Boden hier Wasser; das Deck zieht {@link drawBridgeEdges} gleich
+      // darauf - als Band entlang der Linie, so glatt wie die Fahrbahn.
+      ctx.fillStyle = outside
+        ? BEYOND
+        : GROUND[cell === "bridge" ? "water" : cell];
       const at = project(view, col * TILE, row * TILE);
       ctx.fillRect(at.x, at.y, TILE + 1, deep);
     }
   }
-  drawCountryRoads(ctx, view, seen);
+  drawCountryRoads(ctx, state.cells, view, seen);
+  // **Die Kanten nach den Strassen.** Das Band einer Landstrasse wird als
+  // Ganzes ueber die Felder gezogen; ein Gelaender, das vorher gemalt wird,
+  // liegt danach darunter. Erst die Fahrbahn, dann der Traeger, dann die
+  // Striche.
+  drawBridgeEdges(ctx, state, view, seen);
+  drawLanes(ctx, state, view, seen);
   drawMarks(ctx, state, view, seen);
+  // **Die Bauwerke vor der Kulisse.** Die westliche Haengebruecke traegt auch
+  // das Gleis, und die Schwellen gehoeren auf ihr Deck und nicht darunter -
+  // die Bahn wird mit der Kulisse gezeichnet (`drawTrack`), also muss der
+  // Stahl vorher stehen.
+  goldenGates(ctx, state, view, seen);
   drawScenery(ctx, state, view, fromCol, fromRow, toCol, toRow);
+  // **The ground that is still alight**, over the tarmac and the tyre marks
+  // and under everything that stands on it: what burns is the road, and a man
+  // standing in it has to be in front of the flames or he is under them.
+  drawFires(ctx, state, view, seen);
 }
+
+/**
+ * The patches of ground the flamethrower has left burning.
+ *
+ * @param ctx - what to paint on
+ * @param state - the city, for the patches and the clock
+ * @param view - where the camera is
+ * @remarks
+ * **A fire on the ground is not one flame, it is several.** Each patch throws
+ * three licks of different sizes, each with its own phase off the patch's own
+ * number, so they rise and fall out of step with one another - which is what
+ * a fire does and what a single pulsing blob never looks like. Under them a
+ * dull red glow on the tarmac itself, because the ground a fire is standing
+ * on is lit by it.
+ *
+ * The last second of a patch's life is spent going out: the licks shrink and
+ * thin, so fires die down rather than blinking off. Painted with `lighter`,
+ * like the jet from the gun - see {@link flameTongue} - so overlapping
+ * patches read as one sheet of fire rather than as a row of separate ones.
+ */
+function drawFires(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  seen: Seen,
+): void {
+  if (state.fires.length === 0) {
+    return;
+  }
+  ctx.save();
+  for (const fire of state.fires) {
+    // A patch burns for six seconds and one can drive a long way in six: the
+    // ones behind are still alight and still hurt, they are simply not drawn.
+    if (!inPicture(fire, seen)) {
+      continue;
+    }
+    const left = Math.max(0, Math.min(1, (fire.until - state.time) / FIRE_OUT));
+    const spot = project(view, fire.x, fire.y);
+    // The scorched, glowing ground under it.
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = left * EMBER_ALPHA;
+    const ember = ctx.createRadialGradient(
+      spot.x,
+      spot.y,
+      0,
+      spot.x,
+      spot.y,
+      FIRE_REACH,
+    );
+    ember.addColorStop(0, EMBER_HOT);
+    ember.addColorStop(1, fades(EMBER_HOT));
+    ctx.fillStyle = ember;
+    ctx.beginPath();
+    ctx.ellipse(spot.x, spot.y, FIRE_REACH, FIRE_REACH * DEPTH, 0, 0, TURN);
+    ctx.fill();
+    // And the flames over it.
+    ctx.globalCompositeOperation = "lighter";
+    for (const lick of FIRE_LICKS) {
+      const beat = Math.sin(
+        state.time * lick.beat + fire.id * FIRE_PHASE + lick.phase,
+      );
+      const tall = (lick.tall + beat * lick.waver) * left;
+      const wide = lick.wide * left;
+      lickOfFlame(
+        ctx,
+        { x: spot.x + lick.at, y: spot.y },
+        wide,
+        tall,
+        beat * FIRE_LEAN,
+        lick.alpha * left,
+      );
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.restore();
+}
+
+/**
+ * One lick of flame standing on the ground.
+ *
+ * @param ctx - what to paint on
+ * @param foot - where it stands on the screen
+ * @param wide - how wide it is at the bottom, in pixels
+ * @param tall - and how far up it reaches
+ * @param sway - how far the tip is blown off vertical, in pixels
+ * @param alpha - how solid to paint it
+ * @remarks
+ * **A flame is a teardrop, not an ellipse.** It is wide and round at the
+ * bottom where the fuel is and drawn out to a point at the top where it runs
+ * out of things to burn - two curves from the foot to the tip, with the tip
+ * pushed sideways by the draught. That shape is the whole difference between
+ * fire and a glowing balloon, and it costs two Bézier curves.
+ */
+function lickOfFlame(
+  ctx: CanvasRenderingContext2D,
+  foot: Screen,
+  wide: number,
+  tall: number,
+  sway: number,
+  alpha: number,
+): void {
+  if (tall <= 0 || wide <= 0) {
+    return;
+  }
+  const tip = { x: foot.x + sway, y: foot.y - tall };
+  const flame = new Path2D();
+  flame.moveTo(foot.x - wide, foot.y);
+  flame.bezierCurveTo(
+    foot.x - wide,
+    foot.y - tall * LICK_SHOULDER,
+    tip.x - wide * LICK_WAIST,
+    tip.y + tall * LICK_NECK,
+    tip.x,
+    tip.y,
+  );
+  flame.bezierCurveTo(
+    tip.x + wide * LICK_WAIST,
+    tip.y + tall * LICK_NECK,
+    foot.x + wide,
+    foot.y - tall * LICK_SHOULDER,
+    foot.x + wide,
+    foot.y,
+  );
+  // **And it is round underneath.** Closing the path draws a straight line
+  // across the bottom, and a flat-bottomed flame is a tent: the foot of a real
+  // one is the fattest part of it and curves under. So the two sides are
+  // joined by a bulge below the ground line instead.
+  flame.quadraticCurveTo(
+    foot.x,
+    foot.y + wide * LICK_BELLY,
+    foot.x - wide,
+    foot.y,
+  );
+  flame.closePath();
+  const glow = ctx.createLinearGradient(foot.x, foot.y, tip.x, tip.y);
+  glow.addColorStop(0, LICK_FOOT);
+  glow.addColorStop(LICK_HEART, LICK_BODY);
+  glow.addColorStop(1, LICK_TIP);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = glow;
+  ctx.fill(flame);
+}
+
+/** The three licks a burning patch throws, biggest first. */
+const FIRE_LICKS: readonly {
+  readonly at: number;
+  readonly wide: number;
+  readonly tall: number;
+  readonly waver: number;
+  readonly beat: number;
+  readonly phase: number;
+  readonly alpha: number;
+}[] = [
+  // **Side by side rather than one inside the other.** Three flames sharing a
+  // foot are a blob with a bright middle; three standing a couple of pixels
+  // apart, each its own size and each on its own beat, are a fire.
+  { at: -4, wide: 5.5, tall: 17, waver: 4, beat: 7.5, phase: 0, alpha: 0.4 },
+  { at: 1, wide: 6.5, tall: 12, waver: 3.4, beat: 11, phase: 1.9, alpha: 0.42 },
+  { at: 4, wide: 4, tall: 8, waver: 2.6, beat: 15.5, phase: 3.7, alpha: 0.5 },
+];
+
+/** How far apart two patches are in their flicker, in radians. */
+const FIRE_PHASE = 1.3;
+
+/** How far the draught blows the tip of a lick sideways, in pixels. */
+const FIRE_LEAN = 3;
+
+/** Over how many seconds a patch dies down before it is out. */
+const FIRE_OUT = 1.2;
+
+/** How bright the scorched ground under one glows. */
+const EMBER_ALPHA = 0.65;
+
+/** And what colour. */
+const EMBER_HOT = "rgba(214,74,16,0.9)";
+
+/** How far up the lick its widest point is, as a share of its height. */
+const LICK_SHOULDER = 0.55;
+
+/** How much of its width it still has at the neck. */
+const LICK_WAIST = 0.35;
+
+/** And how far below the tip that neck is. */
+const LICK_NECK = 0.3;
+
+/** How far the foot of a lick bulges below the ground, as a share of it. */
+const LICK_BELLY = 0.55;
+
+/** Where the middle colour of a lick sits, as a share of its height. */
+const LICK_HEART = 0.32;
+
+/** The three colours one is painted in, from the fuel up. */
+const LICK_FOOT = "rgba(255,226,150,0.9)";
+
+/** The body of it. */
+const LICK_BODY = "rgba(240,112,24,0.62)";
+
+/** And the tip, which is the coolest part and the first to become smoke. */
+const LICK_TIP = "rgba(140,32,10,0.1)";
 
 /**
  * The black marks left by tyres that were dragged rather than rolled.
@@ -827,6 +1738,7 @@ type MarkSkin = {
  */
 function drawCountryRoads(
   ctx: CanvasRenderingContext2D,
+  cells: readonly Cell[],
   view: View,
   seen: Seen,
 ): void {
@@ -847,7 +1759,7 @@ function drawCountryRoads(
       // gives the road an edge to sit in rather than floating on the grass.
       // Only out in the country - a road through a city has kerbs, and a strip
       // of dust drawn across a junction is a strip of dust on a junction.
-      strokeVerge(ctx, view, road.points, wide + VERGE);
+      strokeVerge(ctx, cells, view, road.points, wide + VERGE);
       strokeRoad(
         ctx,
         view,
@@ -863,8 +1775,18 @@ function drawCountryRoads(
 /** How far off screen a road still counts as worth drawing, in pixels. */
 const ROAD_MARGIN = 400;
 
-/** How much wider than its squares a road is painted, in squares. */
-const ROAD_COVER = 1.1;
+/**
+ * How much wider than its squares a road is painted, in squares.
+ *
+ * @remarks
+ * **Genau eine Schulter breiter, links wie rechts** - dieselbe Schulter, die
+ * das Deck einer Bruecke ueber ihre Fahrbahn hinausstehen laesst (siehe
+ * {@link DECK_SHOULDER}). Damit ist die Autobahn draussen exakt so breit wie
+ * die Bruecke, ueber die sie laeuft: Vorher war das Band ueber einen halben
+ * Meter breiter, und am Brueckenkopf sprang die Fahrbahnkante nach innen und
+ * die Striche gleich mit.
+ */
+const ROAD_COVER = (DECK_SHOULDER * 2) / TILE;
 
 /** How far the verge stands out past the tarmac, in pixels. */
 const VERGE = 14;
@@ -883,9 +1805,14 @@ const VERGE_PAINT = "#6b6357";
  * Segment by segment, because a country road that runs into a city stops
  * having verges at the first kerb - and a brown stripe painted across a
  * junction reads as somebody spilt something, not as a road.
+ *
+ * **Und ueber dem Wasser erst recht nicht.** Eine Bruecke hat einen Traeger,
+ * wo die Landstrasse ihren Staubstreifen hat; lag der Streifen trotzdem da,
+ * schwamm draussen neben dem Stahl ein brauner Rand auf dem Meer.
  */
 function strokeVerge(
   ctx: CanvasRenderingContext2D,
+  cells: readonly Cell[],
   view: View,
   points: readonly Vec[],
   wide: number,
@@ -897,7 +1824,9 @@ function strokeVerge(
     const next = points[at + 1];
     if (next !== undefined) {
       const middle = { x: (point.x + next.x) / 2, y: (point.y + next.y) / 2 };
-      if (!inCity(Math.floor(middle.x), Math.floor(middle.y))) {
+      const dry =
+        cellUnder(cells, middle.x * TILE, middle.y * TILE) !== "bridge";
+      if (dry && !inCity(Math.floor(middle.x), Math.floor(middle.y))) {
         const from = project(view, point.x * TILE, point.y * TILE);
         const to = project(view, next.x * TILE, next.y * TILE);
         ctx.moveTo(from.x, from.y);
@@ -976,19 +1905,30 @@ function drawScenery(
       const way = plot === null ? null : prisonGate(plot);
       const atGate = way !== null && col === way.x && row === way.y;
       if (cell === "fence" || atGate) {
+        // Which rectangle this square is a corner or a side of: the prison it
+        // belongs to, the airfield, or the military base. The fence itself is
+        // the same wire in all three; what differs is the box it runs round
+        // and whether it has barbs on top.
+        const wired =
+          plot !== null
+            ? {
+                left: plot.left,
+                top: plot.top,
+                right: plot.right - 1,
+                bottom: plot.bottom - 1,
+              }
+            : col >= AIRPORT.left &&
+                col <= AIRPORT.right &&
+                row >= AIRPORT.top &&
+                row <= AIRPORT.bottom
+              ? AIRPORT
+              : BASE;
         drawFence(
           ctx,
           view,
           col,
           row,
-          plot === null
-            ? BASE
-            : {
-                left: plot.left,
-                top: plot.top,
-                right: plot.right - 1,
-                bottom: plot.bottom - 1,
-              },
+          wired,
           plot !== null,
           atGate,
           atGate && state.jailbreak !== null,
@@ -1010,56 +1950,7 @@ function drawScenery(
   drawTrack(ctx, view, fromCol, fromRow, toCol, toRow);
   drawBase(ctx, state, view);
   drawRunway(ctx, view);
-  drawPlanes(ctx, view);
-  drawBoats(ctx, view);
   drawPlatforms(ctx, state, view);
-}
-
-/** The two aeroplanes parked on the apron, so the airfield reads as one. */
-function drawPlanes(ctx: CanvasRenderingContext2D, view: View): void {
-  for (let at = 0; at < PLANES; at += 1) {
-    const x = (AIRPORT.left + 5 + at * 9) * TILE;
-    const y = (AIRPORT.top + 3.5) * TILE;
-    drawPlane(ctx, view, { x, y });
-  }
-}
-
-/** How many of them there are. */
-const PLANES = 2;
-
-/** One of them, from above: a tube, two wings and a tail. */
-function drawPlane(ctx: CanvasRenderingContext2D, view: View, at: Vec): void {
-  const long = TILE * 4.2;
-  const body = TILE * 0.75;
-  const span = TILE * 3.4;
-  const spot = project(view, at.x, at.y, 14);
-  ctx.save();
-  ctx.translate(spot.x, spot.y);
-  ctx.scale(1, DEPTH);
-  ctx.fillStyle = "#e5e7eb";
-  ctx.strokeStyle = "#64748b";
-  ctx.lineWidth = 1.5;
-  // Wings first, then the fuselage over them.
-  ctx.beginPath();
-  ctx.moveTo(-long * 0.05, -span / 2);
-  ctx.lineTo(long * 0.16, -span / 2);
-  ctx.lineTo(long * 0.2, span / 2);
-  ctx.lineTo(-long * 0.05, span / 2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(-long * 0.44, -body * 0.6);
-  ctx.lineTo(-long * 0.44, body * 0.6);
-  ctx.lineTo(long * 0.3, body * 0.5);
-  ctx.lineTo(long * 0.5, 0);
-  ctx.lineTo(long * 0.3, -body * 0.5);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "#1d4ed8";
-  ctx.fillRect(-long * 0.44, -body * 0.25, long * 0.16, body * 0.5);
-  ctx.restore();
 }
 
 /**
@@ -2646,56 +3537,51 @@ function drawRunway(ctx: CanvasRenderingContext2D, view: View): void {
     project(view, RUNWAY.right * TILE, middle),
   );
   ctx.stroke();
-  ctx.restore();
-}
+  ctx.setLineDash([]);
 
-/** The boats tied up along the piers of the harbour. */
-function drawBoats(ctx: CanvasRenderingContext2D, view: View): void {
-  for (const pier of PIERS) {
-    for (let at = 0; at < BOATS_PER_PIER; at += 1) {
-      const x = (pier.right - 1 - at * 1.8) * TILE;
-      const y = (pier.bottom + 1.2) * TILE;
-      drawBoat(ctx, view, { x, y }, spread(pier.left + at, pier.top));
-    }
-  }
-}
-
-/** How many lie along each of them. */
-const BOATS_PER_PIER = 3;
-
-/** One of them: a hull, a deck and a little wheelhouse. */
-function drawBoat(
-  ctx: CanvasRenderingContext2D,
-  view: View,
-  at: Vec,
-  tint: number,
-): void {
-  const long = TILE * 1.25;
-  const wide = TILE * 0.45;
-  const spot = project(view, at.x, at.y, 6);
+  // **The name, painted on the apron.** Not on the runway - what is painted
+  // there is the centreline and nothing else - but on the strip the aircraft
+  // wait on, north of it, where there is room for it and where anybody
+  // driving in through the gate is looking. Laid flat on the concrete, the
+  // way the number on a threshold is: from this camera a sign on a post is a
+  // post.
+  ctx.fillStyle = APRON_PAINT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `bold ${String(APRON_LETTERS)}px system-ui, sans-serif`;
+  const at = project(
+    view,
+    ((RUNWAY.left + RUNWAY.right) / 2) * TILE,
+    (APRON_ROW - APRON_WORD_UP) * TILE,
+  );
   ctx.save();
-  ctx.translate(spot.x, spot.y);
+  ctx.translate(at.x, at.y);
   ctx.scale(1, DEPTH);
-  ctx.fillStyle = tint > 0.5 ? "#e2e8f0" : "#cbd5f5";
-  ctx.beginPath();
-  ctx.moveTo(-long / 2, -wide / 2);
-  ctx.lineTo(long / 2 - wide * 0.6, -wide / 2);
-  ctx.lineTo(long / 2, 0);
-  ctx.lineTo(long / 2 - wide * 0.6, wide / 2);
-  ctx.lineTo(-long / 2, wide / 2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = tint > 0.5 ? "#1d4ed8" : "#b91c1c";
-  ctx.fillRect(-long * 0.34, -wide * 0.28, long * 0.3, wide * 0.56);
+  ctx.fillText(APRON_WORD, 0, 0);
+  ctx.restore();
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
   ctx.restore();
 }
+
+/** What is painted on the apron. */
+const APRON_WORD = "AIRPORT";
+
+/** How tall those letters are, in city pixels. */
+const APRON_LETTERS = 54;
+
+/** How far north of the aircraft stands the word sits, in squares. */
+const APRON_WORD_UP = 1.2;
+
+/** And what it is painted in: the same white as the markings. */
+const APRON_PAINT = "#e5e7eb";
 
 /**
  * A number between nought and one that is always the same for a square.
  *
  * @param across - the square, across
  * @param down - the square, down
- * @returns the scatter of the trees and the colour of the boats
+ * @returns the scatter of the trees
  */
 function spread(across: number, down: number): number {
   const mixed = Math.sin(across * 12.9898 + down * 78.233) * 43758.5453;
@@ -3024,7 +3910,15 @@ function drawScene(
         at: car,
         mine,
         paint: (fade) =>
-          drawCar(ctx, car, view, state.time, fade, car.id === opened),
+          drawCar(
+            ctx,
+            car,
+            view,
+            state.cells,
+            state.time,
+            fade,
+            car.id === opened,
+          ),
       });
     }
   }
@@ -3151,7 +4045,7 @@ function drawScene(
   // inside the yard was painted first and then covered by the building it was
   // fired in. One shot in a gunfight one could not see.
   for (const shot of state.bullets) {
-    drawShot(ctx, shot, view);
+    drawShot(ctx, shot, view, state.time);
   }
   drawHeli(ctx, state, view);
   // And you, always, whether anything is in the way or not.
@@ -3377,6 +4271,7 @@ function paintHeli(
   angle: number,
   spin: number,
   paint: HeliPaint,
+  bank = 0,
 ): void {
   const long = HELI_LONG / 2;
   const wide = HELI_LONG * HAWK_WIDE;
@@ -3384,6 +4279,7 @@ function paintHeli(
   ctx.translate(spot.x, spot.y);
   ctx.scale(1, DEPTH);
   ctx.rotate(angle);
+  banked(ctx, bank);
   ctx.lineJoin = "round";
   ctx.fillStyle = paint.body;
   ctx.strokeStyle = paint.trim;
@@ -3648,12 +4544,216 @@ function drawChopper(
     0.45 - up * 0.2,
   );
   const spot = project(view, chopper.x, chopper.y, chopper.height);
-  if (chopper.kind === "rescue") {
-    rescueHeli(ctx, spot.x, spot.y, RESCUE_LONG, chopper.angle, chopper.spin);
+  if (chopper.kind === "plane") {
+    drawPlane(ctx, spot, chopper.angle, chopper.spin, chopper.lean);
+  } else if (chopper.kind === "rescue") {
+    rescueHeli(
+      ctx,
+      spot.x,
+      spot.y,
+      RESCUE_LONG,
+      chopper.angle,
+      chopper.spin,
+      chopper.lean,
+    );
   } else {
-    paintHeli(ctx, spot, chopper.angle, chopper.spin, ARMY_PAINT);
+    paintHeli(ctx, spot, chopper.angle, chopper.spin, ARMY_PAINT, chopper.lean);
   }
 }
+
+/**
+ * Tips whatever is drawn next over into a corner.
+ *
+ * @param ctx - what to paint on, already turned to point along the nose
+ * @param bank - how far over it is, in radians
+ * @remarks
+ * **The same trick the motorbike uses, and for the same reason**: this view
+ * has no way to tip a picture over, so a bank is drawn as the two things one
+ * would actually see from above. The span gets **shorter** - a wing tipped
+ * thirty degrees shows a sixth less of itself to somebody looking down on it,
+ * which is the cosine - and the machine **slides into the turn**, the way a
+ * bike ends up beside its own tyres.
+ *
+ * Both are applied inside the frame that is already pointing along the nose,
+ * so "across" means across the machine whichever way it happens to be flying.
+ */
+function banked(ctx: CanvasRenderingContext2D, bank: number): void {
+  if (bank === 0) {
+    return;
+  }
+  ctx.translate(0, Math.sin(bank) * BANK_SLIDE);
+  ctx.scale(1, Math.cos(bank));
+}
+
+/** How far into the corner a machine slides when it is right over, in pixels. */
+const BANK_SLIDE = 7;
+
+/**
+ * One aeroplane, from above.
+ *
+ * @param ctx - what to paint on
+ * @param spot - where it is on the screen, height already taken off
+ * @param angle - which way the nose points
+ * @param spin - where the propellers are in their turn
+ * @remarks
+ * **A light twin, not an airliner.** It has to stand on an apron between a
+ * fence and a runway and it has to be recognisable at sixty pixels long, so
+ * what it is built out of is the four shapes anybody would draw: a fuselage
+ * that comes to a point at the nose, a straight wing across the middle, a
+ * tailplane and a fin at the back. The engines sit on the wing with a
+ * propeller disc in front of each, and the disc is the one thing that says
+ * whether it is running: still on the apron, a blur in the air.
+ */
+function drawPlane(
+  ctx: CanvasRenderingContext2D,
+  spot: Screen,
+  angle: number,
+  spin: number,
+  bank = 0,
+): void {
+  const long = PLANE_LONG;
+  const wide = long * PLANE_BODY;
+  const span = long * PLANE_SPAN;
+  ctx.save();
+  ctx.translate(spot.x, spot.y);
+  ctx.scale(1, DEPTH);
+  ctx.rotate(angle);
+  banked(ctx, bank);
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = PLANE_TRIM;
+
+  // The tailplane and the fin, drawn first so the fuselage covers their roots.
+  ctx.fillStyle = PLANE_SKIN;
+  const tail = new Path2D();
+  tail.moveTo(-long * 0.46, -span * PLANE_TAIL);
+  tail.lineTo(-long * 0.34, -span * PLANE_TAIL * 0.7);
+  tail.lineTo(-long * 0.34, span * PLANE_TAIL * 0.7);
+  tail.lineTo(-long * 0.46, span * PLANE_TAIL);
+  tail.closePath();
+  ctx.fill(tail);
+  ctx.stroke(tail);
+  ctx.fillStyle = PLANE_TRIM;
+  ctx.fillRect(-long * 0.5, -PLANE_FIN / 2, long * 0.18, PLANE_FIN);
+
+  // The wing, straight across, with an engine on each side.
+  ctx.fillStyle = PLANE_SKIN;
+  // **The wing sits on the middle of the fuselage**, not up by the nose: with
+  // the engines and the propellers in front of it, a wing set forward put the
+  // whole machine's weight ahead of where it is drawn to balance, and the
+  // thing read as an arrow rather than as an aeroplane.
+  const wing = new Path2D();
+  wing.moveTo(-long * 0.12, -span / 2);
+  wing.lineTo(long * 0.06, -span / 2);
+  wing.lineTo(long * 0.12, 0);
+  wing.lineTo(long * 0.06, span / 2);
+  wing.lineTo(-long * 0.12, span / 2);
+  wing.closePath();
+  ctx.fill(wing);
+  ctx.stroke(wing);
+  for (const side of [-1, 1]) {
+    const out = side * span * PLANE_ENGINE;
+    ctx.fillStyle = PLANE_TRIM;
+    const pod = new Path2D();
+    pod.roundRect(
+      -long * 0.08,
+      out - PLANE_POD / 2,
+      long * 0.26,
+      PLANE_POD,
+      1.5,
+    );
+    ctx.fill(pod);
+    ctx.stroke(pod);
+    // **The propeller says whether it is running.** Standing on the apron it
+    // is one blade across the shaft; with the engine turning it is the disc
+    // the blades sweep, which is a smear rather than a shape.
+    ctx.fillStyle = PLANE_BLADE;
+    if (spin === 0) {
+      ctx.fillRect(
+        long * 0.19 - PLANE_PROP / 2,
+        out - PLANE_ARC,
+        PLANE_PROP,
+        PLANE_ARC * 2,
+      );
+    } else {
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.ellipse(long * 0.2, out, PLANE_PROP, PLANE_ARC, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // The fuselage over the lot of it, and the glass at the front.
+  ctx.fillStyle = PLANE_SKIN;
+  const body = new Path2D();
+  body.moveTo(-long * 0.46, -wide * 0.42);
+  body.lineTo(long * 0.28, -wide * 0.5);
+  body.lineTo(long * 0.44, -wide * 0.18);
+  body.lineTo(long * 0.48, 0);
+  body.lineTo(long * 0.44, wide * 0.18);
+  body.lineTo(long * 0.28, wide * 0.5);
+  body.lineTo(-long * 0.46, wide * 0.42);
+  body.closePath();
+  ctx.fill(body);
+  ctx.stroke(body);
+  ctx.fillStyle = PLANE_GLASS;
+  const glass = new Path2D();
+  glass.moveTo(long * 0.24, -wide * 0.32);
+  glass.lineTo(long * 0.38, -wide * 0.2);
+  glass.lineTo(long * 0.38, wide * 0.2);
+  glass.lineTo(long * 0.24, wide * 0.32);
+  glass.closePath();
+  ctx.fill(glass);
+  // The stripe down the side, which is what an aeroplane has instead of paint.
+  ctx.fillStyle = PLANE_STRIPE;
+  ctx.fillRect(-long * 0.42, -PLANE_LINE / 2, long * 0.6, PLANE_LINE);
+  ctx.restore();
+}
+
+/** How long an aeroplane is drawn, in pixels. */
+const PLANE_LONG = 62;
+
+/** How wide its fuselage is, as a share of that. */
+const PLANE_BODY = 0.21;
+
+/** How far the wing reaches across, the same way. */
+const PLANE_SPAN = 0.98;
+
+/** And the tailplane. */
+const PLANE_TAIL = 0.34;
+
+/** How far out along the wing an engine sits, as a share of the span. */
+const PLANE_ENGINE = 0.24;
+
+/** How thick an engine pod is drawn. */
+const PLANE_POD = 5;
+
+/** How wide the propeller disc is. */
+const PLANE_PROP = 2;
+
+/** And how far it reaches either side of the shaft. */
+const PLANE_ARC = 7;
+
+/** How tall the fin is drawn. */
+const PLANE_FIN = 3;
+
+/** How thick the stripe down the fuselage is. */
+const PLANE_LINE = 1.6;
+
+/** What an aeroplane is painted. */
+const PLANE_SKIN = "#e8eaed";
+
+/** The darker grey of its tail, pods and outlines. */
+const PLANE_TRIM = "#7c838c";
+
+/** The stripe along the side. */
+const PLANE_STRIPE = "#1d4ed8";
+
+/** What one sees of the cockpit. */
+const PLANE_GLASS = "#1e293b";
+
+/** And the propellers. */
+const PLANE_BLADE = "#3f3f46";
 
 /** How long the air ambulance is drawn, in pixels. */
 const RESCUE_LONG = 40;
@@ -5531,8 +6631,19 @@ function drawHouse(
   for (let part = 0; part < parts; part += 1) {
     // Each house of a pair or a row sits a little lower or higher than its
     // neighbour, the same way every time.
+    //
+    // **Unless it is a height rather than a share of one.** A hospital is
+    // three storeys, a town hall two, a barber's shop one room - those are
+    // measurements, and a building that measures itself and is then nudged by
+    // a tenth is not that building any more. It showed on the town hall: two
+    // storeys of fifty-six pixels came out at forty-seven, which is one row of
+    // windows and a lot of empty brick over it. It also quietly moved the
+    // hospital's roof away from the height `roofAt` lands a jetpack at.
     const own =
-      height * (1 + (scatter(part * 13, Math.round(look * 90)) - 0.5) * 0.22);
+      sort.flat === null
+        ? height *
+          (1 + (scatter(part * 13, Math.round(look * 90)) - 0.5) * 0.22)
+        : height;
     const from = plot.left + part * (each + gap);
     houseBox(ctx, view, plot, from, each, own, look, sort, fade);
   }
@@ -6958,6 +8069,12 @@ function houseBox(
     fireBox(ctx, view, plot, from, wide, height, sort, fade);
     return;
   }
+  // And the town hall, which is the one building here made of brick. See
+  // {@link hallBox}.
+  if (sort.kind === "hall") {
+    hallBox(ctx, view, plot, from, wide, height, look, sort, fade);
+    return;
+  }
   const foot = project(view, from, plot.bottom);
   const back = project(view, from, plot.top, height);
   ctx.globalAlpha = fade;
@@ -7000,6 +8117,166 @@ function houseBox(
   ctx.stroke();
   ctx.globalAlpha = 1;
 }
+
+/** Which buildings carry their name on the brick instead of on a board. */
+function onTheGable(sort: Building): boolean {
+  return sort.kind === "hall";
+}
+
+/**
+ * The town hall: red brick, stone trim and shutters at every window.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param plot - the ground it stands on, in city pixels
+ * @param from - the left edge of the building, the same way
+ * @param wide - how wide it is
+ * @param height - how tall its front wall is
+ * @param look - the block's own dice roll, for which windows are lit
+ * @param sort - its colours and its name
+ * @param fade - how solid to paint it
+ * @remarks
+ * **Every other front in this city is a flat rectangle of colour**, and for a
+ * shop or an office block that is right: they are render and glass and they
+ * have nothing else to say. A town hall is the oldest building on the street
+ * and the only one anybody would photograph, so it gets the three things that
+ * make it look its age - the courses of brick, the stone it stands on and
+ * ends with, and the shutters.
+ *
+ * All three are cheap at this size: the brick is two sets of lines, the stone
+ * is two bands and two pilasters, and a shutter is a rectangle with a pair of
+ * slats in it. Nothing here is a picture; it is all drawn, so it fits whatever
+ * width the block gives it.
+ */
+function hallBox(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  plot: { left: number; top: number; right: number; bottom: number },
+  from: number,
+  wide: number,
+  height: number,
+  look: number,
+  sort: Building,
+  fade: number,
+): void {
+  const foot = project(view, from, plot.bottom);
+  const back = project(view, from, plot.top, height);
+  const eave = foot.y - height;
+  ctx.save();
+  ctx.globalAlpha = fade;
+
+  // The brickwork: the wall in red first, the courses over it.
+  ctx.fillStyle = sort.wall;
+  ctx.fillRect(foot.x, eave, wide, height);
+  brickWork(ctx, foot.x, eave, wide, height);
+  ctx.fillStyle = HALL_STONE;
+  ctx.fillRect(foot.x, eave, wide, HALL_CORNICE);
+  ctx.fillRect(foot.x, foot.y - HALL_PLINTH, wide, HALL_PLINTH);
+  // And a pilaster at each end, which is what stops a long brick front from
+  // reading as a wall somebody has drawn windows on.
+  ctx.fillRect(foot.x, eave, HALL_PIER, height);
+  ctx.fillRect(foot.x + wide - HALL_PIER, eave, HALL_PIER, height);
+  ctx.strokeStyle = "#78716c";
+  ctx.strokeRect(foot.x + HALF_PEN, eave + HALF_PEN, wide - 1, height - 1);
+  ctx.restore();
+
+  const clear = frontage(ctx, foot, wide, height, look, sort, fade);
+  drawWindows(ctx, foot, wide, height, look, fade, clear, 0, true);
+
+  // **And a proper roof over it**, last of all: two slopes of red clay with a
+  // gable at each end, the same one the houses have - see {@link pitchedRoof}.
+  // Everything else with a name over its door in this city has a flat roof,
+  // because everything else with a name over its door was built this century.
+  ctx.globalAlpha = fade;
+  // No window in the gable: there is one on the plan, but what one sees of it
+  // from up here is three pixels behind the name, and a window one cannot
+  // make out is a smudge on the brickwork.
+  pitchedRoof(
+    ctx,
+    foot.x,
+    eave,
+    wide,
+    back.y,
+    sort.wall,
+    look,
+    fade,
+    CLAY,
+    false,
+  );
+  ctx.strokeStyle = "#292524";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  line(ctx, { x: foot.x, y: eave }, { x: foot.x + wide, y: eave });
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * Courses of brick over a wall.
+ *
+ * @param ctx - what to paint on
+ * @param x - the left edge of the wall on screen
+ * @param y - and the top of it
+ * @param wide - how wide it is
+ * @param height - and how tall
+ * @remarks
+ * Two passes and no pattern image: the beds first, then the cross joints with
+ * every other course shifted half a brick along, which is what makes a wall
+ * read as brick rather than as lined paper. The joints are drawn in a lighter
+ * red rather than in grey - mortar at this size is a hint, and a grey grid
+ * over a red wall looks like netting.
+ */
+function brickWork(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  wide: number,
+  height: number,
+): void {
+  ctx.strokeStyle = BRICK_JOINT;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let bed = y + BRICK_COURSE; bed < y + height; bed += BRICK_COURSE) {
+    const at = Math.round(bed) + HALF_PEN;
+    ctx.moveTo(x, at);
+    ctx.lineTo(x + wide, at);
+  }
+  let course = 0;
+  for (let bed = y; bed < y + height; bed += BRICK_COURSE) {
+    const shift = course % 2 === 0 ? 0 : BRICK_LONG / 2;
+    for (let joint = x + shift; joint < x + wide; joint += BRICK_LONG) {
+      const at = Math.round(joint) + HALF_PEN;
+      ctx.moveTo(at, bed);
+      ctx.lineTo(at, Math.min(bed + BRICK_COURSE, y + height));
+    }
+    course += 1;
+  }
+  ctx.stroke();
+}
+
+/** Half a pen's width, for lines that are meant to land on a pixel. */
+const HALF_PEN = 0.5;
+
+/** How far apart the beds of brick lie, in pixels. */
+const BRICK_COURSE = 4;
+
+/** And how long a brick is, the same way. */
+const BRICK_LONG = 9;
+
+/** The mortar: a lighter red rather than grey - see {@link brickWork}. */
+const BRICK_JOINT = "rgba(255,237,213,0.33)";
+
+/** The stone the hall stands on and ends with. */
+const HALL_STONE = "#e7e5e4";
+
+/** How deep the band under the eaves is, in pixels. */
+const HALL_CORNICE = 3;
+
+/** And the one along the ground. */
+const HALL_PLINTH = 4;
+
+/** How wide the stone pier at each end is. */
+const HALL_PIER = 3;
 
 /**
  * The fire station: three open bays with an engine standing in each.
@@ -7320,12 +8597,14 @@ function rescueHeli(
   long: number,
   angle: number,
   spin: number,
+  bank = 0,
 ): void {
   const size = long / HELI_LONG;
   ctx.save();
   ctx.translate(at, up);
   ctx.scale(size, size * DEPTH);
   ctx.rotate(angle);
+  banked(ctx, bank);
   ctx.fillStyle = RESCUE_BODY;
   ctx.strokeStyle = RESCUE_TRIM;
   ctx.lineWidth = 1.5;
@@ -7663,6 +8942,8 @@ function pitchedRoof(
   wall: string,
   look: number,
   fade: number,
+  tiles: Tiles = SLATE,
+  attic = true,
 ): void {
   const middle = left + wide / 2;
   const rise = Math.min(wide * ROOF_PITCH, ROOF_PEAK);
@@ -7673,8 +8954,8 @@ function pitchedRoof(
   const lift = (at: number) => (1 - Math.abs(at - middle) / (wide / 2)) * rise;
 
   for (const slope of [
-    { from: left, to: middle, tint: ROOF_SUN },
-    { from: middle, to: left + wide, tint: ROOF_SHADE },
+    { from: left, to: middle, tint: tiles.sun },
+    { from: middle, to: left + wide, tint: tiles.shade },
   ]) {
     ctx.fillStyle = slope.tint;
     ctx.beginPath();
@@ -7698,7 +8979,7 @@ function pitchedRoof(
     ctx.lineTo(course, eave - up);
   }
   ctx.stroke();
-  ctx.fillStyle = ROOF_RIDGE;
+  ctx.fillStyle = tiles.ridge;
   ctx.fillRect(middle - RIDGE_THICK / 2, back - rise, RIDGE_THICK, eave - back);
 
   // **A gable end at each end, not one.** The ridge runs from the back of the
@@ -7715,7 +8996,7 @@ function pitchedRoof(
   ctx.lineTo(left + wide, eave);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = ROOF_VERGE;
+  ctx.strokeStyle = tiles.verge;
   ctx.lineWidth = VERGE_THICK;
   for (const end of [
     { at: eave, out: VERGE_OUT },
@@ -7734,7 +9015,7 @@ function pitchedRoof(
   // nine feet wide at the front, its gable is five pixels tall, and a window
   // drawn in it would stick out through both slopes.
   const room = eave - GABLE_SILL - PANE_TALL - PANE_EDGE;
-  if (rise >= PANE_TALL + GABLE_SILL + GABLE_HEAD) {
+  if (attic && rise >= PANE_TALL + GABLE_SILL + GABLE_HEAD) {
     windowPane(
       ctx,
       middle - PANE_WIDE / 2,
@@ -7744,6 +9025,30 @@ function pitchedRoof(
     );
   }
 }
+
+/**
+ * What a pitched roof is covered in.
+ *
+ * @remarks
+ * Four colours rather than one, because a roof seen from up here is two
+ * slopes and the two lines where they end: the sunny side, the shaded side,
+ * the ridge between them and the verge along the gables. Slate for the houses
+ * of Los Santos, {@link CLAY} for the one building that predates them.
+ */
+type Tiles = {
+  readonly sun: string;
+  readonly shade: string;
+  readonly ridge: string;
+  readonly verge: string;
+};
+
+/** And red clay pantiles, for the town hall. */
+const CLAY: Tiles = {
+  sun: "#c2542a",
+  shade: "#9c3c1c",
+  ridge: "#7c2d12",
+  verge: "#5c2410",
+};
 
 /** How far above the eaves the sill of the gable window sits, in pixels. */
 const GABLE_SILL = 2;
@@ -7779,6 +9084,14 @@ const ROOF_RIDGE = "#cbd5e1";
 /** The tiles along the verge of the gable end. */
 const ROOF_VERGE = "#4b5563";
 
+/** Grey slate, which is what every roof in this city was. */
+const SLATE: Tiles = {
+  sun: ROOF_SUN,
+  shade: ROOF_SHADE,
+  ridge: ROOF_RIDGE,
+  verge: ROOF_VERGE,
+};
+
 /** How steep the gable is, as a share of the width of the house. */
 const ROOF_PITCH = 0.2;
 
@@ -7806,8 +9119,15 @@ function signOver(
   const band = 13;
   ctx.save();
   ctx.globalAlpha = fade;
-  ctx.fillStyle = "#0f172a";
-  ctx.fillRect(foot.x + 4, foot.y - height - band + 2, wide - 8, band);
+  // **A board, unless there is a gable to paint the name on.** The dark bar is
+  // a sign screwed to a parapet, which is what every flat-roofed building here
+  // has. The town hall has neither a parapet nor a sign: its name is painted
+  // straight on to the brick of the gable, the way it is on every town hall
+  // old enough to have one.
+  if (!onTheGable(sort)) {
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(foot.x + 4, foot.y - height - band + 2, wide - 8, band);
+  }
   ctx.fillStyle = sort.sign;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -7817,7 +9137,18 @@ function signOver(
     size -= 1;
     ctx.font = `bold ${size}px system-ui, sans-serif`;
   }
-  ctx.fillText(sort.name, foot.x + wide / 2, foot.y - height - band / 2 + 2);
+  const middle = foot.x + wide / 2;
+  const line = foot.y - height - band / 2 + 2;
+  // Painted letters need an edge of their own: cream on red brick is legible,
+  // cream on red brick with a dark line round it is legible from the far
+  // pavement.
+  if (onTheGable(sort)) {
+    ctx.strokeStyle = "rgba(28,25,23,0.75)";
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = "round";
+    ctx.strokeText(sort.name, middle, line);
+  }
+  ctx.fillText(sort.name, middle, line);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.globalAlpha = 1;
@@ -8169,6 +9500,7 @@ function drawWindows(
   fade: number,
   clear: { readonly from: number; readonly to: number },
   from: number,
+  shutters = false,
 ): void {
   const across = Math.max(2, Math.round(wide / 30));
   // **A storey is three metres.** The rows used to be eighteen pixels apart,
@@ -8203,11 +9535,74 @@ function drawWindows(
       if (left === null) {
         continue;
       }
+      // **Shutters before the window, not over it.** They are folded back
+      // against the wall on either side of the opening, which is where open
+      // shutters are - a shutter drawn across the glass is a closed one, and
+      // a town hall with its shutters closed is a town hall nobody works in.
+      if (shutters) {
+        openShutters(ctx, left, top, fade);
+      }
       windowPane(ctx, left, top, lit, fade);
     }
   }
   ctx.globalAlpha = fade;
 }
+
+/**
+ * The pair of wooden shutters beside a window, folded back open.
+ *
+ * @param ctx - what to paint on
+ * @param left - the left edge of the glass on screen
+ * @param top - and the top of it
+ * @param fade - how solid to paint it
+ * @remarks
+ * One leaf either side of the opening, as wide as half the glass, because
+ * that is what a shutter is: half the window, so that the two of them cover
+ * it when they are shut. The slats are two lines - at this size a louvre is a
+ * suggestion - and the dark outline is what keeps a small brown rectangle on
+ * a red wall from disappearing into it.
+ */
+function openShutters(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  fade: number,
+): void {
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = SHUTTER_WOOD;
+  ctx.strokeStyle = SHUTTER_EDGE;
+  ctx.lineWidth = 1;
+  for (const at of [left - SHUTTER_WIDE - 1, left + PANE_WIDE + 1]) {
+    ctx.fillRect(at, top, SHUTTER_WIDE, PANE_TALL);
+    ctx.strokeRect(
+      at + HALF_PEN,
+      top + HALF_PEN,
+      SHUTTER_WIDE - 1,
+      PANE_TALL - 1,
+    );
+    ctx.beginPath();
+    for (let slat = 1; slat < SHUTTER_SLATS; slat += 1) {
+      const y = Math.round(top + (PANE_TALL * slat) / SHUTTER_SLATS) + HALF_PEN;
+      ctx.moveTo(at + 1, y);
+      ctx.lineTo(at + SHUTTER_WIDE - 1, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** What a shutter is painted in: the green every old shutter is painted. */
+const SHUTTER_WOOD = "#3f6b32";
+
+/** And the line round it. */
+const SHUTTER_EDGE = "#1c3315";
+
+/** How wide one leaf is, in pixels: half the window it belongs to. */
+const SHUTTER_WIDE = 5;
+
+/** How many slats are suggested on it. */
+const SHUTTER_SLATS = 3;
 
 /**
  * One window: its frame, the glass in it, the bars across it and its sill.
@@ -8915,11 +10310,19 @@ function drawCar(
   ctx: CanvasRenderingContext2D,
   car: Car,
   view: View,
+  cells: readonly Cell[],
   now: number,
   fade: number,
   open = false,
 ): void {
   const shape = VEHICLES[car.body];
+  // **A boat is not a car with the wheels taken off.** No skid marks, no
+  // sprite sheet of walls and no doors: a hull, a screen and a wake. See
+  // {@link boatHull}.
+  if (floats(car.body)) {
+    boatHull(ctx, car, view, cells, now, fade);
+    return;
+  }
   // Under the car, before it: rubber going up is the one thing that says a
   // corner was taken too fast, and it belongs on the road, not on the roof.
   drawSkid(ctx, car, view, now, fade);
@@ -8971,7 +10374,11 @@ function drawCar(
   // stands there with its door drawn through its own roof. The driver's side is
   // the car's **left**, which faces the camera when the nose points west.
   const near = Math.cos(car.angle) < 0;
-  if (open && !near) {
+  // **A gullwing is the exception**: it hinges on the roof and stands *over*
+  // the car, so nothing the car draws can be in front of it. It goes on last
+  // whichever way the nose is pointing.
+  const upward = opensUpward(car.body);
+  if (open && !near && !upward) {
     swungDoor(ctx, view, car, tiers, paint, fade);
   }
 
@@ -9115,7 +10522,7 @@ function drawCar(
     });
   }
 
-  if (open && near) {
+  if (open && (near || upward)) {
     swungDoor(ctx, view, car, tiers, paint, fade);
   }
 
@@ -9929,6 +11336,10 @@ function swungDoor(
   if (twoWheeled(car.body) || car.body === "tank") {
     return;
   }
+  if (opensUpward(car.body)) {
+    gullDoor(ctx, view, car, tiers, paint, fade);
+    return;
+  }
   const shape = VEHICLES[car.body];
   const cos = Math.cos(car.angle);
   const sin = Math.sin(car.angle);
@@ -9999,6 +11410,116 @@ function swungDoor(
   ctx.fill(glass);
   ctx.restore();
 }
+
+/** Which bodies have doors that go up instead of out. */
+function opensUpward(body: VehicleBody): boolean {
+  return body === "dmc";
+}
+
+/**
+ * The DeLorean's door, standing open over its own roof.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param car - the vehicle it belongs to
+ * @param tiers - how high its bodywork stands
+ * @param paint - what it is painted in, which on this one is stainless
+ * @param fade - how solid the vehicle is drawn this frame
+ * @remarks
+ * **A gullwing hinges on the roof, not on the front edge.** The panel is the
+ * same length along the body as everybody else's - the same two shares, so
+ * the door is where a door is - but it runs the other way: from the spine
+ * down the middle of the roof out over the flank, and it swings **up** about
+ * that spine rather than out about the A pillar. The roof of this car is
+ * already drawn as two panels with the hinge between them (see `dmcTop` in
+ * vehicle-art); this is one of those two, lifted.
+ *
+ * Which is also why it is drawn after the car and not before it when the door
+ * is on the far side: at {@link GULL_LIFT} the far edge stands higher than
+ * the roof it came off, so there is nothing of the car that could be in front
+ * of it.
+ */
+function gullDoor(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  car: Car,
+  tiers: VehicleTiers,
+  paint: string,
+  fade: number,
+): void {
+  const shape = VEHICLES[car.body];
+  const cos = Math.cos(car.angle);
+  const sin = Math.sin(car.angle);
+  // Its own two shares rather than the swinging door's: this one is a third
+  // of the car long, because on this car it is - the door runs from the front
+  // wheel to behind the seat and takes a piece of the roof with it.
+  const front = shape.length * GULL_FRONT;
+  const back = front - shape.length * GULL_ALONG;
+  const leaf = shape.width * GULL_LEAF;
+  // Out over the driver's side, which is the car's left and the negative one,
+  // and up by as much as it is no longer out.
+  const out = -Math.cos(GULL_LIFT) * leaf;
+  const high = tiers.tall + Math.sin(GULL_LIFT) * leaf;
+  const spot = (along: number, across: number, up: number): Vec =>
+    project(
+      view,
+      car.x + cos * along - sin * across,
+      car.y + sin * along + cos * across,
+      up,
+    );
+  const a = spot(front, 0, tiers.tall);
+  const b = spot(back, 0, tiers.tall);
+  const c = spot(back, out, high);
+  const d = spot(front, out, high);
+  const panel = new Path2D();
+  panel.moveTo(a.x, a.y);
+  panel.lineTo(b.x, b.y);
+  panel.lineTo(c.x, c.y);
+  panel.lineTo(d.x, d.y);
+  panel.closePath();
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = paint;
+  ctx.strokeStyle = "#0f172a";
+  ctx.lineWidth = 1;
+  ctx.lineJoin = "round";
+  ctx.fill(panel);
+  ctx.stroke(panel);
+  // The window is the outer part of it: on this car the glass runs right up
+  // into the door, which is what makes the thing look like a wing and not a
+  // hatch.
+  const mix = (from: Vec, to: Vec, share: number): Vec => ({
+    x: from.x + (to.x - from.x) * share,
+    y: from.y + (to.y - from.y) * share,
+  });
+  const glass = new Path2D();
+  const e = mix(a, d, GULL_GLASS);
+  const f = mix(b, c, GULL_GLASS);
+  glass.moveTo(e.x, e.y);
+  glass.lineTo(f.x, f.y);
+  glass.lineTo(c.x, c.y);
+  glass.lineTo(d.x, d.y);
+  glass.closePath();
+  ctx.fillStyle = DOOR_PANE;
+  ctx.fill(glass);
+  ctx.stroke(glass);
+  ctx.restore();
+}
+
+/** Where the gullwing's front edge is, as a share of the car's length. */
+const GULL_FRONT = 0.17;
+
+/** And how long it is, the same way. */
+const GULL_ALONG = 0.36;
+
+/** How far across the car the gullwing reaches, as a share of its width. */
+const GULL_LEAF = 0.7;
+
+/** How far up it swings from the roof, in radians. */
+const GULL_LIFT = 0.85;
+
+/** Where the glass in it starts, as a share of the way out along the panel. */
+const GULL_GLASS = 0.55;
 
 /** What the window in a door is: the same dark blue the screens are. */
 const DOOR_PANE = "#1e293b";
@@ -10256,7 +11777,7 @@ function paintOf(car: Car): string {
  * and one simply driving about in ordinary traffic is one too.
  */
 function onDuty(body: VehicleBody): boolean {
-  return body === "patrol" || body === "patrolbike";
+  return body === "patrol" || body === "patrolbike" || body === "patrolboat";
 }
 
 /**
@@ -11218,15 +12739,28 @@ function drawWalker(
   // on screen that says how high a man in a tilted picture is.
   const high = player.height;
   const shrink = 1 - (high / JET_CEILING) * 0.35;
-  shadow(
-    ctx,
-    view,
-    player,
-    FOOTPRINT * shrink,
-    FOOTPRINT * 0.8 * shrink,
-    0,
-    fade * 0.55 * shrink,
-  );
+  // **In the water there is no shadow on the ground**, because there is no
+  // ground: what is under him is water, and what water does with a man is
+  // hide the half of him that is in it. See {@link swimmer}.
+  //
+  // **Und ob er im Wasser ist, sagt er selbst.** Frueher stand hier die Frage
+  // an den Boden, ob unter ihm Wasser liegt - und unter einer Bruecke liegt
+  // Deck, also lief jeder Schwimmer, der darunter durchkam, ploetzlich oben
+  // darueber. Ein Brueckenfeld kann die Frage nicht beantworten; der Mann
+  // selbst kann es, siehe `Player.swimming` in ../engine/types.
+  const afloat =
+    player.car === null && !player.flying && high <= 0 && player.swimming;
+  if (!afloat) {
+    shadow(
+      ctx,
+      view,
+      player,
+      FOOTPRINT * shrink,
+      FOOTPRINT * 0.8 * shrink,
+      0,
+      fade * 0.55 * shrink,
+    );
+  }
   // Lifting is the same trick the camera uses: a step up the screen is a step
   // back along the road, so the figure is simply drawn from further up the
   // picture and nothing else in it has to know.
@@ -11242,6 +12776,10 @@ function drawWalker(
   if (player.jetpack && high > roofAt(state.cells, player.x, player.y)) {
     jetpack(ctx, view, up, player.angle, fade);
   }
+  // **Swimming: he is drawn from the waterline up**, and under the surface he
+  // is a shape seen through water. Both are the same figure - see
+  // {@link swimmer}, which sets the picture up and puts it away again.
+  const wake = afloat ? swimmer(ctx, state, view, up, fade) : null;
   drawFigure(
     ctx,
     view,
@@ -11271,8 +12809,9 @@ function drawWalker(
       style: dressStyle(player),
       holds: player.weapon,
     },
-    fade,
+    wake?.fade ?? fade,
   );
+  wake?.done();
   // And the flames **after** him, because they come out under his feet and
   // anything drawn there before the figure is drawn behind his legs. A flame
   // over a boot reads as a flame; a flame hidden behind one reads as nothing.
@@ -11280,6 +12819,559 @@ function drawWalker(
     thrust(ctx, view, up, player.angle, state.time, fade);
   }
 }
+
+/**
+ * Sets the picture up for somebody in the water.
+ *
+ * @param ctx - what to paint on
+ * @param state - the city, for the clock and whether he is under
+ * @param view - where the camera is
+ * @param up - where the figure's feet are, in city pixels
+ * @param fade - how solid he would be drawn on dry land
+ * @returns the fade to draw him with, and what to call once he is drawn
+ * @remarks
+ * **Two different pictures, one figure.**
+ *
+ * On the **surface** he is cut off at the waterline: everything below it is
+ * clipped away, so what is left is head, shoulders and arms - which is all
+ * anybody standing on the quay would see of a swimmer. Round him two rings of
+ * wake, one wider than the other and both breathing on the clock, so that
+ * treading water looks like work.
+ *
+ * **Under** it he is not cut at all - he is all there, seen through a fathom
+ * of harbour - so he is painted faint and a string of bubbles goes up from
+ * him. Faint is also honest about what it buys him: a shape one can barely
+ * make out is a shape the police have trouble with, which is why a round that
+ * would have hit him goes over his head instead.
+ *
+ * The clip has to be put away again *after* the figure is drawn, which is why
+ * this hands back a `done` rather than doing all of it itself.
+ */
+function swimmer(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  up: Vec,
+  fade: number,
+): { readonly fade: number; readonly done: () => void } {
+  const feet = project(view, up.x, up.y);
+  // **Unter einer Bruecke schwimmt er darunter durch.** Das Deck gehoert zum
+  // Boden, und alles, was sich bewegt, wird darueber gemalt - ein Schwimmer
+  // lief also oben ueber die Fahrbahn, obwohl er im Wasser war (der Motor
+  // wusste es die ganze Zeit besser: `swimming` sagt auch unter der Bruecke
+  // ja). Abgedunkelt liest er sich als das, was er ist: jemand im Schatten
+  // darunter - genau wie das Boot daneben, siehe {@link boatHull}.
+  const shade =
+    cellUnder(state.cells, up.x, up.y) === "bridge" ? UNDER_DECK : 1;
+  const shown = fade * shade;
+  // **The wake is at the waterline, not at his feet.** His feet are a good
+  // way under him in this view, and rings drawn down there read as a man
+  // standing over a puddle rather than as one in it.
+  const line = { x: feet.x, y: feet.y - WATERLINE };
+  const beat = Math.sin(state.time * WAKE_BEAT);
+  ctx.save();
+  ctx.globalAlpha = shown * WAKE_ALPHA;
+  ctx.strokeStyle = WAKE_TINT;
+  ctx.lineWidth = 1.5;
+  for (const ring of [1, WAKE_SECOND]) {
+    const wide = (WAKE_WIDE + beat * WAKE_SWELL) * ring;
+    ctx.beginPath();
+    ctx.ellipse(line.x, line.y, wide, wide * DEPTH, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  if (state.player.diving) {
+    ctx.globalAlpha = 1;
+    // **The bubbles go on after him**, not before: they come up past him on
+    // their way to the surface, and anything painted before the figure is
+    // painted behind it - which is a diver with three dots hidden under him.
+    return {
+      fade: shown * DIVE_FADE,
+      done: () => {
+        // Three of them, each further up than the last and each fading as it
+        // goes: one bubble is a dot, three are a man holding his breath.
+        ctx.fillStyle = WAKE_TINT;
+        for (let one = 0; one < BUBBLES; one += 1) {
+          const climb = ((state.time * BUBBLE_RISE + one) % 1) * BUBBLE_UP;
+          ctx.globalAlpha = shown * (1 - climb / BUBBLE_UP) * BUBBLE_ALPHA;
+          ctx.beginPath();
+          ctx.arc(
+            line.x + (one - 1) * BUBBLE_APART,
+            line.y - climb,
+            BUBBLE_SIZE - one * BUBBLE_SHRINK,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      },
+    };
+  }
+  // On the surface: everything below the waterline is cut away.
+  ctx.beginPath();
+  ctx.rect(0, 0, view.width, line.y);
+  ctx.clip();
+  return { fade: shown, done: () => ctx.restore() };
+}
+
+/** How faint a man under water is, as a share of what he would be. */
+const DIVE_FADE = 0.4;
+
+/** How far above his feet the water comes, in pixels. */
+const WATERLINE = 9;
+
+/** How wide the inner ring of his wake is, in pixels. */
+const WAKE_WIDE = 7;
+
+/** And the outer one, as a share of that. */
+const WAKE_SECOND = 1.45;
+
+/** How much the two of them breathe, in pixels. */
+const WAKE_SWELL = 1.6;
+
+/** How fast, in radians a second. */
+const WAKE_BEAT = 4.5;
+
+/** How solid the rings are. */
+const WAKE_ALPHA = 0.55;
+
+/** What water is drawn in when it is not the sea itself. */
+const WAKE_TINT = "#dbeafe";
+
+/** How many bubbles a diver sends up. */
+const BUBBLES = 3;
+
+/** How far they get before they are gone, in pixels. */
+const BUBBLE_UP = 14;
+
+/** How fast, in trips a second. */
+const BUBBLE_RISE = 0.9;
+
+/** How far apart they sit, in pixels. */
+const BUBBLE_APART = 3;
+
+/** How big the first one is. */
+const BUBBLE_SIZE = 2.2;
+
+/** And how much smaller each one after it. */
+const BUBBLE_SHRINK = 0.5;
+
+/** How solid they are. */
+const BUBBLE_ALPHA = 0.7;
+
+/**
+ * One boat, from above: hull, wheelhouse and wake.
+ *
+ * @param ctx - what to paint on
+ * @param car - the boat itself
+ * @param view - where the camera is
+ * @param now - the clock, for the wake
+ * @param fade - how solid to paint it
+ * @remarks
+ * **Four shapes and one of them moves.** The hull comes to a point at the bow
+ * and is cut square across the transom, which is the whole silhouette of a
+ * small motorboat from directly above; inside it a paler deck, a wheelhouse
+ * set back in the after third with a dark screen across its front, and a white
+ * rubbing strake round the sheer so that the shape reads against dark water.
+ *
+ * The **wake** is what says it is a boat and not a car parked on the sea. Two
+ * lines running aft from the bow, opening as they go, and a patch of white
+ * water behind the transom - and all of it gets bigger with speed and is not
+ * drawn at all when the thing is tied up. A moored boat sits still; one under
+ * way drags half the harbour along behind it.
+ */
+function boatHull(
+  ctx: CanvasRenderingContext2D,
+  car: Car,
+  view: View,
+  cells: readonly Cell[],
+  now: number,
+  fade: number,
+): void {
+  const shape = VEHICLES[car.body];
+  const long = shape.length;
+  const wide = shape.width;
+  const going = Math.min(1, Math.abs(car.speed) / shape.top);
+  const spot = project(view, car.x, car.y, BOAT_FLOAT);
+  // **Under a bridge it goes dark.** The deck is painted with the ground and
+  // everything that moves is painted over it, so a boat passing underneath
+  // would slide across the top of the bridge it is going under. Dimmed, it
+  // reads as what it is: something in the shadow below.
+  const under = cellUnder(cells, car.x, car.y) === "bridge";
+  const solid = fade * (under ? UNDER_DECK : 1);
+  ctx.save();
+  ctx.globalAlpha = solid;
+  ctx.translate(spot.x, spot.y);
+  ctx.scale(1, DEPTH);
+  ctx.rotate(car.angle);
+
+  boatWake(ctx, long, wide, going, now, car.id, solid);
+
+  // The hull: a point at the bow, square across the transom.
+  const paint = paintOf(car);
+  const hull = new Path2D();
+  hull.moveTo(long / 2, 0);
+  hull.quadraticCurveTo(long * 0.24, -wide / 2, -long * 0.16, -wide / 2);
+  hull.lineTo(-long / 2, -wide * 0.42);
+  hull.lineTo(-long / 2, wide * 0.42);
+  hull.lineTo(-long * 0.16, wide / 2);
+  hull.quadraticCurveTo(long * 0.24, wide / 2, long / 2, 0);
+  hull.closePath();
+  ctx.fillStyle = paint;
+  ctx.strokeStyle = BOAT_EDGE;
+  ctx.lineWidth = 1.2;
+  ctx.lineJoin = "round";
+  ctx.fill(hull);
+  ctx.stroke(hull);
+
+  // **The rubbing strake**, the white line round the sheer of every small boat
+  // there has ever been - and the one detail that says "boat" before any of
+  // the others are read.
+  ctx.strokeStyle = BOAT_STRAKE;
+  ctx.lineWidth = 1.6;
+  ctx.stroke(hull);
+
+  // The foredeck, and the hatch let into it.
+  ctx.strokeStyle = BOAT_EDGE;
+  ctx.lineWidth = 0.9;
+  const deck = new Path2D();
+  deck.moveTo(long * 0.44, 0);
+  deck.quadraticCurveTo(long * 0.3, -wide * 0.3, long * 0.06, -wide * 0.34);
+  deck.lineTo(long * 0.06, wide * 0.34);
+  deck.quadraticCurveTo(long * 0.3, wide * 0.3, long * 0.44, 0);
+  deck.closePath();
+  ctx.fillStyle = BOAT_DECK;
+  ctx.fill(deck);
+  ctx.stroke(deck);
+  ctx.fillStyle = BOAT_FITTING;
+  ctx.fillRect(long * 0.2, -wide * 0.12, long * 0.1, wide * 0.24);
+
+  // The cockpit: a well with two seats in it, open to the sky.
+  const well = new Path2D();
+  well.roundRect(-long * 0.42, -wide * 0.32, long * 0.48, wide * 0.64, 2.5);
+  ctx.fillStyle = BOAT_WELL;
+  ctx.fill(well);
+  ctx.stroke(well);
+  ctx.fillStyle = BOAT_SEAT;
+  for (const side of [-1, 1]) {
+    ctx.fillRect(
+      -long * 0.16,
+      side * wide * 0.08,
+      long * 0.12,
+      wide * 0.22 * side,
+    );
+  }
+  // The console on one side of the well, with the wheel on it.
+  ctx.fillStyle = BOAT_FITTING;
+  ctx.fillRect(-long * 0.02, -wide * 0.26, long * 0.07, wide * 0.3);
+
+  // **The screen**, across the front of the cockpit, and the handrail round
+  // the foredeck: two thin lines, and they are what make the thing look built
+  // rather than moulded.
+  ctx.strokeStyle = BOAT_GLASS;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(long * 0.07, -wide * 0.32);
+  ctx.lineTo(long * 0.07, wide * 0.32);
+  ctx.stroke();
+  ctx.strokeStyle = BOAT_STRAKE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(long * 0.4, -wide * 0.16);
+  ctx.quadraticCurveTo(long * 0.2, -wide * 0.4, long * 0.08, -wide * 0.4);
+  ctx.moveTo(long * 0.4, wide * 0.16);
+  ctx.quadraticCurveTo(long * 0.2, wide * 0.4, long * 0.08, wide * 0.4);
+  ctx.stroke();
+
+  // **Und das Polizeiboot traegt seine Farben.** Derselbe Rumpf wie das
+  // Motorboot am Ufer - ein Polizeiboot ist ein Boot -, aber mit dem blauen
+  // Band ueber die Bordwand und einem Blaulicht auf dem Steuerstand. Beides
+  // ist das, was man von oben ueberhaupt sieht: Der Rumpf ist schon silbern
+  // wie jeder Streifenwagen (siehe `paintOf`), und ohne Band und Lampe waere
+  // er nur ein blasses Boot.
+  if (car.kind === "police" || onDuty(car.body)) {
+    // Das Band liegt **im** Rumpf: Ohne den Beschnitt steht es vorne, wo der
+    // Bug schmal wird, neben dem Boot im Wasser.
+    ctx.save();
+    ctx.clip(hull);
+    ctx.fillStyle = POLICE_BLUE;
+    for (const side of [-1, 1]) {
+      ctx.fillRect(
+        -long * BAND_BACK,
+        side * wide * BAND_OUT - (side < 0 ? wide * BAND_THICK : 0),
+        long * BAND_LONG,
+        wide * BAND_THICK,
+      );
+    }
+    ctx.restore();
+    // Die Lampe blinkt im selben Takt wie das Balkenlicht eines Wagens -
+    // siehe {@link onCall} -, und zwar nur auf Einsatz.
+    const lit = onCall(car, now);
+    ctx.globalAlpha = solid * (lit ? 1 : LAMP_DARK);
+    ctx.fillStyle = lit ? LAMP_LIT : POLICE_BLUE;
+    ctx.beginPath();
+    ctx.arc(-long * BOAT_LAMP_BACK, 0, LAMP_SIZE, 0, Math.PI * 2);
+    ctx.fill();
+    if (lit) {
+      // Der Schein darum herum: Ohne ihn ist es ein blauer Punkt, mit ihm
+      // eine Lampe.
+      ctx.globalAlpha = solid * LAMP_GLOW;
+      ctx.beginPath();
+      ctx.arc(-long * BOAT_LAMP_BACK, 0, LAMP_SIZE * LAMP_HALO, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = solid;
+  }
+
+  // And the engine on the transom, which is where the noise and the wake come
+  // from.
+  ctx.fillStyle = BOAT_ENGINE;
+  ctx.strokeStyle = BOAT_EDGE;
+  ctx.lineWidth = 0.9;
+  const motor = new Path2D();
+  motor.roundRect(-long * 0.56, -wide * 0.16, long * 0.1, wide * 0.32, 2);
+  ctx.fill(motor);
+  ctx.stroke(motor);
+  ctx.restore();
+}
+
+/**
+ * The water a boat throws about.
+ *
+ * @param ctx - what to paint on, already turned along the hull
+ * @param long - how long the boat is
+ * @param wide - and how wide
+ * @param going - how much of its top speed it is doing, from nought to one
+ * @param now - the clock
+ * @param seed - the boat's own number, so that two are never in step
+ * @param fade - how solid to paint it
+ * @remarks
+ * **Three pieces of water, because a boat makes three**, and the old two
+ * straight lines were none of them:
+ *
+ * - **The propwash**: a churn right behind the transom, four discs of it at
+ *   different sizes and each on its own beat, so that it boils rather than
+ *   pulses. This is the part one actually watches.
+ * - **The trail**: what is left of that, running away astern in broken
+ *   patches that wander off the line and fade - a wake is broken water, not a
+ *   painted stripe.
+ * - **The bow wave**: two curves leaving the stem and opening out behind,
+ *   which is the wedge every hull pushes in front of itself. Curves and not
+ *   lines, because the water does not turn a corner at the bow.
+ *
+ * All of it scales with speed and none of it is drawn when the boat is tied
+ * up. The seed is the boat's own number: three boats abreast at the same
+ * speed with the same wake look like one boat drawn three times.
+ */
+function boatWake(
+  ctx: CanvasRenderingContext2D,
+  long: number,
+  wide: number,
+  going: number,
+  now: number,
+  seed: number,
+  fade: number,
+): void {
+  if (going < WAKE_LEAST) {
+    return;
+  }
+  const beat = (which: number): number =>
+    Math.sin(now * WAKE_CHURN + seed * WAKE_APART + which);
+  // **Every piece of it is a soft edge.** Flat white ellipses on blue water
+  // are bubbles; the same ellipses painted with a gradient that runs out to
+  // nothing are foam. It is the same argument as the flamethrower's, and the
+  // same trap: the outer stop has to be transparent **white**, because a
+  // gradient interpolates the colour too and fading white to transparent
+  // black runs it through grey.
+  const foam = (
+    at: number,
+    across: number,
+    rx: number,
+    ry: number,
+    alpha: number,
+  ): void => {
+    ctx.save();
+    ctx.translate(at, across);
+    ctx.scale(1, ry / rx);
+    // **The gradient is made after the move, not before it.** A canvas
+    // gradient is fixed in the coordinates it was built in, so one built
+    // around the patch's old middle and then translated paints the patch with
+    // its own transparent tail - which is to say with nothing at all.
+    const patch = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    patch.addColorStop(0, `rgba(239,246,255,${String(alpha)})`);
+    patch.addColorStop(WAKE_CORE, `rgba(239,246,255,${String(alpha * 0.6)})`);
+    patch.addColorStop(1, "rgba(239,246,255,0)");
+    ctx.fillStyle = patch;
+    ctx.beginPath();
+    ctx.arc(0, 0, rx, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  // The trail astern: overlapping patches, the further back the fainter and
+  // the wider, which is what a wake does as it spreads and dies.
+  for (let one = 0; one < WAKE_PATCHES; one += 1) {
+    const share = one / WAKE_PATCHES;
+    const back = long * (0.58 + one * WAKE_STEP * (0.6 + going));
+    const alpha = fade * going * (1 - share) * WAKE_TRAIL;
+    foam(
+      -back,
+      beat(one) * wide * WAKE_WANDER * share,
+      long * (0.16 + going * 0.08) * (1 + share * 1.6),
+      wide * (0.3 + going * 0.2) * (1 + share * 1.2),
+      alpha,
+    );
+  }
+
+  // The churn behind the transom: this is the part one watches, so it is the
+  // brightest and the only part that changes shape fast.
+  for (let one = 0; one < WASH_BLOBS; one += 1) {
+    const swell = 1 + beat(one * 2) * WASH_SWELL;
+    foam(
+      -long * (0.5 + one * 0.08),
+      beat(one * 3) * wide * 0.16,
+      wide * (0.34 - one * 0.05) * swell,
+      wide * (0.3 - one * 0.045) * swell,
+      fade * going * WASH_ALPHA,
+    );
+  }
+
+  // And the bow wave: two curves leaving the stem, brightest where the hull
+  // throws them and gone by the time they are a boat's length away.
+  const reach = long * (0.9 + going * 1.1);
+  for (const side of [-1, 1]) {
+    const tail = { x: -reach, y: side * wide * (1 + going * 1.2) };
+    const run = ctx.createLinearGradient(long * 0.48, 0, tail.x, tail.y);
+    run.addColorStop(0, `rgba(239,246,255,${String(fade * going * WAKE_BOW)})`);
+    run.addColorStop(
+      WAKE_SPEND,
+      `rgba(239,246,255,${String(fade * going * WAKE_BOW * 0.4)})`,
+    );
+    run.addColorStop(1, "rgba(239,246,255,0)");
+    ctx.strokeStyle = run;
+    ctx.lineWidth = 1.2 + going * 2.2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(long * 0.46, side * wide * 0.1);
+    ctx.quadraticCurveTo(
+      long * 0.05,
+      side * wide * (0.42 + going * 0.2),
+      tail.x,
+      tail.y,
+    );
+    ctx.stroke();
+  }
+  ctx.lineCap = "butt";
+  ctx.globalAlpha = fade;
+}
+
+/** Below this share of top speed a boat leaves no wake at all. */
+const WAKE_LEAST = 0.04;
+
+/** How fast the foam boils, in radians a second. */
+const WAKE_CHURN = 9;
+
+/** How far apart two boats are in that boil. */
+const WAKE_APART = 1.7;
+
+/** How many patches of broken water trail astern. */
+const WAKE_PATCHES = 7;
+
+/** How far apart they lie, as a share of the boat's length: they overlap. */
+const WAKE_STEP = 0.3;
+
+/** How far out a foam patch stays at full strength, as a share of itself. */
+const WAKE_CORE = 0.45;
+
+/** Where the bow wave is half spent, as a share of its length. */
+const WAKE_SPEND = 0.45;
+
+/** How far they wander off the line, as a share of the beam. */
+const WAKE_WANDER = 0.3;
+
+/** How solid the trail is at full speed. */
+const WAKE_TRAIL = 0.5;
+
+/** How many discs of churn sit behind the transom. */
+const WASH_BLOBS = 4;
+
+/** How much they swell as they boil. */
+const WASH_SWELL = 0.35;
+
+/** And how solid they are. */
+const WASH_ALPHA = 0.55;
+
+/** How solid the two bow waves are at full speed. */
+const WAKE_BOW = 0.8;
+
+/** How far a hull stands out of the water, in pixels. */
+const BOAT_FLOAT = 4;
+
+/** How far back the blue band on a police boat starts, as a share of its length. */
+const BAND_BACK = 0.34;
+
+/** How long it runs, the same way. */
+const BAND_LONG = 0.66;
+
+/** How far out it sits, as a share of the beam. */
+const BAND_OUT = 0.36;
+
+/** And how thick it is. */
+const BAND_THICK = 0.14;
+
+/** Where the blue lamp stands, as a share of the length aft of the middle. */
+const BOAT_LAMP_BACK = 0.06;
+
+/** How big it is, in pixels. */
+const LAMP_SIZE = 3;
+
+/** How much wider its glow is. */
+const LAMP_HALO = 2.2;
+
+/** How solid that glow is. */
+const LAMP_GLOW = 0.35;
+
+/** How much of itself the lamp shows between flashes. */
+const LAMP_DARK = 0.55;
+
+/** And what it looks like while it is lit. */
+const LAMP_LIT = "#93c5fd";
+
+/**
+ * How much of itself anything in the water shows while it is under a bridge.
+ *
+ * @remarks
+ * Boot wie Schwimmer, dieselbe Zahl: Beide sind unter dem Deck und muessen
+ * beide so aussehen. Ganz weglassen waere falsch - dann faehrt man blind -,
+ * und voll gemalt sieht es aus, als waere man oben auf der Bruecke.
+ */
+const UNDER_DECK = 0.45;
+
+/** The line round it. */
+const BOAT_EDGE = "#1e293b";
+
+/** What the foredeck is: the white of every small boat's moulding. */
+const BOAT_DECK = "#e7e5e4";
+
+/** The floor of the cockpit, which is a shade darker for being a well. */
+const BOAT_WELL = "#cbd5e1";
+
+/** The seats in it. */
+const BOAT_SEAT = "#475569";
+
+/** The hatch, the console and the other little grey things. */
+const BOAT_FITTING = "#94a3b8";
+
+/** The screen across the front of the cockpit. */
+const BOAT_GLASS = "#1e3a5f";
+
+/** The engine on the transom. */
+const BOAT_ENGINE = "#334155";
+
+/** The rubbing strake round the sheer. */
+const BOAT_STRAKE = "#f8fafc";
 
 /**
  * The jetpack on the player's back.
@@ -11823,6 +13915,180 @@ function stamp(
 }
 
 /**
+ * One tongue of the flamethrower.
+ *
+ * @param ctx - what to paint on
+ * @param head - where this one is on the screen
+ * @param shot - the round itself, for how far it has got and which one it is
+ * @param now - the clock, for the flicker
+ * @remarks
+ * **Fire is not a ball.** It used to be two flat discs, an orange one with a
+ * yellow one inside it, growing as they went - which from above read as
+ * bubbles coming out of a hose. What makes a jet of burning fuel look like
+ * one is four things, and none of them costs anything:
+ *
+ * - **It is a tongue, not a disc.** Every coat is an ellipse lying along the
+ *   line of flight, twice as long as it is wide, and the whole thing is
+ *   pushed back off its own head so it trails rather than leads.
+ * - **It burns from the inside out.** White at the muzzle, yellow behind
+ *   that, orange further out and dull red at the end, each coat dying at its
+ *   own distance - which is the order a real flame's colours run in, and the
+ *   reason one can see how far the gun reaches without being told.
+ * - **The light adds up.** Painted with `lighter`, so where two tongues
+ *   overlap the canvas goes brighter instead of one simply hiding the other.
+ *   That is what turns a stream of separate rounds into one jet of fire.
+ * - **It shakes.** Each round carries its own number, so it gets its own
+ *   wobble in size and in direction, running on the clock. A row of
+ *   identically sized blobs is a string of beads; the same row breathing
+ *   slightly out of step is a flame.
+ *
+ * And at the far end it stops being fire and becomes **smoke**: grey, wider
+ * still, and painted the ordinary way rather than added, because smoke takes
+ * light away instead of giving it.
+ */
+function flameTongue(
+  ctx: CanvasRenderingContext2D,
+  head: Screen,
+  shot: Bullet,
+  now: number,
+): void {
+  // **Against its own reach, not the weapon's.** A burst aimed two paces away
+  // is two paces long, and every colour in it has to run over those two paces
+  // - measured against the full hundred and twenty it would leave the nozzle
+  // already burnt out. See {@link Bullet.reach}.
+  const spent = Math.max(
+    0,
+    Math.min(1, 1 - shot.left / Math.max(1, shot.reach)),
+  );
+  // Its own flicker: the round's number sets the phase, so no two are in step.
+  const shake = Math.sin(now * TONGUE_BEAT + shot.id * FLAME_APART);
+  const size = FLAME_SEED + spent * FLAME_GROW + shake * FLAME_WAVER;
+  const coat = FLAME_COATS.find((one) => spent <= one.until) ?? LAST_COAT;
+  ctx.save();
+  ctx.translate(head.x, head.y);
+  ctx.scale(1, DEPTH);
+  ctx.rotate(shot.angle + shake * FLAME_SWAY);
+  // Stretched along the line of flight and pushed back off its own head, so
+  // the tongue trails the round rather than leading it.
+  ctx.translate(-size * FLAME_TRAIL, 0);
+  ctx.scale(TONGUE_LONG, TONGUE_WIDE);
+  ctx.globalCompositeOperation = "lighter";
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
+  glow.addColorStop(0, coat.core);
+  glow.addColorStop(FLAME_MID, coat.edge);
+  glow.addColorStop(1, fades(coat.edge));
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, size, 0, Math.PI * 2);
+  ctx.fill();
+  // The smoke at the end of it, which is the one part that is not light: it
+  // is painted the ordinary way, because smoke takes light away.
+  if (spent > SMOKE_FROM) {
+    ctx.globalCompositeOperation = "source-over";
+    const fume = ctx.createRadialGradient(0, 0, 0, 0, 0, size * SMOKE_SIZE);
+    const thick = ((spent - SMOKE_FROM) / (1 - SMOKE_FROM)) * SMOKE_MOST;
+    fume.addColorStop(0, `rgba(68,64,60,${String(thick)})`);
+    fume.addColorStop(1, "rgba(68,64,60,0)");
+    ctx.fillStyle = fume;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * SMOKE_SIZE, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.restore();
+}
+
+/**
+ * What a tongue of fire is painted in, by how far down its reach it is.
+ *
+ * @remarks
+ * **A flame burns from white to dull red**, and it does it *along its length*
+ * - the fuel leaves the gun alight and is spent by the time it gets to the
+ * end. That is the whole of this table: the first row is what comes out of
+ * the nozzle, the last is what is left at the far end, and `until` is how far
+ * down the range each one lasts. It is also why one can see how far the thing
+ * reaches without being told.
+ *
+ * Each one is painted as a **soft disc** rather than a shape with an edge on
+ * it: fire has no outline, and a stack of hard-edged ellipses read as bubbles
+ * coming out of a hose - which is exactly what this looked like before.
+ */
+const FLAME_COATS: readonly {
+  readonly core: string;
+  readonly edge: string;
+  readonly until: number;
+}[] = [
+  { core: "rgba(255,251,235,0.95)", edge: "rgba(253,224,71,0.5)", until: 0.22 },
+  {
+    core: "rgba(254,215,110,0.85)",
+    edge: "rgba(249,115,22,0.45)",
+    until: 0.45,
+  },
+  { core: "rgba(249,146,40,0.7)", edge: "rgba(220,38,38,0.35)", until: 0.7 },
+  { core: "rgba(190,60,20,0.45)", edge: "rgba(120,30,10,0.2)", until: 1 },
+];
+
+/** The last of them, for the one frame a round is past the end of its reach. */
+const LAST_COAT = {
+  core: "rgba(190,60,20,0.45)",
+  edge: "rgba(120,30,10,0.2)",
+  until: 1,
+};
+
+/** Where a gradient stops being core and starts being edge. */
+const FLAME_MID = 0.45;
+
+/**
+ * The outside of a flame: the same colour it fades from, at no alpha.
+ *
+ * @remarks
+ * **Not `rgba(0,0,0,0)`.** A gradient interpolates the colour as well as the
+ * alpha, so fading orange to transparent *black* runs it through a dirty grey
+ * on the way out - which is why every flame in this game had a smudge of soot
+ * round it that nobody had drawn. Fading orange to transparent **orange**
+ * leaves nothing behind at all.
+ */
+function fades(tint: string): string {
+  return tint.replace(/rgba\(([^)]+),[^,)]+\)/, "rgba($1,0)");
+}
+
+/** How big a tongue is as it leaves the gun, in pixels. */
+const FLAME_SEED = 7;
+
+/** And how much of that it puts on over its whole reach. */
+const FLAME_GROW = 13;
+
+/** How much longer than wide it is, along the line of flight. */
+const TONGUE_LONG = 1.9;
+
+/** And across it. */
+const TONGUE_WIDE = 0.85;
+
+/** How much its size wanders with the flicker, in pixels. */
+const FLAME_WAVER = 1.4;
+
+/** How fast that flicker runs, in radians a second. */
+const TONGUE_BEAT = 21;
+
+/** How far apart two rounds are in it, so that no two shake together. */
+const FLAME_APART = 2.4;
+
+/** How far the flicker pushes a tongue off its line, in radians. */
+const FLAME_SWAY = 0.12;
+
+/** How far back it sits from the head of the round, as a share of itself. */
+const FLAME_TRAIL = 0.4;
+
+/** How far down the range fire starts turning into smoke. */
+const SMOKE_FROM = 0.74;
+
+/** How solid that smoke ever gets. */
+const SMOKE_MOST = 0.3;
+
+/** And how big, as a share of the tongue it came off. */
+const SMOKE_SIZE = 1.25;
+
+/**
  * Whatever is in the air, drawn as what it is.
  *
  * @remarks
@@ -11835,26 +14101,11 @@ function drawShot(
   ctx: CanvasRenderingContext2D,
   shot: Bullet,
   view: View,
+  now: number,
 ): void {
   const head = project(view, shot.x, shot.y, SHOT_HEIGHT);
   if (shot.shape === "flame") {
-    // Fire spreads as it goes and dies out at the end of its reach.
-    const spent = 1 - shot.left / WEAPONS.flamer.range;
-    const size = 4 + spent * 11;
-    ctx.save();
-    ctx.translate(head.x, head.y);
-    ctx.scale(1, DEPTH);
-    ctx.globalAlpha = Math.max(0, 1 - spent);
-    ctx.fillStyle = "#f97316";
-    ctx.beginPath();
-    ctx.arc(0, 0, size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#fde047";
-    ctx.beginPath();
-    ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.restore();
+    flameTongue(ctx, head, shot, now);
     return;
   }
   if (shot.shape === "grenade") {
@@ -12238,18 +14489,38 @@ function drawStatus(
     player.armour / PLAYER_HEALTH,
     "#38bdf8",
   );
+  // **What one is in**, whether it has wheels or a rotor: a car, or the
+  // machine one is flying. Both of them are a name and a bar, and from the
+  // corner of the screen they are the same question - how much of the thing
+  // between me and the outside is left.
   const seat = carOf(state);
-  if (seat !== null) {
-    const shape = VEHICLES[seat.body];
-    const left7 = seat.health / shape.health;
+  const flown =
+    state.player.flying && state.player.chopper !== null
+      ? (state.choppers.find(
+          (machine) => machine.id === state.player.chopper,
+        ) ?? null)
+      : null;
+  const shell =
+    seat !== null
+      ? {
+          name: VEHICLES[seat.body].name,
+          left: seat.health / VEHICLES[seat.body].health,
+        }
+      : flown !== null
+        ? {
+            name: flyerName(flown.kind),
+            left: flown.health / flyerHealth(flown.kind),
+          }
+        : null;
+  if (shell !== null) {
     bar(
       ctx,
       barLeft,
       top + 38,
       barWide,
       8,
-      left7,
-      left7 > 0.35 ? "#f59e0b" : "#ef4444",
+      shell.left,
+      shell.left > 0.35 ? "#f59e0b" : "#ef4444",
     );
   }
 
@@ -12258,11 +14529,7 @@ function drawStatus(
   ctx.font = "bold 12px system-ui, sans-serif";
   // While driving, the name of what you are driving: the weapon is out of
   // reach anyway, and what matters is the thing with the bar under it.
-  ctx.fillText(
-    seat === null ? gun.name : VEHICLES[seat.body].name,
-    barLeft,
-    top + 52,
-  );
+  ctx.fillText(shell === null ? gun.name : shell.name, barLeft, top + 52);
   ctx.font = "bold 15px system-ui, sans-serif";
   ctx.fillStyle = "#fde047";
   ctx.fillText(`${Math.round(player.money)} €`, barLeft, top + 68);

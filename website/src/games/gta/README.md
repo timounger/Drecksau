@@ -2611,6 +2611,1018 @@ Kofferaufbau des Paketwagens. Schwerer und träger als die beiden anderen, dafü
 hält er mehr aus als alles auf der Straße außer dem Panzer - er fährt ein
 Wassertank spazieren.
 
+## Der Ladebildschirm, und warum es zweimal so lang dauerte
+
+Vom Klick auf GTA bis zum ersten Bild vergingen **7,3 Sekunden**, in denen der
+Bildschirm stand. Gemessen mit Playwright, und die Ursache war zur Hälfte ein
+Zweizeiler:
+
+```ts
+const START = createGame(CITY_SEED); // auf Modulebene
+```
+
+Das baute Los Santos, **während das Modul ausgewertet wurde** - und der Effekt
+darunter baute es gleich noch einmal. Zwei komplette Städte für ein Spiel, und
+beide Male lief nichts anderes: Ein Aufruf ist eine Runde der Ereignisschleife,
+und solange er läuft, wird nichts gezeichnet. Deshalb war da auch nichts
+anzuzeigen - kein Balken, kein Text, kein Bild.
+
+Jetzt ist `START` eine **leere** Stadt (`emptyGame`): kein Boden, kein Verkehr,
+niemand auf der Straße, und sie kostet nichts. Die echte wird gebaut, sobald
+die Seite steht.
+
+**In Scheiben, und dafür reicht ein Generator.** `buildGame` ist Zeile für
+Zeile dieselbe Funktion wie vorher - dieselben lokalen Variablen, dieselben
+Würfel in derselben Reihenfolge, dieselbe Stadt Feld für Feld -, nur mit sieben
+`yield` dazwischen. Ein Generator hält alles am Leben, was zwischen zwei
+Haltepunkten steht, also war kein Umbau nötig: keine Zustandsobjekte, keine
+Fortsetzungsfunktionen, keine zweite Fassung, die man pflegen müsste.
+`createGame` dreht ihn weiterhin in einem Rutsch durch, und genau das lesen die
+Tests und die Messskripte.
+
+Die Anteile sind gemessen und nicht geraten: Boden und Häuser 8 %, Verkehr
+2 %, parkende Wagen 20 %, Einsatzfahrzeuge und Wachen 15 %, Passanten 40 %,
+Gangs und Läden 10 %. Ein Balken mit gleich großen Schritten bleibt an einem
+davon hängen.
+
+**Und zwischen zwei Scheiben ein Bild und ein Schlag**: `requestAnimationFrame`
+liegt **vor** dem Zeichnen, eine dort gestartete Scheibe liefe also los, bevor
+der Balken, den sie gerade verschoben hat, auf dem Schirm ist. Das `setTimeout`
+dahinter hängt die nächste Scheibe hinter das Bild.
+
+Gemessen, nachdem die Route einmal kompiliert war - also so, wie es gebaut
+läuft: **4,1 Sekunden vom Klick bis zum Bild**, davon 0,1 für die Seite. Die
+restlichen vier Sekunden sind der Aufbau, und sie sind jetzt von einem Balken
+begleitet, der sich bewegt, statt von einem Bildschirm, der steht. Der
+Neustart-Knopf geht denselben Weg.
+
+**Kein „haben wir das schon" - Merker.** Es gab einen, und er hat genau die
+falsche Form für einen Effekt, der hinter sich aufräumt: React startet den
+Effekt, räumt ihn ab und startet ihn erneut - bei einem frischen Mount in der
+Entwicklung, und jedes Mal, wenn der Router diese Seite zurückholt. Der zweite
+Lauf sah den Merker und tat nichts, der erste war von seinem eigenen Aufräumen
+schon abgebrochen: **Der Balken stand für immer auf null.** Von der
+Spielesammlung zurück ins Spiel zu klicken löste es jedes Mal aus. Ein Effekt,
+der eine Arbeit beginnt und zurückgibt, wie man sie abbricht, darf so oft
+laufen, wie React will - jeder Lauf baut eine Stadt, jedes Aufräumen wirft
+seinen Versuch weg, und übrig bleibt der letzte.
+
+Die Zustandsänderung für den Balken liegt dabei **nicht** im Effekt, sondern
+einen Schlag später: setState direkt aus einem Effekt heraus ist, wie ein
+Rendern sich selbst hinterherläuft - und die erste Scheibe liefe sonst, bevor
+der Balken, zu dem sie gehört, auf dem Schirm ist.
+
+**Auf dem Bild liegt nichts.** Kein dunkles Tuch darüber und kein Prozenttext:
+Was man ansieht, während die Stadt entsteht, ist das Bild. Dazu kommen nur der
+Balken und eine Zeile Unsinn darüber, was gerade angeblich passiert - beides
+unten links, aus der Mitte heraus, der Balken mit dunkler Bahn und hellem
+Ring, die Schrift mit Schatten, damit beides auf einem hellen Bild genauso
+lesbar ist wie auf einem dunklen. Titel und Prozentzahl hängen als
+`aria-label` daran, für alle, die den Balken nicht sehen.
+
+Die Zeilen sind nach Arbeitsschritt sortiert - „Straßen werden betoniert",
+„Falschparker werden ausgewählt", „Gangs teilen die Ecken auf" - und welche
+davon man bekommt, wird bei jedem Schritt neu gewürfelt, damit das Warten
+nicht zweimal derselbe Witz ist. **Gewürfelt wird im Haken**, wo der Schritt
+veröffentlicht wird, nicht im Bildschirm: Eine Komponente, die beim Zeichnen
+würfelt, gibt jedes Mal eine andere Antwort, und die Zeile flackerte durch die
+Liste, während der Balken läuft.
+
+Und der Schritt heißt, **was gerade getan wird**, nicht was gerade fertig
+geworden ist: Eine Zeile, die den schon erledigten Teil benennt, lügt genau so
+lange, wie der nächste dauert.
+
+**Gespeichert wird nichts, solange es keine Stadt gibt.** Die Spielstandsleiste
+liegt unter dem Bild statt hinter dem Ladebildschirm, ist also anklickbar,
+während Los Santos noch entsteht - und was dann geschrieben wurde, war der
+leere Platzhalter mit dem Spieler auf null, null. Wer den später lud, stand in
+der linken oberen Ecke einer leeren Stadt. `save` und `load` warten jetzt, bis
+es etwas zu speichern gibt, und `readAuto`/`loadSave` lehnen einen Stand ohne
+ein einziges Auto und ohne einen einzigen Passanten ab - für die, die schon
+auf einer Platte liegen.
+
+**Und der Balken darf nicht weich sein.** Er hatte `transition-[width]`, und
+gemessen stand er die ganze Zeit auf 0 Pixeln, während der Wert darüber schon
+auf 85 % stand: Eine CSS-Animation auf `width` läuft auf dem Hauptfaden, und
+genau den hält der Aufbau besetzt. Sie fing an und kam nie weiter. Ohne
+Übergang springt die Breite sofort dorthin, wo sie hingehört - gemessen 0 ->
+29 -> 110 -> 166 -> 313 -> 369 Pixel.
+
+### Die Bilder dahinter: ein Ordner, keine Liste
+
+**Splash art** heißt das Bild, das ein Spiel beim Startvorgang zeigt; der
+Bildschirm mit dem Balken darauf heißt _loading screen_ - zwei Wörter, zwei
+Dinge, und die Dateien sind das erste davon. Sie liegen in
+`public/gta/splash/`, heißen wie sie wollen und dürfen `.webp`, `.avif`,
+`.jpg`, `.jpeg` oder `.png` sein. WebP, weil es bei gleicher Qualität rund ein
+Drittel kleiner ist als JPEG und jeder aktuelle Browser es kann. 1920 × 1200,
+weil die Fläche 960 × 600 Ansichtspixel groß ist und die Leinwand auf scharfen
+Anzeigen das Doppelte bekommen darf - alles darüber sind Pixel, die niemand
+sieht, und das Seitenverhältnis ist das der Fläche, sodass `bg-cover` nichts
+abschneiden muss.
+
+**Der Ordner ist die Liste.** Ein Browser kann nicht in ein Verzeichnis
+schauen, also muss irgendwo stehen, was darin liegt - und die beiden
+naheliegenden Orte sind beide falsch: Eine Zahl im Code heißt, für ein Bild den
+Code zu ändern, und eine getippte Liste heißt, für ein Bild die Liste zu
+ändern. `src/app/gta/page.tsx` wird auf dem Server gezeichnet, kann also einfach
+nachsehen (`readdirSync`), und die Antwort steckt danach in der gebauten Seite.
+Ein Bild dazulegen ist deshalb das ganze Dazulegen; gezählt wird nirgends.
+
+**Der Spruch hängt nicht mehr am Stück Arbeit.** Er tat es: Jede Bauphase
+hatte ihre eigenen Zeilen, und gezeigt wurde eine davon, solange diese Phase
+lief. Nur sind die Phasen nicht gleich lang - der Verkehr liegt in zwei
+Hundertsteln Sekunde, die Menschenmengen brauchen anderthalb Sekunden -, also
+huschten die meisten Sprüche zu schnell vorbei, um gelesen zu werden, und zwei
+von sieben standen die ganze Wartezeit da. Jetzt wird erst eine **Kategorie**
+gewürfelt und dann eine Zeile daraus, beides aus demselben Wurf: Die Zeilen
+bleiben gruppiert, weil man sie so schreibt, aber welche Gruppe drankommt, ist
+Zufall. Jede Zeile in der Datei kommt damit vor - nachgemessen, 53 Sprüche,
+alle erreichbar - und keine hängt davon ab, wie schnell der Rechner ist.
+
+**Einmal gewürfelt, nicht einmal pro Scheibe.** Die Zeile über dem Balken
+wechselt mit jedem Stück Arbeit, das Bild darf das nicht - sonst ist der
+Ladebildschirm eine Diashow. Der Wurf fällt also, wenn der Aufbau beginnt, und
+gilt bis zur Stadt. Gewürfelt wird groß (0 bis 59) und der Ordner darum
+gewickelt, damit der Haken nicht wissen muss, wie viele Bilder es gibt.
+
+Und ein Wurf, der noch nicht gefallen ist, ist **kein Bild** und nicht Bild
+null: Das allererste gezeichnete Bild steht auf dem Startwert, den React hat,
+bevor der Aufbau losgeht. Eine Zahl dort wäre jedes Mal dieselbe Zahl - zwölf
+Ladevorgänge hintereinander zeigten brav dasselbe Bild, das zwei Bildschirme
+später vom gewürfelten abgelöst wurde. Jetzt steht dort `-1`, der Rahmen bleibt
+zwei Bilder lang dunkel, und dann steht das Bild, das auch stehen bleibt.
+Gemessen: zwölf Ladevorgänge, drei Bilder, 7/3/2 - und in keinem einzigen Lauf
+ein Wechsel mittendrin.
+
+Ist der Ordner leer oder nicht da, zeichnet der Browser nichts dafür und man
+sieht den dunklen Grund darunter - kaputt sieht nichts aus.
+
+## Die Meerenge, und was darüber liegt
+
+Die Bucht war ein Teich. Fünf Felder breit lief die Küstenstraße am Ostufer
+entlang, dahinter kam Land, und ein Boot, das nur von einem Ende einer Pfütze
+zum anderen kommt, ist Deko, in der man sitzt. Zwei Eingriffe, und beide sind
+klein:
+
+**Die Straße ist weg.** Die Landstraße „von Los Santos an den Hafen" lief genau
+zwischen den Stegen und dem offenen Wasser - eine Mauer aus Asphalt um die
+Boote herum. Der Hafen hängt trotzdem am Netz: Die Kaimauer stößt im Westen an
+die Stadt, und über Betonflächen fährt man wie über alles andere.
+
+**Das Meer geht jetzt einmal durch die Karte** - und es wird dabei breiter.
+Ein Rechteck, kein gewanderter Küstenverlauf (eine Meerenge wird gegraben,
+nicht erodiert), und es liegt in dem einen Band, in dem keine Stadt steht: Die
+drei Stadtinseln sitzen auf den Reihen 42-96, 12-66 und 108-156, der Kanal
+läuft dazwischen hindurch bis an den Ostrand. Kein gebautes Feld verliert
+dadurch eine Wand. Die Sandbänke an beiden Ufern macht die Strandregel von
+selbst, weil sie fragt, ob zwei Felder weiter Wasser ist.
+
+Am Hafenende sind es neun Felder, und das ist ein Fluss: Man fährt hinüber,
+aber nicht darin herum. Also **öffnet es sich nach Osten** - fünfzehn Felder
+weiter nach Norden, über fünfzig Spalten verteilt, bis es drüben zwei Dutzend
+Felder offenes Wasser ist. Das Südufer bleibt gerade, denn eine Reihe darunter
+fängt Los Santos an; nachgeben tut das Nordufer, und zwar allmählich, damit die
+Küste wie ein Trichter aussieht und nicht wie eine Stufe.
+
+**Und was hinüber muss, fährt über eine Brücke.** Dafür gibt es ein neues
+Bodenfeld, `"bridge"`, und es ist das einzige, das **zwei Dinge gleichzeitig**
+ist:
+
+| wer fragt      | was er findet                                             |
+| -------------- | --------------------------------------------------------- |
+| Räder und Füße | Straße - man fährt und geht darüber                       |
+| Rumpf          | Wasser - man fährt darunter durch                         |
+| das Bild       | ein Deck mit Geländer an jeder Kante, an der Wasser liegt |
+
+Mehr war nicht nötig: `isOpen` lässt es ohnehin durch, `isRoadAt` zählt es zur
+Fahrbahn (also hält der Verkehr auch auf der Brücke seine Spur), und `inWater`
+sagt Ja - deshalb kommt das Boot hindurch und der Schwimmer auch. Gezeichnet
+wird das Boot unter einer Brücke **blasser**: Das Deck gehört zum Boden und
+alles, was fährt, wird darüber gemalt, also säße das Boot sonst obendrauf
+statt darunter.
+
+Nachgemessen mit einer Flutfüllung vom vertäuten Boot aus: 6436 erreichbare
+Wasserfelder, darunter alle 77 Brückenfelder, und die östlichste erreichbare
+Spalte ist 167 - der Kartenrand. Man kann also vom Steg aus losfahren, unter
+den Brücken hindurch, und kommt auf der anderen Seite der Karte heraus.
+
+## Die Bahn quert senkrecht, und sie hat ihre eigenen Träger
+
+Die Eisenbahn lief schräg über das Wasser - eine Treppe aus Feldern quer durch
+den Kanal. Sie ist ein Ring um San Andreas mit vier Ecken, und die südöstliche
+fing auf Reihe 94 an, also mitten im Meer. Die Ecke ist jetzt **enger** als
+die anderen drei (sechs Felder statt achtzehn), und dadurch läuft die Ostseite
+kerzengerade bis unter das Südufer: Die Querung steht senkrecht auf beiden
+Ufern.
+
+Darüber bekommt sie ihr eigenes Tragwerk - schmal, grau und ohne alles andere:
+ein Stahlträger dicht an jeder Seite des Gleises und alle anderthalb Felder
+eine Quertraverse. Keine Pylone, keine Seile, keine Farbe. Eine
+Eisenbahnbrücke ist ein Stück Technik und kein Wahrzeichen; das eine
+Wahrzeichen steht zwanzig Spalten weiter westlich.
+
+## Die dritte Brücke ist weg, und am Ufer liegen Boote
+
+Drei Brücken über dasselbe Wasser sind zwei zu viel, und die östliche stand
+ausgerechnet an der **breitesten** Stelle der Meerenge. Was dort fehlt, ist
+kein Umweg, sondern ein Grund, ein Boot zu nehmen.
+
+Dazwischen stand kurz eine Fähranlage: zwei Zufahrten und zwei Stege. Beides
+ist wieder weg - das waren zwei Streifen Asphalt im Nirgendwo und zwei
+Bauwerke für eine Sache, die keines braucht. **Ein Boot am Ufer ist ein Boot
+am Ufer.** Drei liegen jetzt längs an jedem der beiden Ufer, hintereinander,
+mit dem Bug nach Osten, und zwar **auf der Uferlinie**: Ein Boot, zu dem man
+erst schwimmen muss, ist keines am Ufer.
+
+Der Ort ist dabei kein Feld, sondern eine Zahl mit Komma - 83,2 im Norden,
+107,8 im Süden -, denn ein ganzes Feld setzt das Boot auf dessen **obere**
+Kante, und am Südufer war das ein volles Feld zu weit draußen. Und beide
+Reihen liegen gut östlich der Eisenbahnbrücke, damit kein Boot unter deren
+Trägern verschwindet. Die Straße von Las Venturas endet oben im Wald.
+
+Wo sie liegen, steht in {@link MOORINGS} - erstes Boot, wie viele dahinter -
+und jeder Platz wird beim Aufbau gegen den Boden geprüft. Die Küste ist eine
+Formel, und ein Boot im Sand ist schlimmer als kein Boot. Deshalb fängt die
+Reihe am Nordufer auch erst östlich der Eisenbahnbrücke an: Das Feld darunter
+ist Deck, kein Wasser.
+
+Die Bahnlinie überquert das Wasser unverändert - unter der fährt man ohnehin
+durch.
+
+## Spurmarkierung auf jeder Autobahn
+
+Was auf der Brücke angefangen hat, gilt jetzt überall: fünf Striche auf jeder
+Autobahn der Karte - durchgezogen in der Mitte, durchgezogen dicht an jedem
+Bordstein, dazwischen je eine gestrichelte. Vier gleich breite Spuren, zwei je
+Richtung. Alles Schmalere bekommt nichts: Eine drei Felder breite Straße ist
+eine Spur je Richtung und braucht keine Ansage.
+
+Zwei Sorten Autobahn, und sie werden aus verschiedenen Dingen gezeichnet:
+
+- **In der Stadt** sind es Linien des Rasters, also wird Feld für Feld gerade
+  die Linie entlang gemalt - und an jeder Kreuzung ausgelassen. Eine
+  Spurmarkierung quer über eine Kreuzung ist eine, an die sich niemand hält.
+  Woran man eine Kreuzung erkennt: `atCrossing` - dort trifft eine Rasterlinie
+  eine andere. Vorher wurde gefragt, ob drei Felder neben der Mitte auch
+  Asphalt liegt; das stimmt mitten im Block und stimmt überhaupt nicht am
+  Stadtrand, wo die Autobahn über offene Flächen läuft: Dort war ringsum alles
+  Asphalt, also wurde gar nichts mehr gemalt. Genau das waren die fehlenden
+  Markierungen unten rechts.
+  Und auf die **Bahn** wird nichts gemalt: Eine Eisenbahnbrücke ist nach dem
+  Boden `"bridge"` und damit befahrbar, Spurstriche quer über die Schwellen
+  hat sie deswegen noch lange nicht verdient.
+- **Auf dem Land** sind es die breiten Routen, und die biegen. Ihre Linien sind
+  die eigenen Punkte der Route, seitlich entlang der Normalen verschoben - die
+  einzige Art, eine Kurve zu versetzen, ohne sie zweimal zu zeichnen.
+
+**Und der Verkehr hält jetzt überall dort Spur, wo Spuren gemalt sind**, nicht
+mehr nur in der Stadt und auf der Brücke. Übrig bleibt die schmale Landstraße,
+die sich durch die Gegend schwingt: Dort wäre eine Spur ein Ziel, das mit jeder
+Kurve auf die andere Seite springt. Gemessen auf der Wüstenautobahn: acht von
+neun Fahrzeugen kommen in zehn Sekunden deutlich voran, und auf dem Bild liegen
+sie zwischen den Strichen statt darauf.
+
+## Jede Querung ist eine Brücke - und die Autobahn ist so breit wie sie
+
+Drei Sachen, die zusammengehören.
+
+**Die Autobahn ist schmaler geworden.** Ein Strich, der über den Brückenkopf
+hinweg versetzt, ist schlimmer als gar keiner: Vorher war das Band einer
+Landstraße `ROAD_COVER` = 1,1 Felder breiter als ihre Felder, das Deck aber nur
+eine Schulter von zehn Pixeln - 53 Pixel Unterschied, und an jedem Ufer sprang
+die Fahrbahnkante nach innen und die Striche gleich mit. Jetzt ist
+`ROAD_COVER` keine eigene Zahl mehr, sondern **genau zwei Schultern**
+(`DECK_SHOULDER`), links eine und rechts eine. Damit ist die Landstraße exakt so
+breit wie die Brücke, über die sie läuft, und die Randlinie wird draußen nach
+derselben Formel gesetzt wie auf dem Deck: Fahrbahnhälfte plus Schulter minus
+eine Handbreit. Mitte, gestrichelt und Rand laufen ohne Versatz über die
+Brücke.
+
+**Und die Kante läuft jetzt entlang der Linie, nicht Feld für Feld.** Der erste
+Versuch hängte Träger und Geländer an die Feldkanten - das ergibt in der Kurve
+eine Treppe aus Trägern, und weil die Straße als Band über ihre Felder hinaus
+gemalt wird, lag der Stahl obendrein mitten im Asphalt. Beides ist weg: Träger,
+Geländer und das Deck selbst sind Striche der **Straßenlinie**, seitlich
+verschoben und überall dort unterbrochen, wo die Linie nicht über Wasser läuft.
+Ein Stück Code für jede Querung der Karte - Straßen wie Bahn, gerade wie
+krumme.
+
+Dazu wird ein Brückenfeld vom Boden als **Wasser** gemalt statt als Deck. Die
+Felder sind eine Treppe, und eine Treppe aus Deck, die unter dem glatten Band
+hervorschaut, sieht aus wie abgebrochener Beton. Das Deck kommt stattdessen als
+Band hinterher: bei der Straße in der helleren Deckfarbe (das Straßenband
+selbst ist Straßengrau und ginge im Meer unter), bei der Bahn als Schotterdamm.
+Zwei Maße dazu, beide nachgerechnet:
+
+- Der Damm der Bahn reicht **34 Pixel** zu jeder Seite. Mit 22 blieben auf der
+  schrägen Querung im Westen fünf Felder als blaues Loch stehen, auf denen man
+  trotzdem gehen konnte - in der Schräge liegen die Felder als Treppe um die
+  Linie herum. Bei 34 sind alle **250 Brückenfelder** der Karte gedeckt.
+- Das Band läuft **einen Punkt weiter**, als das Wasser reicht. Ein Feld ist
+  breiter als der Punkt in seiner Mitte, und sonst blieb am Ufer ein blauer
+  Zwickel des letzten Brückenfeldes stehen. Jetzt läuft es ein Stück auf das
+  Land - dort, wo ein Widerlager hingehört.
+
+Über Wasser gibt es außerdem **keinen Staubstreifen** mehr. Eine Brücke hat
+einen Träger, wo die Landstraße ihr Bankett hat; lag der Streifen trotzdem da,
+schwamm draußen neben dem Stahl ein brauner Rand auf dem Meer.
+
+**Damit sehen alle Querungen gleich aus**, auch die beiden rechts: die
+Eisenbahn über den Kanal und die lange Bahnbrücke quer durchs Meer. Die
+Hängebrücke ist die einzige Ausnahme - die malt ihr Bauwerk weiterhin selbst,
+und zwar zuletzt.
+
+## Eine Brücke, die eine Brücke ist
+
+Zwei Sachen an der mittleren Querung.
+
+**Sie hörte auf halber Strecke auf.** Die Straße aus der Wüste endete auf Reihe
+105 - festgelegt zu einer Zeit, als dort Land war. Seit der Kanal liegt, hörte
+sie mitten über dem Wasser auf, und eine Brücke, der das letzte Stück fehlt,
+ist keine. Beide Querungen laufen jetzt bis auf festen Boden durch und treffen
+dort die erste Querstraße von Los Santos; nachgemessen Feld für Feld: von Reihe
+82 bis 111 ist durchgehend Fahrbahn, und wo auf 112 die Bahnlinie quert, ist es
+ein Bahnübergang wie jeder andere.
+
+**Und sie ist ein Bauwerk.** Die meisten Querungen sind Asphalt, unter dem
+zufällig Wasser liegt; diese ist das Ding, für das man einen Umweg fährt -
+inzwischen zusammen mit der kurzen vor San Fierro, die dasselbe Bauwerk trägt. Von oben sind das vier Dinge und keines mehr:
+
+- **International Orange** - die einzige Farbe, die irgendwer mit einer Brücke
+  verbindet.
+- **Zwei Pylone**, auf einem Viertel und auf drei Vierteln der Länge. Von hier
+  oben ist ein Pylon ein Querriegel über der Fahrbahn mit je einem Bein links
+  und rechts daneben, und diese Silhouette ist der halbe Wiedererkennungswert.
+- **Die Tragseile** an beiden Deckkanten, über die ganze Länge.
+- **Die Hänger**, alle zwei Felder ein Strich vom Seil zum Deck. Fünf Pixel
+  pro Stück - ohne sie sind die Seile zwei Streifen Farbe.
+
+**Vier gleich breite Spuren, und die Autos liegen mittig darin.**
+Durchgezogen in der Mitte, durchgezogen dicht an beiden Rändern, dazwischen je
+eine gestrichelte - fünf Striche im gleichen Abstand, bis auf die beiden
+äußeren, die an der Bordkante sitzen. Gemessen: 66, 62, 62, 66 Pixel.
+
+Damit das aufgeht, liegen die Fahrspuren des Motors auf einem **Viertel** und
+**drei Vierteln** der halben Fahrbahn (vorher 0,3 und 0,74). Das ist die Mitte
+jeder Spur, wenn man die Fahrbahn in vier gleiche teilt - und genau dorthin
+zielt der Verkehr. Gerechnet wird mit der **Fahrbahn**breite, nicht mit der
+Deckbreite: Das Deck ist um die Schulter breiter als die Felder, und mit ihm
+gerechnet lagen die Striche neben den Autos.
+
+Dazu hält der Verkehr auf der Brücke jetzt **Spur**: Draußen auf dem Land tut
+er es nicht, weil eine Landstraße schwingt und ein Auto, das dort einer Spur
+hinterherfährt, die ganze Strecke quer über die Fahrbahn wandert. Eine Brücke
+schwingt nicht - sie ist das einzige kerzengerade Stück Landstraße. Gemessen,
+fünf Fahrzeuge auf dem Deck: alle auf ±36 oder ±89 Pixel zur Mitte, also genau
+in den vier Spuren, die dort gemalt sind.
+
+**Orange ist dabei das Tragwerk, nicht die Straße.** Das ganze Deck orange
+anzumalen ergibt ein rotes Rechteck mit Autos darauf; was man von oben sieht,
+ist eine graue Fahrbahn mit einem orangen Träger an jeder Seite - samt
+Mittelstrich, denn es ist eine Straße.
+
+**Und der Träger ist der äußere Rand.** Das war er zuerst nicht: Eine
+Landstraße wird nicht Feld für Feld gemalt, sondern als Band entlang ihrer
+Linie gezogen, `ROAD_COVER` breiter als die Felder, die ihr gehören, und mit
+einem Randstreifen noch weiter außen. An den Feldern gemessen kam das Tragwerk
+schmaler heraus als die Straße, die es tragen soll - eine halbe Spur Asphalt
+hing über die Kante.
+
+Die erste Lösung war, das Deck über das ganze Band zu ziehen; das machte die
+Brücke aber breit wie eine Landebahn. Jetzt ist sie so breit wie die Fahrbahn
+plus eine Schulter von zehn Pixeln, und was die Straße darüber hinaus gemalt
+hat - Bankett und Staubstreifen - wird wieder zu **Meer** übermalt. Über Wasser
+gibt es keinen Randstreifen.
+
+**Und dafür läuft die Straße jetzt senkrecht.** Ein Träger ist gerade; eine
+Straße, die sich über die Brücke hinweg um ein Feld verzieht, lässt sich nicht
+damit einfassen, ohne dass der Asphalt irgendwo neben dem Tragwerk liegt. Zwei
+Kleinigkeiten regeln das:
+
+- **Vier Punkte auf derselben Spalte** statt zweier. Die Kurve, die `bend` aus
+  drei Punkten macht, lief sonst noch in die Brücke hinein; jetzt liegt der
+  ganze Bogen nördlich des Wassers und über dem Kanal ist die Linie schnurgerade.
+- **Die Spalte ist 95,5 und nicht 95** - also die _Mitte_ einer Spalte. Eine
+  fünf Felder breite Straße, die auf einer Feldgrenze liegt, deckt sechs
+  Spalten zur Hälfte ab; auf einer Feldmitte deckt sie fünf ganz. Gemessen:
+  Deck jetzt exakt Spalte 93 bis 97, Reihe für Reihe.
+
+Das Bild liest die Felder trotzdem vom Boden ab - es soll ja nichts behaupten,
+was man nicht befährt - nimmt dann aber die Spalten, die das Deck **die meiste
+Zeit** hat. Sonst verspringt der Träger dort um ein Feld, wo die Küste einen
+Zahn hat.
+
+## Die zweite Hängebrücke, und sie trägt auch die Bahn
+
+Vor San Fierro queren Straße und Eisenbahn dasselbe Wasser, dicht
+nebeneinander. Beides lief vorher **schräg** hinüber, und schräg heißt hier:
+als Treppe aus Feldern. Eine Treppe lässt sich nicht mit geraden Trägern
+einfassen, also bekam diese Querung auch kein Bauwerk.
+
+Jetzt laufen beide **senkrecht**:
+
+- Die Straße liegt über dem ganzen Wasser auf Spalte **21,5** - der _Mitte_
+  einer Spalte, damit eine fünf Felder breite Fahrbahn fünf Spalten ganz deckt
+  (19 bis 23) statt sechs zur Hälfte. Derselbe Trick wie bei der Brücke in der
+  Mitte.
+- Die Bahn fährt gleich daneben auf Spalte **24** geradeaus durch. Dafür ist
+  jetzt auch die Südwestkurve eng (sechs Felder statt achtzehn, wie im
+  Südosten): Mit dem weiten Bogen fing die Kurve schon auf Reihe 94,5 an, also
+  weit vor dem Ufer. Nachgemessen liegt das Gleis von Reihe 90 bis 108 auf
+  Spalte 24, und die Kurve danach vollständig an Land.
+
+Die Auffahrt im Norden hört **auf Reihe 96,5** auf und nicht weiter oben. Das
+ist kein Schönheitsmaß, sondern Rücksicht: Ein Stück weiter, und das Band der
+Straße frisst sich in den Block an der Hafenkante - die Häuser auf Reihe 92
+waren beim ersten Versuch weg, so wie damals die Villa. Eine Landstraße gewinnt
+gegen einen Stadtblock, immer.
+
+**Und das Bauwerk ist dasselbe wie in der Mitte, nur kürzer.** Es steht jetzt
+nicht mehr auf einem festen Kasten, sondern es gibt eine **Liste** von
+Kästen - zwei Stück -, und gezeichnet wird in jedem, was der Boden dort an
+Deck hergibt: International Orange, zwei Pylone auf einem Viertel und drei
+Vierteln, Tragseile an beiden Kanten, Hänger dazwischen.
+
+Zwei Dinge musste das Bild dafür lernen:
+
+- **Ein Deck kann Schotter tragen.** Welche Spalten Gleis sind, steht im Boden
+  (`onRail`) und nicht im Code der Brücke. Über der Fahrbahn liegt Asphalt mit
+  fünf Strichen, über dem Gleis Schotter, und ein Rahmen liegt um beides. Die
+  Schwellen selbst malt die Bahn wie überall sonst - dafür wandert das Bauwerk
+  in der Reihenfolge **vor** die Kulisse, sonst läge das Gleis unter dem
+  Pylon statt darauf.
+- **Die Mitte der Striche ist die Mitte der Felder**, nicht die des gemalten
+  Kastens. Auf der Seite ohne Gleis kommt eine Schulter dazu, auf der anderen
+  nicht; um deren halbe Breite lagen sonst alle fünf Striche daneben.
+
+Gezeichnet wird außerdem nur der Teil, auf dem das Deck seine **volle Breite**
+hat. Wo die Küste einen Zahn hat, hört das Bauwerk auf und die gewöhnliche
+Brückenkante macht weiter - das ist das kurze hellere Stück vor jedem Ufer.
+
+Nachgemessen: Die Straße ist von Reihe 96 bis 113 durchgehend befahrbar, und
+unter der Brücke kommt ein Boot auf allen acht Reihen quer hindurch.
+
+## Unter der Brücke durch, und wer einem dabei folgt
+
+Zwei Sachen, die beide am Wasser hängen.
+
+### Schwimmen heißt schwimmen, auch unter einer Brücke
+
+Ein Brückenfeld ist zwei Dinge auf einmal: oben Fahrbahn, unten Meer. Für ein
+Boot stand das längst richtig im Code - es fährt hindurch und wird dabei
+blasser gezeichnet -, für einen Schwimmer nicht: Der stand plötzlich **oben auf
+der Brücke**, sobald er darunter kam.
+
+Das Feld selbst kann die Frage nicht beantworten, also zählt jetzt, **wie man
+hingekommen ist**. Der Spieler merkt sich, ob er im Wasser ist:
+
+- Wasser macht nass,
+- trockener Boden macht trocken,
+- und über einem Brückenfeld bleibt es, wie es war.
+
+Wer vom Ufer auf die Brücke zuläuft, geht oben darüber; wer aus dem Wasser
+darauf zuschwimmt, schwimmt unten hindurch. Wer aus einem Boot steigt, liegt im
+Wasser - sonst stünde er nach dem Aussteigen unter einer Brücke auf deren Deck.
+Gezeichnet wird er dabei genauso abgedunkelt wie das Boot daneben, dieselbe
+Zahl für beide.
+
+Nachgemessen: quer durch die Bucht geschwommen, Spalte 15 bis 30, Feld für Feld
+
+- durchgehend `schwimmt = true`, auch auf den sechs Brückenspalten. Und zu Fuß
+  von Norden über dieselbe Brücke nach Süden: durchgehend `schwimmt = false`.
+
+### Polizeiboote
+
+**Es gab keine.** Wer mit Sternen ins Wasser ging, war in Sicherheit: Ein
+Streifenwagen fährt nicht hinterher, der Hubschrauber kommt erst ab fünf
+Sternen, und die Meerenge ist breit. Schlimmer noch - der Wagen am Ufer zählte
+in der Quote mit, also schickte die Wache gar nichts mehr nach.
+
+Jetzt gibt es das **Polizeiboot**: derselbe Rumpf wie das Motorboot am Ufer,
+silbern wie jeder Streifenwagen, mit blauem Band über der Bordwand und einem
+Blaulicht auf dem Steuerstand, das im selben Takt blinkt wie ein Balkenlicht.
+Etwas schneller als ein ziviles Boot (320 gegen 290) - wer Land erreicht, ist
+es los, und genau das ist die Fluchtmöglichkeit.
+
+Drei Dinge mussten dafür geradegezogen werden:
+
+- **Auf dem Wasser wird anders gezählt.** Dort ist das Aufgebot die Zahl der
+  Boote (eins je Stern, höchstens drei), nicht die der Wagen. Ein Streifenwagen
+  am Ufer ist gegen jemanden im Kanal so viel wert wie keiner.
+- **Ein Rumpf sucht Wasser, wo Räder Asphalt suchen.** Die Ausweichfrage beim
+  Lenken hing an der Straße; damit lenkte ein Polizeiboot vom offenen Meer weg
+  auf die Kaimauer zu. Aussteigen kann die Besatzung ohnehin nicht - die Tür
+  ginge aufs Wasser auf -, also bleibt sie sitzen und schießt vom Deck.
+- **Und eine Kugel fliegt über Wasser weiter.** Das war der eigentliche Fehler:
+  Wasser galt als Wand für alles, auch für Geschosse, und damit endete jeder
+  Schuss am Ufer. Gemessen: zwei Boote haben sechzig Sekunden lang auf einen
+  Schwimmer gefeuert und **keinen einzigen Treffer** gelandet; die Kugel schlug
+  außerdem sofort ins eigene Deck, weil die Mündung auf einem sechzig Pixel
+  langen Boot noch mitten im Boot lag. Beides behoben - jetzt geht die
+  Gesundheit eines Schwimmers, der nichts tut, in gut zwanzig Sekunden auf
+  null, und man kann auch selbst über das Wasser zurückschießen.
+
+## Echte Boote, und der Steg dazu
+
+Die Boote am Hafen waren **aufgemalt**: drei Formen je Steg, flach auf den
+Boden gelegt wie die Bäume im Wald. Sie standen zuletzt zum Teil auf der
+Fahrbahn, und das war kein Zeichenfehler, sondern die Folge davon, dass die
+Küste eine Formel ist und die Stege drei feste Rechtecke waren. Als sich die
+Uferlinie verschob, trafen sie sie nicht mehr: Der nördliche endete mitten im
+Sand, dreißig Meter vom Wasser entfernt, und der südliche lief quer über die
+Küstenstraße - die gewinnt (`onPier` wird nach `onRoute` gefragt), also blieben
+von ihm zwei Stummel mit Asphalt dazwischen. Genau dort lagen dann die Boote.
+
+Jetzt laufen alle drei Stege von der Kaimauer über Wasser, das auch da ist -
+zwei an der Westseite der Bucht, einer an der Ostseite -, und an jedem liegen
+drei **echte** Boote: einsteigen, losfahren, aussteigen. Neun Stück, alle im
+Wasser (nachgemessen, auch nach einer Minute Simulation).
+
+**Ein Boot ist ein Auto mit umgedrehter Karte.** Alles andere in dieser Stadt
+behandelt Wasser als Wand und Asphalt als Boden; das Boot genau andersherum,
+und mehr ist der Unterschied nicht. Dafür beantwortet `clears` jetzt drei
+Fragen statt einer:
+
+| wer      | kommt durch                                          |
+| -------- | ---------------------------------------------------- |
+| `wheels` | überall außer Wasser, Wand, Zaun                     |
+| `feet`   | dasselbe, **und** ins Wasser (dort wird geschwommen) |
+| `hull`   | **nur** Wasser                                       |
+
+Alles andere fällt damit von selbst an: Einsteigen ist dasselbe Einsteigen,
+das HUD zeigt „Motorboot" und das Blech des Boots, die Polizei kann nicht
+hinterherfahren, und wer mitten auf dem Wasser aussteigt, schwimmt. Der
+Verkehr fasst Boote nicht an - sie sind `parked` und stehen in keiner der
+Listen, aus denen die Stadt ihre Wagen zieht.
+
+Gezeichnet wird es eigens (`boatHull`) statt über das Wand-und-Dach-Modell der
+Autos: ein Rumpf, der vorn spitz zuläuft und hinten quer abgeschnitten ist, die
+weiße **Scheuerleiste** rund um den Bord (das eine Detail, an dem man ein Boot
+erkennt, bevor man die anderen gelesen hat), ein Vordeck mit Luke, eine offene
+**Plicht** mit zwei Sitzen und dem Steuerstand, die Scheibe quer davor, ein
+Handlauf ums Vordeck und der **Motor** am Spiegel - dort, wo der Lärm und das
+Kielwasser herkommen. Gemessen: aus dem Stand in zweieinhalb Sekunden auf die
+Höchstfahrt von 290, und an der gegenüberliegenden Küste ist Schluss.
+
+**Und das Wasser dahinter sind drei Sachen, weil ein Boot drei macht.** Zwei
+Striche waren keine davon:
+
+- **Der Schraubenstrudel** direkt hinter dem Spiegel: vier Scheiben Schaum,
+  jede in eigener Größe und mit eigenem Takt, damit es kocht statt zu pulsieren.
+  Das ist das Stück, das man tatsächlich anschaut.
+- **Die Spur**, was davon übrig bleibt: überlappende Flecken, die nach hinten
+  breiter, blasser und unruhiger werden. Kielwasser ist gebrochenes Wasser und
+  kein gemalter Streifen.
+- **Die Bugwelle**: zwei Kurven, die am Steven losgehen und sich nach achtern
+  öffnen - der Keil, den jeder Rumpf vor sich herschiebt. Kurven und keine
+  Geraden, denn das Wasser biegt am Bug nicht um die Ecke.
+
+Alles drei ist ein weicher Verlauf und skaliert mit dem Tempo; am vertäuten
+Boot ist nichts davon da. Zwei Fallen dabei, beide schon einmal dagewesen: Der
+äußere Farbstopp muss **durchsichtiges Weiß** sein und nicht durchsichtiges
+Schwarz, sonst läuft der Verlauf durch Grau - und ein Verlauf muss **nach** dem
+Verschieben gebaut werden, sonst malt er den Fleck mit seinem eigenen
+durchsichtigen Ende, also mit gar nichts.
+
+## Schwimmen, und wie man wieder auftaucht
+
+Wasser war eine Wand: `isOpen` sagt Nein zu `water`, und damit war der Hafen
+eine Linie, an der man stehen blieb. Jetzt ist es eine Wand für alles mit
+Rädern und für alles, was geworfen wird - und keine für einen Mann zu Fuß. Er
+geht hinein und schwimmt.
+
+Der Schalter dafür ist ein einziges Wort: `clears(cells, at, high, wet)`. Nur
+`walk` setzt es, alles andere in der Stadt fragt wie bisher. Wer im Wasser ist,
+schwimmt - abgeleitet und nicht gemerkt, denn man schwimmt, weil man im Wasser
+ist, und in der Sekunde, in der man es nicht mehr ist, auch nicht mehr.
+
+**Tempo:** 52 Pixel je Sekunde an der Oberfläche gegen 130 an Land, also zwei
+Fünftel. Wasser ist nicht ein Boden, auf dem man nass wird: Es ist langsam, und
+langsam zu sein ist genau das, was aus „wegschwimmen" eine Entscheidung macht
+statt einer Flucht. Unter Wasser sind es 66 - man zieht sich, statt zu paddeln,
+und das ist neben dem Ausweichen der einzige Grund zu tauchen.
+
+**Die Leertaste taucht**, solange man sie hält; loslassen heißt auftauchen. An
+Land ist dieselbe Taste weiterhin der Jetpack - in eine Straße kann man nicht
+tauchen.
+
+Zwei Folgen, die kein Extra sind, sondern sich aus „unter Wasser" ergeben:
+
+- **Schüsse gehen über einen Taucher hinweg.** Über seinem Kopf ist Wasser,
+  und das ist der ganze Grund, warum man untergeht.
+- **Geschossen wird im Wasser nicht**, weder oben noch unten: Eine Hand hält
+  die Waffe hoch, die andere hält einen selbst oben. Es verhindert auch, dass
+  der Hafen ein Graben wird, aus dem man in Ruhe feuert.
+
+Gezeichnet ist es zweimal dieselbe Figur. **Oben** wird sie an der Wasserlinie
+abgeschnitten - Kopf, Schultern, Arme, mehr sieht vom Kai aus niemand -, und
+zwei Ringe Kielwasser atmen um sie herum. **Unten** wird nichts abgeschnitten:
+Da ist er ganz, nur blass, durch einen Faden Hafenwasser gesehen, und drei
+Blasen steigen an ihm vorbei nach oben. Die Ringe sitzen dabei an der
+**Wasserlinie** und nicht an seinen Füßen - die liegen in dieser Ansicht ein
+Stück unter ihm, und Ringe dort unten lesen sich als Mann über einer Pfütze.
+
+## Schlagring und Schlagstock stehen im Regal
+
+Beide gibt es nicht mehr: Sie liegen nicht herum, die Läden verkaufen sie
+nicht, niemand trägt einen, und der Cheat gibt keinen aus. Gelöscht ist
+allerdings nichts - die Zeile in `WEAPONS`, der Preis, das Bild in der Hand und
+vor allem der **Platz im Gürtel** sind genau da, wo sie waren. Ein Name weniger
+in `SHELVED`, und sie sind wieder im Spiel.
+
+Der Platz muss bleiben: Der Gürtel ist ein Feld, das über `WEAPON_ORDER`
+indiziert wird, und jeder je gespeicherte Spielstand ist genauso indiziert.
+Diese Reihenfolge zu kürzen hieße, jedem stillschweigend die Munition von
+jemand anderem in die Hand zu drücken. Gemessen: zehn Plätze wie vorher,
+Pistole weiterhin auf Platz vier, null verbannte Waffen im Umlauf.
+
+## Der Strahl hört am Fadenkreuz auf
+
+Der Flammenwerfer sprühte immer volle Reichweite. Das ist die falsche Waffe:
+Man hält den Abzug und **streicht** damit über das, was vor einem steht - und
+ein Strahl, der immer hundertzwanzig Pixel weit geht, lässt sich nicht auf die
+Tür zwei Schritte weiter legen. Jetzt geht er dorthin, wohin man zeigt,
+gedeckelt durch die Reichweite der Waffe und mit einem Mindestmaß nach unten,
+denn ein Stoß auf die eigenen Stiefel ist immer noch ein Stoß. Dieselbe Regel
+hat die Granate schon immer gehabt.
+
+Gemessen: Klick 40 Pixel entfernt -> Strahl 34, Brandstellen bis 47; Klick 70
+-> 58 und 73; Klick 120 -> 108 und 120; Klick 300 -> gedeckelt auf 120.
+
+Das zog eine zweite Sache nach sich, und die ist der eigentliche Punkt: Ein
+Geschoss muss wissen, **wie weit es gehen wollte**. `left` zählt herunter, also
+kam ein kurzer Stoß mit einem `left` aus der Düse, das gegen die vollen
+hundertzwanzig gerechnet schon fast aufgebraucht aussah - er kam dumpfrot und
+fett heraus statt weiß und schmal. Jedes Geschoss trägt jetzt sein `reach` mit,
+und die Farben laufen über **seine** Länge. Zwei Schritte Feuer sind damit
+dasselbe Feuer wie zehn, nur kürzer.
+
+## Der Boden brennt weiter
+
+**Ein Flammenwerfer hört nicht auf, wo der Strahl aufhört.** Der Treibstoff
+verschwindet nicht - er landet, bleibt liegen und brennt weiter, und genau das
+ist der Grund, warum die Waffe etwas taugt: Man kann einen Durchgang
+abschneiden oder einen Gehweg absprühen und zusehen, wer dort aus dem Feuer
+kommt statt hindurch.
+
+Jedes Geschoss, das seine Reichweite erreicht oder etwas trifft, legt eine
+Brandstelle (`Fire`): sechs Sekunden Brenndauer, siebzehn Pixel Hitzeradius,
+sechsundzwanzig Lebenspunkte je Sekunde für jeden, der darin steht. Gemessen:
+Spieler 200 -> 174 in einer Sekunde, Passant 100 -> 87 in einer halben.
+
+Zwei Dinge, ohne die das sofort aus dem Ruder läuft:
+
+- **Brandstellen verschmelzen.** Eine neue innerhalb von dreizehn Pixeln füllt
+  nur die alte wieder auf. Fünfundzwanzig Schuss pro Sekunde wären sonst
+  fünfundzwanzig Brandstellen pro Sekunde, und eine Feuerwand mit Lücken, durch
+  die man hindurchläuft, ist keine.
+- **Es sind höchstens hundertsechzig**, die ältesten fallen hinten heraus.
+
+Es zählt für alle zu Fuß - die Passanten, die Polizei und den Mann mit der
+Waffe, der in seinem eigenen Feuer nichts verloren hat. Wer in einem Auto
+sitzt, sitzt in einem Auto; das brennt nicht, weil die Straße darunter brennt.
+
+Gezeichnet wird eine Brandstelle als **drei Zungen nebeneinander**, jede mit
+eigener Größe und eigenem Takt: Drei Flammen auf demselben Fuß sind ein Klumpen
+mit heller Mitte, drei ein paar Pixel auseinander sind ein Feuer. Darunter
+glüht der Asphalt, und in der letzten Sekunde werden die Zungen kleiner und
+dünner - Feuer geht aus, es schaltet sich nicht ab.
+
+Eine Flamme ist dabei ein **Tropfen, kein Kegel**: unten rund und dick, wo der
+Brennstoff liegt, nach oben in eine Spitze gezogen, die der Zug zur Seite
+weht. Und unten ist sie **gewölbt** - ein Pfad, den man einfach schließt,
+bekommt einen geraden Strich als Boden, und eine Flamme mit flachem Boden ist
+ein Zelt.
+
+**Und eine Sache, die jede Flamme in diesem Spiel verschmutzt hat:** Ein
+Verlauf interpoliert die Farbe mit, also lief „Orange nach durchsichtigem
+**Schwarz**" unterwegs durch ein dreckiges Grau - jedes Feuer hatte einen
+Rußschleier um sich, den niemand gezeichnet hatte. Jetzt endet jeder Verlauf
+auf seiner eigenen Farbe mit Alpha null, und da bleibt nichts mehr übrig.
+
+## Feuer ist keine Kugel
+
+Der Flammenwerfer warf **Blasen**: zwei flache Kreise, ein oranger mit einem
+gelben darin, die mit der Entfernung wuchsen. Von oben sah das aus wie ein
+Schlauch, aus dem Seifenblasen kommen. Was einen brennenden Treibstoffstrahl
+wie einen aussehen lässt, sind vier Dinge, und keines davon kostet etwas:
+
+- **Es ist eine Zunge, keine Scheibe.** Jede wird entlang der Flugbahn
+  gestreckt und um ihre halbe Länge hinter den Kopf des Geschosses geschoben,
+  damit sie nachzieht statt vorauszulaufen.
+- **Es brennt von innen nach außen.** Weiß an der Düse, dahinter gelb, weiter
+  draußen orange, am Ende dumpfes Rot - jede Farbe stirbt auf ihrer eigenen
+  Entfernung. Das ist die Reihenfolge, in der die Farben eines echten Feuers
+  laufen, und der Grund, warum man die Reichweite der Waffe sieht, ohne dass
+  sie irgendwo steht.
+- **Kein Rand.** Jede Zunge ist ein weicher Verlauf und keine Form mit einer
+  Kante - Feuer hat keine Kontur, und genau das war an den zwei Kreisen falsch.
+- **Das Licht addiert sich** (`lighter`): Wo zwei Zungen übereinanderliegen,
+  wird die Leinwand heller, statt dass eine die andere verdeckt. Das ist es,
+  was aus fünfundzwanzig einzelnen Schüssen pro Sekunde **einen** Strahl macht.
+
+Dazu flackert jede für sich: Die Nummer des Geschosses setzt die Phase, die Uhr
+treibt sie. Eine Reihe gleich großer Klumpen ist eine Perlenkette; dieselbe
+Reihe, die leicht gegeneinander atmet, ist eine Flamme.
+
+Und ganz am Ende hört es auf, Feuer zu sein, und wird **Rauch**: grau, breiter,
+und normal gezeichnet statt addiert - Rauch nimmt Licht weg, statt welches zu
+geben.
+
+## In der Kurve legt sich alles, was fliegt, auf die Seite
+
+**Nichts in der Luft dreht flach.** Ein Flugzeug fliegt eine Kurve, indem es
+sich legt - der Flügel ist es, der es herumzieht, also muss er gekippt werden,
+damit der Zug zur Seite zeigt -, und ein Hubschrauber macht mit seinem Rotor
+dasselbe. Beide sind vorher wie Pappaufsteller über den Tisch geschoben worden.
+
+Gerechnet wird es wie beim **Motorrad**: Drehrate mal Tempo ist der seitliche
+Zug, und dagegen legt sich die Maschine; gedämpft statt gesetzt, damit sie sich
+in die Kurve hineinlegt und wieder heraus, statt in dem Bild umzuklappen, in
+dem eine Taste gedrückt wird. Gemessen: Flugzeug 34 Grad, Hubschrauber 32 Grad,
+jeweils bei Vollgas und vollem Ausschlag, und zurück auf null, sobald es
+geradeaus geht.
+
+Gezeichnet wird es ebenfalls wie beim Motorrad, denn diese Ansicht kann ein
+Bild nicht kippen. Also die zwei Dinge, die man von oben tatsächlich sähe:
+
+- **Die Spannweite wird kürzer.** Ein um dreißig Grad gekippter Flügel zeigt
+  einem, der von oben schaut, ein Sechstel weniger von sich - das ist der
+  Kosinus, und mehr ist es nicht.
+- **Die Maschine rutscht in die Kurve**, so wie das Motorrad neben seinen
+  eigenen Reifen landet.
+
+Beides wird in dem Rahmen angewendet, der schon entlang der Nase zeigt, also
+heißt „quer" quer zur Maschine, egal wohin sie gerade fliegt.
+
+## Rückwärts rollen kann nur das Flugzeug
+
+Ein Flugzeug hat keinen Rückwärtsgang - es hat einen Schlepper, oder einen
+Piloten, der mit eingeschlagenem Bugrad kurz Gas gibt. Beides läuft auf
+dasselbe hinaus: Man kommt rückwärts vom Fleck, und zwar im Schritttempo.
+Siebzig Pixel pro Sekunde sind ein Dreizehntel dessen, was es vorwärts macht -
+genug, um vom Vorfeld wegzukommen oder aus dem herauszurollen, in das man
+hineingerollt ist, und weit zu wenig, um damit irgendwohin zu fahren.
+
+Technisch ist es **ein Tempo unter null**, und alles dahinter liest es bereits
+so: Die Maschine wird entlang ihrer eigenen Nase bewegt, eine negative Zahl
+schiebt sie also rückwärts, und das Aussteigen fragt ohnehin nach dem _Betrag_
+(`Math.abs`). Zwei Stellen mussten trotzdem angefasst werden:
+
+- **Die Untergrenze war null.** `Math.max(0, …)` hat jedes Gas nach hinten
+  weggeschnitten; jetzt ist sie `-back`, und die steht für den Hubschrauber auf
+  null - der dreht sich auf der Stelle und fliegt dann dorthin, wohin er zeigt.
+- **Der Luftwiderstand zog in die falsche Richtung.** Er wurde vom Tempo
+  abgezogen; bei einem negativen Tempo hätte das die Maschine immer schneller
+  rückwärts gewickelt, ohne dass jemand etwas berührt. Er zieht jetzt von
+  beiden Seiten zur Null.
+
+Abheben kann man rückwärts nicht: Der Flügel braucht {@link PLANE_LIFT}
+**vorwärts**, und minus siebzig ist das nicht. Nachgemessen: drei Sekunden
+rückwärts ergeben -70 Pixel pro Sekunde und 196 zurückgelegte Pixel, Höhe null;
+Gas weg heißt ausrollen bis null; danach Vollgas vorwärts wieder 850 und auf
+Höhe. Der Black Hawk steht bei derselben Probe unverändert still.
+
+## Der Rotor, der den Flug auffraß
+
+Einsteigen ging, Gas geben ging, losfliegen nicht: Flugzeug und Hubschrauber
+standen mit offener Klappe da und rührten sich nicht vom Fleck. Gemessen -
+vier Sekunden Vollgas im Flugzeug, danach **drei** Pixel pro Sekunde und
+derselbe Platz auf dem Vorfeld. Drei Pixel sind genau eine Bildlänge
+Beschleunigung: Jeder Frame fing wieder bei null an.
+
+Schuld war eine Zeile am Ende von `flyChopper`, die eigentlich nur die Rotoren
+der Maschinen anhalten sollte, in denen niemand sitzt:
+
+```ts
+} else if (state.choppers.some((machine) => machine.spin !== 0)) {
+  next = { ...state, choppers: state.choppers.map(/* ... */) };
+}
+```
+
+`...state` - also der Stand **vor** dem Flugschritt, den die vierzig Zeilen
+darüber gerade berechnet hatten. Und die Bedingung fragte alle Maschinen, auch
+die geflogene: Deren Rotor dreht sich, sobald man drinsitzt, also lief der Zweig
+in jedem einzelnen Frame und setzte die Maschine jedes Mal dorthin zurück, wo
+der Frame sie gefunden hatte. Position, Tempo, Höhe - alles wieder auf Anfang.
+
+Jetzt baut die Stelle auf `next` auf statt auf `state` und fragt nur nach
+Maschinen, in denen **niemand** sitzt. Nachgemessen, vier Sekunden Vollgas:
+Flugzeug 680 Pixel pro Sekunde, 1366 Pixel Startstrecke, 81 Pixel hoch;
+Hubschrauber 460 und auf Reiseflughöhe. Im Browser geflogen und fotografiert.
+
+## Der Flughafen ist eingezäunt, und die Flugzeuge fliegen
+
+Zwei Sachen, die zusammengehören: Ein Flugfeld, auf das man von jeder Seite
+fahren kann, ist ein Parkplatz mit einer Landebahn darin, und zwei aufgemalte
+Flugzeuge darauf sind Tapete.
+
+**Lang und schmal, wie ein Flugfeld.** Vorher war es ein Quadrat aus Beton,
+dreiunddreißig Felder breit, mit einem Stummel Landebahn darin - und eine
+Landebahn ist das eine auf einer Karte, das **lang** sein muss; eine, die in
+einen Stadtblock passt, ist ein Rollweg mit Markierung. Jetzt beginnt es unter
+dem Gefängnis, an der Straße, die dort nach Süden läuft, und reicht nach Osten
+bis an den Kartenrand: zweiundsechzig Felder, ein Drittel der Stadt, und elf
+tief statt neunzehn. Das östliche Ende steht auf aufgeschüttetem Land im
+Wasser - da, wo ein Küstenflughafen seine Bahn ohnehin hinbaut. Die drei
+Blöcke, die im Weg standen - ein Wohnhaus, ein Waffenladen und das Casino
+unter dem Gefängnis -, sind damit weg; dafür ist der Streifen, auf dem vorher
+das alte Feld lag, wieder Stadt.
+
+**Der Zaun ist derselbe Draht wie am Militärgelände.** `onAirportFence` hat
+dieselbe Form wie `onFence` - Rand des Rechtecks, minus der Toröffnung -, und
+weil die Felder darunter `fence` heißen, hält derselbe Boden das Auto auf, der
+auch die Kaserne umschließt. Das Tor liegt an der **Westkante**, am
+Stadtende: Das Feld läuft vom Gefängnis bis ans Meer, die einzige Seite, von
+der überhaupt jemand kommt, ist die nahe. Drei Felder breit, damit ein
+Transporter hineinpasst, und davor liegt Straße. Gemessen: Westkante
+`##...######`, die anderen drei Kanten durchgehend zu, null Gebäude im
+Flughafenbereich, Gefängnisausgang unberührt.
+
+Das Bild zeichnet den Zaun schon - es musste nur lernen, dass es jetzt drei
+Rechtecke gibt, um die Draht laufen kann: Gefängnis, Kaserne, Flugfeld.
+
+**Und die Flugzeuge sind echte Maschinen**, keine Grundrisse mehr: drei
+Einträge in `state.choppers`, dieselbe Liste, in der auch der Militär- und die
+vier Rettungshubschrauber stehen. Einsteigen, fliegen, landen, aussteigen -
+alles dieselben vier Funktionen, die es schon gab. `drawPlanes` und sein
+Grundriss sind ersatzlos weg.
+
+Was ein Flugzeug von einem Hubschrauber unterscheidet, sind acht Zahlen in
+`flightOf` und **eine** davon ist die eigentliche:
+
+- **Ein Flügel trägt nur, was sich bewegt** (`PLANE_LIFT`). Unter 430 Pixeln
+  je Sekunde tut die Leertaste gar nichts und die Maschine sinkt. Genau das
+  macht die Landebahn zu etwas, das man braucht, statt zu einem bemalten
+  Streifen Beton.
+- Neunhundert Pixel je Sekunde Spitze - doppelt so schnell wie der
+  Hubschrauber, dreimal so schnell wie ein Auto -, dafür träge im Kurvenflug
+  und mit Gas weg rollt sie weiter, statt in der Luft stehen zu bleiben.
+- Und aussteigen kann man erst, wenn sie steht (`PLANE_STOP`): Ein Rad am
+  Boden bei zweihundert Pixeln je Sekunde ist ein Landelauf, und wer da
+  aussteigt, fällt heraus.
+
+Gemessen: Vollgas mit gezogenem Knüppel vom Vorfeld - abgehoben nach 2,6
+Sekunden bei 436 Pixeln je Sekunde, nach vierzehn Sekunden auf der Decke von
+210 und mit Höchstfahrt unterwegs; Aussteigen in der Luft wird abgelehnt.
+
+**Und sie haben Blech wie ein Auto.** `Chopper.health`, `flyerHealth` je Sorte
+
+- die olive Maschine ist gepanzert (220), der Rettungshubschrauber ein Bus mit
+  Rotor (140), das Flugzeug Blech, das gut geformt ist (110). Wer oben getroffen
+  wird, verliert nicht selbst Gesundheit, sondern die Maschine verliert Blech:
+  dieselbe Regel wie im Auto, und erst damit bedeutet der Balken in der Ecke
+  etwas. Bei null steigt sie nicht mehr - kein Motor, kein Auftrieb -, sie sinkt,
+  und was unten ankommt, fliegt auseinander. Eine Tür gibt es in der Luft nicht,
+  die Antwort auf Beschuss ist also, herunterzukommen, **bevor** der Balken leer
+  ist.
+
+Dieselbe Ecke zeigt beides: `carOf` oder die geflogene Maschine, Name und
+Balken aus derselben Zeile. Vorher stand im Flug die Waffe da - „Faust", über
+einem Balken, der zur Faust gehörte.
+
+**AIRPORT steht auf dem Vorfeld**, nicht auf der Bahn: Auf eine Landebahn
+gehört die Mittellinie und sonst nichts. Flach auf den Beton gelegt, so wie
+die Zahl auf einer Schwelle - aus dieser Kamera ist ein Schild auf einem
+Mast ein Mast.
+
+## Das Rathaus ist aus Backstein, und es ist umgezogen
+
+Zwei Dinge an einem Gebäude, das vorher ein graues Rechteck mit einem Schild
+war.
+
+**Gemauert statt gestrichen.** Jede andere Front dieser Stadt ist eine Fläche
+in einer Farbe, und für einen Laden oder einen Büroklotz ist das richtig: Die
+sind Putz und Glas und haben nichts weiter zu erzählen. Ein Rathaus ist das
+älteste Haus der Straße, also bekommt es die drei Dinge, die man ihm ansieht -
+**rote Ziegel**, den **Stein** unten und unter der Traufe, und die
+**Fensterläden**. Alles drei ist billig in dieser Größe: Der Backstein sind
+zwei Durchgänge (erst die Lagerfugen, dann die Stoßfugen, jede zweite Reihe um
+einen halben Stein versetzt - das ist es, was eine Wand als Mauerwerk lesbar
+macht und nicht als liniertes Papier), der Stein sind zwei Bänder und zwei
+Lisenen, und ein Laden ist ein Rechteck mit zwei Lamellenstrichen darin.
+
+Die Läden sind **grün** und stehen **offen**, also neben der Öffnung an der
+Wand und nicht davor: Ein Laden über dem Glas ist ein geschlossener, und ein
+Rathaus mit geschlossenen Läden ist ein Rathaus, in dem niemand arbeitet. Jeder
+ist halb so breit wie das Fenster, denn genau das ist ein Fensterladen - zwei
+davon decken zu.
+
+**Zwei Geschosse unter einem Satteldach.** Die Höhe ist eine Zahl und kein
+Würfel (`flat`, sechsundfünfzig Pixel = zwei Geschosse zu {@link STOREY}), und
+darüber liegen zwei Dachflächen aus rotem Ziegel mit Giebel an beiden Enden -
+dasselbe `pitchedRoof`, das die Wohnhäuser tragen, nur mit einer zweiten
+Deckung: Schiefer für die Stadt, Ton für das eine Haus, das älter ist als sie.
+Alles andere mit einem Schild über der Tür hat ein Flachdach, weil alles andere
+mit einem Schild über der Tür in diesem Jahrhundert gebaut wurde.
+
+**Kein Gaubenfenster und kein Schild.** Die Wohnhäuser haben eins im Giebel,
+weil dort oben ein Zimmer ist; hier stand es zu drei Pixeln hinter dem Namen,
+und ein Fenster, das man nicht erkennt, ist ein Fleck im Mauerwerk. Und der
+dunkle Balken unter dem Namen ist ein **Schild**, das man an eine Attika
+schraubt - so etwas hat jedes flachgedeckte Haus hier und ein Rathaus gerade
+nicht. Der Name steht jetzt direkt auf dem Giebel, mit einer dunklen Kontur
+um die Buchstaben, damit er auch vom gegenüberliegenden Gehweg zu lesen ist.
+
+Dabei fiel ein alter Fehler auf: Jedes Haus bekommt beim Zeichnen ein Zehntel
+Höhe auf oder ab, damit Doppelhäuser und Reihen nicht wie gestanzt aussehen -
+und das traf auch die Häuser, deren Höhe ein **Maß** ist. Aus den
+sechsundfünfzig Pixeln des Rathauses wurden siebenundvierzig, also eine Reihe
+Fenster statt zweier und viel leerer Backstein darüber. Beim Krankenhaus
+verschob es stiller: Das gezeichnete Dach lag nicht mehr auf der Höhe, auf der
+`roofAt` den Jetpack landen lässt. Wer eine feste Höhe hat, behält sie jetzt.
+
+**Und es steht fünf Felder weiter hinten.** Es stand in der letzten Blockreihe
+vor dem Strand: Wiese dahinter, und daneben eine Straße, die von der
+Hauptstraße hereinkam, außen am Flughafenzaun entlanglief und im Sand aufhörte.
+Eine Straße, die ein Gebäude bedient und dann endet, ist keine Straße, sondern
+eine Einfahrt.
+
+Also haben Haus und Wiese **getauscht** - das kostet das Viertel nichts -, und
+die Einfahrt gehört jetzt zum Gebäude, das deshalb fünf Felder breit ist statt
+drei.
+
+**Und dann haben Haus und Straße noch einmal getauscht.** Westlich des Hauses
+lief die Stadtautobahn vorbei und hörte hundert Meter weiter südlich im Sand
+auf - ein Stummel, der nirgends hinführte. Das Rathaus steht jetzt genau dort,
+und die Straße läuft da, wo das Rathaus stand: von der Kreuzung hinunter bis an
+den Strand. Dieselben zwei Streifen, nur vertauscht; die Autobahn endet
+einfach eine Kreuzung früher. Das Feld am Zaun bleibt Gehweg: Ein Zaun ohne
+Fußweg daneben ist ein Zaun, an dem man nicht vorbeikommt.
+
+Am Straßen**raster** ändert das nichts, und das ist der Grund, warum es
+überhaupt geht: Der Verkehr liest den **Boden** und nicht die Formel
+(`isRoadAt`), und ein Fahrer, der vor sich keine Straße mehr findet, biegt in
+das ab, was offen ist - genau das, was an diesem Stummel schon immer passierte,
+nur zehn Felder weiter nördlich. Nachgemessen über neunzig Sekunden mit dem
+Spieler daneben: fünfzehn Fahrzeuge im Bereich, acht davon in zehn Sekunden
+unterwegs, keines in einer Wand - vorher waren es vierzehn, von denen sich
+drei bewegten.
+
+Drei Kleinigkeiten, an denen so ein Umzug sonst hängen bleibt:
+
+- **Eine Antwort, nicht zwei.** Das neue Rechteck kommt aus `builtPlot` selbst.
+  Alles, was fragt, wo dieses Haus steht - der Boden, das Bild, die Tür, die
+  Parkplatzsuche -, fragt dieselbe Funktion und bekommt dasselbe Rechteck.
+- **Der Boden wird vor den Straßen gefragt**, genau wie beim Gefängnis und bei
+  der Villa: Eine der Straßen dort ist ja die geschluckte Einfahrt, und
+  andersherum gefragt hätte die Straße gewonnen und liefe durch das Gebäude.
+- **Die Tür sitzt an der Wand, nicht im Block.** Gewöhnliche Türen sind ein
+  fester Abstand innerhalb des Blocks - richtig für ein Haus, das dort steht,
+  wo sein Block es hinstellt. Dieses ist fünf Felder zurückgerückt, und der
+  feste Abstand hätte seine Tür draußen im Sand gelassen.
+
+Nachgemessen: Gebäude auf den Feldern 100-104 × 147-151, Gehweg rundherum,
+Wiese davor bis zum Strand, keine Straße mehr am Zaun - und weder ein Auto noch
+ein Passant steht in der Wand.
+
+## Der DeLorean hat Flügeltüren
+
+Eine Tür ist hier ein Stück Wand: ein Blatt, das an seiner Vorderkante
+angeschlagen ist und um {@link DOOR_SWING} nach außen schwingt. Für einen
+DMC-12 ist das falsch, und zwar auf eine Art, die man sofort sieht - das Auto
+ist wegen dieser Türen berühmt.
+
+Also hat er sein eigenes Blatt. Es hängt nicht an der A-Säule, sondern am
+**Dachfirst**: Es läuft von der Mitte des Dachs nach außen über die Flanke und
+klappt um diese Linie **nach oben**. Die Zeichnung des Dachs macht das ohnehin
+schon vor - `dmcTop` malt es als zwei Platten mit einem erhabenen Streifen
+dazwischen, weil ein Dach mit Flügeltüren genau so aussieht -, und die offene
+Tür ist eine dieser beiden Platten, angehoben.
+
+Ein Detail, das nur an dieser Tür hängt: **Sie wird immer zuletzt gezeichnet.**
+Bei allen anderen entscheidet die Fahrtrichtung, ob die Tür vor oder nach der
+Karosserie drankommt - ohne Tiefentest zeichnet ein Wagen, der nach Osten
+zeigt, seine Tür sonst quer durchs eigene Dach. Ein Flügel steht **über** dem
+Dach, also kann nichts am Auto davor sein, egal wohin die Nase zeigt.
+
+## Der Black Hawk ist ein Panzer, der fliegt
+
+Die olivgrüne Maschine auf dem Militärgelände heißt jetzt **Black Hawk** und
+trägt dieselben zwei Waffen wie der Panzer, an denselben zwei Tasten: linke
+Maustaste eine Rakete, rechte Maustaste hält das Maschinengewehr am Laufen.
+Beide schießen dorthin, wohin die **Maschine** zeigt, nicht aufs Fadenkreuz -
+genau wie beim Panzer, wo das Zielen darin besteht, das ganze Ding
+auszurichten.
+
+Dafür mussten `fireShell` und `fireCoax` nur eine Kleinigkeit abgeben: Sie
+bekamen vorher den Panzer und lasen `tank.turret` heraus, jetzt bekommen sie
+**den Winkel**. Ein Hubschrauber hat keinen Turm, den man auslesen könnte, er
+hat eine Nase - und eine Funktion, die nach einem Winkel fragt, kann beide
+bedienen. Der Rest ist die Kette in `shoot`: ein Zweig mehr für den Auslöser,
+ein Zweig mehr für den Dauerfeuer-Knopf.
+
+Die anderen beiden Maschinen bleiben unbewaffnet, und zwar mit Absicht: Ein
+Rettungshubschrauber mit Bordkanone ist kein Rettungshubschrauber, und das
+Flugzeug ist ein Weg über die Karte. Nachgemessen - Black Hawk: eine Rakete im
+ersten Frame, vierzehn MG-Geschosse in zwei Sekunden; Rettungshubschrauber und
+Flugzeug: null und null. Der Panzer feuert unverändert: eine Granate, sechzehn
+MG-Geschosse.
+
+Nebenbei sagt der Einsteige-Knopf jetzt, was da steht (`flyerName`), statt
+„Hubschrauber" über einem Flugzeug.
+
 ## Aus einem Hubschrauber werden fünf
 
 `GameState.chopper` war **eine** Maschine, weil es eine gab: die olivgrüne auf
@@ -2925,6 +3937,123 @@ kein Flag, kein Feld. Und das Einzige, was es nicht tun darf, ist über sein
 eigenes Garagentor zu malen: Das ist ein Bild für sich und kommt danach obenauf,
 also werden die Fenster über die Front verteilt und die, die in die Toröffnung
 fallen, weggelassen.
+
+## In der eigenen Einfahrt steht der eigene Wagen
+
+Der Stellplatz neben der Villa - das gepflasterte Viereck, `dock` im Boden - ist
+das einzige Stück Asphalt in Los Santos, das jemandem gehört. Trotzdem wurde er
+immer wieder zugeparkt, und zwar jedes Mal von einer anderen Seite: Die
+Parkbuchten sind ein festes Raster, die drei DeLorean suchen sich eine Lücke und
+nehmen nach acht Versuchen, was übrig ist, Traktoren, Löschzüge und
+Krankenwagen bekommen ihren Platz gesagt. Jede dieser Stellen einzeln
+abzusichern heißt, die nächste zu vergessen.
+
+Also wird am Ende **abgeschleppt**: Wer geparkt auf dem Grundstück steht -
+Pflaster, Rasen oder Haus -, fliegt aus der Liste. Nicht der Gehweg rechts und
+links, der ist öffentlich, und nicht das Auto, neben dem man startet: Das steht
+auf der Straße vor der Garage, und das soll es auch.
+
+Zwei Feinheiten, die es sonst teuer machen:
+
+- **Ganz zuletzt**, nachdem jedes Fahrzeug seine Nummer hat. Vorher gezogen,
+  wäre `cars.length` kleiner geworden und die Streifenwagen danach hätten
+  Nummern bekommen, die es schon gab.
+- **Ohne Würfel.** Es wird nichts verschoben und nichts neu gesucht, nur
+  entfernt - die Stadt liegt Feld für Feld wie vorher. Gemessen über fünf
+  Saaten: gleiche Fahrzeugzahl, eindeutige Nummern, null Fahrzeuge auf dem
+  Grundstück.
+
+Es ist die Versicherung dagegen, dass die nächste Art, ein Auto abzustellen,
+in der eigenen Einfahrt endet.
+
+**Und danach wird der eigene Wagen daraufgestellt.** Eine leere Einfahrt neben
+einer Villa ist eine Einfahrt, aus der jemand weggefahren ist. Der Wagen, der
+dorthin gehört, ist der DeLorean: Drei stehen irgendwo in der Stadt und wollen
+gefunden werden, dieser eine steht bei dir, mitten auf den Pflastersteinen, mit
+der Nase zur Straße. Er wird **nach** dem Abschleppen hingestellt, sonst
+schleppte ihn der eigene Besen gleich wieder ab, und bekommt die Nummer, die
+die Liste **vor** dem Abschleppen hatte - die Wagen, die stehen blieben, haben
+ihre ja behalten. Gemessen über fünf Saaten: genau ein Fahrzeug auf dem
+Grundstück, ein `dmc` in der Mitte des Pflasters, und alle Nummern eindeutig.
+
+**Geladene Spielstände bleiben unangetastet.** Ein Wagen, den man selbst in die
+eigene Einfahrt gestellt hat, ist der eigene Wagen und verschwindet nicht über
+Nacht. Wer einen alten Stand lädt, der noch aus der Zeit stammt, als die Villa
+woanders stand, findet allerdings, was dort damals am Straßenrand parkte -
+gemessen fünf Fahrzeuge, eines davon mitten auf dem Pflaster. Ein neues Spiel
+räumt das auf.
+
+## Bank und Kasino haben die Ecken getauscht
+
+Beide stehen auf der Reihe, auf der die Villa steht, drei Blöcke auseinander:
+die Bank war die nahe, das Kasino die ferne. Gewünscht war es andersherum -
+und ein **Tausch** ist dabei die einzige ehrliche Bauweise. Welcher Block die
+Bank trägt, entscheidet kein Eintrag in einer Liste, sondern der Plan: `theOne`
+nimmt die Bank, die der Stadtmitte am nächsten liegt, und alle anderen werden
+zu Wohnhäusern verdünnt. Eine per Hand versetzte Bank wäre deshalb keine
+versetzte Bank, sondern eine zweite - und das Kasino stünde weiterhin, wo es
+stand.
+
+Also tauschen die beiden Blöcke: `buildingAt` fragt für den einen nach dem
+anderen, und zwar **alles** - Wände, Höhe, Dachfarbe, Schild und damit auch die
+Tür, an der der Überfall stattfindet (`doorsOf("bank")` fragt dieselbe
+Funktion). Nachgemessen, vorher und nachher, mit demselben Durchlauf über alle
+Blöcke:
+
+```
+vorher:  Bank 15,14   Kasino 12,14   Banktür 125,119
+nachher: Bank 12,14   Kasino 15,14   Banktür 101,119
+```
+
+Alles andere steht unverändert: Wachen, Kliniken, Feuerwehren, Club, Villa -
+Block für Block dieselbe Liste.
+
+Der Tausch gilt nur, solange die beiden wirklich Bank und Kasino sind. Zeichnet
+der Plan eines Tages etwas anderes dorthin, sind sie kein Paar mehr und jeder
+Block behält, was er gezogen hat; zwei fremde Häuser tauschen nicht heimlich
+die Plätze.
+
+## Die Villa hat eine Adresse
+
+Sie hatte keine, und deshalb ist sie umgezogen. Welches Haus im Südosten dem
+Spieler gehört, war eine Frage an den Plan: _das Haus, dessen Tür der Mitte der
+südöstlichen Insel am nächsten liegt_. Das ist eine hübsche Regel und eine
+falsche, denn die Antwort hängt davon ab, **welche Blöcke überhaupt Häuser
+sind**.
+
+Als das Flugfeld länger wurde, waren einige davon plötzlich Rollfeld - `inCity`
+lässt den Flughafenkasten aus, und was dort stand, steht nicht mehr. Damit
+rückte ein **anderes** Haus an die Inselmitte, und die Villa war ein anderes
+Haus an einem anderen Platz: Block 15/17 statt 16/14, ein Block breit statt
+zwei. Gemessen, beide Male, mit demselben Aufruf:
+
+```
+alter Flughafen: Villa-Block 16,14  Felder 131..143 x 114..119  breit
+neuer Flughafen: Villa-Block 15,17  Felder 121..126 x 138..143  schmal
+```
+
+Die eigene Haustür ist nichts, was sich verschieben darf, weil zwei Kilometer
+weiter südlich eine Landebahn verlängert wurde. Also steht die Adresse jetzt
+da: `VILLA_BLOCK = { x: 16, y: 14 }` - die einzige Stelle dieser Stadt, die
+nachgeschlagen und nicht ausgerechnet wird, und genau deshalb mit einer
+Begründung daneben. `homeDoors` nimmt die Tür auf diesem Block, sobald es eine
+dort gibt; gibt es keine, weil dort eines Tages kein schlichtes Haus mehr steht,
+greift die alte Regel und der Spieler steht nicht ohne Zuhause da.
+
+Die beiden anderen Häuser suchen weiter wie bisher - der genannte Block liegt
+auf der Insel im Südosten, und auf den anderen beiden findet ihn niemand.
+
+**Und sie ist trotzdem noch einmal umgezogen**, weil die Adresse allein nicht
+reicht: Gesucht wird die **Tür** auf diesem Block, und Türen gibt es nur auf
+Blöcken, auf denen etwas steht. Die neue Landstraße vom Fährsteg lief bis in
+die Stadt hinein, und weil `onRoute` vor `inCity` gefragt wird, gewinnt eine
+Landstraße gegen jeden Block, durch den sie läuft - sie hat genau den
+überbaut, auf dem die Villa steht. Kein gebauter Block, keine Tür, keine
+Adresse, Umzug.
+
+Die Lehre steht in beiden Richtungen: Eine Landstraße hört an der ersten
+Stadtstraße auf, und wer eine neue zieht, schaut hinterher nach, wo die Villa
+steht. Das ist ein Aufruf: `villaBlock()` muss 16/14 sagen.
 
 ## Die Villa im Südosten
 
