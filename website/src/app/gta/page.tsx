@@ -30,18 +30,30 @@ export const metadata: Metadata = {
  * Dropping a file into `public/gta/splash/` is therefore the whole of adding
  * one. What it is called does not matter; the game picks one at random each
  * time it lays out a city.
+ *
+ * **With the sub-path in front of it**, and that is not a detail: on GitHub
+ * Pages the site lives under `/<repo>/`, and an address that begins with `/`
+ * points at the root of the domain there - which is to say at nothing. Next
+ * puts the sub-path in front of what it knows about by itself: `next/link`,
+ * `next/image` and imported files. An address assembled by hand inside a
+ * `url(...)` is none of those, and that is exactly why the loading screen was
+ * black everywhere but on one's own machine. See `basePath` in
+ * ../../next.config.ts, which reads the same variable.
  */
 function splashes(): readonly string[] {
   try {
     return readdirSync(join(process.cwd(), "public", SPLASH_DIR))
       .filter((name) => SPLASH_KINDS.some((kind) => name.endsWith(kind)))
       .sort()
-      .map((name) => `/${SPLASH_DIR}/${name}`);
+      .map((name) => `${BASE_PATH}/${SPLASH_DIR}/${name}`);
   } catch {
     // No folder, no pictures: the loading screen is dark and nothing breaks.
     return [];
   }
 }
+
+/** The sub-path the site is served from, empty while it runs at the root. */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 /** Where they live, under `public`. */
 const SPLASH_DIR = "gta/splash";

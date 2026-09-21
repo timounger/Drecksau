@@ -356,7 +356,7 @@ const TIERS: Readonly<Record<VehicleBody, VehicleTiers>> = {
     cabinFront: 2,
     cabinWide: 14,
   },
-  // Und das Polizeiboot: derselbe Rumpf, eine Handbreit laenger.
+  // And the police boat: the same hull, a hand's breadth longer.
   patrolboat: {
     rake: 0,
     tall: 12,

@@ -322,8 +322,8 @@ function rebuild(stored: Stored): GameState {
       // Nobody is saved under water either: a stand written before one could
       // swim has him standing on the surface of it, which is to say on land.
       diving: stored.player.diving ?? false,
-      // Ein Spielstand von vor den Bruecken weiss noch nicht, ob er im Wasser
-      // liegt; an Land aufzuwachen ist die harmlosere der beiden Annahmen.
+      // A save from before the bridges does not yet know whether he is in the
+      // water; waking up on dry land is the harmless one of the two guesses.
       swimming: stored.player.swimming ?? false,
       // A stand written before the jetpack had a flame has no switch for it,
       // and it is off: nobody is saved mid-climb.

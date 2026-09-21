@@ -608,29 +608,29 @@ function goldenGates(
  * @param seen - what is on screen
  * @param box - where this bridge is, in squares
  * @remarks
- * **Zwei Bruecken in San Andreas sind Bauwerke.** Die uebrigen Querungen sind
- * Asphalt, unter dem zufaellig Wasser liegt; diese beiden sind das Ding, fuer
- * das man einen Umweg faehrt, und von oben sind das vier Sachen und keine
- * mehr:
+ * **Two bridges in San Andreas are buildings.** The other crossings are
+ * tarmac that happens to have water under it; these two are the thing one
+ * drives out of one's way to cross, and from above that is four things and
+ * nothing more:
  *
- * - **International Orange**, die einzige Farbe, die irgendwer mit einer
- *   Bruecke verbindet, und der Grund, warum man sie auf einen Blick erkennt.
- * - **Zwei Pylone** auf einem Viertel und drei Vierteln der Laenge. Von hier
- *   oben ist ein Pylon ein Querriegel ueber der Fahrbahn mit je einem Bein
- *   daneben, und diese Silhouette ist der halbe Wiedererkennungswert.
- * - **Die Tragseile** an beiden Deckkanten, ueber die ganze Laenge.
- * - **Die Haenger**, alle paar Felder ein Strich vom Seil zum Deck.
+ * - **International orange**, the only colour anybody associates with a
+ *   bridge, and the reason it reads as one at a glance.
+ * - **Two towers**, at a quarter and three quarters of the length. From up
+ *   here a tower is a beam across the road with a leg either side of it, and
+ *   that silhouette is half of the recognition.
+ * - **The main cables** down both edges of the deck, the whole length of it.
+ * - **The suspenders**, a tick every few squares from cable to deck.
  *
- * Das Deck wird vom Boden abgelesen - es sind die `"bridge"`-Felder im
- * Kasten, kein Rechteck -, und zwar Reihe fuer Reihe, damit das Bild nicht
- * behauptet, was man nicht befaehrt. Gezeichnet wird nur der Teil, auf dem
- * das Deck seine volle Breite hat: Wo die Kueste einen Zahn hat, hoert das
- * Bauwerk auf und die gewoehnliche Brueckenkante macht weiter.
+ * The deck is read off the floor - it is the `"bridge"` squares inside the
+ * box and not a rectangle - row by row, so that the picture cannot claim
+ * something one does not drive on. Only the part where the deck has its full
+ * width is drawn: where the coast takes a bite out of it, the structure stops
+ * and the ordinary bridge edge carries on.
  *
- * **Und eine der beiden traegt auch die Bahn.** Im Westen laufen Strasse und
- * Gleis nebeneinander ueber dasselbe Wasser, also traegt ein Bauwerk beides:
- * Fahrbahn mit Strichen fuer die Autos, Schotter fuer den Zug, ein Rahmen um
- * alles. Welche Spalten das Gleis hat, steht im Boden und nicht hier.
+ * **And one of the two carries the railway as well.** In the west the road
+ * and the track cross the same water side by side, so one structure carries
+ * both: carriageway with markings for the cars, ballast for the train, one
+ * frame round the lot. Which columns are track is in the floor, not here.
  */
 function goldenGate(
   ctx: CanvasRenderingContext2D,
@@ -677,9 +677,9 @@ function goldenGate(
   }
   const from = middling(lefts);
   const to = middling(rights);
-  // Nur die Reihen, auf denen das Deck seine volle Breite hat. Am Ufer nagt
-  // die Kueste ein Feld ab; ein Bauwerk, das dort weiterlaeuft, haette seinen
-  // Traeger neben dem Asphalt stehen.
+  // Only the rows on which the deck has its full width. At the bank the
+  // coast takes a square off it, and a structure carried on there would have
+  // its girder standing beside the tarmac.
   const full = rows.filter(
     (_row, at) => (lefts[at] ?? 0) <= from && (rights[at] ?? 0) >= to,
   );
@@ -694,9 +694,9 @@ function goldenGate(
   const head = project(view, from * TILE - lip, first * TILE);
   const foot = project(view, from * TILE - lip, (last + 1) * TILE);
   const tall = foot.y - head.y;
-  // **Welche Spalten das Gleis hat**, und was davon Fahrbahn bleibt. Die Bahn
-  // liegt an einer Kante des Decks, nie mitten darin - alles andere waere ein
-  // Gleis zwischen zwei Fahrspuren.
+  // **Which columns are track**, and what of the deck stays carriageway. The
+  // railway lies along one edge of it, never in the middle - anything else
+  // would be a track between two lanes of traffic.
   let railFrom = -1;
   let railTo = -1;
   const mid = Math.floor((first + last) / 2);
@@ -732,20 +732,20 @@ function goldenGate(
   }
   ctx.fillStyle = GATE_ROAD;
   ctx.fillRect(roadLeft, head.y, roadRight - roadLeft, tall);
-  // **Zwei Spuren je Richtung, und die Farbe sagt welche.** Durchgezogen in
-  // der Mitte, weil dort niemand hinueber darf; durchgezogen dicht an beiden
-  // Raendern, weil das die Fahrbahnbegrenzung ist; und dazwischen je eine
-  // gestrichelte, die die beiden Spuren einer Richtung trennt. Die Zahlen sind
-  // nicht gemalt, sondern gerechnet: Sie stehen genau zwischen den Linien, auf
-  // denen der Verkehr faehrt (`INNER_LANE` und `OUTER_LANE` in ../engine), so
-  // dass die Autos mittig in ihren Spuren liegen statt daneben.
+  // **Two lanes each way, and the paint says which.** Solid down the middle,
+  // because nobody may cross there; solid close in at both kerbs, because
+  // that is the edge of the carriageway; and a broken one between each pair,
+  // which divides the two lanes of one direction. The numbers are not painted
+  // but worked out: they sit exactly between the lines the traffic drives on
+  // (`INNER_LANE` and `OUTER_LANE` in ../engine), so that the cars lie in the
+  // middle of their lanes rather than beside them.
   //
-  // Gerechnet wird mit der **Fahrbahn**, nicht mit dem Deck: Das Deck ist um
-  // die Schulter breiter als die Felder und traegt im Westen auch noch das
-  // Gleis. Mit der Deckbreite gerechnet laegen die Striche neben den Autos.
-  // Die Mitte ist die Mitte der *Felder*, nicht die des gemalten Kastens: Auf
-  // der Seite ohne Gleis kommt eine Schulter dazu und auf der anderen nicht,
-  // und um deren halbe Breite laegen sonst alle fuenf Striche daneben.
+  // It is worked out from the **carriageway** and not from the deck: the deck
+  // is a shoulder wider than the squares, and in the west it carries the
+  // track as well. Measured against the deck, the lines lay beside the cars.
+  // The middle is the middle of the *squares*, not of the painted box: the
+  // side without track gets a shoulder and the other does not, and all five
+  // lines would otherwise sit half that width off.
   const centre = atX(((roadFrom + roadTo + 1) / 2) * TILE);
   const half = ((roadTo - roadFrom + 1) * TILE) / 2;
   ctx.strokeStyle = GATE_LINE;
@@ -757,8 +757,8 @@ function goldenGate(
     ctx.lineTo(at, foot.y);
     ctx.stroke();
   };
-  // Gleicher Abstand ueberall - Mitte, gestrichelt, Rand - bis auf die
-  // beiden aeusseren, die dicht an der Bordkante liegen.
+  // The same spacing throughout - middle, broken, edge - bar the outer two,
+  // which lie close in to the kerb.
   rule(centre, false);
   for (const side of [-1, 1]) {
     rule(centre + side * (half - EDGE_IN), false);
@@ -795,8 +795,8 @@ function goldenGate(
       deckRight - deckLeft + (GIRDER + TOWER_OUT) * 2,
       deep * TOWER_DEEP,
     );
-    // Die Fahrbahn laeuft durch den Pylon hindurch; das Gleis auch, aber das
-    // legt die Bahn selbst darueber - siehe drawTrack.
+    // The carriageway runs through the tower; so does the track, but the
+    // railway lays that over the top itself - see drawTrack.
     ctx.fillStyle = GATE_ROAD;
     ctx.fillRect(
       roadLeft,
@@ -835,14 +835,14 @@ function middling(all: readonly number[]): number {
 }
 
 /**
- * Wo diese Bauwerke stehen, in Feldern.
+ * Where these structures stand, in squares.
  *
  * @remarks
- * Zwei Querungen bekommen den Stahl: die in der Mitte der Meerenge, ueber die
- * die Strasse aus der Wueste fuehrt, und die kurze vor San Fierro, auf der
- * Strasse und Bahn nebeneinander hinueberlaufen. Aufgeschrieben statt gesucht:
- * Das Deck darin wird vom Boden abgelesen, aber *welche* Querung den Anstrich
- * bekommt, ist eine Entscheidung und keine Messung.
+ * Two crossings get the steel: the one in the middle of the strait that the
+ * road from the desert takes, and the short one off San Fierro that carries
+ * the road and the railway side by side. Written down rather than looked for:
+ * the deck inside is read off the floor, but *which* crossing gets the paint
+ * is a decision and not a measurement.
  */
 const GATE_BOXES: readonly Island[] = [
   { left: 91, top: 86, right: 98, bottom: 107 },
@@ -943,19 +943,19 @@ const TOWER_LEG = 5;
  * @param view - where the camera is
  * @param seen - what is on screen
  * @remarks
- * **Entlang der Linie, nicht Feld fuer Feld.** Eine Bruecke in der Kurve ist
- * eine Treppe aus Feldern, und ein Traeger an jeder Feldkante ist eine Treppe
- * aus Traegern. Schlimmer noch: Die Strasse wird als Band ueber ihre Felder
- * hinaus gemalt ({@link ROAD_COVER} plus {@link VERGE}), der Stahl lag also
- * mitten im Asphalt statt an dessen Rand.
+ * **Along the line, not square by square.** A bridge on a bend is a staircase
+ * of squares, and a girder at every square edge is a staircase of girders.
+ * Worse: a road is painted as a band beyond its own squares
+ * ({@link ROAD_COVER} plus {@link VERGE}), so the steel lay in the middle of
+ * the tarmac instead of at its edge.
  *
- * Darum sind die Kanten Striche der **Strassenlinie selbst**, seitlich bis an
- * den Rand ihres Bandes geschoben und ueberall dort unterbrochen, wo die Linie
- * nicht ueber Wasser laeuft. Das ist ein Stueck Code fuer jede Querung der
- * Karte: Strassen wie Bahn, gerade wie krumme.
+ * So the edges are strokes of the **road's own line**, pushed out sideways to
+ * where its band ends and broken wherever the line is not over water. That is
+ * one piece of code for every crossing on the map: roads as well as railway,
+ * straight ones as well as bent.
  *
- * Die Haengebruecke ist nicht dabei - die malt alles an sich selbst, und zwar
- * danach. Siehe {@link goldenGate}.
+ * The suspension bridges are not among them - they paint everything about
+ * themselves, and they do it afterwards. See {@link goldenGate}.
  */
 function drawBridgeEdges(
   ctx: CanvasRenderingContext2D,
@@ -968,9 +968,9 @@ function drawBridgeEdges(
   ctx.setLineDash([]);
   for (const road of roadLines()) {
     const half = (road.wide / 2) * TILE + DECK_SHOULDER;
-    // Erst das Deck: dieselbe Breite wie das Strassenband, aber in der
-    // helleren Farbe, die ein Deck ueber hellem Wasser braucht - das Band
-    // selbst ist Strassengrau und ginge im Meer unter.
+    // The deck first: the same width as the road band, but in the lighter
+    // colour a deck over bright water needs - the band itself is road grey
+    // and would disappear into the sea.
     overWater(ctx, state, view, seen, road.points, 0, {
       thick: half * 2,
       paint: GROUND.bridge,
@@ -984,9 +984,9 @@ function drawBridgeEdges(
       paint: PARAPET,
     });
   }
-  // Und die Bahn bringt ihren Schotter selbst mit: Ihre Felder sind ueber dem
-  // Wasser zu Meer geworden, also wird der Damm hier gezogen und die Schwellen
-  // kommen spaeter darauf.
+  // And the railway brings its own ballast: its squares have turned to sea
+  // over the water, so the embankment is drawn here and the sleepers go on
+  // top of it later.
   const track = railLine();
   overWater(ctx, state, view, seen, track, 0, {
     thick: RAIL_SIDE * 2,
@@ -1025,17 +1025,17 @@ function overWater(
 ): void {
   ctx.strokeStyle = pen.paint;
   ctx.lineWidth = pen.thick;
-  // **Einen Punkt weiter als das Wasser reicht.** Ein Feld ist breiter als
-  // der Punkt in seiner Mitte: Hoerte der Strich beim letzten Punkt ueber
-  // Wasser auf, blieb am Ufer ein blauer Zwickel des letzten Brueckenfeldes
-  // stehen. So laeuft das Band ein Stueck auf das Land - dort, wo ein
-  // Widerlager hingehoert.
+  // **One point further than the water reaches.** A square is wider than the
+  // point in the middle of it: with the stroke stopping at the last point
+  // over water, a blue wedge of the last bridge square was left standing at
+  // the bank. This way the band runs a little onto the land - where an
+  // abutment belongs.
   const spans = points.map(
     (point) =>
       cellUnder(state.cells, point.x * TILE, point.y * TILE) === "bridge",
   );
-  // Ohne Versatz gibt es nur eine Linie - sonst laege sie zweimal an
-  // derselben Stelle.
+  // With no offset there is one line only - otherwise it would be drawn
+  // twice in the same place.
   for (const side of out === 0 ? [1] : [-1, 1]) {
     let drawing = false;
     ctx.beginPath();
@@ -1071,11 +1071,11 @@ function overWater(
  * How far out from the middle of the track its girders run, in pixels.
  *
  * @remarks
- * Breit genug, dass der Damm jedes Feld deckt, das die Bahn beansprucht -
- * auch in der Schraege, wo die Felder als Treppe um die Linie herumliegen und
- * die Ecken weiter aussen sitzen als eine halbe Feldbreite. Ein schmalerer
- * Damm liess einzelne Felder als Loch im Meer stehen, auf denen man trotzdem
- * gehen konnte.
+ * Wide enough that the embankment covers every square the railway claims -
+ * on the diagonal as well, where the squares lie about the line as a staircase
+ * and their corners sit further out than half a square. A narrower embankment
+ * left single squares standing as holes in the sea that one could walk on
+ * regardless.
  */
 const RAIL_SIDE = 34;
 
@@ -1140,20 +1140,20 @@ function gridLanes(
     for (const line of motorwaysBetween(from, to)) {
       const middle = (line + HALF) * TILE;
       for (let step = along; step <= until; step += 1) {
-        // **Nichts ueber eine Kreuzung malen**, und Kreuzung heisst hier:
-        // Dort trifft eine Linie des Rasters eine andere (`atCrossing`).
-        // Vorher wurde gefragt, ob drei Felder neben der Mitte auch Asphalt
-        // liegt - das stimmt in einem Block, und es stimmt ueberhaupt nicht
-        // am Rand der Stadt, wo die Autobahn ueber offene Flaechen laeuft:
-        // Dort war alles ringsum Asphalt, also wurde gar nichts mehr gemalt.
+        // **Nothing is painted across a junction**, and a junction here is
+        // where one line of the grid meets another (`atCrossing`). The
+        // question used to be whether there is tarmac three squares to the
+        // side as well - which holds inside a block and does not hold at all
+        // at the edge of town, where the motorway runs over open ground:
+        // there everything around was tarmac, so nothing was painted at all.
         const heart = upright
           ? { x: middle, y: (step + HALF) * TILE }
           : { x: (step + HALF) * TILE, y: middle };
         const col = upright ? line : step;
         const row = upright ? step : line;
-        // Und nichts auf die Bahn malen: Eine Eisenbahnbruecke ist nach dem
-        // Boden "bridge" und damit befahrbar - Spurstriche quer ueber die
-        // Schwellen hat sie deswegen noch lange nicht verdient.
+        // And nothing is painted on the railway: a railway bridge is
+        // "bridge" as far as the floor is concerned, and so may be driven on
+        // - which does not earn it lane markings across its sleepers.
         if (
           !isRoadAt(state.cells, heart.x, heart.y) ||
           onRail(col, row) ||
@@ -1199,11 +1199,11 @@ function countryLanes(
     if (!near) {
       continue;
     }
-    // **Dieselben Abstaende wie auf der Bruecke**, und zwar auf die gleiche
-    // Art gerechnet: Mitte, halbe Fahrbahnhaelfte gestrichelt, und die
-    // Randlinie eine Handbreit innerhalb der Kante - die Kante ist die
-    // Fahrbahn plus Schulter. So laeuft der Strich ueber den Brueckenkopf
-    // hinweg weiter, statt dort zu versetzen.
+    // **The same spacing as on the bridge**, and worked out the same way:
+    // the middle, half of the carriageway's half broken, and the edge line a
+    // hand's breadth inside the edge - the edge being carriageway plus
+    // shoulder. That way the line carries on over the bridgehead instead of
+    // stepping sideways there.
     const half = (road.wide / 2) * TILE;
     const edge = half + DECK_SHOULDER - EDGE_IN;
     for (const run of [
@@ -1271,11 +1271,11 @@ function drawGround(
       const outside =
         col < 0 || row < 0 || col >= CITY_TILES || row >= CITY_TILES;
       const cell = cellUnder(state.cells, col * TILE, row * TILE);
-      // **Eine Bruecke ist hier noch Meer.** Ihre Felder sind eine Treppe,
-      // und eine Treppe aus Deck, die unter dem glatten Band der Strasse
-      // hervorschaut, sieht aus wie abgebrochener Beton. Also bleibt der
-      // Boden hier Wasser; das Deck zieht {@link drawBridgeEdges} gleich
-      // darauf - als Band entlang der Linie, so glatt wie die Fahrbahn.
+      // **A bridge is still sea here.** Its squares are a staircase, and a
+      // staircase of deck poking out from under the smooth band of the road
+      // looks like broken concrete. So the floor stays water here, and
+      // {@link drawBridgeEdges} lays the deck on it a moment later - as a
+      // band along the line, as smooth as the carriageway.
       ctx.fillStyle = outside
         ? BEYOND
         : GROUND[cell === "bridge" ? "water" : cell];
@@ -1284,17 +1284,16 @@ function drawGround(
     }
   }
   drawCountryRoads(ctx, state.cells, view, seen);
-  // **Die Kanten nach den Strassen.** Das Band einer Landstrasse wird als
-  // Ganzes ueber die Felder gezogen; ein Gelaender, das vorher gemalt wird,
-  // liegt danach darunter. Erst die Fahrbahn, dann der Traeger, dann die
-  // Striche.
+  // **The edges after the roads.** The band of a country road is drawn over
+  // its squares in one piece; a railing painted before it ends up underneath.
+  // First the carriageway, then the girder, then the markings.
   drawBridgeEdges(ctx, state, view, seen);
   drawLanes(ctx, state, view, seen);
   drawMarks(ctx, state, view, seen);
-  // **Die Bauwerke vor der Kulisse.** Die westliche Haengebruecke traegt auch
-  // das Gleis, und die Schwellen gehoeren auf ihr Deck und nicht darunter -
-  // die Bahn wird mit der Kulisse gezeichnet (`drawTrack`), also muss der
-  // Stahl vorher stehen.
+  // **The structures before the scenery.** The western suspension bridge
+  // carries the track as well, and the sleepers belong on its deck rather
+  // than under it - the railway is drawn with the scenery (`drawTrack`), so
+  // the steel has to stand first.
   goldenGates(ctx, state, view, seen);
   drawScenery(ctx, state, view, fromCol, fromRow, toCol, toRow);
   // **The ground that is still alight**, over the tarmac and the tyre marks
@@ -1779,12 +1778,12 @@ const ROAD_MARGIN = 400;
  * How much wider than its squares a road is painted, in squares.
  *
  * @remarks
- * **Genau eine Schulter breiter, links wie rechts** - dieselbe Schulter, die
- * das Deck einer Bruecke ueber ihre Fahrbahn hinausstehen laesst (siehe
- * {@link DECK_SHOULDER}). Damit ist die Autobahn draussen exakt so breit wie
- * die Bruecke, ueber die sie laeuft: Vorher war das Band ueber einen halben
- * Meter breiter, und am Brueckenkopf sprang die Fahrbahnkante nach innen und
- * die Striche gleich mit.
+ * **Exactly one shoulder wider, left and right** - the same shoulder that
+ * makes a bridge deck stand out past its carriageway (see
+ * {@link DECK_SHOULDER}). That makes the motorway out in the country exactly
+ * as wide as the bridge it runs over: the band used to be a good half metre
+ * wider than that, and at the bridgehead the edge of the carriageway stepped
+ * inwards and took the markings with it.
  */
 const ROAD_COVER = (DECK_SHOULDER * 2) / TILE;
 
@@ -1806,9 +1805,9 @@ const VERGE_PAINT = "#6b6357";
  * having verges at the first kerb - and a brown stripe painted across a
  * junction reads as somebody spilt something, not as a road.
  *
- * **Und ueber dem Wasser erst recht nicht.** Eine Bruecke hat einen Traeger,
- * wo die Landstrasse ihren Staubstreifen hat; lag der Streifen trotzdem da,
- * schwamm draussen neben dem Stahl ein brauner Rand auf dem Meer.
+ * **And over the water least of all.** A bridge has a girder where the
+ * country road has its dusty edge; with the stripe drawn there regardless, a
+ * brown rim floated on the sea outside the steel.
  */
 function strokeVerge(
   ctx: CanvasRenderingContext2D,
@@ -3977,13 +3976,15 @@ function drawScene(
   }
   // The train, before the list is read rather than after it: pushed in later
   // it was in no list at all, and a train nobody paints is a train nobody sees.
-  for (const wagon of trainCars(state.train)) {
+  trainCars(state.train).forEach((wagon, order) => {
     movers.push({
       depth: wagon.at.y,
       at: wagon.at,
-      paint: (fade) => drawWagon(ctx, view, wagon.at, wagon.angle, fade),
+      // The first one is the engine - `trainCars` returns it first.
+      paint: (fade) =>
+        drawWagon(ctx, view, wagon.at, wagon.angle, fade, order === 0),
     });
-  }
+  });
 
   // Anything a house could swallow: everything that moves, and the rings on
   // the road, which are just as easy to lose under a roof.
@@ -4083,13 +4084,30 @@ function inBay(state: GameState, garage: Vec): boolean {
 const DOOR_OVER = 0.5;
 
 /**
- * One carriage, from above.
+ * One vehicle of the train, from above: the engine at the front, carriages
+ * behind it.
  *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param at - the middle of this vehicle, in city pixels
+ * @param angle - which way it is pointing
+ * @param fade - how much of it a house in front lets through
+ * @param leading - true for the first one, which is the engine
  * @remarks
- * A long box with a dark roof and a window band down each side. It is drawn
- * flat on the rails rather than as a standing box like a car: a train at this
- * scale is a shape sliding along a line, and a tall box would hide half a
- * street every time one went past.
+ * **From above one sees four things of a train**, and they are what make it
+ * one: the **roof**, which is most of it, the **bogies** poking out at both
+ * ends underneath, the **window bands** along the flanks and the **gangways**
+ * between the vehicles. Until now it was a red box with a few dashes down the
+ * side - a train from a distance, a bar from close up.
+ *
+ * The **engine** is the same drawing with three differences, and those three
+ * are exactly what one recognises: a **nose** tapering forward, a
+ * **windscreen** in it and a **pantograph** on the roof. Plus two head lamps -
+ * the only thing that lights up on a train seen from the front.
+ *
+ * All of it lies flat on the rails rather than standing as a box the way a car
+ * does: a train at this scale is a shape following a line, and a tall box
+ * would hide half a street every time one went past.
  */
 function drawWagon(
   ctx: CanvasRenderingContext2D,
@@ -4097,6 +4115,7 @@ function drawWagon(
   at: Vec,
   angle: number,
   fade: number,
+  leading = false,
 ): void {
   const spot = project(view, at.x, at.y);
   shadow(ctx, view, at, TRAIN_LONG / 2, TRAIN_WIDE / 2, angle, fade);
@@ -4105,29 +4124,208 @@ function drawWagon(
   ctx.translate(spot.x, spot.y);
   ctx.scale(1, DEPTH);
   ctx.rotate(angle);
-  ctx.fillStyle = "#b91c1c";
-  ctx.strokeStyle = "#0f172a";
-  ctx.lineWidth = 2;
+  const long = TRAIN_LONG;
+  const half = TRAIN_WIDE / 2;
+  const tip = long / 2;
+  const back = -long / 2;
+
+  // **What is underneath comes first.** The bogies stand out sideways past
+  // the body a little way - there is no other way to see from above that a
+  // train stands on bogies rather than on the ground.
+  ctx.fillStyle = TRAIN_BOGIE;
+  for (const end of [-1, 1]) {
+    ctx.fillRect(end * long * 0.29 - 7, -half - 2, 14, TRAIN_WIDE + 4);
+  }
+  ctx.fillStyle = TRAIN_WHEEL;
+  for (const end of [-1, 1]) {
+    for (const axle of [-1, 1]) {
+      ctx.fillRect(end * long * 0.29 + axle * 3.5 - 1, -half - 2.5, 2, 2.5);
+      ctx.fillRect(end * long * 0.29 + axle * 3.5 - 1, half + 0.5, 2, 2.5);
+    }
+  }
+  // The gangways: a bellows at the back, and at the front too on everything
+  // but the engine. They are what makes five boxes into a train.
+  ctx.fillStyle = TRAIN_LINK;
+  ctx.fillRect(back - 4, -half * 0.42, 5, half * 0.84);
+  if (!leading) {
+    ctx.fillRect(tip - 1, -half * 0.42, 5, half * 0.84);
+  }
+
+  // The body. On the engine it tapers to a nose at the front.
   const body = new Path2D();
-  body.roundRect(-TRAIN_LONG / 2, -TRAIN_WIDE / 2, TRAIN_LONG, TRAIN_WIDE, 4);
+  if (leading) {
+    body.moveTo(tip, -half * 0.36);
+    body.quadraticCurveTo(tip + 2, 0, tip, half * 0.36);
+    body.quadraticCurveTo(tip - 3, half, tip - 15, half);
+    body.lineTo(back + 4, half);
+    body.quadraticCurveTo(back, half, back, half - 4);
+    body.lineTo(back, -half + 4);
+    body.quadraticCurveTo(back, -half, back + 4, -half);
+    body.lineTo(tip - 15, -half);
+    body.quadraticCurveTo(tip - 3, -half, tip, -half * 0.36);
+  } else {
+    body.roundRect(back, -half, long, TRAIN_WIDE, 5);
+  }
+  ctx.fillStyle = TRAIN_BODY;
+  ctx.strokeStyle = TRAIN_EDGE;
+  ctx.lineWidth = 1.2;
+  ctx.lineJoin = "round";
   ctx.fill(body);
   ctx.stroke(body);
-  // The roof, and the windows along the flanks.
-  ctx.fillStyle = "#7f1d1d";
-  ctx.fillRect(
-    -TRAIN_LONG / 2 + 5,
-    -TRAIN_WIDE / 2 + 4,
-    TRAIN_LONG - 10,
-    TRAIN_WIDE - 8,
-  );
-  ctx.fillStyle = "#1e293b";
+
+  // **The roof is most of it**, and it is grey: what one sees of a red train
+  // from above is mainly the part that is not red. The ribs go across it
+  // every few pixels - without them the roof is a grey area.
+  ctx.save();
+  ctx.clip(body);
+  // **The roof sits in the middle, not over the whole carriage.** Taken out
+  // to the edge it leaves the red as a frame and the train is grey; this way
+  // a hand's breadth of body is left either side, and that is what carries
+  // the windows and the stripe.
+  ctx.fillStyle = TRAIN_ROOF;
+  ctx.fillRect(back + 3, -ROOF_HALF, long - 6, ROOF_HALF * 2);
+  ctx.strokeStyle = TRAIN_RIB;
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  for (let rib = back + 7; rib < tip - 7; rib += 4.5) {
+    ctx.moveTo(rib, -ROOF_HALF + 0.5);
+    ctx.lineTo(rib, ROOF_HALF - 0.5);
+  }
+  ctx.stroke();
+  // And the white stripe right out at the kerb edge.
+  ctx.fillStyle = TRAIN_STRIPE;
   for (const side of [-1, 1]) {
-    for (let at2 = -TRAIN_LONG / 2 + 8; at2 < TRAIN_LONG / 2 - 10; at2 += 9) {
-      ctx.fillRect(at2, side * (TRAIN_WIDE / 2 - 3) - 1.5, 6, 3);
+    ctx.fillRect(back + 2, side * (half - 1.2) - 0.6, long - 4, 1.2);
+  }
+  ctx.restore();
+
+  if (leading) {
+    // The engine-room vents, the windscreen and the pantograph.
+    ctx.fillStyle = TRAIN_VENT;
+    for (const grille of [-15, -8]) {
+      ctx.fillRect(grille, -ROOF_HALF + 1, 5, ROOF_HALF * 2 - 2);
     }
+    ctx.fillStyle = TRAIN_GLASS;
+    const screen = new Path2D();
+    screen.moveTo(tip - 4, -half * 0.42);
+    screen.lineTo(tip - 11, -half * 0.66);
+    screen.lineTo(tip - 11, half * 0.66);
+    screen.lineTo(tip - 4, half * 0.42);
+    screen.closePath();
+    ctx.fill(screen);
+    // The pantograph: two arms and the bow across them. That is the one
+    // silhouette which says "engine" at once, even from above.
+    ctx.strokeStyle = TRAIN_PANTO;
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    for (const arm of [-1, 1]) {
+      ctx.moveTo(-4, arm * (ROOF_HALF - 2.5));
+      ctx.lineTo(4, arm * (ROOF_HALF - 2.5));
+    }
+    ctx.moveTo(4, -ROOF_HALF + 0.5);
+    ctx.lineTo(4, ROOF_HALF - 0.5);
+    ctx.stroke();
+    // The two cab side windows. An engine has no more windows than that -
+    // behind them the engine room begins.
+    ctx.fillStyle = TRAIN_GLASS;
+    for (const side of [-1, 1]) {
+      ctx.fillRect(
+        tip - 17,
+        side * (ROOF_HALF + (half - ROOF_HALF) / 2) - 1.5,
+        8,
+        3,
+      );
+    }
+    // Zwei Spitzenlichter.
+    ctx.fillStyle = TRAIN_LAMP;
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(tip - 2.5, side * half * 0.5, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    // **One continuous window band, not a row of little blocks.** Windows
+    // painted one at a time are nothing but noise across twenty-six pixels; a
+    // dark band with narrow pillars in it reads as a carriage at a glance and
+    // holds still while it moves. The two **doors** per flank sit in it as
+    // lighter panels with a gap down the middle - and the door is what tells
+    // a carriage from a container.
+    for (const side of [-1, 1]) {
+      const y = side * (ROOF_HALF + (half - ROOF_HALF) / 2);
+      ctx.fillStyle = TRAIN_GLASS;
+      ctx.fillRect(back + 6, y - 1.6, long - 12, 3.2);
+      ctx.fillStyle = TRAIN_BODY;
+      for (let post = back + 12; post < tip - 8; post += 6.5) {
+        ctx.fillRect(post, y - 1.6, 1.1, 3.2);
+      }
+      for (const door of [-1, 1]) {
+        ctx.fillStyle = TRAIN_DOOR;
+        ctx.fillRect(door * long * 0.27 - 2.6, y - 1.9, 5.2, 3.8);
+        ctx.fillStyle = TRAIN_FRAME;
+        ctx.fillRect(door * long * 0.27 - 0.3, y - 1.9, 0.6, 3.8);
+      }
+    }
+    // One vent on the roof: the air conditioning is the only thing that
+    // stands proud of a carriage roof seen from above.
+    ctx.fillStyle = TRAIN_VENT;
+    const vent = new Path2D();
+    vent.roundRect(-9, -ROOF_HALF + 1.6, 18, ROOF_HALF * 2 - 3.2, 1.5);
+    ctx.fill(vent);
   }
   ctx.restore();
 }
+
+/** The livery: the red every train in this city is painted. */
+const TRAIN_BODY = "#b91c1c";
+
+/** The line round it. */
+const TRAIN_EDGE = "#0f172a";
+
+/**
+ * How far out the roof reaches from the middle of the train, in pixels.
+ *
+ * @remarks
+ * Not out to the edge: what is left between the roof and the kerb is the
+ * flank - and the windows, the doors and the stripe sit on that. With the roof
+ * taken out to the side, the train was grey with a red frame.
+ */
+const ROOF_HALF = 7;
+
+/** The roof, which is most of what one sees from up here. */
+const TRAIN_ROOF = "#8a95a5";
+
+/** And the ribs across it. */
+const TRAIN_RIB = "#64748b";
+
+/** The stripe along the flank, under the windows. */
+const TRAIN_STRIPE = "#e2e8f0";
+
+/** The glass: windows, and the windscreen of the engine. */
+const TRAIN_GLASS = "#1e293b";
+
+/** The frame round one window. */
+const TRAIN_FRAME = "#475569";
+
+/** A door, which is lighter than the glass beside it. */
+const TRAIN_DOOR = "#334155";
+
+/** The vents on the roof, and the grilles of the engine room. */
+const TRAIN_VENT = "#52525b";
+
+/** The bogies under both ends. */
+const TRAIN_BOGIE = "#27272a";
+
+/** And the wheels sticking out of them. */
+const TRAIN_WHEEL = "#18181b";
+
+/** The gangway between two vehicles. */
+const TRAIN_LINK = "#3f3f46";
+
+/** The pantograph on the roof of the engine. */
+const TRAIN_PANTO = "#0f172a";
+
+/** Its two head lamps. */
+const TRAIN_LAMP = "#fef3c7";
 
 /**
  * The police helicopter, well above the roofs.
@@ -12743,11 +12941,11 @@ function drawWalker(
   // ground: what is under him is water, and what water does with a man is
   // hide the half of him that is in it. See {@link swimmer}.
   //
-  // **Und ob er im Wasser ist, sagt er selbst.** Frueher stand hier die Frage
-  // an den Boden, ob unter ihm Wasser liegt - und unter einer Bruecke liegt
-  // Deck, also lief jeder Schwimmer, der darunter durchkam, ploetzlich oben
-  // darueber. Ein Brueckenfeld kann die Frage nicht beantworten; der Mann
-  // selbst kann es, siehe `Player.swimming` in ../engine/types.
+  // **And whether he is in the water, he says himself.** The question used to
+  // go to the floor - is there water under him - and under a bridge there is
+  // deck, so every swimmer who came through underneath suddenly walked over
+  // the top of it. A bridge square cannot answer that; the man himself can -
+  // see `Player.swimming` in ../engine/types.
   const afloat =
     player.car === null && !player.flying && high <= 0 && player.swimming;
   if (!afloat) {
@@ -12855,12 +13053,12 @@ function swimmer(
   fade: number,
 ): { readonly fade: number; readonly done: () => void } {
   const feet = project(view, up.x, up.y);
-  // **Unter einer Bruecke schwimmt er darunter durch.** Das Deck gehoert zum
-  // Boden, und alles, was sich bewegt, wird darueber gemalt - ein Schwimmer
-  // lief also oben ueber die Fahrbahn, obwohl er im Wasser war (der Motor
-  // wusste es die ganze Zeit besser: `swimming` sagt auch unter der Bruecke
-  // ja). Abgedunkelt liest er sich als das, was er ist: jemand im Schatten
-  // darunter - genau wie das Boot daneben, siehe {@link boatHull}.
+  // **Under a bridge he swims underneath it.** The deck belongs to the floor,
+  // and everything that moves is painted over the floor - so a swimmer walked
+  // along the top of the carriageway although he was in the water (the engine
+  // knew better all along: `swimming` says yes under a bridge as well).
+  // Dimmed, he reads as what he is: somebody in the shadow below - exactly
+  // like the boat beside him, see {@link boatHull}.
   const shade =
     cellUnder(state.cells, up.x, up.y) === "bridge" ? UNDER_DECK : 1;
   const shown = fade * shade;
@@ -13085,15 +13283,15 @@ function boatHull(
   ctx.quadraticCurveTo(long * 0.2, wide * 0.4, long * 0.08, wide * 0.4);
   ctx.stroke();
 
-  // **Und das Polizeiboot traegt seine Farben.** Derselbe Rumpf wie das
-  // Motorboot am Ufer - ein Polizeiboot ist ein Boot -, aber mit dem blauen
-  // Band ueber die Bordwand und einem Blaulicht auf dem Steuerstand. Beides
-  // ist das, was man von oben ueberhaupt sieht: Der Rumpf ist schon silbern
-  // wie jeder Streifenwagen (siehe `paintOf`), und ohne Band und Lampe waere
-  // er nur ein blasses Boot.
+  // **And the police boat wears its colours.** The same hull as the motorboat
+  // on the shore - a police boat is a boat - but with the blue band over the
+  // gunwale and a blue light on the console. Those two are all one sees of it
+  // from above: the hull is silver like every patrol car already (see
+  // `paintOf`), and without the band and the lamp it would be a pale boat and
+  // nothing more.
   if (car.kind === "police" || onDuty(car.body)) {
-    // Das Band liegt **im** Rumpf: Ohne den Beschnitt steht es vorne, wo der
-    // Bug schmal wird, neben dem Boot im Wasser.
+    // The band lies **inside** the hull: without the clip it stands out
+    // forward, where the bow narrows, beside the boat in the water.
     ctx.save();
     ctx.clip(hull);
     ctx.fillStyle = POLICE_BLUE;
@@ -13106,8 +13304,8 @@ function boatHull(
       );
     }
     ctx.restore();
-    // Die Lampe blinkt im selben Takt wie das Balkenlicht eines Wagens -
-    // siehe {@link onCall} -, und zwar nur auf Einsatz.
+    // The lamp flashes to the same beat as the bar on a car - see
+    // {@link onCall} - and only while it is on a call.
     const lit = onCall(car, now);
     ctx.globalAlpha = solid * (lit ? 1 : LAMP_DARK);
     ctx.fillStyle = lit ? LAMP_LIT : POLICE_BLUE;
@@ -13115,8 +13313,7 @@ function boatHull(
     ctx.arc(-long * BOAT_LAMP_BACK, 0, LAMP_SIZE, 0, Math.PI * 2);
     ctx.fill();
     if (lit) {
-      // Der Schein darum herum: Ohne ihn ist es ein blauer Punkt, mit ihm
-      // eine Lampe.
+      // The glow round it: without that it is a blue dot, with it a lamp.
       ctx.globalAlpha = solid * LAMP_GLOW;
       ctx.beginPath();
       ctx.arc(-long * BOAT_LAMP_BACK, 0, LAMP_SIZE * LAMP_HALO, 0, Math.PI * 2);
@@ -13343,9 +13540,10 @@ const LAMP_LIT = "#93c5fd";
  * How much of itself anything in the water shows while it is under a bridge.
  *
  * @remarks
- * Boot wie Schwimmer, dieselbe Zahl: Beide sind unter dem Deck und muessen
- * beide so aussehen. Ganz weglassen waere falsch - dann faehrt man blind -,
- * und voll gemalt sieht es aus, als waere man oben auf der Bruecke.
+ * Boat and swimmer, the same number: both are under the deck and both have to
+ * look it. Leaving them out altogether would be wrong - one would be driving
+ * blind - and painted in full it looks as though one were on top of the
+ * bridge.
  */
 const UNDER_DECK = 0.45;
 

@@ -2079,9 +2079,9 @@ function leaveCar(state: GameState): GameState {
           // Out of the door he got in by, which is the one on the left.
           x: car.x + Math.cos(car.angle - Math.PI / 2) * bodyRadius(car.body),
           y: car.y + Math.sin(car.angle - Math.PI / 2) * bodyRadius(car.body),
-          // **Wer aus einem Boot steigt, liegt im Wasser.** Sonst stuende er
-          // auf der See - und unter einer Bruecke sogar oben auf deren Deck,
-          // weil das Feld dort beides ist. Siehe `stillWet`.
+          // **Whoever steps out of a boat is in the water.** Otherwise he
+          // would be standing on the sea - and under a bridge on top of its
+          // deck, because the square there is both. See `stillWet`.
           swimming: floats(car.body),
         },
         cars: state.cars.map((each) =>
@@ -2206,7 +2206,7 @@ function walk(
       // **Only in water.** Holding the space bar on dry land is the jetpack's
       // business and nothing to do with this; a man cannot dive into a road.
       diving: under,
-      // Und ob er ueberhaupt im Wasser ist - siehe {@link stillWet}.
+      // And whether he is in the water at all - see {@link stillWet}.
       swimming: stillWet(state.cells, moved, state.player.swimming),
     },
   };
@@ -2681,12 +2681,12 @@ export function swimming(state: GameState): boolean {
  * @param was - whether he was swimming a moment ago
  * @returns true while he is in the water
  * @remarks
- * Drei Faelle, und der dritte ist der Grund fuer das Ganze: **Wasser** macht
- * nass, **trockener Boden** macht trocken, und ein **Brueckenfeld** laesst
- * alles, wie es war. Ein Brueckenfeld ist oben Fahrbahn und unten Meer; wer
- * darauf zulaeuft, geht darueber, wer darauf zuschwimmt, schwimmt darunter
- * hindurch. Vorher zaehlte nur das Feld, und damit stand jeder Schwimmer,
- * sobald er unter eine Bruecke kam, ploetzlich oben auf ihr.
+ * Three cases, and the third is the reason for the whole thing: **water**
+ * makes him wet, **dry ground** makes him dry, and a **bridge square** leaves
+ * it as it was. A bridge square is carriageway on top and sea underneath;
+ * whoever walks up to it goes over it, whoever swims up to it goes under it.
+ * Before this only the square counted, so every swimmer who came under a
+ * bridge was suddenly standing on top of it.
  */
 function stillWet(cells: readonly Cell[], at: Vec, was: boolean): boolean {
   const cell = cellUnder(cells, at.x, at.y);
@@ -2725,9 +2725,9 @@ function steerRound(
       const turned = want + off;
       let clear = true;
       for (let out = LOOK_STEP; out <= reach; out += LOOK_STEP) {
-        // **Frei heisst nicht fuer jeden dasselbe.** Ein Rumpf sucht Wasser,
-        // wo Raeder Asphalt suchen; mit der Strassenfrage im Blick lenkte ein
-        // Polizeiboot vom offenen Meer weg auf die Kaimauer zu.
+        // **Clear does not mean the same thing to everybody.** A hull looks
+        // for water where wheels look for tarmac; asked the road question, a
+        // police boat steered off the open sea towards the quay wall.
         if (
           !clears(
             cells,
@@ -3259,13 +3259,12 @@ function flyBullets(state: GameState, dt: number): GameState {
     const y = shot.y + Math.sin(shot.angle) * step;
     const left = shot.left - step;
     const mine = shot.from === "player";
-    // **Ueber Wasser fliegt eine Kugel weiter.** Wasser ist eine Wand fuer
-    // Raeder und fuer Fuesse, nicht fuer etwas, das geworfen oder geschossen
-    // wird: Bisher war jeder Schuss am Ufer zu Ende, und damit war jeder
-    // Schusswechsel auf dem Wasser einer, bei dem nichts ankommt - ein
-    // Polizeiboot hat sechzig Sekunden lang gefeuert und keinen Treffer
-    // gelandet. Das Deck einer Bruecke zaehlt hier wie Wasser, denn darunter
-    // ist welches.
+    // **A round carries on over water.** Water is a wall to wheels and to
+    // feet, not to something thrown or fired: until now every shot ended at
+    // the shore, which made every exchange out on the water one where nothing
+    // arrives - a police boat fired for sixty seconds and did not land a
+    // single hit. A bridge deck counts as water here, because what is under
+    // it is water.
     const wall = !isOpen(next.cells, x, y) && !inWater(next.cells, { x, y });
     const fused = shot.blowAt !== null && next.time >= shot.blowAt;
     const person = next.people.find(
@@ -4522,11 +4521,11 @@ function laneDrift(
   // the one piece of country road that is dead straight - and it is painted
   // with four lanes, so the traffic keeps to them.
   const decked = cellUnder(cells, car.x, car.y) === "bridge";
-  // **Spur wird ueberall gehalten, wo es Spuren gibt.** In der Stadt ohnehin;
-  // draussen ueberall dort, wo der Asphalt Autobahnbreite hat - und genau der
-  // ist auch derjenige, auf den Spuren gemalt sind. Uebrig bleibt die schmale
-  // Landstrasse, die sich durch die Gegend schwingt: Dort waere eine Spur ein
-  // Ziel, das mit jeder Kurve auf die andere Seite springt.
+  // **A lane is held wherever there are lanes to hold.** In town in any
+  // case; out of it wherever the tarmac is motorway width - which is exactly
+  // the tarmac the lanes are painted on. That leaves the narrow country road
+  // winding about the map: a lane there would be a target that jumps to the
+  // other side of the car at every bend.
   const striped = wide >= TILE * LANES_FROM;
   const most = town || decked || striped ? LANE_PULL * dt : 0;
   const pull = Math.max(-most, Math.min(most, off));
@@ -5320,11 +5319,11 @@ function runPolice(state: GameState, dt: number): GameState {
   // and sending another car because their car no longer counts is how one ends
   // up surrounded by an endless supply of them.
   //
-  // **Und auf dem Wasser wird anders gezaehlt.** Dort ist das Aufgebot die
-  // Zahl der Boote, nicht die der Wagen: Ein Streifenwagen am Ufer ist gegen
-  // jemanden im Kanal genauso viel wert wie keiner, und solange er in der
-  // Quote steckte, schickte die Wache gar nichts mehr hinterher. Genau daran
-  // lag es, dass nie ein Polizeiboot kam.
+  // **And out on the water it is counted differently.** The muster there is
+  // the number of boats and not the number of cars: a patrol car on the shore
+  // is worth as much against somebody in the channel as no car at all, and
+  // while it sat in the quota the station sent nothing after him. That is
+  // exactly why a police boat never came.
   const wet = atSea(state);
   const want = wet ? boatsWanted(state) : policeWanted(state);
   const have = wet ? boatsOut(state) : onDuty(state);
@@ -5349,11 +5348,11 @@ function runPolice(state: GameState, dt: number): GameState {
   );
   next = { ...next, cars };
   next = openDoors(next);
-  // **Vom Boot aus wird geschossen.** An Land halten sie an, steigen aus und
-  // stellen sich um einen herum; auf dem Wasser geht das nicht - die Tuer
-  // ginge auf die See auf -, also bleibt die Besatzung sitzen und feuert vom
-  // Deck. Ohne das waere ein Polizeiboot ein Verfolger, der einen einholt und
-  // dann danebenherfaehrt.
+  // **They fire from the boat.** On land they pull up, get out and stand
+  // round you; on the water that cannot be done - the door would open onto
+  // the sea - so the crew stays where it is and fires off the deck. Without
+  // it a police boat is a pursuer that catches up and then drives along
+  // beside you.
   next = seaShots(next);
   return moveCops(next, dt);
 }
@@ -5379,9 +5378,9 @@ function onDuty(state: GameState): number {
       car.kind === "police" &&
       car.health > 0 &&
       car.crew > 0 &&
-      // Ein Boot zaehlt hier nicht mit. Es hat seine eigene Quote - siehe
-      // {@link boatsOut} -, und solange es in dieser hier steckte, kam an
-      // Land kein Wagen mehr nach, sobald einmal eines im Wasser lag.
+      // A boat does not count here. It has a quota of its own - see
+      // {@link boatsOut} - and while it sat in this one, no car came out on
+      // land any more as soon as one was in the water.
       !floats(car.body) &&
       !isPoliceTank(car),
   ).length;
@@ -5428,10 +5427,10 @@ function boatsOut(state: GameState): number {
  * @param state - the city
  * @returns one per star, up to {@link BOATS_MAX}
  * @remarks
- * Weniger als an Land, und zwar mit Absicht: Auf dem offenen Wasser gibt es
- * keine Ecke, um die man verschwindet, und drei Boote, die alle etwas
- * schneller sind als das eigene, sind bereits eine Jagd, der man nur an Land
- * entkommt.
+ * Fewer than on land, and on purpose: out on the open water there is no
+ * corner to disappear round, and three boats that are each a little faster
+ * than one's own are already a chase one gets out of by reaching land and in
+ * no other way.
  */
 function boatsWanted(state: GameState): number {
   return Math.min(BOATS_MAX, state.player.stars);
@@ -5460,7 +5459,7 @@ function openDoors(state: GameState): GameState {
         car.kind === "police" &&
         car.crew > 0 &&
         !car.driven &&
-        // Aus einem Boot steigt niemand aus: Die Tuer ginge aufs Wasser auf.
+        // Nobody gets out of a boat: the door would open onto the water.
         !floats(car.body) &&
         far(car, state.player) < COP_STOP;
       // The doors do not fly open the moment the handbrake goes on.
@@ -5967,10 +5966,9 @@ function callPolice(state: GameState): GameState {
   // they send the tank, which is also the only tank in the game. Out on the
   // water it is a boat, whatever the stars say.
   const body = pickPatrol(state, id);
-  // **Ein Boot kommt aus dem Wasser, nicht von der naechsten Kreuzung.** Und
-  // wenn ringsum keines ist - der Gesuchte liegt in einem Teich, zu dem kein
-  // Meer fuehrt -, faehrt eben keines: lieber keine Verstaerkung als eine, die
-  // im Sand steht.
+  // **A boat comes out of the water, not from the nearest junction.** And if
+  // there is none about - the wanted man is in a pond no sea leads to - then
+  // none comes: better no reinforcement than one standing in the sand.
   const wet = floats(body);
   const spot = wet
     ? openWater(state.cells, at)
@@ -5983,8 +5981,8 @@ function callPolice(state: GameState): GameState {
   return {
     ...state,
     rng: draw.state,
-    // Ein Boot sagt sich an: Wer im Wasser liegt, sieht es erst, wenn es
-    // schon nah ist, und bis dahin soll er wissen, dass es unterwegs ist.
+    // A boat announces itself: whoever is in the water sees it only once it
+    // is close, and until then he is to know that it is on its way.
     log: wet
       ? note(state.log, "Ein Polizeiboot ist auf dem Wasser.")
       : state.log,
@@ -6028,10 +6026,9 @@ function callPolice(state: GameState): GameState {
  * @param at - where the boat would have come from
  * @returns a point on the water, or null if there is none within reach
  * @remarks
- * Erst die Stelle selbst, dann in Ringen nach aussen - dieselbe Suche, die ein
- * Auto an die naechste Kreuzung setzt, nur dass hier Wasser das Ziel ist.
- * Unter einer Bruecke zaehlt auch: Dort ist Wasser, und ein Boot faehrt
- * darunter hindurch.
+ * The place itself first, then outwards in rings - the same search that puts
+ * a car at the nearest junction, except that water is what it is after. Under
+ * a bridge counts as well: there is water there, and a boat drives under it.
  */
 function openWater(cells: readonly Cell[], at: Vec): Vec | null {
   for (let ring = 0; ring <= BOAT_LOOK; ring += 1) {
@@ -6191,9 +6188,9 @@ function heliShot(state: GameState, heli: Heli): GameState {
  * @param state - the city
  * @returns it with whatever they let off this frame
  * @remarks
- * Einer je Boot und Nachladezeit, mit derselben Streuung wie ein Polizist an
- * Land. Gezielt wird auf den Gesuchten selbst, egal ob er schwimmt oder ein
- * Boot faehrt: Beides ist auf dem Wasser dasselbe Ziel.
+ * One a boat and reload, with the same spread as a policeman on land. They
+ * aim at the wanted man himself, whether he is swimming or driving a boat:
+ * out there the two are the same target.
  */
 function seaShots(state: GameState): GameState {
   let next = state;
@@ -6222,11 +6219,11 @@ function boatShot(state: GameState, boat: Car): GameState {
   const angle =
     Math.atan2(state.player.y - boat.y, state.player.x - boat.x) +
     (draw.value - HALF) * COP_SPREAD;
-  // **Die Kugel faengt ausserhalb des eigenen Rumpfes an.** Eine Muendung, die
-  // wie bei einem Mann auf der Strasse eine Handbreit vor dem Schuetzen liegt,
-  // liegt auf einem sechzig Pixel langen Boot noch mitten im Boot - und die
-  // Kugel schlug sofort in das eigene Deck. Gezaehlt: ohne das kam kein
-  // einziger Schuss an, mit ihm treffen sie.
+  // **The round starts clear of its own hull.** A muzzle that sits a hand's
+  // breadth in front of the shooter, as it does for a man in the street, is
+  // still in the middle of a boat sixty pixels long - and the round went
+  // straight into its own deck. Counted: without this not one shot arrived,
+  // with it they hit.
   const clear = MUZZLE + VEHICLES[boat.body].length / 2;
   const fired: GameState = {
     ...state,
@@ -6263,11 +6260,11 @@ const BOAT_RANGE = 300;
  * How long between their shots, in seconds.
  *
  * @remarks
- * Langsamer als ein Polizist an Land und viel langsamer als der Hubschrauber:
- * Ein Boot faehrt, schaukelt und schiesst nebenbei. Gemessen mit zwei Booten
- * auf einen Schwimmer, der nichts tut: gut zwanzig Sekunden bis er untergeht -
- * genug, um wegzuschwimmen, zu tauchen oder zurueckzuschiessen, und wenig
- * genug, dass Danebenliegen nicht kostenlos ist.
+ * Slower than a policeman on land and much slower than the helicopter: a boat
+ * drives, rolls and fires as an afterthought. Measured with two boats on a
+ * swimmer who does nothing: a good twenty seconds before he goes under -
+ * enough to swim off, dive or fire back, and little enough that lying about
+ * out there is not free.
  */
 const BOAT_RELOAD = 1.6;
 
@@ -6296,12 +6293,11 @@ const ROTOR_SPIN = 26;
  */
 function pickPatrol(state: GameState, id: number): VehicleBody {
   let body: VehicleBody = "patrolbike";
-  // **Auf dem Wasser hilft kein Streifenwagen.** Wer schwimmt oder ein Boot
-  // faehrt, war bisher in Sicherheit, sobald er vom Ufer weg war: Raeder
-  // kommen nicht hinterher, und der Hubschrauber fliegt erst ab fuenf
-  // Sternen. Also schickt die Wache das, womit man dort ueberhaupt hinterher
-  // kommt - unabhaengig von der Sternzahl, denn ein Boot ist hier kein
-  // Aufgebot, sondern das einzige Fahrzeug, das ueberhaupt ankommt.
+  // **No patrol car is any help on the water.** Whoever swims or drives a
+  // boat was safe as soon as he was off the shore: wheels do not follow, and
+  // the helicopter only flies from five stars. So the station sends the one
+  // thing that gets there at all - whatever the star count says, because a
+  // boat here is not a show of force but the only vehicle that arrives.
   if (atSea(state)) {
     body = "patrolboat";
   } else if (
@@ -6327,8 +6323,8 @@ const BIKE_EVERY = 4;
  * @param state - the city
  * @returns true in a boat, and true swimming
  * @remarks
- * Zwei Faelle, ein Ergebnis: Wer ein Boot faehrt, ist auf dem Wasser, und wer
- * schwimmt, ist es auch. Danach richtet sich, was die Wache losschickt - siehe
+ * Two cases, one answer: whoever drives a boat is on the water, and whoever
+ * swims is on it too. What the station sends out follows from this - see
  * {@link pickPatrol}.
  */
 function atSea(state: GameState): boolean {
@@ -6462,11 +6458,10 @@ function chase(state: GameState, car: Car, dt: number): Car {
       -CAR_TURN * dt,
       Math.min(CAR_TURN * dt, angleTo(car.angle, want)),
     );
-    // **Ein Boot faehrt hoechstens so schnell, wie es kann.** Fuer Raeder
-    // gilt weiter das Tempo der Streife; ein Rumpf, der mit 360 ueber das
-    // Wasser schiesst, haengt jedes Motorboot ab, und dann waere die Flucht
-    // ueber See keine mehr. Mit 320 gegen 290 holt er langsam auf - und wer
-    // Land erreicht, ist ihn los.
+    // **A boat goes no faster than it can.** Wheels keep the patrol's pace; a
+    // hull doing 360 over the water outruns every motorboat there is, and
+    // then escaping by sea would be no escape at all. At 320 against 290 it
+    // closes slowly - and whoever reaches land is rid of it.
     const cap = way === "hull" ? VEHICLES[car.body].top : POLICE_TOP_SPEED;
     const speed = Math.min(cap, car.speed + CAR_ACCEL * dt);
     // Their tyres are the same tyres: a patrol car that took a corner on rails

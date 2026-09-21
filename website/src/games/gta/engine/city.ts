@@ -101,15 +101,15 @@ export function createCity(): readonly Cell[] {
  */
 function cellAt(col: number, row: number): Cell {
   let cell: Cell;
-  // **Ueber Wasser ist alles, was hinueberfuehrt, eine Bruecke.** Die beiden
-  // Fragen darunter werden zuerst gestellt, weil Bahn und Strassen zuerst
-  // gezeichnet werden, und ueber Wasser ist die Antwort auf beide dasselbe
-  // Feld: ein Deck mit See darunter - siehe das `"bridge"`-Feld.
+  // **Over water, whatever crosses it is a bridge.** The two questions below
+  // are asked first, because the railway and the roads are laid before
+  // anything else, and over water the answer to both is the same square: a
+  // deck with the sea under it - see the `"bridge"` cell.
   //
-  // Frueher galt das nur in der Meerenge. Damit waren die drei aelteren
-  // Querungen im Westen weiter massiver Asphalt auf dem Meer: kein Gelaender,
-  // kein Traeger, und mit dem Boot kam man nicht darunter durch. Es ist
-  // dieselbe Sache, also ist es dieselbe Regel.
+  // This used to hold in the strait alone, which left the three older
+  // crossings in the west as solid tarmac on the sea: no railing, no girder,
+  // and no getting under them by boat. It is the same thing, so it is the
+  // same rule.
   const spanning = !onLand(col, row);
   if (onRail(col, row)) {
     cell = spanning ? "bridge" : "rail";
@@ -1448,7 +1448,7 @@ const TRACKS: readonly Route[] = TRACK_LINES.map((track) => ({
  * bridge, and that is how every crossing in San Andreas is made.
  */
 const ROUTES: readonly Route[] = [
-  // Die Kuestenstrasse im Nordwesten: von San Fierro hinauf in den Wald.
+  // The coast road in the north west: up from San Fierro into the forest.
   {
     wide: 5,
     points: [
@@ -1459,7 +1459,7 @@ const ROUTES: readonly Route[] = [
       { x: 58, y: 14 },
     ],
   },
-  // Quer durch die Wueste nach Las Venturas.
+  // Straight across the desert to Las Venturas.
   {
     wide: 5,
     points: [
@@ -1470,7 +1470,7 @@ const ROUTES: readonly Route[] = [
       { x: 105, y: 30 },
     ],
   },
-  // Von San Fierro schraeg durch die Wueste nach Las Venturas.
+  // From San Fierro across the desert on the diagonal to Las Venturas.
   {
     wide: 5,
     points: [
@@ -1481,18 +1481,18 @@ const ROUTES: readonly Route[] = [
       { x: 105, y: 42 },
     ],
   },
-  // **Die Landstrasse am Hafen gibt es nicht mehr.** Sie lief fuenf Felder
-  // breit am Ostufer der Bucht entlang, zwischen den Stegen und dem offenen
-  // Wasser - und damit lag um die Boote herum eine Mauer aus Asphalt. Der
-  // Hafen haengt trotzdem am Netz: Die Kaimauer stoesst im Westen an die
-  // Stadt, und ueber den Beton faehrt man wie ueber jede andere Flaeche.
-  // **Von Las Venturas herunter, und oben im Wald ist Schluss.**
-  // Hier lief bis vor Kurzem die dritte Bruecke ueber die Meerenge, und drei
-  // Bruecken ueber dasselbe Wasser sind zwei zu viel - die Stelle ist die
-  // breiteste des ganzen Kanals. Eine Faehrflaeche mit Stegen stand danach
-  // auch kurz hier; die war zwei Streifen Asphalt im Nirgendwo. Jetzt hoert
-  // die Strasse im Wald auf, und wer hinueber will, nimmt eines der Boote,
-  // die unten am Ufer liegen - siehe {@link MOORINGS}.
+  // **The coast road at the harbour is gone.** It ran five squares wide down
+  // the east bank of the bay, between the piers and the open water - which
+  // put a wall of tarmac round the boats. The harbour is still on the
+  // network: the quay meets the city in the west, and one drives over the
+  // concrete as over any other surface.
+  // **Down from Las Venturas, and it stops up in the forest.**
+  // The third bridge over the strait ran here until recently, and three
+  // bridges over the same water are two too many - this is the widest part of
+  // the whole channel. A ferry apron with jetties stood here for a while
+  // after it; that was two strips of tarmac in the middle of nowhere. Now the
+  // road stops in the forest, and whoever wants to cross takes one of the
+  // boats lying on the shore below - see {@link MOORINGS}.
   {
     wide: 5,
     points: [
@@ -1500,15 +1500,14 @@ const ROUTES: readonly Route[] = [
       { x: 142, y: 74 },
     ],
   },
-  // **Die Bruecke von San Fierro nach Sueden - und zwar senkrecht.**
-  // Sie lief mit drei Punkten schraeg ueber das Wasser und verzog sich dabei
-  // um eine Spalte; ein Deck, das wandert, laesst sich nicht mit geraden
-  // Traegern einfassen. Jetzt liegt der ganze Weg ueber dem Wasser auf
-  // Spalte 21,5 - also der *Mitte* einer Spalte, damit eine fuenf Felder
-  // breite Strasse fuenf Spalten ganz deckt (19 bis 23) statt sechs zur
-  // Haelfte. Die Bahn faehrt gleich daneben auf Spalte 24 ueber dasselbe
-  // Wasser, und beide zusammen tragen ein Bauwerk - siehe das Tragwerk im
-  // Bild.
+  // **The bridge from San Fierro south - and square across the water.**
+  // It crossed on three points at a slant and wandered a column doing it, and
+  // a deck that wanders cannot be framed with straight girders. The whole way
+  // over the water now sits on column 21.5 - the *middle* of a column, so
+  // that a road five squares wide covers five columns whole (19 to 23)
+  // instead of six by halves. The railway crosses the same water right beside
+  // it on column 24, and the two of them together carry one structure - see
+  // the suspension bridge in the picture.
   {
     wide: 5,
     points: [
@@ -1518,9 +1517,9 @@ const ROUTES: readonly Route[] = [
       { x: 21.5, y: 113 },
     ],
   },
-  // Die Runde um den Berg im Suedwesten - und zwar wirklich um ihn herum.
-  // Sie fuehrte quer ueber den Fels; eine Landstrasse klettert aber nicht auf
-  // einen Berg, dafuer ist die Piste da.
+  // The round about the mountain in the south west - and round it, at that.
+  // It used to run straight over the rock; a country road does not climb a
+  // mountain, which is what the track is there for.
   {
     wide: 3,
     points: [
@@ -1534,23 +1533,22 @@ const ROUTES: readonly Route[] = [
       { x: 87, y: 129 },
     ],
   },
-  // Und die Strasse durch die Wueste nach Sueden - ueber die Meerenge und
-  // weiter bis an die erste Querstrasse von Los Santos. Sie endete frueher
-  // auf Reihe 105, und das war, bevor dort Wasser war: Seit der Kanal liegt,
-  // hoerte sie mitten auf der Bruecke auf. Eine Bruecke, der das letzte Stueck
-  // fehlt, ist keine.
+  // And the road through the desert going south - over the strait and on to
+  // the first cross street of Los Santos. It used to end on row 105, and that
+  // was decided before there was water there: since the channel was cut it
+  // stopped in the middle of the bridge. A bridge with its last piece missing
+  // is not one.
   {
     wide: 5,
     points: [
       { x: 80, y: 30 },
       { x: 86, y: 52 },
       { x: 90, y: 62 },
-      // **Und ab hier schnurgerade nach Sueden.** Vier Punkte auf derselben
-      // Spalte, weil die Kurve, die `bend` aus drei Punkten macht, sonst noch
-      // in die Bruecke hineinlaeuft: Ein Deck, das sich um ein Feld
-      // verschiebt, laesst sich nicht mit geraden Traegern einfassen, und
-      // genau die machen die Haengebruecke aus. Der Bogen liegt jetzt
-      // vollstaendig noerdlich des Wassers.
+      // **And from here it runs dead straight south.** Four points on the same
+      // column, because the curve `bend` makes out of three of them otherwise
+      // runs on into the bridge: a deck that shifts by a square cannot be
+      // framed with straight girders, and those girders are what makes the
+      // suspension bridge. The bend now lies wholly north of the water.
       { x: 95.5, y: 72 },
       { x: 95.5, y: 84 },
       { x: 95.5, y: 96 },
@@ -1865,11 +1863,12 @@ export function railLine(): readonly Vec[] {
       { x: right - bend, y: top },
     );
     runCurve(RAIL_LINE, { x: right - bend, y: top + bend }, -QUARTER, 0);
-    // **Senkrecht ueber das Wasser, und die Kurve erst dahinter.** Die
-    // Ostseite laeuft geradeaus bis unter das Suedufer der Meerenge; die
-    // Suedostecke ist dafuer enger als die anderen drei ({@link RAIL_TIGHT}).
-    // Vorher fing sie auf Reihe 94 an, also mitten im Wasser, und die Bruecke
-    // war eine Treppe aus Feldern, die schraeg ueber den Kanal lief.
+    // **Square across the water, and the corner behind it.** The east side
+    // runs straight on to under the south bank of the strait; the south-east
+    // corner is tighter than the other three to pay for it
+    // ({@link RAIL_TIGHT}). It used to begin on row 94, which is in the
+    // middle of the water, and the bridge was a staircase of squares running
+    // diagonally across the channel.
     runStraight(
       RAIL_LINE,
       { x: right, y: top + bend },
@@ -1882,12 +1881,12 @@ export function railLine(): readonly Vec[] {
       QUARTER,
       RAIL_TIGHT,
     );
-    // **Und im Suedwesten dasselbe.** Dort quert die Bahn das Wasser vor San
-    // Fierro, gleich neben der Strassenbruecke: Mit dem weiten Bogen fing die
-    // Kurve auf Reihe 94,5 an, also weit vor dem Ufer, und die Querung lief
-    // als Treppe schraeg ueber die Bucht. Jetzt laeuft die Westgerade bis
-    // Reihe 106,5 durch - senkrecht ueber das Wasser - und die Kurve liegt
-    // vollstaendig an Land.
+    // **And the same in the south west.** The line crosses the water off San
+    // Fierro there, right beside the road bridge: with the wide radius the
+    // corner began on row 94.5, well short of the bank, and the crossing ran
+    // as a staircase slanting over the bay. The west straight now runs down to
+    // row 106.5 - square across the water - and the corner lies wholly on
+    // land.
     runStraight(
       RAIL_LINE,
       { x: right - RAIL_TIGHT, y: bottom },

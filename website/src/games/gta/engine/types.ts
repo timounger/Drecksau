@@ -434,33 +434,32 @@ export const PIERS: readonly Island[] = [
 ];
 
 /**
- * Wo Boote einfach am Ufer liegen, ohne Steg.
+ * Where boats simply lie on the shore, with no jetty to them.
  *
  * @remarks
- * **Ein Steg ist ein Bauwerk; ein Boot am Ufer ist ein Boot am Ufer.** An der
- * Meerenge, wo einmal die dritte Bruecke stand, braucht es keines von beidem:
- * Drei Boote liegen laengs an jedem Ufer, hintereinander, mit dem Bug nach
- * Osten - man watet die zwei Schritte hin und faehrt los.
+ * **A jetty is a structure; a boat on the shore is a boat on the shore.** At
+ * the strait, where the third bridge once stood, neither is wanted: three
+ * boats lie along each bank, one behind the other, bow east - one wades the
+ * two steps out to them and drives off.
  *
- * `col` und `row` sind das erste davon, `many` wie viele dahinter folgen. Sie
- * werden beim Aufbau gegen den Boden geprueft: Was nicht auf Wasser faellt,
- * wird nicht hingelegt. Die Kueste ist eine Formel, und ein Boot auf dem Sand
- * ist schlimmer als kein Boot.
+ * `col` and `row` are the first of them, `many` is how many follow behind.
+ * Every place is checked against the floor when the city is laid out: what
+ * does not land on water is not put down. The coast is a formula, and a boat
+ * in the sand is worse than no boat at all.
  */
 export const MOORINGS: readonly {
   readonly col: number;
   readonly row: number;
   readonly many: number;
 }[] = [
-  // **Auf der Uferlinie, nicht eine Reihe daneben.** `row` ist hier keine
-  // Feldnummer, sondern ein Ort: Das Nordufer liegt auf 83, das Suedufer auf
-  // 108, und der Rumpf soll mit einer halben Bootsbreite im Wasser liegen -
-  // also 83,2 und 107,8. Eine ganze Feldnummer setzt das Boot auf die
-  // **obere** Kante seines Feldes, und am Suedufer war das ein volles Feld zu
-  // weit draussen: Man musste hinschwimmen.
+  // **On the shoreline, not a row out from it.** `row` is not a square number
+  // here but a place: the north bank lies on 83, the south bank on 108, and
+  // the hull should sit half a beam into the water - so 83.2 and 107.8. A
+  // whole number puts the boat on the **upper** edge of its square, and at the
+  // south bank that was a full square too far out: one had to swim to it.
   //
-  // Und beide Reihen liegen gut oestlich der Eisenbahnbruecke (Spalte 136),
-  // damit kein Boot unter deren Traegern verschwindet.
+  // And both rows lie well east of the railway bridge (column 136), so that
+  // no boat disappears under its girders.
   { col: 142, row: 83.2, many: 3 },
   { col: 142, row: 107.8, many: 3 },
 ];
@@ -1268,13 +1267,13 @@ export type Player = {
    * Whether he is in the water rather than on his feet.
    *
    * @remarks
-   * **Gemerkt und nicht abgelesen**, und zwar wegen der Bruecken. Ein
-   * Brueckenfeld ist beides: oben Fahrbahn, unten Meer. Wer vom Ufer darauf
-   * zulaeuft, geht oben darueber; wer aus dem Wasser darauf zuschwimmt,
-   * schwimmt unten hindurch - und das Feld selbst kann diese Frage nicht
-   * beantworten. Also zaehlt, wie man hingekommen ist: Wasser macht nass,
-   * trockener Boden macht trocken, und ueber einem Brueckenfeld bleibt es,
-   * wie es war. Siehe `stillWet` in ./engine.
+   * **Remembered rather than read off the floor**, and that is the bridges'
+   * doing. A bridge square is both things at once: carriageway on top, sea
+   * underneath. Whoever walks onto it from the bank goes over it; whoever
+   * swims up to it goes under it - and the square itself cannot answer that.
+   * So what counts is how one got there: water makes him wet, dry ground
+   * makes him dry, and over a bridge square it stays as it was. See
+   * `stillWet` in ./engine.
    */
   readonly swimming: boolean;
   /**

@@ -457,14 +457,15 @@ export const VEHICLES: Readonly<Record<VehicleBody, Vehicle>> = {
    * What the police put on the water.
    *
    * @remarks
-   * **Sie sind sonst nirgends**, und das war das Problem: Wer mit Sternen ins
-   * Wasser ging, war in Sicherheit - kein Streifenwagen faehrt hinterher, kein
-   * Hubschrauber unter fuenf Sternen, und die Meerenge ist breit. Jetzt schickt
-   * die Wache ein Boot, sobald der Gesuchte schwimmt oder selbst eines faehrt.
+   * **There were none at all**, and that was the trouble: whoever went into
+   * the water with stars on was safe. No patrol car follows him, no
+   * helicopter under five stars, and the strait is wide. The station now
+   * sends a boat as soon as the wanted man is swimming or driving one
+   * himself.
    *
-   * Etwas schneller als das Motorboot am Ufer (320 gegen 290) und ein Stueck
-   * robuster - aber nicht so schnell, dass Weglaufen sinnlos waere: Wer Land
-   * erreicht, ist es los, und genau das soll die Fluchtmoeglichkeit sein.
+   * A little faster than the motorboat on the shore (320 against 290) and a
+   * good deal tougher - but not so fast that running is pointless: whoever
+   * reaches land is rid of it, and that is meant to be the way out.
    */
   patrolboat: {
     body: "patrolboat",

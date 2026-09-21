@@ -2729,6 +2729,22 @@ Code zu ändern, und eine getippte Liste heißt, für ein Bild die Liste zu
 nachsehen (`readdirSync`), und die Antwort steckt danach in der gebauten Seite.
 Ein Bild dazulegen ist deshalb das ganze Dazulegen; gezählt wird nirgends.
 
+**Und der Unterpfad gehört davor.** Auf GitHub Pages liegt die Seite unter
+`/<repo>/`, und eine Adresse, die mit `/` anfängt, zeigt dort auf die Wurzel
+der Domain - also ins Leere. Next setzt den `basePath` von selbst nur vor das,
+was es kennt: `next/link`, `next/image` und importierte Dateien. Eine von Hand
+zusammengesetzte Adresse in einem `url(...)` gehört nicht dazu, und genau
+deshalb war der Ladebildschirm überall außer auf dem eigenen Rechner schwarz:
+Die Datei wurde unter `/gta/splash/…` gesucht statt unter `/Drecksau/gta/…`.
+Die Liste trägt den Pfad aus `NEXT_PUBLIC_BASE_PATH` jetzt selbst vor jeden
+Namen - dieselbe Variable, die `next.config.ts` liest und die CI aus der
+`configure-pages`-Aktion setzt.
+
+Nachgestellt: einmal mit gesetztem Unterpfad gebaut, den Export unter
+`/Drecksau/` ausgeliefert und die Seite geöffnet - die Datei kommt mit 200,
+dieselbe Adresse ohne Präfix mit 404, und das Bild steht auf dem
+Ladebildschirm.
+
 **Der Spruch hängt nicht mehr am Stück Arbeit.** Er tat es: Jede Bauphase
 hatte ihre eigenen Zeilen, und gezeigt wurde eine davon, solange diese Phase
 lief. Nur sind die Phasen nicht gleich lang - der Verkehr liegt in zwei
@@ -3062,6 +3078,44 @@ Brückenkante macht weiter - das ist das kurze hellere Stück vor jedem Ufer.
 
 Nachgemessen: Die Straße ist von Reihe 96 bis 113 durchgehend befahrbar, und
 unter der Brücke kommt ein Boot auf allen acht Reihen quer hindurch.
+
+## Der Zug von oben
+
+Er war fünf gleiche rote Schachteln mit ein paar Strichen an der Seite - aus
+der Entfernung ein Zug, aus der Nähe ein Balken. Jetzt sind es die vier Sachen,
+die man an einem Zug von oben überhaupt sieht:
+
+- **Das Dach**, und das ist das meiste davon. Grau, mit Sicken quer alle paar
+  Pixel, und es liegt in der **Mitte** statt bis an die Kante: Zieht man es
+  nach außen, bleibt vom Rot ein Rahmen und der Zug ist grau. Was zwischen
+  Dachkante und Bordkante übrig bleibt, ist die Flanke - und die trägt alles
+  Weitere.
+- **Die Drehgestelle** an beiden Enden, die seitlich ein Stück über den
+  Wagenkasten hinausstehen, mit den Rädern daran. Ohne sie steht ein Zug von
+  oben auf dem Boden statt auf Drehgestellen.
+- **Das Fensterband** an jeder Flanke: ein durchgehender dunkler Streifen mit
+  schmalen Pfosten darin, nicht einzeln gemalte Fenster - die sind auf
+  sechsundzwanzig Pixel Breite nur Unruhe. Darin zwei **Türen** je Seite, hell
+  und mit einem Spalt in der Mitte; die Tür ist das, was einen Wagen von einem
+  Container unterscheidet.
+- **Die Übergänge** zwischen den Wagen. Sie sind es, die aus fünf Kästen einen
+  Zug machen.
+
+Dazu ein Lüfter auf jedem Wagendach und der weiße Zierstreifen an der
+Bordkante.
+
+**Und vorne fährt jetzt eine Lok.** `trainCars` gibt sie ohnehin als Erste
+zurück, das Bild hat es bloß nie benutzt. Sie ist dieselbe Zeichnung mit drei
+Unterschieden, und genau die drei erkennt man: eine **Nase**, die nach vorn
+zuläuft, eine **Frontscheibe** darin und ein **Stromabnehmer** auf dem Dach -
+zwei Arme und die Wippe quer darüber, die eine Silhouette, die auch von oben
+sofort "Lok" sagt. Dazu zwei Spitzenlichter, die Lüftungsgitter des
+Maschinenraums und die zwei Seitenfenster des Führerstands. Fensterband und
+Türen hat sie nicht: Dahinter fährt niemand mit.
+
+Alles liegt weiterhin flach auf den Schienen und nicht als stehender Kasten wie
+ein Auto. Ein Zug ist auf diesem Maßstab eine Form, die einer Linie folgt, und
+ein hoher Kasten würde bei jeder Vorbeifahrt eine halbe Straße verdecken.
 
 ## Unter der Brücke durch, und wer einem dabei folgt
 
