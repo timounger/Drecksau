@@ -55,6 +55,10 @@ export type Hand = "left" | "right";
  * somebody with their fists walks like anybody else. The third is the moment of
  * the blow itself, and it lasts exactly as long as the weapon takes to be ready
  * again - which is why it needs no clock of its own.
+ *
+ * Swimming is **not** one of them. A person in the water is not this figure in
+ * another pose - they lie along the water instead of standing on it - so they
+ * are drawn from scratch: see `swimStroke` in ./render.
  */
 export type ArmPose = "swing" | "hold" | "punch";
 

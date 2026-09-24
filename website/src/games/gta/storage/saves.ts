@@ -26,7 +26,7 @@ import {
 } from "@/games/gta/engine/city";
 import { newAcks, newChoppers, prisonGuards } from "@/games/gta/engine/setup";
 import type { GameState } from "@/games/gta/engine/types";
-import { flyerHealth, TILE } from "@/games/gta/engine/types";
+import { AIR_HOLD, flyerHealth, TILE } from "@/games/gta/engine/types";
 import {
   readStored,
   removeStored,
@@ -325,6 +325,8 @@ function rebuild(stored: Stored): GameState {
       // A save from before the bridges does not yet know whether he is in the
       // water; waking up on dry land is the harmless one of the two guesses.
       swimming: stored.player.swimming ?? false,
+      // A stand written before one could run out of air has a full lungful.
+      air: stored.player.air ?? AIR_HOLD,
       // A stand written before the jetpack had a flame has no switch for it,
       // and it is off: nobody is saved mid-climb.
       thrust: stored.player.thrust ?? false,

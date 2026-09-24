@@ -116,15 +116,25 @@ funktional: jeder Zug erzeugt einen neuen Zustand, testbar ohne Browser.
 
 ## Hell und Dunkel
 
-Unten rechts steht auf **jeder** Seite ein Schalter mit drei Zuständen: **hell**,
-**wie das System**, **dunkel**
+Unten rechts steht auf **jeder** Seite ein Schalter mit zwei Knöpfen: **hell**
+und **dunkel**
 ([components/theme-toggle.tsx](website/src/components/theme-toggle.tsx)).
 
-Drei und nicht zwei. Ein einfacher Umschalter kann immer nur „das Gegenteil von
-jetzt" bedeuten und wirft dabei die Antwort weg, die die meisten eigentlich
-wollen: dass die Seite mitmacht, was das Telefon abends ohnehin tut. „System"
-ist deshalb der Zustand, den niemand wählen muss - und der, zu dem man
-zurückkommt.
+**Solange niemand einen davon gedrückt hat, entscheidet das Gerät** - und zwar
+weiter: Ein Telefon, das abends auf dunkel umstellt, stellt die Seite mit um,
+ohne Neuladen. Der erste Klick beendet das und wird von da an behalten.
+
+Zwei Knöpfe und kein dritter für „wie das System". Dieser dritte wäre ein
+Knopf, mit dem man auswählt, was man ohnehin schon hat - gespeichert wird erst,
+wenn man wirklich etwas will. Und zwei Knöpfe statt eines Umschalters, weil ein
+einzelner immer nur „das Gegenteil von jetzt" heißen kann und man am Symbol
+raten muss, wie herum er gerade steht. Hier stehen beide da, und der, der gilt,
+ist markiert - bis der Browser geantwortet hat, ist keiner markiert, denn das
+ausgelieferte HTML kennt weder die Wahl noch das Gerät.
+
+Ein alter Eintrag `"system"` aus der Zeit mit drei Knöpfen fällt durch die
+Prüfung und wird als „nichts gewählt" gelesen - also genau als das, was er
+bedeutet hat.
 
 Der Schalter hängt im Grundgerüst, nicht in den Kopfzeilen. Es gibt rund fünfzig
 Bildschirme und fast ebenso viele Kopfzeilen, einige davon von einem Spiel
@@ -141,7 +151,7 @@ Zeichnen ([lib/theme/theme-boot.ts](website/src/lib/theme/theme-boot.ts), nach
 der Anleitung des Frameworks unter
 `node_modules/next/dist/docs/01-app/02-guides/preventing-flash-before-hydration.md`).
 
-Drei Zustände, drei Selektoren, und welcher gewinnt, entscheidet alles:
+Drei Fälle, drei Selektoren, und welcher gewinnt, entscheidet alles:
 
 | Am `<html>`          | Was gilt                        |
 | -------------------- | ------------------------------- |
@@ -149,15 +159,15 @@ Drei Zustände, drei Selektoren, und welcher gewinnt, entscheidet alles:
 | `data-theme="light"` | hell, gewählt                   |
 | gar kein Attribut    | was `prefers-color-scheme` sagt |
 
-Der dritte Fall ist der wichtige: „System" **entfernt** das Attribut, statt
-„hell" hineinzuschreiben. Damit entscheidet wieder das Stylesheet - dieselbe
-Stelle, die auch für jemanden entscheidet, bei dem gar kein JavaScript läuft.
-Der bekommt so weiterhin die Farben seines Systems statt der, mit denen die
-Datei zufällig exportiert wurde.
+Der dritte Fall ist der wichtige: Solange nichts gewählt ist, wird das Attribut
+gar nicht erst gesetzt, statt „hell" hineinzuschreiben. Damit entscheidet
+wieder das Stylesheet - dieselbe Stelle, die auch für jemanden entscheidet, bei
+dem gar kein JavaScript läuft. Der bekommt so weiterhin die Farben seines
+Systems statt der, mit denen die Datei zufällig exportiert wurde.
 
 Deshalb ist „dunkel" in [globals.css](website/src/app/globals.css) **nie nur**
 in der Media-Query und **nie nur** am Attribut definiert, sondern an beidem -
-sonst geht einer der drei Zustände schief. Dasselbe gilt für Tailwinds
+sonst geht einer der drei Fälle schief. Dasselbe gilt für Tailwinds
 `dark:`-Variante, die dort neu definiert wird und danach für alle rund 650
 Regeln im Projekt gleichzeitig gilt.
 
@@ -169,7 +179,10 @@ beantwortet keine Frage, mit der jemand ankommt. Die Sammlung liegt deshalb in
 
 - **Beliebt** - die Spiele, mit denen in den letzten **7 Tagen** am längsten
   gespielt wurde, von allen zusammen.
-- **Neu** - was zuletzt dazugekommen ist.
+- **Neu** - was in den letzten **30 Tagen** dazugekommen ist, höchstens drei
+  und ohne das, was schon unter „Beliebt" steht.
+- im Schaufenster darüber außerdem ein **Banner** mit dem Spiel, das man
+  zuletzt offen hatte.
 - danach nach Art des Abends: **Kartenspiele**, **Würfelspiele**, **Gemeinsam
   gegen das Spiel**, **Wort und Party**, **Action und Taktik**.
 
@@ -179,9 +192,132 @@ etwas übersehen hat. „Beliebt" und „Neu" sind dagegen keine Ablage, sondern
 Antwort auf eine Frage - dass ein Spiel dort **und** unten in seiner Kategorie
 auftaucht, ist der Zweck.
 
+**Die beiden oberen Regale doppeln sich aber nicht.** Was unter „Beliebt"
+steht, wird unter „Neu" ausgelassen - und zwar schon beim Abzählen der drei,
+nicht erst beim Anzeigen. Die beiden stehen direkt übereinander; dieselbe Karte
+zweimal auf einer Bildschirmhöhe ist eine Karte, die man zweimal anschaut und
+sich fragt, was man übersehen hat. Ausgelassen heißt dabei: Die drei Plätze
+gehen an die nächsten Spiele, sodass das Regal die drei neuesten zeigt, die man
+oben noch **nicht** gesehen hat.
+
 Wer sucht, bekommt eine flache Trefferliste ohne Regale. Wer einen Namen tippt,
 weiß, was er sucht; ihn dann noch durch Abschnitte jagen zu lassen, hilft
 niemandem.
+
+### Ein Zeichen je Regal
+
+Jedes Regal trägt links von seiner Überschrift ein gezeichnetes Zeichen, und
+die Sprungmarken oben tragen dasselbe: Spielkarten, ein Würfel, zwei Figuren,
+eine Sprechblase, eine Zielscheibe - dazu eine Flamme für „Beliebt" und ein
+Funke für „Neu" ([components/shelf-icons.tsx](website/src/components/shelf-icons.tsx)).
+
+**Gezeichnet statt aus dem Emoji-Zeichensatz**, aus demselben Grund wie die
+Avatare: Ein Emoji sieht auf jedem System anders aus - der Würfel ist hier ein
+Quader und dort ein flaches Quadrat -, und fünf Zeichen, die nicht nach einem
+Satz aussehen, sind schlimmer als keine. Diese sind fünf Striche derselben
+Feder, im selben Kästchen, in der Farbe der Schrift daneben.
+
+Auf die Größe kommt es an: Die Punkte des Würfels sind **gefüllt** und nicht
+gestrichelt, weil ein Punkt, den man als Strich ohne Länge zeichnet, in den
+kleinen Sprungmarken verschwindet.
+
+### Drei Ansichten, ein Markup
+
+Die Startseite kann drei Gesichter tragen, umzuschalten im Konto-Dialog unter
+**Ansicht der Startseite**:
+
+- **Schaufenster** (Voreinstellung) - ein Banner zum Weiterspielen, darunter
+  Regale mit breiten Karten: Titelbild als Fläche, dasselbe Werk noch einmal
+  unscharf dahinter, Abzeichen in der Ecke.
+- **Kacheln** - ein Konsolenmenü: Quadrate mit dem Namen darunter, fünf
+  nebeneinander, kein Fließtext.
+- **Schlicht** - die Leseliste, die es vorher war: kleines Zeichen, Name, eine
+  Zeile dazu. Das Abzeichen sitzt hier neben dem Namen, weil ein Aufkleber auf
+  einem 64 Pixel großen Bildchen das Bildchen ist.
+
+**Alle drei sind dasselbe Markup.** Was sie unterscheidet, steht im
+Stylesheet: `data-look` am `<html>`, dazu drei Varianten `look-showcase`,
+`look-dashboard` und `look-plain`
+([app/globals.css](website/src/app/globals.css)). Die Komponente fragt nirgends
+nach, welche Ansicht gerade gilt - genau deshalb kann das Umschalten die Seite
+nicht flackern lassen.
+
+Gesetzt wird das Attribut **vor dem ersten Zeichnen**, nach demselben Muster
+wie beim Farbschema
+([lib/look/look-boot.ts](website/src/lib/look/look-boot.ts)). Und wie dort ist
+die Voreinstellung der Fall **ohne** Attribut: Wer nichts gewählt hat - und wer
+gar kein JavaScript laufen lässt - bekommt das Schaufenster.
+
+Nachgemessen, alle drei Ansichten, erster und zweiter Besuch: Das Regal
+„Kartenspiele" steht die ganze Ladezeit über an derselben Stelle. Die grauen
+Karten benutzen dieselben Klassen wie die echten, also passen sie sich der
+Ansicht von selbst an.
+
+### Wie lange ein Spiel „neu" bleibt
+
+**Bis drei neuere es verdrängt haben.** Eine Frist allein wäre das
+Naheliegende und das Falsche: Nach einem ruhigen Monat stünde das Regal leer
+da, und nach einer fleißigen Woche läge die halbe Sammlung darin. Bei einem
+Spiel pro Woche ist ein Neuzugang damit gut drei Wochen lang zu sehen.
+
+**Und älter als 30 Tage kommt nichts mehr aufs Regal.** Das Fenster gilt je
+Karte: Was älter ist, bleibt draußen, egal was sonst noch oben steht. Damit
+leert sich das Regal von selbst, wenn einen Monat lang nichts dazugekommen
+ist - dieselbe Regel vom anderen Ende her gesehen -, und es kommt mit dem
+nächsten Spiel von selbst wieder.
+
+Je Karte und nicht nur fürs Regal als Ganzes, weil die Zeile unter der
+Überschrift genau das behauptet: „In den letzten 30 Tagen neu dazugekommen".
+Ein
+zwei Monate altes Spiel, das nur deshalb unter „Neu" steht, weil zufällig ein
+neueres daneben liegt, macht aus dieser Zeile eine Unwahrheit.
+
+Drei, weil das **eine Reihe** ist. Mit sechs waren es auf einem breiten Bildschirm
+zwei Reihen und auf einem schmalen anderthalb - und ein Regal mit der Überschrift
+„Neu", dessen zweite Reihe einen Monat alt ist, beantwortet die eigene Frage
+nicht mehr.
+
+### „Neu" wartet auf „Beliebt"
+
+Weil die Spielzeit aus der Datenbank kommt, weiß die Seite beim Aufschlagen
+noch nicht, was unter „Beliebt" stehen wird - und damit auch nicht, was unter
+„Neu" übrig bleibt. Beide Regale sind deshalb anfangs „noch nicht bekannt" und
+halten ihren Platz mit **grauen Karten**, genau wie oben beschrieben. Sobald
+die Antwort da ist (oder beim zweiten Besuch sofort aus der gemerkten
+Reihenfolge), stehen beide Listen.
+
+Das Datum wird dabei wie der Speicher als etwas **außerhalb von React**
+gelesen: `Date.now()` mitten im Rendern ist ein Wert, der sich unter dem
+Renderer verändert, und der React-Compiler sagt das auch. Gebraucht wird
+ohnehin nur der Tag.
+
+Geschnitten wird auf **ganzen Tagen**: Zwei Spiele, die am selben Nachmittag
+dazugekommen sind, sind gleich neu, und eines davon wegen einer Zahl
+wegzulassen wäre für niemanden nachvollziehbar. Ein Tag kommt also ganz aufs
+Regal oder gar nicht, und das Regal darf kürzer als drei sein. Die Ausnahme ist
+der Tag, an dem mehr als drei Spiele auf einmal dazukommen - dann werden es die
+ersten drei dieses Tages, denn ein Regal für drei, das an dem Morgen fünf
+zeigt, ist keines für drei.
+
+### Das Banner zum Weiterspielen
+
+Im Schaufenster steht über den Regalen ein breites Banner - und es zeigt
+**nicht**, was am meisten gespielt wurde. Das stand zuerst darin, und damit
+standen zwei Überschriften mit derselben Bedeutung übereinander: „Am meisten
+gespielt" im Banner und „Beliebt" drei Zentimeter darunter, mit derselben
+Karte.
+
+Jetzt beantwortet es eine andere Frage: **Was hattest du zuletzt offen?** Das
+steht in der eigenen Statistik dieses Browsers (`lastPlayedAt` je Spiel), muss
+also nirgends geholt werden und wird mit niemandem geteilt. Lokal gegen global,
+und der Knopf führt direkt zurück ins Spiel - wofür eine Spielesammlung
+eigentlich da ist.
+
+Wer in diesem Browser noch nie gespielt hat, bekommt kein Banner. Weil
+„nichts gespielt" und „noch nicht nachgesehen" beim Ausliefern gleich aussehen,
+hält die Seite den Platz zunächst frei und gibt ihn beim Hydrieren wieder her -
+gemessen rund eine Zehntelsekunde nach dem ersten Bild, und nur beim aller-
+ersten Besuch.
 
 ### Wie „beliebt" gerechnet wird
 
@@ -205,6 +341,34 @@ gelesen werden müsste.
 nach jedem Zug. Der Knoten enthält eine Zahl pro Spiel und Tag und keine Spur
 davon, wer sie dazugezählt hat. Die eigentliche Statistik bleibt im Browser,
 wie es die Statistikseite verspricht.
+
+### Und warum das Regal nicht mehr springt
+
+Die Antwort aus der Datenbank braucht gut eine Sekunde - die Bibliothek muss
+geladen, angemeldet und gefragt werden. Solange fehlte das Regal ganz und
+klappte danach oben auf: Beim Start sah man zuerst „Neu" mit dem neuesten Spiel
+obenauf, und eine Sekunde später schob sich „Beliebt" darüber und drückte alles
+nach unten. Das liest sich, als sortiere sich die Seite vor den eigenen Augen.
+
+Drei Dinge zusammen sorgen dafür, dass jetzt nichts mehr wandert:
+
+- **Das Regal hält seinen Platz.** „Noch nicht bekannt" ist ein eigener Fall
+  (`null`), und in dem stehen graue Karten. Nur die Antwort „es wurde nichts
+  gespielt" nimmt das Regal weg.
+- **Die graue Karte ist so hoch wie eine echte.** Sie benutzt dieselben Klassen
+  und dieselben Textzeilen, nur mit einem Balken statt der Schrift - von Hand
+  abgemessene Balken waren 40 Pixel zu kurz, und genau 40 Pixel sprang die
+  Seite dann.
+- **Die zuletzt gesehene Reihenfolge wird gemerkt** und beim nächsten Besuch
+  sofort gezeigt (`drecksau-app/online/popular`, verworfen sobald sie älter ist
+  als das Fenster, das sie beschreibt). Gelesen wird sie über
+  `useSyncExternalStore`: Der Server weiß nichts, der Browser weiß, was er
+  aufgehoben hat, und der Wechsel passiert mit dem Hydrieren statt als zweite
+  Runde danach.
+
+Nachgemessen, ein Browser, zwei Besuche: beim ersten stehen die echten Karten
+nach 1354 ms, beim zweiten nach **208 ms** - und das Regal „Neu" liegt in
+beiden Fällen die ganze Zeit an derselben Stelle.
 
 ## Online-Spielername
 
@@ -256,6 +420,17 @@ verlässt den Browser.
 Ein Knopf mit dem eigenen Gesicht statt eines allgemeinen Personensymbols: Ein
 Symbol sagt „hier ist ein Konto", das Gesicht sagt „so sehen dich die anderen" -
 und mehr steckt ohnehin nicht dahinter.
+
+**Und der Knopf behauptet nichts, was er noch nicht weiß.** Name und Gesicht
+liegen in diesem Browser, das ausgelieferte HTML wurde ohne einen gebaut: Einen
+Augenblick lang stand dort „Konto" neben einem Platzhaltergesicht, und dann
+wurde jemand anderes daraus. Stattdessen steht da jetzt eine graue Pille in
+derselben Größe, bis der Browser übernommen hat - gemessen nach 321 ms im
+Entwicklungsmodus, und der Knopf ist vorher wie nachher 36 Pixel hoch.
+
+Ob schon etwas bekannt ist, wird dabei **getrennt** gefragt und nicht am Namen
+abgelesen: Ein leerer Name ist eine richtige Antwort - jemand, der keinen
+gesetzt hat -, und „weiß ich noch nicht" darf nicht so aussehen.
 
 **Gewählt wird beides nur hier.** Vorher wurde das Gesicht auf demjenigen
 Online-Bildschirm gewählt, den man gerade offen hatte - dieselbe Entscheidung an
@@ -390,8 +565,8 @@ Spiel reicht:
    Eintrag (Name, Tagline, Emoji, `href`, `category`, `addedOn`) **hinten
    anhaengen** - die Uebersicht sortiert selbst nach Namen, die Reihenfolge im
    Code ist egal. `addedOn` ist der Tag im Format `JJJJ-MM-TT`; davon lebt das
-   Regal „Neu", und ausgeschrieben werden muss er, weil die Reihenfolge im Code
-   nur _fast_ die Reihenfolge des Hinzufuegens ist.
+   Regal „Neu" (die drei neuesten), und ausgeschrieben werden muss er, weil die
+   Reihenfolge im Code nur _fast_ die Reihenfolge des Hinzufuegens ist.
 2. Ein eigenes Modul `website/src/games/<spiel>/` anlegen (Engine, Komponenten,
    Texte) samt einer `isGameState`-Pruefung fuer gespeicherte Staende.
 3. Eine Route `website/src/app/<spiel>/page.tsx` erstellen, die die

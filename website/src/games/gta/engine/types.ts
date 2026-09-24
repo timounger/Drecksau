@@ -1264,6 +1264,16 @@ export type Player = {
    */
   readonly diving: boolean;
   /**
+   * Seconds of air he has left down there.
+   *
+   * @remarks
+   * Counted down while he is under and filled again while his head is out.
+   * Diving is otherwise a free move - faster than swimming, and a round that
+   * would have hit him goes over his head - and a free move with no cost is
+   * one nobody ever comes up from.
+   */
+  readonly air: number;
+  /**
    * Whether he is in the water rather than on his feet.
    *
    * @remarks
@@ -1656,6 +1666,28 @@ export const WALK_SPEED = 130;
  * anything with wheels.
  */
 export const SWIM_SPEED = 52;
+
+/**
+ * How long one can hold one's breath, in seconds.
+ *
+ * @remarks
+ * Long enough to cross under a bridge, swim under a boat or wait out a volley
+ * - which is what diving is for - and short enough that the way through the
+ * harbour is not simply "stay down".
+ */
+export const AIR_HOLD = 14;
+
+/**
+ * How fast the air comes back on the surface, in seconds a second.
+ *
+ * @remarks
+ * Three times as fast as it goes: coming up to breathe is meant to cost a
+ * moment, not a swim back to the beach.
+ */
+export const AIR_BACK = 3;
+
+/** What being out of air costs, in health a second. */
+export const DROWN_HURT = 9;
 
 /** And under the surface, where one is pulling rather than paddling. */
 export const DIVE_SPEED = 66;

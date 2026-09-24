@@ -12,16 +12,18 @@ export const COLLECTION_TEXTS = {
   title: "Spielesammlung",
   /** The way out of a game, in the header of every game screen. */
   backToCollection: "Zurück zur Spielesammlung",
-  subtitle: "Wähle ein Spiel.",
   play: "Spielen",
   statistics: "Statistik",
   settings: "Einstellungen",
-  moreSoon: "Weitere Spiele folgen.",
   popular: "Beliebt",
   popularHint: (days: number) =>
-    `Am längsten gespielt in den letzten ${days} Tagen - von allen zusammen.`,
+    `Am längsten gespielt in den letzten ${days} Tagen.`,
   newest: "Neu",
-  newestHint: "Zuletzt dazugekommen.",
+  newestHint: (days: number) =>
+    `In den letzten ${days} Tagen neu dazugekommen.`,
+  jump: "Bereiche",
+  heroEyebrow: "Zuletzt gespielt",
+  heroPlay: "Weiterspielen",
   searchPlaceholder: "Spiel suchen ...",
   noResults: "Keine Spiele gefunden.",
 } as const;

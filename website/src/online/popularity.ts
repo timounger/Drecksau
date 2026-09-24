@@ -26,6 +26,7 @@
  * what anybody wants to read back.
  */
 import type { GameId } from "@/games/registry";
+import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 
 /** Where the shared totals live. */
 const PLAYED_PATH = "rooms/__played";
@@ -161,6 +162,75 @@ export async function loadPlayTimes(): Promise<ReadonlyMap<string, number>> {
   const snapshot = await get(ref(database(), PLAYED_PATH));
   return playTimes(snapshot.val(), Date.now());
 }
+
+/**
+ * Keeps the order this browser last saw, so the shelf can be drawn at once.
+ *
+ * @param ids - the games, most played first
+ * @remarks
+ * The read above takes a second or two - the database library has to be
+ * fetched, signed in to and asked - and for that second the start page has no
+ * popular shelf at all. It used to appear afterwards and push everything else
+ * down the page, which is somebody's first impression of the site being pulled
+ * out from under them.
+ *
+ * So the last answer is kept here and shown straight away on the next visit.
+ * It is a guess, not the truth: the real answer arrives a moment later and
+ * replaces it, and until then the guess is the same one the player saw last
+ * time, which is right far more often than it is wrong.
+ */
+export function rememberRanking(ids: readonly string[]): void {
+  writeStored(RANKING_KEY, RANKING_VERSION, { at: Date.now(), ids });
+}
+
+/**
+ * What that order was, if this browser still has it.
+ *
+ * @param now - the moment to measure the age against
+ * @returns the remembered ids as one comma separated line, empty for none
+ * @remarks
+ * A **line rather than a list**, because of who reads it: the start page asks
+ * this on every render through `useSyncExternalStore`, which compares one
+ * answer with the next and must be able to see that nothing has changed. Two
+ * arrays with the same names in them are two different arrays, and a page that
+ * is told its data changed on every render never stops rendering.
+ *
+ * Thrown away once it is older than the window it describes: a ranking of
+ * "the last seven days" that was read three weeks ago is not a guess about
+ * today, and a shelf that shows one is worse than a shelf that waits.
+ */
+export function rememberedOrder(now = Date.now()): string {
+  const kept = readStored(RANKING_KEY, RANKING_VERSION, isRanking);
+  const fresh = kept !== null && now - kept.at < POPULAR_DAYS * DAY_MS;
+  return fresh && kept !== null ? kept.ids.join(ORDER_APART) : "";
+}
+
+/** What separates two ids in that line. */
+export const ORDER_APART = ",";
+
+/** What is kept between visits: the order, and when it was read. */
+type Ranking = {
+  readonly at: number;
+  readonly ids: readonly string[];
+};
+
+/** Whether something read back out of storage is one of those. */
+function isRanking(value: unknown): value is Ranking {
+  const kept = value as Ranking | null;
+  return (
+    typeof kept === "object" &&
+    kept !== null &&
+    typeof kept.at === "number" &&
+    Array.isArray(kept.ids) &&
+    kept.ids.every((id) => typeof id === "string")
+  );
+}
+
+/** Schema version of that entry - raise it on breaking changes. */
+const RANKING_VERSION = 1;
+
+/** Where it is kept. */
+const RANKING_KEY = storageKey("online", "popular");
 
 /** Sends what has been collected, and forgets it either way. */
 async function flush(): Promise<void> {

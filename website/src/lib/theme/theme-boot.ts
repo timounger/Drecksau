@@ -18,10 +18,17 @@
  */
 import { storageKey } from "@/lib/storage/local-store";
 
-/** What the reader chose, or that they want whatever the system says. */
-export type ThemePreference = "light" | "dark" | "system";
-
-/** What it actually comes out as. */
+/**
+ * What the page can be set to, and what it comes out as.
+ *
+ * @remarks
+ * Two, and there is no third for "whatever the system says": **nothing
+ * chosen** is that state, and it is where everybody starts. A reader who has
+ * never touched the switch gets their device's setting, follows it when it
+ * changes at dusk, and the moment they do touch it that answer is kept
+ * instead. A third button would ask people to pick the thing they already
+ * have.
+ */
 export type Theme = "light" | "dark";
 
 /** The attribute the choice is written to, on the root element. */

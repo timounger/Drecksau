@@ -32,6 +32,38 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   The three looks of the start page.
+
+   Same markup, three faces - see lib/look/look-boot.ts. The attribute is
+   written by a script in the head before the first paint, so the page is laid
+   out once rather than rearranged after hydration.
+
+   `showcase` is the one with no attribute: it is the default, and it is what a
+   reader without JavaScript gets. The other two say so on the root element.
+   --------------------------------------------------------------------------- */
+
+@custom-variant look-showcase {
+  &:where(
+    :root:not([data-look="dashboard"]):not([data-look="plain"]),
+    :root:not([data-look="dashboard"]):not([data-look="plain"]) *
+  ) {
+    @slot;
+  }
+}
+
+@custom-variant look-dashboard {
+  &:where([data-look="dashboard"], [data-look="dashboard"] *) {
+    @slot;
+  }
+}
+
+@custom-variant look-plain {
+  &:where([data-look="plain"], [data-look="plain"] *) {
+    @slot;
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

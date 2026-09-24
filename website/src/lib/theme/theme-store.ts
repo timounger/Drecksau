@@ -3,16 +3,19 @@
  *
  * @module
  * @remarks
- * Three states, not two: **hell**, **dunkel**, and **system**. A plain switch
- * can only ever mean "the opposite of now" and quietly throws away the answer
- * most people actually want - that the site does whatever their phone does at
- * dusk. System is therefore the state nobody has to choose, and the one you
- * can get back to.
+ * **Two settings and one absence.** Light and dark are what one can choose;
+ * until somebody does, nothing is stored and the device decides - and keeps
+ * deciding, so a phone that turns dark at dusk turns the page with it, without
+ * a reload. The first click ends that and is kept from then on.
+ *
+ * That absence is why the choice is `Theme | null` rather than a third state
+ * called "system": a state one has to pick in order to get what one already
+ * has is a button that only ever means "undo".
  *
  * What reaches the stylesheet is only ever `light` or `dark`
- * ({@link THEME_ATTRIBUTE} on the root element): this module resolves "system"
- * and keeps resolving it, so a phone switching over at sunset switches the page
- * with it, without a reload.
+ * ({@link THEME_ATTRIBUTE} on the root element), and while nothing is chosen
+ * the attribute is absent, which hands the decision to the stylesheet's own
+ * media query.
  */
 "use client";
 
@@ -23,11 +26,10 @@ import {
   THEME_KEY,
   THEME_VERSION,
   type Theme,
-  type ThemePreference,
 } from "@/lib/theme/theme-boot";
 
-/** What the reader wants, before the system is consulted. */
-let preference: ThemePreference = "system";
+/** What the reader chose, or null while they have not. */
+let preference: Theme | null = null;
 
 /** Everyone currently drawing the switch. */
 const listeners = new Set<() => void>();
@@ -36,22 +38,31 @@ const listeners = new Set<() => void>();
 let started = false;
 
 /**
- * The chosen preference, for `useSyncExternalStore`.
+ * The theme that is on screen, for `useSyncExternalStore`.
  *
- * @returns light, dark, or system
+ * @returns the chosen one, or the device's while nothing is chosen
+ * @remarks
+ * The **resolved** one rather than the choice, because that is what the switch
+ * marks: a reader who has chosen nothing still sees one of the two, and the
+ * one they see is the one to light up.
  */
-export function themePreference(): ThemePreference {
+export function activeTheme(): Theme {
   start();
-  return preference;
+  return preference ?? systemTheme();
 }
 
 /**
  * What the prerendered page shows.
  *
- * @returns system, because a server knows nothing about this reader
+ * @returns nothing, because a server knows neither the choice nor the device
+ * @remarks
+ * Null rather than a guess. The HTML is built once for everybody; guessing
+ * "light" here would light the wrong button on every dark phone for as long as
+ * hydration takes. Nothing is marked until the browser has answered - see the
+ * switch itself.
  */
-export function serverThemePreference(): ThemePreference {
-  return "system";
+export function serverActiveTheme(): Theme | null {
+  return null;
 }
 
 /**
@@ -73,7 +84,7 @@ export function subscribeTheme(listener: () => void): () => void {
  *
  * @param next - what the reader picked
  */
-export function setThemePreference(next: ThemePreference): void {
+export function setTheme(next: Theme): void {
   preference = next;
   writeStored(THEME_KEY, THEME_VERSION, next);
   apply();
@@ -82,24 +93,15 @@ export function setThemePreference(next: ThemePreference): void {
   }
 }
 
-/**
- * The theme that is actually on screen.
- *
- * @returns light or dark, with "system" already resolved
- */
-export function resolvedTheme(): Theme {
-  return preference === "system" ? systemTheme() : preference;
-}
-
 /** Reads the stored choice once, and starts following the system. */
 function start(): void {
   if (!started && typeof window !== "undefined") {
     started = true;
-    preference = readStored(THEME_KEY, THEME_VERSION, isPreference) ?? "system";
-    // Only while on "system": an explicit choice is a choice, and must not be
-    // overruled by the phone deciding it is evening.
+    preference = readStored(THEME_KEY, THEME_VERSION, isTheme);
+    // Only while nothing is chosen: an explicit choice is a choice, and must
+    // not be overruled by the phone deciding it is evening.
     window.matchMedia(DARK_QUERY).addEventListener("change", () => {
-      if (preference === "system") {
+      if (preference === null) {
         apply();
         for (const listener of listeners) {
           listener();
@@ -114,14 +116,14 @@ function start(): void {
  * Writes the resolved theme onto the root element.
  *
  * @remarks
- * The attribute is **removed** rather than set to "light" when the reader is on
- * "system". That is what hands the decision back to the stylesheet's media
+ * The attribute is **removed** rather than set to "light" while nothing has
+ * been chosen. That is what hands the decision back to the stylesheet's media
  * query - one place decides, and it is the same place that decides for a reader
  * who never ran any of this.
  */
 function apply(): void {
   const root = document.documentElement;
-  if (preference === "system") {
+  if (preference === null) {
     root.removeAttribute(THEME_ATTRIBUTE);
   } else {
     root.setAttribute(THEME_ATTRIBUTE, preference);
@@ -135,7 +137,17 @@ function systemTheme(): Theme {
     : "light";
 }
 
-/** Whether a stored value is one of the three states. */
-function isPreference(value: unknown): value is ThemePreference {
-  return value === "light" || value === "dark" || value === "system";
+/**
+ * Whether a stored value is one of the two settings.
+ *
+ * @param value - what came out of storage
+ * @returns true for "light" and "dark"
+ * @remarks
+ * The old third value, `"system"`, falls through this and is read as "nothing
+ * chosen" - which is exactly what it meant. Nobody who had it set notices the
+ * difference, and the entry is overwritten the next time they touch the
+ * switch.
+ */
+function isTheme(value: unknown): value is Theme {
+  return value === "light" || value === "dark";
 }

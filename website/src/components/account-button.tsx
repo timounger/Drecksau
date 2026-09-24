@@ -25,6 +25,14 @@ import {
   type ReactElement,
 } from "react";
 import { Avatar } from "@/online/avatar";
+import { useReady } from "@/lib/storage/use-ready";
+import type { CollectionLook } from "@/lib/look/look-boot";
+import {
+  collectionLook,
+  serverCollectionLook,
+  setCollectionLook,
+  subscribeLook,
+} from "@/lib/look/look-store";
 import { playerNameStore } from "@/online/player-name";
 import { StoredAvatarPicker, useChosenAvatar } from "@/online/player-avatar";
 
@@ -37,11 +45,85 @@ const T = {
   name: "Dein Name",
   namePlaceholder: "z. B. Alex",
   nameEmpty: "Noch kein Name",
+  look: "Ansicht der Startseite",
+  lookHint: "Wie die Spiele auf der Übersicht stehen.",
+  showcase: "Schaufenster",
+  showcaseHint: "Banner oben, große Karten mit Bild.",
+  dashboard: "Kacheln",
+  dashboardHint: "Quadrate mit Namen darunter, sonst nichts.",
+  plain: "Schlicht",
+  plainHint: "Kleines Zeichen, Name, eine Zeile dazu.",
   close: "Fertig",
 } as const;
 
+/** The three looks, in the order they read. */
+const LOOKS: readonly {
+  readonly value: CollectionLook;
+  readonly label: string;
+  readonly hint: string;
+}[] = [
+  { value: "showcase", label: T.showcase, hint: T.showcaseHint },
+  { value: "dashboard", label: T.dashboard, hint: T.dashboardHint },
+  { value: "plain", label: T.plain, hint: T.plainHint },
+];
+
 /** How big the face is on the button, and in the dialog's heading. */
 const BUTTON_FACE = 26;
+
+/**
+ * The three shapes the start page can take, as a list to pick from.
+ *
+ * @returns the picker
+ * @remarks
+ * Here rather than on the start page itself, for the same reason the face is:
+ * a setting belongs where one goes to change settings, not in the corner of
+ * the thing it changes.
+ *
+ * The click writes storage **and** the root element in one go, so the page
+ * behind the dialog rearranges itself while one is still looking at the list -
+ * which is the only honest preview there is.
+ */
+function LookPicker(): ReactElement {
+  const chosen = useSyncExternalStore(
+    subscribeLook,
+    collectionLook,
+    serverCollectionLook,
+  );
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      <span className="font-medium">{T.look}</span>
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+        {T.lookHint}
+      </span>
+      <div
+        role="group"
+        aria-label={T.look}
+        data-testid="look-picker"
+        className="mt-1 flex flex-col gap-2 sm:flex-row"
+      >
+        {LOOKS.map((look) => (
+          <button
+            key={look.value}
+            type="button"
+            aria-pressed={look.value === chosen}
+            data-testid={`look-${look.value}`}
+            onClick={() => setCollectionLook(look.value)}
+            className={`flex-1 cursor-pointer rounded-xl border p-3 text-left transition ${
+              look.value === chosen
+                ? "border-emerald-600 bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-500/10"
+                : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <span className="block font-medium">{look.label}</span>
+            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+              {look.hint}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /**
  * A button showing who you are, which opens the settings for it.
@@ -63,6 +145,12 @@ export function AccountButton(): ReactElement {
     playerNameStore.getServerSnapshot,
   );
   const face = useChosenAvatar();
+  // **Nothing is claimed before it is known.** Name and face come out of this
+  // browser's storage, and the prerendered HTML was made without one: for the
+  // first moment the button would read "Konto" beside a stand-in face, and
+  // then turn into somebody else. A grey pill says the same thing honestly -
+  // and it is the same size, so nothing moves when the name arrives.
+  const ready = useReady();
 
   const open = useCallback(() => dialog.current?.showModal(), []);
   const close = useCallback(() => dialog.current?.close(), []);
@@ -84,12 +172,25 @@ export function AccountButton(): ReactElement {
         data-testid="account-button"
         aria-label={T.openLabel}
         onClick={open}
+        aria-busy={ready ? undefined : true}
         className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-zinc-300 py-1 pr-3 pl-1 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
       >
-        <Avatar id={face} size={BUTTON_FACE} />
-        <span className="max-w-32 truncate">
-          {name.trim() === "" ? T.open : name}
-        </span>
+        {ready ? (
+          <>
+            <Avatar id={face} size={BUTTON_FACE} />
+            <span className="max-w-32 truncate">
+              {name.trim() === "" ? T.open : name}
+            </span>
+          </>
+        ) : (
+          <>
+            <span
+              className="block shrink-0 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-800"
+              style={{ height: BUTTON_FACE, width: BUTTON_FACE }}
+            />
+            <span className="block h-3.5 w-16 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
+          </>
+        )}
       </button>
 
       <dialog
@@ -132,6 +233,8 @@ export function AccountButton(): ReactElement {
             {/* Writes straight through to storage, like the name: there is no
                 "save" here, because there is nothing that could fail. */}
             <StoredAvatarPicker />
+
+            <LookPicker />
           </div>
         </div>
       </dialog>

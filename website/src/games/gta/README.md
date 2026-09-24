@@ -2054,6 +2054,123 @@ der Maschine gesetzt. Damit hebt die Kamera von selbst mit (dieselbe Zeile wie
 beim Jetpack), die Flak trifft den Spieler statt ein Fahrzeug, und
 `player.x/y` bleibt die Position, an der alles andere im Spiel nachschaut.
 
+## Die Flak wartet auf einen Stern
+
+Die Batterien am Militärgelände schießen auf Höhe, nicht auf Personen: Wer
+daran vorbeiläuft, ist ihnen egal, wer in hundert Pixeln Höhe darüberkommt,
+hat jedes Rohr in Reichweite gleichzeitig am Hals. Das war der Sinn der Sache -
+und es galt eben auch für jemanden, der mit dem Jetpack quer durch die Wüste
+fliegt oder den Rettungshubschrauber nach Hause bringt. Das liest sich, als
+schösse die Armee auf den Verkehr.
+
+Jetzt ist **in der Luft sein kein Verbrechen**. Gefeuert wird nur auf jemanden,
+der ohnehin gesucht ist; ohne Stern stehen die Rampen da und sind Kulisse.
+Gemessen, zwölf Sekunden in Reichweite und auf Höhe: **ohne Stern null Schüsse
+und volle Gesundheit**, mit zwei Sternen neun Schüsse und tot.
+
+## Schwimmen sieht aus wie Schwimmen
+
+Im Wasser bewegte sich die Figur wie auf dem Gehweg: dieselben schwingenden
+Arme, derselbe Tritt, dasselbe Auf und Ab bei jedem Schritt. Von oben ist das
+jemand, der durch den Hafen marschiert.
+
+**Ein Schwimmer ist aber keine andere Haltung, sondern eine andere Form.** Die
+Lauffigur ist ein Mensch vom Scheitel abwärts gesehen: Kopf über Schultern,
+Schultern über Füßen. Wer schwimmt, liegt der Länge nach im Wasser. Der erste
+Versuch war, genau diese Figur zu strecken und flach zu legen - heraus kam
+jemand, der in einem Loch steht. Gezeichnet wird der Schwimmer deshalb
+**eigens**, fünf Formen in einem Rahmen, der entlang seiner Richtung gedreht
+ist:
+
+- **Der Rumpf**, ein langes Oval im Wasser, im Hemd, in dem er hereinkam.
+- **Der Kopf** vorn, der sich zum Atmen zur Seite dreht - immer zu dem Arm hin,
+  der gerade über Wasser ist, einmal je Zug.
+- **Die beiden Arme**, einen halben Zug auseinander. Einer ist in der
+  **Rückholphase**: über dem Wasser, von der Hüfte nach außen und am Kopf
+  vorbei nach vorn, und voll gezeichnet, weil er in der Luft ist. Der andere
+  **zieht** unter dem Körper von vorn nach hinten und ist blass, weil er unter
+  Wasser ist. Dieser Wechsel ist das, was Kraulen von oben ausmacht.
+- **Die Beine**, blass und nachgezogen, die gegeneinander schlagen.
+- **Der Schaum** an den Füßen - das Einzige, was man von einem Beinschlag aus
+  dieser Höhe wirklich sieht: weißes Wasser, das bei jedem Schlag aufquillt.
+
+Die Uhr von allem ist die **geschwommene Strecke**, nicht die Zeit - dieselbe
+Regel wie beim Gehen, damit Langsamerwerden den Zug verlangsamt, statt den
+Mondgang zu erzeugen. Ein Zug sind 56 Pixel gegen 34 Pixel Schrittlänge, was
+bei Schwimmtempo auf knapp einen Zug je Sekunde hinausläuft; mit der
+Schrittlänge wirbelten die Arme wie eine Windmühle.
+
+**Und er ist so groß wie an Land.** Die Lauffigur kommt aus einem Sprite-Satz
+mit eigenen Maßen, der Schwimmer ist von Hand gezeichnet - nach denselben
+Zahlen kam er spürbar kleiner heraus, also jemand, der schrumpft, sobald er
+nasse Füße bekommt. Ein einziger Faktor (`SWIM_SIZE`) zieht alles auf: Rumpf,
+Kopf, Arme, Beinschlag und den grauen Fleck beim Tauchen. Nachgemessen an der
+grünen Fläche des Hemds, beide in Bewegung: an Land 465 Pixel (30 × 26), im
+Wasser 420 (36 × 29) - der Liegende ist etwas länger, etwas schmaler und zeigt
+etwas weniger Hemd, weil die Arme draußen sind. Vorher waren es 236.
+
+**Auf der Stelle ist ein eigener Zustand.** Der Zug hängt an der geschwommenen
+Strecke, und wer seine Position hält, legt keine zurück - mit nur einem Zustand
+hing die Figur im Wasser wie ein fallen gelassener Mantel. So machen es auch
+die üblichen Engines: ein zweiter Zustand neben dem Zug, auf der **Uhr** statt
+auf dem Kilometerzähler, und über die Geschwindigkeit ineinander geblendet.
+Hier wird umgeschaltet statt geblendet - auf diese Größe fällt der Wechsel in
+denselben Moment, in dem man die Taste loslässt, und ein Kraulen, das in ein
+Wassertreten überblendet, wären vier Bilder, die niemand sieht.
+
+Wassertreten ist ein **Scull**: die Arme seitlich draußen, die Hände eine
+Handbreit unter der Oberfläche vor und zurück, die beiden gegenphasig, damit
+sich der Körper weder dreht noch treibt. Darunter machen die Beine dasselbe
+andersherum - der Eierschläger, den jeder Wasserballer tritt -, von oben zwei
+Formen, die aneinander vorbeischwingen. Der Rumpf ist dabei **kürzer** als beim
+Schwimmen, weil man aufrecht im Wasser steht, und er **steigt bei jedem
+Schlag** ein wenig: Genau dafür ist Sculling da, und mehr als das ist von einem
+Auf und Ab auf diesem Maßstab nicht zu sehen.
+
+Die Wasserlinie, die den Gehenden früher auf Schulterhöhe abschnitt, gibt es
+nicht mehr. Sie war richtig für jemanden, der brusttief steht, und falsch für
+jemanden, der im Wasser liegt: Ein waagerechter Schnitt nimmt ihm erst die
+Beine, dann die Schultern, dann den Arm, mit dem er greift. Was jetzt „im
+Wasser" sagt, ist die Lage und die Tatsache, dass alles unter der Oberfläche
+blass gezeichnet wird - und die Ringe liegen um seine Mitte statt über seinen
+Füßen.
+
+## Tauchen kostet Luft
+
+Drei Sachen am Tauchen waren falsch, und alle drei hingen am selben Tastendruck.
+
+**Die Leertaste bedeutet im Wasser tauchen, und sonst nichts.** Der Jetpack
+liegt auf derselben Taste, also hob sie einen Schwimmer aus dem Meer, statt ihn
+darunter zu bringen - und einen anderen Weg, das Gemeinte zu verlangen, gab es
+nicht. Nass sein gewinnt jetzt: Wer im Wasser ist, taucht; an Land startet
+dieselbe Taste weiterhin den Jetpack. Nachgemessen: zwei Sekunden Leertaste im
+Wasser - Höhe 0 und `taucht = true`; zwei Sekunden an Land - Höhe 110.
+
+**Und unter Wasser sieht man keinen Menschen mehr.** Vorher war es dieselbe
+Figur, nur blass, mit drei Blasen darüber - was sich liest wie jemand, der
+unter einer Glasscheibe spazieren geht, plus ein Leck. Von oben ist ein
+Tauchender kein Mensch: Das Wasser nimmt erst die Farben, dann die Kanten, und
+übrig bleibt ein **grauer Fleck in Kopfform**, der mitwandert. Drei Ellipsen
+ineinander, die äußere fast nichts, damit der Fleck keinen Rand hat - nichts
+unter Wasser hat einen. Die Blasen sind weg.
+
+**Und die Luft geht aus.** Tauchen war sonst umsonst zu haben: schneller als
+Schwimmen, und eine Kugel, die getroffen hätte, geht über einen hinweg. Ein
+Zug, der nichts kostet, ist einer, von dem niemand wieder hochkommt.
+
+- **14 Sekunden** Luft. Genug, um unter einer Brücke durch, unter einem Boot
+  hindurch oder eine Salve auszusitzen - und zu wenig, um den Hafen tauchend zu
+  durchqueren.
+- Danach **9 Leben je Sekunde**, still: Die eine Zeile „Die Luft geht aus."
+  steht im Log, wenn sie ausgeht, und danach nichts mehr - jede Sekunde eine
+  Meldung wäre ein Log aus nichts anderem.
+- An der Oberfläche füllt sie sich **dreimal so schnell**, wie sie ausgeht:
+  Luftholen soll einen Moment kosten, nicht den Rückweg zum Strand.
+
+Gemessen, Leertaste gehalten: bei 14 s ist die Luft weg, bei 16 s stehen 82
+Leben, bei 20 s noch 46, bei 24 s noch 10. Danach aufgetaucht: nach fünf
+Sekunden wieder volle Luft.
+
 ## Wachen gehören zu einem Ort, Streifen zu einem Auto
 
 Die zehn Mann auf dem Militärgelände sind dieselbe `Cop`-Struktur wie eine
@@ -4384,8 +4501,9 @@ kein Zufall, sondern die einzige Art, so etwas billig zu halten:
   `Phase`,
 - eine Funktion `advanceX(state, input, dt)`, die drei Antworten kennt: weiter,
   raus, vorbei,
-- ein eigener Renderer, der denselben Kippwinkel und dieselben Figuren benutzt
-  wie die Stadt und sonst nichts mit ihr teilt.
+- ein eigener Renderer, der dieselben Figuren benutzt wie die Stadt und sonst
+  nichts mit ihr teilt - beim Kippwinkel gehen sie inzwischen auseinander, siehe
+  den nächsten Abschnitt.
 
 Die Stadt steht still, solange eine davon läuft. Was zurückkommt, ist immer nur
 ein Ergebnis - wie viel Geld, und ob man gesehen wurde.
@@ -4396,6 +4514,57 @@ wer nicht bei den Leuten steht, hat in fünf Sekunden einen auf dem Weg zum
 Knopf. Die Geiseln laufen deshalb **mit** - der Mann mit der Kombination muss
 an die Tresortür gebracht werden, und das geht nur, indem man ihn hintersich
 herlaufen lässt.
+
+## Die Bank liegt flach, und man kommt von unten herein
+
+Zwei Sachen an der Bank waren verkehrt herum, und beide fallen erst drinnen
+auf.
+
+**Ein Raum wird nicht gekippt.** Die Stadt lehnt sich zurück - Tiefe mal
+`DEPTH`, Häuser mit Dach und einer Wand zur Kamera -, und das ist draußen
+richtig: Man sieht, was vor einem steht. Drinnen ist dieselbe Schräge nur im
+Weg. Der Schalter wird zu einem Balken, der sich in die Tiefe zieht, statt zu
+der Linie, vor oder hinter der man steht; die Außenwand steht als Klotz vor den
+Leuten dahinter, und dagegen half nur eine Regel, die sie halb durchsichtig
+malt, sobald jemand dahinter steht. Ein Raum will von oben gesehen werden, wie
+in jedem Spiel, das einen ein Gebäude betreten lässt: die Quadrate quadratisch,
+die Wand eine Linie, die Theke eine Linie.
+
+Der Kippwinkel gehört deshalb jetzt an die **Kamera**, nicht in die Rechnung:
+`View` hat ein `squash`, `project()` und `unprojectFloor()` nehmen es, und wo
+nichts dabeisteht, bleibt es `DEPTH` - die Stadt merkt nichts davon. Die Bank
+setzt `FLAT`, also gar keine Stauchung.
+
+**Die Leute bleiben gekippt.** Eine Figur wird vom Scheitel abwärts gezeichnet,
+mit einem Körper darunter, und platt gedrückt liegt sie als Mantel auf dem
+Boden. Sie malen ihre Stauchung selbst, nicht über die Kamera - deshalb sehen
+sie in dem flachen Raum genauso aus wie auf der Straße, und der Raum ist um sie
+herum flach geworden, nicht sie. Genau so war es auch gewünscht.
+
+Was dabei ganz wegfällt, sind die Kästen: Wand, Theke, Kasse und Tresortür
+hatten je eine Deckfläche und eine Frontfläche, dazu `hides()`/`covers()` für
+das Halbdurchsichtige. Von oben gibt es keine Front und nichts, wovor etwas
+stehen könnte. Übrig bleibt ein Quadrat mit einer Linie darum - und die Linie
+ist nötig, sonst werden Wand und Theke daneben eine Fläche. Möbel, um die man
+herumgehen kann, werden drei Pixel kleiner als ihr Feld gezeichnet und
+**dunkler** als der Boden: In der Bodenfarbe war der Schreibtisch nur ein
+Umriss.
+
+**Und die Tür gehört nach unten.** Vorher lag der Eingang in der Nordwand: Man
+stand oben am Bildrand und arbeitete sich nach unten durch, auf die Kamera zu.
+Ein Raum, den man betritt, liest sich andersherum - die Tür im Rücken, die
+Arbeit vor einem. Der Plan ist dafür einfach **gespiegelt** worden, Zeile für
+Zeile, und mit ihm die festen Punkte (`row' = PLAN_HIGH - 1 - row`): Halle und
+Tür unten, Schalter und Kassen in der Mitte, Schreibtische, Knopf und Tresor
+oben. Weil eine Spiegelung alle Abstände erhält, ändert sich am Spiel kein
+einziger Schritt - nur die Blickrichtungen kippen mit: Er kommt nach Norden
+herein, sie schauen nach Süden zur Tür.
+
+Nachgemessen am fertigen Raum: Start auf `hall` bei y = 14,4 Feldern, die
+`door` direkt darunter; nach oben laufen endet vor der Theke; durch das Tor in
+Spalte 23 kommt man dahinter; Kasse 3 von hinten in 44 Pixeln Reichweite leer;
+Angestellter genommen, nach Norden an die Tresortür gebracht, Tresor auf,
+Tresorraum betreten, 9000 € im Sack; nach unten hinaus meldet `out`.
 
 ## Was im Bild steht, steht nicht daneben
 

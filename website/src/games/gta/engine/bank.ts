@@ -41,29 +41,33 @@ import {
  * The bank, one letter per square.
  *
  * @remarks
- * North is the street. The public half is the hall inside the door; behind the
- * counter are the tills, the desks and - on the east wall, where somebody has
- * to cross the whole room to reach it - the alarm button. The vault is through
- * the door in the south wall, and what is in it is worth about four tills.
+ * **South is the street**: one comes in at the bottom of the plan and works
+ * *up* it. That is how a room one walks into reads - the door behind you, the
+ * job in front of you - and it is the way round every top-down game puts a
+ * building one enters on foot. The public half is the hall inside the door;
+ * beyond the counter are the tills, the desks and - on the east wall, where
+ * somebody has to cross the whole room to reach it - the alarm button. The
+ * vault is through the door in the north wall, furthest from the street, and
+ * what is in it is worth about four tills.
  */
 export const PLAN: readonly string[] = [
   "oooooooooooooooooooooooooooooo",
-  "oooooooooooooooooooooooooooooo",
-  "#############DD###############",
-  "#............................#",
-  "#............................#",
-  "#............................#",
-  "#............................#",
-  "#CCCCCCCCCCCCCCCCCCCCCC++CCCC#",
-  "#,T,,T,,T,,T,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,A",
-  "#,,,,,dd,,,,,,,,,,,,,,dd,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
-  "######VV######################",
-  "#vvvvvvvvvv###################",
-  "#vvvvvvvvvv###################",
-  "#vvvvvvvvvv###################",
   "##############################",
+  "#vvvvvvvvvv###################",
+  "#vvvvvvvvvv###################",
+  "#vvvvvvvvvv###################",
+  "######VV######################",
+  "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+  "#,,,,,dd,,,,,,,,,,,,,,dd,,,,,#",
+  "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,A",
+  "#,T,,T,,T,,T,,,,,,,,,,,,,,,,,#",
+  "#CCCCCCCCCCCCCCCCCCCCCC++CCCC#",
+  "#............................#",
+  "#............................#",
+  "#............................#",
+  "#............................#",
+  "#############DD###############",
+  "oooooooooooooooooooooooooooooo",
   "oooooooooooooooooooooooooooooo",
 ];
 
@@ -134,35 +138,35 @@ const CLERK_GAP = 56;
    on the plan above: which square a till stands on, where the clerks are when
    the door goes. They are a map, not arithmetic. */
 
-/** Where the player comes in: just inside the front door. */
-const DOOR_IN: Vec = { x: 14 * SLAB, y: 3.6 * SLAB };
+/** Where the player comes in: just inside the front door, at the south wall. */
+const DOOR_IN: Vec = { x: 14 * SLAB, y: 14.4 * SLAB };
 
 /** The four tills along the counter, and the square one stands at. */
 const TILL_SPOTS: readonly Vec[] = [
-  { x: 2.5 * SLAB, y: 8.5 * SLAB },
-  { x: 5.5 * SLAB, y: 8.5 * SLAB },
-  { x: 8.5 * SLAB, y: 8.5 * SLAB },
-  { x: 11.5 * SLAB, y: 8.5 * SLAB },
+  { x: 2.5 * SLAB, y: 9.5 * SLAB },
+  { x: 5.5 * SLAB, y: 9.5 * SLAB },
+  { x: 8.5 * SLAB, y: 9.5 * SLAB },
+  { x: 11.5 * SLAB, y: 9.5 * SLAB },
 ];
 
 /** Where the clerks are standing when somebody walks in with a gun. */
 const CLERK_SPOTS: readonly Vec[] = [
-  { x: 4.5 * SLAB, y: 9.5 * SLAB },
-  { x: 10.5 * SLAB, y: 10.5 * SLAB },
-  { x: 17.5 * SLAB, y: 9.5 * SLAB },
+  { x: 4.5 * SLAB, y: 8.5 * SLAB },
+  { x: 10.5 * SLAB, y: 7.5 * SLAB },
+  { x: 17.5 * SLAB, y: 8.5 * SLAB },
 ];
 
 /** The button on the east wall. */
-const BUTTON: Vec = { x: 29.5 * SLAB, y: 9.5 * SLAB };
+const BUTTON: Vec = { x: 29.5 * SLAB, y: 8.5 * SLAB };
 
-/** The vault door in the south wall. */
-const VAULT_DOOR: Vec = { x: 6.5 * SLAB, y: 12.5 * SLAB };
+/** The vault door in the north wall. */
+const VAULT_DOOR: Vec = { x: 6.5 * SLAB, y: 5.5 * SLAB };
 
 /** The middle of the vault room behind it. */
-const VAULT_MIDDLE: Vec = { x: 5.5 * SLAB, y: 14 * SLAB };
+const VAULT_MIDDLE: Vec = { x: 5.5 * SLAB, y: 4 * SLAB };
 
-/** The way out: the front door. */
-const WAY_OUT: Vec = { x: 13.5 * SLAB, y: 2.5 * SLAB };
+/** The way out: the front door, back down at the street. */
+const WAY_OUT: Vec = { x: 13.5 * SLAB, y: 15.5 * SLAB };
 
 /* eslint-enable @typescript-eslint/no-magic-numbers */
 
@@ -175,11 +179,13 @@ const WAY_OUT: Vec = { x: 13.5 * SLAB, y: 2.5 * SLAB };
 export function enterBank(time: number): BankState {
   return {
     time,
-    hero: { x: DOOR_IN.x, y: DOOR_IN.y, heading: Math.PI / 2, walked: 0 },
+    // He comes in off the street, which is below: looking north, up the room.
+    hero: { x: DOOR_IN.x, y: DOOR_IN.y, heading: -Math.PI / 2, walked: 0 },
     staff: CLERK_SPOTS.map((spot, at) => ({
       x: spot.x,
       y: spot.y,
-      heading: -Math.PI / 2,
+      // And they are looking the other way: down the hall, at the door.
+      heading: Math.PI / 2,
       walked: 0,
       held: false,
       // They do not all break for the button at once: the first one tries
@@ -352,7 +358,7 @@ export function buttonSpot(): Vec {
 /**
  * Where the vault door is, for the picture.
  *
- * @returns the middle of the doorway in the south wall
+ * @returns the middle of the doorway in the north wall
  */
 export function vaultDoor(): Vec {
   return VAULT_DOOR;

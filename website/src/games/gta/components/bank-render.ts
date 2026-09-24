@@ -3,11 +3,22 @@
  *
  * @module
  * @remarks
- * The same tilted picture as the city, the jail and the printing works, and the
- * same bargain: this reads the state and paints, and changes nothing. The floor
- * is a fixed plan of squares, so the ground, the walls and the furniture come
- * out of one loop over it, north to south, with the people of each row painted
- * with it.
+ * The same bargain as everywhere else - this reads the state and paints, and
+ * changes nothing - but **not** the same picture. A room is seen straight down:
+ * {@link FLAT}, no tilt, no walls leaning towards the camera, every square as
+ * square on screen as it is on the plan. That is what one wants of an inside -
+ * the whole room at once, the counter as a line one is either in front of or
+ * behind, and no wall standing in front of the man one is aiming at.
+ *
+ * The **people** keep their tilt. A figure is drawn from the crown down with a
+ * body under it - see ./render - and flattening that leaves a coat on the
+ * floor, so they are painted exactly as they are in the city and the room is
+ * flattened around them. From above the room is a plan; the people on it are
+ * still people.
+ *
+ * The floor is a fixed plan of squares, so the ground, the walls and the
+ * furniture come out of one loop over it, north to south, with the people of
+ * each row painted with it.
  *
  * Two things are drawn that are not furniture: the ring round whoever has not
  * got his hands up yet, and the bar along the bottom with the bag, the clock
@@ -15,8 +26,7 @@
  * who has to guess at them is a robber who is guessing.
  */
 import {
-  DEPTH,
-  PERSON_HEIGHT,
+  FLAT,
   cameraFor,
   project,
   seenArea,
@@ -33,6 +43,7 @@ import {
   taskLine,
   slotAt,
   tillSpots,
+  vaultDoor,
   type Slot,
 } from "@/games/gta/engine/bank";
 import {
@@ -41,7 +52,6 @@ import {
   type Clerk,
   type GameState,
   type Inmate,
-  type Vec,
 } from "@/games/gta/engine/types";
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- from here on the
@@ -67,14 +77,19 @@ const GROUND: Readonly<Record<Slot, string>> = {
 /** What lies past the edge of the plan. */
 const BEYOND = "#18181b";
 
-/** How high the outer walls stand, in screen pixels. */
-const WALL_HIGH = 46;
+/**
+ * How far a piece of furniture is drawn inside its square.
+ *
+ * @remarks
+ * A wall fills its square, because a wall *is* the square. Everything one could
+ * walk round - a desk, a drawer - is drawn a little smaller than the ground it
+ * stands on, which from above is the whole difference between a thing in a room
+ * and a patch of a different colour.
+ */
+const INSET = 3;
 
-/** And a counter, which one can see over. */
-const COUNTER_HIGH = 16;
-
-/** How solid a wall is painted while the player stands behind it. */
-const SEE_THROUGH = 0.3;
+/** What the line round a piece of furniture is drawn in. */
+const OUTLINE = "rgba(0,0,0,0.35)";
 
 /** How wide a person's shadow is. */
 const FOOTPRINT = 4.6;
@@ -113,7 +128,11 @@ export function drawBank(
 ): void {
   const bank = state.bank;
   if (bank !== null) {
-    const view = cameraFor(bank.hero, width, height, zoom);
+    // Straight down on the room: see the note at the top of this module.
+    const view: View = {
+      ...cameraFor(bank.hero, width, height, zoom),
+      squash: FLAT,
+    };
     ctx.save();
     ctx.translate(width / 2, height / 2);
     ctx.scale(zoom, zoom);
@@ -140,7 +159,8 @@ function drawFloor(
   const fromRow = Math.floor(seen.top / SLAB);
   const toCol = Math.ceil(seen.right / SLAB);
   const toRow = Math.ceil(seen.bottom / SLAB);
-  const deep = SLAB * DEPTH + 1;
+  // A square square: nothing is squashed in here, so a slab is a slab.
+  const deep = SLAB + 1;
   ctx.fillStyle = BEYOND;
   ctx.fillRect(0, 0, view.width, view.height);
   for (let row = fromRow; row <= toRow; row += 1) {
@@ -247,16 +267,22 @@ function drawSquare(
   const kind = slotAt(col, row);
   switch (kind) {
     case "wall":
-      block(ctx, view, bank, col, row, WALL_HIGH, "#57534e", "#44403c");
+      fill(ctx, view, col, row, "#57534e", 0);
       break;
     case "counter":
-      block(ctx, view, bank, col, row, COUNTER_HIGH, "#92400e", "#b45309");
+      // Wood, and darker than the tills behind it: from above the counter is
+      // the line the room is divided by, so it has to be the strongest thing
+      // on the floor.
+      fill(ctx, view, col, row, "#92400e", 0);
       break;
     case "till":
       drawTill(ctx, view, bank, col, row);
       break;
     case "desk":
-      block(ctx, view, bank, col, row, 13, "#78716c", "#a8a29e");
+      // Darker than the ground it stands on. Painted in the colour of the
+      // floor it was nothing but an outline: seen from above, a thing is only
+      // a thing if it is a different colour from what it stands on.
+      fill(ctx, view, col, row, "#78716c", INSET);
       break;
     case "vaultDoor":
       drawVault(ctx, view, bank, col, row);
@@ -277,14 +303,17 @@ function drawTill(
   col: number,
   row: number,
 ): void {
-  block(ctx, view, bank, col, row, 20, "#57534e", "#78716c");
+  fill(ctx, view, col, row, "#78716c", 0);
   const at = tillSpots().findIndex(
     (spot) => Math.abs(spot.x - (col + 0.5) * SLAB) < SLAB,
   );
   const done = at >= 0 && (bank.tills[at]?.open ?? false);
-  const foot = project(view, col * SLAB, (row + 1) * SLAB);
+  const top = project(view, col * SLAB, row * SLAB);
+  // The drawer, seen from above: shut and full, or pulled out and empty.
+  ctx.fillStyle = "#57534e";
+  ctx.fillRect(top.x + 4, top.y + 5, SLAB - 8, SLAB - 10);
   ctx.fillStyle = done ? "#1c1917" : "#22c55e";
-  ctx.fillRect(foot.x + 8, foot.y - 18, SLAB - 16, 4);
+  ctx.fillRect(top.x + 7, top.y + SLAB / 2 - 2, SLAB - 14, 4);
 }
 
 /** The vault door: a slab of steel with a wheel on it, or a way in. */
@@ -297,26 +326,52 @@ function drawVault(
 ): void {
   const shut = bank.vault < 1;
   if (shut) {
-    block(ctx, view, bank, col, row, 40, "#94a3b8", "#cbd5e1");
-    const foot = project(view, col * SLAB, (row + 1) * SLAB);
-    // The wheel, and how far round it has come.
-    ctx.strokeStyle = "#0f172a";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(foot.x + SLAB / 2, foot.y - 22, 7, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = "#facc15";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(
-      foot.x + SLAB / 2,
-      foot.y - 22,
-      7,
-      -Math.PI / 2,
-      -Math.PI / 2 + Math.PI * 2 * bank.vault,
-    );
-    ctx.stroke();
+    fill(ctx, view, col, row, "#94a3b8", 0);
+    // The doorway is two squares wide and has one wheel, not one each: it is
+    // drawn on whichever of them the door itself is reckoned to be at.
+    const hub = Math.abs((col + 0.5) * SLAB - vaultDoor().x) < SLAB / 2;
+    if (hub) {
+      wheel(ctx, view, col, row, bank.vault);
+    }
   }
+}
+
+/**
+ * The wheel on the vault door, and how far round it has come.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param col - the square it is drawn on
+ * @param row - and the row
+ * @param turned - how far the door is open, from nought to one
+ */
+function wheel(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  col: number,
+  row: number,
+  turned: number,
+): void {
+  const top = project(view, col * SLAB, row * SLAB);
+  const middle = { x: top.x + SLAB, y: top.y + SLAB / 2 };
+  // A round wheel, not an oval one: there is nothing tilted in this room to
+  // squash it.
+  ctx.strokeStyle = "#0f172a";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(middle.x, middle.y, 7, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "#facc15";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(
+    middle.x,
+    middle.y,
+    7,
+    -Math.PI / 2,
+    -Math.PI / 2 + Math.PI * 2 * turned,
+  );
+  ctx.stroke();
 }
 
 /** The alarm button on the east wall: small, red, and worth everything. */
@@ -327,74 +382,48 @@ function drawButton(
   col: number,
   row: number,
 ): void {
-  block(ctx, view, bank, col, row, WALL_HIGH, "#57534e", "#44403c");
-  const foot = project(view, col * SLAB, (row + 1) * SLAB);
+  fill(ctx, view, col, row, "#57534e", 0);
+  const top = project(view, col * SLAB, row * SLAB);
   ctx.fillStyle = bank.alarm ? "#facc15" : "#ef4444";
   ctx.beginPath();
-  ctx.arc(foot.x + SLAB / 2, foot.y - WALL_HIGH / 2, 5, 0, Math.PI * 2);
+  ctx.arc(top.x + SLAB / 2, top.y + SLAB / 2, 5, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "#0f172a";
   ctx.lineWidth = 1.5;
   ctx.stroke();
 }
 
-/** A box on a square, see-through when the player is behind it. */
-function block(
+/**
+ * One square painted flat, with a line round it.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param col - square across
+ * @param row - square down
+ * @param paint - what colour it is
+ * @param inset - how far inside its square to keep, {@link INSET} or nought
+ * @remarks
+ * What used to stand here drew a box: a top, a face towards the camera, and a
+ * rule for painting it half through while the player stood behind it. Seen
+ * straight down there is no face to draw and nothing to be behind, so all that
+ * is left is the square itself - and a room full of squares needs the line
+ * round each of them, or a wall and the counter beside it become one shape.
+ */
+function fill(
   ctx: CanvasRenderingContext2D,
   view: View,
-  bank: BankState,
   col: number,
   row: number,
-  high: number,
-  face: string,
-  top: string,
+  paint: string,
+  inset: number,
 ): void {
-  const left = col * SLAB;
-  const foot = project(view, left, (row + 1) * SLAB);
-  const back = project(view, left, row * SLAB, high);
-  ctx.globalAlpha = hides(view, bank, col, row, high) ? SEE_THROUGH : 1;
-  ctx.fillStyle = top;
-  ctx.fillRect(back.x, back.y, SLAB + 1, foot.y - high - back.y + 1);
-  ctx.fillStyle = face;
-  ctx.fillRect(foot.x, foot.y - high, SLAB + 1, high);
-  ctx.strokeStyle = "rgba(0,0,0,0.25)";
+  const at = project(view, col * SLAB + inset, row * SLAB + inset);
+  const side = SLAB - inset * 2;
+  ctx.fillStyle = paint;
+  ctx.fillRect(at.x, at.y, side + 1, side + 1);
+  ctx.strokeStyle = OUTLINE;
   ctx.lineWidth = 1;
-  ctx.strokeRect(foot.x, foot.y - high, SLAB, high);
-  ctx.globalAlpha = 1;
-}
-
-/** Whether this box would stand in front of something one has to see. */
-function hides(
-  view: View,
-  bank: BankState,
-  col: number,
-  row: number,
-  high: number,
-): boolean {
-  const mark = markOf(bank);
-  const watched: readonly Vec[] =
-    mark === null ? [bank.hero] : [bank.hero, mark];
-  return watched.some((spot) => covers(view, spot, col, row, high));
-}
-
-/** Whether the box on this square is painted over that point. */
-function covers(
-  view: View,
-  spot: Vec,
-  col: number,
-  row: number,
-  high: number,
-): boolean {
-  const foot = project(view, col * SLAB, (row + 1) * SLAB);
-  const back = project(view, col * SLAB, row * SLAB, high);
-  const at = project(view, spot.x, spot.y, PERSON_HEIGHT);
-  return (
-    spot.y < row * SLAB &&
-    at.x >= foot.x &&
-    at.x <= foot.x + SLAB &&
-    at.y >= back.y &&
-    at.y <= foot.y
-  );
+  ctx.strokeRect(at.x + 0.5, at.y + 0.5, side, side);
 }
 
 /** The ring round whatever the job in hand is. */
@@ -409,7 +438,6 @@ function drawMark(
     const spot = project(view, mark.x, mark.y);
     ctx.save();
     ctx.translate(spot.x, spot.y);
-    ctx.scale(1, DEPTH);
     ctx.strokeStyle = "#fbbf24";
     ctx.lineWidth = 2.5;
     ctx.globalAlpha = 0.85;

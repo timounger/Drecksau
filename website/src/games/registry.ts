@@ -367,25 +367,71 @@ export const GAMES: readonly GameDefinition[] = [...ENTRIES].sort(
  *
  * @remarks
  * A cap rather than a time window: a quiet month would leave the shelf empty,
- * and a busy week would put half the collection on it.
+ * and a busy week would put half the collection on it. Nothing ages off this
+ * shelf by itself - a game stays on it until three newer ones have pushed it
+ * off, which for a collection that grows a game a week is about three weeks.
+ *
+ * **Three, which is one row.** Six filled two rows on a wide screen and one
+ * and a half on a narrow one, and a shelf headed "Neu" whose second row is a
+ * month old is not answering the question it asks. One row, the newest three,
+ * and the rest of the page starts that much sooner.
  */
-const NEW_LIMIT = 6;
+const NEW_LIMIT = 3;
+
+/**
+ * How old a game may be and still be news, in days.
+ *
+ * @remarks
+ * A month, and it is measured **per game**: what is older does not go on the
+ * shelf, whatever else is up there. The shelf then empties itself once
+ * nothing has arrived for a month, which is the same rule seen from the other
+ * end - and it is the rule the line under the heading claims, which is why it
+ * is this one. A card two months old sitting under "Neu" because a newer one
+ * happened to be beside it makes that line a lie.
+ *
+ * It comes back by itself with the next game.
+ */
+export const NEW_WINDOW_DAYS = 30;
+
+/** Milliseconds in a day. */
+const DAY_MS = 86_400_000;
 
 /**
  * The games that joined the collection most recently.
  *
- * @returns the newest games, newest first
+ * @param now - the moment to measure their age against
+ * @param skip - games that are not to be counted as new, by id
+ * @returns the games added within {@link NEW_WINDOW_DAYS}, newest first,
+ *   never more than {@link NEW_LIMIT}; empty when none arrived that recently
  * @remarks
+ * **What is shown elsewhere above is not news here.** The start page hands in
+ * whatever stands on "Beliebt", and those games are left out altogether - not
+ * merely hidden, but skipped before the three are counted out, so the shelf
+ * shows the three newest games one has *not* already seen a hand's breadth
+ * higher up the page. A card twice on one screen is a card one looks at twice
+ * and wonders about.
+ *
  * Cut on whole days. Five games added on the same afternoon are equally new,
  * and taking four of them because a limit fell in the middle would put one
  * game on a shelf and its twin off it for no reason a reader could see. So a
  * day is taken whole or not at all, and the shelf may come out a little
  * shorter than the limit.
+ *
+ * **The limit still holds at the end**, whole days or not: one day carrying
+ * more games than the whole shelf is the one case where the day has to be cut
+ * after all, and a shelf of three that shows five on that morning is not a
+ * shelf of three. The ones kept are the first of that day as the register has
+ * them - arbitrary, but the same on every visit, which is what matters when
+ * the alternative is a row that changes size.
  */
-export function newGames(): readonly GameDefinition[] {
-  const byDay = [...ENTRIES].sort((left, right) =>
-    right.addedOn.localeCompare(left.addedOn),
-  );
+export function newGames(
+  now = Date.now(),
+  skip: readonly string[] = [],
+): readonly GameDefinition[] {
+  const since = now - NEW_WINDOW_DAYS * DAY_MS;
+  const byDay = [...ENTRIES]
+    .filter((game) => !skip.includes(game.id) && addedAt(game.addedOn) > since)
+    .sort((left, right) => right.addedOn.localeCompare(left.addedOn));
   const taken: GameDefinition[] = [];
   let at = 0;
   let full = false;
@@ -401,7 +447,21 @@ export function newGames(): readonly GameDefinition[] {
       full = true;
     }
   }
-  return taken;
+  return taken.slice(0, NEW_LIMIT);
+}
+
+/**
+ * The day a game was added, as a moment.
+ *
+ * @param day - the date it carries, as `YYYY-MM-DD`
+ * @returns the start of that day in UTC, in epoch milliseconds
+ * @remarks
+ * UTC, because the date is written down as a day and not as a moment: read in
+ * local time, a game added on the first would be a few hours older or younger
+ * depending on who is looking at it.
+ */
+function addedAt(day: string): number {
+  return Date.parse(`${day}T00:00:00Z`);
 }
 
 /**

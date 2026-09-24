@@ -84,7 +84,21 @@ export type View = {
   readonly width: number;
   /** Canvas height in pixels. */
   readonly height: number;
+  /**
+   * How much depth is squashed, {@link DEPTH} unless said otherwise.
+   *
+   * @remarks
+   * The tilt belongs to the camera, not to the arithmetic, which is why it sits
+   * here: the little worlds may look straight down at their floor while the
+   * city keeps leaning back. {@link FLAT} is a room seen from directly above -
+   * see ./bank-render. Whoever paints a *body* keeps tilting it themselves, so
+   * a person stays the person they are in either picture.
+   */
+  readonly squash?: number;
 };
+
+/** A picture with no tilt at all: one pixel down the screen is one north. */
+export const FLAT = 1;
 
 /** A point on the canvas. */
 export type Screen = {
@@ -147,7 +161,7 @@ export function worldAt(
 export function project(view: View, x: number, y: number, z = 0): Screen {
   return {
     x: view.width / 2 + (x - view.at.x),
-    y: view.height / 2 + (y - view.at.y) * DEPTH - z,
+    y: view.height / 2 + (y - view.at.y) * (view.squash ?? DEPTH) - z,
   };
 }
 
@@ -163,7 +177,7 @@ export function project(view: View, x: number, y: number, z = 0): Screen {
 export function unprojectFloor(view: View, sx: number, sy: number): Vec {
   return {
     x: view.at.x + sx - view.width / 2,
-    y: view.at.y + (sy - view.height / 2) / DEPTH,
+    y: view.at.y + (sy - view.height / 2) / (view.squash ?? DEPTH),
   };
 }
 

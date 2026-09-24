@@ -12974,42 +12974,74 @@ function drawWalker(
   if (player.jetpack && high > roofAt(state.cells, player.x, player.y)) {
     jetpack(ctx, view, up, player.angle, fade);
   }
-  // **Swimming: he is drawn from the waterline up**, and under the surface he
-  // is a shape seen through water. Both are the same figure - see
-  // {@link swimmer}, which sets the picture up and puts it away again.
-  const wake = afloat ? swimmer(ctx, state, view, up, fade) : null;
-  drawFigure(
-    ctx,
-    view,
-    up,
-    {
-      // A lighter green than the gang's, so that at a glance the bright one in
-      // the middle of the screen is you and the darker ones are your people -
-      // unless you have just come over a prison wall, in which case you are
-      // wearing what you came over it in.
-      shirt: dressed(player, "#f8fafc", "#dc2626", "#4ade80"),
-      trousers: dressed(player, "#eceae7", "#b91c1c", "#1e293b"),
-      skin: "#f2c9a0",
-      hair: "#1c1917",
-      // The body turns with the mouse, the legs go where the keys send them.
-      // That is what makes walking backwards away from a patrol car look like
-      // walking backwards rather than like a turn.
-      facing: player.angle,
-      heading: player.heading,
-      walked: player.walked,
-      pace: player.pace,
-      time: state.time,
-      arms: poseOf(state, player.weapon),
-      // Fists alternate, blow by blow; anything carried stays in the hand that
-      // carries it.
-      hand:
-        player.weapon === "fist" && player.punches % 2 === 1 ? "left" : "right",
-      style: dressStyle(player),
-      holds: player.weapon,
-    },
-    wake?.fade ?? fade,
-  );
-  wake?.done();
+  // **Swimming is not this figure in another pose.** Somebody in the water
+  // lies along it; the walking figure is a person seen from the crown down,
+  // and no amount of stretching makes one into the other. So the swimmer is
+  // drawn from scratch - see {@link swimStroke} - while {@link swimmer} still
+  // provides the water round him and the fade he is seen through.
+  const shown = afloat ? fade * shadeOf(state.cells, up) : fade;
+  const sunk = afloat && player.diving;
+  if (sunk) {
+    // Under water there is no figure to draw - see {@link diveShape}.
+    diveShape(ctx, view, up, player.heading, shown);
+  } else if (afloat) {
+    swimWake(ctx, view, up, state.time, shown);
+  }
+  const dressing = {
+    // A lighter green than the gang's, so that at a glance the bright one in
+    // the middle of the screen is you and the darker ones are your people -
+    // unless you have just come over a prison wall, in which case you are
+    // wearing what you came over it in.
+    shirt: dressed(player, "#f8fafc", "#dc2626", "#4ade80"),
+    trousers: dressed(player, "#eceae7", "#b91c1c", "#1e293b"),
+    skin: "#f2c9a0",
+    hair: "#1c1917",
+  };
+  if (sunk) {
+    // Nothing more: the shape above is the whole of him from up here.
+  } else if (afloat) {
+    swimStroke(
+      ctx,
+      view,
+      up,
+      {
+        ...dressing,
+        heading: player.heading,
+        walked: player.walked,
+        pace: player.pace,
+        time: state.time,
+      },
+      shown,
+    );
+  } else {
+    drawFigure(
+      ctx,
+      view,
+      up,
+      {
+        ...dressing,
+        // The body turns with the mouse, the legs go where the keys send
+        // them. That is what makes walking backwards away from a patrol car
+        // look like walking backwards rather than like a turn.
+        facing: player.angle,
+        heading: player.heading,
+        walked: player.walked,
+        pace: player.pace,
+        time: state.time,
+        arms: poseOf(state, player.weapon),
+        // Fists alternate, blow by blow; anything carried stays in the hand
+        // that carries it.
+        hand:
+          player.weapon === "fist" && player.punches % 2 === 1
+            ? "left"
+            : "right",
+        style: dressStyle(player),
+        holds: player.weapon,
+      },
+      fade,
+    );
+  }
+
   // And the flames **after** him, because they come out under his feet and
   // anything drawn there before the figure is drawn behind his legs. A flame
   // over a boot reads as a flame; a flame hidden behind one reads as nothing.
@@ -13019,106 +13051,506 @@ function drawWalker(
 }
 
 /**
- * Sets the picture up for somebody in the water.
+ * Somebody swimming, drawn from above.
  *
  * @param ctx - what to paint on
- * @param state - the city, for the clock and whether he is under
  * @param view - where the camera is
- * @param up - where the figure's feet are, in city pixels
- * @param fade - how solid he would be drawn on dry land
- * @returns the fade to draw him with, and what to call once he is drawn
+ * @param at - where he is, in city pixels
+ * @param who - which way he is going, how far he has come, and his colours
+ * @param fade - how solid to paint him
  * @remarks
- * **Two different pictures, one figure.**
+ * **A swimmer is a different shape from a walker, not a different pose.** The
+ * walking figure is a person seen from the crown down: head on top of
+ * shoulders, shoulders on top of feet. Somebody in the water lies along it,
+ * and from above that is a long shape with a head at one end, a pair of arms
+ * that take turns going over and under, and legs trailing behind in a kick.
+ * Stretching the standing sprite was tried and came out as a person standing
+ * in a hole.
  *
- * On the **surface** he is cut off at the waterline: everything below it is
- * clipped away, so what is left is head, shoulders and arms - which is all
- * anybody standing on the quay would see of a swimmer. Round him two rings of
- * wake, one wider than the other and both breathing on the clock, so that
- * treading water looks like work.
+ * So it is drawn here, five shapes in a frame turned along his heading:
  *
- * **Under** it he is not cut at all - he is all there, seen through a fathom
- * of harbour - so he is painted faint and a string of bubbles goes up from
- * him. Faint is also honest about what it buys him: a shape one can barely
- * make out is a shape the police have trouble with, which is why a round that
- * would have hit him goes over his head instead.
+ * - **The torso**, a long oval lying in the water, in the shirt he came in.
+ * - **The head** at the front, which **rolls to the side he is breathing on**
+ *   - towards whichever arm is out of the water, once a stroke, the way
+ *     anybody doing the crawl takes air.
+ * - **The two arms**, half a stroke apart. One is in **recovery**: over the
+ *   water, swung from the hip out to the side and forward past the head, and
+ *   drawn solid because it is in the air. The other is in the **pull**: under
+ *   the body from front to back, and drawn faint because it is under water.
+ *   That alternation is the whole of what a crawl looks like from above.
+ * - **The legs**, faint and trailing, beating against each other.
+ * - **The churn** at his feet, which is what one actually sees of a kick from
+ *   up here: white water that swells on every beat.
  *
- * The clip has to be put away again *after* the figure is drawn, which is why
- * this hands back a `done` rather than doing all of it itself.
+ * The clock of all of it is distance swum, not time - the same rule the walk
+ * follows, so that slowing down slows the stroke instead of moonwalking.
  */
-function swimmer(
+function swimStroke(
   ctx: CanvasRenderingContext2D,
-  state: GameState,
   view: View,
-  up: Vec,
+  at: Vec,
+  who: {
+    readonly heading: number;
+    readonly walked: number;
+    /** How fast he is going, as a share of an ordinary walk. */
+    readonly pace: number;
+    /** The clock, which is what keeps somebody afloat who is going nowhere. */
+    readonly time: number;
+    readonly shirt: string;
+    readonly trousers: string;
+    readonly skin: string;
+    readonly hair: string;
+  },
   fade: number,
-): { readonly fade: number; readonly done: () => void } {
-  const feet = project(view, up.x, up.y);
-  // **Under a bridge he swims underneath it.** The deck belongs to the floor,
-  // and everything that moves is painted over the floor - so a swimmer walked
-  // along the top of the carriageway although he was in the water (the engine
-  // knew better all along: `swimming` says yes under a bridge as well).
-  // Dimmed, he reads as what he is: somebody in the shadow below - exactly
-  // like the boat beside him, see {@link boatHull}.
-  const shade =
-    cellUnder(state.cells, up.x, up.y) === "bridge" ? UNDER_DECK : 1;
-  const shown = fade * shade;
-  // **The wake is at the waterline, not at his feet.** His feet are a good
-  // way under him in this view, and rings drawn down there read as a man
-  // standing over a puddle rather than as one in it.
-  const line = { x: feet.x, y: feet.y - WATERLINE };
-  const beat = Math.sin(state.time * WAKE_BEAT);
+): void {
+  const spot = project(view, at.x, at.y, SWIM_FLOAT);
+  // Where in the stroke he is, from nought to one. Half of it belongs to each
+  // arm, which is what puts them half a stroke apart.
+  const cycle = (((who.walked / STROKE) % 1) + 1) % 1;
+  // **Going nowhere is its own state.** The stroke is clocked by distance, and
+  // somebody holding his position covers none - so with one state he hangs in
+  // the water like a dropped coat. Below a crawl's worth of pace he treads
+  // water instead, on the clock rather than the odometer.
+  const still = who.pace < TREAD_BELOW;
   ctx.save();
-  ctx.globalAlpha = shown * WAKE_ALPHA;
+  ctx.globalAlpha = fade;
+  ctx.translate(spot.x, spot.y);
+  ctx.scale(1, DEPTH);
+  ctx.rotate(who.heading);
+  // **As big as he is on the pavement.** The walking figure comes out of a
+  // sprite sheet with its own measurements; this one is drawn by hand, and
+  // drawn to the same numbers it came out a head too small - somebody who
+  // shrinks as he wades in.
+  ctx.scale(SWIM_SIZE, SWIM_SIZE);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  if (still) {
+    treadWater(ctx, who, fade);
+    ctx.restore();
+    return;
+  }
+
+  // The churn behind his feet: three discs on their own beat, so it boils
+  // rather than blinks.
+  ctx.fillStyle = WAKE_TINT;
+  for (let blob = 0; blob < KICK_BLOBS; blob += 1) {
+    const beat = Math.abs(Math.sin((cycle + blob * KICK_APART) * Math.PI * 2));
+    ctx.globalAlpha = fade * KICK_ALPHA * (0.4 + beat * 0.6);
+    ctx.beginPath();
+    ctx.ellipse(
+      -SWIM_LONG - blob * 2.2,
+      Math.sin(cycle * Math.PI * 4 + blob) * 1.2,
+      2.6 + beat * 1.4,
+      2 + beat,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+
+  // The legs, under the surface and therefore faint, one up while the other
+  // is down.
+  ctx.globalAlpha = fade * SUNK;
+  const kick = Math.sin(cycle * Math.PI * 4) * KICK_SPLAY;
+  for (const side of [-1, 1]) {
+    ctx.strokeStyle = who.trousers;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-2.4, side * 1.5);
+    ctx.lineTo(-SWIM_LONG, side * 2.2 + side * kick);
+    ctx.stroke();
+  }
+
+  // The pulling arm: under the body, going from in front of the head to past
+  // the hip. Drawn before the torso, so it passes beneath it.
+  arm(ctx, who, pullAt(cycle), true, fade);
+
+  // The torso, and the head at the front of it.
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = who.shirt;
+  ctx.strokeStyle = FIGURE_INK;
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  ctx.ellipse(-0.6, 0, SWIM_TRUNK, 2.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // Breathing: the head turns to the side the arm is coming over.
+  const breath = Math.cos(cycle * Math.PI * 2) * BREATH_TURN;
+  ctx.fillStyle = who.hair;
+  ctx.beginPath();
+  ctx.ellipse(SWIM_TRUNK + 0.4, breath, 1.9, 1.7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // And the recovering arm, over the water and over everything else.
+  arm(ctx, who, recoveryAt(cycle), false, fade);
+  ctx.restore();
+}
+
+/**
+ * Holding one's place in the water, which is work.
+ *
+ * @param ctx - what to paint on, already turned along the swimmer
+ * @param who - his colours and the clock
+ * @param fade - how solid he is being painted
+ * @remarks
+ * **What every engine does with a swimmer who is going nowhere**: a second
+ * state beside the stroke, clocked by time instead of by distance, and blended
+ * in as the speed falls away. Here the two are switched rather than blended -
+ * at this size the swap happens in the same moment the player lets go of the
+ * key, and a crawl fading into a scull would be four frames nobody sees.
+ *
+ * What one does to stay up is a **scull**: the arms out to the sides, hands
+ * sweeping forward and back a hand's breadth under the surface, the two of
+ * them in opposite phase so the body neither turns nor drifts. Under it the
+ * legs do the same thing the other way round - the eggbeater every water polo
+ * player does - which from above is two shapes swinging past each other.
+ *
+ * The body **rides higher on each sweep**, because that is what sculling is
+ * for: the torso is drawn a touch bigger as the hands come round, which at
+ * this scale is all one can see of somebody bobbing.
+ */
+function treadWater(
+  ctx: CanvasRenderingContext2D,
+  who: {
+    readonly time: number;
+    readonly shirt: string;
+    readonly trousers: string;
+    readonly skin: string;
+    readonly hair: string;
+  },
+  fade: number,
+): void {
+  const beat = Math.sin(who.time * SCULL_BEAT);
+  const lift = 1 + Math.abs(beat) * TREAD_RIDE;
+
+  // The legs, under the surface: one forward, one back, swapping slowly.
+  ctx.globalAlpha = fade * SUNK;
+  ctx.strokeStyle = who.trousers;
+  ctx.lineWidth = 2.4;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(-1.6, side * 1.4);
+    ctx.lineTo(-4.4 + side * beat * 2.6, side * 3);
+    ctx.stroke();
+  }
+
+  // The torso, shorter than it is when he is swimming: somebody treading
+  // water is upright in it, and from above that is a rounder shape.
+  ctx.globalAlpha = fade;
+  ctx.fillStyle = who.shirt;
+  ctx.strokeStyle = FIGURE_INK;
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, TREAD_TRUNK * lift, 3 * lift, 0, 0, TURN);
+  ctx.fill();
+  ctx.stroke();
+
+  // The head, looking where he is looking.
+  ctx.fillStyle = who.hair;
+  ctx.beginPath();
+  ctx.ellipse(TREAD_TRUNK - 0.6, 0, 1.9, 1.7, 0, 0, TURN);
+  ctx.fill();
+  ctx.stroke();
+
+  // And the two arms, sweeping out and round in opposite phase. Drawn half
+  // under, because that is where a sculling hand is.
+  ctx.globalAlpha = fade * SCULL_SHOW;
+  for (const side of [-1, 1]) {
+    const sweep = beat * side;
+    ctx.strokeStyle = FIGURE_INK;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(1.2, side * 2.2);
+    ctx.quadraticCurveTo(
+      2.6 + sweep * 1.6,
+      side * 4.4,
+      1.4 + sweep * 3.2,
+      side * 5.4,
+    );
+    ctx.stroke();
+    ctx.strokeStyle = who.shirt;
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    ctx.fillStyle = who.skin;
+    ctx.beginPath();
+    ctx.ellipse(1.4 + sweep * 3.2, side * 5.4, 1.3, 1.1, 0, 0, TURN);
+    ctx.fill();
+  }
+}
+
+/**
+ * Below what pace somebody is treading water rather than swimming.
+ *
+ * @remarks
+ * A share of an ordinary walk, like every other pace in this game. Swimming
+ * comes out around 0,4 of one, so a fifth of that is comfortably below
+ * anything that counts as going somewhere and comfortably above the twitch a
+ * figure keeps when it has just stopped.
+ */
+const TREAD_BELOW = 0.08;
+
+/** How fast the sculling goes, in radians a second. */
+const SCULL_BEAT = 2.6;
+
+/** How much of itself a sculling arm shows: the hands are just under. */
+const SCULL_SHOW = 0.75;
+
+/** How much the body rides up on each sweep. */
+const TREAD_RIDE = 0.12;
+
+/** How long the torso is when he is upright in the water. */
+const TREAD_TRUNK = 3.7;
+
+/**
+ * Where one hand is, and which side it belongs to.
+ *
+ * @param cycle - where in the stroke the swimmer is, from nought to one
+ * @returns the hand in the air: its side, and how far round the swing it is
+ * @remarks
+ * The recovery takes the **first half** of each stroke on the right and the
+ * second on the left, which is what makes the two arms alternate without
+ * either of them needing a clock.
+ */
+function recoveryAt(cycle: number): {
+  readonly side: number;
+  readonly part: number;
+} {
+  const right = cycle < 0.5;
+  return { side: right ? 1 : -1, part: right ? cycle * 2 : (cycle - 0.5) * 2 };
+}
+
+/** And the other one, which is under water for exactly as long. */
+function pullAt(cycle: number): {
+  readonly side: number;
+  readonly part: number;
+} {
+  const right = cycle >= 0.5;
+  return { side: right ? 1 : -1, part: right ? (cycle - 0.5) * 2 : cycle * 2 };
+}
+
+/**
+ * One arm of the stroke.
+ *
+ * @param ctx - what to paint on, already turned along the swimmer
+ * @param who - his colours
+ * @param hand - which side this arm is and how far through its half it is
+ * @param under - true for the arm pulling under the body
+ * @param fade - how solid he is being painted
+ * @remarks
+ * Both arms travel the same way round; the difference is where. The recovery
+ * swings **wide** - out past the shoulder and forward over the head - while
+ * the pull goes **straight down the middle**, from in front of the head back
+ * past the hip, which is what a crawl does under the surface.
+ */
+function arm(
+  ctx: CanvasRenderingContext2D,
+  who: { readonly shirt: string; readonly skin: string },
+  hand: { readonly side: number; readonly part: number },
+  under: boolean,
+  fade: number,
+): void {
+  const from = { x: 1.8, y: hand.side * 2.4 };
+  // Forward at the start of the recovery, backwards by the end of the pull.
+  const reach = under ? 1 - hand.part : hand.part;
+  const to = {
+    x: -3.4 + reach * (SWIM_TRUNK + 6),
+    y: hand.side * (under ? 1.6 : 2.6 + Math.sin(hand.part * Math.PI) * 3.4),
+  };
+  ctx.globalAlpha = fade * (under ? SUNK : 1);
+  ctx.strokeStyle = FIGURE_INK;
+  ctx.lineWidth = 3.1;
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.quadraticCurveTo(
+    (from.x + to.x) / 2,
+    ((from.y + to.y) / 2) * 1.4,
+    to.x,
+    to.y,
+  );
+  ctx.stroke();
+  ctx.strokeStyle = who.shirt;
+  ctx.lineWidth = 1.9;
+  ctx.stroke();
+  ctx.fillStyle = who.skin;
+  ctx.beginPath();
+  ctx.ellipse(to.x, to.y, 1.3, 1.1, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/**
+ * How big the swimmer is drawn against the numbers he is drawn from.
+ *
+ * @remarks
+ * One knob for the whole of him - torso, head, arms, kick and the grey shape
+ * he becomes under water - because the thing being corrected is one thing:
+ * measured against the walking figure he came out noticeably smaller, and a
+ * man who shrinks when he gets his feet wet is the one thing nobody believes.
+ */
+const SWIM_SIZE = 1.3;
+
+/** How high above the water the whole of him is drawn, in city pixels. */
+const SWIM_FLOAT = 1.5;
+
+/** How long the torso is from the middle, in city pixels. */
+const SWIM_TRUNK = 4.4;
+
+/** And how far behind the middle the feet are. */
+const SWIM_LONG = 9.5;
+
+/** How much of itself anything under the surface shows. */
+const SUNK = 0.45;
+
+/**
+ * How far he swims on one stroke, in pixels.
+ *
+ * @remarks
+ * At the speed one swims here that comes out at rather less than one stroke a
+ * second, which is what a crawl looks like. Measured against the walk's stride
+ * of 34 it is half as often again, and that is the point: a swimmer who churns
+ * his arms at walking pace is somebody drowning.
+ */
+const STROKE = 56;
+
+/** How far the head turns to breathe, in city pixels. */
+const BREATH_TURN = 0.9;
+
+/** How far the legs come apart on a beat. */
+const KICK_SPLAY = 1.3;
+
+/** How many discs of churn trail behind the feet. */
+const KICK_BLOBS = 3;
+
+/** How far apart their beats are, as a share of a stroke. */
+const KICK_APART = 0.22;
+
+/** And how solid they are. */
+const KICK_ALPHA = 0.5;
+
+/** The line round the swimmer, the same ink the figures are drawn with. */
+const FIGURE_INK = "#1c1917";
+
+/**
+ * How much of itself anything in the water shows here.
+ *
+ * @param cells - the city floor
+ * @param at - where the swimmer is
+ * @returns one in the open, less under a bridge
+ * @remarks
+ * **Under a bridge he swims underneath it.** The deck belongs to the floor,
+ * and everything that moves is painted over the floor - so a swimmer would
+ * otherwise slide along the top of the carriageway although he is in the
+ * water. Dimmed, he reads as what he is: somebody in the shadow below,
+ * exactly like the boat beside him - see {@link boatHull}.
+ */
+function shadeOf(cells: readonly Cell[], at: Vec): number {
+  return cellUnder(cells, at.x, at.y) === "bridge" ? UNDER_DECK : 1;
+}
+
+/**
+ * The water a swimmer is lying in.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param at - where he is, in city pixels
+ * @param now - the clock, for the breathing of the rings
+ * @param fade - how solid to paint it
+ * @remarks
+ * Two rings round the middle of him, one wider than the other and both
+ * breathing on the clock, so that being in the water looks like work. There
+ * is no cut across the picture any more: a waterline is right for somebody
+ * standing chest deep and wrong for somebody swimming, who lies *along* the
+ * water. What says "in it" is the posture and the faintness of everything
+ * below the surface - see {@link swimStroke}.
+ */
+function swimWake(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  at: Vec,
+  now: number,
+  fade: number,
+): void {
+  const middle = project(view, at.x, at.y, SWIM_FLOAT);
+  const beat = Math.sin(now * WAKE_BEAT);
+  ctx.save();
+  ctx.globalAlpha = fade * WAKE_ALPHA;
   ctx.strokeStyle = WAKE_TINT;
   ctx.lineWidth = 1.5;
   for (const ring of [1, WAKE_SECOND]) {
     const wide = (WAKE_WIDE + beat * WAKE_SWELL) * ring;
     ctx.beginPath();
-    ctx.ellipse(line.x, line.y, wide, wide * DEPTH, 0, 0, Math.PI * 2);
+    ctx.ellipse(middle.x, middle.y, wide, wide * DEPTH, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.globalAlpha = 1;
-  if (state.player.diving) {
-    ctx.globalAlpha = 1;
-    // **The bubbles go on after him**, not before: they come up past him on
-    // their way to the surface, and anything painted before the figure is
-    // painted behind it - which is a diver with three dots hidden under him.
-    return {
-      fade: shown * DIVE_FADE,
-      done: () => {
-        // Three of them, each further up than the last and each fading as it
-        // goes: one bubble is a dot, three are a man holding his breath.
-        ctx.fillStyle = WAKE_TINT;
-        for (let one = 0; one < BUBBLES; one += 1) {
-          const climb = ((state.time * BUBBLE_RISE + one) % 1) * BUBBLE_UP;
-          ctx.globalAlpha = shown * (1 - climb / BUBBLE_UP) * BUBBLE_ALPHA;
-          ctx.beginPath();
-          ctx.arc(
-            line.x + (one - 1) * BUBBLE_APART,
-            line.y - climb,
-            BUBBLE_SIZE - one * BUBBLE_SHRINK,
-            0,
-            Math.PI * 2,
-          );
-          ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-        ctx.restore();
-      },
-    };
-  }
-  // On the surface: everything below the waterline is cut away.
-  ctx.beginPath();
-  ctx.rect(0, 0, view.width, line.y);
-  ctx.clip();
-  return { fade: shown, done: () => ctx.restore() };
+  ctx.restore();
 }
 
-/** How faint a man under water is, as a share of what he would be. */
-const DIVE_FADE = 0.4;
+/**
+ * Somebody under the surface, seen from above the water.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param at - where he is, in city pixels
+ * @param heading - which way he is going
+ * @param fade - how solid the water lets him be
+ * @remarks
+ * **One grey shape and nothing else.** From up here a diver is not a person:
+ * the water takes the colours first, then the edges, and what is left is a
+ * pale smudge the shape of a head and shoulders drifting along. Drawing the
+ * figure faintly instead - which is what this used to do - reads as somebody
+ * walking about under a sheet of glass, and the string of bubbles that went
+ * with it read as a leak.
+ *
+ * Two ellipses, the inner one a little stronger, so the shape has no edge to
+ * speak of: nothing under water does.
+ */
+function diveShape(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  at: Vec,
+  heading: number,
+  fade: number,
+): void {
+  const spot = project(view, at.x, at.y);
+  ctx.save();
+  ctx.translate(spot.x, spot.y);
+  ctx.scale(1, DEPTH);
+  ctx.rotate(heading);
+  ctx.scale(SWIM_SIZE, SWIM_SIZE);
+  ctx.fillStyle = DIVE_GREY;
+  for (const coat of DIVE_COATS) {
+    ctx.globalAlpha = fade * coat.alpha;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, DIVE_LONG * coat.size, DIVE_WIDE * coat.size, 0, 0, TURN);
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
-/** How far above his feet the water comes, in pixels. */
-const WATERLINE = 9;
+/** What is left of a man under water: the colour of water over a shape. */
+const DIVE_GREY = "#cbd5e1";
+
+/** How long that shape is, in city pixels. */
+const DIVE_LONG = 4.6;
+
+/** And how wide - a head and a pair of shoulders, no more. */
+const DIVE_WIDE = 3.4;
+
+/**
+ * The coats it is built from, outside in.
+ *
+ * @remarks
+ * The wide one is almost nothing and the small one is half there. Between
+ * them they give a shape with no edge, which is what depth does to anything
+ * one looks down at.
+ */
+const DIVE_COATS: readonly { readonly size: number; readonly alpha: number }[] =
+  [
+    { size: 1.35, alpha: 0.18 },
+    { size: 1, alpha: 0.3 },
+    { size: 0.62, alpha: 0.34 },
+  ];
 
 /** How wide the inner ring of his wake is, in pixels. */
 const WAKE_WIDE = 7;
@@ -13137,27 +13569,6 @@ const WAKE_ALPHA = 0.55;
 
 /** What water is drawn in when it is not the sea itself. */
 const WAKE_TINT = "#dbeafe";
-
-/** How many bubbles a diver sends up. */
-const BUBBLES = 3;
-
-/** How far they get before they are gone, in pixels. */
-const BUBBLE_UP = 14;
-
-/** How fast, in trips a second. */
-const BUBBLE_RISE = 0.9;
-
-/** How far apart they sit, in pixels. */
-const BUBBLE_APART = 3;
-
-/** How big the first one is. */
-const BUBBLE_SIZE = 2.2;
-
-/** And how much smaller each one after it. */
-const BUBBLE_SHRINK = 0.5;
-
-/** How solid they are. */
-const BUBBLE_ALPHA = 0.7;
 
 /**
  * One boat, from above: hull, wheelhouse and wake.

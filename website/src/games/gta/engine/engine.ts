@@ -60,6 +60,9 @@ import {
   ACK_REPAIR,
   ACK_SIZE,
   ACK_SPEED,
+  AIR_BACK,
+  AIR_HOLD,
+  DROWN_HURT,
   CYCLE_CAP,
   FOOT_TURN,
   GRIP_BRAKE,
@@ -1677,9 +1680,16 @@ const PLANE_COAST = 0.3;
  * over it at a hundred pixels and every gun in range opens up at once. That is
  * what makes the helicopter worth taking off the base rather than flying over
  * it, and what the jetpack does not get one past.
+ *
+ * **And only at somebody they are after.** Being in the air is not a crime:
+ * crossing the desert with the jetpack on, or flying the rescue helicopter
+ * home, used to be enough to have a battery open up - which reads as the army
+ * shooting at the traffic. A star is what tells them apart, and a star is what
+ * they now wait for; without one they sit there being scenery.
  */
 function runAck(state: GameState): GameState {
   const up = state.player.height >= ACK_FLOOR;
+  const hunted = state.player.stars > 0;
   const due = state.time >= state.ackAt;
   // A wreck is cleared and a new launcher put in its place. The army has more
   // of them; what shooting one up buys is a quarter of a minute of quiet.
@@ -1689,7 +1699,7 @@ function runAck(state: GameState): GameState {
       : site,
   );
   let next: GameState = { ...state, acks: mended };
-  if (up && due) {
+  if (up && hunted && due) {
     next = { ...state, ackAt: state.time + ACK_EVERY };
     for (const site of next.acks) {
       if (site.backAt === null && far(site, state.player) < ACK_RANGE) {
@@ -2206,12 +2216,25 @@ function walk(
       // **Only in water.** Holding the space bar on dry land is the jetpack's
       // business and nothing to do with this; a man cannot dive into a road.
       diving: under,
+      // And how much air that leaves him - see {@link AIR_HOLD}.
+      air: under
+        ? Math.max(0, state.player.air - dt)
+        : Math.min(AIR_HOLD, state.player.air + AIR_BACK * dt),
       // And whether he is in the water at all - see {@link stillWet}.
       swimming: stillWet(state.cells, moved, state.player.swimming),
     },
   };
+  // **And what it costs to stay down.** The moment the air runs out is worth
+  // one line in the log; after that it is health, quietly, for as long as he
+  // is under. Saying it every frame would be a log of nothing else.
+  const drowning = under && walked.player.air <= 0;
+  const winded =
+    drowning && state.player.air > 0
+      ? { ...walked, log: note(walked.log, "Die Luft geht aus.") }
+      : walked;
+  const sunk = drowning ? hurt(winded, DROWN_HURT * dt, null) : winded;
   const speed = dt === 0 ? 0 : went / dt;
-  return runOver(shovePeople(walked, speed), speed);
+  return runOver(shovePeople(sunk, speed), speed);
 }
 
 /**
@@ -7395,8 +7418,17 @@ function sprint(god: boolean, boost: boolean, wheels: boolean): number {
  */
 function fly(state: GameState, input: Input, dt: number): GameState {
   const player = state.player;
+  // **In the water the space bar means dive, and nothing else.** The jetpack
+  // is on the same key, so a swimmer who pressed it took off out of the sea
+  // instead of going under - and there is no way to ask for the other thing.
+  // Being wet wins: see `walk`, where the same press puts him below the
+  // surface.
   const lifting =
-    player.jetpack && player.car === null && !player.flying && input.lift;
+    player.jetpack &&
+    player.car === null &&
+    !player.flying &&
+    !player.swimming &&
+    input.lift;
   // **What is under him is what he lands on.** It used to be the road,
   // always - so letting go of the button over the middle of a block sank him
   // through the roof, the flat and the shop below it and stood him in the

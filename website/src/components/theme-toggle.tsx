@@ -9,38 +9,41 @@
  * to be remembered in each of them is a switch that will be missing from the
  * next page somebody adds.
  *
- * Three buttons rather than one that cycles: a single button can only say "the
- * opposite of now", which leaves the reader guessing what the third state was
- * and how to get back to it. Here all three are on screen and the current one
- * is marked, so there is nothing to remember.
+ * Two buttons rather than one that toggles: a single button can only say "the
+ * opposite of now", and one has to read the icon to work out which way round
+ * it is. Here both are on screen and the one in use is marked, so there is
+ * nothing to work out.
+ *
+ * And two rather than three. The third used to be "whatever the system says",
+ * which is what everybody gets anyway until they touch the switch - see
+ * ../lib/theme/theme-store. Nothing is stored until then, the device decides,
+ * and the first click is what ends that.
  */
 "use client";
 
 import { useSyncExternalStore, type ReactElement } from "react";
-import type { ThemePreference } from "@/lib/theme/theme-boot";
+import type { Theme } from "@/lib/theme/theme-boot";
 import {
-  serverThemePreference,
-  setThemePreference,
+  activeTheme,
+  serverActiveTheme,
+  setTheme,
   subscribeTheme,
-  themePreference,
 } from "@/lib/theme/theme-store";
 
 /** German labels of the switch. */
 const T = {
   group: "Helligkeit",
   light: "Hell",
-  system: "Wie das System",
   dark: "Dunkel",
 } as const;
 
-/** The three states, in the order they read: light, automatic, dark. */
+/** The two settings, in the order they read: light, then dark. */
 const CHOICES: readonly {
-  readonly value: ThemePreference;
+  readonly value: Theme;
   readonly label: string;
   readonly icon: ReactElement;
 }[] = [
   { value: "light", label: T.light, icon: <SunIcon /> },
-  { value: "system", label: T.system, icon: <SystemIcon /> },
   { value: "dark", label: T.dark, icon: <MoonIcon /> },
 ];
 
@@ -54,10 +57,14 @@ const CHOICES: readonly {
  * order, which takes no clicks anyway, so nothing is ever trapped behind it.
  */
 export function ThemeToggle(): ReactElement {
-  const chosen = useSyncExternalStore(
+  // Null until the browser has answered: the prerendered HTML knows neither
+  // what was chosen nor what the device prefers, and a button lit in the
+  // meantime is one lit at random. Nothing is marked for that moment, which
+  // costs no room and claims nothing.
+  const active = useSyncExternalStore(
     subscribeTheme,
-    themePreference,
-    serverThemePreference,
+    activeTheme,
+    serverActiveTheme,
   );
 
   return (
@@ -73,11 +80,11 @@ export function ThemeToggle(): ReactElement {
           type="button"
           title={choice.label}
           aria-label={choice.label}
-          aria-pressed={choice.value === chosen}
+          aria-pressed={choice.value === active}
           data-testid={`theme-${choice.value}`}
-          onClick={() => setThemePreference(choice.value)}
+          onClick={() => setTheme(choice.value)}
           className={`cursor-pointer rounded-full p-1.5 ${
-            choice.value === chosen
+            choice.value === active
               ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
               : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
           }`}
@@ -89,7 +96,7 @@ export function ThemeToggle(): ReactElement {
   );
 }
 
-/** The shared look of the three icons. */
+/** The shared look of both icons. */
 const ICON = {
   viewBox: "0 0 24 24",
   className: "h-4 w-4",
@@ -115,16 +122,6 @@ function MoonIcon(): ReactElement {
   return (
     <svg {...ICON} aria-hidden="true">
       <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
-    </svg>
-  );
-}
-
-/** A screen, for "whatever this device says". */
-function SystemIcon(): ReactElement {
-  return (
-    <svg {...ICON} aria-hidden="true">
-      <rect x="3" y="4" width="18" height="12" rx="2" />
-      <path d="M8 20h8M12 16v4" />
     </svg>
   );
 }
