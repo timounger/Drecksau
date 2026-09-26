@@ -27,6 +27,28 @@ export const GTA_TEXTS = {
   dayOn: "An",
   dayOff: "Aus",
   dayHours: "Ein ganzer Tag dauert 24 Minuten.",
+  radioLabel: "Autoradio",
+  radioHint:
+    "Steigst du in ein Auto, läuft ein Sender - beim nächsten Auto ein anderer. Mit dem Mausrad schaltest du im Auto weiter; unten rechts steht, was läuft. Die Lieder liegen in public/gta/radio/.",
+  radioOn: "An",
+  radioOff: "Aus",
+  volumeLabel: "Lautstärke",
+  volumeTitle: "Lautstärke von Radio und Geräuschen - ganz links ist stumm",
+  volumePercent: (n: number): string => `${String(n)} %`,
+  volumeMuted: "Stumm",
+  musicTitle: "Musik",
+  musicLead:
+    "Alle Lieder vom Free Music Archive, Lizenz CC BY - Titel und Künstler stehen am Dateinamen:",
+  musicSource: "Free Music Archive",
+  musicLicence: "CC BY",
+  soundTitle: "Geräusche",
+  soundLead:
+    "Von freesound.org, mit Namensnennung wie von der Lizenz verlangt:",
+  soundEdited: "bearbeitet",
+  musicNone:
+    'Noch keine Musik im Spiel. Lege Dateien nach public/gta/radio/, benannt als „Künstler - Titel.mp3".',
+  radioEmpty:
+    "Noch keine Musik gefunden: Lege MP3-Dateien in den Ordner public/gta/radio/, dann sind sie beim nächsten Bauen dabei.",
   settingsTitle: "GTA - Einstellungen",
   backToGame: "Zurück zum Spiel",
   zoomLabel: "Wie nah die Kamera steht",

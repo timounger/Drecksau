@@ -450,6 +450,8 @@ export function draw(
   height: number,
   zoom: number = ZOOM,
   day = false,
+  radio: string | null = null,
+  thumbs = false,
 ): void {
   // The city is drawn through the zoom, the corners of the screen are not: a
   // map and a row of numbers that grew with the lens would eat the picture.
@@ -479,8 +481,104 @@ export function draw(
   drawLight(ctx, state, width, height, day);
   drawMinimap(ctx, state, height);
   drawStatus(ctx, state, width, day);
+  drawRadio(ctx, radio, width, height, thumbs);
   drawActions(ctx, state, width, height);
 }
+
+/**
+ * What is on the radio, in the corner it is furthest from everything else.
+ *
+ * @param ctx - what to paint on
+ * @param song - what is playing, or null when nothing is
+ * @param width - canvas width in view pixels
+ * @param height - the same, down
+ * @remarks
+ * **Bottom right, which is the one corner this game has left.** The map is
+ * bottom left, the weapon and the money are top right, the ticker is top
+ * left. Two lines: the word, small and grey, and the song under it - the name
+ * of the file, which is the only name an mp3 in a folder has.
+ *
+ * Drawn only while something is playing, which is to say only while one is in
+ * a car: a dashboard on foot would be a dashboard on a pavement.
+ */
+function drawRadio(
+  ctx: CanvasRenderingContext2D,
+  song: string | null,
+  width: number,
+  height: number,
+  thumbs: boolean,
+): void {
+  if (song === null) {
+    return;
+  }
+  ctx.save();
+  ctx.font = "600 13px system-ui, sans-serif";
+  const shown = shortened(ctx, song, RADIO_WIDE - RADIO_PAD * 2);
+  const wide = Math.min(
+    RADIO_WIDE,
+    ctx.measureText(shown).width + RADIO_PAD * 2,
+  );
+  const left = width - wide - RADIO_EDGE;
+  // **Out of the way of a thumb.** On a phone the round buttons live in this
+  // corner, so the panel goes above them; on a keyboard it sits in the corner.
+  const top = height - RADIO_HIGH - RADIO_EDGE - (thumbs ? THUMB_ROOM : 0);
+  ctx.fillStyle = "rgba(12,10,9,0.72)";
+  ctx.fillRect(left, top, wide, RADIO_HIGH);
+  ctx.strokeStyle = "rgba(250,250,249,0.25)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(left, top, wide, RADIO_HIGH);
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(250,250,249,0.6)";
+  ctx.font = "700 10px system-ui, sans-serif";
+  ctx.fillText("RADIO", left + RADIO_PAD, top + 14);
+  ctx.fillStyle = "#fafaf9";
+  ctx.font = "600 13px system-ui, sans-serif";
+  ctx.fillText(shown, left + RADIO_PAD, top + 33);
+  ctx.restore();
+}
+
+/**
+ * A title cut to fit, with an ellipsis at the end of it.
+ *
+ * @param ctx - the canvas, for measuring
+ * @param text - the whole title
+ * @param room - how many pixels it may have
+ * @returns the title, or as much of it as fits
+ * @remarks
+ * Shortened rather than shrunk: a long song is a shorter line, not
+ * four-point type. Cut on a whole character and finished with an ellipsis,
+ * because a word that simply stops at the edge of a box reads as a bug.
+ */
+function shortened(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  room: number,
+): string {
+  if (ctx.measureText(text).width <= room) {
+    return text;
+  }
+  let cut = text;
+  while (cut.length > 1 && ctx.measureText(`${cut}…`).width > room) {
+    cut = cut.slice(0, -1);
+  }
+  return `${cut.trimEnd()}…`;
+}
+
+/** How much room the thumb buttons want in that corner, in view pixels. */
+const THUMB_ROOM = 104;
+
+/** How wide the radio box may grow, in view pixels. */
+const RADIO_WIDE = 260;
+
+/** How tall it is. */
+const RADIO_HIGH = 46;
+
+/** How far it sits from the corner. */
+const RADIO_EDGE = 14;
+
+/** And the air inside it. */
+const RADIO_PAD = 10;
 
 /**
  * What time it is in San Andreas.
@@ -5626,10 +5724,10 @@ const HOOP_CORDS = 8;
 const HOOP_TUCK = 0.5;
 
 /** What the post and the arm are made of. */
-const HOOP_STEEL = "#6b7280";
+export const HOOP_STEEL = "#6b7280";
 
 /** The line round the backboard. */
-const HOOP_EDGE = "#4b5563";
+export const HOOP_EDGE = "#4b5563";
 
 /** The square painted on it. */
 const HOOP_TARGET = "#dc2626";
@@ -6533,7 +6631,7 @@ function workshop(
 }
 
 /** What is written on the board on the workshop. */
-const SHED_NAME = "Prison Industry";
+export const SHED_NAME = "Prison Industry";
 
 /** How big, in pixels, and how small it may shrink to fit the board. */
 const SHED_TEXT = 8;
@@ -6581,13 +6679,13 @@ const WORKS_GLASS = "#20303f";
 const WORKS_FRAME = "#7a736a";
 
 /** What the board is painted. */
-const BOARD_BACK = "#0f172a";
+export const BOARD_BACK = "#0f172a";
 
 /** The line round it. */
-const BOARD_EDGE = "#64748b";
+export const BOARD_EDGE = "#64748b";
 
 /** And the name on it. */
-const BOARD_INK = "#f8fafc";
+export const BOARD_INK = "#f8fafc";
 
 /** How far in from the corner of the roof the chimney stands, in squares. */
 const STACK_IN = 0.3;
@@ -6632,19 +6730,19 @@ const STACK_GREY = "#d6d3d1";
 const HUT_RISE = 0.82;
 
 /** The grass of the yard. */
-const YARD_GRASS = "#4a6b23";
+export const YARD_GRASS = "#4a6b23";
 
 /** The bare earth under the baskets, where it has been walked through. */
-const WORN_EARTH = "#6e5a3c";
+export const WORN_EARTH = "#6e5a3c";
 
 /** And the same with nothing left of it, for the edge of the patch. */
-const WORN_GONE = "rgba(110,90,60,0)";
+export const WORN_GONE = "rgba(110,90,60,0)";
 
 /** How far the bare ground reaches, as a share of the width of the court. */
-const WORN_WIDE = 0.42;
+export const WORN_WIDE = 0.42;
 
 /** How much of that is bare through before it starts to fade. */
-const WORN_SOLID = 0.45;
+export const WORN_SOLID = 0.45;
 
 /** How far in from the end line its middle sits, as a share of the court. */
 const WORN_IN = 0.1;
@@ -6680,10 +6778,10 @@ const CELL_SILL = 0.76;
 const CELL_TALL = 0.4;
 
 /** The lines painted on it. */
-const COURT_PAINT = "#e8e6df";
+export const COURT_PAINT = "#e8e6df";
 
 /** A backboard. */
-const COURT_BOARD = "#d6d3cc";
+export const COURT_BOARD = "#d6d3cc";
 
 /** And the hoop under it. */
 const COURT_HOOP = "#ea580c";
@@ -6709,13 +6807,13 @@ const COURT_TOP = 0.09;
 const COURT_LOW = 0.87;
 
 /** How wide the centre circle is, as a share of the court's width. */
-const COURT_RING = 0.19;
+export const COURT_RING = 0.19;
 
 /** How wide the key is, the same way. */
-const COURT_KEY = 0.52;
+export const COURT_KEY = 0.52;
 
 /** And how far into the court it reaches, as a share of its depth. */
-const COURT_DEEP = 0.15;
+export const COURT_DEEP = 0.15;
 
 /** How wide a backboard is, as a share of the court. */
 const COURT_POST = 0.3;
@@ -6742,7 +6840,7 @@ const BENCH_WIDE = 7;
 const BENCH_SLATS = 3;
 
 /** What it is made of. */
-const BENCH_WOOD = "#9a7b52";
+export const BENCH_WOOD = "#9a7b52";
 
 /** The line between two slats. */
 const BENCH_SEAM = "#6b5535";
@@ -6766,16 +6864,16 @@ const WALK_IN = 0.16;
 const WALK_OUT = 0.22;
 
 /** What a convict wears. */
-const CONVICT_SHIRT = "#f8fafc";
+export const CONVICT_SHIRT = "#f8fafc";
 
 /** The trousers of it. */
-const CONVICT_TROUSERS = "#eceae7";
+export const CONVICT_TROUSERS = "#eceae7";
 
 /** What colour the men in the yard are. */
-const CONVICT_SKIN = "#f2c9a0";
+export const CONVICT_SKIN = "#f2c9a0";
 
 /** And their hair. */
-const CONVICT_HAIR = "#1c1917";
+export const CONVICT_HAIR = "#1c1917";
 
 /**
  * One block: one house, a pair, a row of them, or a place with a name.
@@ -10538,6 +10636,19 @@ function drawCar(
   // The picture from above, which for a tank depends on that too: its tracks
   // are on the roof of it, not on its walls.
   const sheet = vehicleSprite(car.body, paint, police, car.driven, spin);
+  // **A rider is a storey, not bodywork.** The plan view goes down twice, once
+  // at the belt line and once at cabin height, and on anything with a roof the
+  // upper stamp hides the lower one. A man does not hide anything - one sees
+  // between his arms - so a two-wheeler came out with two helmets on it, one
+  // behind the other. The machine is stamped without him and he is stamped
+  // without the machine: see SpritePart in ./vehicle-art.
+  const twoUp = twoWheeled(car.body);
+  const lower = twoUp
+    ? vehicleSprite(car.body, paint, police, car.driven, spin, "machine")
+    : sheet;
+  const upper = twoUp
+    ? vehicleSprite(car.body, paint, police, car.driven, spin, "rider")
+    : sheet;
   // **Leaning into the corner.** Only a two-wheeler does it, and it is done by
   // shifting the machine and its rider sideways over the wheels rather than by
   // turning anything: this view has no way to tip a picture over, but a rider
@@ -10624,7 +10735,7 @@ function drawCar(
   );
   stampTop(ctx, view, low, tiers.belt, {
     part: "body",
-    sheet,
+    sheet: lower,
     cabin: null,
     fade,
     soot,
@@ -10693,7 +10804,11 @@ function drawCar(
         // windscreen and the door glass, and a Golf has no such thing -
         // the glass runs round the corner in one piece.
         paint: PILLAR,
-        single: car.body === "cycle",
+        // **A rider has one side, not two.** The far flank of a cabin is
+        // hidden behind the near one on anything with a roof; on a
+        // two-wheeler the two are five pixels apart and both show, which
+        // draws the man twice. Only the side facing the camera.
+        single: twoWheeled(car.body),
         // The top of this wall is where the roof is: fully over, and drawn in.
         lean: placed(leaning(drawn, tiers), over, car.angle),
       },
@@ -10712,7 +10827,7 @@ function drawCar(
     );
     stampTop(ctx, view, over, tiers.tall, {
       part: "all",
-      sheet,
+      sheet: upper,
       cabin: tiers,
       fade,
       soot,
@@ -11832,13 +11947,18 @@ const LEAN_FOOT = 0.32;
  * How much narrower a two-wheeler is drawn at full lean, as a share.
  *
  * @remarks
- * A third of its width gone. Seen from above a machine on its side shows its
+ * A fifth of its width gone. Seen from above a machine on its side shows its
  * flank rather than its saddle, and while this view cannot actually turn one
  * over, it can draw the top of it narrower - which, with the rider carried out
  * to the side at the same time, is what somebody hanging off a bike in a
  * corner looks like from a helicopter.
+ *
+ * It was a third, and a third is too much for what this actually narrows: the
+ * top storey of a two-wheeler is the **rider**, and a rider is five pixels
+ * across to begin with. Squeezed by a third in every corner he stopped being
+ * a man and became a smudge going round the bend.
  */
-const LEAN_NARROW = 0.34;
+const LEAN_NARROW = 0.22;
 
 /** How far a headlamp's glow reaches, in screen pixels. */
 const HEAD_GLOW = 4;
@@ -11979,14 +12099,24 @@ function onDuty(body: VehicleBody): boolean {
 }
 
 /**
- * The two colours an ordinary motorbike comes in.
+ * The colours an ordinary motorbike comes in.
  *
  * @remarks
- * Green or black, and nothing else. It is the same machine as the patrol bike
- * under the stripes, so it needs a paint that could not be mistaken for the
- * livery - and two dark colours do that better than a boxful of bright ones.
+ * It is the same machine as the patrol bike under the stripes, so none of
+ * these may be mistaken for the livery: no silver, no blue, no yellow.
+ *
+ * It used to be **two dark ones and nothing else**, green and black, and that
+ * was a colour scheme for a machine one looks at on its own. In the street a
+ * black motorbike is a black machine under a rider in black leathers on grey
+ * tarmac - a smudge with a headlight on the front. So the dark two keep their
+ * place and two that carry at a distance stand beside them.
  */
-const BIKE_PAINT: readonly string[] = ["#166534", "#18181b"];
+const BIKE_PAINT: readonly string[] = [
+  "#166534",
+  "#18181b",
+  "#b91c1c",
+  "#c2410c",
+];
 
 /**
  * The one colour a Cybertruck comes in.
@@ -12602,7 +12732,7 @@ function drawPerson(
  * and everybody else on the street - a figure standing up is three sprites at
  * three heights, a figure lying down is one, flat.
  */
-function lyingDown(
+export function lyingDown(
   ctx: CanvasRenderingContext2D,
   view: View,
   at: Vec & { readonly heading?: number; readonly angle?: number },
@@ -14706,7 +14836,7 @@ const SMOKE_SIZE = 1.25;
  * long have I got": a tracer is already past, a rocket can be stepped out of,
  * a grenade on the ground is a decision.
  */
-function drawShot(
+export function drawShot(
   ctx: CanvasRenderingContext2D,
   shot: Bullet,
   view: View,
@@ -15003,8 +15133,13 @@ function drawMinimap(
  * my hand, how much of me is left, and can I afford the spray shop. The weapon
  * is drawn rather than named twice - the same little picture that lies in the
  * street, so what you walked over is what you now hold.
+ *
+ * **The little worlds get it too.** Inside the bank what is in one's hand is
+ * the difference between a deposit box that opens in a second and one that
+ * does not open at all, so the panel one steers by out there is the panel one
+ * needs in there - see ./bank-render.
  */
-function drawStatus(
+export function drawStatus(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   width: number,

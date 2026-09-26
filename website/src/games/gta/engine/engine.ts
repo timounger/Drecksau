@@ -307,11 +307,17 @@ import {
  * @returns the city a moment later
  */
 export function step(state: GameState, input: Input, dt: number): GameState {
-  let next = state;
+  // **The cheat is switched on before the phase is asked.** It is a button on
+  // the page, not a thing one does in the street, and a button that stops
+  // working the moment one walks through a door is a button that looks
+  // broken. What it means inside each of the little worlds is their own
+  // business - see doHoldUp, doTime and doJob - but the flag itself is set
+  // here, once, for all of them.
+  let next = godMode(state, input);
   if (state.phase === "playing") {
-    const time = state.time + Math.min(dt, MAX_STEP);
+    const time = next.time + Math.min(dt, MAX_STEP);
     const slice = Math.min(dt, MAX_STEP);
-    next = godMode({ ...state, time }, input);
+    next = { ...next, time };
     next = fly(next, input, slice);
     next = flyChopper(next, input, slice);
     next = drivePlayer(next, input, slice);
@@ -347,12 +353,15 @@ export function step(state: GameState, input: Input, dt: number): GameState {
     next = checkGarage(next);
     next = serveCounter(next, input);
     next = checkEnd(next);
-  } else if (state.phase === "prison" && state.prison !== null) {
-    next = doTime(state, state.prison, input, dt);
-  } else if (state.phase === "mint" && state.mint !== null) {
-    next = doJob(state, state.mint, input, dt);
-  } else if (state.phase === "bank" && state.bank !== null) {
-    next = doHoldUp(state, state.bank, input, dt);
+  } else if (next.phase === "prison" && next.prison !== null) {
+    // **On the state the cheat has already been applied to**, or the button
+    // would do nothing in any of the three little worlds: godMode sets the
+    // flag, and what reads it is inside these three.
+    next = doTime(next, next.prison, input, dt);
+  } else if (next.phase === "mint" && next.mint !== null) {
+    next = doJob(next, next.mint, input, dt);
+  } else if (next.phase === "bank" && next.bank !== null) {
+    next = doHoldUp(next, next.bank, input, dt);
   }
   return next;
 }
@@ -381,7 +390,17 @@ function doTime(
       next = onTheRun(onStreet({ ...state, prison: null, log: told }, false));
       break;
     case "back":
-      next = onStreet({ ...state, prison: null, log: told }, true);
+      // **Back to the choice, not to the street.** Being dragged back to the
+      // cell for the third time is the end of *this* attempt, not of one's
+      // chances: the same two doors are open again - try it again, or sit the
+      // sentence out and pay. A jailbreak one may only attempt once is a
+      // jailbreak one reloads a saved game for.
+      next = {
+        ...state,
+        phase: "busted",
+        prison: null,
+        log: note(told, "Zurück in die Zelle. Noch mal - oder absitzen."),
+      };
       break;
     default:
       next = { ...state, prison: turn.prison, log: told };
@@ -393,25 +412,37 @@ function doTime(
  * In through the door of the bank, with the gun out.
  *
  * @remarks
- * A weapon is the whole of the entry fee, as it always was: with bare fists a
- * cashier presses the button and goes on with his day. What is different is
- * where the robbery happens - not at a counter on the pavement any more, but
- * in the room, with the people who work there.
+ * A weapon is the entry fee, as it always was: with bare fists a cashier
+ * presses the button and goes on with his day.
+ *
+ * And **a clean sheet**. Walking into a bank with the police already looking
+ * for one is not a robbery, it is a hiding place with one door - the whole
+ * job is played against a silent alarm nobody has pressed yet, and there is
+ * nothing to play for when the cars are already out. Lose them first.
  */
 function goIntoBank(state: GameState): GameState {
   const armed =
     state.player.weapon !== "fist" &&
     carried(state.player.ammo, state.player.weapon);
+  const clean = state.player.stars === 0;
+  const opened = enterBank(state.time, state.rng);
+  if (armed && !clean) {
+    return {
+      ...state,
+      log: note(state.log, "Nicht mit Sternen. Erst die Polizei abschütteln."),
+    };
+  }
   return !armed
     ? state
     : {
         ...state,
         phase: "bank",
-        bank: enterBank(state.time),
+        bank: opened.bank,
+        rng: opened.rng,
         player: { ...state.player, car: null, hooded: true },
         log: note(
           state.log,
-          "Sturmhaube auf. Alle auf den Boden - und keiner an den Knopf.",
+          "Sturmhaube auf. Die Frau am Knopf zuerst - Maus auf sie.",
         ),
       };
 }
@@ -430,26 +461,36 @@ function doHoldUp(
   input: Input,
   dt: number,
 ): GameState {
-  const turn = advanceBank(bank, input, dt);
-  const told = turn.lines.reduce((log, line) => note(log, line), state.log);
+  // **The weapon wheel works in here too.** What opens a deposit box is
+  // whatever is in one's hands, so being unable to change hands would make the
+  // vault a question of what one happened to walk in with.
+  const armed = switchWeapon(state, input);
+  const turn = advanceBank(bank, input, dt, armed.player.weapon);
+  const told = turn.lines.reduce((log, line) => note(log, line), armed.log);
+  // **The cheat holds the clock as well as the health bar.** In here the thing
+  // that kills one is not a bullet but the silent alarm, so that is what it
+  // has to switch off: nobody presses anything and nobody is on their way.
+  const calm = armed.player.god
+    ? { ...turn.bank, alarm: false, raidAt: null }
+    : turn.bank;
   let next: GameState;
   switch (turn.done) {
     case "out":
       next = outOfBank(
-        { ...state, log: told },
-        Math.round(turn.bank.taken),
-        turn.bank.alarm,
+        { ...armed, log: told },
+        Math.round(calm.taken),
+        calm.alarm,
       );
       break;
     case "caught":
       next = busted({
-        ...state,
+        ...armed,
         bank: null,
         log: note(told, "Zu lange gebraucht. Sie stehen in der Tür."),
       });
       break;
     default:
-      next = { ...state, bank: turn.bank, log: told };
+      next = { ...armed, bank: calm, log: told };
   }
   return next;
 }
@@ -509,25 +550,39 @@ function doJob(
   input: Input,
   dt: number,
 ): GameState {
-  const turn = advanceMint(mint, input, dt);
-  const told = turn.lines.reduce((log, line) => note(log, line), state.log);
+  // **The weapon wheel works in here too.** A tank at the door is answered
+  // with a rocket and a hostage with a pistol, and being unable to change
+  // hands would make both of those a question of what one walked in with.
+  const armed = switchWeapon(state, input);
+  const turn = advanceMint(mint, input, dt, armed.player.weapon);
+  const told = turn.lines.reduce((log, line) => note(log, line), armed.log);
+  // **And in here the clock is the three doors.** With the cheat on, nothing
+  // they do to them counts: the pushes go back to nought every frame, so the
+  // job can be looked at for as long as one likes.
+  const calm = armed.player.god
+    ? {
+        ...turn.mint,
+        gates: turn.mint.gates.map((gate) => ({
+          ...gate,
+          push: 0,
+          busy: false,
+        })),
+      }
+    : turn.mint;
   let next: GameState;
   switch (turn.done) {
     case "out":
-      next = upTheTunnel(
-        { ...state, log: told },
-        Math.round(turn.mint.printed),
-      );
+      next = upTheTunnel({ ...armed, log: told }, Math.round(calm.printed));
       break;
     case "stormed":
       next = busted({
-        ...state,
+        ...armed,
         mint: null,
         log: note(told, "Sie sind drin. Hände hinter den Kopf."),
       });
       break;
     default:
-      next = { ...state, mint: turn.mint, log: told };
+      next = { ...armed, mint: calm, log: told };
   }
   return next;
 }
@@ -3570,10 +3625,7 @@ function hurtPerson(state: GameState, id: number, amount: number): GameState {
     (person) =>
       person.id === id && person.mood !== "down" && person.health - amount <= 0,
   );
-  const armed =
-    dying === undefined ? state : dropArms(state, dying, dying.holds);
-  const after =
-    dying === undefined ? armed : dropCash(armed, dying, PURSE[dying.kind]);
+  const after = dying === undefined ? state : spillFrom(state, dying);
   return {
     ...after,
     people: after.people.map((person) => {
@@ -3594,6 +3646,23 @@ function hurtPerson(state: GameState, id: number, amount: number): GameState {
       return after;
     }),
   };
+}
+
+/**
+ * Everything a man leaves on the pavement: what was in his hand and what was
+ * in his pocket.
+ *
+ * @param state - the city
+ * @param dead - the man who has just gone down
+ * @returns the city with his things lying where he fell
+ * @remarks
+ * **One door for every death.** Shot, blown up or run over is the same end
+ * for the man on the ground, so it has to be the same handful of things
+ * afterwards - a city where the bus leaves nothing behind and the pistol does
+ * is a city that pays for the weapon one happens to be holding.
+ */
+function spillFrom(state: GameState, dead: Person): GameState {
+  return dropCash(dropArms(state, dead, dead.holds), dead, PURSE[dead.kind]);
 }
 
 /**
@@ -3780,6 +3849,24 @@ function fadeBlasts(state: GameState): GameState {
 function hurt(state: GameState, amount: number, why: string | null): GameState {
   if (state.player.god || amount <= 0) {
     return state;
+  }
+  // **Behind the wheel it is the car that takes it.** A man sitting in a car
+  // is not standing in the street: bullets, fire, a lamp post and the train
+  // all meet bodywork first, and bodywork is what this game already counts.
+  // The protection lasts exactly as long as the car does - once the bodywork
+  // is gone, whatever is still coming through goes through to him, because
+  // being unkillable inside a burning wreck is not protection, it is a bug.
+  const shell = state.player.car;
+  const behind =
+    shell === null
+      ? undefined
+      : state.cars.find((car) => car.id === shell && car.health > 0);
+  if (behind !== undefined) {
+    return damageCar(
+      why === null ? state : { ...state, log: note(state.log, why) },
+      behind.id,
+      amount,
+    );
   }
   const onVest = Math.min(state.player.armour, amount);
   const onSelf = amount - onVest;
@@ -6356,7 +6443,7 @@ function atSea(state: GameState): boolean {
 }
 
 /** Whether this body is a police machine whoever is at the wheel of it. */
-function isPatrol(body: VehicleBody): boolean {
+export function isPatrol(body: VehicleBody): boolean {
   return body === "patrol" || body === "patrolbike" || body === "patrolboat";
 }
 
@@ -6611,11 +6698,23 @@ function inCar(state: GameState, car: Car): GameState {
   );
   if (runOver.length > 0) {
     const ids = new Set(runOver.map((person) => person.id));
+    // **The bonnet kills like the pistol does**, so it has to leave the same
+    // things on the road: his weapon out of his hand and his money out of his
+    // pocket, exactly as {@link hurtPerson} does it.
+    for (const person of runOver) {
+      next = spillFrom(next, person);
+    }
     next = {
       ...next,
       people: next.people.map((person) =>
         ids.has(person.id)
-          ? { ...person, mood: "down", stillUntil: state.time + BODY_SECONDS }
+          ? {
+              ...person,
+              mood: "down",
+              stillUntil: state.time + BODY_SECONDS,
+              // It is on the tarmac now, not in his hand.
+              holds: null,
+            }
           : person,
       ),
     };

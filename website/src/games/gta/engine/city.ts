@@ -3059,7 +3059,15 @@ export function buildingAt(blockX: number, blockY: number): Building {
   const filled = posted
     ? undefined
     : ONE_EACH.find((kind) => isTheLocalOne(kind, at.x, at.y));
-  return BUILDINGS[posted ? "police" : (filled ?? (spare ? "house" : drawn))];
+  // **And the one-of-a-kind sorts, which may stand on a block the dice drew
+  // plain.** Asked before the quarter's own fallbacks, and kept out of their
+  // way in {@link theOneIn}, so that a quarter never loses its hospital to it.
+  const only = posted
+    ? undefined
+    : ONE_ONLY.find((kind) => isTheOne(kind, at.x, at.y));
+  return BUILDINGS[
+    posted ? "police" : (only ?? filled ?? (spare ? "house" : drawn))
+  ];
 }
 
 /**
@@ -3449,7 +3457,10 @@ function theOneIn(kind: BuildingKind, district: District): Vec | null {
       ? []
       : ONE_EACH.slice(0, wanted).map((one) => theOneIn(one, district));
   const filled =
-    best ?? (wanted < 0 ? null : plainestIn(district, [posted, ...already]));
+    best ??
+    (wanted < 0
+      ? null
+      : plainestIn(district, [posted, theOne("mint"), ...already]));
   QUARTER_BLOCKS.set(key, filled);
   return filled;
 }
@@ -3915,8 +3926,9 @@ function isTheOne(kind: BuildingKind, blockX: number, blockY: number): boolean {
  * @param kind - one of {@link ONE_ONLY}
  * @returns the block, or null if the plan drew none at all
  * @remarks
- * Nearest the middle rather than first in reading order, so that the one bank
- * in the city is somewhere one passes anyway - and only where there is anything
+ * Nearest a wanted spot rather than first in reading order, so that the one
+ * bank in the city is somewhere one passes anyway - and the printing works is
+ * up in the north end, where going to it is a drive - and only where there is anything
  * built at all: the plan draws blocks for the parks and the beach as well, and
  * a sign over a door needs a door under it. Worked out once and remembered; it
  * is the same city every time, and the map asks on every frame.
@@ -3928,11 +3940,19 @@ function theOne(kind: BuildingKind): Vec | null {
   }
   const blocks = CITY_TILES / BLOCK_TILES;
   const middle = blocks / 2;
+  // **The works stand up in the north end of town**, not in the middle with
+  // the bank. Two landmarks on the same few blocks are one landmark: the
+  // whole reason for having exactly one of each is that going to it is a
+  // journey, and a journey has to lead somewhere one would not otherwise be.
+  const want =
+    kind === "mint"
+      ? { x: middle, y: middle * NORTH_END }
+      : { x: middle, y: middle };
   let best: Vec | null = null;
   let bestAway = Number.POSITIVE_INFINITY;
   for (let blockY = 0; blockY < blocks; blockY += 1) {
     for (let blockX = 0; blockX < blocks; blockX += 1) {
-      const away = Math.hypot(blockX - middle, blockY - middle);
+      const away = Math.hypot(blockX - want.x, blockY - want.y);
       if (
         rawKindAt(blockX, blockY) === kind &&
         builtBlock(blockX, blockY) &&
@@ -3943,9 +3963,68 @@ function theOne(kind: BuildingKind): Vec | null {
       }
     }
   }
-  ONLY_BLOCKS.set(kind, best);
-  return best;
+  // **And a city whose dice never rolled one still gets one**, the same way a
+  // quarter without a police station gets one: the plainest built block
+  // nearest where it belongs. This is not a nicety - with seventy-odd built
+  // blocks and two dozen sorts, the printing works simply was not in Los
+  // Santos, and the biggest job in the game had no door to knock on.
+  //
+  // Never the block the bank is on, and never one the prison stands over.
+  const filled =
+    best ??
+    (NEEDED.includes(kind) ? plainestNear(want, [theOne("bank")]) : null);
+  ONLY_BLOCKS.set(kind, filled);
+  return filled;
 }
+
+/**
+ * The sorts that are built even where the plan drew none.
+ *
+ * @remarks
+ * The bank is not one of them: a city that rolled no bank would be odd, and
+ * if it ever happens the answer is the same fallback. The works are, because
+ * the whole of the biggest job in the game hangs off one door.
+ */
+const NEEDED: readonly BuildingKind[] = ["mint"];
+
+/**
+ * The plainest built block nearest a wanted spot.
+ *
+ * @param want - where it ought to stand, in blocks
+ * @param taken - blocks already spoken for; nulls in it are ignored
+ * @returns a block of ordinary housing, or null if the city has none free
+ * @remarks
+ * **The narrow question on purpose**: did the dice say house, rather than
+ * "would this end up as housing". The wide one is {@link housing}, and that
+ * asks {@link isTheOne}, which asks this - a ring that runs the stack out.
+ */
+function plainestNear(want: Vec, taken: readonly (Vec | null)[]): Vec | null {
+  const blocks = CITY_TILES / BLOCK_TILES;
+  let plain: Vec | null = null;
+  let plainAway = Number.POSITIVE_INFINITY;
+  for (let blockY = 0; blockY < blocks; blockY += 1) {
+    for (let blockX = 0; blockX < blocks; blockX += 1) {
+      const away = Math.hypot(blockX - want.x, blockY - want.y);
+      const free = !taken.some(
+        (one) => one !== null && one.x === blockX && one.y === blockY,
+      );
+      if (
+        free &&
+        builtBlock(blockX, blockY) &&
+        !gaoled(blockX, blockY) &&
+        PLAIN_BLOCKS.includes(rawKindAt(blockX, blockY)) &&
+        away < plainAway
+      ) {
+        plain = { x: blockX, y: blockY };
+        plainAway = away;
+      }
+    }
+  }
+  return plain;
+}
+
+/** How far down the northern half the works are looked for, as a share. */
+const NORTH_END = 0.5;
 
 /** The answers to {@link theOne}, once each. */
 const ONLY_BLOCKS = new Map<BuildingKind, Vec | null>();

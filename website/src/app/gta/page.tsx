@@ -52,8 +52,41 @@ function splashes(): readonly string[] {
   }
 }
 
+/**
+ * Every song in the radio folder, as the browser would ask for it.
+ *
+ * @returns one URL per file, in name order
+ * @remarks
+ * **The same trick as the splash pictures, and for the same reason.** The
+ * folder is the station list: this page is rendered on the server, so it can
+ * look inside `public/gta/radio/` and bake the answer into the page. Dropping
+ * an mp3 in there is the whole of adding a station - no name of a file appears
+ * anywhere in the code, and nothing has to be edited to add or remove one.
+ *
+ * With {@link BASE_PATH} in front, because on GitHub Pages the site lives
+ * under `/<repo>/` and an address that starts with a slash points at nothing
+ * there.
+ */
+function stations(): readonly string[] {
+  try {
+    return readdirSync(join(process.cwd(), "public", RADIO_DIR))
+      .filter((name) => RADIO_KINDS.some((kind) => name.endsWith(kind)))
+      .sort()
+      .map((name) => `${BASE_PATH}/${RADIO_DIR}/${encodeURIComponent(name)}`);
+  } catch {
+    // No folder, no radio: the car is quiet and nothing breaks.
+    return [];
+  }
+}
+
 /** The sub-path the site is served from, empty while it runs at the root. */
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+/** Where the songs live, under `public`. */
+const RADIO_DIR = "gta/radio";
+
+/** And what counts as one. */
+const RADIO_KINDS = [".mp3", ".m4a", ".ogg", ".oga", ".opus", ".webm", ".wav"];
 
 /** Where they live, under `public`. */
 const SPLASH_DIR = "gta/splash";
@@ -69,7 +102,7 @@ const SPLASH_KINDS = [".webp", ".avif", ".jpg", ".jpeg", ".png"];
 export default function GtaPage(): ReactElement {
   return (
     <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
-      <GtaScreen splashes={splashes()} />
+      <GtaScreen splashes={splashes()} stations={stations()} />
     </main>
   );
 }

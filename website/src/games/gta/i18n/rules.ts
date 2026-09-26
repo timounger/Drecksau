@@ -19,7 +19,7 @@ export const GTA_RULES: GameRules = {
         "Die Maus ist dein Blick: Zu Fuß drehst du dich immer dorthin, wo der Zeiger steht. So kannst du rückwärts weglaufen und dabei nach vorn zielen.",
         "Linke Maustaste: schießen, dorthin, wo der Zeiger steht. Nur zu Fuß - aus dem fahrenden Auto wird nicht geschossen.",
         "Rechte Maustaste: im Panzer das Maschinengewehr neben der Kanone, solange du sie gedrückt hältst. Zu Fuß legt sie mit dem Fernzünder in der Hand eine Ladung ab.",
-        "Mausrad: Waffe wechseln. Leere Fächer werden übersprungen.",
+        "Mausrad: zu Fuß die Waffe wechseln - leere Fächer werden übersprungen. Im Auto dreht dasselbe Rad am Radio und schaltet den Sender weiter.",
         "Am Hafen liegen an drei Stegen Motorboote: einsteigen wie in ein Auto, losfahren, und an Land kommen sie nicht - Wasser ist für sie die Straße. Wer mitten auf dem Wasser aussteigt, schwimmt. Vom Hafen führt eine Meerenge quer durch die Karte bis an den Ostrand; wo Straße oder Bahn sie kreuzen, steht eine Brücke, und da fährst du mit dem Boot einfach darunter hindurch.",
         "Wasser hält dich nicht auf: Wer zu Fuß hineinläuft, schwimmt - langsamer als an Land, dafür überall hin. Die Leertaste taucht, solange du sie hältst; unter Wasser gehen Schüsse über dich hinweg. Geschossen wird im Wasser nicht, weder oben noch unten.",
         "Leertaste: zu Fuß der Jetpack, sobald du einen hast. Solange du sie hältst, steigst du; lässt du los, sinkst du auf das, was gerade unter dir ist. Über einem Haus ist das sein Dach - dort kannst du landen, herumlaufen und über die Kante wieder herunterfallen. Im Auto ist dieselbe Taste die Handbremse.",

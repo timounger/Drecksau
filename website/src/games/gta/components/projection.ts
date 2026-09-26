@@ -131,6 +131,8 @@ export function cameraFor(
  * @param height - canvas height in view pixels
  * @param sx - canvas x, in view pixels
  * @param sy - canvas y, in view pixels
+ * @param zoom - how close the camera stands
+ * @param squash - how much that camera squashes depth, {@link FLAT} indoors
  * @returns the city point under it
  */
 export function worldAt(
@@ -140,8 +142,9 @@ export function worldAt(
   sx: number,
   sy: number,
   zoom: number = ZOOM,
+  squash: number = DEPTH,
 ): Vec {
-  const view = cameraFor(at, width, height, zoom);
+  const view = { ...cameraFor(at, width, height, zoom), squash };
   return unprojectFloor(
     view,
     (sx - width / 2) / zoom + view.width / 2,

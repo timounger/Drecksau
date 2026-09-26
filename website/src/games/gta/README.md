@@ -201,29 +201,10 @@ es gibt sie nur für das, was schon im Gürtel liegt.
 
 ## Der Überfall sind drei Uhren
 
-`runHeist()` ist die ganze Bank. Drei Uhren laufen gleichzeitig, und aus ihnen
-besteht die Entscheidung:
-
-- **Das Geld** kommt als Rate, nicht als Betrag. Die Kassen sind schnell und
-  klein (`TILL_RATE`, `TILL_TOTAL`), der Tresor braucht erst `VAULT_WORK`
-  Sekunden zum Aufkriegen und schüttet danach das Mehrfache aus. Deshalb ist er
-  eine Entscheidung und keine Gewohnheit: Wer ihn mitnimmt, steht eine halbe
-  Minute länger in einem Raum, in dem die Uhr gegen ihn läuft.
-- **Der Alarm** geht nach `ALARM_DELAY` Sekunden raus und setzt die Fahndung auf
-  `HEIST_STARS`. Danach kommt alle `HEIST_STAR_EVERY` Sekunden ein Stern dazu.
-  Die Sterne werden nur nach oben genommen (`Math.max`), damit ein Überfall
-  keine laufende Verfolgung zurücksetzt.
-- **Die Tür.** Weggehen beendet den Überfall genau so wie der Knopf; beides
-  landet in `away()`. Ein Raubzug, den man nur über ein HTML-Element verlassen
-  kann, wäre im Vollbild ein Raubzug ohne Ausgang - deshalb zeichnet der
-  Renderer Beutel und Alarm zusätzlich ins Bild.
-
-**Die Beute ist kein Geld.** Sie liegt in `Player.loot` und wird erst beim
-letzten Stern in `coolDown()` aufs Konto gebucht. Das ist der ganze Sinn der
-Sache: Der Überfall ist nicht die Tat, sondern die Flucht danach. `busted()`
-zieht deshalb `loot` **und** den laufenden Griff in den Tresor ein und sagt es
-im Protokoll, `onStreet()` nimmt der Krankenhausrechnung dasselbe - Geld, das
-ohne ein Wort verschwindet, liest sich wie ein Fehler.
+**Überholt.** So lief die Bank bis zum Umbau: drei Uhren (Geduld der
+Angestellten, Streifenwagen, Tresorzeit) und vier Schubladen. Was jetzt drin
+steht, steht unter „Der Banküberfall ist ein Raum voller Menschen" - eine Uhr
+gibt es dort nur noch, wenn jemand den Knopf erwischt hat.
 
 ## Fahrzeuge sind Kisten, und Kisten haben Regeln
 
@@ -484,18 +465,21 @@ Zwei Dinge, die beim Zeichnen zählten:
   Rad; deshalb wird unterhalb der Achslinie nichts lackiert außer dem Motor
   zwischen den Rädern - und der ist kurz, denn ein Balken von Rad zu Rad macht
   aus den beiden eine einzige schwarze Masse.
-- **Drei Stufen, kein Balken.** Vorn steht die Verkleidung am höchsten, dahinter
-  fällt die Sitzbank ab, hinten sitzt der Koffer quer über dem Hinterrad. Diese
-  gestufte Linie ist das Profil eines Tourers; ein durchgehender Streifen von
-  vorn bis hinten ist das Profil eines Stoßfängers.
+- **Drei Stufen, aber aufgemalt.** Vorn die Verkleidung, dahinter die Sitzbank,
+  hinten der Koffer quer über dem Hinterrad: Das ist das Profil eines Tourers,
+  und ein durchgehender Streifen von vorn bis hinten ist das Profil eines
+  Stoßfängers. Ausgeschnitten werden darf diese Stufung allerdings nicht - die
+  Oberkante der Flanke ist die Gürtellinie, auf der die Draufsicht aufsitzt, und
+  was dort frei bleibt, ist ein Loch. Siehe „Das Motorrad hatte zwei Köpfe und
+  eine Lücke".
 
 Die Blaulichter sitzen bei ihr auf Stielen neben der Scheibe statt auf einem
 Dachbalken; sie blitzen im selben Takt wie die des Wagens.
 
 **Ein Motorrad für alle.** Das normale Motorrad ist jetzt dieselbe Maschine wie
 das Polizeimotorrad - derselbe Tourer mit Verkleidung und Koffern -, nur in
-Grün oder Schwarz statt in der Lackierung und ohne alles, was blinkt
-(`BIKE_PAINT`). Eine Form ordentlich schlägt zwei halbherzig, und eine Stadt, in
+Grün, Schwarz, Rot oder Orange statt in der Lackierung und ohne alles, was
+blinkt (`BIKE_PAINT`). Eine Form ordentlich schlägt zwei halbherzig, und eine Stadt, in
 der die Polizei ein anderes **Fabrikat** fährt als alle anderen, ist eine Stadt,
 in der jemand zwei Motorräder gezeichnet hat.
 
@@ -1166,6 +1150,161 @@ das Einzige an einem Fahrrad im Verkehr, das noch nie jemand gesehen hat. Er
 fährt jetzt `PEDAL_SHARE` davon, also gut die Hälfte: sechzig Pixel die
 Sekunde gegen hundertzehn. Das macht ihn nebenbei zum Hindernis, was der Grund
 ist, ihn überhaupt auf die Straße zu stellen.
+
+## Das Motorrad hatte zwei Köpfe und eine Lücke
+
+Drei Fehler, und alle drei sieht man erst, wenn man weiß, wie ein Fahrzeug hier
+gebaut ist: eine Draufsicht und vier Wände, die daraus aufgestellt werden.
+
+**Der Fahrer wurde zweimal gestempelt.** Die Draufsicht geht zweimal aufs Bild -
+einmal auf Gürtelhöhe für die Karosserie, einmal auf Dachhöhe für die Kabine.
+Bei einem Auto verdeckt der obere Stempel den unteren, weil ein Dach eine
+geschlossene Fläche ist. Ein Mensch ist das nicht: zwischen seinen Armen sieht
+man hindurch, und darunter saß derselbe Mann noch einmal, sieben Pixel tiefer.
+Jedes Motorrad der Stadt fuhr mit **zwei Helmen** herum, einer hinter dem
+anderen.
+
+Die Lösung ist die, die eine Engine wie Godot ohnehin nahelegt: ein Fahrzeug ist
+dort eine kleine Szene aus Sprites - Räder, Rahmen, Fahrer -, jedes ein
+vollständiges Bild für sich, nach z-Index gestapelt und absichtlich
+überlappend. Also bekommt jedes Stockwerk sein eigenes Bild (`SpritePart`): die
+**Maschine ohne Fahrer** auf Gürtelhöhe, der **Fahrer ohne Maschine** auf
+Sattelhöhe. Was auch der Wahrheit entspricht - er sitzt über dem Tank, nicht
+darin.
+
+**Die Flanke reichte oben nicht bis zur Gürtellinie.** Genau dort setzt die
+Draufsicht auf. Was die Zeichnung oben frei ließ, war ein Loch, durch das man
+die Straße sah, mit dem Dach der Maschine darüber in der Luft - ein **Spalt über
+die ganze Länge**, und das war der leere Raum. Ein gestuftes Profil (Verkleidung
+hoch, Sitzbank abgesenkt, Heck wieder hoch) ist zwar genau das, wonach ein
+Tourer von der Seite aussieht - aber es gehört **aufgemalt**, nicht
+ausgeschnitten: Der Umriss füllt die Wand bis oben, und Verkleidung, Sattel und
+Koffer sind Farbe darauf. Genauso macht es jedes Auto hier.
+
+**Und die Maße waren gegen nichts gemessen.** Höhen werden in dieser Stadt mit
+**8,6 Pixeln je Meter** gezeichnet - ein Golf ist 1,49 m und 12,6 Pixel. Das
+Motorrad stand auf 9 und 16, also 1,05 m Maschine mit einem Fahrer, dessen Kopf
+auf 1,86 m saß. Jetzt 7,4 und 13,6: Tank und Sitzbank auf 0,86 m, Helm auf
+1,58 m. Der halbe Meter zu viel steckte in der Flanke, der einen Wand, die man
+von einem Motorrad meistens sieht - und eine Wand, die so hoch und so lang ist,
+ist eine **Plakatwand**, da hilft kein Zeichnen mehr.
+
+Das Rad ist deshalb jetzt eine **Ellipse**. Ein Motorradrad ist ein Drittel der
+Fahrzeuglänge; auf einer 7,4 Pixel hohen Wand wäre das ein Rad, das höher steht
+als die Wand - und was über die Wand ragt, schneidet die Bildkante ab. Rund
+gezeichnet wurde daraus ein Traktor: zwei riesige Reifen mit einem Brett
+dazwischen. So lang gestreckt, wie die Maschine gestreckt gezeichnet ist, ist es
+an beiden Enden ein Rad.
+
+Was sonst noch neu ist:
+
+- **Zwischen den Rädern hängt etwas.** Das Loch in der Mitte war vorher Straße.
+  Vier Formen sagen, was dort wirklich ist: der Motorblock (metallfarben, nicht
+  schwarz - schwarz zwischen zwei schwarzen Reifen liest sich als ein sehr
+  breiter Reifen), die Schwinge nach hinten zur Nabe, die Gabel nach vorn, der
+  Topf unter dem Heck. Dazu das Schutzblech über dem Vorderrad, das die Lücke
+  zur Verkleidung schließt.
+- **Die Draufsicht ist ein Umriss, keine Reihe Rechtecke.** Vorher lagen Nase,
+  Rumpf und zwei Koffer nebeneinander - das ist ein Pritschenwagen mit drei
+  Kisten. Jetzt eine geschlossene Silhouette von der Spitze bis zum Heck, schmal
+  an der Verkleidung, tailliert, wo die Knie sind, breit über den Koffern; alles
+  Weitere liegt darauf.
+- **Spiegel.** Von oben sind sie das Einzige, was an einem sonst bleistiftförmigen
+  Ding seitlich heraussteht, und ohne sie ist ein Motorrad in der Draufsicht ein
+  Keil, der auch ein sehr kleines Auto sein könnte. Sie bleiben knapp innerhalb
+  der Fahrzeugbreite, sonst stempelt sie der Ring flach auf die Straße.
+- **Keine Reifen in der Draufsicht.** Die Wände zeichnen sie, auf der Straße, wo
+  sie hingehören. Das ist die Regel, der das Fahrrad längst folgt.
+- **Ein heller Helm auf dunkler Jacke.** Schwarz auf Schwarz ist, was ein Fahrer
+  wirklich trägt, und von oben ein dunkler Fleck auf einer dunklen Maschine.
+- **Vier Lackierungen statt zwei.** Grün und Schwarz bleiben, Rot und Orange
+  kommen dazu: Ein schwarzes Motorrad unter einem Fahrer in schwarzem Leder auf
+  grauem Asphalt ist ein Fleck mit Scheinwerfer. Silber, Blau und Gelb bleiben
+  der Polizei.
+
+## Der Fahrer ist ein Rig, kein Fleck
+
+Auf dem Motorrad saß ein Ellipsoid in Fahrzeugbreite mit einem Punkt darauf -
+von oben ein Sack auf einer Sitzbank. Ein Mensch wird aber nicht an seinem
+Umriss erkannt, sondern **an seinen Gelenken**, und genau so baut eine Engine
+eine Figur: Hüfte, Rumpf, Schultern, Kopf und vier Gliedmaßen, die je **einmal
+knicken**.
+
+Mehr ist es nicht. `limb()` bekommt drei Punkte - Schulter, Ellbogen, Hand -
+und zeichnet zwei rundgekappte Striche plus einen Knöchel am Ende. Ein Arm als
+gerade Linie von der Schulter zum Griff ist ein Besenstiel; derselbe Arm mit
+einem Knick darin ist ein Arm. Es gibt hier kein Rig zu lösen, nur drei Punkte
+zu setzen - und das ist, was eine Pose ist.
+
+Die Pose ist die eines Tourenfahrers, und jeder ihrer Punkte liegt dort, wo die
+Maschine es vorgibt: **Die Hände liegen auf den Griffen**, die Stiefel auf den
+Rasten, die Knie stehen dort heraus, wo der Tank ist. Deshalb sieht er aus, als
+führe er _dieses_ Motorrad, und nicht, als säße er auf einer Bank. Dazu
+Handschuhe, Stiefel, eine Hose in eigener Farbe und ein Helm mit Visier - beim
+Polizisten weiß, mit **Warnweste**, denn daran erkennt man einen Verkehrsposten
+von oben.
+
+**Das Visier ist eine Sichel, keine Linse.** Ein dunkles Oval mitten in einem
+hellen Kreis ist ein Auge, und ein Motorrad mit einem Auge darauf ist ein
+Comic. Von oben sieht man das Band des Visiers vorn um den Helm laufen - und
+damit zugleich, wohin er schaut.
+
+### Silhouette zuerst, Details danach
+
+Durch den Fahrer konnte man trotzdem noch hindurchsehen - am deutlichsten in
+der Kurve, wo zwischen Arm und Rumpf das rote Blech der Maschine durchschien.
+Das ist der Preis dafür, eine Figur aus einzelnen Gliedmaßen zu bauen: Wo zwei
+Teile schräg aneinanderstoßen, bleibt eine haarfeine Lücke, und weil der Fahrer
+über sein eigenes Motorrad gemalt wird, ist diese Lücke kein Hintergrund,
+sondern **Lack mitten im Mann**.
+
+Die Regel dagegen ist die älteste im Sprite-Handwerk, und sie steht in jedem
+Leitfaden dazu: **Silhouette zuerst, Details danach.** Das Gehirn verarbeitet
+die Außenform, bevor es irgendetwas anderes erkennt - je klarer sie ist, desto
+weniger muss der Spieler entziffern.
+
+Hier heißt das: Der Fahrer wird **zweimal** gezeichnet. Der erste Durchgang
+malt jedes Teil einen Pixel dicker und komplett in Tinte, der zweite den Mann
+darauf. Die Tintenkontur schließt die Lücken zwischen den Gliedmaßen und lässt
+eine schwarze Linie um ihn herum stehen, die ihn über jedem Untergrund
+zusammenhält - egal, ob er gerade über rotem Blech, Asphalt oder Wasser sitzt.
+Ein Pixel, nicht anderthalb: bei anderthalb liefen Arme und Rumpf ineinander
+und er wurde sein eigener Schatten.
+
+Zwei Kleinigkeiten kamen mit:
+
+- **Die untere Verkleidung.** Zwischen Motor und Vorderrad stand eine
+  handbreite Lücke offen, durch die die Straße zu sehen war. Ein Tourer hat
+  dort ein Panel, und jetzt hat es dieser auch.
+- **Weniger Schmälerung in der Schräglage** (`LEAN_NARROW`): ein Fünftel statt
+  einem Drittel. Was da schmaler gezogen wird, ist das obere Stockwerk, und das
+  obere Stockwerk ist der **Fahrer** - fünf Pixel breit. Um ein Drittel
+  gequetscht war er in jeder Kurve kein Mensch mehr, sondern ein Fleck, der um
+  die Ecke fährt.
+
+### Wie oft ein Mann gezeichnet werden darf
+
+Dabei kamen zwei alte Fehler heraus, beide aus derselben Ecke: Ein Fahrzeug ist
+hier eine Draufsicht plus vier Wände, und ein Mensch ist kein Kasten.
+
+- **Ein Fahrer hat eine Seite, keine zwei.** Von einer Kabine wird jede Wand
+  gezeichnet, auch die abgewandte - bei einem Auto verschwindet sie hinter der
+  nahen. Auf einem Motorrad liegen die beiden fünf Pixel auseinander, und damit
+  saßen zwei Männer nebeneinander. Jetzt wird wie beim Fahrrad nur die
+  kameraseitige Wand gezeichnet (`single`).
+- **Die Kabine eines Motorrads ist der Mann, nicht die Maschine.** Sie war elf
+  Pixel breit, also so breit wie das Motorrad: Seine Seitenansicht wurde damit
+  an der Flanke des _Fahrzeugs_ gezeichnet, eine halbe Maschine von dort
+  entfernt, wo er sitzt. Jetzt ist sie 5,5 Pixel breit - seine eigene Breite -,
+  und die beiden Bilder landen aufeinander.
+- **Der Kopf gehört der Draufsicht.** Sie liegt zuoberst auf dem Stapel, über
+  der Mitte der Maschine; die Wände stehen daneben. Zeichnen beide einen Helm,
+  hat der Mann zwei Köpfe, ein paar Pixel auseinander. Die Wände zeichnen
+  deshalb nur noch den Körper bis zum Kragen - das, was ihn mit dem Sattel
+  verbindet -, und der Helm kommt einmal, von oben.
+
+Der Radfahrer hat dasselbe Rig bekommen; er war vorher eine gelbe Kiste mit
+einem Kopf daneben.
 
 ## Der Transporter ist ein Kasten auf Rädern
 
@@ -2170,6 +2309,206 @@ Zug, der nichts kostet, ist einer, von dem niemand wieder hochkommt.
 Gemessen, Leertaste gehalten: bei 14 s ist die Luft weg, bei 16 s stehen 82
 Leben, bei 20 s noch 46, bei 24 s noch 10. Danach aufgetaucht: nach fünf
 Sekunden wieder volle Luft.
+
+## Der Banküberfall ist ein Raum voller Menschen
+
+Vorher war die Bank drei Uhren und vier Schubladen: hingehen, Maus halten,
+warten, raus. Jetzt ist sie ein **Szenario**, und alles daran ist eine Frage
+über die Leute darin.
+
+### Hereinkommt nur, wer sauber ist
+
+Zwei Bedingungen, und der Knopf an der Tür sagt, welche fehlt: eine **Waffe**,
+weil eine Kassiererin über eine Faust lacht - und **keine Sterne**. Mit der
+Polizei im Nacken in eine Bank zu gehen ist kein Überfall, sondern ein
+Versteck mit einer Tür: Der ganze Job wird gegen einen stillen Alarm gespielt,
+den noch niemand gedrückt hat, und wenn die Streifen ohnehin schon unterwegs
+sind, gibt es nichts mehr zu spielen. Erst abschütteln.
+
+### Wer drin ist
+
+- **Drei Damen hinter dem Tresen**, je eine an ihrem Schalter. Unter genau
+  einem der drei Schalter liegt der stille Alarm - welcher, wird ausgewürfelt,
+  und man sieht es am roten Knopf hinter der Scheibe.
+- **Der Direktor**, klein und breit, in seinem Büro rechts hinter dem Tresen.
+  Er ist der Einzige, der den Tresor aufbekommt.
+- **Bis zu drei Kunden**, zufällig, in der Halle.
+
+### Die vier Regeln
+
+1. **Die Waffe hält still, nicht die Nähe.** Wer im Fadenkreuz steht, in
+   Reichweite und in Sicht ist, hebt nach einer halben Sekunde die Hände. Die
+   Waffe reicht gut fünf Felder weit - ungefähr so weit, wie das Bild bei
+   gewöhnlichem Zoom nach vorn zeigt. Weiter darf sie nicht reichen: auf
+   jemanden zielen, den man nicht sieht, ist kein Entschluss, sondern Raten.
+2. **Die Frau am Knopf hat neun Sekunden.** Sie muss sich nur bücken. Die
+   anderen beiden müssen erst den Tresen entlanglaufen - und wer unterwegs ins
+   Visier gerät, bleibt stehen. Neun Sekunden reichen, um vorher den Tresen
+   abzulaufen; das ist der Unterschied zwischen einer Entscheidung und einem
+   Reaktionstest.
+3. **Hände oben ist nicht aus dem Spiel.** Nach einer halben Minute ohne Waffe
+   im Gesicht gehen sie wieder runter. Nur das **Seil** nimmt jemanden dauerhaft
+   heraus - oder eine Kugel. Gefesselt ist in einer halben Sekunde: Was das Seil
+   kostet, ist der Weg zum Nächsten, nicht der Knoten.
+4. **Drückt keiner, kommt keiner.** Ohne Alarm gibt es überhaupt keine Uhr; man
+   kann sich beliebig lange Zeit lassen. Mit Alarm sind es fünfundzwanzig
+   Sekunden. Genau dafür lohnt sich das Fesseln, das ja Zeit kostet: Die
+   Alternative ist kein schnellerer Überfall, sondern einer mit Countdown.
+
+### Der Tresor macht der Direktor auf, nicht der Spieler
+
+Aufmachen kann ihn nur er, und nur mit freien Händen. Bedrohen, bis die Hände
+oben sind - dann läuft er mit, wohin man geht -, und **ihn an die Tresortür
+stellen. Den Rest macht er selbst**: Er löst sich, geht zum Schloss, holt den
+Schlüssel heraus und dreht ihn, und danach legt er sich ins große Rad, bis die
+Tür aufgeht. Sechseinhalb Sekunden, davon ein gutes Drittel Schlüssel und der
+Rest Rad.
+
+Eine Taste dafür wäre falsch gewesen: Der Spieler hat den Schlüssel ja gar
+nicht. Und es ist der Teil, den man **ansehen** kann - ein Balken, der voll
+läuft, sagt, dass eine Arbeit getan wird; ein Rad, das sich dreht, sagt, _wer_
+sie tut und wie viel davon noch fehlt. Er arbeitet auch nur, solange die Waffe
+mit im Raum ist: Geht man weg, bleibt er stehen, den Schlüssel im Schloss, und
+macht weiter, wenn man zurückkommt.
+
+Deshalb lässt er sich auch **nicht fesseln, solange der Tresor zu ist**: ein
+Mann mit gebundenen Händen dreht kein Rad. Und wer ihn erschießt, kommt nie
+mehr hinein - der eine Zug in diesem Raum, den nichts zurücknimmt.
+
+### Die Schließfächer werden aufgeschossen
+
+Drinnen liegen an allen Wänden Schließfächer - **zehn Stück**, auch in der
+Wand zum Büro, aber keine in den Ecken: Ein Fach in der Ecke hat keine Seite
+zum Raum hin, man könnte es weder sehen noch treffen, und ein Fach, an das man
+nicht herankommt, ist keins.
+
+Gezeichnet sind sie **schmal in Wandrichtung** - ein Fach ist ein Briefkasten
+in einer Wand voller Briefkästen, kein Spind. Quer dazu darf die Tür ruhig
+breit sein: Das ist die Fläche, auf die man schießt.
+
+Aufgemacht werden sie mit dem, was man dabeihat, und das ist **nicht die
+Schadenstabelle**: Eine Stahltür interessiert nicht, wie weh eine Waffe einem
+Menschen tut. Das Messer ist auf Armlänge das tödlichste Ding der Stadt und
+hier das langsamste, weil ein Schloss mit einer Klinge aufhebeln eben ein
+Schloss mit einer Klinge aufhebeln ist.
+
+| Waffe                              | Zeit je Fach           |
+| ---------------------------------- | ---------------------- |
+| Faust                              | geht nicht             |
+| Schlagring                         | 9 s                    |
+| Schlagstock                        | 8 s                    |
+| Messer                             | 6 s (nur auf Armlänge) |
+| Flammenwerfer                      | 3,5 s                  |
+| Pistole                            | 2,5 s                  |
+| Maschinengewehr                    | 0,8 s                  |
+| Panzerfaust, Granate, Sprengladung | sofort                 |
+
+Die **Faust steht nicht in der Tabelle**, und das ist der Sinn der Sache: Mit
+bloßen Händen bekommt man die Fächer einer Bank nicht auf, und ein Raum, den
+man mit leeren Händen ausräumen kann, ist ein Raum ohne Entscheidung. Das
+Waffenrad funktioniert im Tresorraum, sonst wäre es eine Frage dessen, womit
+man zufällig hereingekommen ist - und die **Ecke oben rechts** ist dieselbe wie
+auf der Straße: Waffe, Munition, Leben, Geld. In einem Raum, in dem das Ding in
+der Hand entscheidet, ob ein Fach in einer Sekunde, in sechs oder gar nicht
+aufgeht, ist das die Anzeige, nach der man steuert.
+
+Was drin ist, ist ausgewürfelt - 400 € bis gut 3600 €, quadratisch verteilt,
+also meistens gewöhnlich und manchmal der Treffer. **Wie viel noch in den
+Fächern steckt, steht nirgends**: Eine Zahl, die herunterzählt, machte aus dem
+Tresorraum eine Einkaufsliste, die man abarbeitet, bis sie null zeigt. Niemand,
+der eine Bank ausräumt, weiß, was hinter der nächsten Tür liegt, und genau
+dieses Nichtwissen ist die Entscheidung, wann man aufhört.
+
+Das Geld fällt **auf den Boden**, genau wie ein Passant im Straßenbild seine
+Scheine fallen lässt, und wird genauso eingesammelt: drüberlaufen. Damit das
+auch stimmt, sind zwei Dinge nötig, die man erst merkt, wenn sie fehlen: Der
+Aufhebe-Radius ist mit **vierzehn Pixeln kleiner als ein Schritt**, und ein
+Bündel **springt vom Räuber weg**, wenn es ihm vor die Füße fallen würde - denn
+wer ein Fach aufbricht, steht direkt davor, und ohne diese beiden wanderte das
+Geld aus dem Fach in den Sack, ohne je auf dem Boden gelegen zu haben.
+
+### Und der Grund, warum man die Kunden auch fesselt
+
+Der Tresorraum hat keinen Blick in die Halle. Wer dort drinsteht, deckt
+niemanden mehr - und ein Kunde mit freien Händen geht zur nächsten gefesselten
+Angestellten und macht sie los. Die geht dann zum Knopf. Das ist der ganze
+Grund, warum man Leute fesselt, die einem nichts tun können.
+
+### Die Tasten
+
+Maus = zielen (und wer im Visier steht, hebt die Hände) · **linke Maustaste =
+schießen** - auf Menschen und auf Schließfächer · **Leertaste = fesseln** ·
+Mausrad = Waffe wechseln, mit derselben Anzeige oben rechts wie draußen ·
+Laufen wie immer. Die Tresortür braucht gar keine Taste.
+
+### Nachgemessen
+
+Mit einer absichtlich ungeschickten Sonde (läuft nur achsenweise, hält jede
+Taste vier Sekunden):
+
+- Mit zwei Sternen an der Banktür: „Nicht mit Sternen. Erst die Polizei
+  abschütteln." Ohne Sterne: drin.
+- Nichts tun: Alarm nach neun Sekunden, Uhr läuft.
+- Sofort auf die Frau am Knopf zielen: Hände oben, kein Alarm.
+- Der ganze Ablauf im kleinen Raum: **drei Damen gefesselt bei 5,3 / 8,0 /
+  11,0 Sekunden, ohne Alarm**, Direktor geholt, Tresor auf, Fächer
+  aufgeschossen und eingesammelt.
+- Direktor an die Tür gestellt und **keine einzige Taste gedrückt**: Tresor
+  nach 6,85 s offen.
+- Ein Fach mit jeder Waffe: Faust geht nicht, Messer 6,0 s, Schlagstock 8,0 s,
+  Schlagring 9,0 s, Flammenwerfer 3,5 s, Pistole 2,5 s, MG 0,8 s, Panzerfaust,
+  Granate und Sprengladung sofort - und danach lag das Bündel davor und ging
+  beim Drüberlaufen in den Sack (2716 €).
+- Direktor erschossen: „Den Tresor macht jetzt keiner mehr auf."
+- Im Tresorraum mit lauter losen Angestellten: Alarm.
+- Alle gefesselt, zwei Minuten gewartet: kein Alarm, keine Uhr.
+- Drei Kunden lose, während man im Tresor steht: drei Angestellte wieder los,
+  dann Alarm.
+
+### Was am Raum anders ist
+
+Klein: **15 × 13 Felder** gegen die 30 × 18 von früher, also halb so breit.
+Tresorraum und Direktorenbüro grenzen **direkt aneinander**, nur eine Wand
+dazwischen - der Gang, der vorher zwischen ihnen lag, war ein Gang, in dem nie
+etwas passierte. Und die Halle ist nur noch **zwei Felder tief**: Man kommt
+herein, und der Tresen ist da (nachgemessen: 0,43 Sekunden von der Tür bis an
+die Theke). Jedes Feld, das man unter einer Uhr durchqueren muss, muss sich
+verdienen.
+
+Der Boden liegt in **Streifen** statt in Quadraten - Marmor längs durch die
+Halle, Dielen quer im Büro, Estrich im Tresorraum. Und **kein Feld hat mehr
+eine Linie um sich**: Vorher war jedes Quadrat der Karte umrandet, und eine so
+gezeichnete Wand ist keine Wand, sondern eine Reihe Klötze - der ganze Raum
+liest sich dann wie das karierte Papier, auf dem er entworfen wurde. Wand,
+Theke und Boden laufen jetzt ohne Naht ineinander. Eine Linie bekommt nur noch,
+was wirklich ein **Ding im Raum** ist: ein Schreibtisch, ein Schließfach.
+
+Die Kamera ist die der Stadt - über dem Räuber, so nah, wie der Spieler sie
+eingestellt hat. Den ganzen Grundriss ins Bild zu zwingen war einen Versuch
+wert und war falsch: Dann sieht ein Raum, in dem man herumläuft, aus wie ein
+Bauplan, über dem man schwebt, und jeder darin ist so groß wie eine Münze. Man
+sieht von der Bank so viel, wie man von einer Straße sähe - den Rest durch
+Hingehen.
+
+## Wer im Auto sitzt, nimmt keinen Schaden - das Blech nimmt ihn
+
+Ein Mann in einem Auto steht nicht auf der Straße. Kugeln, Feuer, ein
+Laternenpfahl und der Zug treffen zuerst **Karosserie**, und Karosserie zählt
+dieses Spiel ohnehin.
+
+Drei der Wege dorthin fragten das schon von sich aus - Schüsse treffen den
+Wagen, Flammen greifen nur den Fußgänger an, der Zug prüft `player.car ===
+null`. Die übrigen taten es nicht: eine Explosion neben dem Auto, ein
+Rammstoß, der Schlagstock eines Polizisten am Fenster. Statt drei weitere
+Sonderfälle zu schreiben, fragt jetzt `hurt()` selbst: Sitzt er in einem Wagen,
+**der noch Blech hat**, geht der Schaden dorthin.
+
+Der Zusatz ist der wichtige Teil. Der Schutz hält genau so lange wie das Auto -
+wer in einem ausgebrannten Wrack sitzt, ist wieder ein Mensch, sonst wäre
+Unverwundbarkeit im brennenden Autowrack kein Schutz, sondern ein Fehler.
+
+Nachgemessen, Polizist mit Schlagstock am Fenster: zu Fuß 100 → 65 Leben bei
+vollem Blech; im Auto 100 Leben bei 100 → 65 Blech.
 
 ## Wachen gehören zu einem Ort, Streifen zu einem Auto
 
@@ -4019,25 +4358,212 @@ demselben Grund: ein fester Plan aus Feldern, eigene Figuren darauf, und genau
 gibt drei Antworten zurück - weiter, raus, oder sie sind drin. Die Stadt steht
 so lange still.
 
-Der Unterschied zum Knast ist, dass hier **drei Uhren gleichzeitig** laufen und
+### Sie stand gar nicht mehr in der Stadt
+
+Ein Fehler, und ein stiller: Die Druckerei war in `THE_BLOCKS` eingetragen, in
+`ONE_ONLY` als Einzelstück geführt - und **in Los Santos nirgends gebaut**. Von
+441 Blöcken sind nur 76 bebaut, und auf keinem davon hatten die Würfel `mint`
+gezeigt. `theOne("mint")` gab `null`, also wurde jede gezeichnete Druckerei zu
+einem Wohnhaus verdünnt, `doorsOf("mint")` lieferte **null Türen**, und der
+größte Bruch des Spiels hatte keine Klinke, an der man hätte ziehen können.
+
+Die Lösung ist dieselbe wie beim Polizeirevier, das jedes Viertel bekommt, ob
+gewürfelt oder nicht: `theOne()` hat jetzt einen Rückfall (`plainestNear`).
+Wo die Würfel keine gezeichnet haben, steht sie auf dem schlichtesten bebauten
+Block in der Nähe - und `buildingAt` fragt die Einzelstücke jetzt auch dann,
+wenn der Block selbst als Haus gewürfelt wurde. Der Block, den die Bank hat,
+ist dabei gesperrt, und die Viertel-Rückfälle (Krankenhaus, Feuerwehr) weichen
+ihr aus, damit ein Viertel nicht seine Klinik an sie verliert.
+
+**Und sie steht im Norden.** Die Bank sucht sich den Block nächst der
+Stadtmitte; die Druckerei nächst der Mitte der **oberen Stadthälfte**
+(`NORTH_END`). Zwei Wahrzeichen auf denselben drei Straßen sind ein
+Wahrzeichen: Der ganze Grund, von jedem genau eines zu haben, ist, dass der Weg
+dorthin eine Fahrt ist.
+
+### Flach von oben, und herein kommt man von unten
+
+Wie die Bank und der Knast: `squash: FLAT`, keine Höhen, keine Kipp-Kästen. Eine
+Werkhalle im Kippwinkel ist eine Reihe grauer Kisten, die einander den Rücken
+zudrehen - und der ganze Bruch besteht daraus, auf einen Blick zu sehen, welche
+Maschine läuft, an welcher Tür sie drücken und wo die eigenen Leute stehen. Von
+oben sind das drei Sachen in einem Bild.
+
+Dazu ist **der Grundriss umgedreht**: Die Vordertür liegt jetzt in der
+**Südwand**, man kommt von unten herein und läuft nach Norden - wie in der Bank.
+Dahinter die Eingangshalle mit den Schreibtischen, darüber die Presshalle,
+dahinter der Keller. Das ist auch die Form des Jobs: Der Weg hinaus liegt am
+anderen Ende des Gebäudes als der Weg herein, und jeder Schritt Richtung
+Tunnel ist einer weg von der Tür, an der sie drücken.
+
+**Und er ist deutlich kleiner geworden**: von 46 × 34 Feldern auf 26 × 24, das
+Gebäude selbst auf 20 × 16 - in der Größenordnung des Bankgebäudes. Vorher war
+der Weg vom Fenster zum Ladetor eine Weltreise durch eine leere Halle; jetzt
+sieht man vom Tor aus die halbe Presshalle, und drei Pressen statt fünf reichen
+dafür. Im Plan liegt **der Tresorraum hinten rechts und das Loch hinten
+links** - beide im selben Raum wie der Keller, der eine hinter einer
+Stahltür, das andere unter dem Fußboden.
+
+**Und alles hat jetzt Einzelteile.** Eine Presse ist drei Felder lang und
+besteht aus den dreien: die Papierrolle am einen Ende, die Zylinder in der
+Mitte, am anderen der Schaltkasten mit der Lampe und der Stapel, der
+herauskommt. Dazu die gelbe Bodenmarkierung um jede Maschine, Farbfässer an der
+Wand, Papierrollen, ein Gabelstapler am Ladetor, Lüftungsrohre über der Halle,
+Pfeiler und Kisten im Keller, ein Gully, und in der Eingangshalle der Name der
+Bude quer über den Boden. Was man erreichen muss, ist nach wie vor nur dreierlei
+
+- Presse, Tür, Loch -, und nichts davon steht im Weg: Die Einrichtung ist
+  Kulisse, nicht Hindernis.
+
+Der Tunnel ist kein schwarzer Streifen mehr, sondern ein Stollen mit Stempeln an
+beiden Seiten; der Schacht hat den Erdaushub ringsum, einen Spaten, solange
+gegraben wird, und eine Leiter, sobald er durch ist.
+
+### Vorübergehend: neues Spiel startet in der Druckerei
+
+`START_IN_MINT` in `engine/setup.ts` - dieselbe Werkbank wie seinerzeit für die
+Bank und den Knast, und genauso wieder herauszunehmen: den Block am Ende von
+`buildGame()` löschen und den Aufruf `straightIntoMint(...)` um das
+zurückgegebene Objekt herum entfernen. Sonst kostet jede Änderung an der Halle
+erst eine Fahrt in den Norden, vier angeheuerte Leute und eine Waffe.
+
+Der Unterschied zum Knast ist, dass hier **vier Uhren gleichzeitig** laufen und
 **jede jemand anderem gehört**:
 
-- **Die Geiseln drucken.** Nur besetzte Pressen zählen (`manned()`), und besetzt
-  heißt: jemand steht wirklich daran, nicht bloß, dass er hingeschickt wurde.
-- **Die Crew gräbt.** `digCrew()` ist das ganze Argument für das Anheuern
-  draußen: der Tunnel ist die einzige Uhr, über der niemand stehen muss, und wie
-  schnell sie läuft, hat der Spieler auf der Straße entschieden.
-- **Die Polizei drückt.** `siege()` schickt alle `WAVE_EVERY` Sekunden einen
-  Trupp an den schwächsten der drei Eingänge, und von da an ist es Arithmetik.
+- **Die Willigen drucken.** Nur besetzte Pressen zählen (`manned()`), und
+  besetzt heißt: jemand steht wirklich daran und macht auch mit.
+- **Die Unwilligen graben.** Der Tunnel ist keine Uhr mehr, die von selbst
+  läuft: Es sind Hände im Loch, und es sind genau die Hände, die an der Presse
+  nichts getaugt haben.
+- **Der Direktor läuft zum Telefon.** Die einzige Uhr im Haus, die schlechter
+  wird, während man woanders steht.
+- **Die Polizei stellt sich auf und drückt.** Erst `SETTLE_SECONDS` lang gar
+  nichts, dann alle `WAVE_EVERY` Sekunden ein Trupp an der schwächsten der
+  drei Türen - und irgendwann ein Panzer.
 
-Dass der Spieler **nur eine** dieser drei Uhren selbst bedienen kann, ist das
-Spiel. Das Gebäude ist absichtlich so groß, dass der Weg vom Fenster zum
-Ladetor fünfzehn Sekunden dauert.
+Dass der Spieler **nur eine** dieser Uhren selbst bedienen kann, ist das Spiel.
+Das Gebäude ist absichtlich so groß, dass der Weg vom Fenster zum Ladetor
+fünfzehn Sekunden dauert.
 
-**Eine Maus, drei Arbeiten.** `doWork()` entscheidet nicht über ein Menü,
-sondern über den Ort: an einer Tür stapelt die gehaltene Maus, an einem
-Angestellten nimmt sie eine Geisel, am Schacht gräbt sie. Ein Knopf pro Tätigkeit
-wäre eine Leiste, die man liest, statt eines Gebäudes, durch das man rennt.
+### Zielen statt Knopfhalten
+
+**Die Waffe ist dabei, und sie ist das Werkzeug.** Man hat drinnen dieselben
+Waffen wie draußen (dasselbe Eckfenster über `drawStatus`, dasselbe Mausrad),
+und wer ins Fadenkreuz gerät, **hebt sofort die Hände** - kein gehaltener
+Knopf, keine Sekundenanzeige. `underTheGun()` ist dieselbe Prüfung wie in der
+Bank: das Nächste am Fadenkreuz, in Reichweite, mit freier Sicht.
+
+Wer im Anschlag steht, **läuft einem hinterher** (`led`), und wo man ihn
+stehen lässt, ist die Anweisung: an einer Presse wird gedruckt, unten am
+Schacht wird gegraben. Man sagt niemandem, an welche Maschine er soll - man
+bringt ihn hin. Damit sind die beiden Hälften des Jobs zwei Wege, und dafür ist
+das Haus gebaut.
+
+**Man sieht, was man in der Hand hat, und man sieht den Schuss.** Beides fehlte:
+Die Figur trug nichts, und ein Treffer war ein Umfallen ohne Ursache - beim
+Panzer sah es aus, als wäre er von selbst ausgegangen. Jetzt trägt jede Figur
+das, was sie hält (`Figure.holds`: der Spieler seine aktuelle Waffe, die Crew
+Pistolen, die Polizisten Schlagstöcke).
+
+**Und geschossen wird mit den Kugeln der Stadt.** Die Druckerei hat eine eigene
+kleine Liste `MintState.shots` mit genau demselben `Bullet` wie draußen, und
+gezeichnet wird sie mit derselben Funktion (`drawShot` aus `render.ts`, jetzt
+exportiert). Damit sieht jede Waffe drinnen aus wie draußen: Die Pistole zieht
+einen gelben Strich, der Flammenwerfer wirft dieselben Flammenzungen, die
+Panzerfaust dieselbe orange Rakete mit weißem Kern. Getroffen wird von diesen
+Kugeln nichts - was der Schuss angerichtet hat, steht schon fest, bevor er
+fliegt -, sie sind das Bild dazu. In der Bank reicht dafür der ohnehin
+vorhandene Zeitstempel `shotAt`, weil dort das Ziel immer das Fadenkreuz ist.
+
+**Und wer erschossen wird, liegt da wie auf der Straße.** Dieselbe Zeichnung
+wie im Rest der Stadt (`lyingDown`, ebenfalls jetzt exportiert): ein flaches
+Sprite ohne Höhe, in der Richtung, in der er gefallen ist, mit einer Lache
+darunter. Vorher stand der Tote weiter aufrecht und war nur etwas blasser -
+zwei Sorten Leiche in einem Spiel.
+
+Und der Abzug ist die andere Entscheidung, die man nicht zurücknehmen kann:
+Eine tote Geisel druckt nichts mehr, ein toter Direktor geht nie wieder ans
+Telefon, und der Schuss ist draußen zu hören - `calmUntil` fällt auf null und
+die nächste Welle kommt sofort.
+
+**Die gehaltene Maus hat noch zwei Arbeiten**, und beide sind Arbeit statt
+Drohung: an einer Tür stapeln und selbst am Schacht graben.
+
+### Kooperativ und nicht kooperativ
+
+**Die Hälfte macht mit, und man sieht es keinem an** (`WILLING_SHARE`). Wer an
+eine Presse gestellt wird, druckt erst einmal - und wer nicht mitmacht,
+**hört nach ein paar Sekunden einfach auf** (`SLACK_LEAST`, `slacking`). Das
+ist die einzige Art, es herauszufinden, und sie kostet genau die Sekunden, die
+sie kostet.
+
+Die, die aufhören, sind nicht wertlos: Sie sind die Hände für den Tunnel. So
+sortiert die Presshalle die Belegschaft und der Keller verbraucht, was die
+Presshalle aussortiert hat.
+
+**Und jemand muss dabeistehen.** Ein eigener Mann auf einer Station
+(`POSTS`, Knopf „Mann abstellen") hält die Arbeit am Laufen - an der Presse
+druckt dann auch der Unwillige weiter, im Keller wird überhaupt nur gegraben,
+solange jemand aufpasst. Der eigene Rücken zählt dabei wie ein Mann: Wo man
+selbst steht, wird gearbeitet. Genau dafür ist die Crew da, die man draußen
+angeheuert hat, und genau deshalb ist sie nicht mehr einfach ein
+Tunnelbeschleuniger.
+
+### Die Crew denkt mit, aber nicht zu Ende
+
+Angeheuerte, die einem nur hinterherlaufen, sind vier Leute, die im Weg
+stehen. Also suchen sie sich selbst etwas (`mindCrew`), sobald sie nichts zu
+tun haben:
+
+1. **Eine Station, an der gearbeitet wird und niemand aufpasst** - da stellen
+   sie sich hin.
+2. **Sonst jemanden, der herumsteht, während eine Maschine frei ist** - den
+   holen sie sich und stellen ihn hin (`talkedRound`).
+3. **Sonst** laufen sie hinter einem her wie vorher.
+
+Zwei Bremsen halten das davon ab, das Spiel zu spielen: Sie fangen erst nach
+`CREW_THINK` Sekunden an, und sie fassen nichts an, was näher als
+`CREW_LEAVE` beim Spieler ist - wer selbst gerade jemanden holt, wird nicht
+überholt. Nachgemessen mit einem Spieler, der am Tor steht und nichts tut:
+nach 40 Sekunden laufen alle drei Pressen und werden bewacht, nach 100
+Sekunden sind 19 000 € gedruckt.
+
+**Und es gibt eine Linie, die sie nicht überschreiten.** Türen verbarrikadiert
+niemand außer einem selbst, in den Keller bringt niemand eine Geisel, um den
+Direktor kümmert sich niemand, und den Panzer sieht keiner von ihnen an. Die
+Presshalle läuft ohne einen; der Tunnel, die drei Türen und der Mann im Anzug
+sind die Arbeit, für die man da ist.
+
+### Ein Weg statt einer Luftlinie
+
+Dass die Crew nicht mehr quer durch den Tresen läuft, ist nicht mehr nur
+Entlangrutschen an Wänden: Das brachte einen Mann in die Ecke zwischen
+Büroaußenwand und Hallenwand und ließ ihn dort für den Rest des Bruchs stehen.
+Jetzt rechnet `wayTo()` den Weg aus - eine Flutfüllung von Ziel aus über alle
+begehbaren Felder, dann das Nachbarfeld mit der kleinsten Zahl. Jedes Mal neu,
+weil das Ziel meistens ein Mensch ist und ein Weg zu dem, wo jemand war, kein
+Weg ist.
+
+Das benutzen alle: die Crew, die Geiseln auf dem Weg zur Maschine oder zum
+Schacht, und der Direktor auf dem Weg zu seinem Telefon (der dafür vorher
+einen von Hand gesetzten Zwischenpunkt brauchte).
+
+### Der Direktor und sein Telefon
+
+Er steht bei Schichtbeginn hinten in der Halle und geht von da aus in sein
+Büro - durch die Lücke in der Wand, nicht durch die Wand - und wenn er den
+Hörer erreicht, ist Schluss mit Warten: `settleAt` und `waveAt` springen auf
+`CALL_SECONDS`, und die Polizei kommt, statt sich aufzustellen. Ohne
+Gegenmaßnahme hat man dafür etwa eine halbe Minute.
+
+Dagegen hilft dreierlei, und alle drei kosten etwas: ihn ins Visier nehmen (er
+hebt die Hände und bleibt stehen, aber man muss ihn im Auge behalten), ihn
+mit nach unten nehmen (dann gräbt er mit, und das ist die beste Verwendung für
+ihn), oder das **Telefon** abschießen - laut, aber endgültig.
+
+Wie in der Bank liegt **links das Büro und rechts der Tresorraum**: Das ist
+dieselbe Geografie wie beim anderen großen Bruch, damit man beim zweiten
+Gebäude nicht wieder von vorn anfängt zu suchen.
 
 **Barrikade und Druck sind zwei Zahlen, keine.** Was vor der Tür liegt,
 verlangsamt, was durch sie kommt (`SHIELD`), und was durch sie kommt, frisst
@@ -4047,9 +4573,83 @@ Rest des Bruchs zu drei Vierteln offen, und die letzten Minuten wären an einer
 Tür verloren, die man nie wieder zubekommt.
 
 **Jede Art, Zeit zu kaufen, kostet Geld.** Eine Geisel rauslassen kostet eine
-Presse für immer; den Strom kappen kostet alle Pressen, solange es dunkel ist,
-und geht nur einmal. Ein drittes Mittel, das nichts kostet, würde die beiden
-anderen überflüssig machen.
+Presse für immer; den Strom kappen kostet alle Pressen, solange es dunkel ist.
+Ein drittes Mittel, das nichts kostet, würde die beiden anderen überflüssig
+machen.
+
+**Der Strom ist jetzt ein Schalter, kein Trick.** Vorher ging er einmal aus und
+von allein wieder an - ein Knopf, den man drückt und der dann nichts mehr tut,
+ist ein Knopf, bei dem man sich fragt, wofür er da war. Jetzt sind beide
+Richtungen eine Entscheidung: Im Dunkeln wird nichts gedruckt, und draußen will
+keiner in ein Gebäude, in das er nicht hineinsehen kann (`calmUntil`); im
+Hellen laufen die Maschinen. Man kappt ihn also für die zwei Minuten, in denen
+sie an einer Tür stehen, und macht ihn wieder an, sobald sie es sich anders
+überlegt haben. Damit das keine Antwort auf alles wird, bringt das Kappen nur
+alle `POWER_AGAIN` Sekunden Ruhe - danach ist es nur noch dunkel.
+
+### Der Cheat gilt auch hier drinnen
+
+`godMode()` lief bisher nur in der Phase `playing`, und der Knopf auf der Seite
+tat in Bank, Knast und Druckerei nichts - ein Knopf, der hinter einer Tür
+aufhört zu wirken, sieht kaputt aus. Jetzt wird er **vor** der Phasenfrage
+gesetzt, und die drei kleinen Welten bekommen den bereits verrechneten Zustand.
+
+Was er dort heißt, entscheidet jede selbst, und zwar jeweils über die Uhr, an
+der man verliert:
+
+- **Bank:** kein stiller Alarm und keine Razzia (`alarm`, `raidAt`).
+- **Druckerei:** an keiner der drei Türen kommt jemand durch - der Druck fällt
+  jeden Frame auf null zurück.
+- **Knast:** `watchOut()` sieht schon immer auf `input.god` und greift dann
+  nicht zu.
+
+Nachgemessen: ohne Cheat ist man in der Druckerei nach 150 Sekunden gestürmt
+und in der Bank nach 60 Sekunden hochgenommen, mit Cheat läuft beides weiter;
+im Knast wird man am offenen Loch und während der Suche erwischt - mit Cheat
+keines von beiden.
+
+### Draußen: aufstellen, Zelt, Essen, Panzer
+
+**Die erste Minute gehört ihnen, nicht dem Spieler.** `SETTLE_SECONDS` lang
+passiert an den Türen gar nichts und alles auf der Straße: Die Wagen fahren
+vor, Männer stellen sich dahinter, das Zelt der Einsatzleitung wird quer über
+die Straße aufgebaut. Deshalb ist die Straße rings um das Gebäude überhaupt im
+Plan - ein Belagerungsring, von dem man nur eine Leiste unter dem Bild sieht,
+ist eine Leiste und keine Belagerung. Die Leiste sagt in dieser Minute, wie
+lange es noch dauert; danach sagt sie, ob das Tor offen ist.
+
+**Und sie stehen nicht still.** Solange nichts passiert, stehen sie hinter
+ihren Wagen auf der anderen Straßenseite und treten von einem Fuß auf den
+anderen (`COP_PACE`, `COP_BEAT`, jeder in seinem eigenen Takt). Sobald aber ein
+Trupp an einer der drei Türen arbeitet, gehen die, deren Aufgabe das ist, **an
+die Wand neben dieser Tür** (`standing()`, `OUTSIDE`). Von drinnen ist genau
+das die Warnung: Eben waren sie noch weit weg, jetzt stehen sie am Fenster.
+
+**Das Tor ist die einzige Tür, die man selbst bedient** (`shutter`, Knopf „Tor
+öffnen"). Offen ist es eine Einladung - der Druck an der Vordertür steigt um
+`SHUTTER_PUSH` extra - und gleichzeitig die einzige Möglichkeit, nach draußen
+zu schießen oder etwas hereinzuholen.
+
+**Und es hat eine Uhr.** Nach der Hälfte von `OPEN_GRACE` sagen sie es an
+(„Sie gehen auf das offene Tor zu"), nach `OPEN_GRACE` Sekunden **schießen sie
+durch das offene Tor und kommen rein**: Der Druck an der Vordertür steigt dann
+mit `STORM_PUSH` statt mit dem normalen Wert, und man sieht ihre Kugeln
+hereinkommen. Nachgemessen: Tor auf und stehen gelassen - Warnung nach sieben
+Sekunden, Feuer nach vierzehn, drin nach fünfzehn. Ein Tor, das man offen
+lassen kann, wäre kein Tor.
+
+**Das Essen** kommt nach `FOOD_AFTER` Sekunden an die Stufe und steht
+`FOOD_WAIT` lang da. Wer aufmacht, hat eine ruhige Weile und eine Belegschaft,
+die weitermacht; wer es draußen stehen lässt, hat ab da **keinen** mehr, der
+freiwillig an eine Maschine geht. Eine Belagerung ist eine Verhandlung, und das
+ist die einzige Runde davon, die man gewinnen kann.
+
+**Der Panzer** kommt nach `TANK_WAVE` Trupps die Straße hoch, stellt sich quer
+vors Tor - und schießt erst, wenn er steht. Dagegen hilft nichts, was man
+stapeln kann: Tor auf, **Panzerfaust** in die Hand, zwei Treffer
+(`MINT_TANK_HITS`). Danach ziehen sie sich erst einmal zurück. Das ist der
+einzige Moment im Spiel, in dem man in einer Tür steht, vor der vierhundert
+Polizisten liegen, und das soll er auch sein.
 
 **Der Tunnel ist die Belohnung, nicht nur der Ausgang.** Wer durch die Vordertür
 geht, hat eine Verfolgungsjagd; wer durch den Boden geht, hat keine. Deshalb
@@ -5234,8 +5834,11 @@ nichts abgebucht, und beim Verhaften selbst auch noch nicht, weil sonst die
 Wahl schon vor der Wahl entschieden wäre.
 
 **Der Grundriss ist ein Bild.** Der Knast steht als Buchstabengitter im Code -
-`#` Mauer, `|` Gitter, `w` die eigene Kloschüssel, `X` die losen Steine, `~` der
-Gang, `I` die Krankenstation, `=` das Kabel. Ein Plan, den man lesen kann,
+`#` Mauer, `|` Gitter, `K` das Basketballfeld, `b` die Bänke, `w` die eigene
+Kloschüssel, `X` der Boden darunter, `~` der Kriechgang und der lange Tunnel,
+`S` die Schächte an seinen Enden, `Z` die harte Wand am Ende des Kriechgangs, `I` die Werkstatt mit ihrem Tisch `A`, `N` die Krankenstation mit
+ihren Betten `B` und ihrer verschlossenen Tür `L`, `O` das Fenster darin,
+`=` das Kabel. Ein Plan, den man lesen kann,
 während man ihn ändert, ist mehr wert als eine Liste von Rechtecken; und fest
 ist er aus demselben Grund wie die Stadt: Ein Ausbruch ist ein auswendig
 gelernter Weg, und ein Weg, der sich jedes Mal neu mischt, ist ein Labyrinth.
@@ -5243,20 +5846,25 @@ gelernter Weg, und ein Weg, der sich jedes Mal neu mischt, ist ein Labyrinth.
 **Eine Leiter statt einer Handvoll Flaggen.** Wie weit der Ausbruch ist, steht
 in genau einem Feld (`PrisonStage`), und die Reihenfolge in `LADDER`. Alles
 andere fragt danach: welche Stelle der Ring zeigt (`markOf`), was die Leiste
-sagt (`taskLine`), ob ein Quadrat noch zu ist (`solid` - die Steine öffnen sich
-nach `stones`, das Fenster und das Kabel nach `window`, und die eigene
-Kloschüssel wird begehbar, sobald sie ab ist, weil man in genau der Ecke kniet).
+sagt (`taskLine`), ob ein Quadrat noch zu ist (`solid` - der Zellenboden öffnet
+sich nach `dig2`, die harte Wand nach `wall`, der Werkstatttisch nach `works`,
+das Fenster und das Kabel nach `window`, und die eigene Kloschüssel wird
+begehbar, sobald sie ab ist, weil man in genau der Ecke kniet).
 
 **Gesehen zu werden ist erst dann etwas.** `hunting()` beantwortet die eine
-Frage, die drinnen zählt: Schraube dabei, gerade am Arbeiten, oder schon hinter
-der Wand. Nur dann greift ein Wärterkegel zu - und derselbe Aufruf färbt den
-Kegel im Bild rot. Ein Kegel, den man fürchten muss, und einer, durch den man
-laufen darf, dürfen nicht gleich aussehen.
+Frage, die drinnen zählt, und die Antwort ist seit dem Umbau **eine einzige
+Regel: das offene Loch**. Wer über den Hof läuft, im Gang steht oder in seiner
+Zelle sitzt, tut das, was er darf - auch mit der Schraube in der Tasche, denn
+die sieht niemand. Nur dann greift ein Wärterkegel zu - und derselbe Aufruf
+färbt den Kegel im Bild rot. Ein Kegel, den man fürchten muss, und einer, durch
+den man laufen darf, dürfen nicht gleich aussehen. Vorher war fast jeder Kegel
+rot, und das ist dasselbe, wie gar keinen zu färben.
 
 **Die Mitgefangenen laufen keinen eigenen Weg.** Sie folgen einer Spur von
 Brotkrumen, die der Spieler alle `TRAIL_GAP` Pixel fallen lässt. Drei eigene
 Wegfindungen durch ein Loch in einer Wand wären dieselbe Schlange, nur teurer
-und gelegentlich falsch.
+und gelegentlich falsch. Wer überhaupt mitkommt, steht weiter unten unter
+„Nur wer zugesehen hat, kommt mit".
 
 **Der Mann auf dem Turm ist die eine Ausnahme von der Mauer.** Jeder Wärter
 hat seine eigene Sichtweite (`Warder.range`), und einer davon steht oben:
@@ -5273,6 +5881,27 @@ zusammen (`PrisonFolk.lift`): ein `translate`, kein zweiter Zeichenweg. Und weil
 es pro Person gilt statt nur für den Spieler, hängt die ganze Schlange am Kabel
 und nicht nur ihr erster.
 
+**Drinnen tragen sie, was die Straße sieht.** Wer an diesem Gefängnis
+vorbeifährt, sieht im Hof Männer in **schwarzweißen Streifen** - also stehen
+drinnen dieselben Männer in denselben Streifen, aus denselben Konstanten
+(`CONVICT_SHIRT` und die anderen, die `render.ts` jetzt exportiert). Vorher war
+die Kluft drinnen orange: zwei Gefängnisse, je nachdem, auf welcher Seite der
+Mauer man steht.
+
+Das kostet die bequeme Art, Leute auseinanderzuhalten - ein Knast teilt nun
+einmal nur einen Anzug aus. Übrig bleiben Gesichter und Haare (die Bande: drei
+dunkle Köpfe nebeneinander; der Große: der graue am Block) und vor allem der
+Ring aus `markOf`. Wer wichtig ist, sagt das Spiel, nicht der Stoff.
+
+**Die Motorhaube tötet wie die Pistole.** Wer überfahren wird, lässt dasselbe
+liegen wie einer, der erschossen wird: die Waffe aus der Hand und das Geld aus
+der Tasche. Dafür gibt es jetzt eine Stelle statt zweier - `spillFrom()` -, und
+`hurtPerson` und das Überfahren in `inCar` gehen beide da hindurch. Vorher ließ
+der Bus nichts liegen und die Pistole schon: eine Stadt, die dafür bezahlt,
+welche Waffe man gerade in der Hand hält. Und aus der Hand ist die Waffe
+danach auch wirklich weg, sonst stünde der Mann später wieder da und hätte
+sie doppelt.
+
 **Die Sträflingskluft ist ein Figurenstil, keine Farbe.** `figure-art` kennt
 jetzt `convict` und malt die schwarzen Streifen quer über Rumpf und Beine; die
 Farbe darunter bleibt weiß. Denselben Stil trägt der Spieler in der Stadt,
@@ -5288,11 +5917,318 @@ Rennen bedeutet. `convict` ist bewusst **nicht** in `IN_THE_STREET`: Ein
 Ausbrecher ist keine Sorte Passant, die die Stadt austeilt, sondern das, was aus
 einem Loch in einer Gefängnismauer kommt.
 
-**Durchsichtig wird eine Wand auch für die Aufgabe.** Die Schüssel und das Loch
-stehen an der Südwand des Blocks, und in dieser Schrägsicht deckt eine Wand
-alles zu, was nördlich davor liegt. Deshalb prüft `hides()` nicht nur den
-Spieler, sondern auch den Punkt, den der Ring zeigt - sonst spielte die Mitte
-des Ausbruchs hinter einem grauen Balken.
+## Der Hof, der Zählappell und wer zugesehen hat
+
+Der Ausbruch ist umgebaut worden, und zwar in dieselbe Richtung wie die Bank:
+**flach von oben, kein Kippwinkel, keine Klötze**.
+
+### Der Blick
+
+`squash: FLAT`, wie in der Bank - und **keine Linie um jedes Feld**. Eine so
+gezeichnete Mauer ist keine Mauer, sondern eine Reihe Blöcke, und der ganze Bau
+liest sich dann wie das karierte Papier, auf dem er entworfen wurde. Was einen
+Boden vom nächsten trennt, ist jetzt die Farbe und die Maserung darüber:
+Asphalt im Hof, ein aufgemaltes Feld in seiner Mitte, Estrich im Block, Erde im
+Kriechgang. Die Kabinenwände, das Halbdurchsichtige und der ganze Apparat für
+„was steht wovor" sind damit weg - von oben steht nichts vor etwas.
+
+### Der Hof ist derselbe wie von der Straße aus
+
+Der Grundriss ist auf das zusammengestrichen, was ein Gefangener je zu sehen
+bekommt: **den Hof und einen Trakt**. Südlich des Hofs der Block: ein Gang mit
+vier Zellen daran, die westliche ist die eigene.
+
+Und der Hof sieht **genauso aus wie von außen**, bis auf die Farbwerte: Die
+Stadt zeichnet dieses Gefängnis ja bereits, wenn man daran vorbeifährt - Rasen,
+ein Basketballfeld, das in den Rasen hineingetreten ist, weiße Linien darüber
+und an jedem Ende ein Korb. Genau das steht jetzt auch drinnen, und zwar aus
+denselben Konstanten (`YARD_GRASS`, `WORN_EARTH`, `COURT_PAINT` und die
+übrigen, die `render.ts` jetzt exportiert). Ein Gebäude, das seinen Belag
+wechselt, je nachdem auf welcher Seite der Mauer man steht, wären zwei
+Gebäude.
+
+Dazu gehört auch die Ausrichtung: Das Feld **steht der Länge nach im Hof**, Korb
+zu Korb, wie außen. Quer gelegt liest es sich als Tennisplatz ohne Netz. Und
+gemalt wird es als **ein Bild** über die Felder, die es bedeckt, nicht Quadrat
+für Quadrat - ein Mittelkreis aus vier Viertelquadraten ist kein Kreis.
+
+Das Feld steht dabei **rechts im Hof**, nicht in der Mitte: In die Ecke, die
+dadurch frei wird, gehört die Werkstatt - `Prison Industry`, dieselbe, die auch
+von der Straße aus im Hof steht. Von oben ist sie ein Dach mit Lichtbändern,
+ein Schornstein mit Rauch in der fernen Ecke und das Schild an der Wand zum Hof
+hin. Der Rauch ist das, was sagt, dass dort gearbeitet wird - und eine
+Werkstatt, in der die Männer dieses Trakts ihren Tag verbringen, ist überhaupt
+der Grund, warum jemand im Hof steht.
+
+Die Bänke stehen, wie außen, **längs neben dem Feld** - drei je Seite, mit
+Lücken dazwischen. Vorher war es eine geschlossene Reihe quer durch den ganzen
+Hof: Das ist keine Möblierung, das ist ein Zaun, und man kam nicht mehr daran
+vorbei.
+
+Draußen vor der Mauer liegt die **Straße**, auf der das Gefängnis steht, keine
+Wiese.
+
+Der Weg nach draußen läuft unter dem Plan, und er läuft zweimal ins Leere,
+bevor er hinausführt - was dahinter steckt, steht unten unter „Die lange
+Kette". Oben links die Werkstatt, oben rechts die Krankenstation: zwei Räume,
+die man **betreten** kann. Solange man draußen steht, sind beide das, was die
+Straße von ihnen sieht - ein Dach mit Lichtbändern, ein Schornstein, ein rotes
+Kreuz. Sobald man drin steht, ist das Dach weg und es sind Maschinen, ein
+Tisch, vier Betten und ein Fenster. Beides muss stimmen, und die Weiche dafür
+ist eine Zeile: auf welcher Seite der Tür der Spieler steht (`inside`).
+
+### Nur wer zugesehen hat, kommt mit
+
+Vorher liefen dem Spieler schlagartig alle hinterher, sobald die Wand offen war
+
+- das ist eine Menschenmenge, kein Ausbruch: Niemand wusste etwas, sie waren
+  plötzlich da. Jetzt entscheidet, **wer gesehen hat, was man tut**: Bei jeder
+  fertigen Arbeit schaut `witnesses()`, welche Herumstehenden nah genug sind und
+  freie Sicht haben - dieselbe Sichtprüfung, die auch für Wärter gilt -, und
+  genau die wechseln von `idle` nach `mates`. Wer einen über einem Abfluss knien
+  sieht, weiß genau eine Sache über einen und hat vor, dabei zu sein, wenn es
+  losgeht.
+
+Das macht aus dem Umschauen eine Entscheidung: An der Bank im vollen Hof
+schraubt man mit Publikum, in der eigenen Zelle allein. Nachgemessen: Bank mit
+einem Zuschauer in Reichweite → ein Mitläufer und die Zeile „Einer hat
+zugesehen - der kommt jetzt mit."; dieselbe Arbeit in der Zelle → keiner.
+
+### Erwischt heißt nicht vorbei
+
+Dreimal gesehen zu werden beendet **diesen Versuch**, nicht die Chancen. Danach
+steht man wieder vor denselben zwei Türen wie nach der Verhaftung: noch einmal
+probieren oder absitzen und zahlen. Ein Ausbruch, den man nur einmal versuchen
+darf, ist ein Ausbruch, für den man einen Spielstand lädt.
+
+### Zählappell
+
+Alle 85 Sekunden wird gezählt, 16 Sekunden vorher sagt es die Leiste. Verlangt
+wird das Einfachste: **in der eigenen Zelle stehen, mit leeren Händen**. Wer
+dabei über seinem Abfluss kniet, ist ebenso gemeldet wie einer, der im Hof
+steht - `prison.work` muss auf null sein.
+
+Wer fehlt, wird nicht gegriffen. Es passiert etwas Schlimmeres: Sie fangen an zu
+**suchen**. Eine halbe Minute lang sehen alle Wärter anderthalbmal so weit und
+so breit (`SEARCH_EYES`, im Bild an den größeren Kegeln zu sehen), und in dieser
+Zeit reicht es, am falschen Ort zu stehen - `hunting()` ist wahr, sobald man
+nicht in der eigenen Zelle ist. Danach wird es wieder ruhig.
+
+Die Uhr dafür steht rechts in der Leiste und färbt sich innerhalb der Vorwarnung
+gelb: Ein Knast, der zählt, ohne zu sagen wann, wäre eine Stoppuhr, die man
+nicht sehen darf.
+
+## Die lange Kette: Schraube, Bande, zwei Löcher und ein Kabel
+
+Vorher waren es vier Handgriffe: Schraube, Klo, Steine, Gitter. Das ist kein
+Ausbruch, das ist eine Einkaufsliste. Jetzt sind es **elf Sprossen**, und jede
+einzelne geht entweder schief oder kostet etwas:
+
+| Sprosse  | Was zu tun ist                                    | Sekunden |
+| -------- | ------------------------------------------------- | -------- |
+| `screw`  | im Hof an einer Bank die Schraube abdrehen        | 2,6      |
+| `gang`   | den Großen am Block anheuern                      | 1,6      |
+| `loo`    | in der Zelle die Schüssel abschrauben             | 3,2      |
+| `dig`    | graben, mit der Schüssel als Deckel               | 9        |
+| `moved`  | in der neuen Zelle Streit anfangen                | 3,5      |
+| `dig2`   | zurück in der alten Zelle weitergraben            | 7        |
+| `wall`   | im Kriechgang die Wand am Ende durchbrechen       | 4        |
+| `works`  | in der Werkstatt graben, mit dem Tisch als Deckel | 8        |
+| `ward`   | durch den Tunnel (kein Laufen, eine Ankunft)      | -        |
+| `window` | das Fenster der Krankenstation aufdrücken         | 2        |
+| `cable`  | am Kabel über die Mauer                           | -        |
+
+### Was eine fertige Arbeit sonst noch auslöst
+
+Die Leiter selbst ist stumpf: fertig, eine Sprosse weiter. Die Geschichte
+steht in **einer** Funktion daneben, `afterJob(prison, done)`, und sie ist vier
+Zeilen lang - weil jede Wendung dieser Kette daraus besteht, dass jemand
+woanders steht als vorher.
+
+- **`screw` → die Bande hat sie.** Die Schraube ist ab, und drei Mann im Hof
+  haben genau hingesehen. Sie kommen herüber und nehmen sie einem aus der Hand
+  - als Szene, siehe unten. Man hat sie ganze vier Sekunden lang gehabt.
+- **`gang` → der Große geht los.** Man heuert nicht die Bande an, sondern den
+  einen Mann, mit dem die Bande nicht streitet. **Der steht von der ersten
+  Minute an am Block** und nicht erst, wenn man ihn braucht: Man heuert den
+  an, den man sieht, sonst ist der Hof ein Automat, aus dem bei Bedarf ein
+  Helfer fällt. Gezeichnet wird kein Kampf -
+  `runErrand()` lässt ihn hinlaufen („Er nimmt sie ihnen ab. Keiner sagt
+  etwas."), zurücklaufen, und wenn er ankommt, liegt sie in der Tasche.
+- **`dig` → der Direktor.** Niemand gräbt einen halben Zellenboden weg, ohne
+  dass der Staub auffällt, und was ein Gefängnis dagegen tut, ist **verlegen**.
+  Er holt einen an der Zellentür ab und geht mit einem den Gang hinunter -
+  auch das eine Szene. Danach steht man in einer neuen Zelle, drei Türen
+  weiter, mit einem fremden Zellengenossen und einem `myGate`, das jetzt zu
+  ist.
+- **`moved` → zurück.** Den Neuen kann man nicht fragen; den Ersten hatte man
+  sich zum Freund gemacht. Also Streit, genug Blut für eine Verlegung, zurück
+  in die alte Zelle - und das Loch liegt noch da, wo man es gelassen hat.
+
+### Zwei Dinge passieren einem, statt dass man sie tut
+
+Die Bande, die einem die Schraube abnimmt, und der Direktor, der einen verlegt,
+waren vorher je eine Zeile Text und ein Zustandswechsel im selben Bild. Das ist
+keine Wendung, das ist eine Meldung. Jetzt sind beides **Szenen**
+(`PrisonScene`), und beide sind nach demselben Muster gebaut:
+
+- Ein paar Leute laufen herein, machen das eine, was die Geschichte braucht,
+  und laufen wieder hinaus. Die Uhr dafür steht im Zustand (`left`).
+- **Solange sie läuft, tun die Tasten nichts.** `advance()` ruft in dem Fall
+  gar nicht erst `walkHero`, `coverUp` und `doWork` auf. Wer währenddessen
+  wegspazieren könnte, bekäme von beiden Szenen ein Angebot statt einer
+  Tatsache.
+- **Bezahlt wird am Ende, nicht am Anfang** (`endScene`). Die Bande hat die
+  Schraube erst, wenn der Mittlere vor einem steht; die Zelle ist erst die
+  neue, wenn der Gang zu Ende gegangen ist. Andersherum sieht man einer Szene
+  zu, deren Ergebnis längst im Zustand steht.
+- Der Zielring (`markOf`) ist weg und die Leiste sagt, was los ist („Die Bande
+  kommt rüber. Da ist nichts zu machen.") - es gibt in diesen Sekunden nichts,
+  wohin man laufen könnte.
+
+**Die Bande** stellt sich in einer Reihe vor einen hin, nicht auf einen drauf:
+einer in der Mitte mit der Hand auf, links und rechts je einer, `SCENE_APART`
+auseinander. In der Mitte der Szene stehen alle drei still - dieser eine Moment
+ist der Übergabe, und ohne ihn ist das Ganze ein Vorbeijoggen. Wie schnell sie
+laufen, steht nicht fest, sondern ergibt sich aus Strecke und Restzeit: Wo man
+stand, als die Schraube abging, ist jedes Mal woanders, und ein Weg, dem die
+Szene ausgeht, endet mitten im Hof.
+
+**Der Rückweg** ist dieselbe Szene noch einmal, nur andersherum: Nach dem
+Streit bringt einen ein Wärter den Gang zurück in die alte Zelle. Deshalb ist
+aus `bossStep` ein `walkStep` geworden, das beide Richtungen läuft - wer den
+Weg hin zeichnet und den Weg zurück in einen Sprung auflöst, hat aus derselben
+Strecke zwei verschiedene Dinge gemacht. Der einzige Unterschied ist der
+Anfang: Den Direktor muss man erst kommen sehen, der Wärter steht schon da, er
+hat die Schlägerei gerade getrennt.
+
+**Der Direktor** ist die einzige Figur im Knast im Anzug statt in Kluft, und
+er existiert genau diese fünf Sekunden - ein Direktor, der im Trakt herumsteht,
+wäre ein Wärter mit besserem Mantel. Er kommt den Gang herunter bis an die
+Zellentür, und dann gehen beide die Länge des Trakts, er ein paar Schritte
+voraus (`BOSS_AHEAD`). Der Weg ist eine Linie aus vier Punkten, und abgefahren
+wird sie **nach Länge**, nicht nach Teilstück (`alongPath`): Der Gang ist ein
+Vielfaches von dem Stück in der Zelle, und die Uhr gleichmäßig auf beide zu
+verteilen hieße, den Trakt entlangzusprinten und durch die Tür zu schleichen.
+
+### Der Deckel ist das ganze Mittelstück
+
+Leertaste, und mehr ist es nicht: `coverUp()` schiebt die Schüssel über das
+Loch und wieder weg, in der Werkstatt den Tisch. Man kann **nicht durch den
+Deckel graben**, und ein Wärter, der einen an dem offenen Loch sieht, hat alles
+gesehen - `hunting()` ist genau dafür wahr und für sonst nichts.
+
+**„An dem Loch" heißt zwei Felder** (`HOLE_NEAR`), also etwa die eigene Zelle.
+Wer in den Gang tritt, ist wieder ein Gefangener beim Herumlaufen; wer darüber
+kniet, während Stiefel vorbeigehen, ist ein Fall für den Bericht. Und erwischt
+zu werden kostet einen Versuch und den Rückweg in die Zelle - die Schraube
+bleibt in der Tasche. Eine Kette mit einem Reset darin ist eine Kette, die
+niemand zu Ende spielt.
+
+Damit ist Graben keine Frage von „schaffe ich das", sondern von „wie viel
+schaffe ich, bevor die nächsten Stiefel vorbeikommen". Der Gang wird alle paar
+Sekunden abgelaufen, das Loch braucht neun; das geht nur in Stücken. Genau
+deshalb ist die Sprosse mit neun Sekunden die längste im Spiel - eine, die in
+einem Rutsch durchginge, bräuchte den Deckel nicht.
+
+Der Tastendruck wird auf die **Flanke** gelesen (`liftHeld`), nicht auf das
+Gedrückthalten: Sonst flackert der Deckel sechzigmal in der Sekunde.
+
+### Zweimal ins Leere, einmal hinaus
+
+Der Kriechgang unter dem Block endet an einer Wand, und hinter der Wand ist
+**Fels**. Das ist kein Bug, das ist die Sprosse `wall`: Vier Sekunden Arbeit
+und eine Meldung, die dann auch sagt, was jetzt gilt - „Der Gang ist eine
+Sackgasse - hier kommst du nie raus. Bleibt der zweite Plan: rauf in die Prison
+Industry und von dort einen Tunnel graben." Eine Sackgasse, die einem nur
+mitteilt, dass es nicht weitergeht, ist ein Spielstand, den man lädt. Ein Ausbruch, bei dem der erste Tunnel
+stimmt, ist ein Gang mit Türen dran.
+
+Der zweite Anlauf ist die **Werkstatt**: derselbe Deckel-Rhythmus, nur mit
+einem Tisch. **Dort ist niemand postiert** - einer der Männer aus dem Hof läuft
+ab und zu auf die Halle zu und durch die Tür herein, und das ist der
+Unterschied: Man hört die Tür, statt einem Mann zuzusehen, der in dem Raum auf
+und ab geht, in dem man gräbt. Seine Runde (`ROUNDS`) beginnt darum mitten im
+Hof und endet erst drinnen; ungefähr ein Drittel seiner Zeit verbringt er in
+der Halle. Von dort läuft
+der Tunnel unter dem Hof hindurch in die **Krankenstation**, und der wird
+**gelaufen**: Wer in das Loch steigt, kommt am Westende des Tunnels heraus
+(`TUNNEL_WEST`), geht die zwanzig Felder nach Osten und steigt am anderen Ende
+die Leiter hoch, mitten in die Krankenstation. Vorher war das ein einziger
+Sprung - die längste Strecke des ganzen Ausbruchs war in dem Bild vorbei, in
+dem sie anfing.
+
+**Da unten ist kein Wärter**, und das steht auch in der Aufgabenzeile. Der
+Tunnel liegt unter der ganzen Anlage, keine Runde führt dorthin, und genau das
+ist der Lohn für zwei Löcher: die einzigen Minuten dieses Ausbruchs, in denen
+man geradeaus gehen darf. Im Plan sind es die beiden untersten Zeilen, mit
+einem `S` an jedem Ende - dem Schacht, durch den man hinein- und hinauskommt.
+
+Die Krankenstation hat eine Tür zum Hof, und die ist **`locked`** - ein
+eigener Belag, immer zu. Eine Tür, durch die man einfach hineinspazieren
+könnte, würde jedes Loch in diesem Knast zur Verschwendung machen.
+
+Durch das Fenster in der Nordmauer, ans Kabel, und daran entlang über die
+Mauer - drei Felder weit, im Schritttempo (`CABLE_PACE`), quer durch den Blick
+des Turmwärters. Das Kabel ist mit Absicht kein einzelnes Feld mehr: Hangeln,
+das nach einem Schritt vorbei ist, ist kein Hangeln.
+
+### Wie das gezeichnet ist
+
+**Das Loch ist immer zu sehen, der Deckel steht davor oder daneben.** Ein
+Deckel, der das Loch auch vor dem Spieler verbirgt, lässt einen raten, wie die
+eigene Zelle gerade aussieht. Also: Sobald die Schüssel von der Wand ist, liegt
+das Loch da - und die Schüssel steht entweder mitten drüber oder schräg
+daneben in der Zelle. Beides ist **dieselbe Schüssel** (`panShape`), einmal
+angeschraubt und einmal abgestellt; an der Wand bleibt der blanke Flansch.
+
+Und nach der Sackgasse legt sie sich von selbst wieder drüber: Niemand steigt
+aus einem Loch im eigenen Zellenboden und lässt es offen hinter sich liegen.
+
+**Ein Loch ist keine schwarze Kachel.** Erst der Zellenboden, damit die Ecke
+zur Zelle gehört; darauf die aufgeworfene Erde, darin der dunkle Schacht, und
+drumherum die Steine, die man herausgehoben hat - dort, wo ein Kniender sie
+hingelegt hätte. Dasselbe Bild in der Werkstatt, nur mit aufgebrochenem Beton
+statt Erde, damit die beiden Löcher als **eine** Arbeit lesbar sind, die man
+zweimal macht.
+
+**Solange nicht gegraben ist, ist da nichts zu sehen.** Der Boden über dem
+späteren Schacht ist Estrich wie der Rest der Zelle. Ein Boden, dem man ansieht,
+wo er schwach ist, ist ein Boden mit der Lösung drauf.
+
+**Räume bekommen Möbel, keine leeren Flächen.** In der Werkstatt drei Maschinen
+an der Nordwand, ein Werkzeugbrett an der Ostwand und Öl im Beton; in der
+Krankenstation vier Betten, ein Schrank, ein Wagen und der grüne Strich auf dem
+Linoleum. Nichts davon steht im Weg - zu erreichen sind hier genau zwei Dinge,
+der Tisch und das Fenster, und Möbel, um die man herumlaufen muss, machen die
+nur schwerer zu finden.
+
+**Ein Klo hängt an der Wand.** Der Abfluss liegt im Mauerwerk, also steht der
+Spülkasten bündig an der Südwand jeder Zelle, die Schüssel ragt davor in den
+Raum, und ein kurzes Stück Rohr verbindet beides; dazu der Sitzring, das Wasser
+darin und der Schatten in die Ecke. Vorher war es eine freistehende Ellipse mit
+dem Kasten auf der **falschen** Seite - zum Gang hin, wo keine Wand ist -, und
+das liest sich als Eimer, den jemand hat stehen lassen.
+
+Das zahlt sich zweimal aus: Die Wand, an der das Ding hängt, ist genau die, in
+die man gräbt. Schüssel, Rohr und Loch sind dieselbe Ecke derselben Zelle.
+
+**Und geschoben sieht es aus wie die anderen drei.** Steht die Schüssel über dem
+Loch, wird sie mit demselben Aufruf gezeichnet wie jedes andere Klo im Trakt -
+und am alten Platz dann gar nicht, denn es gibt nur eine (`panOnHole`). Ein
+Deckel, der wie ein Deckel aussieht, ist genau das, was ein Wärter im
+Vorbeigehen bemerkt.
+
+**Das Fenster ist ein Fenster.** Vier Scheiben, Gitter davor, eine Sohlbank
+nach innen; offen ist es ein schwarzes Loch mit dem Flügel, der nach draußen
+steht. Vorher war es ein Gitter am Ende eines Gangs, und das war es auch, was
+man sah.
+
+**Über den Rasen laufen Trampelpfade.** Vom Blocktor am Feld vorbei bis zur
+Werkstatttür, in zwei Zügen gemalt: außen der ausgedünnte Rasen, innen die
+blanke Erde. Männer laufen dieselbe Linie jahrelang zweimal am Tag - und es ist
+das billigste Detail im ganzen Hof und das, was ihn benutzt aussehen lässt
+statt gemäht.
 
 ## Daumen statt Maus, und ein Bild ohne Seite drumherum
 
@@ -5767,6 +6703,152 @@ er **endet**; drei Aufträge, und das Viertel gehört dir. Deshalb steht unter d
 Stadt eine Leiste mit allen vier Vierteln und ihrem Stand - ohne sie wäre das
 Ziel des Spiels unsichtbar.
 
+## Das Autoradio: der Ordner ist die Senderliste
+
+Wer in ein Auto steigt, hört ein Lied - und beim nächsten Auto ein anderes.
+
+**Im Code steht kein einziger Dateiname.** Die Seite (`app/gta/page.tsx`) wird
+auf dem Server gerendert und kann deshalb einfach in den Ordner schauen; was
+sie findet, ist beim Bauen in der Seite eingebacken und wird an den Spiel-
+Bildschirm weitergereicht. Genau dasselbe Verfahren wie bei den Bildern des
+Ladebildschirms (`splashes()`), inklusive `NEXT_PUBLIC_BASE_PATH` davor -
+sonst zeigt die Adresse auf GitHub Pages ins Leere.
+
+**Wohin die Dateien gehören:** `website/public/gta/radio/`
+
+- `.mp3` (auch `.m4a`, `.ogg`, `.opus`, `.webm`, `.wav`)
+- Die Namen sind egal; es werden alle genommen, alphabetisch sortiert.
+- Danach einmal neu bauen bzw. deployen, damit die Liste in der Seite landet.
+- Die `README.md` im Ordner bleibt liegen - gezählt werden nur Audiodateien.
+- **Benennung `Künstler - Titel.mp3`**, denn aus dem Dateinamen entsteht
+  sowohl die Anzeige im Bild als auch der Nachweis auf der Seite.
+
+**Das Radio selbst** (`audio/radio.ts`) ist ein einziges `Audio`-Element für
+die ganze Sitzung: Ein Autoradio ist kein Soundeffekt, es gibt immer nur eines
+davon. Eingeschaltet wird es in dem Bild, in dem sich `player.car` von „keins"
+auf ein Auto ändert, ausgeschaltet in dem Bild, in dem es wieder „keins" wird -
+ein Ereignis, kein Zustand. Dazwischen fasst es niemand an.
+
+**Nie zweimal hintereinander derselbe Sender** in einem _anderen_ Auto: Wer
+umsteigt und dasselbe Lied hört, merkt genau das sofort.
+
+**Beim selben Auto ist es umgekehrt.** Das zuletzt gefahrene Auto wird gemerkt
+(Wagennummer, Sender, Sekunde), und wer dort wieder einsteigt, hört dasselbe
+Lied an genau der Stelle weiter. Kurz aussteigen, um ein Tor zu öffnen, ist
+kein Grund, den Nachmittag von vorn zu beginnen. Gemerkt wird nur **das letzte**
+Auto - eine Notiz je Wagen wäre in einer Stadt mit zweihundert Autos eine
+Erinnerung an nichts, das jemand hört. Nachgemessen: bei 42,5 Sekunden
+ausgestiegen, wieder eingestiegen, Lied läuft bei 42,5 Sekunden weiter.
+
+**Eine Raste hinter dem letzten Lied ist „Radio aus".** Das Zifferblatt hat
+eine Stelle mehr als es Lieder gibt; von selbst wird sie nie gewählt - ein
+Auto, das ohne Radio anspringt, sieht nach einem kaputten Radio aus -, aber
+hindrehen kann man. Unten rechts steht dann genau das.
+
+**Mit einer Ausnahme: Streifenwagen starten still.** Wer sich in einen Wagen
+der Polizei setzt, sitzt nicht in einem Auto mit Radio, sondern in einem mit
+Funk - da läuft erst einmal nichts. Anschalten geht mit dem Mausrad wie
+überall, und weil danach auch dieser Wagen gemerkt wird, bleibt es beim
+nächsten Einsteigen an. Gilt für alles Blaue: Streifenwagen, Polizeimotorrad,
+Polizeiboot.
+
+**Und alles ist eingepackt.** Eine fehlende Datei, ein Codec, den der Browser
+nicht mag, oder die Autoplay-Regel des Browsers enden alle gleich: still, und
+das Spiel läuft weiter. Ohne Ordner gibt es kein Radio und sonst keinen
+Unterschied.
+
+**Unten rechts steht, was läuft** - „RADIO" klein und darüber, darunter der
+Titel. Der Titel ist der **Dateiname**, weil ein mp3 in einem Ordner keinen
+anderen Namen hat: `nameOf()` wirft die Endung weg, macht aus `_` und `%20`
+Leerzeichen, wirft eine führende Titelnummer weg und glättet die Bindestriche -
+aus `04_-_Bad Company.mp3` wird `Bad Company`. Zu lange Titel werden gekürzt
+und bekommen ein `…`, nicht eine kleinere Schrift. Auf dem Telefon rutscht das
+Feld über die Daumentasten, sobald der Bildschirm einmal berührt wurde.
+
+**Das Mausrad ist im Auto die Senderwahl.** Zu Fuß ist eine Raste eine Waffe,
+hinter dem Lenkrad ist eine Raste ein Sender - vorwärts wie rückwärts, im
+Kreis. Das ist auch der einzige Ort, an dem das Waffenrad nie zu gebrauchen
+war: Aus dem fahrenden Auto wird ohnehin nicht geschossen.
+
+### Die Geräusche liegen daneben, mit festen Namen
+
+Das Radio ist ein Ordner voller austauschbarer Dateien; ein **Geräusch** gehört
+zu einem Moment. Deshalb liegen die unter `website/public/gta/sounds/` und
+haben feste Namen - benannt nach dem Moment, nicht nach dem Klang:
+
+| Datei              | Wann                                                       |
+| ------------------ | ---------------------------------------------------------- |
+| `car-enter.mp3`    | Einmal beim Einsteigen in ein Auto                         |
+| `police-siren.mp3` | Schleife, solange eine Streife auf Einsatz in Hörweite ist |
+
+**Die Sirene ist eine Entfernung, kein Ereignis.** Wie laut sie ist,
+entscheidet der nächste Wagen, den die Wache losgeschickt hat
+(`kind: "police"` - dieselbe Prüfung, die auch den Lichtbalken blinken lässt;
+die Streifen im normalen Verkehr fahren ohne). Voll innerhalb von zwei
+Wagenlängen, nichts mehr anderthalb Bildschirme weit weg, dazwischen
+**quadratisch** abfallend: Schall fällt schneller ab als eine Gerade, und eine
+lineare Blende liest sich wie jemand, der am Lautstärkeregler dreht, statt wie
+etwas, das näher kommt. Nachgemessen: 180 px → 100 %, 400 px → 69 %,
+800 px → 28 %, 1200 px → 5 %, ab 1500 px still.
+
+Sie ist auch die einzige **Schleife**: ein Element, das lauter und leiser
+gedreht wird. Alles andere sind Einzeltöne mit einem eigenen Element je Ton,
+damit zwei sich überlagern können.
+
+Ein neues Geräusch sind zwei Zeilen in `audio/sounds.ts` - ein Name in
+`OneShot`, die Datei daneben in `FILES` - und die Datei im Ordner. Fehlt sie,
+bleibt es still. Jeder Ton bekommt sein **eigenes** `Audio`-Element und wird
+danach weggeworfen: Ein gemeinsames Element würde eine zufallende Tür abwürgen,
+um die nächste zu spielen. Schreibweise und Aufbau sind dieselben wie bei
+Panzerkiste, damit man sich nicht zweimal etwas merken muss.
+
+Die Geräusche kommen von **freesound.org**, und dort hat **jede Datei ihre
+eigene Lizenz** - meist CC0, oft aber CC BY. Was CC BY ist, steht zusätzlich
+**sichtbar im Spiel**: unter dem Bild neben der Musik im Abschnitt „Geräusche",
+gespeist aus `SOUND_CREDITS` in `audio/sounds.ts` - mit Titel, Autor, Quelle,
+Lizenz und dem Wort „bearbeitet", weil die Dateien geschnitten sind. Was CC0
+ist, steht dort bewusst nicht: Eine Liste, die auch das aufführt, wofür niemand
+eine Nennung verlangt, liest irgendwann keiner mehr. Im Ordner-README steht die Tabelle
+nach dem üblichen Schema (Titel, Autor, Quelle, Lizenz) und dazu eine Spalte
+**„bearbeitet"**: Die Dateien sind nicht die Originale, sondern umgewandelt,
+geschnitten und komprimiert, und CC BY verlangt neben der Namensnennung
+ausdrücklich den Hinweis auf Änderungen. Welche Werkzeuge dafür benutzt wurden,
+steht darunter - nicht weil die Werkzeuge genannt werden wollen, sondern damit
+der Weg wiederholbar ist. Ist eine Datei CC BY, gehört ihre Zeile zusätzlich
+sichtbar ins Spiel, genau wie die Musik.
+
+**Das Radio kommt nicht mit der Tür.** Wer einsteigt, hört eine Sekunde lang
+nichts und dann Musik, die in einer weiteren Sekunde auf ihre Lautstärke
+hochblendet (`RADIO_DELAY`, `RADIO_FADE`). Das ist der Unterschied zwischen
+„ein Lied wird abgespielt" und „ich habe mich in ein Auto gesetzt". Von Hand am
+Mausrad ist es umgekehrt: Da kommt der Sender sofort und voll - man hat ja
+gerade gedreht, und ein Regler, der zwei Sekunden braucht, ist kaputt.
+Nachgemessen: nach 0,6 s still, nach 1,1 s bei 4 %, nach 1,6 s bei 33 %, nach
+2,1 s voll.
+
+**Die Lautstärke ist ein Regler über dem Bild**, derselbe wie bei Panzerkiste -
+bis auf den Speicherplatz dasselbe Bauteil (`lib/storage/volume-store`). Ganz
+links ist stumm; einen zweiten Schalter dafür gibt es nicht und soll es nicht
+geben. Er gilt für **alles**, was das Spiel von sich gibt - Radio wie
+Geräusche: Zwei Regler für ein Auto wären zwei Regler zum Suchen. Eine Webseite mit zwei Spielen sollte nicht zwei Vorstellungen davon
+haben, wie ein Lautstärkeregler aussieht - und wer ihn in dem einen Spiel
+gefunden hat, hat ihn in beiden gefunden. Gemerkt wird er unter einem eigenen
+Schlüssel, so wie dort.
+
+### Der Nachweis gehört dazu
+
+Die Lieder kommen vom **Free Music Archive** und stehen unter **CC BY**. Diese
+Lizenz verlangt eine angemessene Namensnennung: Titel, Künstler, Quelle und
+Lizenzart. Genau das steht jetzt unter dem Bild im Abschnitt **Musik** - eine
+Zeile je Lied, Quelle und Lizenz verlinkt -, und es entsteht aus denselben
+Dateinamen wie die Senderliste (`creditOf()` teilt `Künstler - Titel` auf).
+
+Damit trägt sich jedes neue Lied selbst ein: Wer eine Datei in den Ordner legt,
+hat den Nachweis dabei, und niemand muss daran denken, eine Liste zu pflegen.
+Im Ordner selbst steht dasselbe noch einmal in Prosa (`public/gta/radio/
+README.md`), für den Fall, dass ein Stück einmal unter einer anderen Lizenz
+dazukommt - dann gehört es dort vermerkt.
+
 ## Aufbau
 
 | Datei                       | Verantwortung                                  |
@@ -5784,6 +6866,7 @@ Ziel des Spiels unsichtbar.
 | `components/figure-art.ts`  | Die Menschen: Konturen, einmal gezeichnet      |
 | `components/vehicle-art.ts` | Die Fahrzeuge, nach demselben Muster           |
 | `hooks/use-gta-game.ts`     | Bildschleife, Tasten, Statistik                |
+| `audio/radio.ts`            | Das Autoradio: ein Element, ein Lied je Auto   |
 
 ## Was die Probe gezeigt hat
 

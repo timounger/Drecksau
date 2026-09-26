@@ -7,6 +7,9 @@
 
 import Link from "next/link";
 import { useRef, useState, type ReactElement } from "react";
+import { creditOf } from "@/games/gta/audio/radio";
+import { VolumeSlider } from "@/games/gta/components/volume-slider";
+import { SOUND_CREDITS } from "@/games/gta/audio/sounds";
 import { useFullscreen } from "@/lib/screen/use-fullscreen";
 import { useShotRatio } from "@/lib/screen/use-shot-ratio";
 import { GameHeader } from "@/components/game-header";
@@ -141,12 +144,15 @@ const LINK =
  * Renders the game.
  *
  * @param splashes - the pictures the loading screen may show, from the page
+ * @param stations - the songs the car radio may play, from the same page
  * @returns the screen
  */
 export function GtaScreen({
   splashes,
+  stations,
 }: {
   readonly splashes: readonly string[];
+  readonly stations: readonly string[];
 }): ReactElement {
   const {
     heads,
@@ -166,7 +172,7 @@ export function GtaScreen({
     save,
     load,
     forget,
-  } = useGtaGame();
+  } = useGtaGame(stations);
 
   // The picture, on its own, is what fills the screen: the ticker and the
   // list of keys underneath are of no use to a thumb.
@@ -204,6 +210,7 @@ export function GtaScreen({
         >
           {T.god}
         </button>
+        <VolumeSlider />
         {fullscreen.supported && (
           <button
             type="button"
@@ -324,8 +331,9 @@ export function GtaScreen({
               (wechseln) und <b>Zünder</b> (ablegen).
             </li>
             <li>
-              <b>Mausrad</b>: Waffe wechseln. Zu Beginn nur die Faust - alles
-              andere liegt in der Stadt herum
+              <b>Mausrad</b>: zu Fuß die Waffe wechseln - zu Beginn nur die
+              Faust, alles andere liegt in der Stadt herum. Im Auto schaltet
+              dasselbe Rad den Radiosender weiter
             </li>
             <li>
               <b>E</b> oder <b>Enter</b>: ein- und aussteigen
@@ -363,7 +371,111 @@ export function GtaScreen({
           </ul>
         </section>
       </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Credits stations={stations} />
+        <SoundCredits />
+      </div>
     </div>
+  );
+}
+
+/**
+ * Who the music is by, which the licence asks for in so many words.
+ *
+ * @param stations - the songs the page found in the folder
+ * @returns the block under the picture, or nothing at all without music
+ * @remarks
+ * **CC BY means one has to say four things**: the title, the artist, where it
+ * came from and which licence it is under. All four are here, and the first
+ * two come out of the file name (`creditOf`) - so a song added to the folder
+ * credits itself and nobody has to remember to edit a list. The folder's own
+ * README says the same thing for whoever fills it.
+ */
+function Credits({
+  stations,
+}: {
+  readonly stations: readonly string[];
+}): ReactElement {
+  return (
+    <section className="rounded-2xl border border-zinc-200 p-3 text-xs dark:border-zinc-800">
+      <h2 className="mb-1 text-sm font-semibold">{T.musicTitle}</h2>
+      {stations.length === 0 ? (
+        <p className="text-zinc-600 dark:text-zinc-400">{T.musicNone}</p>
+      ) : (
+        <>
+          <p className="mb-1 text-zinc-600 dark:text-zinc-400">{T.musicLead}</p>
+          <ul className="flex flex-col gap-0.5 text-zinc-600 dark:text-zinc-400">
+            {stations.map((url) => {
+              const credit = creditOf(url);
+              return (
+                <li key={url}>
+                  <b>{credit.title}</b>
+                  {credit.artist === null ? null : <> - {credit.artist}</>} (
+                  <a
+                    href="https://freemusicarchive.org/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    {T.musicSource}
+                  </a>
+                  ,{" "}
+                  <a
+                    href="https://creativecommons.org/licenses/by/4.0/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    {T.musicLicence}
+                  </a>
+                  )
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Who the noises are by, for the ones whose licence asks.
+ *
+ * @returns the block under the picture, or nothing where none of them ask
+ * @remarks
+ * **Not every sound needs this.** A CC0 file asks for nothing and would only
+ * make the list longer; the ones that are CC BY have to be named where the
+ * game is heard. So the list is the table in `SOUND_CREDITS`, and a sound that
+ * is not in it is a sound that does not need to be.
+ */
+function SoundCredits(): ReactElement | null {
+  if (SOUND_CREDITS.length === 0) {
+    return null;
+  }
+  return (
+    <section className="rounded-2xl border border-zinc-200 p-3 text-xs dark:border-zinc-800">
+      <h2 className="mb-1 text-sm font-semibold">{T.soundTitle}</h2>
+      <p className="mb-1 text-zinc-600 dark:text-zinc-400">{T.soundLead}</p>
+      <ul className="flex flex-col gap-0.5 text-zinc-600 dark:text-zinc-400">
+        {SOUND_CREDITS.map((one) => (
+          <li key={one.file}>
+            <b>{one.title}</b> - {one.author} (
+            <a
+              href={one.url}
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              freesound.org
+            </a>
+            , {one.licence}
+            {one.edited === null ? null : <>, {T.soundEdited}</>})
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

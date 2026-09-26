@@ -21,6 +21,9 @@ import { draw } from "@/games/gta/components/render";
 import { actionAt } from "@/games/gta/components/gta-actions";
 import { drawBank } from "@/games/gta/components/bank-render";
 import { drawMint } from "@/games/gta/components/mint-render";
+import { createRadio, type Radio } from "@/games/gta/audio/radio";
+import { createSounds, sirenAt, type Sounds } from "@/games/gta/audio/sounds";
+import { gameVolume } from "@/games/gta/settings/sound-volume";
 import { drawPrison } from "@/games/gta/components/prison-render";
 import {
   createTouchControls,
@@ -32,6 +35,7 @@ import {
   VIEW_WIDTH,
   DEPTH,
   worldAt,
+  FLAT,
 } from "@/games/gta/components/projection";
 import { DEFAULT_ZOOM } from "@/games/gta/settings/app-settings";
 import {
@@ -45,6 +49,7 @@ import {
   hirePrice,
   hireable,
   respawn,
+  isPatrol,
   step,
   type Counter,
 } from "@/games/gta/engine/engine";
@@ -160,9 +165,9 @@ export type Robbery = {
   readonly taken: number;
   /** Whether the silent alarm has gone. */
   readonly alarm: boolean;
-  /** Seconds until the police walk in. */
-  readonly left: number;
-  /** How many of the clerks still have their hands down. */
+  /** Seconds until the police walk in, or null while nobody has rung. */
+  readonly left: number | null;
+  /** How many people in the room still have their hands down. */
   readonly loose: number;
 };
 
@@ -401,12 +406,48 @@ const KEYS: Readonly<Record<string, keyof Input>> = {
 };
 
 /**
+ * How far the nearest patrol car on a call is, in city pixels.
+ *
+ * @param state - the city as it stands
+ * @returns the distance, or a number past earshot when there is none
+ * @remarks
+ * **On a call**, which is not the same as "a police car": most patrol cars in
+ * this city are rolling in ordinary traffic with their lights off, and they
+ * are not chasing anybody. The ones the station sends out when the player has
+ * stars are the ones with `kind: "police"` - the same test the lightbar uses
+ * in ./render - and one the player has taken for himself is not on a call at
+ * all.
+ */
+function nearestCall(state: GameState): number {
+  let best = Number.POSITIVE_INFINITY;
+  for (const car of state.cars) {
+    if (car.kind === "police" && !car.driven && car.health > 0) {
+      const gap = Math.hypot(car.x - state.player.x, car.y - state.player.y);
+      if (gap < best) {
+        best = gap;
+      }
+    }
+  }
+  return best;
+}
+
+/**
  * Runs one game of GTA.
  *
  * @returns the heads-up numbers and the handles the screen needs
  */
-export function useGtaGame(): GtaSession {
+export function useGtaGame(stations: readonly string[] = []): GtaSession {
   const world = useRef<GameState>(START);
+  // The car radio: one element for the whole session, built when the loop
+  // starts and thrown away with it. What it may play comes from the page,
+  // which read the folder - see ../audio/radio.
+  const radio = useRef<Radio | null>(null);
+  // Whether one was in a car last frame, so that getting in is an event.
+  const riding = useRef(false);
+  // What is on the radio, for the corner of the picture.
+  const playing = useRef<string | null>(null);
+  // And the game's own noises, which share the radio's volume knob.
+  const sounds = useRef<Sounds | null>(null);
   // How far the city has got, or null once it is standing. The screen shows a
   // bar while this is set, and nothing is drawn or stepped until it is not.
   const [loading, setLoading] = useState<Loading | null>(FIRST_SLICE);
@@ -744,6 +785,18 @@ export function useGtaGame(): GtaSession {
     return subscribeSettings(read);
   }, []);
 
+  // The volume knob, now and whenever it is moved - here or in another tab.
+  // Its own store, because it is its own control: see ../settings/sound-volume.
+  useEffect(() => {
+    const read = () => {
+      const level = gameVolume.getSnapshot();
+      radio.current?.setVolume(level);
+      sounds.current?.setVolume(level);
+    };
+    read();
+    return gameVolume.subscribe(read);
+  }, []);
+
   // The city, built once the page is up rather than while it is loading.
   //
   // **No "have we done this already" flag.** There was one, and it is exactly
@@ -797,13 +850,25 @@ export function useGtaGame(): GtaSession {
         finger !== null && finger.engaged && looking !== null
           ? looking
           : pointer.current;
+      // **Through whichever camera is in front of us.** In the city the mouse
+      // is put back on the road through the tilted view; inside the bank the
+      // room is seen straight down and the camera is on the robber, not on the
+      // player standing outside - so the same screen point means a different
+      // place, and the gun has to be pointed in the room one is actually in.
+      const room =
+        world.current.phase === "bank"
+          ? world.current.bank
+          : world.current.phase === "mint"
+            ? world.current.mint
+            : null;
       const aim = worldAt(
-        world.current.player,
+        room === null ? world.current.player : room.hero,
         VIEW_WIDTH,
         VIEW_HEIGHT,
         point.x,
         point.y,
         zoom.current,
+        room === null ? DEPTH : FLAT,
       );
       const push = finger?.move ?? { x: 0, y: 0 };
       // The stick, turned from the screen into the city. Only the depth of the
@@ -814,6 +879,11 @@ export function useGtaGame(): GtaSession {
       const reach = Math.hypot(push.x, push.y);
       const steer =
         reach > STICK_GATE ? { x: push.x, y: push.y / DEPTH } : null;
+      const turned = wheel.current + (touch.current?.consumeWheel() ?? 0);
+      if (turned !== 0 && riding.current) {
+        radio.current?.turn(turned > 0 ? 1 : -1);
+        playing.current = radio.current?.title() ?? null;
+      }
       const input: Input = {
         ...keys.current,
         steer,
@@ -830,7 +900,10 @@ export function useGtaGame(): GtaSession {
           fireEdge.current ||
           (finger?.firing ?? false) ||
           (touch.current?.consumeTap() ?? false),
-        wheel: wheel.current + (touch.current?.consumeWheel() ?? 0),
+        // **Behind a wheel the wheel is the radio.** On foot one notch is one
+        // weapon; in a car it is one station, which is where a wheel belongs
+        // in a car and is the one place the weapon wheel was never much use.
+        wheel: turned === 0 || riding.current ? 0 : turned,
         god: godOn.current,
         order: pending.current,
       };
@@ -868,12 +941,51 @@ export function useGtaGame(): GtaSession {
             VIEW_HEIGHT,
             zoom.current,
             daylight.current,
+            playing.current,
+            // Only once the screen has actually been touched: the controls
+            // themselves are drawn on the same condition, and a keyboard
+            // player has nothing in that corner to avoid.
+            finger?.engaged ?? false,
           );
         }
         if (finger !== null) {
           drawTouchControls(ctx, finger);
         }
       }
+      // **Getting in is an event, not a state.** The radio is switched at the
+      // moment the door shuts and stopped at the moment it opens; while one
+      // drives nothing here touches it at all.
+      const aboard = world.current.player.car !== null;
+      if (aboard !== riding.current) {
+        riding.current = aboard;
+        if (aboard) {
+          // **Which car it is matters**: the same one again picks up where it
+          // left off, a different one gets a different station - and a patrol
+          // car comes with the radio off, because the radio in one of those is
+          // the control room.
+          const seat = world.current.cars.find(
+            (car) => car.id === world.current.player.car,
+          );
+          radio.current?.getIn(
+            world.current.player.car ?? 0,
+            Math.floor(world.current.time),
+            seat !== undefined &&
+              (seat.kind === "police" || isPatrol(seat.body)),
+          );
+          playing.current = radio.current?.title() ?? null;
+          // The door, which is the sound of having got in.
+          sounds.current?.play("carEnter");
+        } else {
+          radio.current?.getOut();
+          playing.current = null;
+        }
+      }
+      // **The siren is a distance, not an event.** Whichever car the station
+      // has sent out is nearest decides how loud it is; none in earshot and
+      // there is nothing to hear. That one number is the whole of "they have
+      // found you" and "they have lost you".
+      radio.current?.tick(dt);
+      sounds.current?.setSiren(sirenAt(nearestCall(world.current)));
       const next = headsOf(world.current);
       setHeads((current) => (same(current, next) ? current : next));
       if (now - kept > KEEP_EVERY_MS) {
@@ -898,17 +1010,26 @@ export function useGtaGame(): GtaSession {
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
+    radio.current = createRadio(stations);
+    radio.current.setVolume(gameVolume.getSnapshot());
+    sounds.current = createSounds();
+    sounds.current.setVolume(gameVolume.getSnapshot());
     return () => {
       autoSave(world.current);
       cancelAnimationFrame(frame);
       touch.current?.dispose();
       touch.current = null;
       touched.current = null;
+      radio.current?.dispose();
+      radio.current = null;
+      sounds.current?.dispose();
+      sounds.current = null;
+      riding.current = false;
     };
     // pressAt never changes - it is a callback with no dependencies - but the
     // loop uses it to build the touch controls, so it is listed rather than
     // silenced.
-  }, [pressAt]);
+  }, [pressAt, stations]);
 
   return {
     heads,
@@ -978,7 +1099,7 @@ function headsOf(state: GameState): Heads {
             })),
             task: worksTask(state.mint),
             dark: !lit(state.mint),
-            cut: state.mint.cut,
+            cut: state.mint.dark,
           },
     weapon: state.player.weapon,
     armed: carried(state.player.ammo, state.player.weapon),
@@ -990,8 +1111,10 @@ function headsOf(state: GameState): Heads {
         : {
             taken: Math.round(state.bank.taken),
             alarm: state.bank.alarm,
-            left: Math.ceil(leftInBank(state.bank)),
-            loose: state.bank.staff.filter((one) => !one.held).length,
+            left: leftInBank(state.bank),
+            loose: state.bank.folk.filter(
+              (one) => one.mood === "loose" && one.role !== "boss",
+            ).length,
           },
     escape:
       state.prison === null

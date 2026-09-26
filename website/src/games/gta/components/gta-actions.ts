@@ -26,13 +26,15 @@ import {
   hireable,
   type Counter,
 } from "@/games/gta/engine/engine";
-import { lit } from "@/games/gta/engine/mint";
+import { postSpots } from "@/games/gta/engine/mint";
 import {
   JET_PRICE,
   MINT_CREW,
   PLAYER_HEALTH,
+  SLAB,
   flyerName,
   type GameState,
+  type MintState,
   type Order,
 } from "@/games/gta/engine/types";
 import {
@@ -194,15 +196,33 @@ function shopWares(state: GameState): readonly Wanted[] {
   return [...wares, vest, ...pack, ...rounds];
 }
 
-/** The one button a bank has before anybody has decided anything. */
+/**
+ * The one button a bank has before anybody has decided anything.
+ *
+ * @param state - the city
+ * @returns the button, and why it is off when it is
+ * @remarks
+ * Two conditions, and the label says which one is missing: a weapon, because
+ * a cashier laughs at a fist, and **a clean sheet**, because a bank with the
+ * police already out is a room with one door and nothing to play for.
+ */
 function holdUpButton(state: GameState): Wanted {
   const armed =
     state.player.weapon !== "fist" &&
     carried(state.player.ammo, state.player.weapon);
+  const clean = state.player.stars === 0;
+  let label: string;
+  if (!armed) {
+    label = "Überfall (Waffe fehlt)";
+  } else if (!clean) {
+    label = "Überfall (erst Sterne los)";
+  } else {
+    label = "Überfall";
+  }
   return {
     order: { kind: "rob" },
-    label: armed ? "Überfall" : "Überfall (Waffe fehlt)",
-    on: armed,
+    label,
+    on: armed && clean,
     tone: "raid",
   };
 }
@@ -284,12 +304,39 @@ function onThePlatform(state: GameState): readonly Wanted[] {
   return list;
 }
 
-/** And inside the printing works: the two things that buy time. */
+/**
+ * And inside the printing works: the four things that are pressed.
+ *
+ * @param state - the game, with a job under way inside
+ * @returns the buttons along the bottom of the picture
+ * @remarks
+ * Two of them are new and both are about somebody else doing the work: the
+ * shutter, which is the only door one opens oneself, and leaving one of one's
+ * own men standing over whatever station one is at. The other two buy time
+ * and cost money, as they always did.
+ */
 function insideWorks(state: GameState): readonly Wanted[] {
   const works = state.mint;
   const hostages =
-    works === null ? 0 : works.staff.filter((one) => one.taken).length;
+    works === null
+      ? 0
+      : works.staff.filter((one) => one.taken && one.alive).length;
+  const post = works === null ? -1 : postAt(works);
+  const manned =
+    works !== null && post >= 0 && works.crew.some((man) => man.post === post);
   return [
+    {
+      order: { kind: "shutter" },
+      label: works !== null && works.opening ? "Tor schließen" : "Tor öffnen",
+      on: works !== null,
+      tone: "act",
+    },
+    {
+      order: { kind: "post" },
+      label: manned ? "Mann mitnehmen" : "Mann abstellen",
+      on: post >= 0,
+      tone: "act",
+    },
     {
       order: { kind: "release" },
       label: "Geisel freilassen",
@@ -297,12 +344,24 @@ function insideWorks(state: GameState): readonly Wanted[] {
       tone: "act",
     },
     {
+      // **A switch now, not a stunt.** One cuts the mains while they are at a
+      // door and puts them back on to go on earning, so the button has to say
+      // which of the two it is about to do.
       order: { kind: "power" },
-      label: works !== null && !lit(works) ? "Alles dunkel" : "Strom kappen",
-      on: works !== null && !works.cut,
+      label:
+        works !== null && works.dark ? "Strom einschalten" : "Strom kappen",
+      on: works !== null,
       tone: "act",
     },
   ];
+}
+
+/** Which station the player is standing at, or -1 for none of them. */
+function postAt(works: MintState): number {
+  return postSpots().findIndex(
+    (spot) =>
+      Math.hypot(spot.x - works.hero.x, spot.y - works.hero.y) < SLAB * 2,
+  );
 }
 
 /* ------------------------------------------------------------- the layout */

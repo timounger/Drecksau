@@ -247,22 +247,44 @@ const TIERS: Readonly<Record<VehicleBody, VehicleTiers>> = {
     rake: 4.4,
     rakeBack: 7.5,
   },
+  /**
+   * The motorbike, measured the way everything else here is measured.
+   *
+   * @remarks
+   * **8,6 pixels to the metre**, which is the rule the cars are drawn to - a
+   * Golf is 1,49 m and 12,6 pixels. A tourer's tank and seat stand about 0,86
+   * m off the road and a seated rider's helmet about 1,58 m, so 7,4 and 13,6.
+   *
+   * It used to be 9 and 16, that is 1,05 m of machine with a rider whose head
+   * was at 1,86 - half a metre too tall, and the half metre went into the
+   * flank, the one wall of a motorbike one mostly sees. A wall that tall and
+   * this long is a **billboard**, and no amount of drawing on it stops it
+   * reading as the side of a small truck.
+   */
   bike: {
-    tall: 16,
-    belt: 9,
-    cabinBack: -6,
-    cabinFront: 4,
-    cabinWide: 11,
+    tall: 13.6,
+    belt: 7.4,
+    // **The cabin of a motorbike is the man on it**, so it is his footprint
+    // and not the machine's. Given the full eleven pixels of width, his side
+    // view was drawn along the flank of the *bike* - half a machine out from
+    // where he sits - and the plan view of him, which goes down over the
+    // middle, then sat a helmet's width away from his own shoulders. Two
+    // heads. At his own width the two pictures land on each other and read as
+    // one man, which is what they are.
+    cabinBack: -5.5,
+    cabinFront: 2.5,
+    cabinWide: 5.5,
     rake: 0,
   },
-  // Taller than a naked bike and wider at the back: the screen stands up in
-  // front of the rider and the panniers stand out behind him.
+  // The same machine with a screen on the front and a box on each side: the
+  // panniers are in the plan view and the screen is in the flank, and neither
+  // of them makes it stand any taller than the bike it is.
   patrolbike: {
-    tall: 16,
-    belt: 9,
-    cabinBack: -6,
-    cabinFront: 4,
-    cabinWide: 11,
+    tall: 13.6,
+    belt: 7.4,
+    cabinBack: -5.5,
+    cabinFront: 2.5,
+    cabinWide: 5.5,
     rake: 0,
   },
   cycle: {
@@ -380,11 +402,31 @@ export const TURRET_SIZE = 76;
 const drawn = new Map<string, HTMLCanvasElement>();
 
 /**
+ * Which part of a two-wheeler a plan view shows.
+ *
+ * @remarks
+ * **A rider is not bodywork; he is the storey above it.** The plan view of a
+ * vehicle is stamped twice - once at the belt line for the body and once at
+ * roof height for the cabin - and on a car the second stamp hides the first,
+ * because a roof is a solid shape. A rider is not: he is a man with daylight
+ * round his arms, so the lower stamp showed straight past him and every
+ * motorbike in the city carried **two helmets**, one behind the other.
+ *
+ * So the two storeys get a picture each. The machine is stamped at the belt
+ * line without anybody on it, and the man alone at saddle height - which is
+ * also the truth of the thing: he sits above the tank, not in it.
+ */
+export type SpritePart = "all" | "machine" | "rider";
+
+/**
  * The picture of one vehicle, seen from above.
  *
  * @param body - which sort of vehicle
  * @param paint - the colour of its bodywork
  * @param police - whether it wears the black and white
+ * @param mine - whether the player is the one on it
+ * @param spin - which picture of a turning wheel to draw
+ * @param part - which storey to draw, for a two-wheeler
  * @returns the sprite, or null where no canvas can be made
  */
 export function vehicleSprite(
@@ -393,6 +435,7 @@ export function vehicleSprite(
   police: boolean,
   mine: boolean,
   spin: number,
+  part: SpritePart = "all",
 ): HTMLCanvasElement | null {
   // Only a two-wheeler shows who is on it - everything else has a roof over
   // the driver - so only a two-wheeler is cached twice over.
@@ -404,7 +447,10 @@ export function vehicleSprite(
   // that do not move are a painted stripe. So the phase goes in the key, which
   // costs six pictures of a tank and nothing at all for anything else.
   const step = body === "tank" ? spin : 0;
-  const key = `${body}|${paint}|${police ? "p" : "-"}|${own ? "me" : "-"}|${String(step)}`;
+  // Only a two-wheeler is asked for a storey at a time; everything else has
+  // one picture whatever it is asked for.
+  const storey = twoWheeled(body) ? part : "all";
+  const key = `${body}|${paint}|${police ? "p" : "-"}|${own ? "me" : "-"}|${String(step)}|${storey}`;
   const had = drawn.get(key);
   if (had !== undefined) {
     return had;
@@ -423,7 +469,7 @@ export function vehicleSprite(
   ctx.scale(GRAIN, GRAIN);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  paintVehicle(ctx, body, paint, police, own, step);
+  paintVehicle(ctx, body, paint, police, own, step, storey);
   drawn.set(key, sheet);
   return sheet;
 }
@@ -1035,11 +1081,12 @@ function paintVehicle(
   police: boolean,
   mine: boolean,
   step: number,
+  part: SpritePart,
 ): void {
   if (body === "patrolbike" || body === "bike") {
-    paintPatrolBike(ctx, paint, police, mine);
+    paintPatrolBike(ctx, paint, police, mine, part);
   } else if (body === "cycle") {
-    paintTwoWheeler(ctx, body, paint, police, mine);
+    paintTwoWheeler(ctx, body, paint, police, mine, part);
   } else if (vanLike(body)) {
     paintVan(ctx, body, paint);
   } else if (body === "tank") {
@@ -1059,21 +1106,33 @@ function paintVehicle(
  * The patrol bike from above: a BMW R 1300 RT.
  *
  * @param ctx - what to paint on, the nose to the east
+ * @param paint - what colour the machine is
+ * @param police - whether it is wearing the livery
+ * @param mine - whether the player is the one on it
  * @remarks
- * **Narrow at the front, wide at the back**, and that is the whole silhouette.
- * A naked bike is a stripe from up here; a tourer has a screen and a fairing
- * in front of the rider and a pannier standing out on each side behind him, so
- * from above it is a long wedge with a crossbar at the tail. Nothing else at
- * this size tells the two apart.
+ * **One silhouette, then the parts on top of it.** This is how an engine like
+ * Godot puts a vehicle together: the machine is a little scene of sprites -
+ * wheels, body, tank, rider - each one a whole shape, stacked by z-index and
+ * overlapping on purpose. Drawn instead as a row of rectangles laid end to end
+ * it came out as a flatbed with three crates on it, because that is what a row
+ * of rectangles is.
  *
- * Painted like the car it works with - silver under, blue over, fluorescent
- * along the edges - because a force does not run two liveries.
+ * So: the two tyres first, then **one closed outline** from the nose to the
+ * tail - narrow at the front, waisted at the tank, wide again where the
+ * panniers are - and everything after that painted over it. Nothing has to
+ * meet edge to edge, and nothing can leave a hole.
+ *
+ * What says *motorbike* rather than *narrow car* from up here is a short list,
+ * and all of it is on the top half: the **mirrors** standing out either side
+ * of the screen, the bars between them, the black seat dividing the tank from
+ * the tail, and the rider straddling the lot with his knees out.
  */
 function paintPatrolBike(
   ctx: CanvasRenderingContext2D,
   paint: string,
   police: boolean,
   mine: boolean,
+  part: SpritePart,
 ): void {
   const shape = VEHICLES.patrolbike;
   const long = shape.length / 2;
@@ -1081,136 +1140,400 @@ function paintPatrolBike(
   const skin = police ? POLICE_PAINT : paint;
   const panel = police ? POLICE_BLUE : shade(paint);
 
-  // The two wheels, in line down the middle and both narrower than the bike.
-  ctx.fillStyle = "#1c1917";
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = PEN * 0.7;
-  for (const at of [long - 3, -long + 6]) {
-    const wheel = new Path2D();
-    wheel.roundRect(at - 3, -1.3, 6, 2.6, 0.6);
-    ctx.fill(wheel);
-    ctx.stroke(wheel);
+  if (part === "rider") {
+    bikeRider(ctx, long, police, mine);
+    return;
   }
 
-  // **A wedge, and a narrow one.** From above this machine is a triangle: a
-  // point at the nose, the bars about three pixels across, and everything wide
-  // at the back where the panniers are. It used to be as broad at the front as
-  // at the back, which is the plan view of a small van.
+  // **No tyres in this picture.** The walls draw them, on the road where they
+  // belong - and this picture is stamped at the belt line, so a tyre drawn
+  // here would hang seven pixels up in the air behind the real one. It is the
+  // rule the bicycle already follows.
+
+  // **The machine as one outline**, nose to tail: down the near side, round
+  // the tail, back up the far one. Narrow at the fairing, waisted where the
+  // rider's knees go, wide again over the panniers.
+  const shell = new Path2D();
+  shell.moveTo(long - 1.6, 0);
+  shell.quadraticCurveTo(long - 2.6, -2, long - 5.4, -2.9);
+  shell.lineTo(long - 9.4, -3.3);
+  shell.quadraticCurveTo(long - 12.6, -3.4, long - 13.6, -2.9);
+  shell.lineTo(1, -2.7);
+  shell.quadraticCurveTo(-5, -2.3, -8.5, -2.9);
+  shell.lineTo(-long + 4, -3.4);
+  shell.quadraticCurveTo(-long + 1.2, 0, -long + 4, 3.4);
+  shell.lineTo(-8.5, 2.9);
+  shell.quadraticCurveTo(-5, 2.3, 1, 2.7);
+  shell.lineTo(long - 13.6, 2.9);
+  shell.quadraticCurveTo(long - 12.6, 3.4, long - 9.4, 3.3);
+  shell.lineTo(long - 5.4, 2.9);
+  shell.quadraticCurveTo(long - 2.6, 2, long - 1.6, 0);
+  shell.closePath();
+  ctx.fillStyle = skin;
   ctx.lineWidth = PEN;
-  const nose = new Path2D();
-  nose.moveTo(long - 0.4, 0);
-  nose.quadraticCurveTo(long - 3.5, -2, long - 7, -2.6);
-  nose.lineTo(long - 12, -2.8);
-  nose.lineTo(long - 12, 2.8);
-  nose.quadraticCurveTo(long - 3.5, 2, long - 0.4, 0);
-  nose.closePath();
+  ctx.fill(shell);
+  ctx.stroke(shell);
+
+  // The fairing, in the second colour, clipped to the outline so the join
+  // cannot run out past the silhouette.
+  ctx.save();
+  ctx.clip(shell);
   ctx.fillStyle = panel;
-  ctx.fill(nose);
-  ctx.stroke(nose);
+  ctx.fillRect(long - 13.2, -wide, 12.4, wide * 2);
   if (police) {
     ctx.fillStyle = POLICE_GLOW;
     for (const side of [-1, 1]) {
-      ctx.fillRect(long - 11, side * 2.1 - 0.4, 7, 0.8);
+      ctx.fillRect(long - 12.4, side * 2.4 - 0.45, 8, 0.9);
     }
   }
+  ctx.restore();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.7;
+  ctx.stroke(shell);
 
-  // The tank and the seat behind it, which is where the rider sits.
-  const spine = new Path2D();
-  spine.roundRect(-long + 7, -2.4, long * 2 - 19, 4.8, 0.8);
+  bikeLuggage(ctx, long, wide, skin, panel, police);
+  bikeTop(ctx, long, wide, paint, police);
+  if (part === "all") {
+    bikeRider(ctx, long, police, mine);
+  }
+}
+
+/**
+ * The panniers and the top box, which is what a tourer carries.
+ *
+ * @param ctx - what to paint on, the nose to the east
+ * @param long - half the length of the machine
+ * @param wide - and half its width
+ * @param skin - the machine's own colour
+ * @param panel - the second colour
+ * @param police - whether it is wearing the livery
+ * @remarks
+ * Drawn as three crates with daylight between them they read as luggage on a
+ * trailer. They are one piece of bodywork: a single rounded shape across the
+ * tail with the lid of the top box drawn on it, the whole of it overlapping
+ * the machine rather than sitting behind it.
+ */
+function bikeLuggage(
+  ctx: CanvasRenderingContext2D,
+  long: number,
+  wide: number,
+  skin: string,
+  panel: string,
+  police: boolean,
+): void {
+  const back = -long + 2.2;
+  const cases = new Path2D();
+  cases.roundRect(back, -wide, 9.6, wide * 2, 1.2);
   ctx.fillStyle = skin;
-  ctx.fill(spine);
-  ctx.stroke(spine);
-
-  // A pannier each side, standing clear of the bike, and the top box between.
+  ctx.strokeStyle = INK;
   ctx.lineWidth = PEN * 0.8;
-  for (const side of [-1, 1]) {
-    const box = new Path2D();
-    box.roundRect(-long + 3, side === 1 ? 2.1 : -wide, 8.5, wide - 2.1, 0.6);
-    ctx.fillStyle = skin;
-    ctx.fill(box);
-    ctx.stroke(box);
-    if (police) {
-      ctx.fillStyle = POLICE_GLOW;
-      ctx.fillRect(-long + 4, side * (wide - 0.9) - 0.45, 6.5, 0.9);
-      ctx.fillStyle = POLICE_BLUE;
-      ctx.fillRect(-long + 4, side * 2.9 - 0.45, 6.5, 0.9);
-    }
-  }
+  ctx.fill(cases);
+  ctx.stroke(cases);
+
+  // The top box between them: narrower, and in the other colour, which is
+  // what keeps the tail from being one slab.
   const trunk = new Path2D();
-  trunk.roundRect(-long + 4, -1.9, 6.5, 3.8, 0.6);
+  trunk.roundRect(back + 1.2, -2.2, 7.2, 4.4, 0.8);
   ctx.fillStyle = panel;
+  ctx.lineWidth = PEN * 0.7;
   ctx.fill(trunk);
   ctx.stroke(trunk);
 
-  // The screen over the bars.
-  ctx.fillStyle = "#cbd5e1";
-  ctx.lineWidth = PEN * 0.6;
-  const screen = new Path2D();
-  screen.roundRect(long - 10.4, -2.5, 2.2, 5, 0.7);
-  ctx.fill(screen);
-  ctx.stroke(screen);
-
-  // The bars, with a grip at each end - and on a police one a blue lamp beside
-  // each grip, and a third in the middle of the tail.
-  ctx.strokeStyle = "#334155";
-  ctx.lineWidth = 1.1;
-  ctx.beginPath();
-  ctx.moveTo(long - 12.4, -wide + 0.5);
-  ctx.lineTo(long - 12.4, wide - 0.5);
-  ctx.stroke();
   if (police) {
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = POLICE_GLOW;
+      ctx.fillRect(back + 0.8, side * (wide - 0.9) - 0.45, 7.4, 0.9);
+      ctx.fillStyle = POLICE_BLUE;
+      ctx.fillRect(back + 0.8, side * 3.1 - 0.45, 7.4, 0.9);
+    }
+    // The lamp on the tail, over the top box.
     ctx.fillStyle = "#1e293b";
     ctx.strokeStyle = INK;
-    ctx.lineWidth = PEN * 0.6;
-    for (const side of [-1, 1]) {
-      const pod = new Path2D();
-      pod.roundRect(long - 13.4, side * 3.6 - 1, 2.6, 2, 0.5);
-      ctx.fill(pod);
-      ctx.stroke(pod);
-    }
     const siren = new Path2D();
-    siren.roundRect(-long + 0.8, -1.5, 2.6, 3, 0.6);
+    siren.roundRect(-long + 0.6, -1.5, 2.4, 3, 0.6);
     ctx.fill(siren);
     ctx.stroke(siren);
   }
+}
 
-  // And the man on it: knees out either side of the tank, arms forward to the
-  // bars, and a helmet between the shoulders.
-  const who = riderLook("patrolbike", police, mine);
-  ctx.strokeStyle = who.jacket;
-  ctx.lineCap = "round";
-  ctx.lineWidth = 1.7;
-  ctx.beginPath();
-  for (const side of [-1, 1]) {
-    ctx.moveTo(-1.6, side * 2.2);
-    ctx.lineTo(long - 12, side * 3.2);
-  }
-  ctx.stroke();
-  ctx.strokeStyle = "#111827";
-  ctx.lineWidth = 2.1;
-  ctx.beginPath();
-  for (const side of [-1, 1]) {
-    ctx.moveTo(-4.5, side * 1.8);
-    ctx.lineTo(0.5, side * 3.6);
-  }
-  ctx.stroke();
-  const rider = new Path2D();
-  rider.ellipse(-2.5, 0, 4.2, 2.6, 0, 0, Math.PI * 2);
-  ctx.fillStyle = who.jacket;
+/**
+ * What sits on top of the machine: seat, tank, screen, bars and mirrors.
+ *
+ * @param ctx - what to paint on, the nose to the east
+ * @param long - half the length of the machine
+ * @param wide - and half its width
+ * @param paint - the machine's own colour, for the tank
+ * @param police - whether it is wearing the livery
+ * @remarks
+ * The **mirrors** are the point of this. From above they are the two things
+ * that stand out sideways from an otherwise pencil-shaped object, and without
+ * them a motorbike in plan is a wedge that might as well be a very small car.
+ * They stay just inside the width the machine is reckoned to be, or the ring
+ * that stamps a silhouette onto the road would print two specks beside it.
+ */
+function bikeTop(
+  ctx: CanvasRenderingContext2D,
+  long: number,
+  wide: number,
+  paint: string,
+  police: boolean,
+): void {
+  // The tank, a shade lighter than the rest, and the black seat behind it:
+  // those two are what divide the machine into a front and a back.
+  const tank = new Path2D();
+  tank.roundRect(0.4, -2.5, 8.4, 5, 2);
+  ctx.fillStyle = police ? "#e2e8f0" : paint;
   ctx.strokeStyle = INK;
-  ctx.lineWidth = PEN;
-  ctx.fill(rider);
-  ctx.stroke(rider);
+  ctx.lineWidth = PEN * 0.6;
+  ctx.fill(tank);
+  ctx.stroke(tank);
+
+  const seat = new Path2D();
+  seat.roundRect(-8.6, -2.3, 9.2, 4.6, 1.6);
+  ctx.fillStyle = "#1c1917";
+  ctx.fill(seat);
+  ctx.stroke(seat);
+
+  // The screen over the bars, which one sees through from up here.
+  ctx.fillStyle = "rgba(226,232,240,0.9)";
+  ctx.lineWidth = PEN * 0.5;
+  const screen = new Path2D();
+  screen.roundRect(long - 11.6, -2.6, 2.6, 5.2, 0.7);
+  ctx.fill(screen);
+  ctx.stroke(screen);
+
+  // The bars, with a grip at each end.
+  ctx.strokeStyle = "#334155";
+  ctx.lineCap = "round";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(long - 12.8, -wide + 0.9);
+  ctx.lineTo(long - 12.8, wide - 0.9);
+  ctx.stroke();
+  ctx.fillStyle = "#111827";
+  for (const side of [-1, 1]) {
+    const grip = new Path2D();
+    grip.roundRect(long - 13.6, side * (wide - 1.6) - 0.7, 1.6, 1.4, 0.5);
+    ctx.fill(grip);
+  }
+
+  // And the mirrors, on their stalks.
+  ctx.strokeStyle = "#334155";
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  for (const side of [-1, 1]) {
+    ctx.moveTo(long - 11, side * 2.4);
+    ctx.lineTo(long - 10.2, side * 4.4);
+  }
+  ctx.stroke();
+  ctx.fillStyle = police ? "#e2e8f0" : "#1e293b";
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.5;
+  for (const side of [-1, 1]) {
+    const glass = new Path2D();
+    glass.ellipse(long - 10, side * 4.8, 1.5, 0.95, 0, 0, Math.PI * 2);
+    ctx.fill(glass);
+    ctx.stroke(glass);
+  }
+
+  // The headlamp in the nose of the fairing, where the beam is hung.
+  ctx.fillStyle = LAMP;
+  const lens = new Path2D();
+  lens.roundRect(long - 4.6, -1.35, 2.6, 2.7, 0.9);
+  ctx.fill(lens);
+  ctx.stroke(lens);
+
+  if (police) {
+    // A blue lamp beside each grip.
+    ctx.fillStyle = "#1e293b";
+    for (const side of [-1, 1]) {
+      const pod = new Path2D();
+      pod.roundRect(long - 14.6, side * 3.4 - 1, 2.6, 2, 0.5);
+      ctx.fill(pod);
+      ctx.stroke(pod);
+    }
+  }
+}
+
+/**
+ * The man on it, seen from above.
+ *
+ * @param ctx - what to paint on, the nose to the east
+ * @param long - half the length of the machine
+ * @param police - whether he is a policeman
+ * @param mine - whether he is the player
+ * @remarks
+ * **A rig, not a blob.** He used to be one ellipse as wide as the machine with
+ * a dot on it, which from above is a sack on a seat. A person is recognised by
+ * where his joints are, so he is built the way a character is built in an
+ * engine: hips, trunk, shoulders, head, and four limbs that each **bend once**
+ * - see {@link limb}.
+ *
+ * The pose is a tourer's, and every point of it is somewhere the machine says
+ * it has to be: the hands are on the grips, the boots are on the pegs, the
+ * knees are out where the tank is. That is what makes him look as though he is
+ * riding *this* motorbike rather than sitting on a bench.
+ *
+ * **And he is drawn twice over.** The first pass draws every part of him a
+ * pixel and a half fatter and all in ink; the second draws the man on top of
+ * it. That is the oldest rule in sprite work - *silhouette first, detail
+ * second* - and here it does a particular job: a figure assembled out of
+ * separate limbs has hairline gaps between them, and a rider is painted over
+ * the machine he sits on, so those gaps were red bodywork showing through the
+ * middle of a man. The ink pass closes them, and what is left is a black line
+ * round him that holds him together over any colour he happens to sit on.
+ */
+function bikeRider(
+  ctx: CanvasRenderingContext2D,
+  long: number,
+  police: boolean,
+  mine: boolean,
+): void {
+  const who = riderLook("patrolbike", police, mine);
+  riderFromAbove(ctx, long, who, true);
+  riderFromAbove(ctx, long, who, false);
+}
+
+/**
+ * One pass of the rider seen from above.
+ *
+ * @param ctx - what to paint on, the nose to the east
+ * @param long - half the length of the machine
+ * @param who - what he is wearing
+ * @param edge - true for the ink silhouette, false for the man himself
+ */
+function riderFromAbove(
+  ctx: CanvasRenderingContext2D,
+  long: number,
+  who: RiderKit,
+  edge: boolean,
+): void {
+  // How much fatter every part is drawn in the silhouette pass.
+  const grow = edge ? EDGE_GROW : 0;
+  // Where the hands have to end up: on the grips, which the machine drew at
+  // the end of the bars.
+  const grip = { x: long - 12.9, y: 3.9 };
+  ctx.strokeStyle = INK;
+
+  // **The legs first**, because everything else is drawn over them: thigh
+  // forward along the tank, knee out at the widest, shin back down to the peg.
+  for (const side of [-1, 1]) {
+    limb(
+      ctx,
+      [
+        { x: -4.4, y: side * 1.5 },
+        { x: 1.4, y: side * 3.1 },
+        { x: -1.2, y: side * 3.5 },
+      ],
+      2.2 + grow,
+      edge ? INK : who.trousers,
+    );
+    // The boot on the peg, which is the only part of the shin one sees from
+    // above: everything between the knee and it is foreshortened away.
+    const boot = new Path2D();
+    boot.ellipse(
+      -1.4,
+      side * 3.6,
+      1.5 + grow / 2,
+      0.9 + grow / 2,
+      side * 0.2,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fillStyle = edge ? INK : who.boots;
+    ctx.fill(boot);
+  }
+
+  // The arms, elbows out: shoulder, elbow, glove on the grip.
+  for (const side of [-1, 1]) {
+    limb(
+      ctx,
+      [
+        { x: -2.4, y: side * 2 },
+        { x: 1.2, y: side * 3.4 },
+        { x: grip.x, y: side * grip.y },
+      ],
+      1.8 + grow,
+      edge ? INK : who.jacket,
+    );
+    const glove = new Path2D();
+    glove.ellipse(
+      grip.x,
+      side * grip.y,
+      1.2 + grow / 2,
+      0.9 + grow / 2,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fillStyle = edge ? INK : who.gloves;
+    ctx.fill(glove);
+  }
+
+  // The trunk: narrow at the hips, wide at the shoulders, leaning forward.
+  const trunk = new Path2D();
+  trunk.moveTo(-5.4, -1.9);
+  trunk.quadraticCurveTo(-2.8, -2.9, -1.4, -2.5);
+  trunk.quadraticCurveTo(-0.2, -1.4, -0.2, 0);
+  trunk.quadraticCurveTo(-0.2, 1.4, -1.4, 2.5);
+  trunk.quadraticCurveTo(-2.8, 2.9, -5.4, 1.9);
+  trunk.quadraticCurveTo(-6.2, 0, -5.4, -1.9);
+  trunk.closePath();
+  ctx.fillStyle = edge ? INK : who.jacket;
+  ctx.lineWidth = edge ? EDGE_GROW * 2 : PEN;
+  ctx.fill(trunk);
+  ctx.stroke(trunk);
+
+  if (!edge) {
+    // The waistcoat, or the stripe across the shoulders: it is what tells one
+    // rider from another at a glance, and on a policeman it is the whole point.
+    ctx.save();
+    ctx.clip(trunk);
+    ctx.fillStyle = who.trim;
+    ctx.fillRect(-4.6, -3, 2.6, 6);
+    ctx.restore();
+    ctx.strokeStyle = INK;
+    ctx.stroke(trunk);
+  }
+
+  // The head: a helmet with the visor across the front of it and a highlight
+  // on the crown, which is what says this is a ball and not a disc.
   const helmet = new Path2D();
-  helmet.ellipse(-1.2, 0, 2, 2, 0, 0, Math.PI * 2);
-  ctx.fillStyle = who.helmet;
+  helmet.ellipse(-1.2, 0, 2.2 + grow / 2, 2 + grow / 2, 0, 0, Math.PI * 2);
+  ctx.fillStyle = edge ? INK : who.helmet;
+  ctx.lineWidth = edge ? EDGE_GROW : PEN * 0.7;
   ctx.fill(helmet);
   ctx.stroke(helmet);
-  ctx.fillStyle = "#1e293b";
+  if (edge) {
+    return;
+  }
+
+  // **A crescent along the front of the helmet, not a lens in the middle of
+  // it.** A dark oval in a light circle is an eye, and a motorbike with an eye
+  // on it is a cartoon. What one sees from above is the band of the visor
+  // curving round the front, which is also which way he is looking.
   const visor = new Path2D();
-  visor.roundRect(-0.4, -1.3, 1.4, 2.6, 0.5);
+  visor.ellipse(-1.2, 0, 2.15, 1.95, 0, -Math.PI / 2.3, Math.PI / 2.3);
+  visor.ellipse(-1.2, 0, 1.15, 1.3, 0, Math.PI / 2.3, -Math.PI / 2.3, true);
+  visor.closePath();
+  ctx.fillStyle = "#1e293b";
   ctx.fill(visor);
+  ctx.fillStyle = "rgba(255,255,255,0.22)";
+  const shine = new Path2D();
+  shine.ellipse(-1.9, -0.7, 0.9, 0.5, -0.4, 0, Math.PI * 2);
+  ctx.fill(shine);
 }
+
+/**
+ * How much fatter the ink pass draws every part of a figure.
+ *
+ * @remarks
+ * One pixel - half of it each side of the part it fattens, which is the line
+ * the rest of the city is drawn with. Enough to close the gap where two limbs
+ * meet at an angle, and no more: at a pixel and a half the arms and the trunk
+ * ran into each other and the man came out as his own shadow.
+ */
+const EDGE_GROW = 1;
 
 /**
  * A car, a taxi or an off-roader, from above.
@@ -1606,108 +1929,140 @@ function paintTwoWheeler(
   paint: string,
   police: boolean,
   mine: boolean,
+  part: SpritePart,
 ): void {
   const shape = VEHICLES[body];
   const long = shape.length / 2;
   const wide = shape.width / 2;
   const cycle = body === "cycle";
 
-  // **No wheels in this picture on a bicycle.** The walls draw them, and on a
-  // machine with no bodywork over them the walls' wheels are all one sees -
-  // so a pair drawn here as well got stamped at the belt line and came out as
-  // a second tyre hanging in the air behind the first. One tyre at each end,
-  // seen from whichever side one happens to be on, is the whole of it.
-  if (!cycle) {
-    ctx.fillStyle = "#1c1917";
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = PEN * 0.7;
-    for (const at of [long - 2, -long + 2]) {
-      const wheel = new Path2D();
-      wheel.roundRect(at - 3, -wide * 0.7, 6, wide * 1.4, 1);
-      ctx.fill(wheel);
-      ctx.stroke(wheel);
+  // The machine below, the rider above - see {@link SpritePart}.
+  if (part !== "rider") {
+    // **No wheels in this picture on a bicycle.** The walls draw them, and on a
+    // machine with no bodywork over them the walls' wheels are all one sees -
+    // so a pair drawn here as well got stamped at the belt line and came out as
+    // a second tyre hanging in the air behind the first. One tyre at each end,
+    // seen from whichever side one happens to be on, is the whole of it.
+    if (!cycle) {
+      ctx.fillStyle = "#1c1917";
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = PEN * 0.7;
+      for (const at of [long - 2, -long + 2]) {
+        const wheel = new Path2D();
+        wheel.roundRect(at - 3, -wide * 0.7, 6, wide * 1.4, 1);
+        ctx.fill(wheel);
+        ctx.stroke(wheel);
+      }
+    }
+
+    if (cycle) {
+      // The frame: a spine down the middle from hub to hub, no wider than the
+      // tubes it is made of.
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(long - 3, 0);
+      ctx.lineTo(-long + 3, 0);
+      ctx.stroke();
+    } else {
+      const frame = new Path2D();
+      frame.moveTo(long - 3, -wide * 0.5);
+      frame.lineTo(-long + 3, -wide * 0.7);
+      frame.lineTo(-long + 3, wide * 0.7);
+      frame.lineTo(long - 3, wide * 0.5);
+      frame.closePath();
+      ctx.fillStyle = paint;
+      ctx.lineWidth = PEN;
+      ctx.fill(frame);
+      ctx.stroke(frame);
+    }
+
+    // The handlebars, across the front.
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = cycle ? 0.9 : 1.2;
+    ctx.beginPath();
+    ctx.moveTo(long - 5, -wide - 1.6);
+    ctx.lineTo(long - 5, wide + 1.6);
+    ctx.stroke();
+
+    if (!cycle) {
+      // A tank and an exhaust, for the one with an engine.
+      const fuel = new Path2D();
+      fuel.ellipse(2, 0, 3.4, wide * 0.7, 0, 0, Math.PI * 2);
+      ctx.fillStyle = shade(paint);
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = PEN * 0.7;
+      ctx.fill(fuel);
+      ctx.stroke(fuel);
+    }
+
+    if (police) {
+      // A white tank and a little blue light: enough to tell a patrol bike from
+      // a courier at a glance, which is all one gets at this size.
+      const fairing = new Path2D();
+      fairing.roundRect(-1, -wide * 0.8, 7, wide * 1.6, 1.4);
+      ctx.fillStyle = POLICE_PAINT;
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = PEN * 0.7;
+      ctx.fill(fairing);
+      ctx.stroke(fairing);
+      const lamp = new Path2D();
+      lamp.roundRect(-5.4, -1.6, 2.4, 3.2, 0.8);
+      ctx.fillStyle = "#3b82f6";
+      ctx.fill(lamp);
+      ctx.stroke(lamp);
     }
   }
-
-  if (cycle) {
-    // The frame: a spine down the middle from hub to hub, no wider than the
-    // tubes it is made of.
-    ctx.strokeStyle = "#94a3b8";
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.moveTo(long - 3, 0);
-    ctx.lineTo(-long + 3, 0);
-    ctx.stroke();
-  } else {
-    const frame = new Path2D();
-    frame.moveTo(long - 3, -wide * 0.5);
-    frame.lineTo(-long + 3, -wide * 0.7);
-    frame.lineTo(-long + 3, wide * 0.7);
-    frame.lineTo(long - 3, wide * 0.5);
-    frame.closePath();
-    ctx.fillStyle = paint;
-    ctx.lineWidth = PEN;
-    ctx.fill(frame);
-    ctx.stroke(frame);
+  if (part === "machine") {
+    return;
   }
 
-  // The handlebars, across the front.
-  ctx.strokeStyle = "#334155";
-  ctx.lineWidth = cycle ? 0.9 : 1.2;
-  ctx.beginPath();
-  ctx.moveTo(long - 5, -wide - 1.6);
-  ctx.lineTo(long - 5, wide + 1.6);
-  ctx.stroke();
-
-  if (!cycle) {
-    // A tank and an exhaust, for the one with an engine.
-    const fuel = new Path2D();
-    fuel.ellipse(2, 0, 3.4, wide * 0.7, 0, 0, Math.PI * 2);
-    ctx.fillStyle = shade(paint);
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = PEN * 0.7;
-    ctx.fill(fuel);
-    ctx.stroke(fuel);
-  }
-
-  if (police) {
-    // A white tank and a little blue light: enough to tell a patrol bike from
-    // a courier at a glance, which is all one gets at this size.
-    const fairing = new Path2D();
-    fairing.roundRect(-1, -wide * 0.8, 7, wide * 1.6, 1.4);
-    ctx.fillStyle = POLICE_PAINT;
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = PEN * 0.7;
-    ctx.fill(fairing);
-    ctx.stroke(fairing);
-    const lamp = new Path2D();
-    lamp.roundRect(-5.4, -1.6, 2.4, 3.2, 0.8);
-    ctx.fillStyle = "#3b82f6";
-    ctx.fill(lamp);
-    ctx.stroke(lamp);
-  }
-
-  // And the rider, seen from above: shoulders, arms to the bars, a head - and
-  // dressed as whoever is actually on it.
+  // And the rider, seen from above - the same rig as the motorbike's, see
+  // {@link bikeRider}: an ellipse as wide as the bicycle with a dot on it is
+  // a sack of post on a carrier, not a man on a saddle.
   const who = riderLook(body, police, mine);
-  const rider = new Path2D();
-  rider.ellipse(-2, 0, 4.4, wide + 1.4, 0, 0, Math.PI * 2);
-  ctx.fillStyle = who.jacket;
-  ctx.lineWidth = PEN;
-  ctx.fill(rider);
-  ctx.stroke(rider);
-  ctx.strokeStyle = who.jacket;
-  ctx.lineWidth = 1.6;
-  ctx.beginPath();
+  // The legs: knee forward over the pedal, then back down to it.
   for (const side of [-1, 1]) {
-    ctx.moveTo(-1, side * wide);
-    ctx.lineTo(long - 5.4, side * (wide + 1.2));
+    limb(
+      ctx,
+      [
+        { x: -2.6, y: side * 1.3 },
+        { x: 1.6, y: side * 2.4 },
+        { x: -0.6, y: side * 2.8 },
+      ],
+      1.9,
+      who.trousers,
+    );
   }
-  ctx.stroke();
-  const head = new Path2D();
-  head.ellipse(1.4, 0, 2.8, 2.6, 0, 0, Math.PI * 2);
-  ctx.fillStyle = who.helmet;
+  // The arms, out to the ends of the bars.
+  for (const side of [-1, 1]) {
+    limb(
+      ctx,
+      [
+        { x: -1.2, y: side * 1.8 },
+        { x: 1.8, y: side * 2.8 },
+        { x: long - 5.2, y: side * (wide + 0.8) },
+      ],
+      1.5,
+      who.jacket,
+    );
+  }
+  const trunk = new Path2D();
+  trunk.ellipse(-2.4, 0, 3.6, 2.4, 0, 0, Math.PI * 2);
+  ctx.fillStyle = who.jacket;
   ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN;
+  ctx.fill(trunk);
+  ctx.stroke(trunk);
+  ctx.save();
+  ctx.clip(trunk);
+  ctx.fillStyle = who.trim;
+  ctx.fillRect(-4, -3, 2, 6);
+  ctx.restore();
+  ctx.stroke(trunk);
+  const head = new Path2D();
+  head.ellipse(0.4, 0, 2.1, 1.9, 0, 0, Math.PI * 2);
+  ctx.fillStyle = who.helmet;
   ctx.lineWidth = PEN * 0.7;
   ctx.fill(head);
   ctx.stroke(head);
@@ -4813,10 +5168,12 @@ const TYRE_SHARE: Readonly<Partial<Record<VehicleBody, number>>> = {
   corsa: GOLF_TYRE,
   corsaelegance: GOLF_TYRE,
   corsaultimate: GOLF_TYRE,
-  // A motorbike wheel is enormous next to a car s: nearly two thirds of the
-  // height of the machine, which is why it turns so much more slowly.
-  bike: 0.62,
-  patrolbike: 0.62,
+  // This one is only the gearing for the spin, and it wants the size the
+  // wheel is actually drawn: a shade under half the height of the machine.
+  // See {@link bikeWheel} - the wheel is an oval, and this is between its two
+  // radii.
+  bike: 0.46,
+  patrolbike: 0.46,
   suv: CYBER_TYRE,
 };
 
@@ -4989,113 +5346,278 @@ function rideWall(ctx: CanvasRenderingContext2D, job: WallJob): void {
  * @param ctx - what to paint on, the road along the bottom
  * @param job - which wall of which vehicle, and how big
  * @remarks
- * A tourer's profile, which is nothing like the naked bike's: a fairing that
- * rises into a screen at the front, a body with the same three bands the car
- * wears, and a pannier standing out over the back wheel.
+ * **Built in layers that overlap, the way an engine assembles a vehicle out of
+ * sprites.** In Godot a machine like this is a little scene: a node for each
+ * wheel, one for the frame, one for the rider, stacked by z-index and hung on
+ * their own pivots - and each part is a whole shape in itself, so the parts
+ * overlap instead of meeting edge to edge. Nothing has to line up to the pixel,
+ * and nothing can leave a seam.
+ *
+ * Drawn as butted-up bars this came out as a flatbed: two big wheels, a plank
+ * across the top of them and a hole in the middle where the road showed
+ * through. What fills that hole is what is actually there on a motorbike -
+ * **the engine hangs in it**, the swingarm runs back to the rear hub, the fork
+ * runs down to the front one, and the silencer lies along the bottom. Those
+ * four are the difference between a bike and a trailer.
+ *
+ * Over them goes **one closed outline** for the bodywork, from the beak over
+ * the front wheel to the tail: beak, fairing, tank, the dip of the seat, the
+ * tail unit. One silhouette rather than three bars, because a silhouette has
+ * no gaps to leak through. Everything after it - the two-tone fairing, the
+ * seat, the pannier, the screen - is painted *on* that outline.
  */
 function patrolBikeFlank(ctx: CanvasRenderingContext2D, job: WallJob): void {
   const half = job.span / 2;
   const high = job.high;
-  const tyre = high * 0.62;
-  const axle = half - tyre - 0.8;
+  // How far a wheel reaches along the machine, and how far up off the road.
+  // Two numbers rather than one - see {@link bikeWheel}.
+  const along = high * 0.5;
+  const tyre = high * 0.36;
+  const axle = half - along - 1.4;
   const skin = job.police ? POLICE_PAINT : job.paint;
   const panel = job.police ? POLICE_BLUE : shade(job.paint);
 
-  // **The wheels first and the bodywork high up.** A motorbike from the side
-  // is mostly wheel - that is what tells it from a small van - so nothing is
-  // painted below the axle line except the engine hanging between them.
+  // **The wheels first**, and everything after them is painted over the top:
+  // a motorbike from the side is mostly wheel, and that is what tells it from
+  // a small van.
   for (const at of [axle, -axle]) {
-    bikeWheel(ctx, at, tyre, wheelTurn(job, at));
+    bikeWheel(ctx, at, along, tyre, wheelTurn(job, at));
   }
-  // **The engine, and it must not read as rubber.** Black, squat and hung
-  // between two black tyres, it closed the gap between them: from the side the
-  // machine came out as one long dark mass, which is to say as a single very
-  // wide tyre with a fairing on top. So it is metal-coloured, outlined, well
-  // clear of the road and short enough to leave daylight either side of it.
+
+  bikeRunningGear(ctx, job, along, tyre, axle, skin);
+
+  // **The bodywork, as one closed outline - and its top edge is flat.** This
+  // is the wall the plan view stands on: whatever the drawing leaves clear of
+  // the top of it is a hole one can see the road through, with the machine's
+  // own roof floating over it. A stepped profile - fairing tall, seat dipped,
+  // tail up again - is what a tourer really looks like from the side, and it
+  // was a **seam of daylight** the length of the machine. So the outline fills
+  // the wall to the belt line and the steps are painted on it instead: the
+  // fairing in the second colour, the saddle a black band along the top, the
+  // pannier square over the back wheel.
+  //
+  // The underside is where the shape is: it lies over the engine rather than
+  // stopping short of it, and it lifts at both ends so the tyres show.
+  const shell = new Path2D();
+  shell.moveTo(axle + 2.6, high * 0.46);
+  shell.quadraticCurveTo(axle + 3.4, high * 0.86, axle + 1.2, high);
+  shell.lineTo(-half + 1.4, high);
+  shell.lineTo(-half + 1.4, high * 0.58);
+  shell.lineTo(-6, high * 0.54);
+  // **The lower fairing**, which is what shuts the machine up at the front.
+  // Between the engine and the front wheel there was a hand's breadth of open
+  // air with the road showing through it, and a tourer has a panel there.
+  shell.lineTo(2.4, high * 0.48);
+  shell.lineTo(axle - 2.2, high * 0.34);
+  shell.quadraticCurveTo(axle + 1.4, high * 0.32, axle + 2.6, high * 0.46);
+  shell.closePath();
+  ctx.fillStyle = skin;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN;
+  ctx.fill(shell);
+  ctx.stroke(shell);
+
+  // The fairing is the other colour, and it is cut out of the same outline -
+  // clipped to it, so the two-tone join cannot run past the silhouette.
+  ctx.save();
+  ctx.clip(shell);
+  ctx.fillStyle = panel;
+  ctx.fillRect(axle - 4.4, 0, 8.4, high * 1.1);
+  if (job.police) {
+    ctx.fillStyle = POLICE_GLOW;
+    ctx.fillRect(axle - 5, high * 0.58, 9, high * 0.1);
+  }
+  ctx.restore();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.6;
+  ctx.stroke(shell);
+
+  bikeBodyParts(ctx, job, axle, skin, panel);
+}
+
+/**
+ * What hangs between the two wheels: engine, swingarm, fork, silencer.
+ *
+ * @param ctx - what to paint on, the road along the bottom
+ * @param job - which wall of which vehicle, and how big
+ * @param along - how far a wheel reaches along the machine
+ * @param tyre - and how far up off the road
+ * @param axle - how far each hub stands from the middle
+ * @param skin - the machine's own colour, for the mudguard
+ * @remarks
+ * The hole between the wheels is where this used to show the road. On a real
+ * motorbike it is the busiest part of the machine, and four shapes are enough
+ * to say so: the block in the middle, the arm back to the rear hub, the fork
+ * down to the front one and the silencer along the bottom. The block is
+ * **metal-coloured**, not black - black between two black tyres reads as one
+ * very wide tyre.
+ */
+function bikeRunningGear(
+  ctx: CanvasRenderingContext2D,
+  job: WallJob,
+  along: number,
+  tyre: number,
+  axle: number,
+  skin: string,
+): void {
+  const high = job.high;
+
+  // The swingarm, and the fork: two bars, both drawn from a hub so they end
+  // where the wheel is rather than near it.
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#52525b";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-axle, tyre);
+  ctx.lineTo(-3.2, tyre * 0.9);
+  ctx.moveTo(axle, tyre);
+  ctx.lineTo(axle - 1.6, high * 0.92);
+  ctx.stroke();
+
+  // The engine, filling what is left between them.
+  const block = new Path2D();
+  block.moveTo(-3.6, tyre * 1.5);
+  block.lineTo(4.2, tyre * 1.5);
+  block.quadraticCurveTo(6.1, tyre * 1.1, 5.2, tyre * 0.55);
+  block.lineTo(3, tyre * 0.26);
+  block.lineTo(-2.2, tyre * 0.3);
+  block.quadraticCurveTo(-4.3, tyre * 0.7, -3.6, tyre * 1.5);
+  block.closePath();
   ctx.fillStyle = "#3f3f46";
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN * 0.6;
-  const block = new Path2D();
-  block.roundRect(-3.4, tyre * 0.72, 7.4, tyre * 0.62, 0.8);
   ctx.fill(block);
   ctx.stroke(block);
+  // Fins, which is the one thing that says engine rather than box.
+  ctx.strokeStyle = "#71717a";
+  ctx.lineWidth = 0.3;
+  ctx.beginPath();
+  for (const fin of [0.6, 0.95, 1.3]) {
+    ctx.moveTo(-1.8, tyre * fin);
+    ctx.lineTo(4, tyre * fin);
+  }
+  ctx.stroke();
 
-  // **Three steps, not one bar.** The fairing stands tallest at the front, the
-  // seat dips behind it and the pannier sits square over the back wheel - that
-  // stepped line is the profile of a tourer, and a single stripe from end to
-  // end is the profile of a bumper.
-  ctx.lineWidth = PEN;
+  // The silencer: a downpipe off the engine and a short can under the tail.
+  // Drawn the length of the machine it was a running board, and a motorbike
+  // with a running board is a scooter.
+  ctx.strokeStyle = "#71717a";
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(3.4, tyre * 0.5);
+  ctx.quadraticCurveTo(0, tyre * 0.2, -5, tyre * 0.4);
+  ctx.stroke();
+  const can = new Path2D();
+  can.roundRect(-9.6, tyre * 0.16, 5.4, 1.3, 0.65);
+  ctx.fillStyle = "#a1a1aa";
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.5;
+  ctx.fill(can);
+  ctx.stroke(can);
+
+  // And the mudguard over the front wheel, in the machine's own colour: it
+  // closes the gap between the tyre and the fairing that sits above it.
+  ctx.strokeStyle = skin;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.ellipse(
+    axle,
+    tyre,
+    along + 0.7,
+    tyre + 0.7,
+    0,
+    Math.PI * 0.1,
+    Math.PI * 0.9,
+  );
+  ctx.stroke();
+}
+
+/**
+ * What is painted on the bodywork: seat, pannier, screen, lamps.
+ *
+ * @param ctx - what to paint on, the road along the bottom
+ * @param job - which wall of which vehicle, and how big
+ * @param axle - how far each hub stands from the middle
+ * @param skin - the machine's own colour
+ * @param panel - and the colour of the fairing and the top box
+ */
+function bikeBodyParts(
+  ctx: CanvasRenderingContext2D,
+  job: WallJob,
+  axle: number,
+  skin: string,
+  panel: string,
+): void {
+  const half = job.span / 2;
+  const high = job.high;
+
+  // The seat: a dark band along the top where the rider sits, which is what
+  // stops the tank and the tail from reading as one long slab of paint.
   const seat = new Path2D();
-  seat.moveTo(half - 8, high);
-  seat.lineTo(-half + 4, high * 0.94);
-  seat.lineTo(-half + 4, high * 0.7);
-  seat.lineTo(half - 8, high * 0.74);
-  seat.closePath();
-  ctx.fillStyle = skin;
+  seat.roundRect(-8.6, high * 0.76, 11.4, high * 0.24, 0.5);
+  ctx.fillStyle = "#1c1917";
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = PEN * 0.5;
   ctx.fill(seat);
   ctx.stroke(seat);
 
-  // Curved, not cut: the nose of the fairing runs forward and down into the
-  // mudguard rather than stopping at a corner.
-  // **The same wedge the plan view has.** Deep where the rider sits behind it
-  // and drawn out to a point at the nose, top and bottom edge both closing on
-  // it - a fairing that keeps its full depth all the way forward does not
-  // match the triangle one sees from above.
-  const fairing = new Path2D();
-  fairing.moveTo(half - 0.2, high * 0.74);
-  fairing.quadraticCurveTo(half - 1.2, high * 0.97, half - 3.2, high);
-  fairing.lineTo(half - 9, high);
-  fairing.lineTo(half - 9.6, high * 0.56);
-  fairing.quadraticCurveTo(half - 5, high * 0.62, half - 0.2, high * 0.74);
-  fairing.closePath();
-  ctx.fillStyle = panel;
-  ctx.fill(fairing);
-  ctx.stroke(fairing);
-  if (job.police) {
-    ctx.save();
-    ctx.clip(fairing);
-    ctx.fillStyle = POLICE_GLOW;
-    ctx.fillRect(half - 12, high * 0.58, 12, high * 0.11);
-    ctx.restore();
-  }
-
-  // The pannier over the back wheel, and the word on the side of it.
+  // The pannier over the back wheel, standing proud of the tail, and the word
+  // on the side of it.
   const box = new Path2D();
-  box.roundRect(-half + 0.4, high * 0.5, 8.6, high * 0.46, 0.7);
-  ctx.fillStyle = skin;
+  box.roundRect(-half + 1.2, high * 0.52, 9.6, high * 0.48, 0.7);
+  // The second colour again, as at the front: a flank painted in one colour
+  // from end to end is a slab however well it is drawn, and a tourer really
+  // does carry its panniers in a different shade from its tank.
+  ctx.fillStyle = job.police ? skin : panel;
   ctx.lineWidth = PEN * 0.8;
   ctx.fill(box);
   ctx.stroke(box);
   if (job.police) {
     ctx.fillStyle = POLICE_BLUE;
-    ctx.fillRect(-half + 1, high * 0.56, 7.4, high * 0.28);
+    ctx.fillRect(-half + 2, high * 0.58, 8.2, high * 0.3);
     ctx.fillStyle = POLICE_GLOW;
-    ctx.fillRect(-half + 1, high * 0.86, 7.4, high * 0.08);
+    ctx.fillRect(-half + 2, high * 0.9, 8.2, high * 0.08);
     ctx.save();
-    ctx.translate(-half + 4.7, high * 0.7);
+    ctx.translate(-half + 6.1, high * 0.72);
     ctx.scale(job.mirror ? -1 : 1, -1);
-    policeWord(ctx, high * 0.2, "#f8fafc");
+    policeWord(ctx, high * 0.19, "#f8fafc");
     ctx.restore();
   }
 
-  // The screen over the bars, and the blue lamps: one beside the grips and one
-  // in the middle of the tail, both of which show from the side.
-  ctx.fillStyle = "#cbd5e1";
+  // The headlamp, at the front of the fairing: from the side one sees the edge
+  // of the glass, which is where the renderer hangs the beam.
+  const lens = new Path2D();
+  lens.moveTo(axle + 3.1, high * 0.56);
+  lens.lineTo(axle + 1.9, high * 0.8);
+  lens.lineTo(axle + 1, high * 0.74);
+  lens.lineTo(axle + 2.1, high * 0.5);
+  lens.closePath();
+  ctx.fillStyle = LAMP;
+  ctx.lineWidth = PEN * 0.5;
+  ctx.fill(lens);
+  ctx.stroke(lens);
+
+  // The screen over the bars: it leans back off the top of the fairing, and it
+  // is the one part of a tourer one can see through.
+  ctx.fillStyle = "rgba(226,232,240,0.85)";
   ctx.lineWidth = PEN * 0.6;
   const screen = new Path2D();
-  screen.moveTo(half - 8.6, high);
-  screen.lineTo(half - 7.2, high * 0.72);
-  screen.lineTo(half - 5, high * 0.76);
-  screen.lineTo(half - 5.4, high);
+  screen.moveTo(axle - 0.4, high * 0.97);
+  screen.lineTo(axle - 2.6, high * 0.99);
+  screen.lineTo(axle - 4.2, high * 0.79);
+  screen.lineTo(axle - 2.6, high * 0.77);
   screen.closePath();
   ctx.fill(screen);
   ctx.stroke(screen);
+
   if (job.police) {
+    // A blue lamp beside the grips and another in the middle of the tail,
+    // both of which show from the side.
     ctx.fillStyle = "#1e293b";
     ctx.strokeStyle = INK;
-    for (const pod of [half - 11.2, -half + 1.6]) {
+    for (const pod of [axle - 5.4, -half + 1.6]) {
       const lamp = new Path2D();
-      lamp.roundRect(pod, high * 0.8, 2.4, high * 0.16, 0.4);
+      lamp.roundRect(pod, high * 0.76, 2.2, high * 0.13, 0.4);
       ctx.fill(lamp);
       ctx.stroke(lamp);
     }
@@ -5429,7 +5951,7 @@ function machineEnd(ctx: CanvasRenderingContext2D, job: WallJob): void {
  * @param body - which machine it is
  * @param police - whether the machine is a police one
  * @param mine - whether the player is the one on it
- * @returns the colour of the jacket and of the helmet
+ * @returns everything he is wearing - see {@link RiderKit}
  * @remarks
  * **Whoever is actually on it**, and that goes for the bicycle as much as for
  * anything else. Somebody else's bicycle has a man in a yellow jersey with
@@ -5442,18 +5964,113 @@ function riderLook(
   body: VehicleBody,
   police: boolean,
   mine: boolean,
-): { readonly jacket: string; readonly helmet: string } {
-  let look;
+): RiderKit {
+  let look: RiderKit;
   if (mine) {
-    look = { jacket: RIDER_MINE, helmet: "#0f172a" };
+    look = {
+      jacket: RIDER_MINE,
+      trim: "#166534",
+      helmet: "#0f172a",
+      trousers: "#1e293b",
+      boots: "#0f172a",
+      gloves: "#292524",
+    };
   } else if (body === "cycle") {
-    look = { jacket: "#facc15", helmet: "#f2c9a0" };
+    look = {
+      jacket: "#facc15",
+      trim: "#f59e0b",
+      helmet: "#f2c9a0",
+      trousers: "#1e3a8a",
+      boots: "#1e3a8a",
+      gloves: "#f2c9a0",
+    };
   } else if (police) {
-    look = { jacket: "#1e293b", helmet: "#f8fafc" };
+    // A white helmet and a **high-visibility waistcoat**, which is what a
+    // traffic officer wears and what one recognises him by from above.
+    look = {
+      jacket: "#1e293b",
+      trim: POLICE_GLOW,
+      helmet: "#f8fafc",
+      trousers: "#1e293b",
+      boots: "#0f172a",
+      gloves: "#f8fafc",
+    };
   } else {
-    look = { jacket: "#1e293b", helmet: "#0f172a" };
+    // A **light** helmet on a dark jacket. Black on black is what a rider
+    // really wears and from up here it is one dark patch on a dark machine:
+    // the helmet is the one thing on a motorbike that says somebody is on it,
+    // so it is the one thing that has to carry across the street.
+    look = {
+      jacket: "#1e293b",
+      trim: "#475569",
+      helmet: "#cbd5e1",
+      trousers: "#334155",
+      boots: "#0f172a",
+      gloves: "#292524",
+    };
   }
   return look;
+}
+
+/**
+ * What a rider is made of, colour by colour.
+ *
+ * @remarks
+ * More than a jacket and a helmet, because a rider is drawn as a **rig**: a
+ * trunk, two arms with elbows in them, two legs with knees in them, and a head
+ * on top - see {@link bikeRider}. Each of those wants its own colour, or the
+ * whole figure comes out as one dark patch with a dot above it, which is what
+ * it used to be.
+ */
+type RiderKit = {
+  /** The jacket: trunk and arms. */
+  readonly jacket: string;
+  /** A panel over it - a waistcoat on a policeman, a stripe on anybody else. */
+  readonly trim: string;
+  /** The helmet, or on a bicycle the head itself. */
+  readonly helmet: string;
+  /** Legs. */
+  readonly trousers: string;
+  /** And what is on the pegs. */
+  readonly boots: string;
+  /** What is on the grips. */
+  readonly gloves: string;
+};
+
+/**
+ * One jointed limb: shoulder to elbow to hand, or hip to knee to foot.
+ *
+ * @param ctx - what to paint on
+ * @param bone - the three points it bends through
+ * @param thick - how thick the upper segment is; the lower is four fifths
+ * @param skin - what the limb is painted in
+ * @remarks
+ * **This is the whole trick, and it is the one an engine uses.** A limb drawn
+ * as one straight line from the shoulder to the grip is a broom handle; the
+ * same limb with a joint in it reads as an arm, because what one recognises is
+ * not the arm but the **bend**. Two round-capped strokes and a knuckle at the
+ * end are enough at this size - there is no rig to solve, only three points to
+ * pick, which is what a pose is.
+ */
+function limb(
+  ctx: CanvasRenderingContext2D,
+  bone: readonly [Vec, Vec, Vec],
+  thick: number,
+  skin: string,
+): void {
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = skin;
+  ctx.lineWidth = thick;
+  ctx.beginPath();
+  ctx.moveTo(bone[0].x, bone[0].y);
+  ctx.lineTo(bone[1].x, bone[1].y);
+  ctx.stroke();
+  ctx.lineWidth = thick * 0.8;
+  ctx.beginPath();
+  ctx.moveTo(bone[1].x, bone[1].y);
+  ctx.lineTo(bone[2].x, bone[2].y);
+  ctx.stroke();
 }
 
 /** The green the player wears, on foot and on a saddle. */
@@ -5464,19 +6081,29 @@ const RIDER_MINE = "#4ade80";
  *
  * @param ctx - what to paint on, the road along the bottom
  * @param at - where along the machine the axle sits
- * @param tyre - the radius of the wheel, in city pixels
+ * @param long - how far the wheel reaches along the bike, as a radius
+ * @param tall - and how far up off the road
  * @param spin - which picture of it to draw, from {@link wheelStep}
  * @remarks
- * Not the car's alloy shrunk down. A motorbike wheel is **mostly tyre**, and
- * what one sees inside it is a brake disc: a bright ring with the hub in the
- * middle of it and daylight between the spokes. The tread is a set of grooves
- * round the rim, and both the grooves and the spokes turn with `spin` - so the
- * wheel reads as rolling rather than sliding, the same way the car's does.
+ * **An oval, not a circle**, because the machine it belongs to is one. A bike
+ * is drawn 36 pixels long where its height is drawn to 8,6 pixels to the metre
+ * - half again longer than it is tall, against the scale - so a wheel drawn
+ * round comes out either as a tractor tyre that stands taller than the seat or
+ * as a castor too small to carry anything. Stretched the same way the machine
+ * is, it is a wheel at both ends.
+ *
+ * Not the car's alloy shrunk down either. A motorbike wheel is **mostly
+ * tyre**, and what one sees inside it is a brake disc: a bright ring with the
+ * hub in the middle of it and daylight between the spokes. The tread is a set
+ * of grooves round the rim, and both the grooves and the spokes turn with
+ * `spin` - so the wheel reads as rolling rather than sliding, the same way the
+ * car's does.
  */
 function bikeWheel(
   ctx: CanvasRenderingContext2D,
   at: number,
-  tyre: number,
+  long: number,
+  tall: number,
   spin: number,
 ): void {
   const smeared = spin === WHEEL_SMEAR;
@@ -5484,7 +6111,7 @@ function bikeWheel(
     ? 0
     : ((spin / WHEEL_STEPS) * Math.PI * 2) / WHEEL_SPOKES;
   const wheel = new Path2D();
-  wheel.ellipse(at, tyre, tyre, tyre, 0, 0, Math.PI * 2);
+  wheel.ellipse(at, tall, long, tall, 0, 0, Math.PI * 2);
   ctx.fillStyle = RUBBER;
   ctx.strokeStyle = INK;
   ctx.lineWidth = PEN * 0.7;
@@ -5496,48 +6123,48 @@ function bikeWheel(
     // Grooves, not teeth: a shade lighter than the rubber and stopping short
     // of the edge, or the wheel comes out looking like a cog.
     ctx.strokeStyle = "#33333a";
-    ctx.lineWidth = tyre * 0.1;
+    ctx.lineWidth = tall * 0.14;
     ctx.beginPath();
     for (let block = 0; block < BIKE_TREAD; block += 1) {
       const round = -turn + (block * Math.PI * 2) / BIKE_TREAD;
       ctx.moveTo(
-        at + Math.cos(round) * tyre * 0.76,
-        tyre + Math.sin(round) * tyre * 0.76,
+        at + Math.cos(round) * long * 0.76,
+        tall + Math.sin(round) * tall * 0.76,
       );
       ctx.lineTo(
-        at + Math.cos(round) * tyre * 0.94,
-        tyre + Math.sin(round) * tyre * 0.94,
+        at + Math.cos(round) * long * 0.94,
+        tall + Math.sin(round) * tall * 0.94,
       );
     }
     ctx.stroke();
   }
   ctx.strokeStyle = "#64748b";
-  ctx.lineWidth = tyre * 0.08;
+  ctx.lineWidth = tall * 0.11;
   ctx.beginPath();
-  ctx.ellipse(at, tyre, tyre * 0.56, tyre * 0.56, 0, 0, Math.PI * 2);
+  ctx.ellipse(at, tall, long * 0.56, tall * 0.56, 0, 0, Math.PI * 2);
   ctx.stroke();
 
   // The brake disc, and the spokes across it.
   const disc = new Path2D();
-  disc.ellipse(at, tyre, tyre * 0.44, tyre * 0.44, 0, 0, Math.PI * 2);
+  disc.ellipse(at, tall, long * 0.44, tall * 0.44, 0, 0, Math.PI * 2);
   ctx.fillStyle = smeared ? "#64748b" : "#1f2937";
   ctx.fill(disc);
   if (!smeared) {
     ctx.strokeStyle = "#94a3b8";
-    ctx.lineWidth = tyre * 0.1;
+    ctx.lineWidth = tall * 0.14;
     ctx.beginPath();
     for (let spoke = 0; spoke < WHEEL_SPOKES; spoke += 1) {
       const round = -turn + (spoke * Math.PI * 2) / WHEEL_SPOKES + WHEEL_TURN;
-      ctx.moveTo(at, tyre);
+      ctx.moveTo(at, tall);
       ctx.lineTo(
-        at + Math.cos(round) * tyre * 0.5,
-        tyre + Math.sin(round) * tyre * 0.5,
+        at + Math.cos(round) * long * 0.5,
+        tall + Math.sin(round) * tall * 0.5,
       );
     }
     ctx.stroke();
   }
   const hub = new Path2D();
-  hub.ellipse(at, tyre, tyre * 0.17, tyre * 0.17, 0, 0, Math.PI * 2);
+  hub.ellipse(at, tall, long * 0.17, tall * 0.2, 0, 0, Math.PI * 2);
   ctx.fillStyle = "#cbd5e1";
   ctx.fill(hub);
 }
@@ -5545,112 +6172,258 @@ function bikeWheel(
 /** How many grooves of tread go round a motorbike tyre. */
 const BIKE_TREAD = 10;
 
-/** The rider from the side: leaning forward, hands on the bars. */
+/**
+ * The rider from the side.
+ *
+ * @param ctx - what to paint on, the seat along the bottom
+ * @param job - which wall of which vehicle, and how big
+ * @remarks
+ * **The same rig as the plan view, turned ninety degrees** - see
+ * {@link bikeRider}, including the ink pass that closes him up. What one sees
+ * of a man on a motorbike from the side is a *posture*: the back leaning a
+ * little into the wind, the thigh lying forward along the tank with the knee
+ * up, the arm reaching down to the grip with the elbow dropped. Every one of
+ * those is a bend, and a bend needs a joint.
+ *
+ * Below the seat there is nothing to draw: this wall starts at the belt line,
+ * and everything from the knee down is behind the machine's own flank, which
+ * is where a boot on a peg actually is. A cyclist leans further forward and
+ * reaches further down, because his bars are lower than his saddle.
+ */
 function riderFlank(ctx: CanvasRenderingContext2D, job: WallJob): void {
+  const who = riderLook(job.body, job.police, job.mine);
+  riderFromSide(ctx, job, who, true);
+  riderFromSide(ctx, job, who, false);
+}
+
+/**
+ * One pass of the rider seen from the side.
+ *
+ * @param ctx - what to paint on, the seat along the bottom
+ * @param job - which wall of which vehicle, and how big
+ * @param who - what he is wearing
+ * @param edge - true for the ink silhouette, false for the man himself
+ */
+function riderFromSide(
+  ctx: CanvasRenderingContext2D,
+  job: WallJob,
+  who: RiderKit,
+  edge: boolean,
+): void {
   const half = job.span / 2;
   const high = job.high;
-  const who = riderLook(job.body, job.police, job.mine);
-  const boots = job.body === "cycle" ? "#1e3a8a" : "#111827";
-
-  // **A person sitting on a motorbike, limb by limb.** It used to be a slab
-  // with a dot on top, and a slab narrower than the wall it stands on leaves
-  // daylight either side of it - which is what made the rider look hollow.
-  // Arms forward to the bars, boots down on the pegs, and a trunk between them
-  // wide enough to fill the saddle.
-  ctx.lineWidth = high * 0.3;
-  ctx.strokeStyle = boots;
-  ctx.beginPath();
-  ctx.moveTo(-half * 0.24, high * 0.44);
-  ctx.lineTo(half * 0.48, high * 0.3);
-  ctx.lineTo(half * 0.18, high * 0.06);
-  ctx.stroke();
-
-  ctx.lineWidth = high * 0.22;
-  ctx.strokeStyle = who.jacket;
-  ctx.beginPath();
-  ctx.moveTo(-half * 0.02, high * 0.72);
-  ctx.lineTo(half * 0.94, high * 0.48);
-  ctx.stroke();
-
-  const trunk = new Path2D();
-  trunk.moveTo(-half * 0.66, high * 0.32);
-  trunk.lineTo(-half * 0.34, high * 0.84);
-  trunk.lineTo(half * 0.22, high * 0.86);
-  trunk.lineTo(half * 0.14, high * 0.34);
-  trunk.closePath();
-  ctx.fillStyle = who.jacket;
+  const bent = job.body === "cycle";
+  const grow = edge ? EDGE_GROW : 0;
+  // How far forward he is folded: upright on a tourer, down on the bars on a
+  // bicycle.
+  const fold = bent ? 0.36 : 0.12;
   ctx.strokeStyle = INK;
-  ctx.lineWidth = PEN;
+
+  // The thigh, forward along the tank, with the knee up over it. The shin
+  // carries on down behind the machine, so only its top shows.
+  limb(
+    ctx,
+    [
+      { x: -half * 0.34, y: high * 0.12 },
+      { x: half * 0.62, y: high * 0.24 },
+      { x: half * 0.44, y: high * 0.02 },
+    ],
+    high * 0.24 + grow,
+    edge ? INK : who.trousers,
+  );
+
+  // The trunk: hips at the saddle, shoulders forward and up.
+  const hip = { x: -half * 0.42, y: high * 0.1 };
+  const neck = { x: -half * 0.04 + fold * half, y: high * 0.72 };
+  const trunk = new Path2D();
+  trunk.moveTo(hip.x - high * 0.14, hip.y);
+  trunk.lineTo(neck.x - high * 0.2, neck.y);
+  trunk.quadraticCurveTo(
+    neck.x,
+    neck.y + high * 0.12,
+    neck.x + high * 0.18,
+    neck.y,
+  );
+  trunk.lineTo(hip.x + high * 0.44, hip.y);
+  trunk.closePath();
+  ctx.fillStyle = edge ? INK : who.jacket;
+  ctx.lineWidth = edge ? EDGE_GROW * 2 : PEN;
   ctx.fill(trunk);
   ctx.stroke(trunk);
+  if (!edge) {
+    // The waistcoat, across the middle of his back.
+    ctx.save();
+    ctx.clip(trunk);
+    ctx.fillStyle = who.trim;
+    ctx.fillRect(hip.x - high * 0.2, high * 0.3, high * 0.34, high);
+    ctx.restore();
+    ctx.strokeStyle = INK;
+    ctx.stroke(trunk);
+  }
 
-  // The helmet, and the visor across the front of it.
-  const head = new Path2D();
-  head.ellipse(
-    -half * 0.04,
-    high * 0.86,
-    high * 0.27,
-    high * 0.27,
+  // The arm: shoulder, elbow dropped, glove on the grip.
+  limb(
+    ctx,
+    [
+      { x: neck.x - high * 0.05, y: neck.y - high * 0.08 },
+      { x: half * 0.5, y: high * 0.4 },
+      { x: half * 0.94, y: high * 0.3 },
+    ],
+    high * 0.19 + grow,
+    edge ? INK : who.jacket,
+  );
+  const glove = new Path2D();
+  glove.ellipse(
+    half * 0.94,
+    high * 0.3,
+    high * 0.11 + grow / 2,
+    high * 0.1 + grow / 2,
     0,
     0,
     Math.PI * 2,
   );
-  ctx.fillStyle = who.helmet;
-  ctx.lineWidth = PEN * 0.7;
-  ctx.fill(head);
-  ctx.stroke(head);
-  ctx.fillStyle = "#1e293b";
-  const visor = new Path2D();
-  visor.roundRect(half * 0.04, high * 0.78, high * 0.26, high * 0.16, 0.3);
-  ctx.fill(visor);
+  ctx.fillStyle = edge ? INK : who.gloves;
+  ctx.fill(glove);
+
+  // **No head here.** The plan view has one, drawn over the middle of the
+  // machine, and this wall stands at the side of it: two helmets a couple of
+  // pixels apart, and the man has grown a second one. The head belongs to the
+  // picture that lies on top of the stack - see {@link bikeRider} - and what
+  // the walls draw is the body under it, which is what joins him to the
+  // saddle. Only the collar is drawn, so the head has something to sit on.
+  const collar = new Path2D();
+  collar.ellipse(
+    neck.x + high * 0.06,
+    neck.y + high * 0.04,
+    high * 0.16 + grow / 2,
+    high * 0.13 + grow / 2,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fillStyle = edge ? INK : bent ? who.helmet : who.jacket;
+  ctx.lineWidth = edge ? EDGE_GROW : PEN * 0.7;
+  ctx.fill(collar);
+  ctx.stroke(collar);
 }
 
-/** The rider seen end on: knees out, arms on the bars, a helmet on top. */
+/**
+ * The rider head on or tail on.
+ *
+ * @param ctx - what to paint on, the seat along the bottom
+ * @param job - which wall of which vehicle, and how big
+ * @remarks
+ * The rig again, from the front: **knees out** either side of the tank, which
+ * is the widest thing about a man on a motorbike and the first thing one sees
+ * of one coming the other way; arms out and down to the ends of the bars with
+ * the elbows clear of the body; shoulders above them, and the collar the head
+ * sits on. Ink pass first, as everywhere else.
+ */
 function riderEnd(ctx: CanvasRenderingContext2D, job: WallJob): void {
+  const who = riderLook(job.body, job.police, job.mine);
+  riderHeadOn(ctx, job, who, true);
+  riderHeadOn(ctx, job, who, false);
+}
+
+/**
+ * One pass of the rider seen end on.
+ *
+ * @param ctx - what to paint on, the seat along the bottom
+ * @param job - which wall of which vehicle, and how big
+ * @param who - what he is wearing
+ * @param edge - true for the ink silhouette, false for the man himself
+ */
+function riderHeadOn(
+  ctx: CanvasRenderingContext2D,
+  job: WallJob,
+  who: RiderKit,
+  edge: boolean,
+): void {
   const half = job.span / 2;
   const high = job.high;
-  const who = riderLook(job.body, job.police, job.mine);
-  const boots = job.body === "cycle" ? "#1e3a8a" : "#111827";
-
-  // The knees, which stick out further than anything else on a rider.
-  ctx.lineCap = "round";
-  ctx.lineWidth = high * 0.26;
-  ctx.strokeStyle = boots;
-  ctx.beginPath();
-  for (const side of [-1, 1]) {
-    ctx.moveTo(side * half * 0.3, high * 0.42);
-    ctx.lineTo(side * half * 0.86, high * 0.2);
-  }
-  ctx.stroke();
-
-  // The arms, out and down to the ends of the bars.
-  ctx.lineWidth = high * 0.2;
-  ctx.strokeStyle = who.jacket;
-  ctx.beginPath();
-  for (const side of [-1, 1]) {
-    ctx.moveTo(side * half * 0.28, high * 0.62);
-    ctx.lineTo(side * half * 0.92, high * 0.44);
-  }
-  ctx.stroke();
-
-  const trunk = new Path2D();
-  trunk.roundRect(-half * 0.56, high * 0.18, half * 1.12, high * 0.58, 1.2);
-  ctx.fillStyle = who.jacket;
+  const grow = edge ? EDGE_GROW : 0;
   ctx.strokeStyle = INK;
-  ctx.lineWidth = PEN;
+
+  // The legs: hip in, knee out, boot down and back in towards the peg.
+  for (const side of [-1, 1]) {
+    limb(
+      ctx,
+      [
+        { x: side * half * 0.22, y: high * 0.34 },
+        { x: side * half * 0.84, y: high * 0.22 },
+        { x: side * half * 0.66, y: -high * 0.02 },
+      ],
+      high * 0.22 + grow,
+      edge ? INK : who.trousers,
+    );
+  }
+
+  // The arms, out to the grips with the elbows dropped.
+  for (const side of [-1, 1]) {
+    limb(
+      ctx,
+      [
+        { x: side * half * 0.24, y: high * 0.66 },
+        { x: side * half * 0.7, y: high * 0.52 },
+        { x: side * half * 0.94, y: high * 0.4 },
+      ],
+      high * 0.18 + grow,
+      edge ? INK : who.jacket,
+    );
+    const glove = new Path2D();
+    glove.ellipse(
+      side * half * 0.94,
+      high * 0.4,
+      high * 0.11 + grow / 2,
+      high * 0.1 + grow / 2,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fillStyle = edge ? INK : who.gloves;
+    ctx.fill(glove);
+  }
+
+  // The trunk: hips narrow, shoulders wide, which is the shape of a man and
+  // not of a post box.
+  const trunk = new Path2D();
+  trunk.moveTo(-half * 0.34, high * 0.16);
+  trunk.lineTo(-half * 0.52, high * 0.66);
+  trunk.quadraticCurveTo(-half * 0.5, high * 0.78, -half * 0.3, high * 0.8);
+  trunk.lineTo(half * 0.3, high * 0.8);
+  trunk.quadraticCurveTo(half * 0.5, high * 0.78, half * 0.52, high * 0.66);
+  trunk.lineTo(half * 0.34, high * 0.16);
+  trunk.closePath();
+  ctx.fillStyle = edge ? INK : who.jacket;
+  ctx.lineWidth = edge ? EDGE_GROW * 2 : PEN;
   ctx.fill(trunk);
   ctx.stroke(trunk);
+  if (!edge) {
+    ctx.save();
+    ctx.clip(trunk);
+    ctx.fillStyle = who.trim;
+    ctx.fillRect(-half * 0.34, high * 0.24, half * 0.68, high * 0.4);
+    ctx.restore();
+    ctx.strokeStyle = INK;
+    ctx.stroke(trunk);
+  }
 
-  const head = new Path2D();
-  head.ellipse(0, high * 0.82, high * 0.27, high * 0.27, 0, 0, Math.PI * 2);
-  ctx.fillStyle = who.helmet;
-  ctx.lineWidth = PEN * 0.7;
-  ctx.fill(head);
-  ctx.stroke(head);
-  ctx.fillStyle = "#1e293b";
-  const visor = new Path2D();
-  visor.roundRect(-high * 0.22, high * 0.76, high * 0.44, high * 0.16, 0.3);
-  ctx.fill(visor);
+  // The collar, and no more: the head is the plan view's, for the reason
+  // given in {@link riderFlank}.
+  const collar = new Path2D();
+  collar.ellipse(
+    0,
+    high * 0.78,
+    high * 0.17 + grow / 2,
+    high * 0.14 + grow / 2,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fillStyle = edge ? INK : job.body === "cycle" ? who.helmet : who.jacket;
+  ctx.lineWidth = edge ? EDGE_GROW : PEN * 0.7;
+  ctx.fill(collar);
+  ctx.stroke(collar);
 }
 
 /**

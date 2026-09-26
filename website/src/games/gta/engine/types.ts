@@ -1578,7 +1578,11 @@ export type Order =
   /** One hostage out of the front door, to buy quiet. */
   | { readonly kind: "release" }
   /** The mains, cut - which works once. */
-  | { readonly kind: "power" };
+  | { readonly kind: "power" }
+  /** The shutter over the front door of the works: up, or down. */
+  | { readonly kind: "shutter" }
+  /** One of one's own men left standing over the station one is at. */
+  | { readonly kind: "post" };
 
 /** Nothing pressed. */
 export const IDLE_INPUT: Input = {
@@ -2817,19 +2821,94 @@ export const COUNTER_RANGE = 46;
 
 /* ---------------------------------------------------------------- the bank */
 
-/** One of the people behind the counter. */
-export type Clerk = Inmate & {
-  /** Whether his hands are up and he does as he is told. */
-  readonly held: boolean;
-  /** Simulation time at which he would start for the alarm button. */
+/** What sort of person is standing in the bank. */
+export type BankRole = "clerk" | "boss" | "customer";
+
+/**
+ * What one of them is doing.
+ *
+ * @remarks
+ * Four states and one direction of travel: everybody starts `loose`, goes
+ * `held` the moment a gun is pointed at them, and ends up either `tied` or
+ * `dead`. Nothing ever goes back the other way except by somebody else's hand
+ * - a customer who is still loose can untie a clerk, which is the whole reason
+ * customers matter.
+ */
+export type BankMood = "loose" | "held" | "tied" | "dead";
+
+/** One person in the bank, and what they are doing about it. */
+export type BankFolk = Inmate & {
+  readonly role: BankRole;
+  readonly mood: BankMood;
+  /**
+   * Simulation time at which they will do something about the robbery.
+   *
+   * @remarks
+   * For a clerk that means the button; for a customer it means untying the
+   * nearest clerk. Pointing a gun at somebody pushes it back - see
+   * {@link NERVE_BACK} - so keeping a room still is a matter of not letting
+   * anybody's clock run out.
+   */
   readonly panicAt: number;
+  /** Which teller window this one stands at, or -1. */
+  readonly post: number;
+  /** How far the work on this person has got, from nought to one. */
+  readonly work: number;
+  /**
+   * How far this one has got at somebody else's rope, from nought to one.
+   *
+   * @remarks
+   * Its own number rather than a second meaning for {@link BankFolk.work},
+   * which is what the gun does to somebody. The two run at once and in
+   * opposite directions - a customer edging towards a knot is a customer
+   * nobody is pointing anything at - so sharing one field meant the untying
+   * was rubbed out as fast as it was done.
+   */
+  readonly undo: number;
+  /**
+   * How far the director has got with the vault door, from nought to one.
+   *
+   * @remarks
+   * Nobody else ever has anything but nought in here. It runs through the
+   * whole ritual - walk to the door, key out, key turned, then the wheel -
+   * because what one watches is a man doing a job he does not want to do, and
+   * a job has an order to it. See {@link KEY_SHARE}.
+   */
+  readonly opens: number;
+  /** Which of the drawn faces and outfits this one wears. */
+  readonly look: number;
 };
 
-/** One till, and how far it has been emptied. */
-export type Till = {
-  readonly open: boolean;
-  /** How far the drawer has got, from zero to one. */
+/** One safe-deposit box in the vault. */
+export type BankBox = {
+  /** Which square of the plan it is set into. */
+  readonly col: number;
+  readonly row: number;
+  /** Which way its door faces: the room is on this side of it. */
+  readonly facing: number;
+  /** What is inside, in euros. */
+  readonly cash: number;
+  /** How far it has been prised open, from nought to one. */
   readonly work: number;
+  /** Whether it is open and emptied out on to the floor. */
+  readonly open: boolean;
+};
+
+/** A bundle of notes lying on the floor. */
+export type BankLoot = {
+  readonly x: number;
+  readonly y: number;
+  readonly cash: number;
+  /**
+   * When it landed, so that one gets to see it land.
+   *
+   * @remarks
+   * Whoever opens a box is standing right in front of it, so money that could
+   * be picked up the instant it fell would go from the box into the bag
+   * without ever being on the floor - which is not what was asked for and not
+   * what a robbery looks like. For {@link LIE_STILL} seconds it is nobody's.
+   */
+  readonly dropAt: number;
 };
 
 /**
@@ -2845,65 +2924,187 @@ export type BankState = {
   readonly time: number;
   /** The player. */
   readonly hero: Inmate;
-  /** The people behind the counter. */
-  readonly staff: readonly Clerk[];
-  /** The four drawers. */
-  readonly tills: readonly Till[];
+  /** Where the gun is pointed, in bank pixels. */
+  readonly aim: Vec;
+  /** Everybody else in the building. */
+  readonly folk: readonly BankFolk[];
+  /** The boxes in the vault. */
+  readonly boxes: readonly BankBox[];
+  /** What has been tipped out on to the floor and not picked up yet. */
+  readonly loot: readonly BankLoot[];
+  /** Which teller window the button is under. */
+  readonly button: number;
   /** What is in the bag. */
   readonly taken: number;
   /** How far the vault door has come open, from zero to one. */
   readonly vault: number;
   /** Whether the silent alarm has gone. */
   readonly alarm: boolean;
-  /** Simulation time the police walk through the door. */
-  readonly raidAt: number;
-  /** How far the job in hand has got, from zero to one. */
+  /**
+   * Simulation time the police walk in, or null while nobody has rung.
+   *
+   * @remarks
+   * **There is no clock until somebody presses the button.** A bank nobody has
+   * reported is a quiet room, and one may take all afternoon over it. That is
+   * what makes tying people up worth the seconds it costs - the alternative is
+   * not a faster job, it is a job with a countdown on it.
+   */
+  readonly raidAt: number | null;
+  /** How far the job in hand has got, from nought to one. */
   readonly work: number;
+  /** When the last shot was fired, for the rate of fire. */
+  readonly shotAt: number;
+  /** Whatever is still to be decided by chance. */
+  readonly rng: RandomState;
 };
 
-/**
- * How long one has in a bank before the police come by themselves, in seconds.
- *
- * @remarks
- * Long enough to cover three people, open the vault and empty four tills - but
- * only just, and only if none of it goes wrong. A quiet bank job is a job done
- * to a clock.
- */
-export const BANK_GRACE = 100;
-
-/** And how long one has once the silent alarm is out. */
-export const ALARM_GRACE = 22;
+/** How long one has once the silent alarm is out, in seconds. */
+export const ALARM_GRACE = 25;
 
 /**
- * How long each clerk waits before trying for the button, in seconds.
+ * How far the gun reaches to hold somebody still, in pixels.
  *
  * @remarks
- * The first one goes almost at once, the second twice as late, the third
- * later still - so the opening of a bank job is a sprint: three people to put
- * on the floor before the first of them finds his nerve.
+ * **About as far as one can see.** The room is looked at through the city's
+ * own camera, over the robber's head, so how much of the bank is on the screen
+ * depends on how close the player has set it. A gun that reached further than
+ * that would let one cover people one cannot see, which is not a decision but
+ * a guess; a little over five squares is what the picture shows in front of
+ * one at the ordinary setting.
+ *
+ * It does not reach through the building either, and that is a different
+ * question: what stops one covering the director in his office is not the
+ * distance but the wall. See {@link inSight}.
  */
-export const PANIC_AFTER = 5;
+export const GUN_RANGE = 230;
 
-/** How near one has to stand to keep somebody from trying, in pixels. */
-export const BANK_COVER = 130;
+/** How near the crosshair has to be to count as pointing at somebody. */
+export const GUN_SPOT = 34;
 
-/** What one till holds, in euros. */
-export const TILL_EACH = 950;
+/** How long a gun has to be on somebody before their hands go up. */
+export const HANDS_UP = 0.45;
 
-/** How long a drawer takes to empty, in seconds. */
-export const TILL_SECONDS = 2.2;
+/**
+ * How long somebody's nerve takes to come back once the gun looks away.
+ *
+ * @remarks
+ * The whole of the tension of a hold-up is in this number. Too short and one
+ * cannot turn round; too long and a room can be left unattended. Three and a
+ * half seconds is about as long as it takes to walk from one end of the
+ * counter to the other.
+ */
+export const NERVE_BACK = 3.5;
 
-/** How long the vault takes to open once somebody works the wheel. */
-export const VAULT_SECONDS = 7;
+/**
+ * How long the clerk at the button waits before pressing it, in seconds.
+ *
+ * @remarks
+ * **The first nine seconds of the job.** One of the three windows has the
+ * button under it, and the woman standing at that one has only to reach down.
+ * Whoever comes in through the door and does not get the gun on her in time
+ * has already lost the quiet part of the robbery - but nine seconds is long
+ * enough to walk the length of the counter first, which is the difference
+ * between a decision and a reflex test.
+ */
+export const FIRST_FUSE = 9;
+
+/** And how much longer the other two take to find their nerve. */
+export const NERVE_APART = 8;
+
+/**
+ * How long somebody stands with their hands up before they think again.
+ *
+ * @remarks
+ * **Hands up is not the same as out of the game.** Somebody who has been
+ * cowed stays cowed for a good while after the gun has gone elsewhere -
+ * longer than {@link NERVE_BACK}, which is what a person who was never
+ * covered gets - but not for ever. Half a minute is long enough to walk round
+ * a room and tie everybody in it, and short enough that a robber who wanders
+ * off into the vault comes back to a hall with its hands down.
+ */
+export const HELD_NERVE = 30;
+
+/**
+ * How long it takes to tie somebody up, in seconds.
+ *
+ * @remarks
+ * **Half a second, and it is not meant to be the hard part.** Two seconds a
+ * person turned the middle of the job into a queue: three women, three
+ * customers and a director is twelve seconds of standing still with a key
+ * held down, and nothing is decided in any of them. What the rope costs is
+ * the walk to whoever is next, not the knot.
+ */
+export const TIE_SECONDS = 0.5;
+
+/**
+ * How long the director needs at the vault door, in seconds.
+ *
+ * @remarks
+ * **And it is not a key press.** Standing him in front of the door is the
+ * whole of what the player does; the rest is his. He walks to the lock, takes
+ * the key out, turns it, and then turns the wheel - and that is worth watching
+ * precisely because one cannot hurry it. The clock one is losing while he does
+ * it is the price of not having shot him.
+ */
+export const DOOR_RITUAL = 6.5;
+
+/**
+ * How much of that ritual is the key rather than the wheel.
+ *
+ * @remarks
+ * A third: the key is a small thing done quickly, the wheel is a big thing
+ * done slowly. The picture reads the same number - see the drawing of the
+ * wheel in ../components/bank-render.
+ */
+export const KEY_SHARE = 0.34;
+
+/** How long a customer needs to get a clerk's hands free again. */
+export const FREE_SECONDS = 3;
 
 /** How near the man with the combination has to be, in pixels. */
-export const VAULT_ROOM = 120;
+export const VAULT_ROOM = 110;
 
-/** What the open vault pays out, in euros a second. */
-export const VAULT_RATE = 850;
+/**
+ * The least a box holds, in euros.
+ *
+ * @remarks
+ * Eight boxes to a vault, so this and {@link BOX_SPREAD} are what the whole
+ * job is worth: four hundred in the worst of them, a few thousand in a good
+ * one, and no way to tell which from the outside. The draw is squared, so most
+ * of them are ordinary and the last one along the wall might be the one.
+ */
+export const BOX_LEAST = 400;
 
-/** And how much is in there altogether. */
-export const VAULT_TOTAL = 9000;
+/** How much more than {@link BOX_LEAST} the best of them holds. */
+export const BOX_SPREAD = 3200;
+
+/**
+ * How near one has to be to pick money up off the floor, in pixels.
+ *
+ * @remarks
+ * **Small on purpose.** Whoever breaks a box open is standing right in front
+ * of it, so a generous reach meant the money went from the box into the bag
+ * without ever being on the floor. Fourteen pixels is less than a pace: the
+ * bundle stays where it fell until one actually walks over it, which is what
+ * it is there for.
+ */
+export const PICK_UP = 14;
+
+/**
+ * How long a bundle lies where it fell before anybody may have it, in seconds.
+ *
+ * @remarks
+ * Only a moment - what keeps the money on the floor is {@link PICK_UP} being
+ * short, not this. This is so that one sees it land even when one happens to
+ * be standing on the spot it lands on.
+ */
+export const LIE_STILL = 0.8;
+
+/** How long between two shots, in seconds. */
+export const SHOT_GAP = 0.35;
+
+/** How many people can be standing at the counter besides the staff. */
+export const CUSTOMERS_MOST = 3;
 
 /**
  * How hard they look for whoever comes out of a bank the alarm went off in.
@@ -2931,14 +3132,24 @@ export type Slab =
   | "cell"
   | "bars"
   | "gate"
+  | "myGate"
   | "yard"
+  | "court"
+  | "works"
+  | "worksFloor"
+  | "table"
+  | "ward"
+  | "bed"
+  | "door"
+  | "locked"
   | "bench"
   | "loo"
   | "myLoo"
   | "bunk"
   | "stones"
+  | "hardWall"
   | "tunnel"
-  | "ward"
+  | "shaft"
   | "window"
   | "cable"
   | "tower"
@@ -2946,15 +3157,25 @@ export type Slab =
 
 /** How far along the escape the player has got. */
 export type PrisonStage =
-  /** Out in the yard, after a screw off one of the benches. */
+  /** Out in the yard, taking a screw off one of the benches. */
   | "screw"
+  /** The gang saw it and took it off you: somebody has to get it back. */
+  | "gang"
   /** Back in the cell, with the screw: the pan comes off the floor. */
   | "loo"
-  /** The stones round the drain, one by one. */
-  | "stones"
-  /** Through the wall and along the passage behind the cells. */
-  | "tunnel"
-  /** Out in the sick bay: the window, and the cable behind it. */
+  /** Digging, with an ear on the corridor: the pan goes back over it. */
+  | "dig"
+  /** The governor moved you to another cell, and the old one is locked. */
+  | "moved"
+  /** Back in your own cell, finishing what you started. */
+  | "dig2"
+  /** In the passage behind the cells: another wall, and then nothing. */
+  | "wall"
+  /** In the workshop: a second hole, under the table. */
+  | "works"
+  /** Along the tunnel into the sick bay. */
+  | "ward"
+  /** The window, and the cable behind it. */
   | "window"
   /** Hand over hand along the cable, over the wall. */
   | "cable"
@@ -3034,7 +3255,132 @@ export type PrisonState = {
   readonly caught: number;
   /** Simulation time the warders look past the player until, after a catch. */
   readonly graceUntil: number;
+  /**
+   * Simulation time of the next roll-call.
+   *
+   * @remarks
+   * **The clock the whole day is built round.** Every so often the wing is
+   * counted, and a man who is not standing in his own cell with nothing in his
+   * hands is a man who is missing - which is the one thing a jail reacts to
+   * immediately. See {@link COUNT_EVERY}.
+   */
+  readonly countAt: number;
+  /** How many counts have been stood through. */
+  readonly counts: number;
+  /**
+   * Simulation time the search ends, or null while nobody is looking.
+   *
+   * @remarks
+   * A missed count does not put a hand on one's collar: it puts the warders on
+   * their feet. While this runs they see further and wider, and standing in
+   * the wrong place is enough on its own.
+   */
+  readonly searchUntil: number | null;
+  /**
+   * Whether the hole one is working on is hidden under what stood over it.
+   *
+   * @remarks
+   * **The pan, and later the workshop table.** A hole in a cell floor is not a
+   * secret while one is kneeling over it: the whole of the digging is done in
+   * the gaps between rounds, and the space bar is what puts the thing back on
+   * top of it when boots come down the corridor. One cannot dig while it is
+   * covered, and a warder who sees it uncovered has found the escape.
+   */
+  readonly covered: boolean;
+  /** Whether the lid key was already down last frame, so a hold is one press. */
+  readonly liftHeld: boolean;
+  /**
+   * Whether the gang in the yard has the screw.
+   *
+   * @remarks
+   * They watched it come off the bench, and they took it as soon as it was in
+   * a pocket. Nothing else in here can be stolen; this one thing can, because
+   * it is the only thing worth stealing.
+   */
+  readonly gangHas: boolean;
+  /** The man one has hired to get it back, or null while nobody has been. */
+  readonly helper: Inmate | null;
+  /** What he is doing: on his way to them, or on his way back with it. */
+  readonly errand: "none" | "going" | "back";
+  /** Where the cellmate of the cell one has been moved into stands. */
+  readonly foe: Inmate | null;
+  /**
+   * The little scene playing itself out, or null while one is playing.
+   *
+   * @remarks
+   * **Two moments in this escape are things that happen to you**, not things
+   * you do: three men walking over to take the screw out of your hand, and the
+   * governor walking you down the corridor into another cell. Told in a line
+   * of text they are a rule; played out, they are the reason the next job
+   * exists. While one runs, the keys do nothing - see {@link PrisonScene}.
+   */
+  readonly scene: PrisonScene | null;
 };
+
+/**
+ * One of the two scenes the player watches instead of playing.
+ *
+ * @remarks
+ * Each is the same shape: a handful of people who walk in, do the one thing
+ * the story needs, and walk out again, with the clock running down. What it
+ * costs at the end is set when the clock reaches nought, not when it starts -
+ * so what one sees and what the state says never disagree.
+ */
+export type PrisonScene = {
+  /**
+   * Which one: the gang taking the screw, the governor moving you into the
+   * other cell, or the walk back to one's own after the fight.
+   */
+  readonly kind: "gang" | "boss" | "back";
+  /** Seconds left of it. */
+  readonly left: number;
+  /** The people walking through it. */
+  readonly folk: readonly Inmate[];
+};
+
+/** How long the gang need to come over, take it and go back, in seconds. */
+export const GANG_SCENE = 4.4;
+
+/** And how long the walk to the other cell takes. */
+export const BOSS_SCENE = 5;
+
+/** The walk back, which is shorter: nobody is being fetched this time. */
+export const BACK_SCENE = 4;
+
+/** How long a man needs to walk over and take the screw back, in seconds. */
+export const ERRAND_SECONDS = 3;
+
+/** How long a fight in a cell takes before somebody separates it. */
+export const FIGHT_SECONDS = 3.5;
+
+/**
+ * How long between two roll-calls, in seconds.
+ *
+ * @remarks
+ * Long enough to get something done between them and short enough that one
+ * never quite settles: the shape of a day inside is a sequence of windows
+ * between counts, and the escape is what fits in them.
+ */
+export const COUNT_EVERY = 85;
+
+/** How long before a count the tannoy says so, in seconds. */
+export const COUNT_WARN = 16;
+
+/** How long the warders turn the place over after a missed one. */
+export const SEARCH_SECONDS = 30;
+
+/** How much further a warder sees while the search is on. */
+export const SEARCH_EYES = 1.5;
+
+/**
+ * How near the open hole one has to be for a warder to have anything on you.
+ *
+ * @remarks
+ * **Two squares, which is the cell.** Walking about the yard with a screw in
+ * one's pocket is not a crime one can be caught at - being knelt over an open
+ * floor is. See `hunting` in ../engine/prison.
+ */
+export const HOLE_NEAR = 80;
 
 /** How many jail pixels one square of the plan is. */
 export const SLAB = 40;
@@ -3120,10 +3466,20 @@ export type Tile =
   | "press"
   /** Pallets of paper, stacked. */
   | "pallet"
-  /** A desk in the office. */
+  /** A desk in the hall. */
   | "desk"
+  /** The director's office, off the west side of the hall. */
+  | "office"
+  /** His telephone, which is the thing he must not reach. */
+  | "phone"
+  /** The strongroom on the east side of it, where the finished notes go. */
+  | "vault"
+  /** And its door. */
+  | "vaultDoor"
   /** The front door - where they knock first. */
   | "door"
+  /** The shutter over it: the one way in that the player can open and shut. */
+  | "shutter"
   /** The loading gate at the back. */
   | "gate"
   /** The high window over the yard. */
@@ -3136,6 +3492,12 @@ export type Tile =
   | "tunnel"
   /** The far end of it: out. */
   | "out"
+  /** The road round the building, where the police stand. */
+  | "street"
+  /** The pavement along the front of it. */
+  | "kerb"
+  /** Their tent, pitched across the road. */
+  | "tent"
   /** Anything past the walls. */
   | "free";
 
@@ -3167,16 +3529,104 @@ export type Gate = {
  * Somebody who works here and is having a very bad morning.
  *
  * @remarks
- * Until they are taken they walk about their own business. Afterwards they do
- * what they are told: they go to a press and they run it. Which press is
- * remembered rather than worked out again, so that two of them never end up at
- * the same machine.
+ * **Two sorts, and which is which is not written on them.** Half the people in
+ * this building will print money with a gun pointed at them and half will not,
+ * and the only way to find out is to put somebody at a machine and watch: one
+ * who will not simply stops after a few seconds. Those are the hands that dig
+ * the tunnel instead, and that is the whole shape of the job - the press room
+ * sorts the staff, and the cellar uses what the press room rejected.
  */
 export type Hostage = Inmate & {
-  /** Whether they have given up. */
+  /** Whether they have given up and do what they are told. */
   readonly taken: boolean;
-  /** Which press they were sent to, or null while they are still free. */
+  /** Whether they are walking at the player's shoulder to be put somewhere. */
+  readonly led: boolean;
+  /** Which press they were put at, or null. */
   readonly press: number | null;
+  /** Whether they were put down the cellar to dig. */
+  readonly digging: boolean;
+  /**
+   * Whether they will actually work a machine.
+   *
+   * @remarks
+   * Hidden from the player: nothing in the picture says it until they stop.
+   */
+  readonly willing: boolean;
+  /** Simulation time an unwilling one gives up at, once put at a press. */
+  readonly slackAt: number | null;
+  /** Whether they have stopped - which is how one finds out what they are. */
+  readonly slacking: boolean;
+  /** Whether they are still alive. */
+  readonly alive: boolean;
+};
+
+/**
+ * The man who runs the place.
+ *
+ * @remarks
+ * **He is the clock nobody else is.** There is a telephone in his office, and
+ * unless somebody is pointing a gun at him he is working his way towards it.
+ * If he gets to it the police outside stop waiting and start coming, which is
+ * the one thing in this building that cannot be barricaded.
+ */
+export type Boss = Inmate & {
+  /** Whether he has his hands up. */
+  readonly taken: boolean;
+  /** Whether he is being walked somewhere. */
+  readonly led: boolean;
+  /** Whether he is still alive. */
+  readonly alive: boolean;
+  /** Whether he got to the telephone. */
+  readonly called: boolean;
+};
+
+/** One of the hired men, and what he has been put on. */
+export type Hand = Inmate & {
+  /**
+   * Which station he is standing over, or null while he follows the player.
+   *
+   * @remarks
+   * Nought to four are the presses and five is the hatch in the cellar - see
+   * `POSTS` in ./mint. A hostage works while somebody of one's own is
+   * watching; left alone, the ones who were never willing stop.
+   */
+  readonly post: number | null;
+  /**
+   * Which of the staff he is on his way over to talk to, or null.
+   *
+   * @remarks
+   * **They work without being told, up to a point.** A man with nothing to do
+   * goes and finds somebody who is standing about and puts them at a free
+   * machine - so a player who is busy at a door still comes back to a press
+   * room that has filled up a little. What they never do is the things the
+   * job is actually made of: the doors, the director, the tunnel and the tank.
+   */
+  readonly errand: number | null;
+};
+
+/** One policeman outside the works, and what he is doing there. */
+export type Siren = {
+  readonly x: number;
+  readonly y: number;
+  readonly heading: number;
+  readonly walked: number;
+  /** Where he is heading for, in works pixels. */
+  readonly spot: Vec;
+  /** What he is: a man behind a car, one at the tent, one at a way in. */
+  readonly kind: "line" | "command" | "assault";
+};
+
+/** The tank they bring up when the doors hold, and what is left of it. */
+export type Tank = {
+  readonly x: number;
+  readonly y: number;
+  readonly heading: number;
+  /** Where it is rolling to. */
+  readonly spot: Vec;
+  /** From one down to nought, at which point it is scrap. */
+  readonly health: number;
+  /** Simulation time of its next shell. */
+  readonly fireAt: number;
 };
 
 /**
@@ -3194,10 +3644,16 @@ export type MintState = {
   readonly time: number;
   /** The player. */
   readonly hero: Inmate;
-  /** The hired men, digging. */
-  readonly crew: readonly Inmate[];
+  /** Where the gun is pointing, in works pixels. */
+  readonly aim: Vec;
+  /** Simulation time the next shot may leave the barrel. */
+  readonly shotAt: number;
+  /** The hired men. */
+  readonly crew: readonly Hand[];
   /** Everybody who works here. */
   readonly staff: readonly Hostage[];
+  /** And the man who runs it. */
+  readonly boss: Boss;
   /** The three ways in. */
   readonly gates: readonly Gate[];
   /** What the presses have run off so far. */
@@ -3208,15 +3664,250 @@ export type MintState = {
   readonly work: number;
   /** Simulation time they keep their distance until. */
   readonly calmUntil: number;
-  /** Simulation time the lights come back on - and with them the presses. */
-  readonly darkUntil: number;
-  /** Whether the mains have been cut already - that works once. */
-  readonly cut: boolean;
+  /**
+   * Whether the mains are off.
+   *
+   * @remarks
+   * **A switch, not a stunt.** Dark, the presses earn nothing and the men
+   * outside hold back rather than walk into a building they cannot see into;
+   * light, the machines run. Being able to put it back on is the whole point
+   * of it - one cuts the power for the two minutes in which they are at a
+   * door, and puts it back the moment they have thought better of it.
+   */
+  readonly dark: boolean;
+  /** Simulation time cutting it buys quiet again. */
+  readonly powerAt: number;
+  /**
+   * What is in the air, drawn exactly as the street draws it.
+   *
+   * @remarks
+   * **The same {@link Bullet} the city uses**, and on purpose: a round out of
+   * the same pistol has to look the same on both sides of the door, the
+   * flamethrower has to throw flames in here too, and the rocket that stops
+   * the tank has to be the rocket one knows. Nothing in here is hit by them -
+   * the engine has already decided what the shot did before the round is
+   * drawn - so they only fly, and they stop where they were aimed.
+   */
+  readonly shots: readonly Bullet[];
+  /** The number the next one gets. */
+  readonly nextShot: number;
+  /**
+   * Simulation time the men outside start shooting through the open shutter.
+   *
+   * @remarks
+   * Null while it is shut. A door that stands open in front of four hundred
+   * policemen is not a decision one gets to leave standing - see
+   * {@link OPEN_GRACE}.
+   */
+  readonly openAt: number | null;
+  /** Whether they have started shooting through it. */
+  readonly storming: boolean;
   /** Simulation time the next squad turns up at. */
   readonly waveAt: number;
   /** How many squads have come so far. */
   readonly waves: number;
+  /**
+   * How far the shutter over the front door is up, from nought to one.
+   *
+   * @remarks
+   * **The one way in that the player works himself.** Shut, it is the strongest
+   * door in the building; open, it is a hole one can be walked through - and
+   * also the only way to shoot at anything outside, or to take in what they
+   * send up to the step.
+   */
+  readonly shutter: number;
+  /** Whether the shutter is being wound up rather than down. */
+  readonly opening: boolean;
+  /** Simulation time the police have finished taking up their positions. */
+  readonly settleAt: number;
+  /** The men outside. */
+  readonly cops: readonly Siren[];
+  /** Their tank, once they send one. */
+  readonly tank: Tank | null;
+  /** Simulation time the food is at the door, or null while none is coming. */
+  readonly foodAt: number | null;
+  /** Whether it was taken in. */
+  readonly fed: boolean;
+  /** Whether the telephone in the office still works. */
+  readonly phone: boolean;
 };
+
+/** How wide a body is, from the middle, in works pixels. */
+export const HALF_BODY = 9;
+
+/** How fast a hostage walks to the machine they are put at. */
+export const HOSTAGE_PACE = 46;
+
+/** How fast the hired men walk. */
+export const CREW_PACE = 58;
+
+/**
+ * And how fast the director edges towards his telephone.
+ *
+ * @remarks
+ * Slower than anybody else in the building, on purpose: he is a clock the
+ * player has to notice and get to, and a clock that runs out in fifteen
+ * seconds is a clock that has already run out by the time one reads it.
+ */
+export const BOSS_PACE = 30;
+
+/** How close counts as standing at a machine or a hatch, in works pixels. */
+export const AT_WORK = 30;
+
+/** How far behind one's shoulder somebody being walked somewhere follows. */
+export const LED_GAP = 34;
+
+/**
+ * How fast a squad eats what is piled against a door, in shares a second.
+ *
+ * @remarks
+ * Slow enough that a pile is worth building before anybody is at the door. A
+ * barricade that went in ten seconds would make the whole job a chase between
+ * three doors, with no way of getting ahead of them.
+ */
+export const WEAR = 0.04;
+
+/** How fast what they gained slips away once they stop, in shares a second. */
+export const FADE = 0.045;
+
+/**
+ * And how fast the man on the other side of it pushes them back.
+ *
+ * @remarks
+ * Piling things against a door is not only a wall for later: it is shoving,
+ * now. Without this a door they had got three quarters through would stay
+ * three quarters open for the rest of the job however long one stood at it.
+ */
+export const RETAKE = 0.075;
+
+/** How high a barricade has to be before a squad gives the door up. */
+export const GIVE_UP = 0.9;
+
+/** How far a frightened clerk keeps away from an armed man, in pixels. */
+export const SHY = 120;
+
+/**
+ * And how close he gives up at, in pixels.
+ *
+ * @remarks
+ * Inside this he stops backing away and stands still with his hands where
+ * everybody can see them. Without it a clerk would back away for ever and
+ * taking a hostage would be a footrace round the press room.
+ */
+export const SHY_HOLD = 58;
+
+/** How fast they back away, in pixels a second. */
+export const SHY_PACE = 30;
+
+/**
+ * How many of the people in the building will work a press at gunpoint.
+ *
+ * @remarks
+ * **Half, and one never knows which half until one tries.** Fewer than half
+ * and the press room is not worth the walk; more and the cellar has nobody in
+ * it. Half means every hostage is a coin toss with a real answer on both
+ * sides: one prints, the other digs.
+ */
+export const WILLING_SHARE = 0.5;
+
+/** How long an unwilling one works before giving up, in seconds. */
+export const SLACK_LEAST = 7;
+
+/** And how much longer some of them last. */
+export const SLACK_SPREAD = 6;
+
+/**
+ * How long the police take to get into position, in seconds.
+ *
+ * @remarks
+ * **The opening.** They have to drive there, block the road, put men behind
+ * their cars and pitch the tent, and none of it is quick. The minute and a
+ * quarter that takes is the minute in which the building is sorted out - and
+ * a job that had to be fought from the first second would leave no room for
+ * finding out who prints and who digs.
+ */
+export const SETTLE_SECONDS = 75;
+
+/** How long after the shutter comes down they send food up to it. */
+export const FOOD_AFTER = 165;
+
+/** And how long it stands on the step before they take it away again. */
+export const FOOD_WAIT = 45;
+
+/** How fast the shutter winds up and down, in shares a second. */
+export const OPEN_RATE = 0.5;
+
+/** How much harder they push at a door that is standing open. */
+export const SHUTTER_PUSH = 0.05;
+
+/** After how many squads they give up on doors and send a tank. */
+export const TANK_WAVE = 3;
+
+/** How fast it rolls up the road, in pixels a second. */
+export const TANK_PACE = 42;
+
+/** How long between its shells, in seconds. */
+export const TANK_SHELL = 6;
+
+/**
+ * How much a shell adds to what is coming through the front door.
+ *
+ * @remarks
+ * Half a minute from a door that is holding to a door that is not, which is
+ * about how long it takes to get from the cellar to the front of the
+ * building, wind the shutter up and put two rockets into it.
+ */
+export const TANK_PUSH = 0.03;
+
+/** How many rockets it takes to stop the one outside the works. */
+export const MINT_TANK_HITS = 2;
+
+/** How long a shot stays on the screen in the bank, in seconds. */
+export const FLASH_SECONDS = 0.07;
+
+/**
+ * How long the shutter may stand open before they come through it, in
+ * seconds.
+ *
+ * @remarks
+ * Long enough to take the food in, put two rockets into a tank or shoot at
+ * something out there; short enough that leaving it open is never a way of
+ * saving oneself the walk. Halfway through they say so - and after that they
+ * shoot.
+ */
+export const OPEN_GRACE = 14;
+
+/** How fast the front door goes once they are coming through it. */
+export const STORM_PUSH = 0.5;
+
+/** How often one of them fires through the open shutter, in seconds. */
+export const STORM_SHOT = 0.5;
+
+/** How long before cutting the mains buys quiet again, in seconds. */
+export const POWER_AGAIN = 90;
+
+/** How far the men outside pace up and down their spot, in pixels. */
+export const COP_PACE = 26;
+
+/** How long one of their walks takes, in seconds. */
+export const COP_BEAT = 7;
+
+/** How long after the director's telephone call they come, in seconds. */
+export const CALL_SECONDS = 12;
+
+/**
+ * How long a hired man stands about before he finds himself something to do.
+ *
+ * @remarks
+ * Long enough that the player gets first go at everything: if one is already
+ * walking a hostage to a machine, the man one hired should not be halfway
+ * there with somebody else. Short enough that standing at a door for a minute
+ * is not a minute in which nothing happens in the press room.
+ */
+export const CREW_THINK = 6;
+
+/** How near the player has to be to a job for his men to leave it to him. */
+export const CREW_LEAVE = 140;
 
 /** How many hired men the door of the printing works opens for. */
 export const MINT_CREW = 4;
