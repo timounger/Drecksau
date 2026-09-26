@@ -16,8 +16,8 @@
 import {
   STATIONS,
   cellUnder,
-  districtAt,
-  villaBlock,
+  villaAt,
+  villaBlocks,
   VILLA_KERB,
   villaCell,
   VILLA_MAIN,
@@ -57,8 +57,11 @@ import {
   type LightColour,
 } from "@/games/gta/engine/city";
 import { drawActions } from "@/games/gta/components/gta-actions";
+import { DISTRICTS } from "@/games/gta/engine/setup";
+import type { District } from "@/games/gta/engine/types";
+import { DISTRICT_NAMES, DISTRICT_SHORT } from "@/games/gta/i18n/texts";
 import { trainCars, trainDue } from "@/games/gta/engine/train";
-import { builtBlock, inCity } from "@/games/gta/engine/city";
+import { builtBlock, inCity, onCountryRoad } from "@/games/gta/engine/city";
 import { LANES_FROM, carOf } from "@/games/gta/engine/engine";
 import {
   BLAST_SECONDS,
@@ -119,6 +122,7 @@ import {
   type Person,
   type Pickup,
   type Vec,
+  JOBS_PER_DISTRICT,
 } from "@/games/gta/engine/types";
 import {
   BLAST_RADIUS,
@@ -341,6 +345,37 @@ const CLOCK_HIGH = 26;
 /** How big the map in the corner is, in pixels. */
 const MAP_SIZE = 170;
 
+/**
+ * Where each quarter's name is written, in squares of the city.
+ *
+ * @remarks
+ * **Above the town, under the mountain.** A name written across the streets
+ * it belongs to hides them, and one in the corner of its quarter names a
+ * stretch of sea. So each of the three cities has its label just off its own
+ * first streets - San Fierro's city begins on row 42, Los Santos' on 106, Las
+ * Venturas' on 10 - and Mount Chiliad, which is a mountain and not a town,
+ * has its name under the foot of the rock: the peak sits at 24/134 and the
+ * slope runs out fifteen squares from it.
+ */
+const DISTRICT_MARKS: Readonly<Record<District, Vec>> = {
+  grove: { x: 21, y: 38 },
+  ballas: { x: 128, y: 6 },
+  vagos: { x: 120, y: 102 },
+  beach: { x: 24, y: 152 },
+};
+
+/** How far a quarter's name stands off the edge of the map, in pixels. */
+const QUARTER_PAD = 4;
+
+/** And how much room one line of it needs there. */
+const QUARTER_LINE = 10;
+
+/** What a quarter's name is written in while it belongs to somebody else. */
+const MAP_QUARTER = "#e2e8f0";
+
+/** And once it is yours. */
+const MAP_MINE = "#facc15";
+
 /** And the through routes, which are the only black thing on the map. */
 const MAP_MAIN = "#0a0a0a";
 
@@ -481,9 +516,122 @@ export function draw(
   drawLight(ctx, state, width, height, day);
   drawMinimap(ctx, state, height);
   drawStatus(ctx, state, width, day);
+  drawGoal(ctx, state);
   drawRadio(ctx, radio, width, height, thumbs);
   drawActions(ctx, state, width, height);
 }
+
+/**
+ * The corner that says what one is supposed to be doing.
+ *
+ * @param ctx - what to paint on
+ * @param state - the city, for the job and the four districts
+ * @remarks
+ * **Top left, and it is the point of the game.** Los Santos is won by taking
+ * all four districts, three delivered jobs at a time - and every bit of that
+ * was invisible: the job was a coloured dot on the map with nothing to say
+ * what it paid, the districts were counted in the state and shown nowhere,
+ * and what the city said about either of them went into a list under the
+ * picture that has since gone. A goal one cannot see is a goal nobody has.
+ *
+ * Three lines, in the order one needs them: what is to be done and what it
+ * pays, how much of the city is already yours, and the last thing that
+ * happened.
+ */
+function drawGoal(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const job = state.job;
+  const left = GOAL_EDGE;
+  const top = GOAL_EDGE;
+  ctx.save();
+  ctx.fillStyle = "rgba(12,10,9,0.72)";
+  ctx.fillRect(left, top, GOAL_WIDE, GOAL_HIGH);
+  ctx.strokeStyle = "rgba(250,250,249,0.25)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(left, top, GOAL_WIDE, GOAL_HIGH);
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  // What is to be done, and - once it is loaded and the clock runs - how long
+  // there is left for it.
+  ctx.fillStyle = "#fafaf9";
+  ctx.font = "600 13px system-ui, sans-serif";
+  const left_s =
+    job === null || job.until === null
+      ? ""
+      : ` · ${String(Math.max(0, Math.round(job.until - state.time)))} s`;
+  const line =
+    job === null
+      ? "Kein Auftrag"
+      : `${jobWords(job.kind, job.loaded)} · ${String(job.pay)} €${left_s}`;
+  ctx.fillText(
+    shortened(ctx, line, GOAL_WIDE - GOAL_PAD * 2),
+    left + GOAL_PAD,
+    top + 15,
+  );
+  // The four districts, three pips each: one filled per delivered job, the
+  // whole group in gold once the district has changed hands.
+  const room = (GOAL_WIDE - GOAL_PAD * 2) / DISTRICTS.length;
+  DISTRICTS.forEach((district, at) => {
+    const quarter = state.districts[district];
+    const x = left + GOAL_PAD + at * room;
+    for (let pip = 0; pip < JOBS_PER_DISTRICT; pip += 1) {
+      const full = quarter.owned || pip < quarter.done;
+      ctx.fillStyle = full ? "#facc15" : "rgba(250,250,249,0.22)";
+      ctx.fillRect(x + pip * (PIP + 2), top + 26, PIP, PIP);
+    }
+    ctx.fillStyle = quarter.owned ? "#facc15" : "rgba(250,250,249,0.55)";
+    ctx.font = "600 9px system-ui, sans-serif";
+    ctx.fillText(
+      shortened(ctx, DISTRICT_SHORT[district] ?? district, room - 4),
+      x,
+      top + 42,
+    );
+  });
+  // And the last thing the city said, which used to be a list under the
+  // picture: one line is what one reads of it anyway.
+  const said = state.log.at(-1);
+  if (said !== undefined) {
+    ctx.fillStyle = "rgba(250,250,249,0.6)";
+    ctx.font = "500 11px system-ui, sans-serif";
+    ctx.fillText(
+      shortened(ctx, said, GOAL_WIDE - GOAL_PAD * 2),
+      left + GOAL_PAD,
+      top + 58,
+    );
+  }
+  ctx.restore();
+}
+
+/**
+ * What a job is called, by what it carries and whether it is loaded.
+ *
+ * @param kind - courier, taxi or steal
+ * @param loaded - whether it has been picked up
+ * @returns the two words for the corner of the picture
+ */
+function jobWords(kind: string, loaded: boolean): string {
+  const words: Readonly<Record<string, readonly [string, string]>> = {
+    courier: ["Paket holen", "Paket abliefern"],
+    taxi: ["Fahrgast holen", "Fahrgast absetzen"],
+    steal: ["Wagen holen", "Wagen abliefern"],
+  };
+  const pair = words[kind] ?? ["Auftrag", "Auftrag"];
+  return loaded ? pair[1] : pair[0];
+}
+
+/** How far the goal panel stands off the corner, in view pixels. */
+const GOAL_EDGE = 12;
+
+/** How wide it is. */
+const GOAL_WIDE = 232;
+
+/** And how tall: three lines and a row of pips. */
+const GOAL_HIGH = 70;
+
+/** The air inside it. */
+const GOAL_PAD = 10;
+
+/** How big one delivered job is, as a square. */
+const PIP = 7;
 
 /**
  * What is on the radio, in the corner it is furthest from everything else.
@@ -1252,9 +1400,20 @@ function gridLanes(
         // And nothing is painted on the railway: a railway bridge is
         // "bridge" as far as the floor is concerned, and so may be driven on
         // - which does not earn it lane markings across its sleepers.
+        //
+        // **Nor on a country road**, and that was the one that looked broken.
+        // The grid lines are painted wherever there is tarmac along them, and
+        // out of town the only tarmac is the sweeping road between the cities
+        // - which crosses those lines at every angle but its own. What one
+        // saw was a handful of stripes laid **across** the carriageway every
+        // so often, in the middle of a road whose own markings run along it.
+        // Out there the route paints itself (`countryLanes`), and this stays
+        // off it. Bridges never had the problem, because a bridge deck is not
+        // "road" to the question above.
         if (
           !isRoadAt(state.cells, heart.x, heart.y) ||
           onRail(col, row) ||
+          onCountryRoad(col, row) ||
           atCrossing(col, row)
         ) {
           continue;
@@ -1284,7 +1443,8 @@ function countryLanes(
   seen: Seen,
 ): void {
   for (const road of roadLines()) {
-    if (road.dirt || road.wide < LANES_FROM) {
+    // A dirt track has no paint on it, and that is what makes it a dirt track.
+    if (road.dirt) {
       continue;
     }
     const near = road.points.some(
@@ -1304,26 +1464,54 @@ function countryLanes(
     // stepping sideways there.
     const half = (road.wide / 2) * TILE;
     const edge = half + DECK_SHOULDER - EDGE_IN;
-    for (const run of [
-      { at: 0, dashed: false },
-      { at: half * LANE_SPLIT, dashed: true },
-      { at: -half * LANE_SPLIT, dashed: true },
-      { at: edge, dashed: false },
-      { at: -edge, dashed: false },
-    ]) {
+    // **A country road is not a motorway, and it does not get a motorway's
+    // paint.** Five lines mean four lanes, and the traffic here knows that:
+    // `laneDrift` gives a road this wide two lanes each way and anything
+    // narrower one. So the narrow one gets what a country road actually
+    // carries - a broken line down the middle to say "one lane each way, and
+    // you may pull out" and a solid one at each edge. It used to get nothing
+    // at all, which is what one saw on the road round the mountain in the
+    // south west: tarmac swinging round the rock without a mark on it, and
+    // the five lines of the bridge road stopping dead where it began.
+    const runs =
+      road.wide >= LANES_FROM
+        ? [
+            { at: 0, dashed: false },
+            { at: half * LANE_SPLIT, dashed: true },
+            { at: -half * LANE_SPLIT, dashed: true },
+            { at: edge, dashed: false },
+            { at: -edge, dashed: false },
+          ]
+        : [
+            { at: 0, dashed: true },
+            { at: edge, dashed: false },
+            { at: -edge, dashed: false },
+          ];
+    for (const run of runs) {
       ctx.setLineDash(run.dashed ? GATE_DASH : []);
       ctx.beginPath();
       road.points.forEach((point, at) => {
         const before = road.points[Math.max(0, at - 1)] ?? point;
         const after =
           road.points[Math.min(road.points.length - 1, at + 1)] ?? point;
-        const way = Math.atan2(after.y - before.y, after.x - before.x);
-        const side = way + Math.PI / 2;
-        const spot = project(
-          view,
-          point.x * TILE + Math.cos(side) * run.at,
-          point.y * TILE + Math.sin(side) * run.at,
-        );
+        // **Pushed sideways on the screen, not on the map.** The tarmac of a
+        // country road is this same line stroked with a width in *screen*
+        // pixels (`strokeRoad`), while the picture squashes what it draws
+        // downwards - so half a carriageway measured on the map is only two
+        // thirds of half a carriageway on the screen wherever the road runs
+        // east to west. Offset on the map, the lines therefore drifted off
+        // the tarmac on every stretch that was not north to south: on the
+        // road round the mountain the middle line sat a third of the way
+        // over and the edge line lay out in the dirt beside it. Offset on the
+        // screen, they sit on the band whichever way it goes.
+        const here = project(view, point.x * TILE, point.y * TILE);
+        const from = project(view, before.x * TILE, before.y * TILE);
+        const to = project(view, after.x * TILE, after.y * TILE);
+        const side = Math.atan2(to.y - from.y, to.x - from.x) + Math.PI / 2;
+        const spot = {
+          x: here.x + Math.cos(side) * run.at,
+          y: here.y + Math.sin(side) * run.at,
+        };
         if (at === 0) {
           ctx.moveTo(spot.x, spot.y);
         } else {
@@ -1842,29 +2030,52 @@ function drawCountryRoads(
   ctx.save();
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  for (const road of roadLines()) {
-    const near = road.points.some(
-      (point) =>
-        point.x * TILE > seen.left - ROAD_MARGIN &&
-        point.x * TILE < seen.right + ROAD_MARGIN &&
-        point.y * TILE > seen.top - ROAD_MARGIN &&
-        point.y * TILE < seen.bottom + ROAD_MARGIN,
+  // **The dirt first, the tarmac over it.** Where the two run side by side -
+  // and round the mountain in the south west they run right up against each
+  // other - whichever is drawn second covers the other's edge. A dirt track
+  // laid over a made road hides the very edge the road's white line is
+  // painted on, so the line ends up looking as though it were lying out in
+  // the dust. The other way round is also the way it happened: somebody
+  // paved a road beside a track, not a track over a road.
+  const roads = [...roadLines()]
+    .sort((one, two) => (one.dirt === two.dirt ? 0 : one.dirt ? -1 : 1))
+    .filter((road) =>
+      road.points.some(
+        (point) =>
+          point.x * TILE > seen.left - ROAD_MARGIN &&
+          point.x * TILE < seen.right + ROAD_MARGIN &&
+          point.y * TILE > seen.top - ROAD_MARGIN &&
+          point.y * TILE < seen.bottom + ROAD_MARGIN,
+      ),
     );
-    if (near) {
-      const wide = (road.wide + ROAD_COVER) * TILE;
-      // The verge first, a little wider: it hides the last of the steps and
-      // gives the road an edge to sit in rather than floating on the grass.
-      // Only out in the country - a road through a city has kerbs, and a strip
-      // of dust drawn across a junction is a strip of dust on a junction.
-      strokeVerge(ctx, cells, view, road.points, wide + VERGE);
-      strokeRoad(
-        ctx,
-        view,
-        road.points,
-        wide,
-        road.dirt ? GROUND.dirt : GROUND.road,
-      );
-    }
+  // **Every verge before any carriageway.** The dust along a road is drawn a
+  // little wider than its tarmac, and where two roads meet - a fork, a
+  // junction, two motorways arriving at the same city gate - the second one's
+  // dust used to be painted across the first one's tarmac. A ring of sand
+  // lying in the middle of a carriageway is the one thing that gives a
+  // junction away as two drawings rather than one place. In two passes it
+  // cannot happen: dust can only ever end up under tarmac.
+  //
+  // The verge is a country thing, by the way - a road through a city has
+  // kerbs, and a strip of dust drawn across a junction is a strip of dust on
+  // a junction.
+  for (const road of roads) {
+    strokeVerge(
+      ctx,
+      cells,
+      view,
+      road.points,
+      (road.wide + ROAD_COVER) * TILE + VERGE,
+    );
+  }
+  for (const road of roads) {
+    strokeRoad(
+      ctx,
+      view,
+      road.points,
+      (road.wide + ROAD_COVER) * TILE,
+      road.dirt ? GROUND.dirt : GROUND.road,
+    );
   }
   ctx.restore();
 }
@@ -5205,8 +5416,7 @@ function collectHouses(
         // door as the villa's - which is to say as nothing at all, that block
         // being swallowed and never drawn. So the villa's own ground is asked
         // instead of the grid.
-        const grand = villaBlock();
-        const mine = grand !== null && grand.x === blockX && grand.y === blockY;
+        const mine = villaAt(blockX, blockY) !== null;
         const land = mine ? villaGrounds(blockX, blockY) : null;
         const home = state.garages.find((bay) =>
           land === null
@@ -6949,31 +7159,28 @@ function drawHouse(
 }
 
 /**
- * The player's own house: the one with the garage in it.
+ * The player's own house.
  *
  * @param ctx - what to paint on
  * @param view - where the camera is
  * @param plot - the ground it stands on, in city pixels
  * @param height - how tall it is
- * @param sort - the block's colours, for the roof
+ * @param sort - the block's colours, kept for the roof of the older house
  * @param garage - the pavement outside its bay
  * @param fade - how solid to paint it
  * @remarks
- * **It was one of four thousand.** Three houses in this city are yours, and
- * the only thing that said so was a roller door in the middle of an ordinary
- * terrace - one drove home to a building one could not pick out of the street
- * it stood in. A place one keeps things is a place one should be able to find.
+ * **Three houses, and all three are the same house.** One of them was a villa
+ * off a photograph and the other two were the good house on an ordinary
+ * terrace - which meant that driving home in San Fierro and driving home in
+ * Los Santos were two different things, and only one of them looked like
+ * somewhere one lives. Now the villa stands on all three islands: same
+ * grounds, same hedge, same lawn to the kerb, same carport with the drive
+ * across the grass, and the same way round.
  *
- * So it is built as the good house on the street: stone rather than render,
- * quoins up the corners, a cornice under the eaves, a **portico** on two
- * columns over the front door with a lamp either side of it, and two rows of
- * tall windows. In front of the garage there is a **parking space** marked out
- * on the pavement, which is the other half of what a house of one's own is
- * for: somewhere to leave the car that nobody else is entitled to.
- *
- * The one thing it must not do is draw over its own garage door - that is its
- * own picture, laid on afterwards - so the windows are dealt out across the
- * front and any that fall in the mouth of the bay are left out.
+ * The older house is still here, a few lines down, and still drawn where a
+ * villa cannot be - a block whose neighbour is a bank or a hospital has no
+ * room for a property two blocks wide, and there the terrace house with the
+ * portico takes over rather than a villa with half its garden missing.
  */
 function drawHome(
   ctx: CanvasRenderingContext2D,
@@ -6984,11 +7191,14 @@ function drawHome(
   garage: Vec,
   fade: number,
 ): void {
-  // **Three houses, and one of them is not the same house.** The one in the
-  // south-east quarter is a villa off a photograph - see {@link drawVilla} -
-  // and which it is comes off the plan rather than out of a flag: whichever
-  // quarter of town the garage stands in is the quarter the house is in.
-  if (districtAt(garage.x, garage.y) === "vagos") {
+  // Which of the three this is, and whether it has the ground for a villa:
+  // both come off the plan rather than out of a flag.
+  const span = BLOCK_TILES * TILE;
+  const block = villaAt(
+    Math.floor(plot.left / span),
+    Math.floor(plot.top / span),
+  );
+  if (block !== null) {
     drawVilla(ctx, view, plot, height, garage, fade);
     return;
   }
@@ -7166,7 +7376,16 @@ function drawVilla(
   ctx.save();
   ctx.globalAlpha = fade;
 
-  garden(ctx, view);
+  // Which of the three this is comes off its own ground: the plot handed in
+  // stands on the villa's block, whichever island one is on.
+  const span = BLOCK_TILES * TILE;
+  const block = villaAt(
+    Math.floor(plot.left / span),
+    Math.floor(plot.top / span),
+  );
+  if (block !== null) {
+    garden(ctx, view, block);
+  }
 
   // **The wing first, then the main block.** The tall one is drawn over the
   // low one where they meet, which is what a two-storey wall does to the roof
@@ -7682,10 +7901,25 @@ function villaGround(
   view: View,
   state: GameState,
 ): void {
-  const block = villaBlock();
-  if (block === null) {
-    return;
+  for (const block of villaBlocks()) {
+    villaLawn(ctx, view, state, block);
   }
+}
+
+/**
+ * The ground of one of them.
+ *
+ * @param ctx - what to paint on
+ * @param view - where the camera is
+ * @param state - the city, for its garage
+ * @param block - which villa
+ */
+function villaLawn(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  state: GameState,
+  block: Vec,
+): void {
   const grounds = villaGrounds(block.x, block.y);
   const yard = villaYard(block.x, block.y);
   const plot = villaPlot(block.x, block.y);
@@ -7799,11 +8033,7 @@ function villaGround(
  * A hedge is the other thing. It is six feet of box and it stands in front of
  * whatever is behind it, so it belongs with the building.
  */
-function garden(ctx: CanvasRenderingContext2D, view: View): void {
-  const block = villaBlock();
-  if (block === null) {
-    return;
-  }
+function garden(ctx: CanvasRenderingContext2D, view: View, block: Vec): void {
   const grounds = villaGrounds(block.x, block.y);
   const edge = project(view, grounds.left * TILE, grounds.top * TILE);
   const down = (grounds.bottom - grounds.top) * TILE * DEPTH;
@@ -15039,6 +15269,43 @@ function drawMinimap(
   // Full strength from here: the city underneath may be half transparent, the
   // dots on top of it may not - a muted white dot on a light street is gone.
   ctx.globalAlpha = 1;
+  // **And the name of each quarter in it.** The bar of pips over the picture
+  // says how much of each one is yours; without a name on the map that is
+  // four scores for four places one cannot find. Gold once a quarter has
+  // changed hands, so the map answers "which of these is mine" at a glance.
+  //
+  // **Each one at its own place**, not in the corner of its quarter: a name
+  // belongs where the thing it names is. Three of them sit just above the
+  // first streets of their city, so the label points at the town without
+  // lying across it, and the fourth sits **below** the mountain it is named
+  // after - see {@link DISTRICT_MARKS}.
+  ctx.font = "600 8px system-ui, sans-serif";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "center";
+  ctx.lineJoin = "round";
+  for (const district of DISTRICTS) {
+    const name = DISTRICT_NAMES[district] ?? district;
+    const mark = DISTRICT_MARKS[district];
+    const spot = at({ x: mark.x * TILE, y: mark.y * TILE });
+    // Kept inside the frame: a name centred on a spot near the edge would
+    // otherwise hang half of itself over the sea beside the map.
+    const room = ctx.measureText(name).width / 2 + QUARTER_PAD;
+    const x = Math.max(left + room, Math.min(left + MAP_SIZE - room, spot.x));
+    const y = Math.max(
+      top + QUARTER_PAD,
+      Math.min(top + MAP_SIZE - QUARTER_LINE, spot.y),
+    );
+    // Dark behind, light in front: the map under this is grass, sand, sea
+    // and streets all at once, and eight-point type on top of that is
+    // unreadable without something to sit on.
+    ctx.strokeStyle = "rgba(15,23,42,0.85)";
+    ctx.lineWidth = 2.5;
+    ctx.strokeText(name, x, y);
+    ctx.fillStyle = state.districts[district].owned ? MAP_MINE : MAP_QUARTER;
+    ctx.fillText(name, x, y);
+  }
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
 
   const dot = (point: Vec, colour: string, size: number) => {
     const spot = at(point);

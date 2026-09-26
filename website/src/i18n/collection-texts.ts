@@ -29,6 +29,52 @@ export const COLLECTION_TEXTS = {
 } as const;
 
 /** Texts of the statistics page - one section per game. */
+/**
+ * The developer's usage dashboard, which only shows up with `?stats`.
+ *
+ * @remarks
+ * Its own block rather than part of {@link STATS_TEXTS}: those are the numbers
+ * a player sees about themselves, these are the numbers about everybody, and
+ * the two have nothing to do with each other beyond the word "Statistik".
+ */
+export const USAGE_TEXTS = {
+  title: "Aufrufstatistik",
+  loading: "wird geladen …",
+  failed: "Keine Verbindung zur Datenbank.",
+  window: (days: number): string => `Balken: letzte ${String(days)} Tage`,
+  visits: "Aufrufe gesamt",
+  starts: "Spiele gestartet",
+  playTime: "Spielzeit gesamt",
+  todayLabel: "Aufrufe heute",
+  recent: (week: string, month: string): string =>
+    `${week} in 7 Tagen · ${month} in 30`,
+  week: (time: string): string => `${time} in 7 Tagen`,
+  perDay: (average: string): string => `Ø ${average} pro Tag (30 Tage)`,
+  peak: (count: string): string => `Spitze ${count}`,
+  game: "Spiel",
+  colVisits: "Aufrufe",
+  colWeek: "7 T",
+  colMonth: "30 T",
+  colStarts: "Starts",
+  colTime: "Spielzeit",
+  colLast: "Zuletzt",
+  startPage: "Startseite",
+  devices: "Geräte",
+  deviceNames: {
+    windows: "Windows",
+    android: "Android",
+    ios: "iPhone / iPad",
+    mac: "Mac",
+    linux: "Linux",
+    chromeos: "ChromeOS",
+    other: "Sonstige",
+  } as Readonly<Record<string, string>>,
+  deviceNote:
+    "Je Besuch und Tab eine Zahl, aus der groben Art des Geräts - keine Version, kein Browser, kein Bildschirm: mehrere davon zusammen wären ein Fingerabdruck.",
+  never: "–",
+  note: "Gezählt wird pro Spiel und UTC-Tag: ein Aufruf je Seite und Browser-Tab, ein Start je begonnenem Spiel, dazu die Spielzeit aus der Beliebt-Liste. Gespeichert sind nur Zahlen - keine Kennung, keine Adresse, kein Gerät; deshalb braucht das auch keinen Banner. Die Seite ist unauffällig, aber nicht geheim: Wer die Adresse kennt, sieht sie, und die Zahlen stehen in derselben Datenbank wie die Online-Partien.",
+} as const;
+
 export const STATS_TEXTS = {
   title: "Statistik",
   subtitle: "Wird nur in deinem Browser gespeichert.",

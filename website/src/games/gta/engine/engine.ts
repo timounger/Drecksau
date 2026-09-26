@@ -2990,6 +2990,7 @@ function shoot(state: GameState, input: Input, dt: number): GameState {
     next = fireShell(state, seat.turret, input.aim);
     next = {
       ...next,
+      cars: kicked(next.cars, seat),
       player: { ...next.player, reloadAt: state.time + SHELL_RELOAD },
     };
   } else if (ready && gunship && flown !== null) {
@@ -3220,6 +3221,52 @@ function fireShell(state: GameState, angle: number, aim: Vec): GameState {
 
 /** How far in front of the tank a shell appears - clear of its own nose. */
 const SHELL_MUZZLE = 44;
+
+/**
+ * The shove a tank gets from its own gun.
+ *
+ * @param cars - every car in the city
+ * @param seat - the tank that has just fired
+ * @returns the same list with that tank pushed back along its tracks
+ * @remarks
+ * **A tank on tracks can only be shoved the way the tracks lie.** The gun
+ * turns on its own - that is what makes it a turret - so the recoil has to be
+ * taken apart: what lies along the hull pushes the machine, and what lies
+ * across it is taken by forty tonnes of steel and the ground. Hence the
+ * cosine of the angle between barrel and hull, and hence the two ends of it:
+ * with the barrel over the bow the tank rolls **backwards**, with the barrel
+ * over the stern it is shoved **forwards**, and with the turret at right
+ * angles to the tracks it does not move at all - which is exactly what one
+ * sees when a real one fires across its own hull.
+ *
+ * Capped at what the machine can do by itself, or one shot over the stern
+ * would be a faster way of getting about than driving.
+ */
+function kicked(cars: readonly Car[], seat: Car): readonly Car[] {
+  const along = Math.cos(seat.turret - seat.angle);
+  const top = VEHICLES[seat.body].top;
+  return cars.map((car) =>
+    car.id === seat.id
+      ? {
+          ...car,
+          speed: Math.max(-top, Math.min(top, car.speed - SHELL_KICK * along)),
+        }
+      : car,
+  );
+}
+
+/**
+ * How hard that shove is, in pixels a second.
+ *
+ * @remarks
+ * More than half of what the machine does flat out (190), so that it is a
+ * shove and not a shudder: standing still with the barrel forward, one shot
+ * has the tank rolling backwards at a good walking pace, and it takes a
+ * second or so of engine to get that back. Firing on the move over the bow
+ * takes the same off whatever one was doing, which is the reason to stop and
+ * aim rather than to charge while shooting.
+ */
+const SHELL_KICK = 110;
 
 /**
  * The machine gun mounted beside the heavy one.
@@ -5571,6 +5618,13 @@ function openDoors(state: GameState): GameState {
         !car.driven &&
         // Nobody gets out of a boat: the door would open onto the water.
         !floats(car.body) &&
+        // **And nobody gets out of the tank.** A patrol car is transport for
+        // two men with pistols and the men are the weapon; the tank *is* the
+        // weapon, and a driver who parks it and steps out with a sidearm has
+        // just handed the player sixty tonnes of armour and taken a pistol to
+        // a gunfight. So the crew stays aboard and it keeps coming - which is
+        // what being at six stars is supposed to feel like.
+        car.body !== "tank" &&
         far(car, state.player) < COP_STOP;
       // The doors do not fly open the moment the handbrake goes on.
       const halted = pulled ? (car.haltAt ?? state.time) : null;
@@ -7469,10 +7523,10 @@ export function districtName(
   district: GameState["job"] extends null ? never : string,
 ): string {
   const names: Readonly<Record<string, string>> = {
-    grove: "Grove Street",
-    ballas: "Idlewood",
-    vagos: "East Beach",
-    beach: "Santa Maria",
+    grove: "San Fierro",
+    ballas: "Las Venturas",
+    vagos: "Los Santos",
+    beach: "Mount Chiliad",
   };
   return names[district] ?? district;
 }
@@ -7517,16 +7571,22 @@ function sprint(god: boolean, boost: boolean, wheels: boolean): number {
  */
 function fly(state: GameState, input: Input, dt: number): GameState {
   const player = state.player;
-  // **In the water the space bar means dive, and nothing else.** The jetpack
-  // is on the same key, so a swimmer who pressed it took off out of the sea
-  // instead of going under - and there is no way to ask for the other thing.
-  // Being wet wins: see `walk`, where the same press puts him below the
-  // surface.
+  // **In the water the space bar means dive; in the air it means fly.** The
+  // jetpack is on the same key, so the question is which of the two the press
+  // is asking for - and the answer is where he is. A man **in** the water goes
+  // under (see `walk`, where the same press puts him below the surface); a man
+  // already off the ground keeps climbing, and the sea below him is scenery
+  // like anything else.
+  //
+  // What decides it is {@link swimming}, which is "wet **and** on the ground",
+  // rather than the wet flag on its own: that one is true of anybody whose
+  // shadow is over water, and reading it here meant the jetpack cut out the
+  // moment one crossed the shoreline and dropped one in the bay.
   const lifting =
     player.jetpack &&
     player.car === null &&
     !player.flying &&
-    !player.swimming &&
+    !swimming(state) &&
     input.lift;
   // **What is under him is what he lands on.** It used to be the road,
   // always - so letting go of the button over the middle of a block sank him

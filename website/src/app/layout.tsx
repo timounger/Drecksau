@@ -12,6 +12,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import type { ReactElement } from "react";
 import "./globals.css";
+import { UsageBeacon } from "@/components/usage-beacon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { InlineScript } from "@/components/inline-script";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme-boot";
@@ -64,6 +65,10 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         <ThemeToggle />
+        {/* Zählt, dass diese Seite geöffnet wurde - eine Zahl je Spiel und
+            Tag, sonst nichts. Hier statt in jeder Seite, damit kein Spiel
+            fehlen kann: siehe ../components/usage-beacon. */}
+        <UsageBeacon />
       </body>
     </html>
   );

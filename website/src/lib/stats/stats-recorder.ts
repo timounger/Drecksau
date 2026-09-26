@@ -3,13 +3,15 @@
  *
  * @module
  * @remarks
- * Play time goes two ways from here, and only play time. The statistics
- * themselves stay in this browser, as the statistics page promises; what also
- * travels is the bare span, added to a shared per-day total that decides which
- * games the start page calls popular. Nothing identifies who played.
+ * Two things go two ways from here: the span of play time, and the bare fact
+ * that a game was begun. The statistics themselves stay in this browser, as
+ * the statistics page promises; what travels is a number added to a shared
+ * per-day total - the one the start page builds its "Beliebt" shelf on, and
+ * the one the usage dashboard reads. Nothing identifies who played.
  */
 import type { GameId } from "@/games/registry";
 import { reportPlayTime } from "@/online/popularity";
+import { reportStart } from "@/online/usage";
 import {
   withGameFinished,
   withGameStarted,
@@ -26,6 +28,9 @@ import { loadStats, saveStats } from "./stats-storage";
  */
 export function recordGameStarted(gameId: GameId, startedAt: number): void {
   saveStats(gameId, withGameStarted(loadStats(gameId), startedAt));
+  // And one on the shared counter, which is how the collection knows what is
+  // actually played rather than only opened - see ../../online/usage.
+  reportStart(gameId);
 }
 
 /**

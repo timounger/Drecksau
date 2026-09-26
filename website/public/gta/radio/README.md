@@ -14,6 +14,8 @@ Hier hinein kommen die Lieder, die im Auto laufen.
   Raste hinter dem letzten Lied ist "Radio aus".
 - **Danach:** einmal neu bauen bzw. deployen, damit die Liste in der Seite
   landet. Auf GitHub Pages funktioniert das wie bei `public/gta/splash/`.
+- **Nicht zu verwechseln** mit `../loading/`: Das sind die Lieder über dem
+  Ladebild. Hier liegen nur die Sender für das Autoradio.
 - Diese Datei bleibt liegen - gezählt werden nur Audiodateien.
 
 ## Herkunft und Lizenz
@@ -24,8 +26,11 @@ und steht unter **CC BY** (<https://creativecommons.org/licenses/by/4.0/>).
 Die Lizenz verlangt eine angemessene Namensnennung: **Titel, Künstler, Quelle
 (Free Music Archive) und Lizenz (CC BY)**. Das Spiel erledigt das von selbst:
 
-- Unter dem Bild steht auf der Spielseite der Abschnitt **"Musik"** mit einer
-  Zeile je Lied - Titel, Künstler, Quelle, Lizenz, jeweils verlinkt.
+- Unter dem Bild steht auf der Spielseite der aufklappbare Abschnitt
+  **"Musik & Geräusche - Lizenzen"** mit einer Zeile je Lied - Titel, Künstler,
+  Quelle, Lizenz, jeweils verlinkt. Zusammengeklappt, weil die Lizenz eine
+  angemessene Nennung verlangt und nicht eine auffällige; gelöscht werden darf
+  sie nicht.
 - Beim Fahren steht der laufende Titel unten rechts im Bild.
 
 Beides kommt aus den Dateinamen. Wer eine Datei anders benennt als

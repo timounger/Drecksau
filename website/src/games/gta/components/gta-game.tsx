@@ -7,9 +7,7 @@
 
 import Link from "next/link";
 import { useRef, useState, type ReactElement } from "react";
-import { creditOf } from "@/games/gta/audio/radio";
 import { VolumeSlider } from "@/games/gta/components/volume-slider";
-import { SOUND_CREDITS } from "@/games/gta/audio/sounds";
 import { useFullscreen } from "@/lib/screen/use-fullscreen";
 import { useShotRatio } from "@/lib/screen/use-shot-ratio";
 import { GameHeader } from "@/components/game-header";
@@ -145,14 +143,17 @@ const LINK =
  *
  * @param splashes - the pictures the loading screen may show, from the page
  * @param stations - the songs the car radio may play, from the same page
+ * @param tunes - and the ones that may play over the loading screen
  * @returns the screen
  */
 export function GtaScreen({
   splashes,
   stations,
+  tunes,
 }: {
   readonly splashes: readonly string[];
   readonly stations: readonly string[];
+  readonly tunes: readonly string[];
 }): ReactElement {
   const {
     heads,
@@ -172,7 +173,7 @@ export function GtaScreen({
     save,
     load,
     forget,
-  } = useGtaGame(stations);
+  } = useGtaGame(stations, tunes);
 
   // The picture, on its own, is what fills the screen: the ticker and the
   // list of keys underneath are of no use to a thumb.
@@ -309,173 +310,30 @@ export function GtaScreen({
 
       <Saves saves={saves} onSave={save} onLoad={load} onForget={forget} />
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <section className="rounded-2xl border border-zinc-200 p-3 text-xs dark:border-zinc-800">
-          <h2 className="mb-1 text-sm font-semibold">{T.controls}</h2>
-          <ul className="flex flex-col gap-0.5 text-zinc-600 dark:text-zinc-400">
-            <li>
-              <b>W A S D</b> oder Pfeiltasten: zu Fuß in alle vier Richtungen,
-              im Auto Gas, Bremse und Lenkung
-            </li>
-            <li>
-              <b>Maus</b>: zu Fuß schaust du dorthin - <b>Klick</b> schießt
-            </li>
-            <li>
-              <b>Fernzünder</b>: <b>Rechtsklick</b> legt einen Zünder ab (bis zu
-              zehn), <b>Linksklick</b> jagt alle auf einmal hoch
-            </li>
-            <li>
-              <b>Am Handy</b>: linke Bildhälfte ist der Stick zum Laufen und
-              Fahren, rechte Bildhälfte zielt und schießt. Die drei Knöpfe unten
-              rechts sind <b>Auto</b> (ein- und aussteigen), <b>Waffe</b>{" "}
-              (wechseln) und <b>Zünder</b> (ablegen).
-            </li>
-            <li>
-              <b>Mausrad</b>: zu Fuß die Waffe wechseln - zu Beginn nur die
-              Faust, alles andere liegt in der Stadt herum. Im Auto schaltet
-              dasselbe Rad den Radiosender weiter
-            </li>
-            <li>
-              <b>E</b> oder <b>Enter</b>: ein- und aussteigen
-            </li>
-            <li>Gelber Ring: abholen. Grüner Ring: abliefern.</li>
-            <li>Blauer Ring: Lackiererei - Fahndung weg, kostet Geld.</li>
-            <li>
-              <b>Shift</b> halten: rennen (dreifach), im Auto anderthalbfach.
-              Mit <b>{T.god}</b> wird daraus zehnfach zu Fuß und dreifach im
-              Auto
-            </li>
-            <li>
-              Im <b>{T.escapeTitle}</b>: laufen mit W A S D, und die{" "}
-              <b>Maus gedrückt halten</b>, um zu schrauben, zu lösen und das
-              Fenster zu öffnen. Den Kegeln der Wärter aus dem Weg gehen.
-            </li>
-            <li>
-              In der <b>{T.worksTitle}</b>: dieselbe <b>gehaltene Maus</b> nimmt
-              Geiseln, schaufelt am Tunnel und verbarrikadiert die Türen - je
-              nachdem, wovor du stehst.
-            </li>
-          </ul>
-        </section>
-        <section className="rounded-2xl border border-zinc-200 p-3 text-xs dark:border-zinc-800">
-          <h2 className="mb-1 text-sm font-semibold">{T.log}</h2>
-          <ul data-testid="gta-log" className="flex flex-col gap-0.5">
-            {heads.log.map((line, at) => (
-              <li
-                key={`${at}-${line}`}
-                className="text-zinc-600 dark:text-zinc-400"
-              >
-                {line}
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Credits stations={stations} />
-        <SoundCredits />
-      </div>
-    </div>
-  );
-}
-
-/**
- * Who the music is by, which the licence asks for in so many words.
- *
- * @param stations - the songs the page found in the folder
- * @returns the block under the picture, or nothing at all without music
- * @remarks
- * **CC BY means one has to say four things**: the title, the artist, where it
- * came from and which licence it is under. All four are here, and the first
- * two come out of the file name (`creditOf`) - so a song added to the folder
- * credits itself and nobody has to remember to edit a list. The folder's own
- * README says the same thing for whoever fills it.
- */
-function Credits({
-  stations,
-}: {
-  readonly stations: readonly string[];
-}): ReactElement {
-  return (
-    <section className="rounded-2xl border border-zinc-200 p-3 text-xs dark:border-zinc-800">
-      <h2 className="mb-1 text-sm font-semibold">{T.musicTitle}</h2>
-      {stations.length === 0 ? (
-        <p className="text-zinc-600 dark:text-zinc-400">{T.musicNone}</p>
-      ) : (
-        <>
-          <p className="mb-1 text-zinc-600 dark:text-zinc-400">{T.musicLead}</p>
-          <ul className="flex flex-col gap-0.5 text-zinc-600 dark:text-zinc-400">
-            {stations.map((url) => {
-              const credit = creditOf(url);
-              return (
-                <li key={url}>
-                  <b>{credit.title}</b>
-                  {credit.artist === null ? null : <> - {credit.artist}</>} (
-                  <a
-                    href="https://freemusicarchive.org/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline"
-                  >
-                    {T.musicSource}
-                  </a>
-                  ,{" "}
-                  <a
-                    href="https://creativecommons.org/licenses/by/4.0/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline"
-                  >
-                    {T.musicLicence}
-                  </a>
-                  )
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-    </section>
-  );
-}
-
-/**
- * Who the noises are by, for the ones whose licence asks.
- *
- * @returns the block under the picture, or nothing where none of them ask
- * @remarks
- * **Not every sound needs this.** A CC0 file asks for nothing and would only
- * make the list longer; the ones that are CC BY have to be named where the
- * game is heard. So the list is the table in `SOUND_CREDITS`, and a sound that
- * is not in it is a sound that does not need to be.
- */
-function SoundCredits(): ReactElement | null {
-  if (SOUND_CREDITS.length === 0) {
-    return null;
-  }
-  return (
-    <section className="rounded-2xl border border-zinc-200 p-3 text-xs dark:border-zinc-800">
-      <h2 className="mb-1 text-sm font-semibold">{T.soundTitle}</h2>
-      <p className="mb-1 text-zinc-600 dark:text-zinc-400">{T.soundLead}</p>
-      <ul className="flex flex-col gap-0.5 text-zinc-600 dark:text-zinc-400">
-        {SOUND_CREDITS.map((one) => (
-          <li key={one.file}>
-            <b>{one.title}</b> - {one.author} (
-            <a
-              href={one.url}
-              target="_blank"
-              rel="noreferrer"
-              className="underline"
-            >
-              freesound.org
-            </a>
-            , {one.licence}
-            {one.edited === null ? null : <>, {T.soundEdited}</>})
+      {/* **Three lines, and the rest is in the rules.** What stood here -
+          every mouse button, the wheel, every corner of the game - was a wall
+          of small print under the picture that one reads once and never
+          again. The "Spielregeln" button above has all of it at length; this
+          is what one needs in the first minute. */}
+      <section className="rounded-2xl border border-zinc-200 p-3 text-xs dark:border-zinc-800">
+        <h2 className="mb-1 text-sm font-semibold">{T.controls}</h2>
+        <ul className="flex flex-col gap-0.5 text-zinc-600 dark:text-zinc-400">
+          <li>
+            <b>W A S D</b> - bewegen
           </li>
-        ))}
-      </ul>
-    </section>
+          <li>
+            <b>Shift</b> - rennen
+          </li>
+          <li>
+            <b>E</b> - ein- und aussteigen
+          </li>
+          <li>
+            <b>Leertaste</b> - Jetpack steigen, im Wasser tauchen, im Auto
+            Handbremse
+          </li>
+        </ul>
+      </section>
+    </div>
   );
 }
 

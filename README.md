@@ -337,6 +337,9 @@ Spiel, das im Frühjahr beliebt war, stünde für immer oben. Und Tage statt ein
 Liste einzelner Sitzungen, weil die endlos wachsen und zum Summieren ganz
 gelesen werden müsste.
 
+Dieselbe Datenbank trägt inzwischen noch drei weitere Zahlen derselben Form -
+Aufrufe, Starts und Geräte; siehe [Aufrufstatistik](#aufrufstatistik-stats).
+
 Übertragen wird nur die Spanne selbst, gebündelt etwa alle 30 Sekunden statt
 nach jedem Zug. Der Knoten enthält eine Zahl pro Spiel und Tag und keine Spur
 davon, wer sie dazugezählt hat. Die eigentliche Statistik bleibt im Browser,
@@ -575,7 +578,104 @@ Spiel reicht:
    [game-logos.ts](website/src/games/game-logos.ts) eintragen.
 
 Uebersicht, Statistik-Seite, Zuruecksetzen und Versionierung funktionieren dann
-ohne weitere Aenderung - sie iterieren ueber die Registry.
+ohne weitere Aenderung - sie iterieren ueber die Registry. Dasselbe gilt fuer
+die [Aufrufstatistik](#aufrufstatistik-stats): Aufrufe und Starts zaehlen sich
+von selbst mit.
+
+Eine Ausnahme von der gemeinsamen Statistikseite gibt es: **GTA** bringt eine
+eigene mit ([gta-stats-view.tsx](website/src/games/gta/components/gta-stats-view.tsx)).
+Begonnene, gewonnene und verlorene Partien sind fuer eine Runde Skyjo genau die
+richtigen Zahlen; Los Santos gewinnt man nicht, man faehrt darin herum, und
+„12 % gewonnen" ist keine Aussage ueber einen Nachmittag. Von den gemeinsamen
+Zahlen bleiben dort Spielzeit und „zuletzt gespielt“, alles andere zaehlt das
+Spiel selbst - gefahrene Kilometer, zerstoerte Fahrzeuge, Fahndungsrekord.
+
+## Aufrufstatistik (`?stats`)
+
+Die Statistikseite jedes Spiels zeigt, was **dieser Browser** getan hat. Daneben
+gibt es eine zweite Statistik, die nur den Entwickler etwas angeht: wie oft die
+Seite überhaupt aufgerufen wird, welches Spiel wie oft, und womit die Leute
+kommen. Sie erscheint auf der Startseite, wenn die Adresse
+`?stats` trägt:
+
+```
+https://timounger.github.io/Drecksau/?stats
+```
+
+**Zugeklappt**, mit einem Dreieck davor - man sieht im Vorbeigehen, dass es die
+Zahlen gibt, und die Sammlung wird nicht nach unten geschoben. Erst beim
+Aufklappen wird die Datenbank gefragt: drei, vier Abfragen für eine Zeile, die
+niemand angesehen hat, wären drei, vier Abfragen auf genau der Seite, die
+schnell sein muss.
+
+### Was gezählt wird
+
+| Zahl          | Wann sie hochgeht                        | Wo sie liegt                      |
+| ------------- | ---------------------------------------- | --------------------------------- |
+| **Aufrufe**   | Eine Seite wird geöffnet, je Browser-Tab | `rooms/__visits/<spiel>/<tag>`    |
+| **Starts**    | Ein Spiel wird begonnen                  | `rooms/__starts/<spiel-id>/<tag>` |
+| **Spielzeit** | Während gespielt wird (schon vorher da)  | `rooms/__played/<spiel-id>/<tag>` |
+| **Geräte**    | Ein Tab wird geöffnet, einmal            | `rooms/__devices/<art>/<tag>`     |
+
+**Drei Zahlen, drei Fragen.** Aufrufe sagen, wonach gesucht wird; Starts sagen,
+was dann wirklich gespielt wird; Spielzeit sagt, ob es gehalten hat. Die Lücke
+zwischen Aufruf und Start ist die interessanteste: Viel geöffnet und selten
+gestartet heißt, dass die Karte etwas verspricht, das das Spiel nicht hält.
+
+**Geräte** sind sieben grobe Töpfe - Windows, Android, iPhone/iPad, Mac, Linux,
+ChromeOS, Sonstige. Die Reihenfolge der Prüfungen ist dabei der ganze Trick:
+Android schreibt „Linux" in seine Kennung und ein iPhone „like Mac OS X", wer
+also zuerst auf Desktop prüft, sortiert jedes Telefon falsch ein. Ausgerechnet
+wird das im Browser; die Datenbank sieht nie eine Gerätekennung.
+
+Alles liegt unter `rooms/`, weil die Sicherheitsregeln genau diesen Teilbaum
+abdecken - dieselbe Stelle, an der auch die Online-Räume und die Spielzeit
+stehen. Hochgezählt wird **atomar**, damit zwei Besucher im selben Moment sich
+nicht gegenseitig überschreiben, und **je UTC-Tag**, weil eine bloße
+Gesamtsumme nie vergessen könnte und „in letzter Zeit" genau die Frage ist,
+die man an so ein Brett hat. Die Tage stehen ausgeschrieben da (`2026-09-27`),
+weil eine Datenbank Schlüssel, die wie kleine Zahlen aussehen, in ein
+dünn besetztes Array verwandelt.
+
+### Was das Brett zeigt
+
+Vier Kacheln (Aufrufe gesamt, Spiele gestartet, Spielzeit, Aufrufe heute -
+jeweils mit 7 und 30 Tagen darunter), ein Balkendiagramm der letzten 30 Tage,
+eine Zeile je Geräteart mit Anteil, und darunter eine Tabelle mit einer Zeile
+je Spiel: Aufrufe gesamt, 7 Tage, 30 Tage, Starts, Spielzeit, zuletzt gesehen.
+Sortiert nach den letzten 30 Tagen - ein Gesamtwert ist die Geschichte der
+Seite und bewegt sich kaum; was man beim Öffnen wissen will, ist der letzte
+Monat. Spiele mit lauter Nullen bleiben stehen: Eine Null neben einem Namen ist
+die nützlichste Zeile der Tabelle.
+
+### Datenschutz, und was „geheim" hier heißt
+
+Gespeichert sind **nur Zahlen** - keine Kennung, keine IP, kein Gerätemodell,
+keine Sitzung, kein Verlauf. Damit ist nichts davon ein personenbezogenes Datum
+und es braucht keinen Einwilligungsbanner. Das Einzige, was im Browser liegt,
+ist ein Vermerk im `sessionStorage` darüber, welche Seiten dieser Tab schon
+gezählt hat; er stirbt mit dem Tab und verlässt ihn nie.
+
+Die Adresse ist **unauffällig, nicht geheim**: Versteckt ist die Seite, nicht
+die Daten - `rooms/__visits` ist so lesbar wie die Spielräume auch. Da nichts
+darin steht, was jemandem gehört, ist das in Ordnung; soll es dicht sein,
+braucht es eine Regel auf die eigene Konto-ID.
+
+### Wo es im Code steht
+
+| Datei                                                                        | Aufgabe                                             |
+| ---------------------------------------------------------------------------- | --------------------------------------------------- |
+| [online/usage.ts](website/src/online/usage.ts)                               | Zählen, lesen, addieren; die Geräte-Einordnung      |
+| [components/usage-beacon.tsx](website/src/components/usage-beacon.tsx)       | Meldet den Aufruf - einmal im Root-Layout           |
+| [components/usage-dashboard.tsx](website/src/components/usage-dashboard.tsx) | Das aufklappbare Brett                              |
+| [lib/stats/stats-recorder.ts](website/src/lib/stats/stats-recorder.ts)       | Meldet den Start, wo die lokale Statistik ihn bucht |
+| [online/popularity.ts](website/src/online/popularity.ts)                     | Die Spielzeit, die es schon vorher gab              |
+
+**Ein neues Spiel muss dafür nichts tun.** Der Melder hängt im Root-Layout und
+liest das Spiel am ersten Abschnitt der Adresse ab; der Start wird dort gebucht,
+wo jedes Spiel ohnehin `recordGameStarted` aufruft. Hätte jede Seite sich selbst
+eintragen müssen, wäre das erste vergessene Spiel eine Lücke in der Statistik -
+und das Einzige, was eine Nutzungsstatistik nicht sein darf, ist lückenhaft.
 
 ## Favicon
 

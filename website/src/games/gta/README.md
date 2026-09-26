@@ -3344,9 +3344,135 @@ Zwei Sorten Autobahn, und sie werden aus verschiedenen Dingen gezeichnet:
   Und auf die **Bahn** wird nichts gemalt: Eine Eisenbahnbrücke ist nach dem
   Boden `"bridge"` und damit befahrbar, Spurstriche quer über die Schwellen
   hat sie deswegen noch lange nicht verdient.
-- **Auf dem Land** sind es die breiten Routen, und die biegen. Ihre Linien sind
-  die eigenen Punkte der Route, seitlich entlang der Normalen verschoben - die
+- **Auf dem Land** sind es die Routen, und die biegen. Ihre Linien sind die
+  eigenen Punkte der Route, seitlich entlang der Normalen verschoben - die
   einzige Art, eine Kurve zu versetzen, ohne sie zweimal zu zeichnen.
+
+**Die Straße um den Berg ist die Brückenstraße.** Sie waren einmal zwei
+Routen, die sich am Brückenkopf im Südwesten trafen: die Brücke fünf Felder
+breit, die Bergstraße drei. Das hieß zweispurig je Richtung über das Wasser
+und einspurig danach, fünf Linien auf dem Deck und dahinter keine, und weil
+jede Route für sich gebogen wurde, stoßen sie im Winkel aufeinander statt
+ineinander überzugehen. Jetzt ist es **eine** Linie über die ganze Länge:
+dieselbe Breite, dieselben fünf Striche, und die Kurve läuft durch den
+Übergang hindurch. Wer von der Brücke kommt, ist einfach weiter auf derselben
+Autobahn.
+
+Damit ist zurzeit **jede** gepflasterte Route der Karte fünf Felder breit. Die
+Striche für eine schmalere gibt es trotzdem, und zwar seit derselben Runde:
+eine gestrichelte Mittellinie - eine Spur je Richtung, überholen erlaubt - und
+je eine durchgezogene Randlinie. Das ist es, was eine Landstraße trägt, und
+das ist es auch, was `laneDrift` unter fünf Feldern fährt. Kommt je wieder
+eine schmale Route dazu, ist sie damit nicht wieder unbeschildert.
+
+**Jede Autobahn fährt jetzt in eine Stadtautobahn hinein.** Vorher endete jede
+von ihnen dort, wo das Land aufhörte: in einem runden Kopf auf dem Gehweg, im
+Sand vor der Stadtgrenze oder quer zur Fahrbahn, die dahinter weiterlief. Die
+Regel, nach der das jetzt gebaut ist, gilt für alle vier Anbindungen:
+
+1. **Auf eine vorhandene Linie**, nicht irgendwohin. Jede Stadt hat ihre fünf
+   Felder breiten Durchgangsachsen - San Fierro Spalte 32,5 und Zeile 64,5,
+   Las Venturas Zeile 32,5, Los Santos Zeile 128,5 -, und die Landstraße endet
+   **auf** so einer, gleich breit und mittig. Quer durch die Blöcke geht
+   nichts: Die Kurve liegt draußen, das gerade Stück drinnen.
+2. **Die letzten beiden Punkte teilen sich die Linie.** Das macht die Tangente
+   am Ende parallel zur Stadtachse; eine Kurve, die noch drehend ankommt,
+   schwenkt gleich wieder weg.
+3. **Das Ende liegt ein paar Felder drinnen**, wo der runde Kopf unter dem
+   Asphalt der Stadt verschwindet.
+4. **Zwei Autobahnen, ein Tor.** Die beiden, die Las Venturas von Westen
+   erreichen, laufen zehn Zeilen auseinander drauf zu. Sie bekommen kein Loch
+   je Straße in die Stadt, sondern treffen sich davor und fahren gemeinsam
+   hinein - das ist, was ein Stadttor ist.
+
+**Und am anderen Ende fährt sie in die Stadt hinein, statt daneben zu enden.**
+Los Santos hat eine Autobahn auf Zeile 128,5 - fünf Felder, 126 bis 130 -, und
+die Bergautobahn hörte ein Feld davor und schräg dazu auf: Der Kopf der einen
+Fahrbahn lag quer auf der anderen. Jetzt legen drei Punkte die Kurve aus -
+hinunter auf die Linie, auf die Linie, und dann ein gerades Stück **innerhalb**
+des Rasters, wo der runde Kopf unter dem Asphalt der Stadt verschwindet. Zwei
+davon teilen sich die Zeile, und das ist es, was die Tangente am Ende
+waagerecht macht: Eine Kurve, die noch drehend auf der Linie ankommt, schwenkt
+gleich wieder von ihr weg.
+
+Zwei Punkte unter dem Brückenkopf machen aus dem Knick eine Kurve: Die Straße
+hält die Linie der Brücke noch vier Felder und schwenkt erst dann nach Westen -
+und der Punkt danach liegt bewusst eine Dreizehntel Spalte westlich, nicht
+genau auf ihr. Catmull-Rom baut sonst eine Beule: Wenn ein Stück gerade
+anfängt und mit einer Tangente nach links endet, muss die Kurve dazwischen
+erst nach rechts ausholen. Gemessen waren das 16 Pixel nach Osten, jetzt sind
+es 5.
+
+**Und verschoben wird auf dem Bildschirm, nicht auf der Karte.** Der Asphalt
+einer Landstraße ist dieselbe Linie, mit einer Breite in **Bildschirm**pixeln
+gestrichelt (`strokeRoad`), das Bild staucht aber alles nach unten. Eine halbe
+Fahrbahn auf der Karte gemessen ist auf dem Bildschirm nur zwei Drittel davon,
+sobald die Straße von Ost nach West läuft - auf der Karte versetzt, wanderten
+die Striche deshalb auf jeder Strecke vom Band, die nicht Nord-Süd lag. Auf dem
+Bildschirm versetzt liegen sie auf dem Band, egal wie es läuft. Nachgemessen
+auf dem Ost-West-Stück: Randlinien 18 und 19 Pixel innerhalb der Bandkanten,
+also beide gleich weit drin.
+
+**Und sie läuft südlich an der Flugabwehr vorbei.** Die Luftabwehr des
+Militärgeländes steht zweieinhalb Felder außerhalb jeder Zaunecke, die
+südöstliche auf 80,5/46,5 - und genau dort lief die Straße von San Fierro
+nach Las Venturas entlang: eine Stellung auf der Mittelspur. Fünf Felder
+weiter südlich geht die Straße daran vorbei; gemessen liegt die Fahrbahnmitte
+jetzt 4,9 Felder von der Stellung entfernt, ihre Kante also gut zwei Felder.
+Die Abzweigung nach Süden ist mitgewandert - sie hängt an dieser Fahrbahn und
+muss in ihr liegen, sonst steht ihr runder Kopf wieder im Freien.
+
+**Und keiner mehr an der Bahnlinie.** Östlich der Gleise, dort wo die Bahn den
+oberen Stadtteil erreicht, lag ein vier Felder langes Stück Autobahn mit einem
+runden Kopf an jedem Ende - der Rest einer Querung, die es nicht mehr gibt. Es
+führte nirgendwohin und lag so dicht an der Strecke, dass seine Schulter auf
+den Schwellen lag. Weg damit.
+
+**Kein Stummel mehr neben dem Militärgelände.** Die Straße, die nach Süden
+über die Meerenge nach Los Santos führt, lief vom Kreuz mit der
+San-Fierro-Straße noch sechzehn Zeilen weiter nach Norden und endete dort in
+einem runden Kopf neben dem Ostzaun - eine Autobahn, die eine Kreuzung
+verlässt, vierhundert Meter fährt und im Sand aufhört, ohne irgendwohin zu
+führen. Das Gelände hat sein Tor im Süden, und auf ein Militärgelände führt
+ohnehin keine Straße. Jetzt beginnt sie **an** der Kreuzung, und zwar ein Feld
+innerhalb der anderen Fahrbahn: Auf deren Mittellinie käme der runde Kopf genau
+bündig mit dem gegenüberliegenden Rand heraus, so liegt er begraben im Asphalt
+und man sieht eine Straße, die von einer anderen abzweigt.
+
+**Erst alle Säume, dann alle Fahrbahnen.** Der Staubstreifen entlang einer
+Landstraße ist etwas breiter als ihr Asphalt, und wo zwei Straßen
+zusammenkommen - eine Abzweigung, ein Kreuz, zwei Autobahnen am selben Stadttor
+
+- wurde der Saum der späteren über den Asphalt der früheren gemalt. Ein Ring
+  aus Sand mitten auf einer Fahrbahn ist das Einzige, was eine Kreuzung als zwei
+  Zeichnungen statt als einen Ort verrät. In zwei Durchgängen kann das nicht mehr
+  passieren: Staub landet nur noch unter Asphalt.
+
+**Und die Piste wird zuerst gemalt, der Asphalt danach.** Wo beide nebeneinander
+laufen - und um den Berg herum tun sie das auf Tuchfühlung -, deckt die
+spätere die Kante der früheren zu. Eine Piste über der Straße verdeckt genau
+den Rand, auf dem deren weiße Linie liegt, und dann sieht es aus, als läge die
+Linie draußen im Staub. Andersherum ist es ohnehin die Reihenfolge der Welt:
+Jemand hat eine Straße neben eine Piste gebaut, nicht eine Piste über eine
+Straße.
+
+**Und die Rasterlinien hören am Ortsrand auf.** Das war der Fehler, der auf der
+Strecke zwischen den Städten zu sehen war: Die Stadtautobahnen sind Linien
+eines Rasters, das über die **ganze** Karte geht, und gemalt wurde überall
+dort, wo entlang so einer Linie Asphalt liegt. Draußen liegt Asphalt nur auf
+der einen Straße, die sich zwischen den Städten hindurchschwingt - und die
+kreuzt die Rasterlinien in jedem Winkel außer ihrem eigenen. Was man sah, waren
+ab und zu ein paar Striche **quer** über die Fahrbahn, mitten auf einer Straße,
+deren eigene Markierung längs läuft. Auf den Brücken stimmte es, weil ein
+Brückendeck für diese Frage kein `"road"` ist - genau deshalb fing der Fehler
+erst hinter dem Brückenkopf an.
+
+Jetzt lässt das Raster jedes Feld aus, das zu einer Landstraße gehört
+(`onCountryRoad`); dort malt die Route selbst. Die Frage muss billig sein - sie
+wird pro Feld und Bild gestellt, während die ursprüngliche Antwort dafür jede
+Etappe jeder Route abläuft -, also wird sie einmal ausgerechnet und als ein
+Byte je Feld behalten: gestempelt wird von den Routen aus in ihre eigene
+Nachbarschaft, nicht von achtundzwanzigtausend Feldern aus über alle Etappen.
 
 **Und der Verkehr hält jetzt überall dort Spur, wo Spuren gemalt sind**, nicht
 mehr nur in der Stadt und auf der Brücke. Übrig bleibt die schmale Landstraße,
@@ -5288,6 +5414,26 @@ Vorbild - und zwar so, dass jeder Tod eine Ursache hat, die man sieht:
   tut das nicht. Er hat einen eigenen Winkel im Zustand (`Car.turret`), folgt der
   Maus und wird als gedrehtes Sprite auf die Wanne gelegt. Die Granate startet
   in seiner Richtung - und hört dort auf, wo das Fadenkreuz liegt.
+- **Aus dem Panzer steigt niemand aus.** Ein Streifenwagen ist Transport für
+  zwei Männer mit Pistolen - die Männer sind die Waffe, und wenn der Wagen
+  steht, gehen sie heraus. Beim Panzer ist die **Maschine** die Waffe, und der
+  Fahrer, der sie parkt und mit der Seitenwaffe aussteigt, hat dem Spieler
+  gerade sechzig Tonnen Panzerung geschenkt und bringt eine Pistole in eine
+  Schießerei. Also bleibt die Besatzung drin und er kommt weiter - was sechs
+  Sterne auch bedeuten sollen. Eine Zeile in `openDoors`, neben der für das
+  Boot, dessen Tür aufs Wasser aufginge.
+- **Die Kanone schiebt den Panzer, aber nur entlang der Ketten.** Ein
+  Schuss hat einen Rückstoß, und ein Fahrzeug auf Ketten kann sich nur so
+  schieben lassen, wie die Ketten liegen. Also wird der Stoß zerlegt: Was
+  längs der Wanne liegt, schiebt; was quer dazu liegt, nehmen vierzig Tonnen
+  Stahl und der Boden auf - der Kosinus zwischen Turm und Wanne. Turm nach
+  vorn: Der Panzer rollt **rückwärts** (110 px/s, mehr als die Hälfte seiner
+  Höchstgeschwindigkeit). Turm nach hinten: Er wird **nach vorn** geschoben.
+  Turm quer, also 90 Grad zur Schussrichtung: **gar nichts**, und genau das
+  sieht man an einem echten, der über die eigene Wanne feuert. Gemessen bei 0,
+  30, 45, 60, 90, 120, 180 Grad: -110, -95, -78, -55, 0, +55, +110 px/s.
+  Gedeckelt auf das, was die Maschine selbst kann, sonst wäre ein Schuss über
+  das Heck die schnellste Art, durch die Stadt zu kommen.
 - **Wer fällt, bleibt liegen.** Vorher stand ein Niedergeschlagener nach sechs
   Sekunden wieder auf, was jede Schießerei zu einem Nickerchen machte. Jetzt
   zählt `goneAt` herunter, bis die Leiche vom Pflaster genommen wird - ein Durchgang über beide Listen in `clearBodies`, dieselbe Uhr für Passanten und
@@ -6648,6 +6794,26 @@ Beim Spieler zeigt der Körper zur Maus und die Beine dorthin, wohin die Tasten
 schicken. Genau das lässt einen Rückzug wie einen Rückzug aussehen und nicht
 wie eine Kehrtwende.
 
+## Die Leertaste ist drei Dinge, und wo man steht entscheidet welches
+
+Im Auto ist sie die Handbremse, im Hubschrauber und im Flugzeug das Steigen,
+zu Fuß der Jetpack - und im Wasser das Tauchen. Die letzten beiden liegen auf
+derselben Taste, und deshalb muss die Frage beantwortet werden, was ein Druck
+gerade meint.
+
+**Die Antwort ist nicht „nass oder trocken", sondern „im Wasser oder in der
+Luft".** Wer **im** Wasser ist, taucht; wer **schon fliegt**, steigt weiter,
+und das Meer unter ihm ist Landschaft wie alles andere. Vorher entschied das
+nasse Häkchen allein - und das ist bei jedem gesetzt, dessen Schatten über
+Wasser liegt. Der Jetpack ging also genau in dem Moment aus, in dem man die
+Uferlinie überflog, und man fiel in die Bucht.
+
+Gebraucht wird dafür keine neue Zahl: `swimming()` heißt seit jeher „nass
+**und** am Boden". Die Abfrage im Jetpack liest jetzt die statt des Feldes
+`player.swimming`. Gemessen: an Land steigt er, über Wasser in 40 Pixeln Höhe
+steigt er weiter bis an die Decke von 110, losgelassen sinkt er, und im Wasser
+bleibt er auf null und taucht.
+
 ## Shift, und warum Bewegung in Häppchen läuft
 
 Shift hat zwei Stufen, und welche gilt, entscheidet der Cheat-Modus: allein ist
@@ -6695,13 +6861,81 @@ Alles andere ist ein Punkt: Auftrag, Lackiererei, Streifen, und zuletzt der
 Spieler in Weiß mit dunklem Ring - ein weißer Punkt auf einer hellen Straße
 wäre sonst kein Punkt.
 
+## Drei Häuser, und alle drei sind dasselbe Haus
+
+In jeder der drei Städte steht ein Haus, das dir gehört - erkennbar an der
+Garage, die in seine Wand geschnitten ist. Zwei davon waren das gute Haus einer
+gewöhnlichen Zeile, das dritte eine Villa mit Grundstück; nach Hause fahren
+sah in San Fierro also anders aus als in Los Santos, und nur eines der drei sah
+nach _wohnen_ aus. Jetzt steht überall dieselbe Villa: gleiche Ausrichtung,
+gleiche Hecke, gleicher Rasen bis zum Bordstein, gleicher Carport mit
+Rolltor, gleicher Stellplatz auf der Einfahrt und gleicher gepflasterter Hof
+daneben.
+
+**Drei Adressen statt einer** (`VILLA_BLOCKS`). Sie stehen im Code, wie die
+eine vorher auch: Ein Grundstück über **zwei Blöcke** braucht einen Nachbarn
+nach Osten, der ebenfalls ein schlichtes Wohnhaus ist, und das ist nicht
+überall so. Auf der San-Fierro-Insel gibt es genau ein solches Paar. Ist einer
+der drei Blöcke eines Tages keine Wohnbebauung mehr, greift wieder die alte
+Regel - das Haus in der Mitte der Insel -, statt den Spieler ohne Zuhause zu
+lassen.
+
+**Zwei Dinge mussten dafür an der Geometrie geradegezogen werden**, und beide
+kamen daher, dass die Villa bisher nur an einer Stelle stand:
+
+- **Die Garage sitzt in der Front der Villa**, nicht in der des Hauses, das
+  dort vorher stand. Zurückgegeben wird das Pflaster **vor** der Tür - zwei
+  Felder dahinter liegt der Raum, eines die Toreinfahrt -, und die Tiefe eines
+  gewöhnlichen Hauses ist je nach Blockzeile eine andere als die der Villa. Aus
+  der alten Linie gerechnet lag der Raum im Haus und das Rolltor auf dem Dach.
+- **Vor der Villa bleibt immer ein Streifen Rasen.** Auf manchen Zeilen reicht
+  die Bautiefe bis an die vordere Grundstückskante - dann öffnete die Tür
+  direkt auf den Bordstein, es gab keine Einfahrt und keinen Platz für den
+  Stellplatz. Ein Feld wird jetzt vom Haus abgezogen (`VILLA_FRONT`); der
+  Vorgarten ist das, was die Einfahrt quert.
+
 ## Aufträge und Viertel
 
 Gelber Ring: abholen. Grüner Ring: abliefern. Bezahlt wird nach Entfernung, die
 Uhr läuft ab dem Abholen. Jeder erledigte Auftrag zählt für das Viertel, in dem
-er **endet**; drei Aufträge, und das Viertel gehört dir. Deshalb steht unter der
-Stadt eine Leiste mit allen vier Vierteln und ihrem Stand - ohne sie wäre das
-Ziel des Spiels unsichtbar.
+er **endet**; drei Aufträge, und das Viertel gehört dir. Gehören alle vier
+Viertel dir, ist das Spiel gewonnen - das ist das einzige Ende, das kein
+Scheitern ist.
+
+**Vier Viertel, drei Städte** - und die Namen sagen das jetzt auch. Die Karte
+wird zweimal halbiert (`districtAt`), und in dreien der vier Stücke liegt eine
+Stadt: San Fierro im Nordwesten, Las Venturas im Nordosten, Los Santos im
+Südosten. Im vierten, dem Südwesten, liegt gar keine - das ist der Berg mit
+den Feldern und der Piste drumherum. Vorher hießen die vier Grove Street,
+Idlewood, East Beach und Santa Maria: vier Stadtteile von Los Santos aus dem
+Spiel, auf das dieses schielt, und vier Namen, die über **diese** Karte nichts
+sagen. Jetzt heißen sie **San Fierro, Las Venturas, Los Santos und Mount
+Chiliad**. Die Schlüssel darunter sind die alten geblieben, weil sie in jedem
+gespeicherten Spielstand stehen.
+
+**Und sie stehen auf der Karte.** Eine Leiste, die vier Ergebnisse zeigt, und
+eine Karte, auf der man die vier Orte nicht findet, sind zwei Hälften einer
+Anzeige. Jeder Name steht deshalb auf der Minikarte, dunkel umrandet, damit
+acht Punkt Schrift über Gras, Sand, Meer und Straßen lesbar bleibt - und
+**gold, sobald das Viertel dir gehört**. So beantwortet die Karte auf einen
+Blick, was die Kästchen oben links zählen.
+
+**Jeder an seinem eigenen Platz** (`DISTRICT_MARKS`), nicht in der Ecke seines
+Viertels: Ein Name quer über den Straßen, zu denen er gehört, verdeckt sie,
+und einer in der Ecke benennt ein Stück Meer. Die drei Städte bekommen ihn
+deshalb knapp **oberhalb ihrer ersten Straßen** - San Fierro fängt auf Zeile
+42 an, Los Santos auf 106, Las Venturas auf 10 -, und Mount Chiliad, der keine
+Stadt ist, bekommt ihn **unter dem Fuß des Berges**: Der Gipfel sitzt auf
+24/134, der Hang läuft fünfzehn Felder weit aus. Wer nah am Rand steht, wird
+hineingeschoben, damit kein Name halb neben der Karte hängt.
+
+**Und das steht jetzt wieder im Bild**, oben links (`drawGoal`): was zu tun
+ist und was es bringt, darunter vier Gruppen zu drei Kästchen für die Viertel,
+darunter die letzte Meldung. Das war eine Weile nirgends zu sehen - der
+Auftrag war ein farbiger Punkt auf der Karte ohne ein Wort dazu, der Stand der
+Viertel wurde im Zustand gezählt und nirgends gezeigt, und was die Stadt dazu
+sagte, stand in einer Liste unter dem Bild, die es nicht mehr gibt. Ein Ziel,
+das man nicht sieht, ist kein Ziel.
 
 ## Das Autoradio: der Ordner ist die Senderliste
 
@@ -6776,34 +7010,151 @@ Das Radio ist ein Ordner voller austauschbarer Dateien; ein **Geräusch** gehör
 zu einem Moment. Deshalb liegen die unter `website/public/gta/sounds/` und
 haben feste Namen - benannt nach dem Moment, nicht nach dem Klang:
 
-| Datei              | Wann                                                       |
-| ------------------ | ---------------------------------------------------------- |
-| `car-enter.mp3`    | Einmal beim Einsteigen in ein Auto                         |
-| `police-siren.mp3` | Schleife, solange eine Streife auf Einsatz in Hörweite ist |
+| Datei                 | Art       | Wann                                                              |
+| --------------------- | --------- | ----------------------------------------------------------------- |
+| `car-enter.mp3`       | Einzelton | Beim Einsteigen - nicht auf Rad und Motorrad, die haben keine Tür |
+| `hit.mp3`             | Einzelton | Bei jedem Schlag - Faust, Schlagring, Schlagstock, Messer         |
+| `pistol.mp3`          | Einzelton | Jeder Pistolenschuss, auch der von Polizei und Gegnern            |
+| `rocket-launcher.mp3` | Einzelton | Panzerfaust und Panzerkanone                                      |
+| `explosion.mp3`       | Einzelton | Jede Explosion: Rakete, Granate, Fernzünder, Autowrack            |
+| `police-siren.mp3`    | Schleife  | Solange eine Streife auf Einsatz in Hörweite ist                  |
+| `car-engine.mp3`      | Schleife  | Im Auto, und wenn eines vorbeifährt                               |
+| `tank-engine.mp3`     | Schleife  | Dasselbe mit dem Panzer                                           |
+| `machine-gun.mp3`     | Schleife  | Solange man mit dem MG feuert, auch mit dem Bord-MG des Panzers   |
+| `boat.mp3`            | Schleife  | Im Boot, und wenn ein Polizeiboot näher kommt                     |
+| `helicopter.mp3`      | Schleife  | Im Hubschrauber, und wenn der Polizeihubschrauber näher kommt     |
+| `airplane.mp3`        | Schleife  | Im Flugzeug                                                       |
+| `flamethrower.mp3`    | Schleife  | Solange der Flammenwerfer feuert                                  |
+| `swimming.mp3`        | Schleife  | Im Wasser, solange man sich bewegt                                |
 
-**Die Sirene ist eine Entfernung, kein Ereignis.** Wie laut sie ist,
-entscheidet der nächste Wagen, den die Wache losgeschickt hat
-(`kind: "police"` - dieselbe Prüfung, die auch den Lichtbalken blinken lässt;
-die Streifen im normalen Verkehr fahren ohne). Voll innerhalb von zwei
-Wagenlängen, nichts mehr anderthalb Bildschirme weit weg, dazwischen
-**quadratisch** abfallend: Schall fällt schneller ab als eine Gerade, und eine
-lineare Blende liest sich wie jemand, der am Lautstärkeregler dreht, statt wie
-etwas, das näher kommt. Nachgemessen: 180 px → 100 %, 400 px → 69 %,
-800 px → 28 %, 1200 px → 5 %, ab 1500 px still.
+**Zwei Sorten, und der Unterschied ist nicht der Klang, sondern die
+Grammatik.** Ein **Einzelton** ist ein Ereignis: Er passiert, bekommt sein
+eigenes `Audio`-Element und wird danach weggeworfen - ein gemeinsames Element
+würde einen Schuss abwürgen, um den nächsten zu spielen, und zwei Schüsse
+kurz hintereinander sind zwei Schüsse. Eine **Schleife** ist ein Zustand: ein
+Element je Art, das nur lauter und leiser gedreht und bei null angehalten
+wird. Ein Motor ist kein Ereignis.
 
-Sie ist auch die einzige **Schleife**: ein Element, das lauter und leiser
-gedreht wird. Alles andere sind Einzeltöne mit einem eigenen Element je Ton,
-damit zwei sich überlagern können.
+**Das MG musste die Seite wechseln.** Als Einzelton war jeder Schuss ein
+eigenes Element - elf in der Sekunde, jedes entschlossen, seine Datei zu Ende
+zu spielen. Wer den Abzug loslässt, hört dann noch eine Weile Salve, und das
+ist genau das Gegenteil dessen, was ein MG tut. Als Schleife hört es auf, wenn
+man aufhört: ein Element, angehalten fünfzehn Hundertstel nach der letzten
+Kugel - knapp über den neun Hundertsteln, die beide MGs dieses Spiels zwischen
+zwei Kugeln brauchen, sonst risse die Schleife mitten im Feuerstoß ab.
+Gemessen im Browser: ein einziges Element statt dreier Dutzend, und zwischen
+100 und 200 ms nach dem Loslassen still. Die Schläge, Pistolenschüsse und
+Explosionen bleiben Einzeltöne - die sollen sich überlagern.
 
-Ein neues Geräusch sind zwei Zeilen in `audio/sounds.ts` - ein Name in
-`OneShot`, die Datei daneben in `FILES` - und die Datei im Ordner. Fehlt sie,
-bleibt es still. Jeder Ton bekommt sein **eigenes** `Audio`-Element und wird
-danach weggeworfen: Ein gemeinsames Element würde eine zufallende Tür abwürgen,
-um die nächste zu spielen. Schreibweise und Aufbau sind dieselben wie bei
-Panzerkiste, damit man sich nicht zweimal etwas merken muss.
+### Das Mischpult weiß alles, der Abspieler nichts
+
+`audio/sounds.ts` besitzt die Elemente und kennt die Stadt nicht; `audio/mix.ts`
+kennt die Stadt und fasst kein `Audio` an. Die Trennung ist der Grund, warum
+man die interessante Hälfte lesen kann, ohne über Browser-Audio nachzudenken:
+Das Mischpult bekommt den Zustand und liefert Zahlen - eine Liste „das ist
+gerade passiert" und je Schleife eine Lautstärke und eine Abspielgeschwindigkeit.
+
+**Ereignisse stehen nicht im Zustand, ihre Folgen schon.** Es gibt kein Feld
+„es wurde geschossen"; es gibt eine Kugel in der Luft. Also merkt sich das Ohr,
+welche Kugeln und welche Explosionen letztes Bild da waren, und was neu ist,
+ist das, was passiert ist. Kein einziger Motor muss irgendwem etwas melden.
+
+**Die Kugel-Nummern zählen nicht ewig hoch.** Die Engine vergibt „eins über der
+höchsten, die noch fliegt" - ist die Straße leer, fängt sie wieder bei eins an.
+Ein gemerktes Maximum verpasst damit den ersten Schuss nach jeder Pause; eine
+Menge der Nummern, die da waren, nicht. Deshalb ein `Set` je Bild.
+
+**Die Kugel weiß nicht, aus welcher Waffe sie kam.** Pistole und MG legen
+beide einen `shot` in die Luft, und die Rakete aus dem Rohr ist dieselbe wie
+die aus dem Panzer - richtig für die Engine, nutzlos fürs Ohr. Also entscheidet
+das, was der Spieler in der Hand hält, wie seine Schüsse klingen, ein Panzer
+rattert unabhängig davon, und alle anderen in dieser Stadt tragen eine Pistole.
+Eine geworfene Granate ist still, bis sie hochgeht - das übernimmt die
+Explosion.
+
+**Entfernung ist der halbe Informationsgehalt.** Was irgendwo in der Stadt
+passiert, wird gedämpft, und zwar **quadratisch**: Schall fällt schneller ab
+als eine Gerade, und eine lineare Blende liest sich wie jemand, der am Regler
+dreht, statt wie etwas, das näher kommt. Nachgemessen bei der Sirene: 180 px →
+100 %, 400 px → 69 %, 800 px → 28 %, 1200 px → 5 %, ab 1500 px still; ein
+gegnerischer Schuss aus 500 px steht bei 20 %, aus 1200 px bei null.
+
+**Ein Motor ist zwei Zahlen.** Wie laut er ist, sagt, wie sehr er arbeitet;
+wie schnell er abgespielt wird, sagt, wie schnell man fährt. Eine Aufnahme
+eines Motors ist ein Motor bei einer Drehzahl - dieselbe Aufnahme schneller
+abgespielt ist derselbe Motor, der dreht, und genau das hört man von einem
+anfahrenden Auto. Live gemessen: im Stand 19 % bei Faktor 0,80, unter Vollgas
+55 % bei 1,50. Das Fahrrad bekommt nichts: Ein Rad mit Motorgeräusch ist ein
+Spiel, das niemand glaubt.
+
+**Ein Ausbruch wird nicht zu sechzig Ausbrüchen.** Ein MG legt elf Kugeln in
+der Sekunde in die Luft, und wenn sich drei Polizisten dazustellen, will das
+Mischpult dreißig Elemente im Bild aufmachen. Also je Geräusch eine kleine
+Sperre (fünf bis zwölf Hundertstel) und höchstens drei Töne je Bild. Was dabei
+wegfällt, hört ohnehin niemand einzeln.
+
+**Die Straße ist nicht still, wenn man neben ihr steht.** Das Gewöhnlichste,
+was in diesem Spiel passiert, ist ein Auto, das an einem vorbeifährt - und
+genau das war lange stumm: Ein Motor lief nur für das, worin man selbst saß.
+Jetzt ist **jedes Fahrzeug, das sich bewegt**, ein Geräusch auf Entfernung,
+und der nächste gewinnt. Je Motorart eines, nicht je Auto: Zwei Aufnahmen
+desselben Motors übereinander sind ein schlecht abgespielter Motor, und es
+stehen zweihundert Wagen in dieser Stadt.
+
+**Nur was fährt.** Ein geparktes Auto ist ein geparktes Auto; eine Stadt, in
+der jeder Bordstein brummt, ist eine Stadt mit einem Fehler.
+
+**Und nicht quadratisch.** Alles andere hier fällt mit dem Quadrat der
+Entfernung ab, was für eine Sirene richtig ist: Die ist ein einzelnes Ding,
+das man orten soll. Verkehr ist kein Ding, sondern ein Ort - die Straße soll
+so weit nach Straße klingen, wie man sie sieht. Quadratisch saß ein Wagen in
+300 px Entfernung, also mitten im Bild, bei 15 % und hätte genauso gut nicht
+da sein können. Mit einem flacheren Abfall (`ENGINE_FALL`, 1,3) sind es 48 %,
+und zu hören ist er bis knapp 1000 px. Gemessen neben einem Wagen mit
+200 px/s: 71 %; live auf dem Gehweg ging es von 5 % auf gut 20 % des Reglers.
+
+**Der Motor, in dem man sitzt, gewinnt.** Es gibt ein Element je Motorart, also
+können ein vorbeifahrender Wagen und der eigene es nicht beide haben - und wer
+gewinnt, bestimmt nicht nur die Lautstärke, sondern auch die **Tonhöhe**. Ein
+Motor, dessen Ton jedes Mal springt, wenn einer überholt, ist ein kaputter
+Motor. Also hört man beim Fahren den unter sich, und das ist ohnehin, wie es
+ist. Im Stand steht der eigene bei 55 % statt 35 % des Reglers; bei Vollgas
+ändert sich nichts, weil er dort schon am Anschlag des Reglers steht - lauter
+geht nur über den Regler selbst.
+
+**Schwimmen ist die Ausnahme von „lauter, je schneller".** Die Züge werden
+nicht lauter, sondern **schneller**: Wer treibt, ist still - was man hört,
+sind die Züge, und wer keine macht, macht keine. Der Takt hängt am Tempo, und
+der Maßstab dafür ist nicht der eines Läufers: `pace` misst gegen das Gehen,
+und Schwimmen ist langsamer als Gehen - gemessen 0,4 beim Paddeln und 1,2 mit
+Shift. Gegen die Drei eines Laufenden gerechnet lagen beide innerhalb eines
+Zwanzigstels beieinander und klangen gleich; gegen 1,2 gerechnet sind es
+×1,00 und ×1,20. Tauchen zählt mit - von unten hört man sich selbst erst
+recht.
+
+**Und das alles gehört auf die Straße.** In Knast, Bank und Druckerei ist es
+still: Die drei sind eigene kleine Welten, die Stadt steht währenddessen still,
+und eine Sirene von einem Streifenwagen, der zwei Straßen von der Verhaftung
+entfernt parkt, hat in einer Zelle nichts zu suchen. Eine Zeile im Mischpult:
+`phase === "playing"`, sonst Stille - und dabei vergisst das Ohr auch, was es
+gesehen hat, damit die Rückkehr in die Stadt keine Salve auslöst.
+
+Ein neues Geräusch ist die Datei im Ordner **und** zwei Zeilen im Code: ein
+Name in `OneShot` mit der Datei in `FILES` (Einzelton) oder einer in `LoopKind`
+mit der Datei in `LOOPS` (Schleife), dazu die Stelle in `audio/mix.ts`, die
+sagt, wann. Fehlt die Datei, bleibt es still. Schreibweise und Aufbau sind
+dieselben wie bei Panzerkiste, damit man sich nicht zweimal etwas merken muss.
+
+Zwei Dateien haben beim Einbau einen besseren Namen bekommen: `engine.mp3`
+heißt `car-engine.mp3`, weil `tank-engine.mp3` danebenliegt und „Motor" allein
+nicht mehr sagt, welcher; und `granade.mp3` heißt `explosion.mp3` - richtig
+geschrieben, und es läuft bei jeder Explosion, nicht nur bei einer Granate.
 
 Die Geräusche kommen von **freesound.org**, und dort hat **jede Datei ihre
-eigene Lizenz** - meist CC0, oft aber CC BY. Was CC BY ist, steht zusätzlich
+eigene Lizenz** - meist CC0, oft aber CC BY, zweimal sogar CC BY-**NC**
+(`helicopter.mp3`, `swimming.mp3`): nur nicht-kommerziell, was für dieses
+Spiel passt und an dem Tag, an dem das anders wäre, zwei Dateien zum Tauschen
+bedeutet. Was CC BY ist, steht zusätzlich
 **sichtbar im Spiel**: unter dem Bild neben der Musik im Abschnitt „Geräusche",
 gespeist aus `SOUND_CREDITS` in `audio/sounds.ts` - mit Titel, Autor, Quelle,
 Lizenz und dem Wort „bearbeitet", weil die Dateien geschnitten sind. Was CC0
@@ -6835,19 +7186,125 @@ haben, wie ein Lautstärkeregler aussieht - und wer ihn in dem einen Spiel
 gefunden hat, hat ihn in beiden gefunden. Gemerkt wird er unter einem eigenen
 Schlüssel, so wie dort.
 
+### Und über dem Ladebild läuft eine Ouvertüre
+
+Derselbe Trick ein drittes Mal: `public/gta/loading/` ist ein Ordner voller
+Lieder, die Seite liest ihn beim Bauen (`tunes()`), und pro Aufbau wird eines
+davon **zufällig gezogen** - genau wie das Splash-Bild dahinter. Es beginnt mit
+dem Balken und endet mit ihm.
+
+**Ein eigener Ordner, kein Sender.** Das Radio ist etwas, in das man sich
+hineinsetzt; das hier ist die Ouvertüre davor. Zusammengelegt hätte man ein
+Lied, das entweder als Sender im Auto auftaucht oder als Lademusik - und die
+Wahl wäre ein Dateiname mit Präfix. Zwei Ordner sind eine Entscheidung
+weniger.
+
+**Eine eigene Uhr** (`audio/loading-music.ts`). Alles andere, was in diesem
+Spiel blendet - Radio, Sirene -, wird von der Bildschleife getaktet. Diese
+Musik läuft aber _vor_ der Stadt: Die Bilder gehen gerade in das Aufbauen von
+Los Santos, und eine Blende von dort wäre eine Treppe. Also ein schlichtes
+Intervall, und das läuft nur, solange wirklich geblendet wird.
+
+**Kurz herein, langsam hinaus** - eine Viertelsekunde und knapp eine Sekunde.
+Zuerst stand hier je eine Sekunde, wie beim Radio, und gemessen kam dabei
+nichts heraus: Der Balken ist in einer Sekunde und ein bisschen durch, das Lied
+stand beim Ausblenden noch bei 8 % des Reglers. Es war da und niemand konnte es
+hören. Beim Hinausgehen ist es umgekehrt richtig: Der Schnitt auf die Straße
+ist der Moment, auf den man wartet, und ein Lied, das dort abbricht, klingt
+nach Fehler.
+
+**„Neues Spiel" macht zuerst alles still.** Radio aus, Sirene aus, und auch
+ein Türgeräusch, das noch in der Luft hängt, wird abgeschnitten
+(`sounds.hush()`) - danach läuft nur die Lademusik. Das war vorher falsch: Die
+Bildschleife schaltet Radio und Sirene selbst ab, aber sie läuft nicht,
+solange gebaut wird (`ready.current`), also lief die Musik der alten Stadt
+über dem Ladebild der neuen weiter - zwei Spiele gleichzeitig. Jetzt macht das
+`build()` selbst, **sofort mit dem Klick** und nicht erst, wenn der Balken
+steht.
+
+**Beim direkten Aufruf bleibt es still**, und das ist Absicht des Browsers,
+nicht ein Fehler: Ton ohne eine Berührung der Seite ist verboten. Wer über die
+Sammlung hereinklickt oder „Neues Spiel" drückt, hat sie berührt - dann läuft
+es. Jeder Aufruf ist eingepackt, also endet auch eine fehlende Datei still und
+mit laufendem Spiel.
+
 ### Der Nachweis gehört dazu
 
 Die Lieder kommen vom **Free Music Archive** und stehen unter **CC BY**. Diese
 Lizenz verlangt eine angemessene Namensnennung: Titel, Künstler, Quelle und
-Lizenzart. Genau das steht jetzt unter dem Bild im Abschnitt **Musik** - eine
-Zeile je Lied, Quelle und Lizenz verlinkt -, und es entsteht aus denselben
-Dateinamen wie die Senderliste (`creditOf()` teilt `Künstler - Titel` auf).
+Lizenzart. Genau das steht auf der **Einstellungsseite** unter den
+Abschnitten **„Musik"** und **„Geräusche"** - eine Zeile je Lied, Radio und
+Lademusik in derselben Liste, Quelle und Lizenz verlinkt -, und es entsteht aus
+denselben Dateinamen wie die Senderliste (`creditOf()` teilt `Künstler - Titel`
+auf). Die beiden Bausteine dafür stehen in `components/credits.tsx`, die
+Ordnerlisten liest die Seite mit `media/folders.ts`.
+
+**Weg darf er nicht, auffällig muss er nicht sein.** CC BY erlaubt die Nutzung
+nur mit Nennung; ein Spiel ohne diese Liste wäre eine Lizenzverletzung, und
+zwar auch dann, wenn die Namen im Repo stehen - dort hört niemand die Musik.
+Wie _prominent_ die Nennung steht, sagt die Lizenz aber nicht, sie sagt
+„angemessen für das Medium": Bei einem Spiel ist das der Abspann. Genau
+deshalb ist sie unter dem Bild verschwunden und auf der Einstellungsseite
+gelandet - einen Klick entfernt, im Text der Seite und damit auch für
+Suchmaschinen und Vorleser da, aber nicht mehr als Kleingedrucktes im Weg. Was
+**CC0** ist, steht bewusst gar nicht drin: Dafür verlangt niemand eine
+Nennung.
+
+**Unter dem Bild steht jetzt nur noch das Nötigste.** Spielstände und drei
+Zeilen Steuerung - W A S D, Shift, E. Dort stand vorher jede Maustaste, jedes
+Rad und jede Ecke des Spiels, und das ist eine Wand aus Kleingedrucktem, die
+man einmal liest und nie wieder; ausführlich steht dasselbe hinter dem Knopf
+**„Spielregeln"** oben. Das Protokoll **„Was passiert ist"** ist ganz weg: Was
+zählt, steht in der Anzeige über dem Bild, und was vorbei ist, ist vorbei.
 
 Damit trägt sich jedes neue Lied selbst ein: Wer eine Datei in den Ordner legt,
 hat den Nachweis dabei, und niemand muss daran denken, eine Liste zu pflegen.
 Im Ordner selbst steht dasselbe noch einmal in Prosa (`public/gta/radio/
 README.md`), für den Fall, dass ein Stück einmal unter einer anderen Lizenz
 dazukommt - dann gehört es dort vermerkt.
+
+## Die Statistik zählt eine Stadt, keine Partie
+
+Die gemeinsame Statistik der Sammlung (`lib/stats`) zählt, was jedes Spiel
+hat: begonnene Partien, gewonnene, verlorene, die schnellste. Für eine Runde
+Skyjo ist das genau richtig. Los Santos ist keine Runde: Man gewinnt es nicht,
+man fährt darin herum, und „12 % gewonnen" ist keine Aussage über einen
+Nachmittag. Also bleiben von den gemeinsamen Zahlen genau zwei stehen -
+**Spielzeit** und **zuletzt gespielt** -, und alles andere zählt das Spiel
+selbst (`stats/city-stats.ts`, `stats/city-store.ts`, `stats/tally.ts`).
+
+| Zahl                      | Was sie sagt                                      |
+| ------------------------- | ------------------------------------------------- |
+| Gefahren / Zu Fuß         | Strecke in Kilometern, zehn Pixel auf den Meter   |
+| Fahrzeuge zerstört        | Jedes Wrack, einmal                               |
+| Passanten / Polizisten    | Wer liegen geblieben ist                          |
+| Höchste Fahndung          | Der Rekord, keine Summe                           |
+| Eingenommen               | Nur Einnahmen; Ausgaben machen nichts ungeschehen |
+| Aufträge / Viertel        | Was geliefert wurde, und wie viel Stadt gehört    |
+| Verhaftet / Draufgegangen | Wie oft die Polizei bzw. die Stadt gewonnen hat   |
+
+**Nichts in der Engine meldet irgendetwas**, und das soll auch so bleiben: Die
+Engine sagt, wie die Stadt **ist**, ein Bild nach dem anderen. Also ist das
+Zählwerk genauso gebaut wie das Ohr des Mischpults - es merkt sich das letzte
+Bild und nennt die Differenz Neuigkeit. Ein Auto, dessen Leben auf null geht,
+ist ein Wrack; ein Passant, dessen Stimmung auf `down` springt, ist ein
+Passant weniger; ein Polizist mit gesetztem `stillUntil` auch.
+
+**Zehn Pixel auf den Meter** - nicht gemessen, sondern entschieden: Ein Auto
+ist hier vierzig Pixel lang und in Wirklichkeit vier Meter. Daraus folgt der
+Rest: ein Block hundert Meter, die ganze Stadt achthundert Meter im Quadrat.
+
+**Rekorde sind keine Summen.** Sechs Sterne zweimal sind immer noch sechs
+Sterne, und drei Viertel in der einen Partie und zwei in der nächsten sind
+nicht fünf. `plusCity` addiert alles bis auf diese beiden und nimmt dort den
+größeren Wert.
+
+**Geschrieben wird auf der Uhr des Speicherns**, alle sechs Sekunden, nicht
+sechzigmal in der Sekunde: Das Zählwerk sammelt, und wer die Schleife fährt,
+holt es ab. Was draußen in der Stadt passiert, zählt; Knast, Bank und
+Druckerei sind eigene kleine Welten mit eigenen Leuten darin, dort zählt
+nichts - und beim Verlassen wird die letzte Position vergessen, sonst wäre der
+Weg zurück auf die Straße eine Fahrt quer über die Karte.
 
 ## Aufbau
 
@@ -6866,7 +7323,14 @@ dazukommt - dann gehört es dort vermerkt.
 | `components/figure-art.ts`  | Die Menschen: Konturen, einmal gezeichnet      |
 | `components/vehicle-art.ts` | Die Fahrzeuge, nach demselben Muster           |
 | `hooks/use-gta-game.ts`     | Bildschleife, Tasten, Statistik                |
+| `media/folders.ts`          | Was in den Ordnern liegt, beim Bauen gelesen   |
+| `components/credits.tsx`    | Wer genannt werden muss, auf der Einstellseite |
+| `stats/city-stats.ts`       | Was diese Stadt zählt, und wie es sich addiert |
+| `stats/tally.ts`            | Das Zählwerk am Bild: Differenz ist Neuigkeit  |
 | `audio/radio.ts`            | Das Autoradio: ein Element, ein Lied je Auto   |
+| `audio/loading-music.ts`    | Die Ouvertüre über dem Ladebild                |
+| `audio/sounds.ts`           | Die Geräusche: Elemente, sonst nichts          |
+| `audio/mix.ts`              | Was man von hier aus hört, in Zahlen           |
 
 ## Was die Probe gezeigt hat
 

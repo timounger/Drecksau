@@ -6,14 +6,31 @@
 
 /** The four quarters of town, by name. */
 export const DISTRICT_NAMES: Readonly<Record<string, string>> = {
-  grove: "Grove Street",
-  ballas: "Idlewood",
-  vagos: "East Beach",
-  beach: "Santa Maria",
+  grove: "San Fierro",
+  ballas: "Las Venturas",
+  vagos: "Los Santos",
+  beach: "Mount Chiliad",
 };
 
+/**
+ * The same four, short enough for the corner of the picture.
+ *
+ * @remarks
+ * "Las Venturas" under a bar of three pips is wider than the bar. The long
+ * names stay where there is room for them - the log, the map - and these are
+ * for the panel that says how much of the city is yours.
+ */
+export const DISTRICT_SHORT: Readonly<Record<string, string>> = {
+  grove: "S. Fierro",
+  ballas: "L. Venturas",
+  vagos: "L. Santos",
+  beach: "Chiliad",
+};
 /** A share written out of a hundred. */
 const PERCENT = 100;
+
+/** Above this many kilometres a second decimal is noise, not information. */
+const KM_COARSE = 10;
 
 /** Every line the screen shows. */
 export const GTA_TEXTS = {
@@ -36,9 +53,12 @@ export const GTA_TEXTS = {
   volumeTitle: "Lautstärke von Radio und Geräuschen - ganz links ist stumm",
   volumePercent: (n: number): string => `${String(n)} %`,
   volumeMuted: "Stumm",
+  creditsTitle: "Musik & Geräusche - Lizenzen",
+  creditsLead:
+    "Aufklappen: Die Lizenzen CC BY und CC BY-NC verlangen diese Nennung, deshalb steht sie hier und nicht nur im Ordner.",
   musicTitle: "Musik",
   musicLead:
-    "Alle Lieder vom Free Music Archive, Lizenz CC BY - Titel und Künstler stehen am Dateinamen:",
+    "Alle Lieder vom Free Music Archive, Lizenz CC BY - im Auto und über dem Ladebild. Titel und Künstler stehen am Dateinamen:",
   musicSource: "Free Music Archive",
   musicLicence: "CC BY",
   soundTitle: "Geräusche",
@@ -49,6 +69,25 @@ export const GTA_TEXTS = {
     'Noch keine Musik im Spiel. Lege Dateien nach public/gta/radio/, benannt als „Künstler - Titel.mp3".',
   radioEmpty:
     "Noch keine Musik gefunden: Lege MP3-Dateien in den Ordner public/gta/radio/, dann sind sie beim nächsten Bauen dabei.",
+  statsTitle: "GTA - Statistik",
+  statsLead: "Was von den Nachmittagen in Los Santos übrig ist.",
+  statsPlayed: "Spielzeit",
+  statsLast: "Zuletzt gespielt",
+  statsDriven: "Gefahren",
+  statsWalked: "Zu Fuß",
+  statsWrecked: "Fahrzeuge zerstört",
+  statsPeople: "Passanten erledigt",
+  statsCops: "Polizisten erledigt",
+  statsStars: "Höchste Fahndung",
+  statsEarned: "Eingenommen",
+  statsJobs: "Aufträge geliefert",
+  statsDistricts: "Viertel übernommen",
+  statsBusted: "Verhaftet",
+  statsWasted: "Draufgegangen",
+  statsKm: (km: number): string =>
+    `${km.toFixed(km < KM_COARSE ? 2 : 1).replace(".", ",")} km`,
+  statsNote:
+    "Gezählt wird nur draußen in der Stadt - Knast, Bank und Druckerei haben ihre eigene Welt. Alle Zahlen sind Summen über alle Partien; der Knopf setzt sie zusammen mit der Spielzeit auf null.",
   settingsTitle: "GTA - Einstellungen",
   backToGame: "Zurück zum Spiel",
   zoomLabel: "Wie nah die Kamera steht",

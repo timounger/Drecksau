@@ -24,7 +24,7 @@ import { carParks, createCity, myHouses, openBay, stations } from "./city";
 import {
   prisonAnchors,
   prisonPlot,
-  villaBlock,
+  villaBlocks,
   villaCell,
   villaYard,
   warderPosts,
@@ -325,8 +325,12 @@ function onTheVilla(at: Vec): boolean {
  * not told - puts it in the middle of nowhere rather than at nought, nought.
  */
 function yardSpot(): Vec {
-  const block = villaBlock();
-  if (block === null) {
+  // **The one where the day begins**, which is the last of the three - see
+  // `buildGame`, which starts the player on that doorstep. The other two
+  // drives are left empty: a car standing in all three would be three cars
+  // one did not have to find.
+  const block = villaBlocks().at(-1);
+  if (block === undefined) {
     return { x: CITY_SIZE / 2, y: CITY_SIZE / 2 };
   }
   const yard = villaYard(block.x, block.y);

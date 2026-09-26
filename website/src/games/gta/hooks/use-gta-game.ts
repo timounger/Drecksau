@@ -22,7 +22,11 @@ import { actionAt } from "@/games/gta/components/gta-actions";
 import { drawBank } from "@/games/gta/components/bank-render";
 import { drawMint } from "@/games/gta/components/mint-render";
 import { createRadio, type Radio } from "@/games/gta/audio/radio";
-import { createSounds, sirenAt, type Sounds } from "@/games/gta/audio/sounds";
+import { createSounds, type Sounds } from "@/games/gta/audio/sounds";
+import { createEars, type Ears } from "@/games/gta/audio/mix";
+import { createTally, type Tally } from "@/games/gta/stats/tally";
+import { addCity } from "@/games/gta/stats/city-store";
+import { createTune, type Tune } from "@/games/gta/audio/loading-music";
 import { gameVolume } from "@/games/gta/settings/sound-volume";
 import { drawPrison } from "@/games/gta/components/prison-render";
 import {
@@ -53,6 +57,7 @@ import {
   step,
   type Counter,
 } from "@/games/gta/engine/engine";
+import { twoWheeled } from "@/games/gta/engine/vehicles";
 import { leftInBank } from "@/games/gta/engine/bank";
 import {
   gateName,
@@ -281,6 +286,22 @@ export type GtaSession = {
 };
 
 /**
+ * Hands whatever has been counted to the storage.
+ *
+ * @param tally - the book-keeper, or null before the loop is up
+ * @remarks
+ * Three places want this and none of them wants to know what it costs: the
+ * autosave clock, the end of the loop, and the moment a new city is laid out.
+ * Nothing at all to report is the usual answer and costs nothing.
+ */
+function flushCity(tally: Tally | null): void {
+  const more = tally?.take() ?? null;
+  if (more !== null) {
+    addCity(more);
+  }
+}
+
+/**
  * The city the prerender shows, before the browser deals a real one.
  *
  * @remarks
@@ -406,37 +427,14 @@ const KEYS: Readonly<Record<string, keyof Input>> = {
 };
 
 /**
- * How far the nearest patrol car on a call is, in city pixels.
- *
- * @param state - the city as it stands
- * @returns the distance, or a number past earshot when there is none
- * @remarks
- * **On a call**, which is not the same as "a police car": most patrol cars in
- * this city are rolling in ordinary traffic with their lights off, and they
- * are not chasing anybody. The ones the station sends out when the player has
- * stars are the ones with `kind: "police"` - the same test the lightbar uses
- * in ./render - and one the player has taken for himself is not on a call at
- * all.
- */
-function nearestCall(state: GameState): number {
-  let best = Number.POSITIVE_INFINITY;
-  for (const car of state.cars) {
-    if (car.kind === "police" && !car.driven && car.health > 0) {
-      const gap = Math.hypot(car.x - state.player.x, car.y - state.player.y);
-      if (gap < best) {
-        best = gap;
-      }
-    }
-  }
-  return best;
-}
-
-/**
  * Runs one game of GTA.
  *
  * @returns the heads-up numbers and the handles the screen needs
  */
-export function useGtaGame(stations: readonly string[] = []): GtaSession {
+export function useGtaGame(
+  stations: readonly string[] = [],
+  tunes: readonly string[] = [],
+): GtaSession {
   const world = useRef<GameState>(START);
   // The car radio: one element for the whole session, built when the loop
   // starts and thrown away with it. What it may play comes from the page,
@@ -448,6 +446,12 @@ export function useGtaGame(stations: readonly string[] = []): GtaSession {
   const playing = useRef<string | null>(null);
   // And the game's own noises, which share the radio's volume knob.
   const sounds = useRef<Sounds | null>(null);
+  // What the city sounds like from where one stands - see ../audio/mix.
+  const ears = useRef<Ears | null>(null);
+  // And what it is worth writing down about it - see ../stats/tally.
+  const tally = useRef<Tally | null>(null);
+  // And the song over the loading screen, which shares it as well.
+  const tune = useRef<Tune | null>(null);
   // How far the city has got, or null once it is standing. The screen shows a
   // bar while this is set, and nothing is drawn or stepped until it is not.
   const [loading, setLoading] = useState<Loading | null>(FIRST_SLICE);
@@ -644,6 +648,20 @@ export function useGtaGame(stations: readonly string[] = []): GtaSession {
    * @returns how to stop it, for when the screen goes away mid-build
    */
   const build = useCallback((keep: boolean): (() => void) => {
+    // **Erst still, dann bauen.** Was man hört, gehört zu der Stadt, die man
+    // sieht: Radio und Sirene der alten Stadt über dem Ladebild der neuen sind
+    // zwei Spiele gleichzeitig. Und zwar sofort, mit dem Klick, nicht erst
+    // wenn der Balken steht - die Schleife unten läuft nicht, solange gebaut
+    // wird, also schaltet sie von sich aus auch nichts ab.
+    radio.current?.getOut();
+    playing.current = null;
+    riding.current = false;
+    sounds.current?.hush();
+    ears.current?.forget();
+    // Whatever was counted belongs to the city that is being thrown away, so
+    // it is handed over rather than dropped.
+    flushCity(tally.current);
+    tally.current?.forget();
     const run = buildGame(CITY_SEED);
     // One picture for the whole of this build, however many pieces it takes.
     const art = Math.floor(Math.random() * ART_ROLLS);
@@ -665,6 +683,10 @@ export function useGtaGame(stations: readonly string[] = []): GtaSession {
         setHeads(headsOf(world.current));
         ready.current = true;
         setLoading(null);
+        // **The song goes when the bar goes.** Faded rather than cut: the
+        // moment one is waiting for is the cut to the street, and a song that
+        // stops dead on it sounds like something broke.
+        tune.current?.stop();
         recordGameStarted(GAME_ID, Date.now());
         invalidateStats();
         return;
@@ -696,6 +718,9 @@ export function useGtaGame(stations: readonly string[] = []): GtaSession {
         roll: Math.floor(Math.random() * LINE_ROLLS),
         art,
       });
+      // And the music with the bar: one of the songs in the folder, drawn the
+      // way the picture behind it is drawn.
+      tune.current?.start();
       frame = requestAnimationFrame(() => {
         timer = window.setTimeout(slice, 0);
       });
@@ -707,6 +732,10 @@ export function useGtaGame(stations: readonly string[] = []): GtaSession {
       dropped = true;
       cancelAnimationFrame(frame);
       window.clearTimeout(timer);
+      // A build that is thrown away takes its music with it, or the song would
+      // outlive the bar it belongs to - twice over in development, where React
+      // mounts, tears down and mounts again.
+      tune.current?.stop();
     };
   }, []);
 
@@ -792,10 +821,23 @@ export function useGtaGame(stations: readonly string[] = []): GtaSession {
       const level = gameVolume.getSnapshot();
       radio.current?.setVolume(level);
       sounds.current?.setVolume(level);
+      tune.current?.setVolume(level);
     };
     read();
     return gameVolume.subscribe(read);
   }, []);
+
+  // The loading-screen music, made before the first city is laid out and not
+  // in the loop below: the loop is made after this and the bar is already
+  // moving by then. Its own element, its own fade - see ../audio/loading-music.
+  useEffect(() => {
+    tune.current = createTune(tunes);
+    tune.current.setVolume(gameVolume.getSnapshot());
+    return () => {
+      tune.current?.dispose();
+      tune.current = null;
+    };
+  }, [tunes]);
 
   // The city, built once the page is up rather than while it is loading.
   //
@@ -973,8 +1015,13 @@ export function useGtaGame(stations: readonly string[] = []): GtaSession {
               (seat.kind === "police" || isPatrol(seat.body)),
           );
           playing.current = radio.current?.title() ?? null;
-          // The door, which is the sound of having got in.
-          sounds.current?.play("carEnter");
+          // The door, which is the sound of having got in - and which a
+          // two-wheeler does not have. One does not open a bicycle; one
+          // swings a leg over it, and the engine says the same thing in
+          // `noDoor`: the man does not even walk round to a door on those.
+          if (seat !== undefined && !twoWheeled(seat.body)) {
+            sounds.current?.play("carEnter");
+          }
         } else {
           radio.current?.getOut();
           playing.current = null;
@@ -985,12 +1032,27 @@ export function useGtaGame(stations: readonly string[] = []): GtaSession {
       // there is nothing to hear. That one number is the whole of "they have
       // found you" and "they have lost you".
       radio.current?.tick(dt);
-      sounds.current?.setSiren(sirenAt(nearestCall(world.current)));
+      // **One ear, once a frame.** What just happened - a shot, a blast, a
+      // punch - and what is going on - engines, rotors, the siren - both come
+      // out of the same look at the state; see ../audio/mix for why that is
+      // one job and not two.
+      const heard = ears.current?.hear(world.current);
+      if (heard !== undefined) {
+        for (const bang of heard.bangs) {
+          sounds.current?.play(bang.sound, bang.gain);
+        }
+        sounds.current?.setLoops(heard.mix);
+      }
       const next = headsOf(world.current);
       setHeads((current) => (same(current, next) ? current : next));
+      tally.current?.note(world.current);
       if (now - kept > KEEP_EVERY_MS) {
         // The city keeps itself: closing the tab is not losing the afternoon.
         autoSave(world.current);
+        // And its numbers with it, on the same clock: what was counted since
+        // the last time goes to storage in one go rather than sixty times a
+        // second - see ../stats/tally.
+        flushCity(tally.current);
         kept = now;
       }
       if (now - played > PLAY_TICK_MS) {
@@ -1014,8 +1076,11 @@ export function useGtaGame(stations: readonly string[] = []): GtaSession {
     radio.current.setVolume(gameVolume.getSnapshot());
     sounds.current = createSounds();
     sounds.current.setVolume(gameVolume.getSnapshot());
+    ears.current = createEars();
+    tally.current = createTally();
     return () => {
       autoSave(world.current);
+      flushCity(tally.current);
       cancelAnimationFrame(frame);
       touch.current?.dispose();
       touch.current = null;
@@ -1024,6 +1089,8 @@ export function useGtaGame(stations: readonly string[] = []): GtaSession {
       radio.current = null;
       sounds.current?.dispose();
       sounds.current = null;
+      ears.current = null;
+      tally.current = null;
       riding.current = false;
     };
     // pressAt never changes - it is a callback with no dependencies - but the

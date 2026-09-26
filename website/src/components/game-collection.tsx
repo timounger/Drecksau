@@ -46,6 +46,7 @@ import {
 import { GAME_LOGOS } from "@/games/game-logos";
 import { COLLECTION_TEXTS } from "@/i18n/collection-texts";
 import { AccountButton } from "@/components/account-button";
+import { UsageDashboard } from "@/components/usage-dashboard";
 import { ShelfIcon } from "@/components/shelf-icons";
 import {
   ORDER_APART,
@@ -93,6 +94,12 @@ type Marks = {
  */
 export function GameCollection(): ReactElement {
   const [query, setQuery] = useState("");
+  // **The address, and only once the browser has one.** The page is rendered
+  // to HTML when the site is built and there is no address bar there, so this
+  // is read the same way the clock below is: through an external store, which
+  // is what `useSyncExternalStore` is for. It never changes afterwards - a
+  // query string one navigates away from takes the whole page with it.
+  const asked = useSyncExternalStore(NEVER_CHANGES, ASKED, NOT_ASKED);
   const popular = usePopularGames();
   // **The clock is a thing outside React**, like the storage below, and is
   // read the same way: `Date.now()` in the middle of a render is a value that
@@ -123,6 +130,10 @@ export function GameCollection(): ReactElement {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 p-4">
       <Banner query={query} onQuery={setQuery} />
+      {/* **Nur mit `?stats` in der Adresse.** Die Entwicklerzahlen über allem
+          anderen, weil man sie ansieht und dann wieder geht - siehe
+          ./usage-dashboard. */}
+      {asked === "stats" && <UsageDashboard />}
 
       {needle !== "" ? (
         <Found matches={matches} marks={marks} />
@@ -640,6 +651,21 @@ function usePopularGames(): readonly GameDefinition[] | null {
   const kept = remembered === "" ? null : byIds(remembered.split(ORDER_APART));
   return fetched ?? kept ?? (failed ? [] : null);
 }
+
+/**
+ * Whether the address asks for the usage dashboard.
+ *
+ * @returns "stats" when it does, an empty line when it does not
+ * @remarks
+ * A **string** rather than a boolean for no deeper reason than the shape of
+ * the two beside it: what `useSyncExternalStore` hands out has to compare
+ * equal to what it handed out last time, and these three all do.
+ */
+const ASKED = (): string =>
+  new URLSearchParams(window.location.search).has("stats") ? "stats" : "";
+
+/** And what the server knows about the address, which is nothing. */
+const NOT_ASKED = (): string => "";
 
 /**
  * Today's date, as `YYYY-MM-DD` in UTC.

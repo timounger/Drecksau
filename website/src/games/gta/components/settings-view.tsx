@@ -16,6 +16,7 @@ import {
   updateSettings,
 } from "@/games/gta/settings/settings-store";
 import { VIEW_WIDTH } from "@/games/gta/components/projection";
+import { MusicCredits, SoundCredits } from "@/games/gta/components/credits";
 import { BLOCK_TILES, TILE } from "@/games/gta/engine/types";
 
 /**
@@ -30,8 +31,20 @@ import { BLOCK_TILES, TILE } from "@/games/gta/engine/types";
  *
  * The clock is off until somebody asks for it. A game that greets a first-time
  * visitor with a dark street looks broken rather than nocturnal.
+ *
+ * **And the credits, which are not a setting.** They are here because they
+ * have to be somewhere: CC BY allows the music and half the noises only if
+ * their authors are named where the work is used. Under the picture they were
+ * two blocks of small print in the way of the game; a page one click away is
+ * what a credit roll is - see ./credits.
+ *
+ * @param music - every song in the two folders, from the page
  */
-export function GtaSettingsView(): ReactElement {
+export function GtaSettingsView({
+  music,
+}: {
+  readonly music: readonly string[];
+}): ReactElement {
   const settings = useSyncExternalStore(
     subscribeSettings,
     getSettingsSnapshot,
@@ -126,6 +139,9 @@ export function GtaSettingsView(): ReactElement {
 
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{T.dayHours}</p>
       </section>
+
+      <MusicCredits music={music} />
+      <SoundCredits />
     </div>
   );
 }

@@ -1091,14 +1091,12 @@ export function houseHeight(
     blockY + HALF - blocks / 2,
   );
   const downtown = Math.max(0, 1 - away / (blocks / 2));
-  const block = villaBlock();
-  // **The villa stands taller than its street.** Two proper storeys with a
+  // **A villa stands taller than its street.** Two proper storeys with a
   // tiled roof over them, against the bungalow the dice would otherwise have
   // rolled for this corner. Done here rather than in the picture so that the
   // roof one lands a jetpack on is the roof one can see - `roofAt` reads the
   // same number.
-  const mine =
-    block !== null && block.x === blockX && block.y === blockY ? VILLA_RISE : 1;
+  const mine = villaAt(blockX, blockY) !== null ? VILLA_RISE : 1;
   return (
     mine *
     (HOUSE_LOW +
@@ -1201,6 +1199,68 @@ function onRoute(col: number, row: number): boolean {
       );
     }),
   );
+}
+
+/**
+ * Whether a square belongs to one of the country roads.
+ *
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns true where the sweeping tarmac out of town covers it
+ * @remarks
+ * **The same question as {@link onRoute}, asked a hundred thousand times.**
+ * That one walks every leg of every route for a single square, which is right
+ * for laying out the floor once and hopeless for the picture, which asks it
+ * per square per frame. So the answer is worked out once - the routes are a
+ * formula and never change - and kept as one byte per square of the map.
+ *
+ * Built by walking the roads rather than the squares: stamping the few
+ * hundred legs into their own neighbourhood is a few thousand sums, where
+ * asking each of twenty-eight thousand squares about each leg is millions.
+ */
+export function onCountryRoad(col: number, row: number): boolean {
+  if (col < 0 || row < 0 || col >= CITY_TILES || row >= CITY_TILES) {
+    return false;
+  }
+  countryMask ??= stampRoutes();
+  return countryMask[row * CITY_TILES + col] === 1;
+}
+
+/** The map of that, built on the first question and kept afterwards. */
+let countryMask: Uint8Array | null = null;
+
+/** Walks every leg of every route and marks the squares it covers. */
+function stampRoutes(): Uint8Array {
+  const mask = new Uint8Array(CITY_TILES * CITY_TILES);
+  for (const road of ROADS) {
+    const reach = road.wide / 2;
+    road.points.forEach((point, at) => {
+      const next = road.points[at + 1];
+      if (next === undefined) {
+        return;
+      }
+      const from = Math.floor(Math.min(point.x, next.x) - reach - 1);
+      const to = Math.ceil(Math.max(point.x, next.x) + reach + 1);
+      const top = Math.floor(Math.min(point.y, next.y) - reach - 1);
+      const bottom = Math.ceil(Math.max(point.y, next.y) + reach + 1);
+      for (
+        let row = Math.max(0, top);
+        row <= Math.min(CITY_TILES - 1, bottom);
+        row += 1
+      ) {
+        for (
+          let col = Math.max(0, from);
+          col <= Math.min(CITY_TILES - 1, to);
+          col += 1
+        ) {
+          if (awayFromLeg(col + HALF, row + HALF, point, next) <= reach) {
+            mask[row * CITY_TILES + col] = 1;
+          }
+        }
+      }
+    });
+  }
+  return mask;
 }
 
 /**
@@ -1449,9 +1509,22 @@ const TRACKS: readonly Route[] = TRACK_LINES.map((track) => ({
  */
 const ROUTES: readonly Route[] = [
   // The coast road in the north west: up from San Fierro into the forest.
+  //
+  // **It starts on San Fierro's own motorway.** It used to begin out on the
+  // open ground north of the city, in a round head three squares short of the
+  // first street - a motorway that comes from nowhere. The first three points
+  // are the way in: a straight run down the city's north-south motorway
+  // (columns 30 to 34, middle 32,5), then the turn west out of town. The
+  // second one sits a third of a square off the line for the reason every
+  // turn here does: a piece that starts straight and ends turning has to bulge
+  // the other way first, unless its end is already leaning into the bend.
   {
     wide: 5,
     points: [
+      { x: 32.5, y: 52 },
+      { x: 32.5, y: 47 },
+      { x: 32.2, y: 43 },
+      { x: 27, y: 40.5 },
       { x: 20, y: 39 },
       { x: 12, y: 32 },
       { x: 18, y: 16 },
@@ -1467,18 +1540,46 @@ const ROUTES: readonly Route[] = [
       { x: 76, y: 18 },
       { x: 92, y: 28 },
       { x: 100, y: 30 },
-      { x: 105, y: 30 },
+      // **And into Las Venturas on its west gate.** The city's motorway comes
+      // out here on rows 30 to 34, middle 32,5; this road used to stop two
+      // squares short of it and two and a half rows beside it, in a round head
+      // out in the sand. Now it slides onto the line and runs in on it.
+      { x: 106, y: 31 },
+      { x: 111, y: 32.3 },
+      { x: 116, y: 32.5 },
+      { x: 121, y: 32.5 },
     ],
   },
   // From San Fierro across the desert on the diagonal to Las Venturas.
   {
     wide: 5,
     points: [
-      { x: 50, y: 60 },
+      // **Out of San Fierro on its east-west motorway** (rows 62 to 66,
+      // middle 64,5) rather than out of a round head on the pavement, which
+      // is where this road used to start: the head lay across the kerb and
+      // the city's own tarmac began beside it.
+      { x: 40, y: 64.5 },
+      { x: 45, y: 64.5 },
+      { x: 50, y: 62.5 },
+      { x: 56, y: 59 },
       { x: 62, y: 56 },
-      { x: 78, y: 48 },
+      // **Round the south-east launcher, not over it.** The air defence of the
+      // base stands two and a half squares outside each corner of the wire,
+      // and this one is at 80,5/46,5 - which is where this road used to run.
+      // A motorway laid across a gun emplacement is a gun emplacement in the
+      // middle lane; five squares further south and the road goes round it.
+      { x: 78, y: 53 },
       { x: 94, y: 44 },
-      { x: 105, y: 42 },
+      // **And in through the same west gate as the road above.** Two
+      // motorways that arrive within ten rows of each other at the edge of a
+      // city do not each get their own hole in it: they meet outside and go in
+      // together, which is what a city gate is.
+      { x: 100, y: 43 },
+      { x: 105, y: 40 },
+      { x: 109, y: 36 },
+      { x: 112, y: 32.8 },
+      { x: 117, y: 32.5 },
+      { x: 122, y: 32.5 },
     ],
   },
   // **The coast road at the harbour is gone.** It ran five squares wide down
@@ -1486,28 +1587,27 @@ const ROUTES: readonly Route[] = [
   // put a wall of tarmac round the boats. The harbour is still on the
   // network: the quay meets the city in the west, and one drives over the
   // concrete as over any other surface.
-  // **Down from Las Venturas, and it stops up in the forest.**
-  // The third bridge over the strait ran here until recently, and three
-  // bridges over the same water are two too many - this is the widest part of
-  // the whole channel. A ferry apron with jetties stood here for a while
-  // after it; that was two strips of tarmac in the middle of nowhere. Now the
-  // road stops in the forest, and whoever wants to cross takes one of the
-  // boats lying on the shore below - see {@link MOORINGS}.
-  {
-    wide: 5,
-    points: [
-      { x: 138, y: 69 },
-      { x: 142, y: 74 },
-    ],
-  },
-  // **The bridge from San Fierro south - and square across the water.**
-  // It crossed on three points at a slant and wandered a column doing it, and
-  // a deck that wanders cannot be framed with straight girders. The whole way
-  // over the water now sits on column 21.5 - the *middle* of a column, so
-  // that a road five squares wide covers five columns whole (19 to 23)
-  // instead of six by halves. The railway crosses the same water right beside
-  // it on column 24, and the two of them together carry one structure - see
-  // the suspension bridge in the picture.
+  //
+  // **And so is the stub in the forest east of the railway.** It came down
+  // out of Las Venturas, ran four squares and stopped - a piece of motorway
+  // with a round head at each end, going nowhere, lying so close to the line
+  // that its shoulder covered the sleepers. What was left of a crossing that
+  // no longer exists is better gone than left lying about.
+  //
+  // **And the road round the mountain is the same road.** It used to be a
+  // second route that began where this one ended, three squares wide against
+  // the bridge's five - so the traffic came off two lanes each way onto one,
+  // the five lines of the deck stopped dead at the bridgehead, and the two
+  // polylines met at an angle because each was bent on its own. One line
+  // through all of it: the bend runs through the join, the width is the
+  // bridge's width the whole way, and a driver leaving the bridge is simply
+  // still on the same motorway.
+  //
+  // The two points below the bridgehead are what makes the turn a turn: the
+  // road holds the bridge's line for another four squares and only then
+  // sweeps west, which is what a road does at the end of a bridge. It used to
+  // run straight over the rock, by the way; a road does not climb a mountain,
+  // which is what the track beside it is for.
   {
     wide: 5,
     points: [
@@ -1515,22 +1615,29 @@ const ROUTES: readonly Route[] = [
       { x: 21.5, y: 101 },
       { x: 21.5, y: 107 },
       { x: 21.5, y: 113 },
-    ],
-  },
-  // The round about the mountain in the south west - and round it, at that.
-  // It used to run straight over the rock; a country road does not climb a
-  // mountain, which is what the track is there for.
-  {
-    wide: 3,
-    points: [
-      { x: 21.5, y: 113 },
-      { x: 9, y: 122 },
+      { x: 21.2, y: 117 },
+      { x: 17, y: 121 },
+      { x: 11, y: 126 },
+      { x: 9, y: 134 },
       { x: 9, y: 146 },
       { x: 28, y: 157 },
       { x: 52, y: 153 },
       { x: 68, y: 142 },
       { x: 80, y: 134 },
-      { x: 87, y: 129 },
+      // **And into the city on its own line.** Los Santos has a motorway
+      // along row 128.5 - five squares of it, 126 to 130 - and this road used
+      // to stop a square short of it and at an angle, so the country
+      // carriageway ended in a round head lying across the city one. The last
+      // three points lay the turn out instead: down to the line, onto it, and
+      // then a straight run **inside** the grid, where the round head is
+      // covered by the city's own tarmac and nobody can see it. Two of them
+      // share the row, which is what makes the tangent at the end horizontal:
+      // a curve that arrives on the line still turning would swing off it
+      // again.
+      { x: 86, y: 130.2 },
+      { x: 90, y: 128.9 },
+      { x: 94, y: 128.5 },
+      { x: 99, y: 128.5 },
     ],
   },
   // And the road through the desert going south - over the strait and on to
@@ -1538,10 +1645,21 @@ const ROUTES: readonly Route[] = [
   // was decided before there was water there: since the channel was cut it
   // stopped in the middle of the bridge. A bridge with its last piece missing
   // is not one.
+  //
+  // **It begins where it meets the other one**, and not sixteen rows further
+  // north. It used to carry on past the crossing with the San Fierro road and
+  // stop beside the east fence of the military base: a motorway that leaves a
+  // junction, runs a quarter of a mile and ends in a round head in the sand,
+  // going nowhere and serving nothing - the base has its gate on the south
+  // side and no road runs onto it anyway. The first point now sits a square
+  // **inside** the other road's carriageway - not on its middle line, where
+  // the round head would come out exactly flush with the far kerb and put its
+  // ring of dust over the far verge - so the head is buried in the other
+  // road's tarmac and what one sees is a road forking off another.
   {
     wide: 5,
     points: [
-      { x: 80, y: 30 },
+      { x: 85.2, y: 50.3 },
       { x: 86, y: 52 },
       { x: 90, y: 62 },
       // **And from here it runs dead straight south.** Four points on the same
@@ -2442,19 +2560,27 @@ export function myHouses(): readonly Vec[] {
     // places.
     const span = BLOCK_TILES * TILE;
     const blockX = Math.floor(best.x / span);
-    return districtAt(best.x, best.y) === "vagos"
-      ? {
-          x:
-            (blockX * BLOCK_TILES +
-              openSpan(blockX, true).from +
-              VILLA_KERB +
-              VILLA_LAWN +
-              VILLA_BAY_IN +
-              HALF) *
-            TILE,
-          y: best.y,
-        }
-      : best;
+    const blockY = Math.floor(best.y / span);
+    // **And the pavement is the villa's pavement, not that of the house which
+    // used to stand here.** What this returns is the square one stands on
+    // outside the door - `garageBay` counts two squares back from it for the
+    // room and one for the doorway - and the ordinary plan's plot is a square
+    // or two shallower than the villa's on some blocks. Measured from that
+    // line, the bay ended up inside the house and the roller door on the
+    // roof; measured from `villaPlot`, the hole and the wall it is cut in
+    // come from the same rectangle.
+    const front = villaPlot(blockX, blockY).bottom + HALF;
+    return {
+      x:
+        (blockX * BLOCK_TILES +
+          openSpan(blockX, true).from +
+          VILLA_KERB +
+          VILLA_LAWN +
+          VILLA_BAY_IN +
+          HALF) *
+        TILE,
+      y: front * TILE,
+    };
   });
 }
 
@@ -2475,18 +2601,22 @@ function homeDoors(): readonly Vec[] {
   // into a wall - see doorsOf, which now leaves those blocks out. The three
   // homes are picked from what is left.
   const doors = doorsOf("house");
-  return ISLANDS.map((isle) => {
+  return ISLANDS.map((isle, at) => {
     const middle = {
       x: ((isle.left + isle.right) / 2) * TILE,
       y: ((isle.top + isle.bottom) / 2) * TILE,
     };
-    // **The villa has an address, and it keeps it.** See VILLA_BLOCK.
-    const home = doors.find(
-      (door) =>
-        Math.floor(door.x / (BLOCK_TILES * TILE)) === VILLA_BLOCK.x &&
-        Math.floor(door.y / (BLOCK_TILES * TILE)) === VILLA_BLOCK.y &&
-        onIsle(door, isle),
-    );
+    // **Each villa has an address, and it keeps it.** See VILLA_BLOCKS.
+    const named = VILLA_BLOCKS[at];
+    const home =
+      named === undefined
+        ? undefined
+        : doors.find(
+            (door) =>
+              Math.floor(door.x / (BLOCK_TILES * TILE)) === named.x &&
+              Math.floor(door.y / (BLOCK_TILES * TILE)) === named.y &&
+              onIsle(door, isle),
+          );
     if (home !== undefined) {
       return home;
     }
@@ -2514,15 +2644,15 @@ function onIsle(door: Vec, isle: Island): boolean {
 }
 
 /**
- * Where the villa stands, written down rather than worked out.
+ * Where the three villas stand, written down rather than worked out.
  *
  * @remarks
- * **The one address in this city that is not a formula.** Everything else here
- * is: ask the plan what is on a block and it answers the same thing every
+ * **The three addresses in this city that are not a formula.** Everything else
+ * here is: ask the plan what is on a block and it answers the same thing every
  * time, and that is what keeps the city the same city without a single saved
- * byte. The villa was the same - *the house nearest the middle of the
- * south-eastern island* - and that was wrong, because the answer depends on
- * which blocks are houses at all.
+ * byte. The house was the same once - *the house nearest the middle of the
+ * island* - and that was wrong, because the answer depends on which blocks are
+ * houses at all.
  *
  * It was found out when the airfield grew: the field runs the length of the
  * map now, blocks that were houses before are runway, and the nearest house to
@@ -2530,13 +2660,18 @@ function onIsle(door: Vec, isle: Island): boolean {
  * house. Somebody's front door is not a thing that may move because an airport
  * two miles away got longer.
  *
- * So it is named here: block sixteen across, fourteen down - where it stood
- * before the field was lengthened, a two-block property with the carport on
- * the left, and where it stands now. Should that block ever stop being a plain
- * house, there is no door there to find, and the old rule takes over rather
- * than leaving the player without a home.
+ * So they are named here, one per island, and each of the three is a block
+ * whose **neighbour to the east is a plain house as well** - that is what a
+ * property two blocks wide needs, and there is exactly one such pair on the
+ * San Fierro island. Should one of them ever stop being a plain house, there
+ * is no door there to find, and the old rule takes over rather than leaving
+ * the player without a home.
  */
-const VILLA_BLOCK = { x: 16, y: 14 };
+const VILLA_BLOCKS: readonly Vec[] = [
+  { x: 4, y: 9 },
+  { x: 18, y: 4 },
+  { x: 16, y: 14 },
+];
 
 /**
  * Which block the villa stands on.
@@ -2546,22 +2681,30 @@ const VILLA_BLOCK = { x: 16, y: 14 };
  * The house in the south-east quarter - see `drawVilla` in the renderer. Worked
  * out once and remembered, because the floor asks it of every square it lays.
  */
-export function villaBlock(): Vec | null {
-  if (VILLA_AT === undefined) {
-    const span = BLOCK_TILES * TILE;
-    const home = homeDoors().find(
-      (house) => districtAt(house.x, house.y) === "vagos",
-    );
-    VILLA_AT =
-      home === undefined
-        ? null
-        : { x: Math.floor(home.x / span), y: Math.floor(home.y / span) };
-  }
+export function villaBlocks(): readonly Vec[] {
+  VILLA_AT ??= homeDoors().map((house) => ({
+    x: Math.floor(house.x / (BLOCK_TILES * TILE)),
+    y: Math.floor(house.y / (BLOCK_TILES * TILE)),
+  }));
   return VILLA_AT;
 }
 
-/** The answer to {@link villaBlock}, worked out once. */
-let VILLA_AT: Vec | null | undefined = undefined;
+/**
+ * The villa standing on a block, if one does.
+ *
+ * @param blockX - the block, across
+ * @param blockY - the same, down
+ * @returns that villa's own block, or null where no villa stands here
+ */
+export function villaAt(blockX: number, blockY: number): Vec | null {
+  return (
+    villaBlocks().find((block) => block.x === blockX && block.y === blockY) ??
+    null
+  );
+}
+
+/** The answer to {@link villaBlocks}, worked out once. */
+let VILLA_AT: readonly Vec[] | undefined = undefined;
 
 /**
  * Whether the villa has swallowed the block next door.
@@ -2577,25 +2720,25 @@ let VILLA_AT: Vec | null | undefined = undefined;
  * Only a plain house is taken. A bank, a hospital or a night club is one of a
  * kind and worth more where it stands than as somebody's lawn.
  */
-export function villaWide(): boolean {
-  const block = villaBlock();
-  if (block === null) {
-    return false;
+export function villaWide(block: Vec): boolean {
+  const key = `${String(block.x)}/${String(block.y)}`;
+  const known = VILLA_TWO.get(key);
+  if (known !== undefined) {
+    return known;
   }
-  if (VILLA_TWO === undefined) {
-    const next = { x: block.x + 1, y: block.y };
-    const street = next.x * BLOCK_TILES;
-    VILLA_TWO =
-      builtBlock(next.x, next.y) &&
-      PLAIN_BLOCKS.includes(buildingAt(next.x, next.y).kind) &&
-      !gaoled(next.x, next.y) &&
-      !isMotorway(street);
-  }
-  return VILLA_TWO;
+  const next = { x: block.x + 1, y: block.y };
+  const street = next.x * BLOCK_TILES;
+  const wide =
+    builtBlock(next.x, next.y) &&
+    PLAIN_BLOCKS.includes(buildingAt(next.x, next.y).kind) &&
+    !gaoled(next.x, next.y) &&
+    !isMotorway(street);
+  VILLA_TWO.set(key, wide);
+  return wide;
 }
 
-/** The answer to {@link villaWide}, worked out once. */
-let VILLA_TWO: boolean | undefined = undefined;
+/** The answer to {@link villaWide}, worked out once per villa. */
+const VILLA_TWO = new Map<string, boolean>();
 
 /**
  * Whether a block has been swallowed by the villa next door.
@@ -2605,12 +2748,8 @@ let VILLA_TWO: boolean | undefined = undefined;
  * @returns true for the block whose house came down
  */
 export function villaTook(blockX: number, blockY: number): boolean {
-  const block = villaBlock();
-  return (
-    block !== null &&
-    villaWide() &&
-    blockX === block.x + 1 &&
-    blockY === block.y
+  return villaBlocks().some(
+    (block) => villaWide(block) && blockX === block.x + 1 && blockY === block.y,
   );
 }
 
@@ -2638,7 +2777,16 @@ export function villaPlot(
     left,
     top: blockY * BLOCK_TILES + down.from,
     right: left + VILLA_ROOMS,
-    bottom: blockY * BLOCK_TILES + down.to + 1,
+    // **A strip of lawn in front, always.** How deep an ordinary house is
+    // comes off the block it stands on, and on some rows that depth reaches
+    // the front edge of the property - which leaves a villa with its door
+    // opening onto the kerb, no drive, and nowhere to paint the parking space.
+    // A square is taken off the house instead: the garden in front is what
+    // the drive crosses, and every villa has one.
+    bottom: Math.min(
+      blockY * BLOCK_TILES + down.to + 1,
+      grounds.bottom - VILLA_FRONT,
+    ),
   };
 }
 
@@ -2658,6 +2806,9 @@ export function villaPlot(
  * apart.
  */
 export const VILLA_KERB = 1;
+
+/** How deep the lawn in front of the villa is, in squares. */
+const VILLA_FRONT = 1;
 
 /** How wide the strip of lawn inside the hedge is. */
 const VILLA_LAWN = 1;
@@ -2684,7 +2835,7 @@ export function villaGrounds(
 ): { left: number; top: number; right: number; bottom: number } {
   const across = openSpan(blockX, true);
   const down = openSpan(blockY, false);
-  const over = villaWide() ? 1 : 0;
+  const over = villaWide({ x: blockX, y: blockY }) ? 1 : 0;
   const far = openSpan(blockX + over, true);
   return {
     left: blockX * BLOCK_TILES + across.from,
@@ -2737,13 +2888,17 @@ export function villaYard(
  * ground one can walk on, so nothing that moves has to know about it.
  */
 export function villaCell(col: number, row: number): Cell | null {
-  const block = villaBlock();
-  const near =
-    block !== null &&
-    Math.floor(row / BLOCK_TILES) === block.y &&
-    (Math.floor(col / BLOCK_TILES) === block.x ||
-      villaTook(Math.floor(col / BLOCK_TILES), block.y));
-  if (block === null || !near) {
+  // **Whichever of the three is here**, if any: the block itself, or the one
+  // next door that its garden swallowed.
+  const here = Math.floor(col / BLOCK_TILES);
+  const down = Math.floor(row / BLOCK_TILES);
+  const block =
+    villaAt(here, down) ??
+    villaBlocks().find(
+      (one) => villaWide(one) && one.y === down && one.x + 1 === here,
+    ) ??
+    null;
+  if (block === null) {
     return null;
   }
   const grounds = villaGrounds(block.x, block.y);
