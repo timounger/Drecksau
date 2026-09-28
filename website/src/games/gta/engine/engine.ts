@@ -4194,6 +4194,30 @@ function keepApart(
 }
 
 /**
+ * Whether a car is inside another one this instant.
+ *
+ * @param state - the city, for the other cars
+ * @param car - the one asking
+ * @returns true while any part of it is in any part of somebody else
+ * @remarks
+ * The same two discs {@link wedged} uses, so that what stops a driver and what
+ * pushes him out again are the same question asked twice.
+ */
+function wedgedNow(state: GameState, car: Car): boolean {
+  return state.cars.some((other) => {
+    if (other.id === car.id || other.health <= 0) {
+      return false;
+    }
+    const span = (VEHICLES[car.body].length + VEHICLES[other.body].length) / 2;
+    if (far(car, other) > span) {
+      return false;
+    }
+    const out = wedged(car, other);
+    return out.x !== 0 || out.y !== 0;
+  });
+}
+
+/**
  * How far one car has to move to stop being inside another, and which way.
  *
  * @param car - the one that will be moved
@@ -4397,7 +4421,11 @@ function driveTraffic(
   const want = picked.angle;
   const off = turned(car.angle, want);
   const swing = TRAFFIC_TURN * dt;
-  const angle =
+  // **Where he is facing before the lane is thought about.** What is in front
+  // of him has to be asked of something, and the few degrees of lane
+  // correction below change nothing about it - while asking it of the final
+  // heading would mean the answer decided the question.
+  const facing =
     Math.abs(off) <= swing ? want : car.angle + Math.sign(off) * swing;
   // Anything at all in front: the player on foot, the car in the queue ahead,
   // or a junction showing red. All three come out as the same thing - a driver
@@ -4405,9 +4433,15 @@ function driveTraffic(
   // their own.
   const shut =
     beingOpened(state, car) ||
-    inTheWay(state, car, angle) ||
-    queueAhead(state, car, angle) ||
-    redAhead(state, car, angle);
+    // **Nobody drives while he is inside somebody.** Two cars that end up in
+    // the same place are pushed apart again a frame at a time (`keepApart`),
+    // and a driver who keeps his foot down meanwhile is a driver shoving back
+    // against that - which is what made a pair of them sit in a junction and
+    // shiver for five seconds. Off the throttle until he is clear, and the
+    // pushing has the field to itself.
+    wedgedNow(state, car) ||
+    inTheWay(state, car, facing) ||
+    redAhead(state, car, facing);
   // **And then he has to notice.** A driver standing still keeps his own
   // clock running half a second ahead; when the road clears, that half second
   // still has to pass before he moves. One car in front of another therefore
@@ -4422,14 +4456,49 @@ function driveTraffic(
   // seen. He does his own pace; everything with an engine does the other.
   const cruise =
     car.body === "cycle" ? TRAFFIC_SPEED * PEDAL_SHARE : TRAFFIC_SPEED;
-  const pace = held ? 0 : cruise;
-  // No lane pull while the nose is still coming round: a car being dragged
-  // sideways towards a lane it is halfway out of crabs through the junction
-  // instead of driving round it.
-  const sideways =
-    Math.abs(off) > TURN_DONE ? 0 : laneDrift(state.cells, car, angle, dt);
-  const dx = Math.cos(angle) * pace * dt - Math.sin(angle) * sideways;
-  const dy = Math.sin(angle) * pace * dt + Math.cos(angle) * sideways;
+  // **One follows the car in front; one does not stop dead behind it.** There
+  // is no throttle in this game - a driver is either doing his speed or he is
+  // standing still - and with everybody neatly in lane that turned a line of
+  // cars into a row of switches: close up, stop, fall behind, full speed,
+  // close up again. The gap decides the speed instead: nought at the distance
+  // one keeps at a red light, one's own pace a car length past that. A queue
+  // then settles at the distance where everybody is doing the same speed,
+  // which is what a queue is.
+  const gap = gapAhead(state, car, facing);
+  const follow =
+    gap === null ? cruise : Math.max(0, (gap - QUEUE_CLOSED) * FOLLOW_RATE);
+  const pace = held ? 0 : Math.min(cruise, follow);
+  // **Into the lane by steering, not by sliding.** The car used to be dragged
+  // across the road sideways while its nose pointed straight down it, which
+  // is a car being pushed rather than driven - and two of those passing each
+  // other look like a pair of crabs. Now the lane is a **small angle** on top
+  // of the compass point the driver picked: the nose comes round a few
+  // degrees, the car drives up to its line and straightens out on it, which
+  // is what a driver does and what the paint expects.
+  //
+  // No correction while the nose is still coming round a corner: a car aiming
+  // at a lane it is halfway out of takes the junction sideways. **What counts
+  // as "still coming round" has to allow for the lane angle itself**, or the
+  // two fight: the lane turns the nose away from the compass point, being away
+  // from it switches the lane off, the nose comes back, the lane switches on
+  // again - a car shaking left and right twice every frame and getting nowhere.
+  // A corner is a quarter turn and a lane is a few degrees, so there is all the
+  // room in the world between them.
+  const turning = Math.abs(off) > LANE_STEER + TURN_DONE;
+  const line = turning ? ON_LINE : laneLine(state, car, want, shut);
+  const aim = want + line.lean;
+  const toAim = turned(car.angle, aim);
+  const angle =
+    Math.abs(toAim) <= swing ? aim : car.angle + Math.sign(toAim) * swing;
+  // **The trim is not steering, and it must not look like it.** A car that
+  // steers for the last few pixels steers for ever: something nudges it, it
+  // turns, it overshoots, it turns back, and from outside that is a car
+  // shaking in the road. So the last handful of pixels are taken up sideways
+  // instead, at a speed nobody can see, while the nose stays exactly on the
+  // compass point.
+  const trim = pace === 0 ? 0 : line.trim * dt;
+  const dx = Math.cos(angle) * pace * dt - Math.sin(angle) * trim;
+  const dy = Math.sin(angle) * pace * dt + Math.cos(angle) * trim;
   const moved = slide(state.cells, car, dx, dy);
   const went = Math.hypot(moved.x - car.x, moved.y - car.y);
   const stuck = pace > 0 && went < Math.abs(pace * dt) / 2;
@@ -4456,7 +4525,7 @@ function driveTraffic(
           angle,
           want,
           speed: pace,
-          braking: held,
+          braking: held || pace < cruise - QUEUE_CRAWL,
           wakeAt,
           lean: leaning(car, turned(car.angle, angle) / dt, pace, dt),
           locked: false,
@@ -4634,12 +4703,13 @@ const TURN_TILES = 3.5;
  * what makes a motorway worth having, since the car in front can be passed
  * rather than queued behind.
  */
-function laneDrift(
-  cells: readonly Cell[],
+function laneLine(
+  state: GameState,
   car: Car,
   angle: number,
-  dt: number,
-): number {
+  shut: boolean,
+): Lane {
+  const cells = state.cells;
   const upright = Math.abs(Math.cos(angle)) < HALF_WAY;
   const col = Math.floor(car.x / TILE);
   const row = Math.floor(car.y / TILE);
@@ -4659,19 +4729,34 @@ function laneDrift(
     ? -Math.sign(Math.sin(angle))
     : Math.sign(Math.cos(angle));
   const now = upright ? car.x : car.y;
-  // Whichever lane of its own half it is nearest. A car coming off a side
-  // street lands somewhere across the road and is in somebody way until it is
-  // in a lane; aiming for the near one rather than for one picked in advance
-  // means it is in a lane within a car length instead of crossing the whole
-  // carriageway to reach the one it was given.
-  const slots =
-    wide >= TILE * LANES_FROM ? [INNER_LANE, OUTER_LANE] : [ONE_LANE];
-  const want = slots
-    .map((slot) => middle + hand * (wide / 2) * slot)
-    .reduce((best, one) =>
-      Math.abs(one - now) < Math.abs(best - now) ? one : best,
-    );
-  const off = want - now;
+  // The drift is given in "to the right of the nose", so it needs the sign
+  // that turns a movement across the world into a movement across the car.
+  const across = (world: number): number =>
+    upright
+      ? -world * Math.sign(Math.sin(angle))
+      : world * Math.sign(Math.cos(angle));
+  const lane = (slot: number): number =>
+    across(middle + hand * (wide / 2) * slot - now);
+  const twoLane = wide >= TILE * LANES_FROM;
+  // One lane each way sits nearer the middle than the outer of two would: an
+  // ordinary street is three squares wide, and three quarters of half of that
+  // is the gutter.
+  const kerb = lane(twoLane ? KERB_LANE : ONE_LANE);
+  const pass = twoLane ? lane(PASS_LANE) : kerb;
+  // **Keep right, pass left.** The kerb lane is where one drives; the one
+  // beside the middle line is for getting round something slower, and one goes
+  // back as soon as there is room. Which lane the car is in now decides how
+  // much room "room" is: pulling out wants a car length of clear lane, going
+  // back in wants three, so that nobody cuts in on the car just passed and
+  // then pulls out again. A driver who is braking anyway does not overtake -
+  // what is in front of him is a red light, not a slow lorry.
+  const inPass = twoLane && Math.abs(pass) < Math.abs(kerb);
+  const blocked =
+    twoLane &&
+    !shut &&
+    carInLane(state, car, angle, kerb, inPass ? BACK_ROOM : PASS_LOOK, !inPass);
+  const room = twoLane && !carInLane(state, car, angle, pass, PASS_ROOM, false);
+  const off = blocked && room ? pass : kerb;
   // **Lanes hold on a bridge as well.** Out in the country the road sweeps and
   // the drivers only know four directions, so a car chasing a lane down a
   // diagonal wanders across it the whole way. A bridge does not sweep - it is
@@ -4683,14 +4768,121 @@ function laneDrift(
   // the tarmac the lanes are painted on. That leaves the narrow country road
   // winding about the map: a lane there would be a target that jumps to the
   // other side of the car at every bend.
-  const striped = wide >= TILE * LANES_FROM;
-  const most = town || decked || striped ? LANE_PULL * dt : 0;
-  const pull = Math.max(-most, Math.min(most, off));
-  // The drift is given in "to the right of the nose", so it needs the sign
-  // that turns a movement across the world into a movement across the car.
-  return upright
-    ? -pull * Math.sign(Math.sin(angle))
-    : pull * Math.sign(Math.cos(angle));
+  if (!town && !decked && !twoLane) {
+    return ON_LINE;
+  }
+  // **And nobody moves into anybody.** Aiming at a lane that has a car in it
+  // is how two of them end up in the same place; if that side is taken, one
+  // holds the line one is on until it clears.
+  if (beside(state, car, angle, off)) {
+    return ON_LINE;
+  }
+  // **Close enough is straight on.** A street here runs north or east and
+  // nothing else, so a car in its lane has nothing to steer for: the nose sits
+  // exactly on the compass point and stays there, which is why a car on a
+  // straight road now looks calm. The couple of pixels a shove or a junction
+  // leaves over are trimmed sideways at walking pace, too slowly to see.
+  if (Math.abs(off) < LANE_SNAP) {
+    return {
+      lean: 0,
+      trim: Math.sign(off) * Math.min(LANE_TRIM, Math.abs(off) * TRIM_RATE),
+    };
+  }
+  // Further out than that it is a manoeuvre and is driven like one: how far
+  // round the nose comes is the offset over the distance one aims ahead at,
+  // which is a gentle angle for a lane change and a hard one for a car that
+  // has been shoved right out of its lane.
+  const lean = Math.atan2(off, LANE_LOOK);
+  return {
+    lean: Math.max(-LANE_STEER, Math.min(LANE_STEER, lean)),
+    trim: 0,
+  };
+}
+
+/** What the lane asks of a driver this step. */
+type Lane = {
+  /** How far round the nose comes for it, in radians. */
+  readonly lean: number;
+  /** Or, for the last pixels, how fast the car slides across, in px a second. */
+  readonly trim: number;
+};
+
+/** On his line: nothing to steer, nothing to trim. */
+const ON_LINE: Lane = { lean: 0, trim: 0 };
+
+/**
+ * Whether a car going the same way is in a strip of lane ahead.
+ *
+ * @param state - the city, for the other cars
+ * @param car - the one looking
+ * @param angle - the way it is going
+ * @param across - the middle of the strip, to the right of its nose
+ * @param reach - how far ahead to look, in pixels
+ * @param slower - true to count only what is actually holding one up
+ * @returns true if somebody is in the way there
+ * @remarks
+ * **Only traffic going the same way.** Something coming the other way is on
+ * the other side of the road and is not in this lane at all; something
+ * crossing is the junction business, and a driver who brakes for that as well
+ * ends up stopping for a car that has long gone.
+ */
+function carInLane(
+  state: GameState,
+  car: Car,
+  angle: number,
+  across: number,
+  reach: number,
+  slower: boolean,
+): boolean {
+  const mine = bodyRadius(car.body);
+  return state.cars.some((other) => {
+    const dx = other.x - car.x;
+    const dy = other.y - car.y;
+    const ahead = dx * Math.cos(angle) + dy * Math.sin(angle);
+    const aside = -dx * Math.sin(angle) + dy * Math.cos(angle);
+    return (
+      other.id !== car.id &&
+      Math.cos(other.angle - angle) > SAME_WAY &&
+      ahead > 0 &&
+      ahead < reach + mine + bodyRadius(other.body) &&
+      Math.abs(aside - across) < LANE_WIDE &&
+      (!slower || Math.abs(other.speed) < Math.abs(car.speed) - PASS_SLOWER)
+    );
+  });
+}
+
+/**
+ * Whether something is alongside on the side one is about to move to.
+ *
+ * @param state - the city, for the other cars
+ * @param car - the one moving
+ * @param angle - the way it is going
+ * @param step - how far across it wants to go, right of the nose
+ * @returns true if that side is taken
+ */
+function beside(
+  state: GameState,
+  car: Car,
+  angle: number,
+  step: number,
+): boolean {
+  if (step === 0) {
+    return false;
+  }
+  const mine = bodyRadius(car.body);
+  return state.cars.some((other) => {
+    const dx = other.x - car.x;
+    const dy = other.y - car.y;
+    const ahead = dx * Math.cos(angle) + dy * Math.sin(angle);
+    const aside = -dx * Math.sin(angle) + dy * Math.cos(angle);
+    const room = mine + bodyRadius(other.body);
+    return (
+      other.id !== car.id &&
+      Math.sign(aside) === Math.sign(step) &&
+      Math.abs(ahead) < room + SIDE_LONG &&
+      Math.abs(aside) < room + SIDE_ROOM
+    );
+  });
 }
 
 /**
@@ -4706,73 +4898,160 @@ export const LANES_FROM = 5;
 const ONE_LANE = 0.42;
 
 /**
- * And the two lanes of a motorway.
+ * The lane one passes in, as a share of half the road.
  *
  * @remarks
- * A quarter and three quarters of the half width, which is the middle of each
- * lane when the carriageway is split into four equal ones - and that is what
- * the lines on the bridge are painted at. A car whose lane is not the middle
- * of the painted lane is a car driving on the paint.
+ * A quarter out from the middle line, which is the middle of the inner of two
+ * lanes. One is only in it while getting round something slower.
  */
-const INNER_LANE = 0.25;
+const PASS_LANE = 0.25;
 
-/** The outer one, which is the one to pass in. */
-const OUTER_LANE = 0.75;
+/**
+ * And the lane one drives in where there are two.
+ *
+ * @remarks
+ * A quarter and three quarters of the half width are the middles of the two
+ * lanes when the carriageway is split into four equal ones - which is what the
+ * paint says. Three quarters is the outer one, by the kerb: that is the one
+ * one drives in, and the quarter one beside the middle line is the one one
+ * passes in. A car whose lane is not the middle of the painted lane is a car
+ * driving on the paint.
+ */
+const KERB_LANE = 0.75;
 
-/** How fast a car pulls across into its lane, in pixels a second. */
-const LANE_PULL = 170;
+/** How wide a lane counts as when looking down it, in pixels. */
+const LANE_WIDE = 26;
+
+/** How close a slower car has to be to be worth pulling out for, in pixels. */
+const PASS_LOOK = 70;
+
+/** And how much clear passing lane that wants. */
+const PASS_ROOM = 120;
+
+/**
+ * How much clear kerb lane it takes to go back in.
+ *
+ * @remarks
+ * More than it took to pull out, which is the whole of the hysteresis: a car
+ * that came back in as soon as it was level with the one it was passing would
+ * cut in, find it in front of it again and pull straight back out, all the way
+ * down the road.
+ */
+const BACK_ROOM = 190;
+
+/** How much slower the car in front has to be before one passes it. */
+const PASS_SLOWER = 12;
+
+/** How far along another car counts as alongside, past the two bodies. */
+const SIDE_LONG = 10;
+
+/** And how far across, the same way. */
+const SIDE_ROOM = 12;
+
+/**
+ * How far ahead a driver aims when he is getting into his lane, in pixels.
+ *
+ * @remarks
+ * The offset to the lane over this distance is the angle he steers at, so it
+ * decides how sharp a lane change looks: a car length and a half gives a
+ * change that takes about as long as one does on a motorway. Shorter and the
+ * traffic jinks; longer and a car shoved out of its lane takes the length of
+ * the street to come back.
+ */
+const LANE_LOOK = 80;
+
+/** And how far round he will turn for it, in radians - about twenty degrees. */
+const LANE_STEER = 0.35;
+
+/**
+ * Inside this the nose stays straight and the rest is trimmed, in pixels.
+ *
+ * @remarks
+ * Eight: a third of a car width, so a car this near its line is plainly in its
+ * lane and there is nothing for a driver to do. Everything inside it is taken
+ * up sideways rather than steered for, because steering for it is what set the
+ * whole street shaking.
+ */
+const LANE_SNAP = 8;
+
+/** How fast that last bit is trimmed away, in pixels a second. */
+const LANE_TRIM = 30;
+
+/** Easing off over the last pixels, per second, so it does not end in a jolt. */
+const TRIM_RATE = 6;
 
 /** Half a turn either way, for telling an upright heading from a flat one. */
 const HALF_WAY = 0.5;
 
 /**
- * Whether another car is close in front.
+ * How much daylight there is in front of a car, in pixels.
  *
- * @param state - the city
- * @param car - the car looking
+ * @param state - the city, for the other cars
+ * @param car - the one looking
  * @param angle - the way it is going
- * @returns true when it should be on the brakes
+ * @returns the gap to the nearest thing it has to keep behind, or null for a
+ *   clear road
  * @remarks
- * This is the whole of a traffic jam, and it is the only place cars are
- * allowed to stand still on a road: behind another car that is standing still.
+ * **Whom one keeps behind.** Somebody going the same way is the car in front
+ * and one follows him. Somebody crossing is dealt with by the junction, not by
+ * braking - two cars that each stop for the other stop for ever, and a grid
+ * city full of that is a grid city that never moves - except when he is close
+ * enough to be run into, and then the lower number goes first. That last is an
+ * arbitrary rule and is exactly what a right of way is; because it is an
+ * **order** and not a negotiation, no ring of drivers can ever be waiting for
+ * each other. What is coming the other way is on the other side of the road
+ * and is nobody's business.
+ *
+ * Nose to tail rather than middle to middle: what one keeps is the daylight
+ * between two cars, and a lorry has more of itself in front of its middle than
+ * a bicycle has.
  */
-function queueAhead(state: GameState, car: Car, angle: number): boolean {
-  const gap = bodyRadius(car.body) + QUEUE_GAP;
-  const closed = bodyRadius(car.body) + QUEUE_CLOSED;
-  return state.cars.some((other) => {
+function gapAhead(state: GameState, car: Car, angle: number): number | null {
+  const mine = bodyRadius(car.body);
+  let best: number | null = null;
+  for (const other of state.cars) {
+    if (other.id === car.id || other.health <= 0) {
+      continue;
+    }
     const dx = other.x - car.x;
     const dy = other.y - car.y;
     const ahead = dx * Math.cos(angle) + dy * Math.sin(angle);
     const aside = Math.abs(-dx * Math.sin(angle) + dy * Math.cos(angle));
-    // Whom one gives way to. Somebody going the same way is the car in front
-    // and one queues behind him. Somebody crossing is dealt with by the
-    // junction, not by braking - two cars that each stop for the other stop
-    // for ever, and a grid city full of that is a grid city that never moves.
-    // Where both are standing still the lower number goes first, which is an
-    // arbitrary rule and is exactly what a right of way is.
     const along = Math.cos(other.angle - angle);
     const together = along > SAME_WAY;
     const oncoming = along < -SAME_WAY;
-    const standing = Math.abs(other.speed) < QUEUE_CRAWL;
-    const yields = together || (!oncoming && standing && other.id < car.id);
-    return (
-      other.id !== car.id &&
-      yields &&
-      ahead > 0 &&
-      // Room to stop behind something that is moving; nose to tail behind
-      // something that is not. That is how a queue at a red light closes up
-      // and how the same queue opens out again when it pulls away.
-      ahead < (standing ? closed : gap) + bodyRadius(other.body) &&
-      aside < QUEUE_WIDE
-    );
-  });
+    const crossing = !together && !oncoming;
+    if (!together && !(crossing && other.id < car.id)) {
+      continue;
+    }
+    if (ahead <= 0 || aside >= (crossing ? CROSS_WIDE : QUEUE_WIDE)) {
+      continue;
+    }
+    const clear = ahead - mine - bodyRadius(other.body);
+    // A car crossing one's path is not somebody to follow - there is no speed
+    // to match - so within a car length he is a wall and beyond it he is not
+    // there at all.
+    if (crossing && clear > CROSS_GAP) {
+      continue;
+    }
+    const gap = crossing ? 0 : clear;
+    if (best === null || gap < best) {
+      best = gap;
+    }
+  }
+  return best;
 }
 
-/** How nearly two cars have to point the same way to be in one queue. */
+/**
+ * How square on two cars have to be going to count as going the same way.
+ *
+ * @remarks
+ * The cosine between the two headings: above this one is following, below
+ * minus this one is meeting, and in between the two are crossing. A fifth is
+ * about eighty degrees either side, which puts everything but a proper right
+ * angle into "the same way" and leaves the junction to the junction.
+ */
 const SAME_WAY = 0.2;
-
-/** How much room a driver leaves to the car in front, in pixels. */
-const QUEUE_GAP = 96;
 
 /**
  * And how little he leaves once that car has stopped.
@@ -4781,13 +5060,58 @@ const QUEUE_GAP = 96;
  * Less than while driving, but still a gap: bumper to bumper at a red light is
  * what a scrapyard looks like, not a queue. {@link bodyRadius} is the mean of
  * half the length and half the width, so it is a good bit less than the nose
- * of the car it stands for - which is why this number has to be bigger than it
- * looks to leave half a car length of daylight.
+ * of the car it stands for, and the daylight between two stopped cars comes
+ * out at rather more than this number says.
+ *
+ * **And a queue that stands too far apart is a city that stops.** At half a
+ * street per car the line at a red light reaches back into the crossroads
+ * behind it, the traffic across that crossroads stops for the traffic standing
+ * in it, and a minute later nothing in the district is moving: measured, four
+ * out of five cars standing still and eleven pixels a second between the lot
+ * of them. Closing the queue up is the whole fix - same rules, shorter line -
+ * and it comes out at two cars in three moving and sixty-seven pixels a
+ * second, better than before any of this and without a single pair touching.
  */
-const QUEUE_CLOSED = 42;
+const QUEUE_CLOSED = 22;
 
-/** And how far off his own line a car has to be to count as in front. */
-const QUEUE_WIDE = 16;
+/**
+ * And how far off his own line a car has to be to count as in front.
+ *
+ * @remarks
+ * A car is a good deal wider than the sixteen pixels this used to be, so two
+ * of them in the same lane could sit half a car apart across it and neither
+ * would see the other - which is how they ended up driving into one another
+ * and shivering there. Wide enough to cover a lane and no wider: the next lane
+ * along is sixty pixels away, so the traffic beside one is still not one own
+ * business.
+ */
+const QUEUE_WIDE = 26;
+
+/**
+ * How close a crossing car has to be before one gives way to it, in pixels.
+ *
+ * @remarks
+ * Short on purpose: this is not about right of way at a junction, which is
+ * what the lights are for, it is about not driving through the man beside
+ * one. A long look here and every crossroads without lights fills up with
+ * drivers waiting for each other.
+ */
+const CROSS_GAP = 26;
+
+/** And how far off one's own line one of those still counts. */
+const CROSS_WIDE = 30;
+
+/**
+ * How much speed one picks up per pixel of daylight in front, per second.
+ *
+ * @remarks
+ * Two and a half: at the length one keeps at a red light the speed is nought,
+ * and a car length past that one is back up to the pace of the town. That is
+ * the whole of the following model - no acceleration, no brakes, just a speed
+ * that belongs to a distance - and it is enough to turn a row of switches into
+ * a queue that moves.
+ */
+const FOLLOW_RATE = 2.5;
 
 /** Below this a car counts as standing rather than driving, in pixels a second. */
 const QUEUE_CRAWL = 12;

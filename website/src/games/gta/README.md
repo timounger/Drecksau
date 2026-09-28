@@ -6937,6 +6937,122 @@ Viertel wurde im Zustand gezählt und nirgends gezeigt, und was die Stadt dazu
 sagte, stand in einer Liste unter dem Bild, die es nicht mehr gibt. Ein Ziel,
 das man nicht sieht, ist kein Ziel.
 
+## Rechts fahren, links überholen, und keiner im anderen
+
+Drei Sachen, die zusammen den Verkehr ausmachen, und alle drei waren falsch.
+
+**Rechts fahren.** Auf welcher Seite der Straße ein Auto fährt, stimmte
+schon vorher (gemessen: 95 % auf ihrer rechten Seite). Welche **Spur** es dort
+nimmt, stimmte nicht: Der Fahrer suchte sich die nächstgelegene der beiden -
+wer einmal links war, blieb dort, den ganzen Abend. Jetzt gilt das
+Rechtsfahrgebot: Die äußere Spur am Bordstein ist die, in der man fährt
+(`KERB_LANE`), die innere an der Mittellinie ist zum Überholen (`PASS_LANE`),
+und eine Straße mit nur einer Spur je Richtung hat ihre eigene Mitte
+(`ONE_LANE`) wie bisher.
+
+**Links überholen, aber nur mit Grund.** Ausgeschert wird, wenn etwas
+**Langsameres** innerhalb einer Wagenlänge vorausfährt und die Überholspur
+zweieinhalb Wagenlängen frei ist. Zurück geht es, sobald die rechte Spur
+**vier** Wagenlängen frei ist - mehr, als das Ausscheren verlangt hat, und
+genau das ist die Hysterese: Wer zurückzieht, sobald er gleichauf ist,
+schneidet den anderen, hat ihn sofort wieder vor sich und schert erneut aus -
+Slalom die ganze Straße entlang. Und wer ohnehin bremst, überholt nicht: Was
+vor ihm steht, ist eine rote Ampel und kein langsamer Laster.
+
+**In die Spur wird gelenkt, nicht geschoben.** Der Zug in die Spur war ein
+Verschieben quer zur Fahrtrichtung: Die Nase zeigte die Straße hinunter, und
+der Wagen rutschte seitwärts dorthin, wo er hinsollte - ein Auto, das geschoben
+wird, und zwei davon nebeneinander wie ein Paar Krebse. Dazu fragte Schieben
+nur den Boden nach Wänden und kannte keine Autos, ein Spurwechsel ging also
+mitten durch den Wagen daneben hindurch. Jetzt ist die Spur ein **kleiner
+Winkel** auf die Himmelsrichtung, die der Fahrer gewählt hat (`laneLine`): Die
+Nase kommt ein paar Grad herum, der Wagen fährt auf seine Linie zu und richtet
+sich darauf gerade. Vorher wird zur Seite geschaut; ist dort jemand, bleibt man,
+wo man ist.
+
+**Auf der Geraden zeigt die Nase genau die Straße hinunter.** Eine Straße hier
+läuft nach Norden oder nach Osten und sonst nirgendwohin, also hat ein Auto auf
+seiner Linie gar nichts zu lenken - und tut es auch nicht: Innerhalb von acht
+Pixeln (`LANE_SNAP`, ein Drittel Wagenbreite) steht der Winkel exakt auf der
+Himmelsrichtung, und die paar Pixel, die ein Rempler oder eine Kreuzung
+übriglässt, werden mit dreißig Pixeln je Sekunde seitlich weggetrimmt - zu
+langsam, um es zu sehen. Denn wer für die letzten Pixel lenkt, lenkt ewig: Es
+schiebt ihn an, er korrigiert, er schießt darüber hinaus, er korrigiert zurück,
+und von außen ist das ein Auto, das in der Straße wackelt. Nur ein echter
+Abstand - aus der Seitenstraße heraus, angerempelt, Spurwechsel - ist ein
+Lenkeinschlag wert.
+
+**Und die Kurvensperre darf den Spurwinkel nicht mitzählen.** Solange die Nase
+noch um eine Ecke kommt, wird nicht auf die Spur korrigiert, sonst nimmt der
+Wagen die Kreuzung seitwärts. „Noch um die Ecke kommen" war aber schlicht
+„Winkel weicht von der Himmelsrichtung ab" - und genau das tut der Spurwinkel
+ja. Die beiden schaukelten sich auf: Die Spur dreht die Nase weg, das Wegdrehen
+schaltet die Spur ab, die Nase kommt zurück, die Spur schaltet wieder ein - ein
+Grenzzyklus über zwei Bilder, 4,2 Grad hin und her, sechzig Mal in der Sekunde.
+Jetzt ist die Schwelle der erlaubte Spurwinkel **plus** der alte Wert: Eine
+Ecke ist eine Vierteldrehung, eine Spur sind ein paar Grad, dazwischen ist jede
+Menge Platz.
+
+**Der Blick nach vorn war zu schmal.** Ein Auto galt nur dann als
+„vorausfahrend", wenn es höchstens sechzehn Pixel neben der eigenen Linie lag.
+Ein Auto ist breiter als das: Zwei in derselben Spur konnten sich um eine halbe
+Wagenbreite versetzt stehen, und keiner sah den anderen - so fährt man
+ineinander. Jetzt sind es sechsundzwanzig, was eine Spur abdeckt und die
+Nachbarspur (sechzig Pixel weiter) immer noch nicht.
+
+**An der Kreuzung gibt der mit der höheren Nummer nach**, und zwar erst
+innerhalb einer Wagenlänge. Für alles, was kreuzt, zu bremsen, macht aus einer
+Rasterstadt einen Parkplatz - zwei Fahrer, die aufeinander warten, warten ewig.
+Für nichts davon zu bremsen, war der Grund dafür, dass mitten in jeder Kreuzung
+zwei Autos im selben Quadratzentimeter standen. Die Nummer ist eine willkürliche
+Regel und genau das ist eine Vorfahrt - und weil sie eine **Ordnung** ist und
+keine Verhandlung, kann kein Kreis von Wartenden entstehen.
+
+**Und wer in einem anderen steckt, fährt nicht.** Auseinandergeschoben wurden
+verkeilte Autos schon immer (`keepApart`, zwei Scheiben je Wagen), aber der
+Fahrer gab weiter Gas und schob dagegen. Genau das war das Zittern: zwei
+Wagen, die sich fünf Sekunden lang ineinander festhielten. Jetzt geht der Fuß
+vom Gas, solange man in jemandem steckt, und das Schieben hat freie Bahn.
+
+**Nachgemessen**, fünfundzwanzig Sekunden Verkehr um den Spieler herum, mit
+derselben Form, die die Engine zum Auseinanderschieben benutzt:
+
+|                                           | vorher                  | nachher    |
+| ----------------------------------------- | ----------------------- | ---------- |
+| ineinander steckende Paare je Bild        | 1,00                    | **0,00**   |
+| verschiedene solche Paare                 | 7, bis zu **19 s** lang | **keines** |
+| Richtungswechsel quer je Auto und Sekunde | 0,12                    | **0,02**   |
+| Querbewegung je Auto und Sekunde          | 10,9 px                 | **2,0 px** |
+
+Und wie ruhig sie im Bild liegen - Richtungswechsel der **Drehung** je Auto und
+Sekunde, also das Wackeln, das man sieht: vorher 0,05, mit dem Grenzzyklus
+**17,65**, jetzt **0,16** bei 26 Grad Drehung je Sekunde. Die Position allein
+hätte das nie verraten: Ein Wagen, der zweimal je Bild um vier Grad zuckt,
+fährt geradeaus - er sieht nur furchtbar aus.
+
+Wie genau sie auf ihrer Linie liegen - geradeaus fahrende Autos in der Stadt,
+Abstand zur Mitte der nächsten Spur: **93 % unter vier Pixeln, 98 % unter
+zehn** (vorher 51 % und 84 %). Der Rest sind Wagen, die gerade aus einer
+Seitenstraße gekommen sind oder überholen.
+
+**Und die Schlange musste kürzer werden, sonst steht die Stadt.** Wenn alle
+sauber hintereinander in derselben Spur fahren, wird aus dem Abstand, den jeder
+hält, plötzlich eine Länge, die man sieht: Eine halbe Straße je Wagen, und die
+Schlange an der roten Ampel reicht zurück in die Kreuzung dahinter, der Verkehr
+quer dazu hält für die, die in der Kreuzung stehen, und eine Minute später
+bewegt sich im ganzen Viertel nichts mehr. Gemessen (nur die Autos, die die
+Engine überhaupt rechnet, also innerhalb von `NEAR_RANGE`), Sekunde 50 bis 60:
+
+|                       | Tempo       | stehend  |
+| --------------------- | ----------- | -------- |
+| vorher                | 32 px/s     | 65 %     |
+| sauber in Spur, 42 px | 21 px/s     | 81 %     |
+| sauber in Spur, 22 px | **67 px/s** | **38 %** |
+
+Dieselben Regeln, nur die Schlange zusammengeschoben (`QUEUE_CLOSED`) - und der
+Verkehr fließt besser als vor der ganzen Übung, ohne dass sich auch nur ein
+Paar berührt.
+
 ## Das Autoradio: der Ordner ist die Senderliste
 
 Wer in ein Auto steigt, hört ein Lied - und beim nächsten Auto ein anderes.
