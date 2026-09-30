@@ -38,7 +38,8 @@ export type GameId =
   | "bohnanza"
   | "arschloch"
   | "gta"
-  | "dog";
+  | "dog"
+  | "uboot";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -333,6 +334,15 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/catan",
     category: "action",
     addedOn: "2026-08-23",
+  },
+  {
+    id: "uboot",
+    name: "U-Boot",
+    tagline: "Journey to the Deep",
+    emoji: "\u{1F93F}",
+    href: "/uboot",
+    category: "action",
+    addedOn: "2026-09-30",
   },
   {
     id: "bohnanza",

@@ -178,7 +178,7 @@ beantwortet keine Frage, mit der jemand ankommt. Die Sammlung liegt deshalb in
 **Regalen** ([components/game-collection.tsx](website/src/components/game-collection.tsx)):
 
 - **Beliebt** - die Spiele, mit denen in den letzten **7 Tagen** am längsten
-  gespielt wurde, von allen zusammen.
+  gespielt wurde, von allen zusammen, höchstens drei.
 - **Neu** - was in den letzten **30 Tagen** dazugekommen ist, höchstens drei
   und ohne das, was schon unter „Beliebt" steht.
 - im Schaufenster darüber außerdem ein **Banner** mit dem Spiel, das man
@@ -276,6 +276,11 @@ Drei, weil das **eine Reihe** ist. Mit sechs waren es auf einem breiten Bildschi
 zwei Reihen und auf einem schmalen anderthalb - und ein Regal mit der Überschrift
 „Neu", dessen zweite Reihe einen Monat alt ist, beantwortet die eigene Frage
 nicht mehr.
+
+Aus demselben Grund hält auch **„Beliebt" nur drei**: Ein Regal, das fragt,
+womit gerade alle spielen, antwortet mit der Spitze der Liste. Ein langes Regal
+antwortet mit „mit fast allem", und das ist keine Antwort. So sind beide oberen
+Regale außerdem genau eine Reihe, und die Seite hat eine Form statt zwei.
 
 ### „Neu" wartet auf „Beliebt"
 

@@ -62,21 +62,28 @@ import {
 } from "@/lib/stats/stats-store";
 import { useReady } from "@/lib/storage/use-ready";
 
-/** How many games the popular shelf holds. */
-const POPULAR_LIMIT = 6;
+/**
+ * How many games the popular shelf holds.
+ *
+ * @remarks
+ * Three, the same as "Neu" below it. A shelf headed "what everyone is playing"
+ * answers that question with the top of the list; a long shelf answers it with
+ * "most of the collection", which is not an answer. Three also means both
+ * shelves are exactly one row on a wide screen, so the page has one shape
+ * rather than two.
+ */
+const POPULAR_LIMIT = 3;
 
 /**
  * How many blank cards stand in for it until the first answer.
  *
  * @remarks
- * One row of three rather than the full six, because the row height is what
- * the rest of the page is standing on: the shelf holds at most six but in
- * practice a handful, and guessing high means the page shrinks by a whole row
- * once the real cards arrive. Guessing one row is wrong by a row at worst, and
- * only ever on the first visit - after that the remembered order fills the
- * shelf and nothing is guessed at all.
+ * Exactly as many as the shelf can hold, so the row the rest of the page
+ * stands on is the right height from the first paint - nothing shifts when the
+ * real cards arrive. It can still come out short when hardly anything has been
+ * played yet, and that is wrong by part of one row on a first visit only.
  */
-const GHOST_GUESS = 3;
+const GHOST_GUESS = POPULAR_LIMIT;
 
 /** What a card may be marked with, beyond its own name. */
 type Mark = "popular" | "new" | null;
