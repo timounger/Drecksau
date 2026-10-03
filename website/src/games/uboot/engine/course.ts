@@ -10,8 +10,25 @@
  */
 import { BEAST_LETTERS, spawn } from "./beasts";
 import { DEFAULT_GRADE, gradeAt } from "./grades";
+import { LANDMARKS } from "./landmarks";
 import { PIECES, PIECE_COLS, type Level } from "./levels";
-import { CELL, ROWS, type Beast, type Cell, type Vec } from "./types";
+import { CELL, ROWS, isDecor, type Beast, type Cell, type Vec } from "./types";
+
+/**
+ * Eine Landmarke und die Stelle, an der sie steht.
+ *
+ * @remarks
+ * Beim Auslegen des Kurses eingesammelt und nicht pro Bild gesucht: Es sind
+ * ein, zwei Stück je Gewässer, sie bewegen sich nicht, und die Frage "woran
+ * bin ich schon vorbei" soll eine Liste von zwei Einträgen sein und kein
+ * Durchgang durch dreitausend Quadrate.
+ */
+export type Mark = {
+  /** Ihr Buchstabe, wie er in {@link ./landmarks} steht. */
+  readonly letter: string;
+  /** Und wo sie steht, in Kurspixeln. */
+  readonly x: number;
+};
 
 /** A course, laid out and ready to dive. */
 export type Course = {
@@ -56,6 +73,8 @@ export type Course = {
   readonly pace: number;
   /** Ob am Ende etwas wartet. */
   readonly boss: boolean;
+  /** Was an diesem Kurs steht und wo. */
+  readonly marks: readonly Mark[];
 };
 
 /**
@@ -78,6 +97,7 @@ export function buildCourse(level: Level, grade = DEFAULT_GRADE): Course {
   const cols = level.pieces.length * PIECE_COLS;
   const cells: Cell[] = new Array<Cell>(cols * ROWS).fill(".");
   const beasts: Beast[] = [];
+  const marks: Mark[] = [];
   let start: Vec = { x: CELL, y: CELL * 2 };
   let goal = cols * CELL;
 
@@ -102,6 +122,9 @@ export function buildCourse(level: Level, grade = DEFAULT_GRADE): Course {
         if (kind !== undefined) {
           beasts.push(spawn(beasts.length, kind, at));
         }
+        if (LANDMARKS.includes(cell)) {
+          marks.push({ letter: cell, x: at.x });
+        }
         cells[row * cols + left + col] = cell;
       }
     }
@@ -121,7 +144,26 @@ export function buildCourse(level: Level, grade = DEFAULT_GRADE): Course {
     ),
     pace: hard.pace,
     boss: level.boss === true,
+    marks,
   };
+}
+
+/**
+ * Woran das Boot auf diesem Kurs schon vorbeigefahren ist.
+ *
+ * @param course - das Gewässer
+ * @param x - wo das Boot gerade steht, in Kurspixeln
+ * @returns die Buchstaben der Landmarken, die hinter ihm liegen
+ * @remarks
+ * **Vorbei heißt vorbei, nicht gesehen.** Gezählt wird erst, wenn die
+ * Landmarke hinter dem Boot liegt - wer vor ihr umkehrt, war nicht dort. Ein
+ * Feld Zugabe, weil eine Landmarke breiter ist als ihr Quadrat und man sonst
+ * den Haken bekäme, während sie noch neben einem steht.
+ */
+export function passedMarks(course: Course, x: number): readonly string[] {
+  return course.marks
+    .filter((mark) => x > mark.x + CELL)
+    .map((mark) => mark.letter);
 }
 
 /**
@@ -209,7 +251,7 @@ function insideWater(
 ): boolean {
   const inside = col >= 0 && col < cols && row >= 0 && row < ROWS;
   const cell = inside ? cells[row * cols + col] : "#";
-  return cell === "." || cell === "~";
+  return cell === "." || isDecor(cell);
 }
 
 /**
@@ -234,8 +276,37 @@ function middleOf(col: number, row: number): Vec {
   return { x: col * CELL + CELL / 2, y: row * CELL + CELL / 2 };
 }
 
+/** Welche Buchstaben ein Feld meinen - und keines davon ein Tier. */
+const KNOWN_CELLS: readonly string[] = [
+  "#",
+  "B",
+  "M",
+  "~",
+  ...LANDMARKS,
+  "S",
+  "Z",
+];
+
+/**
+ * **Ein Buchstabe kann nicht beides sein.**
+ *
+ * @remarks
+ * Felder und Tiere stehen im selben Kursplan, und beide werden über einen
+ * Buchstaben angesprochen. Wer einen vergibt, der schon einem Tier gehört,
+ * bekommt beides an derselben Stelle - und sucht den Fehler dann im Zeichner.
+ * Genau das ist einmal passiert: `K` war die Panzerkrabbe und wurde zur Bude,
+ * und plötzlich stand hinter jeder Krabbe ein Haus.
+ *
+ * Deshalb kracht es hier beim Laden und nicht später im Bild.
+ */
+const DOUBLE = Object.keys(BEAST_LETTERS).filter((letter) =>
+  KNOWN_CELLS.includes(letter),
+);
+if (DOUBLE.length > 0) {
+  throw new Error(`Buchstabe doppelt vergeben: ${DOUBLE.join(", ")}`);
+}
+
 /** The character as a cell, or open water if it means nothing here. */
 function asCell(char: string): Cell {
-  const known: readonly string[] = ["#", "B", "M", "~", "S", "Z"];
-  return known.includes(char) ? (char as Cell) : ".";
+  return KNOWN_CELLS.includes(char) ? (char as Cell) : ".";
 }

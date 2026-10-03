@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { diving, progress, step } from "@/games/uboot/engine/engine";
 import { courseFor, startDive } from "@/games/uboot/engine/setup";
 import { LEVELS, LEVEL_COUNT, darkness } from "@/games/uboot/engine/levels";
-import type { Course } from "@/games/uboot/engine/course";
+import { passedMarks, type Course } from "@/games/uboot/engine/course";
 import {
   SURFACE,
   type GameState,
@@ -38,14 +38,17 @@ import {
   loadProfile,
   saveProfile,
   withMastered,
+  withSeen,
   type Profile,
 } from "@/games/uboot/settings/profile";
 import { useReady } from "@/lib/storage/use-ready";
 import {
+  chart,
   engine,
   hum,
   play,
   quiet,
+  settled,
   warm,
   type Noise,
 } from "@/games/uboot/audio/sounds";
@@ -165,7 +168,7 @@ export type UbootGame = {
  *
  * @returns the canvas ref, the facts the screens show and everything they do
  */
-export function useUbootGame(): UbootGame {
+export function useUbootGame(awake = true): UbootGame {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(startDive(0));
   const courseRef = useRef<Course>(courseFor(0));
@@ -226,7 +229,10 @@ export function useUbootGame(): UbootGame {
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d") ?? null;
-    if (canvas === null || ctx === null) {
+    // **Schläft, solange ein anderer Modus das Fenster hat.** Zwei Schleifen,
+    // die beide jedes Bild zeichnen, sind eine zu viel - und die zweite
+    // zeichnet dann auf eine Leinwand, die gar nicht mehr im Blatt steht.
+    if (!awake || canvas === null || ctx === null) {
       return;
     }
     const controls = controlsRef.current;
@@ -298,6 +304,28 @@ export function useUbootGame(): UbootGame {
       }
     };
 
+    /**
+     * Was auf dem Weg hinter einem liegt, wird sofort behalten.
+     *
+     * @remarks
+     * **Im Moment des Vorbeifahrens und nicht am Ziel:** Wer an der Ananas
+     * vorbei ist und zwei Felder später auf eine Mine fährt, war trotzdem
+     * dort. Gefragt wird in jedem Bild, geschrieben höchstens zehnmal im
+     * ganzen Spiel - {@link withSeen} gibt dasselbe Profil zurück, wenn nichts
+     * dazugekommen ist, und daran sieht man es.
+     */
+    const noteSeen = (state: GameState, course: Course) => {
+      const next = withSeen(
+        profileRef.current,
+        passedMarks(course, state.sub.x),
+      );
+      if (next !== profileRef.current) {
+        profileRef.current = next;
+        saveProfile(next);
+        setEarned(next);
+      }
+    };
+
     /** Everything that happens the moment a dive stops being one. */
     const endDive = (state: GameState) => {
       runningRef.current = false;
@@ -345,6 +373,7 @@ export function useUbootGame(): UbootGame {
         const was = stateRef.current;
         stateRef.current = step(stateRef.current, courseRef.current, want, dt);
         sing(was, stateRef.current);
+        noteSeen(stateRef.current, courseRef.current);
         tally.current.unflushedMs += Math.min(dt, MAX_FRAME_S) * MS_PER_SECOND;
         sinceFlush += dt * MS_PER_SECOND;
         if (sinceFlush >= STATS_FLUSH_MS) {
@@ -402,7 +431,7 @@ export function useUbootGame(): UbootGame {
       // Wer die Seite verlässt, nimmt die Schleifen nicht mit.
       quiet();
     };
-  }, [syncHud, flushTime]);
+  }, [awake, syncHud, flushTime]);
 
   const beginDive = useCallback(
     (level: number) => {
@@ -446,10 +475,38 @@ export function useUbootGame(): UbootGame {
     profileRef.current = profile;
   }, [profile]);
 
-  // Escape is the pause key everywhere, and the one people try first.
+  /**
+   * Die Musik der Seekarte, solange die Karte zu sehen ist.
+   *
+   * @remarks
+   * An der Ansicht und nicht am Tauchgang: Die Karte bleibt auch dann die
+   * Karte, wenn ein Blatt darüber liegt - Werkstatt, Buch und Erfolge gehören
+   * zu ihr. Unten übernimmt {@link hum}.
+   */
+  useEffect(() => {
+    let alive = true;
+    const wanted = view === "map";
+    chart(wanted);
+    // Und noch einmal, sobald feststeht, ob es die Datei gibt: Beim Aufbau der
+    // Seite ist sie noch unterwegs, und ein Versuch, der zu früh kommt, wäre
+    // sonst der einzige geblieben.
+    void settled().then(() => {
+      if (alive) {
+        chart(wanted);
+      }
+    });
+    return () => {
+      alive = false;
+      chart(false);
+    };
+  }, [view]);
+
+  // Escape is the pause key everywhere, and the one people try first - auch
+  // auf dem Gewässer, das noch wartet: Dort ist die Pause der Weg zurück.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && runningRef.current) {
+      const open = viewRef.current === "dive" && diving(stateRef.current);
+      if (event.key === "Escape" && open) {
         pausedRef.current = !pausedRef.current;
         syncHud(stateRef.current);
       }

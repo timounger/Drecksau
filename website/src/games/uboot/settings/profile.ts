@@ -17,6 +17,7 @@
  */
 import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 import { LEVELS, LEVEL_COUNT } from "@/games/uboot/engine/levels";
+import { LANDMARKS } from "@/games/uboot/engine/landmarks";
 import {
   DEFAULT_GRADE,
   TOP_GRADE,
@@ -69,6 +70,16 @@ export type Profile = {
    * nimmt man niemandem wieder weg.
    */
   readonly best: readonly number[];
+  /**
+   * An welchen Landmarken man schon vorbeigefahren ist.
+   *
+   * @remarks
+   * Die Buchstaben aus {@link ../engine/landmarks}. **Das Einzige, was ein
+   * Tauchgang behält, obwohl er schiefging:** Wer am Ananashaus vorbei ist und
+   * zwei Felder später auf eine Mine fährt, war trotzdem dort. Deshalb wird es
+   * im Moment des Vorbeifahrens geschrieben und nicht am Ziel.
+   */
+  readonly seen: readonly string[];
 };
 
 /** A player who has just arrived. */
@@ -78,6 +89,7 @@ export const NEW_PROFILE: Profile = {
   done: [],
   grade: DEFAULT_GRADE,
   best: [],
+  seen: [],
 };
 
 /** Was in {@link Profile.best} steht, solange ein Gewässer offen ist. */
@@ -162,6 +174,38 @@ export function bestOf(profile: Profile, level: number): number {
  */
 export function withGrade(profile: Profile, grade: number): Profile {
   return { ...profile, grade: heldGrade(grade) };
+}
+
+/**
+ * Das Profil, nachdem man an Landmarken vorbeigefahren ist.
+ *
+ * @param profile - der Spieler
+ * @param marks - die Buchstaben, an denen er gerade vorbei ist
+ * @returns das neue Profil - oder **dasselbe**, wenn nichts dazugekommen ist
+ * @remarks
+ * Die Gleichheit ist hier die halbe Miete: Gefragt wird in jedem Bild, neu ist
+ * die Antwort höchstens zehnmal im ganzen Spiel. Kommt nichts dazu, kommt das
+ * Profil unverändert zurück, und der Aufrufer sieht an einem Vergleich, dass
+ * er nichts zu speichern hat.
+ */
+export function withSeen(profile: Profile, marks: readonly string[]): Profile {
+  const fresh = marks.filter(
+    (mark) => LANDMARKS.includes(mark) && !profile.seen.includes(mark),
+  );
+  return fresh.length === 0
+    ? profile
+    : { ...profile, seen: [...profile.seen, ...new Set(fresh)] };
+}
+
+/**
+ * Ob man an einer Landmarke schon vorbeigefahren ist.
+ *
+ * @param profile - der Spieler
+ * @param mark - der Buchstabe der Landmarke
+ * @returns true, wenn sie hinter ihm liegt
+ */
+export function hasSeen(profile: Profile, mark: string): boolean {
+  return profile.seen.includes(mark);
 }
 
 /**
@@ -292,6 +336,8 @@ export function withEverythingOpen(profile: Profile): Profile {
     // "Alles freischalten" heißt alles: auch die Bestleistungen, sonst bliebe
     // ausgerechnet die Tafel halb grau.
     best: LEVELS.map(() => TOP_GRADE),
+    // Und auch die Landmarken: Wer alles offen hat, war überall.
+    seen: [...LANDMARKS],
   };
 }
 
@@ -406,6 +452,11 @@ function cleaned(stored: Profile): Profile {
     const had = done.includes(level) ? DEFAULT_GRADE : NEVER;
     return typeof seen === "number" && seen >= 0 ? heldGrade(seen) : had;
   });
+  // Ein Spielstand von früher kennt die Landmarken noch nicht, und ein
+  // Buchstabe, den es nicht mehr gibt, darf keine graue Kachel aufleuchten
+  // lassen.
+  const marks = Array.isArray(stored.seen) ? stored.seen : [];
+  const seen = [...new Set(marks)].filter((mark) => LANDMARKS.includes(mark));
   return {
     // Auch hier der Deckel: Ein Spielstand von früher - oder einer, in den
     // jemand von Hand eine große Zahl geschrieben hat - kommt beschnitten
@@ -415,5 +466,6 @@ function cleaned(stored: Profile): Profile {
     done,
     grade: heldGrade(stored.grade ?? DEFAULT_GRADE),
     best,
+    seen,
   };
 }

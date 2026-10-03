@@ -21,6 +21,8 @@ import type { Gear, WeaponKind } from "./upgrades";
  * `docs/games/uboot/levels.md`. `.` is open water, `#` rock, `M` a mine, `~`
  * weed (pretty, harmless), `S` where the boat starts and `Z` the way out.
  */
+import { LANDMARKS } from "./landmarks";
+
 /**
  * Was in einem Quadrat sein kann.
  *
@@ -33,8 +35,44 @@ import type { Gear, WeaponKind } from "./upgrades";
  * Dass beides zusammen existiert, ist der ganze Sinn der Sache: Könnte man
  * überall durchsprengen, wäre jede Höhle nur noch eine Frage der Munition;
  * könnte man es nirgends, wäre der Torpedo eine Waffe gegen Fische.
+ *
+ * `~` ist Tang, und die Buchstaben der Landmarken stehen in
+ * {@link ./landmarks}:
+ * alles **Zierde**,
+ * durch die man hindurchfährt
+ * wie durch Wasser. Was man sieht, muss nicht wehtun - ein Kurs, in dem jedes
+ * Ding ein Hindernis ist, ist eine Tabelle und kein Ort.
  */
-export type Cell = "." | "#" | "B" | "M" | "~" | "S" | "Z";
+export type Cell =
+  | "."
+  | "#"
+  | "B"
+  | "M"
+  | "~"
+  | "H"
+  | "R"
+  | "L"
+  | "D"
+  | "E"
+  | "O"
+  | "N"
+  | "P"
+  | "V"
+  | "G"
+  | "S"
+  | "Z";
+
+/**
+ * Ob dieses Feld bloß Zierde ist - Wasser, durch das man fährt.
+ *
+ * @remarks
+ * Tang und die Landmarken auf dem Grund. **An einer Stelle gesammelt**,
+ * damit die nächste Landmarke eine Zeile kostet und nicht fünf: Sowohl der
+ * Kurs als auch die Schüsse fragen hier nach.
+ */
+export function isDecor(cell: Cell): boolean {
+  return cell === "~" || LANDMARKS.includes(cell);
+}
 
 /** A point in course pixels: x runs right, y runs down from the surface. */
 export type Vec = {

@@ -23,8 +23,9 @@ import type { Beast, BeastKind } from "@/games/uboot/engine/types";
 const SKIN = {
   fish: "#cfe6f2",
   fishBack: "#5f8ca6",
-  jelly: "rgba(255,150,214,0.75)",
-  jellyEdge: "rgba(255,210,240,0.9)",
+  jelly: "#d98ad4",
+  jellySpot: "#b02a62",
+  jellySheen: "rgba(237,214,240,0.85)",
   jellyGlow: "rgba(255,120,200,",
   urchin: "#241f33",
   urchinSpike: "#6f52b5",
@@ -71,25 +72,70 @@ const SCHOOL: readonly (readonly [number, number])[] = [
   [1, SPOT.half],
 ];
 
-/** Die Qualle. */
+/**
+ * Die Qualle, nach der Vorlage (`game_instructions/UBoot/qualle.webp`).
+ *
+ * @remarks
+ * Eine runde Glocke mit dunklen Flecken, einem hellen Streifen oben links, dem
+ * gewellten Saum darunter und **vier dicken Armen** - keine dünnen Fäden. Das
+ * ist der Unterschied zwischen einer Qualle und einem Quastenbesen: Was unten
+ * hängt, ist so dick wie ein Finger und bewegt sich träge.
+ */
 const JELLY = {
-  /** Wie tief die Glocke ist und wie viele Zipfel ihr Rand hat. */
-  bell: 0.95,
-  frills: 5,
-  dip: 0.18,
-  /** Wie stark sie atmet. */
-  breathe: 0.2,
-  /** Die Fäden: wie viele, wie lang, wie weit sie schwingen. */
-  strings: 5,
-  spread: 1.4,
-  trail: 2.2,
-  sway: 0.5,
-  bend: 0.3,
-  middle: 0.6,
-  pace: 2.4,
+  /** Die Glocke: Breite, Höhe und wie weit sie über der Mitte sitzt. */
+  wide: 1.08,
+  high: 0.95,
+  up: 0.3,
+  /** Wie stark sie atmet und wie langsam. */
+  breathe: 0.07,
+  pace: 1.8,
+  /** Der helle Streifen oben links. */
+  sheenX: -0.52,
+  sheenY: -0.55,
+  sheenLong: 0.7,
+  sheenWide: 0.16,
+  sheenLean: 0.2,
+  /** Der Saum unter der Glocke: wie weit er ausgreift und wie hoch er wellt. */
+  hemWide: 1.02,
+  hemDrop: 0.12,
+  hemWave: 0.22,
+  hemThick: 0.2,
+  /** Die Arme: wie dick, wie weit sie schwingen und wie schnell. */
+  armThick: 0.3,
+  swing: 0.5,
+  armPace: 1.4,
   /** Und wie weit ihr Schein reicht. */
   halo: 2.6,
   shine: 0.35,
+} as const;
+
+/**
+ * Die dunklen Flecken auf der Glocke, in Anteilen ihrer halben Breite.
+ *
+ * @remarks
+ * Feste Plätze und keine gewürfelten: Zwei Quallen nebeneinander sollen wie
+ * zwei Exemplare derselben Art aussehen und nicht wie zwei Zufälle.
+ */
+const SPOTS = {
+  left: { x: -0.42, y: 0.12, r: 0.3 },
+  top: { x: 0.3, y: -0.52, r: 0.26 },
+  middle: { x: 0.16, y: -0.02, r: 0.16 },
+  edge: { x: 0.68, y: -0.36, r: 0.11 },
+} as const;
+
+/**
+ * Die vier Arme: wo sie hängen, wie lang sie sind und wohin sie sich krümmen.
+ *
+ * @remarks
+ * Die äußeren greifen nach außen und sind kürzer, die inneren hängen gerade
+ * nach unten und sind länger - genau wie in der Vorlage. Vier reichen; mehr
+ * werden bei dieser Größe zu einem Pinsel.
+ */
+const ARMS = {
+  outLeft: { at: -0.78, long: 1.75, curl: -0.55, lean: -0.3 },
+  inLeft: { at: -0.3, long: 2.15, curl: -0.3, lean: 0.12 },
+  inRight: { at: 0.3, long: 2.15, curl: 0.3, lean: -0.12 },
+  outRight: { at: 0.78, long: 1.75, curl: 0.55, lean: 0.3 },
 } as const;
 
 /** Der Seeigel. */
@@ -299,44 +345,101 @@ function shoal(
   });
 }
 
-/** Eine Qualle: eine Glocke, die atmet, und Fäden, die nachziehen. */
+/** Eine Qualle: eine Glocke, die atmet, und vier Arme, die nachziehen. */
 function jelly(
   ctx: CanvasRenderingContext2D,
   size: number,
   time: number,
 ): void {
-  const pulse = 1 + Math.sin(time * JELLY.pace) * JELLY.sway * JELLY.breathe;
+  const pulse = 1 + Math.sin(time * JELLY.pace) * JELLY.breathe;
+  const wide = size * JELLY.wide * pulse;
+  const high = size * JELLY.high * pulse;
+  const top = -size * JELLY.up;
+  const hem = top + high * (1 - JELLY.hemDrop);
 
-  ctx.strokeStyle = SKIN.jellyEdge;
-  ctx.lineWidth = 2;
-  for (let string = 0; string < JELLY.strings; string += 1) {
-    const at =
-      (string / (JELLY.strings - 1) - JELLY.sway) * size * JELLY.spread;
-    const end = at + Math.sin(time * JELLY.pace + string) * size * JELLY.sway;
+  // Die Arme zuerst: Sie hängen hinter dem Saum.
+  ctx.strokeStyle = SKIN.jelly;
+  ctx.lineWidth = size * JELLY.armThick;
+  ctx.lineCap = "round";
+  for (const arm of Object.values(ARMS)) {
+    const sway = Math.sin(time * JELLY.armPace + arm.at) * size * JELLY.swing;
+    const from = wide * arm.at;
+    const down = size * arm.long;
     ctx.beginPath();
-    ctx.moveTo(at, 0);
-    ctx.quadraticCurveTo(
-      at + end * JELLY.bend,
-      size * JELLY.trail * JELLY.middle,
-      end,
-      size * JELLY.trail,
+    ctx.moveTo(from, hem);
+    ctx.bezierCurveTo(
+      from + wide * arm.curl + sway * arm.lean,
+      hem + down * HALF,
+      from + sway,
+      hem + down * THREE_QUARTERS,
+      from + sway + wide * arm.lean,
+      hem + down,
     );
     ctx.stroke();
   }
 
+  // Der gewellte Saum unter der Glocke.
+  ctx.lineWidth = size * JELLY.hemThick;
+  ctx.beginPath();
+  for (let step = 0; step <= HEM_STEPS; step += 1) {
+    const along = (step / HEM_STEPS) * 2 - 1;
+    const x = along * wide * JELLY.hemWide;
+    const y =
+      hem +
+      Math.sin(along * Math.PI * 2 + time * JELLY.pace) * size * JELLY.hemWave;
+    if (step === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+  ctx.lineCap = "butt";
+
+  // Die Glocke.
   ctx.fillStyle = SKIN.jelly;
   ctx.beginPath();
-  ctx.ellipse(0, 0, size * pulse, size * JELLY.bell * pulse, 0, Math.PI, 0);
-  // Der gezipfelte Rand: das, was eine Glocke von einer Halbkugel trennt.
-  for (let frill = 0; frill <= JELLY.frills; frill += 1) {
-    const span = (frill / JELLY.frills) * 2 - 1;
-    ctx.lineTo(-span * size * pulse, frill % 2 === 0 ? size * JELLY.dip : 0);
-  }
-  ctx.closePath();
+  ctx.ellipse(0, top, wide, high, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = SKIN.jellyEdge;
+
+  // Die dunklen Flecken darauf.
+  ctx.fillStyle = SKIN.jellySpot;
+  for (const spot of Object.values(SPOTS)) {
+    ctx.beginPath();
+    ctx.ellipse(
+      wide * spot.x,
+      top + high * spot.y,
+      wide * spot.r,
+      high * spot.r,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+
+  // Und der helle Streifen oben links, der sie glasig macht.
+  ctx.strokeStyle = SKIN.jellySheen;
+  ctx.lineWidth = size * JELLY.sheenWide;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(wide * JELLY.sheenX, top + high * JELLY.sheenY);
+  ctx.quadraticCurveTo(
+    wide * (JELLY.sheenX - JELLY.sheenLean),
+    top + high * (JELLY.sheenY + JELLY.sheenLong * HALF),
+    wide * (JELLY.sheenX + JELLY.sheenLean),
+    top + high * (JELLY.sheenY + JELLY.sheenLong),
+  );
   ctx.stroke();
+  ctx.lineCap = "butt";
 }
+
+/** Die Hälfte und drei Viertel, für die Griffe der Armkurven. */
+const HALF = 0.5;
+const THREE_QUARTERS = 0.75;
+
+/** In wie vielen Schritten der Saum gewellt wird. */
+const HEM_STEPS = 16;
 
 /** Ein Seeigel: ein Ball, der nichts tut - außer im Weg zu sein. */
 function urchin(ctx: CanvasRenderingContext2D, size: number): void {

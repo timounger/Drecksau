@@ -112,7 +112,7 @@ export function CourseBrief({
   return (
     <div
       data-testid="uboot-brief"
-      className="absolute inset-0 z-40 flex flex-col overflow-y-auto rounded-2xl bg-gradient-to-b from-sky-800 via-sky-900 to-slate-950 text-sky-50"
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-gradient-to-b from-sky-800 via-sky-900 to-slate-950 text-sky-50 md:absolute md:z-40 md:rounded-2xl"
     >
       <div className="flex items-center gap-2 border-b border-sky-400/20 px-3 py-2">
         <button
@@ -128,8 +128,8 @@ export function CourseBrief({
         </span>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-3 p-3 md:grid-cols-[250px_1fr]">
-        <div className="flex h-full min-h-0 flex-col items-center gap-3 overflow-y-auto">
+      <div className="grid gap-3 p-3 md:min-h-0 md:flex-1 md:grid-cols-[250px_1fr]">
+        <div className="flex flex-col items-center gap-3 md:h-full md:min-h-0 md:overflow-y-auto">
           <Porthole level={level} profile={profile} />
           {full ? (
             <Leaderboard level={level} name={course.name} />
@@ -145,8 +145,8 @@ export function CourseBrief({
             der übrig ist, und scrollt in sich selbst; alles darunter steht
             fest. Ein Knopf, der unter dem Finger wegrutscht, weil über ihm
             eine Zeile umgebrochen ist, wird irgendwann danebengedrückt. */}
-        <div className="flex h-full min-h-0 flex-col gap-3">
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-sky-300/25 bg-sky-950/40 p-3">
+        <div className="flex flex-col gap-3 md:h-full md:min-h-0">
+          <div className="rounded-2xl border border-sky-300/25 bg-sky-950/40 p-3 md:min-h-0 md:flex-1 md:overflow-y-auto">
             <h2 className="text-xl font-black tracking-tight">{course.name}</h2>
             <p className="mt-0.5 text-sm font-semibold text-sky-300">
               {UBOOT_TEXTS.tierName[course.tier]}

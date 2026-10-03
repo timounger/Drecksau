@@ -32,7 +32,7 @@ export type Sample =
   | "lose";
 
 /** Und eines, das läuft, solange etwas der Fall ist. */
-export type Loop = "music" | "engine";
+export type Loop = "music" | "chart" | "engine";
 
 /** Der Unterpfad, unter dem die Seite liegt - auf Pages ist das nicht die Wurzel. */
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -53,12 +53,31 @@ const FILES: Readonly<Record<Sample, string>> = {
 /** Und welche zu welcher Schleife. */
 const LOOP_FILES: Readonly<Record<Loop, string>> = {
   music: "musik/tiefe.mp3",
+  chart: "musik/seekarte.mp3",
   engine: "sounds/antrieb.mp3",
 };
+
+/**
+ * Welche Schleifen am Regler für Musik hängen.
+ *
+ * @remarks
+ * Zwei Stücke, ein Regler: Tiefe und Seekarte sind beides Musik, und wer die
+ * Musik leiser dreht, meint beide. Am Sound-Regler hängt, was das Boot selbst
+ * von sich gibt.
+ */
+const MUSIC: readonly Loop[] = ["music", "chart"];
+
+/** Ob diese Schleife Musik ist. */
+function isMusic(loop: Loop): boolean {
+  return MUSIC.includes(loop);
+}
 
 /** Was schon einmal probiert wurde, und was davon wirklich klingt. */
 const tried = new Set<string>();
 const ready = new Set<string>();
+
+/** Und wann von jeder Datei feststeht, was sie ist. */
+const asked: Promise<void>[] = [];
 
 /** Die laufenden Schleifen, eine je Art. */
 const running = new Map<Loop, HTMLAudioElement>();
@@ -81,6 +100,14 @@ function probe(file: string): void {
     try {
       const audio = new Audio(urlOf(file));
       audio.preload = "auto";
+      asked.push(
+        new Promise<void>((done) => {
+          audio.addEventListener("canplaythrough", () => done(), {
+            once: true,
+          });
+          audio.addEventListener("error", () => done(), { once: true });
+        }),
+      );
       audio.addEventListener("canplaythrough", () => ready.add(file), {
         once: true,
       });
@@ -109,6 +136,21 @@ export function warm(): void {
   for (const file of Object.values(LOOP_FILES)) {
     probe(file);
   }
+}
+
+/**
+ * Wartet, bis von jeder Datei feststeht, ob sie klingt.
+ *
+ * @returns ein Versprechen, das sich danach auflöst
+ * @remarks
+ * **Für alles, was sofort losgehen soll.** Eine Schleife, die beim Aufbau der
+ * Seite angefordert wird, kommt dem Laden zuvor: Die Datei ist in dem Moment
+ * weder bekannt noch kaputt, sondern unterwegs. Wer das nicht abwartet, hört
+ * beim ersten Mal nichts und beim zweiten alles - und sucht den Fehler dann an
+ * der falschen Stelle.
+ */
+export function settled(): Promise<void> {
+  return Promise.all(asked).then(() => undefined);
 }
 
 /**
@@ -179,7 +221,7 @@ export function keep(loop: Loop, on: boolean, volume: number): boolean {
 export function level(music: number, sound: number): void {
   for (const [loop, audio] of running) {
     try {
-      audio.volume = loop === "music" ? music : sound;
+      audio.volume = isMusic(loop) ? music : sound;
       if (audio.volume <= 0) {
         audio.pause();
       }

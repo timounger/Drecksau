@@ -21,16 +21,22 @@ import {
 } from "react";
 import { GameHeader } from "@/components/game-header";
 import { AwardBoard } from "@/games/uboot/components/award-board";
+import { AwardToast } from "@/games/uboot/components/award-toast";
+import { useAwardNews } from "@/games/uboot/hooks/use-award-news";
 import { LevelMap } from "@/games/uboot/components/level-map";
 import { Panel, type PanelKind } from "@/games/uboot/components/panel";
 import { SettingsBoard } from "@/games/uboot/components/settings-board";
-import { UpgradeBoard } from "@/games/uboot/components/upgrade-board";
+import {
+  UpgradeBoard,
+  UpgradeTools,
+} from "@/games/uboot/components/upgrade-board";
 import { CANVAS_H, CANVAS_W } from "@/games/uboot/components/render";
 import { useUbootGame, type Hud } from "@/games/uboot/hooks/use-uboot-game";
 import { UBOOT_RULES } from "@/games/uboot/i18n/rules";
 import { CodexBoard } from "@/games/uboot/components/codex-board";
 import { Leaderboard, asClock } from "@/games/uboot/components/leaderboard";
 import { CourseBrief } from "@/games/uboot/components/course-brief";
+import { DeepGame } from "@/games/uboot/components/deep-game";
 import { withGrade } from "@/games/uboot/settings/profile";
 import { gradeAt } from "@/games/uboot/engine/grades";
 import type { Profile } from "@/games/uboot/settings/profile";
@@ -47,6 +53,14 @@ const PERCENT = 100;
  * @returns the game element
  */
 export function UbootGame(): ReactElement {
+  /**
+   * Wo der Endlosmodus gerade steht.
+   *
+   * @remarks
+   * Steht vor dem Spiel-Haken, weil er ihn schlafen legt: Solange der Schlund
+   * das Fenster hat, rechnet die Kampagne nicht mit.
+   */
+  const [deep, setDeep] = useState<"off" | "pick" | "solo">("off");
   const {
     canvasRef,
     hud,
@@ -59,7 +73,11 @@ export function UbootGame(): ReactElement {
     pause,
     keep,
     record,
-  } = useUbootGame();
+  } = useUbootGame(deep !== "solo");
+
+  // Was gerade dazugekommen ist, meldet sich oben im Bild - egal, ob man
+  // gerade fährt, in der Werkstatt steht oder auf der Karte.
+  const news = useAwardNews(profile);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreen(stageRef);
@@ -85,7 +103,10 @@ export function UbootGame(): ReactElement {
         title={UBOOT_TEXTS.title}
         subtitle={UBOOT_TEXTS.subtitle}
       >
-        {diving && fullscreen.supported && (
+        {/* Immer, nicht nur im Tauchgang: Auf dem Telefon ist das Vollbild
+            der einzige Weg zu einer Karte, auf der man etwas lesen kann - und
+            dorthin will man, bevor man ein Gewässer aussucht. */}
+        {fullscreen.supported && (
           <button
             type="button"
             data-testid="uboot-fullscreen"
@@ -111,79 +132,99 @@ export function UbootGame(): ReactElement {
           unmounted, so a trip to the workshop cannot cost anybody the dive
           they had going. */}
       <div ref={stageRef} className="game-fullscreen flex flex-col gap-4">
-        <div className="game-shot relative">
-          <canvas
-            ref={canvasRef}
-            data-testid="uboot-canvas"
-            width={CANVAS_W}
-            height={CANVAS_H}
-            className="block w-full touch-none rounded-2xl border border-zinc-300 shadow-sm dark:border-zinc-700"
-          />
-
-          {!diving && (
-            <LevelMap
-              profile={profile}
-              onDive={(level) => setWaiting(level)}
-              onOpen={setPanel}
+        {deep === "solo" ? (
+          <DeepGame onExit={() => setDeep("off")} />
+        ) : (
+          <div className="game-shot relative">
+            <canvas
+              ref={canvasRef}
+              data-testid="uboot-canvas"
+              width={CANVAS_W}
+              height={CANVAS_H}
+              className="block w-full touch-none rounded-2xl border border-zinc-300 shadow-sm dark:border-zinc-700"
             />
-          )}
 
-          {!diving && waiting !== null && (
-            <CourseBrief
-              level={waiting}
-              profile={profile}
-              onGrade={(grade) => keep(withGrade(profile, grade))}
-              onClose={() => setWaiting(null)}
-              onStart={() => {
-                const level = waiting;
-                setWaiting(null);
-                dive(level);
-              }}
-            />
-          )}
+            {!diving && (
+              <LevelMap
+                profile={profile}
+                onDive={(level) => setWaiting(level)}
+                onOpen={setPanel}
+                onDeep={() => setDeep("pick")}
+              />
+            )}
 
-          {panel !== null && (
-            <Sheets
-              kind={panel}
-              profile={profile}
-              onKeep={keep}
-              onClose={() => setPanel(null)}
-            />
-          )}
+            {!diving && deep === "pick" && (
+              <DeepChoice
+                onSolo={() => setDeep("solo")}
+                onClose={() => setDeep("off")}
+              />
+            )}
 
-          {diving && hud.running && !hud.paused && (
-            <button
-              type="button"
-              data-testid="uboot-pause"
-              onClick={() => pause(true)}
-              aria-label={UBOOT_TEXTS.pause}
-              className="absolute top-3 right-3 z-40 cursor-pointer rounded-lg bg-black/55 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
-            >
-              {"\u23F8"} {UBOOT_TEXTS.pause}
-            </button>
-          )}
+            {!diving && waiting !== null && (
+              <CourseBrief
+                level={waiting}
+                profile={profile}
+                onGrade={(grade) => keep(withGrade(profile, grade))}
+                onClose={() => setWaiting(null)}
+                onStart={() => {
+                  const level = waiting;
+                  setWaiting(null);
+                  dive(level);
+                }}
+              />
+            )}
 
-          {diving && (
-            <Overlay
-              hud={hud}
-              gained={gained}
-              record={record}
-              onAgain={again}
-              onResume={() => pause(false)}
-              onMap={toMap}
-            />
-          )}
+            {panel !== null && (
+              <Sheets
+                kind={panel}
+                profile={profile}
+                onKeep={keep}
+                onClose={() => setPanel(null)}
+              />
+            )}
 
-          {fullscreen.active && (
-            <button
-              type="button"
-              onClick={fullscreen.toggle}
-              className="absolute right-3 bottom-3 z-50 cursor-pointer rounded-lg bg-black/60 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
-            >
-              {UBOOT_TEXTS.fullscreenExit}
-            </button>
-          )}
-        </div>
+            {/* **Auch bevor es losgeht.** Der Tauchgang beginnt erst mit dem
+              ersten Druck nach vorn - und bis dahin führt nur dieser Knopf
+              zurück zur Seekarte. Ein Weg hinaus, den es erst gibt, wenn man
+              drin ist, ist keiner. */}
+            {diving && !hud.paused && (
+              <button
+                type="button"
+                data-testid="uboot-pause"
+                onClick={() => pause(true)}
+                aria-label={UBOOT_TEXTS.pause}
+                className="absolute top-3 right-3 z-40 cursor-pointer rounded-lg bg-black/55 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
+              >
+                {"\u23F8"} {UBOOT_TEXTS.pause}
+              </button>
+            )}
+
+            {diving && (
+              <Overlay
+                hud={hud}
+                gained={gained}
+                record={record}
+                onAgain={again}
+                onResume={() => pause(false)}
+                onMap={toMap}
+              />
+            )}
+
+            {fullscreen.active && (
+              <button
+                type="button"
+                onClick={fullscreen.toggle}
+                className="absolute right-3 bottom-3 z-50 cursor-pointer rounded-lg bg-black/60 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
+              >
+                {UBOOT_TEXTS.fullscreenExit}
+              </button>
+            )}
+
+            {/* Ganz oben und über allem: Was man eben verdient hat, soll man
+                sehen, ohne das Spiel dafür zu verlassen. */}
+            <AwardToast news={news} />
+          </div>
+        )}
 
         {/* Auf dem Telefon wird im Bild gesteuert - links das Kreuz unter
             dem Daumen, rechts feuern. Hier steht nur noch, was die Tasten
@@ -197,6 +238,70 @@ export function UbootGame(): ReactElement {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Props of {@link DeepChoice}. */
+type DeepChoiceProps = {
+  readonly onSolo: () => void;
+  readonly onClose: () => void;
+};
+
+/**
+ * Das Blatt zwischen Seekarte und Schlund: allein oder zu zweit.
+ *
+ * @param props - was die beiden Wege tun
+ * @returns das Blatt
+ * @remarks
+ * **Zwei Wege und keine Voreinstellung.** Der Koop ist kein Zusatz, der in
+ * einer Ecke steht, sondern die zweite Hälfte dieses Modus - also wird
+ * gefragt, bevor es losgeht, und nicht erst, wenn man schon unten ist.
+ */
+function DeepChoice({ onSolo, onClose }: DeepChoiceProps): ReactElement {
+  return (
+    <div
+      data-testid="uboot-deep-pick"
+      className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 rounded-2xl bg-slate-950/80 p-6 text-center text-white backdrop-blur"
+    >
+      <div>
+        <p className="text-2xl font-bold">{UBOOT_TEXTS.deepName}</p>
+        <p className="mt-1 max-w-md text-sm text-slate-200">
+          {UBOOT_TEXTS.deepHint}
+        </p>
+      </div>
+      <p className="text-sm font-semibold">{UBOOT_TEXTS.deepPick}</p>
+      <div className="flex flex-wrap items-stretch justify-center gap-3">
+        <button
+          type="button"
+          data-testid="uboot-deep-solo"
+          onClick={onSolo}
+          className="flex w-48 cursor-pointer flex-col gap-1 rounded-xl bg-emerald-600 px-4 py-3 text-left hover:bg-emerald-500"
+        >
+          <span className="text-sm font-bold">{UBOOT_TEXTS.deepSolo}</span>
+          <span className="text-xs text-emerald-50">
+            {UBOOT_TEXTS.deepSoloHint}
+          </span>
+        </button>
+        <Link
+          href="/uboot/online"
+          data-testid="uboot-deep-coop"
+          className="flex w-48 flex-col gap-1 rounded-xl border border-white/50 px-4 py-3 text-left hover:bg-white/15"
+        >
+          <span className="text-sm font-bold">{UBOOT_TEXTS.deepCoop}</span>
+          <span className="text-xs text-slate-200">
+            {UBOOT_TEXTS.deepCoopHint}
+          </span>
+        </Link>
+      </div>
+      <p className="max-w-md text-xs text-slate-300">{UBOOT_TEXTS.deepBoons}</p>
+      <button
+        type="button"
+        onClick={onClose}
+        className="cursor-pointer rounded-lg border border-white/40 px-4 py-1.5 text-sm hover:bg-white/10"
+      >
+        {UBOOT_TEXTS.close}
+      </button>
     </div>
   );
 }
@@ -220,8 +325,13 @@ function Sheets({ kind, profile, onKeep, onClose }: SheetsProps): ReactElement {
           icon={"\u{1F528}"}
           title={UBOOT_TEXTS.upgrades}
           onClose={onClose}
+          // Oben rechts, wo die Werkzeuge eines Blattes hingehören: der
+          // Punktestand und der Knopf, der alles wieder herausholt.
+          tools={<UpgradeTools profile={profile} onChange={onKeep} />}
+          // Der Baum passt ins Blatt und soll nicht rollen.
+          scroll={false}
         >
-          <UpgradeBoard profile={profile} onChange={onKeep} onDone={onClose} />
+          <UpgradeBoard profile={profile} onChange={onKeep} />
         </Panel>
       );
       break;
@@ -253,6 +363,8 @@ function Sheets({ kind, profile, onKeep, onClose }: SheetsProps): ReactElement {
           icon={"\u{1F3C6}"}
           title={UBOOT_TEXTS.trophies}
           onClose={onClose}
+          // Die Tafel rollt selbst, und zwar nach rechts.
+          scroll={false}
         >
           <AwardBoard profile={profile} />
         </Panel>

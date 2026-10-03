@@ -354,6 +354,17 @@ body {
   display: none;
 }
 
+/* Ein Blatt, an dessen Breite sich messen lässt.
+
+   Alles darin darf seine Größe in `cqw` angeben - einem Hundertstel dieser
+   Breite - und wächst damit mit dem Spielfenster statt mit dem Bildschirm.
+   Ohne diese Zeile fällt `cqw` auf den Darstellungsbereich zurück, und dann
+   werden die Marken auf einem breiten Monitor riesig, während das Fenster
+   darunter bei seinen 992 Pixeln bleibt. */
+.game-measured {
+  container-type: inline-size;
+}
+
 /* Where the picture sits in a wrapper of its own - because overlays are hung
    over it - that wrapper has to be exactly as wide as the picture, or the
    overlays end up centred on the screen instead of on the game. */
@@ -390,5 +401,25 @@ body {
   to {
     opacity: 0;
     transform: translateY(-6px);
+  }
+}
+
+/* U-Boot: der Erfolgshinweis fällt von oben ein, bleibt stehen und geht wieder. */
+@keyframes uboot-award {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
   }
 }

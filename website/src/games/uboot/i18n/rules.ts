@@ -125,6 +125,17 @@ export const UBOOT_RULES: GameRules = {
         "Das zehnte ist alle drei auf einmal, in derselben Reihenfolge, in der du sie gelernt hast: erst offenes Wasser mit Luft über dir, dann die Höhle, in der du noch siehst, dann die Finsternis - und am Ende der Wächter. Das Licht geht dabei nicht auf einen Schlag aus, sondern über ein Stück Weg.",
       ],
     },
+    {
+      title: "Der Schlund - der Endlosmodus",
+      body: [
+        "Unten links auf der Seekarte liegt ein Strudel. Der ist immer offen: Dort braucht man nichts freigeschaltet zu haben, und man bekommt auch nichts - dafür fährst du dort von der ersten Sekunde an das **beste Boot, das es gibt**, mit allem, was die Werkstatt verkauft.",
+        "Es gibt kein Fenster, das dich vor sich herschiebt, und keine Ziellinie. Die Karte ist groß, du startest oben links an der Oberfläche, und sobald du dich bewegst, geht es los. Nach unten ist viel mehr Platz als in jedem Gewässer der Kampagne - und je tiefer du kommst, desto weniger siehst du. Ab einer gewissen Tiefe hilft nur noch das Sonar.",
+        "Fährst du nach links, dreht sich das Boot um: links ist hier eine Richtung und kein Rückwärtsgang.",
+        "Eine Stufe ist leer, wenn nichts mehr lebt. Dann kommt die nächste - größere Karte, mehr Bewohner, zähere Bewohner, und ab Stufe fünf ist alles dabei, was es gibt. Ein Ende ist nicht vorgesehen. Die Frage ist, wie weit du kommst.",
+        "Was du erlegst, lässt manchmal etwas fallen: ein Schild, das eine Weile alles abhält, Schnellfeuer, einen Fächerschuss aus drei Torpedos - und im Koop die Rettung für den, der unten liegt.",
+        "Zu zweit geht es über den Knopf **Koop online**: per Zufall einen Mitspieler suchen oder einen Raum mit Code aufmachen, genau wie in der Panzerkiste. Wer stirbt, ist in der nächsten Stufe wieder dabei; erst wenn beide in derselben Stufe untergehen, ist der Lauf vorbei.",
+      ],
+    },
   ],
-  note: "Im Boot sitzt ein Affe. Er steuert nicht mit, er schaut nur zu - und zwar genau dahin, wo es gleich knallt.",
+  note: "Im Boot sitzt ein Affe mit einem Laptop. Er steuert nicht mit, er gibt nichts frei, er schaut nur zu - und zwar genau dahin, wo es gleich knallt. Jemand hat ihn zu dieser Fahrt dazugesetzt, so wie man Prüfer an eine Änderung hängt, die sie nichts angeht. Man nennt sie U-Boote.",
 };

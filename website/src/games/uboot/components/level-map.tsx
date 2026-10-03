@@ -11,11 +11,19 @@
  * Drawn with the browser's own means rather than on a canvas: the waters are
  * buttons, and a button that a screen reader can find and a keyboard can reach
  * is worth more here than a prettier picture.
+ *
+ * **Alles auf der Karte misst sich am Fenster, nicht am Bildschirm.** Jede
+ * Größe steht in `cqw` - einem Hundertstel der Breite dieses Blattes -, und das
+ * Blatt selbst ist ein Container. Damit sieht die Karte auf dem Telefon aus wie
+ * auf dem Bildschirm, nur kleiner: Die Marken bleiben an ihren Gewässern, die
+ * drei Türen bleiben eine Reihe, und nichts schiebt sich über etwas anderes.
+ * Feste Pixelgrößen können das nicht - sie passen für genau eine Breite.
  */
 "use client";
 
 import type { ReactElement } from "react";
 import { LEVELS, type Tier } from "@/games/uboot/engine/levels";
+import { ChartLife } from "@/games/uboot/components/chart-life";
 import type { PanelKind } from "@/games/uboot/components/panel";
 import { UBOOT_TEXTS } from "@/games/uboot/i18n/texts";
 import { gradeAt } from "@/games/uboot/engine/grades";
@@ -34,6 +42,8 @@ export type LevelMapProps = {
   readonly onDive: (level: number) => void;
   /** Opens one of the three sheets over the window. */
   readonly onOpen: (panel: PanelKind) => void;
+  /** Geht in den Endlosmodus - der braucht kein Gewässer und keine Erlaubnis. */
+  readonly onDeep: () => void;
 };
 
 /**
@@ -88,11 +98,12 @@ export function LevelMap({
   profile,
   onDive,
   onOpen,
+  onDeep,
 }: LevelMapProps): ReactElement {
   const spare = free(profile);
 
   return (
-    <div className="absolute inset-0 overflow-hidden rounded-2xl bg-gradient-to-b from-sky-200 via-sky-500 to-sky-950 dark:from-sky-900 dark:via-sky-950 dark:to-black">
+    <div className="game-measured absolute inset-0 overflow-hidden rounded-2xl bg-gradient-to-b from-sky-200 via-sky-500 to-sky-950 dark:from-sky-900 dark:via-sky-950 dark:to-black">
       {/* The chart itself: surface, an island to leave and a trench to arrive
           at. Drawn in the same hundred-by-hundred frame the markers are placed
           in, so the route and the ground cannot drift apart. */}
@@ -112,8 +123,6 @@ export function LevelMap({
           />
         ))}
         <rect x="0" y="0" width="100" height="3" fill="rgba(255,255,255,0.7)" />
-        <polygon points="0,12 6,4 12,9 18,3 24,12" fill="rgba(46,60,42,0.85)" />
-        <polygon points="0,12 24,12 26,16 0,16" fill="rgba(70,84,60,0.7)" />
         <polygon
           points="0,96 14,93 28,97 42,92 54,95 64,88 72,94 80,99 88,86 100,90 100,100 0,100"
           fill="rgba(4,24,42,0.85)"
@@ -133,11 +142,17 @@ export function LevelMap({
         />
       </svg>
 
+      {/* **Statt einer Insel schwimmt hier etwas vorbei.** Berge am oberen
+          Rand erzählten von Land - die Karte handelt aber von dem, was unter
+          dem Strich liegt. Die Tiere liegen über dem Wasser und unter allem,
+          was man anfassen kann. */}
+      <ChartLife />
+
       {/* Oben rechts das Zahnrad - der Punktestand steht dort, wo man ihn
           ausgibt, nämlich am Hammer. Eine Zahl an zwei Stellen ist eine
           Zahl zu viel. */}
-      <div className="absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-2 p-3">
-        <p className="rounded-lg bg-black/35 px-2 py-1 text-xs text-white">
+      <div className="absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-[1cqw] p-[1.2cqw]">
+        <p className="rounded-lg bg-black/35 px-[0.8cqw] py-[0.4cqw] text-[1.3cqw] text-white">
           {UBOOT_TEXTS.mapHint}
         </p>
         <button
@@ -146,7 +161,7 @@ export function LevelMap({
           onClick={() => onOpen("settings")}
           title={UBOOT_TEXTS.settings}
           aria-label={UBOOT_TEXTS.settings}
-          className="cursor-pointer rounded-lg border border-white/50 bg-black/40 px-2.5 py-1 text-lg backdrop-blur-sm hover:bg-black/60"
+          className="cursor-pointer rounded-lg border border-white/50 bg-black/40 px-[1cqw] py-[0.4cqw] text-[2.2cqw] backdrop-blur-sm hover:bg-black/60"
         >
           {"\u2699\uFE0F"}
         </button>
@@ -168,10 +183,36 @@ export function LevelMap({
         />
       ))}
 
+      {/* **Unten links, abseits der Route.** Der Schlund gehört nicht zur
+          Reihe der zehn Gewässer: Er ist immer offen, er braucht nichts
+          freigeschaltet, und er hört nicht auf. Deshalb steht er auch nicht
+          auf der gepunkteten Linie, sondern daneben. */}
+      <div
+        className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[0.4cqw]"
+        style={{ left: "9%", top: "76%" }}
+      >
+        <button
+          type="button"
+          data-testid="uboot-deep"
+          onClick={onDeep}
+          title={UBOOT_TEXTS.deepHint}
+          aria-label={`${UBOOT_TEXTS.deepName} - ${UBOOT_TEXTS.deepTag}`}
+          className="flex h-[5cqw] w-[5cqw] cursor-pointer items-center justify-center rounded-full border-[0.2cqw] border-violet-200 bg-gradient-to-b from-violet-600 to-slate-900 text-[2.2cqw] shadow-lg hover:from-violet-500"
+        >
+          <span aria-hidden="true">{"\u{1F30A}"}</span>
+        </button>
+        <span className="rounded bg-black/45 px-[0.5cqw] py-[0.2cqw] text-center text-[1.15cqw] leading-tight font-medium whitespace-nowrap text-white">
+          {UBOOT_TEXTS.deepName}
+          <span className="block text-[1cqw] font-normal text-violet-200">
+            {UBOOT_TEXTS.deepTag}
+          </span>
+        </span>
+      </div>
+
       {/* The three doors, along the foot of the window. The hammer sits in the
           middle because it is the one that is finished and the one a player
           comes back to; the other two are corners they will want later. */}
-      <div className="absolute inset-x-0 bottom-0 grid grid-cols-3 gap-2 bg-gradient-to-t from-black/60 to-transparent p-2 pt-7">
+      <div className="absolute inset-x-0 bottom-0 grid grid-cols-3 gap-[0.8cqw] bg-gradient-to-t from-black/60 to-transparent p-[0.8cqw] pt-[2.8cqw]">
         <Door
           kind="encyclopedia"
           icon={"\u{1F4D6}"}
@@ -233,7 +274,7 @@ function Water({
       : "border-zinc-400 bg-zinc-700/80 text-zinc-300";
   return (
     <div
-      className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
+      className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[0.4cqw]"
       style={{ left: `${at.x}%`, top: `${at.y}%` }}
     >
       <button
@@ -243,13 +284,13 @@ function Water({
         disabled={!open}
         title={open ? hint : UBOOT_TEXTS.lockedHint}
         aria-label={`${UBOOT_TEXTS.course} ${index + 1} - ${name}`}
-        className={`flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-2 text-base font-bold shadow-lg disabled:cursor-not-allowed ${look}`}
+        className={`flex h-[4.4cqw] w-[4.4cqw] cursor-pointer items-center justify-center rounded-full border-[0.2cqw] text-[1.8cqw] font-bold shadow-lg disabled:cursor-not-allowed ${look}`}
       >
         {open ? (done ? "✓" : index + 1) : "\u{1F512}"}
       </button>
-      <span className="rounded bg-black/45 px-1.5 py-0.5 text-center text-[11px] leading-tight font-medium whitespace-nowrap text-white">
+      <span className="rounded bg-black/45 px-[0.5cqw] py-[0.2cqw] text-center text-[1.15cqw] leading-tight font-medium whitespace-nowrap text-white">
         {name}
-        <span className="block text-[10px] font-normal text-sky-100">
+        <span className="block text-[1cqw] font-normal text-sky-100">
           {done
             ? `${UBOOT_TEXTS.mastered} · ${gradeAt(best).name}`
             : UBOOT_TEXTS.worth(reward)}{" "}
@@ -286,18 +327,18 @@ function Door({
       type="button"
       data-testid={`uboot-door-${kind}`}
       onClick={() => onOpen(kind)}
-      className={`flex h-[4.6rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border px-2 text-center text-sm backdrop-blur-sm ${
+      className={`flex h-[7.4cqw] cursor-pointer flex-col items-center justify-center gap-[0.3cqw] rounded-xl border px-[0.8cqw] text-center text-[1.4cqw] backdrop-blur-sm ${
         soon === true
           ? "border-white/30 bg-black/30 text-zinc-200 hover:bg-black/45"
           : "border-white/60 bg-black/40 font-medium text-white hover:bg-black/60"
       }`}
     >
-      <span aria-hidden="true" className="text-xl leading-none">
+      <span aria-hidden="true" className="text-[2.4cqw] leading-none">
         {icon}
       </span>
       {label}
       {badge !== undefined && (
-        <span className="rounded bg-amber-300 px-1.5 text-xs font-semibold text-amber-950">
+        <span className="rounded bg-amber-300 px-[0.6cqw] text-[1.2cqw] font-semibold text-amber-950">
           {badge}
         </span>
       )}

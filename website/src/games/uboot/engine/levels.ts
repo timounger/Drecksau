@@ -92,6 +92,9 @@ export type Tier = "easy" | "cave" | "deep" | "final";
 export type PieceName =
   | "start"
   | "open"
+  | "home"
+  | "rock"
+  | "shack"
   | "spires"
   | "mines"
   | "narrow"
@@ -103,6 +106,13 @@ export type PieceName =
   | "wall"
   | "swarm"
   | "cave"
+  | "caveDome"
+  | "caveBucket"
+  | "caveMoai"
+  | "caveNemo"
+  | "caveFlipper"
+  | "caveArielle"
+  | "caveGhost"
   | "caveWave"
   | "caveArch"
   | "caveNarrow"
@@ -137,6 +147,60 @@ export const PIECES: Readonly<Record<PieceName, Piece>> = {
     "................",
     "................",
     "..~..~......~...",
+    "################",
+  ],
+  // Dasselbe offene Wasser, nur dass hier jemand wohnt. Nur im Hafenbecken:
+  // Eine Landmarke, die überall steht, ist keine.
+  home: [
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "...~....H..~....",
+    "################",
+  ],
+  // Und noch so ein Grundstück, eines Gewässers weiter: Unter dem Stein wohnt
+  // auch jemand, man sieht es nur an der Antenne.
+  rock: [
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "..~......R..~...",
+    "################",
+  ],
+  // Und das dritte Grundstück: die Bude mit dem Schild. Sie steht weiter rechts
+  // im Stück, damit das Schild links davon noch Platz hat.
+  shack: [
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "..~.......L.~...",
     "################",
   ],
   // A breather. Every course needs them, or the whole thing reads as noise.
@@ -373,6 +437,124 @@ export const PIECES: Readonly<Record<PieceName, Piece>> = {
     "################",
     "################",
   ],
+  // Dasselbe weite Stück, nur dass hier unter einer Glocke ein Baum steht.
+  caveDome: [
+    "################",
+    "################",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......D........",
+    "################",
+    "################",
+  ],
+  // Der Eimer steht im Schlund, der Steinkopf im Labyrinth - jeder in seinem
+  // eigenen Stück, damit er nur dort steht.
+  caveBucket: [
+    "################",
+    "################",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......E........",
+    "################",
+    "################",
+  ],
+  caveMoai: [
+    "################",
+    "################",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "........O.......",
+    "################",
+    "################",
+  ],
+  // Die vier Bewohner der dunklen Gewässer: jeder in seinem eigenen Stück,
+  // damit er nur in seinem Gewässer steht. Die drei Schwimmenden stehen im
+  // Wasser, die Meerjungfrau sitzt auf dem Grund.
+  caveNemo: [
+    "################",
+    "################",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......N........",
+    "................",
+    "................",
+    "................",
+    "................",
+    "################",
+    "################",
+  ],
+  caveFlipper: [
+    "################",
+    "################",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......P........",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "################",
+    "################",
+  ],
+  caveArielle: [
+    "################",
+    "################",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......V........",
+    "################",
+    "################",
+  ],
+  caveGhost: [
+    "################",
+    "################",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......G........",
+    "................",
+    "................",
+    "................",
+    "................",
+    "################",
+    "################",
+  ],
   caveArch: [
     "################",
     "################",
@@ -512,7 +694,7 @@ export const LEVELS: readonly Level[] = [
   {
     name: "Hafenbecken",
     hint: "Flach, hell und harmlos. Auftauchen füllt die Luft.",
-    pieces: ["start", "open", "kelp", "spires", "open", "finish"],
+    pieces: ["start", "open", "kelp", "spires", "home", "finish"],
     reward: 25,
     dark: 0,
     at: { x: 7, y: 18 },
@@ -522,7 +704,7 @@ export const LEVELS: readonly Level[] = [
   {
     name: "Seichtes Wasser",
     hint: "Die ersten Minen. Alles davon sieht man kommen.",
-    pieces: ["start", "open", "spires", "kelp", "mines", "open", "finish"],
+    pieces: ["start", "open", "spires", "rock", "mines", "open", "finish"],
     reward: 35,
     dark: 0,
     at: { x: 17, y: 42 },
@@ -537,7 +719,7 @@ export const LEVELS: readonly Level[] = [
       "spires",
       "mines",
       "narrow",
-      "kelp",
+      "shack",
       "shelf",
       "stairs",
       "mines",
@@ -557,6 +739,7 @@ export const LEVELS: readonly Level[] = [
       "open",
       "tunnel",
       "caveWave",
+      "caveDome",
       "caveTeeth",
       "caveOut",
       "finish",
@@ -574,6 +757,7 @@ export const LEVELS: readonly Level[] = [
       "start",
       "tunnel",
       "caveArch",
+      "caveBucket",
       "caveNarrow",
       "caveWave",
       "caveOut",
@@ -593,6 +777,7 @@ export const LEVELS: readonly Level[] = [
       "tunnel",
       "caveTeeth",
       "caveArch",
+      "caveMoai",
       "caveWave",
       "caveNarrow",
       "caveOut",
@@ -611,6 +796,7 @@ export const LEVELS: readonly Level[] = [
       "start",
       "tunnel",
       "caveWave",
+      "caveNemo",
       "caveTeeth",
       "caveArch",
       "caveOut",
@@ -629,6 +815,7 @@ export const LEVELS: readonly Level[] = [
       "start",
       "tunnel",
       "caveMines",
+      "caveFlipper",
       "caveNarrow",
       "caveWave",
       "caveTeeth",
@@ -649,6 +836,7 @@ export const LEVELS: readonly Level[] = [
       "tunnel",
       "caveArch",
       "caveMines",
+      "caveArielle",
       "caveWave",
       "caveNarrow",
       "caveTeeth",
@@ -679,6 +867,7 @@ export const LEVELS: readonly Level[] = [
       "caveTeeth",
       "caveMines",
       "caveOut",
+      "caveGhost",
       "arena",
       "finish",
     ],

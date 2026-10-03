@@ -34,10 +34,11 @@ import {
   keep,
   level,
   quiet as stopFiles,
+  settled,
   warm,
 } from "@/games/uboot/audio/samples";
 
-export { warm };
+export { settled, warm };
 
 /** Was das Spiel von sich geben kann. */
 export type Noise =
@@ -212,6 +213,20 @@ export function hum(on: boolean): void {
   } catch {
     // still
   }
+}
+
+/**
+ * Die Musik der Seekarte.
+ *
+ * @param on - ob die Karte zu sehen ist
+ * @remarks
+ * Ein eigenes Stück, nicht dasselbe wie unten: Über Wasser schaut man auf eine
+ * Karte und sucht sich etwas aus, unten taucht man. Nur als Datei und ohne
+ * gerechnete Ersatzstimme - ein Dauerton auf einer Übersichtsseite ist das
+ * Erste, was man abschaltet.
+ */
+export function chart(on: boolean): void {
+  keep("chart", on, levels.music);
 }
 
 /**

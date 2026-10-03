@@ -14,6 +14,7 @@ gibt es absichtlich keinen Ersatz.
 
 | Datei                 | Art       | Wann es läuft                                                     |
 | --------------------- | --------- | ----------------------------------------------------------------- |
+| `musik/seekarte.mp3`  | Schleife  | Solange die Seekarte zu sehen ist, am Regler **Musik**            |
 | `musik/tiefe.mp3`     | Schleife  | Während des ganzen Tauchgangs, am Regler **Musik**                |
 | `sounds/antrieb.mp3`  | Schleife  | Solange Schub nach vorn anliegt - ohne Datei bleibt es hier still |
 | `sounds/harpune.mp3`  | Einzelton | Bei jedem Harpunenschuss                                          |
@@ -32,7 +33,14 @@ gibt es absichtlich keinen Ersatz.
   in `FILES` und `LOOP_FILES` in `src/games/uboot/audio/samples.ts`.
 - **Zwei Sorten:** Ein **Einzelton** bekommt jedes Mal ein eigenes Element,
   damit zwei Schüsse sich überlagern können. Eine **Schleife** läuft dauerhaft
-  und wird nur an- und ausgeschaltet; davon gibt es zwei.
+  und wird nur an- und ausgeschaltet; davon gibt es drei.
+- **Zwei Musikstücke, ein Regler:** Über Wasser schaut man auf eine Karte und
+  sucht sich etwas aus, unten taucht man - das sind zwei Stimmungen und zwei
+  Dateien. Wer die Musik leiser dreht, meint beide.
+- Für die beiden Musikstücke und das Fahrgeräusch gibt es **keinen gerechneten
+  Ersatz**: Solange `musik/seekarte.mp3` leer ist, ist die Seekarte still.
+  (`musik/tiefe.mp3` hat eine Ausnahme - solange sie fehlt, brummt unten die
+  Tiefe.)
 - **Lautstärke:** Die Musik hängt am Regler _Musik_, alles andere am Regler
   _Sound_ - beide im Zahnrad oben rechts auf der Seekarte.
 - **Neues Geräusch:** Datei hier ablegen **und** im Code eintragen (ein Name in

@@ -23,6 +23,7 @@ import {
   CELL,
   MINE_R,
   ROWS,
+  isDecor,
   SUB_DISC,
   SUB_DISCS,
   SUB_HIGH,
@@ -662,8 +663,9 @@ function fly(
       moved.x < window + VIEW_W + CELL &&
       moved.y > 0 &&
       moved.y < ROWS * CELL;
-    // Eine gelegte Mine steckt in nichts fest - sie liegt und wartet.
-    const done = moved.kind !== "mine" && into !== "." && into !== "~";
+    // Eine gelegte Mine steckt in nichts fest - sie liegt und wartet. Tang und
+    // die Häuser sind Zierde: Da fliegt ein Schuss hindurch wie durch Wasser.
+    const done = moved.kind !== "mine" && into !== "." && !isDecor(into);
     const old = moved.age >= arm.life;
 
     if (!done && !old && seen) {

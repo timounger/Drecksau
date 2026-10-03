@@ -1,19 +1,18 @@
 /**
- * Die Werkstatt: eine Tafel voller Felder, daneben steht, was eines davon tut.
+ * Die Werkstatt: ein Baum aus Feldern, und am Feld steht, was es tut.
  *
  * @module
  * @remarks
- * Gebaut nach der Vorlage, die klassische Ausbaubäume benutzen: **unten die
- * Kategorien, darüber die Stufen, dazwischen Verbindungen**, rechts der
- * Punktestand und eine Tafel, die das erklärt, was man gerade angetippt hat.
- * Unten rechts die beiden einzigen Knöpfe, die es braucht - alles zurückholen
- * und fertig.
+ * Gebaut nach `game_instructions/UBoot/verbesserungen.png`: **der Baum füllt
+ * das Blatt**, links oben führt der Weg zurück, rechts oben stehen die freien
+ * Punkte und daneben der Knopf, der alles wieder herausholt. Keine Tafel an
+ * der Seite mehr - was ein Feld bedeutet, steht in einer Sprechblase am Feld
+ * selbst.
  *
- * Der Ablauf ist deshalb **antippen, dann freischalten** und nicht ein Klick
- * für beides: Was eine Stufe kostet, ist auf dem Feld zu sehen, was sie tut,
- * braucht einen Satz - und einen Satz liest niemand auf einem Feld von
- * siebzig Pixeln. Nebenbei kann man damit im Baum stöbern, ohne aus Versehen
- * Punkte auszugeben.
+ * **Einmal tippen zeigt, zweimal tippen baut ein.** Das ist der ganze Ablauf.
+ * Ein Klick für beides wäre eine Falle: Was eine Stufe kostet, sieht man auf
+ * dem Feld, was sie tut, braucht einen Satz - und wer stöbert, soll dabei
+ * keine Punkte ausgeben. Zwei Klicks sind der kürzeste Weg, der beides kann.
  *
  * Das Blatt hat **keinen eigenen Spielstand**: Profil und Änderung kommen von
  * oben herein. Damit gibt es nur eine Wahrheit darüber, was gekauft ist, und
@@ -29,6 +28,7 @@ import {
   type Upgrade,
   type UpgradeId,
 } from "@/games/uboot/engine/upgrades";
+import { ChartLife, SHOAL_SWIMMERS } from "@/games/uboot/components/chart-life";
 import { UpgradeIcon } from "@/games/uboot/components/upgrade-icons";
 import { UBOOT_TEXTS } from "@/games/uboot/i18n/texts";
 import {
@@ -46,8 +46,12 @@ export type UpgradeBoardProps = {
   readonly profile: Profile;
   /** Hands the changed profile back up - saving is the caller's business. */
   readonly onChange: (profile: Profile) => void;
-  /** The tick in the corner: done here, back to the chart. */
-  readonly onDone: () => void;
+};
+
+/** Props of {@link UpgradeTools}. */
+export type UpgradeToolsProps = {
+  readonly profile: Profile;
+  readonly onChange: (profile: Profile) => void;
 };
 
 /** Which field on the board is being looked at. */
@@ -57,91 +61,143 @@ type Picked = {
   readonly step: number;
 };
 
+/** Ob eine Bahn ganz links, ganz rechts oder mittendrin steht. */
+type Edge = "start" | "end" | null;
+
 /** An eight-sided tile, the shape every such board has ever used. */
 const OCTAGON =
   "[clip-path:polygon(28%_0,72%_0,100%_28%,100%_72%,72%_100%,28%_100%,0_72%,0_28%)]";
 
 /**
+ * Der Punktestand und der Knopf daneben - für die Kopfzeile des Blattes.
+ *
+ * @param props - der Spieler und wohin die Änderung geht
+ * @returns die beiden Werkzeuge
+ * @remarks
+ * **Oben rechts, wo auch sonst die Werkzeuge eines Blattes liegen.** Die Zahl
+ * und das Zurückholen gehören zusammen: Beides handelt von denselben Punkten,
+ * und wer sieht, dass ihm welche fehlen, greift als Nächstes genau daneben.
+ *
+ * Keine Rückfrage vor dem Zurückholen: Es geht nichts verloren - jeder Punkt
+ * kommt zurück und kann sofort wieder ausgegeben werden. Eine Frage stünde nur
+ * dem im Weg, wofür der Knopf da ist, nämlich ein anderes Boot auszuprobieren.
+ *
+ * **Daneben steht "alles freischalten", aber nur, wenn es reicht.** Wer alles
+ * bezahlen kann, soll nicht fünfzehnmal tippen müssen - und solange die Punkte
+ * nicht für sämtliche fehlenden Stufen langen, wäre "alles" eine Behauptung,
+ * nach der man hinterher nachsehen müsste.
+ */
+export function UpgradeTools({
+  profile,
+  onChange,
+}: UpgradeToolsProps): ReactElement {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        data-testid="uboot-spare"
+        className="flex items-center gap-1.5 rounded-full border-2 border-amber-700 bg-gradient-to-b from-amber-200 to-amber-400 px-3 py-1 text-amber-950 shadow"
+      >
+        <span aria-hidden="true">{"\u{1F48E}"}</span>
+        <span className="text-lg leading-none font-extrabold">
+          {free(profile)}
+        </span>
+        <span className="text-[11px] font-semibold">
+          {UBOOT_TEXTS.pointsFree}
+        </span>
+      </span>
+      {canBuyAll(profile) && (
+        <button
+          type="button"
+          data-testid="uboot-buy-all"
+          onClick={() => onChange(withAll(profile))}
+          title={UBOOT_TEXTS.openAllHint}
+          className="cursor-pointer rounded-lg bg-emerald-600 px-3 py-1 text-sm font-semibold text-white hover:bg-emerald-500"
+        >
+          {UBOOT_TEXTS.buyAll} {"\u{1F48E}"} {restCost(profile)}
+        </button>
+      )}
+      <button
+        type="button"
+        data-testid="uboot-reset"
+        onClick={() => onChange(withStripped(profile))}
+        title={UBOOT_TEXTS.resetHint}
+        aria-label={UBOOT_TEXTS.reset}
+        className="cursor-pointer rounded-lg border-2 border-amber-900/70 bg-gradient-to-b from-slate-600 to-slate-800 px-2.5 py-1 text-lg leading-none text-amber-100 hover:from-slate-500 hover:to-slate-700"
+      >
+        {"↺"}
+      </button>
+    </div>
+  );
+}
+
+/**
  * Renders the workshop.
  *
- * @param props - the player, where changes go and the way out
+ * @param props - the player and where changes go
  * @returns the workshop element
  */
 export function UpgradeBoard({
   profile,
   onChange,
-  onDone,
 }: UpgradeBoardProps): ReactElement {
   const spare = free(profile);
   const [picked, setPicked] = useState<Picked | null>(null);
 
+  /**
+   * Was ein Tippen auf ein Feld bedeutet.
+   *
+   * @remarks
+   * Dasselbe Feld ein zweites Mal, und es ist gekauft - aber nur, wenn es
+   * wirklich dran und bezahlt ist. Sonst bleibt es beim Zeigen, und die
+   * Sprechblase sagt, woran es liegt.
+   */
+  const tap = (track: UpgradeId, step: number, can: boolean) => {
+    const again = picked?.track === track && picked.step === step;
+    if (again && can) {
+      onChange(withBought(profile, track));
+    } else {
+      setPicked({ track, step });
+    }
+  };
+
   return (
-    <div className="flex h-full gap-3">
-      {/* The board itself: a steel plate with the tiles riveted onto it. */}
-      <div className="flex flex-1 items-end justify-around gap-1 rounded-xl border-4 border-amber-900/70 bg-gradient-to-b from-slate-700 to-slate-900 p-2 shadow-inner">
-        {UPGRADES.map((track) => (
-          <Column
-            key={track.id}
-            track={track}
-            level={profile.upgrades[track.id] ?? 0}
-            spare={spare}
-            picked={picked}
-            onPick={setPicked}
-            onTake={() => onChange(withBought(profile, track.id))}
-          />
-        ))}
-      </div>
+    // **Ein Klick daneben schließt die Blase.** Sie gehört zu einem Feld, und
+    // wer woandershin fasst, meint sie nicht mehr. Die Felder selbst halten
+    // ihren Klick auf (siehe {@link Tile}), sonst ginge er hier wieder auf.
+    <div
+      className="flex h-full flex-col"
+      onClick={() => setPicked(null)}
+      role="presentation"
+    >
+      {/* Der Baum: unten die Bahnen, darüber ihre Stufen. **Er rollt nicht** -
+          eine Tafel, von der man die Hälfte erst herunterziehen muss, ist
+          keine Übersicht. Deshalb sind die Felder eine Nummer kleiner,
+          solange das Fenster schmal ist. */}
+      <div className="relative flex flex-1 overflow-hidden rounded-2xl border-2 border-sky-900/60 bg-gradient-to-b from-sky-900 via-sky-950 to-slate-950 px-1 pt-2 pb-2 max-md:flex-none">
+        {/* Hinter dem Baum zieht Wasser mit Bewegung darin vorbei - nur
+            Schwärme, nichts, was einen anschaut. */}
+        <ChartLife swimmers={SHOAL_SWIMMERS} />
 
-      <div className="flex w-[15.5rem] shrink-0 flex-col gap-2">
-        <div
-          data-testid="uboot-spare"
-          className="flex items-center justify-center gap-2 rounded-lg border-2 border-amber-700 bg-gradient-to-b from-amber-200 to-amber-400 px-3 py-1.5 text-amber-950 shadow"
-        >
-          <span aria-hidden="true" className="text-lg">
-            {"\u{1F48E}"}
-          </span>
-          <span className="text-xl font-extrabold">{spare}</span>
-          <span className="text-xs font-semibold">
-            {UBOOT_TEXTS.pointsFree}
-          </span>
-        </div>
-
-        <Plate
-          picked={picked}
-          profile={profile}
-          spare={spare}
-          onBuy={(track) =>
-            onChange(
-              track === null ? withAll(profile) : withBought(profile, track),
-            )
-          }
-        />
-
-        <div className="flex gap-2">
-          {/* No "are you sure": nothing is lost by it - every point comes
-              straight back and can be spent again. A question here would only
-              be in the way of the thing it is for, which is trying another
-              boat. */}
-          <button
-            type="button"
-            data-testid="uboot-reset"
-            onClick={() => onChange(withStripped(profile))}
-            title={UBOOT_TEXTS.resetHint}
-            aria-label={UBOOT_TEXTS.reset}
-            className="flex-1 cursor-pointer rounded-lg border-2 border-amber-900/70 bg-gradient-to-b from-slate-600 to-slate-800 py-2 text-xl text-amber-100 hover:from-slate-500 hover:to-slate-700"
-          >
-            {"↺"}
-          </button>
-          <button
-            type="button"
-            data-testid="uboot-done"
-            onClick={onDone}
-            title={UBOOT_TEXTS.done}
-            aria-label={UBOOT_TEXTS.done}
-            className="flex-1 cursor-pointer rounded-lg border-2 border-amber-900/70 bg-gradient-to-b from-emerald-600 to-emerald-800 py-2 text-xl text-white hover:from-emerald-500 hover:to-emerald-700"
-          >
-            {"✓"}
-          </button>
+        {/* Der Baum liegt darüber: Die Felder sind eigene Ebenen, der Fuß
+            einer Bahn wäre sonst hinter der Leinwand. */}
+        <div className="relative z-10 flex w-full items-end justify-around gap-1 max-md:gap-0">
+          {UPGRADES.map((track, column) => (
+            <Column
+              key={track.id}
+              track={track}
+              edge={
+                column === 0
+                  ? "start"
+                  : column === UPGRADES.length - 1
+                    ? "end"
+                    : null
+              }
+              level={profile.upgrades[track.id] ?? 0}
+              spare={spare}
+              picked={picked}
+              onTap={tap}
+            />
+          ))}
         </div>
       </div>
     </div>
@@ -151,11 +207,12 @@ export function UpgradeBoard({
 /** Props of {@link Column}. */
 type ColumnProps = {
   readonly track: Upgrade;
+  /** Ob diese Bahn ganz außen steht - dann kippt die Sprechblase nach innen. */
+  readonly edge: Edge;
   readonly level: number;
   readonly spare: number;
   readonly picked: Picked | null;
-  readonly onPick: (picked: Picked) => void;
-  readonly onTake: () => void;
+  readonly onTap: (track: UpgradeId, step: number, can: boolean) => void;
 };
 
 /**
@@ -168,11 +225,11 @@ type ColumnProps = {
  */
 function Column({
   track,
+  edge,
   level,
   spare,
   picked,
-  onPick,
-  onTake,
+  onTap,
 }: ColumnProps): ReactElement {
   const steps = track.steps.map((step, index) => ({ step, index })).reverse();
 
@@ -183,12 +240,16 @@ function Column({
           <Tile
             step={step}
             track={track}
+            edge={edge}
+            // Das oberste Feld einer Bahn kippt seine Blase nach unten: Über
+            // ihm ist der Rand der Tafel, und eine abgeschnittene Erklärung
+            // erklärt nichts.
+            flip={index === track.steps.length - 1}
             index={index}
             level={level}
             spare={spare}
             chosen={picked?.track === track.id && picked.step === index}
-            onPick={() => onPick({ track: track.id, step: index })}
-            onTake={onTake}
+            onTap={onTap}
           />
           <Wire lit={index < level} />
         </div>
@@ -212,27 +273,29 @@ function Wire({ lit }: { readonly lit: boolean }): ReactElement {
 type TileProps = {
   readonly step: Step;
   readonly track: Upgrade;
+  readonly edge: Edge;
+  /** Ob die Blase nach unten statt nach oben aufgeht. */
+  readonly flip: boolean;
   /** Which step this is, counted from zero. */
   readonly index: number;
   /** How far the track has been taken. */
   readonly level: number;
   readonly spare: number;
   readonly chosen: boolean;
-  readonly onPick: () => void;
-  /** Two clicks on a field that may be taken take it. */
-  readonly onTake: () => void;
+  readonly onTap: (track: UpgradeId, step: number, can: boolean) => void;
 };
 
 /** One field of the board: had, next, or still out of reach. */
 function Tile({
   step,
   track,
+  edge,
+  flip,
   index,
   level,
   spare,
   chosen,
-  onPick,
-  onTake,
+  onTap,
 }: TileProps): ReactElement {
   const had = index < level;
   const next = index === level;
@@ -256,41 +319,148 @@ function Tile({
         : "bg-gradient-to-b from-slate-700 to-slate-800";
 
   return (
-    <button
-      type="button"
-      data-testid={`uboot-step-${track.id}-${index}`}
-      onClick={onPick}
-      // Nur das Feld, das wirklich als nächstes dran und bezahlbar ist, kauft
-      // sich per Doppelklick. Sonst würde ein Doppelklick irgendwo oben im
-      // Baum die unterste Stufe kaufen - gekauft wird ja immer die nächste.
-      onDoubleClick={can ? onTake : undefined}
-      title={step.label}
-      aria-label={`${track.name}: ${step.label}`}
-      className={`relative h-20 w-20 cursor-pointer p-[3px] select-none ${OCTAGON} ${frame} ${
-        chosen ? "ring-4 ring-emerald-300" : ""
-      }`}
-    >
-      <span
-        className={`flex h-full w-full flex-col items-center justify-center ${OCTAGON} ${face}`}
+    <span className="relative flex flex-col items-center">
+      {chosen && (
+        <Bubble
+          step={step}
+          track={track}
+          edge={edge}
+          flip={flip}
+          had={had}
+          next={next}
+          can={can}
+        />
+      )}
+      <button
+        type="button"
+        data-testid={`uboot-step-${track.id}-${index}`}
+        onClick={(event) => {
+          // Nicht bis zum Blatt durchlassen: Dort schließt jeder Klick die
+          // Blase, und sie ginge im selben Augenblick wieder zu.
+          event.stopPropagation();
+          onTap(track.id, index, can);
+        }}
+        title={step.label}
+        aria-label={`${track.name}: ${step.label}`}
+        className={`relative h-14 w-14 cursor-pointer p-[3px] select-none lg:h-20 lg:w-20 ${OCTAGON} ${frame} ${
+          chosen ? "ring-4 ring-emerald-300" : ""
+        }`}
       >
-        <span className={had || next ? "" : "opacity-40 grayscale"}>
-          <UpgradeIcon id={track.id} step={index} className="h-9 w-9" />
-        </span>
         <span
-          className={`text-xs leading-tight font-bold ${
-            had
-              ? "text-amber-800"
-              : can
-                ? "text-slate-800"
-                : next
-                  ? "text-slate-200"
-                  : "text-slate-400"
-          }`}
+          className={`flex h-full w-full flex-col items-center justify-center ${OCTAGON} ${face}`}
         >
-          {had ? "✓" : step.cost}
+          <span className={had || next ? "" : "opacity-40 grayscale"}>
+            <UpgradeIcon
+              id={track.id}
+              step={index}
+              className="h-6 w-6 lg:h-9 lg:w-9"
+            />
+          </span>
+          <span
+            className={`text-[9px] leading-tight font-bold lg:text-xs ${
+              had
+                ? "text-amber-800"
+                : can
+                  ? "text-slate-800"
+                  : next
+                    ? "text-slate-200"
+                    : "text-slate-400"
+            }`}
+          >
+            {had ? "✓" : step.cost}
+          </span>
+        </span>
+      </button>
+    </span>
+  );
+}
+
+/** Props of {@link Bubble}. */
+type BubbleProps = {
+  readonly step: Step;
+  readonly track: Upgrade;
+  readonly edge: Edge;
+  readonly flip: boolean;
+  /** Schon eingebaut, als Nächstes dran, und ob es bezahlt ist. */
+  readonly had: boolean;
+  readonly next: boolean;
+  readonly can: boolean;
+};
+
+/**
+ * Die Sprechblase über dem angetippten Feld.
+ *
+ * @param props - das Feld und wie es dasteht
+ * @returns die Blase
+ * @remarks
+ * Name, Beschreibung, und eine letzte Zeile, die sagt, was ein zweites Tippen
+ * bewirkt - oder warum es nichts bewirkt. **Am Feld und nicht an der Seite:**
+ * Eine Erklärung, die drei Handbreit neben dem steht, was sie erklärt, liest
+ * man beim dritten Mal nicht mehr.
+ */
+function Bubble({
+  step,
+  track,
+  edge,
+  flip,
+  had,
+  next,
+  can,
+}: BubbleProps): ReactElement {
+  // **Am Rand kippt sie nach innen.** Eine Blase, die zur Hälfte neben dem
+  // Blatt hängt, erklärt die Hälfte - und auf dem Telefon ist die äußerste
+  // Bahn nur einen Daumen vom Rand entfernt.
+  const where =
+    edge === "start"
+      ? "left-0"
+      : edge === "end"
+        ? "right-0"
+        : "left-1/2 -translate-x-1/2";
+  const point =
+    edge === "start" ? "left-7" : edge === "end" ? "right-7" : "left-1/2 -ml-2";
+  // Nach oben oder nach unten - und die Spitze sitzt jeweils auf der anderen
+  // Seite der Blase.
+  const side = flip ? "top-full mt-2" : "bottom-full mb-2";
+  const nib = flip
+    ? "bottom-full border-b-8 border-b-sky-200"
+    : "top-full border-t-8 border-t-sky-200";
+  const tail = had
+    ? `✓ ${UBOOT_TEXTS.alreadyHad}`
+    : can
+      ? UBOOT_TEXTS.tapAgain
+      : next
+        ? UBOOT_TEXTS.tooDear
+        : UBOOT_TEXTS.firstBelow;
+
+  return (
+    <span
+      data-testid="uboot-bubble"
+      // **Sie fängt keine Klicks ab.** Die Blase deckt die Nachbarfelder
+      // halb zu; ein Klick darauf soll das Feld darunter treffen und nicht
+      // ins Leere gehen.
+      className={`pointer-events-none absolute z-20 w-56 rounded-xl border-2 border-sky-200 bg-white p-2 text-left shadow-xl max-md:w-44 dark:bg-zinc-100 ${where} ${side}`}
+    >
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="text-sm leading-tight font-extrabold tracking-wide text-sky-800 uppercase">
+          {step.label}
+        </span>
+        <span className="flex shrink-0 items-center gap-0.5 text-xs font-bold text-amber-700">
+          <span aria-hidden="true">{"\u{1F48E}"}</span>
+          {step.cost}
         </span>
       </span>
-    </button>
+      <span className="mt-1 block text-xs leading-snug text-zinc-700">
+        {step.note}
+      </span>
+      <span className="mt-1 block text-[11px] leading-snug font-semibold text-zinc-500">
+        {track.short} · {tail}
+      </span>
+      {/* Die Spitze der Blase, die auf das Feld darunter zeigt. */}
+      <span
+        aria-hidden="true"
+        className={`absolute h-0 w-0 border-x-8 border-x-transparent ${nib} ${point}`}
+      />
+    </span>
   );
 }
 
@@ -299,7 +469,7 @@ function Tile({
  *
  * @remarks
  * Symbol und Name, mehr nicht. Was das Boot in dieser Bahn gerade hat, steht
- * auf der Tafel daneben, sobald man ein Feld antippt - hier unten wäre es eine
+ * in der Sprechblase, sobald man ein Feld antippt - hier unten wäre es eine
  * dritte Zeile in einer Spalte von achtzig Pixeln, also eine, die niemand
  * liest.
  */
@@ -307,127 +477,12 @@ function Base({ track }: { readonly track: Upgrade }): ReactElement {
   return (
     <div
       title={`${track.name} - ${track.hint}`}
-      className="mt-1 flex w-20 flex-col items-center gap-0.5 rounded-lg border-2 border-slate-500 bg-gradient-to-b from-slate-600 to-slate-800 px-1 py-1.5 text-center"
+      className="mt-1 flex w-14 flex-col items-center gap-0.5 rounded-lg border-2 border-slate-500 bg-gradient-to-b from-slate-600 to-slate-800 px-1 py-1 text-center lg:w-20 lg:py-1.5"
     >
-      <UpgradeIcon id={track.id} step={0} className="h-6 w-6" />
-      <span className="text-[10px] leading-tight font-bold text-amber-100">
+      <UpgradeIcon id={track.id} step={0} className="h-4 w-4 lg:h-6 lg:w-6" />
+      <span className="text-[8px] leading-tight font-bold text-amber-100 lg:text-[10px]">
         {track.short}
       </span>
-    </div>
-  );
-}
-
-/** Props of {@link Plate}. */
-type PlateProps = {
-  readonly picked: Picked | null;
-  readonly profile: Profile;
-  readonly spare: number;
-  /** Eine Bahn - oder null für alles auf einmal. */
-  readonly onBuy: (track: UpgradeId | null) => void;
-};
-
-/**
- * Die Tafel neben dem Baum: was das angetippte Feld ist und was es tut.
- *
- * @param props - what is picked, and what may be done with it
- * @returns the plate
- */
-function Plate({ picked, profile, spare, onBuy }: PlateProps): ReactElement {
-  const track = UPGRADES.find((one) => one.id === picked?.track);
-  const step =
-    track !== undefined && picked !== null
-      ? track.steps[picked.step]
-      : undefined;
-  let body: ReactElement;
-
-  if (track === undefined || step === undefined || picked === null) {
-    // **Wer alles bezahlen kann, soll nicht fünfzehnmal klicken müssen.**
-    // Der Knopf erscheint nur, wenn die freien Punkte für sämtliche fehlenden
-    // Stufen reichen - sonst wäre "alles" eine Behauptung, und man müsste
-    // hinterher nachsehen, was davon wirklich eingebaut wurde.
-    body = (
-      <div className="m-auto flex flex-col items-center gap-3 text-center">
-        <p className="max-w-[12rem] text-sm text-slate-500 dark:text-slate-400">
-          {UBOOT_TEXTS.pickOne}
-        </p>
-        {canBuyAll(profile) && (
-          <button
-            type="button"
-            data-testid="uboot-buy-all"
-            onClick={() => onBuy(null)}
-            className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
-          >
-            {UBOOT_TEXTS.buyAll} {"\u{1F48E}"} {restCost(profile)}
-          </button>
-        )}
-      </div>
-    );
-  } else {
-    const level = profile.upgrades[track.id] ?? 0;
-    const had = picked.step < level;
-    const next = picked.step === level;
-    const can = next && step.cost <= spare;
-    body = (
-      <>
-        <div className="flex items-center gap-2">
-          <UpgradeIcon id={track.id} step={picked.step} className="h-10 w-10" />
-          <span className="ml-auto flex items-center gap-1 text-sm font-bold text-amber-700 dark:text-amber-300">
-            <span aria-hidden="true">{"\u{1F48E}"}</span>
-            {step.cost}
-          </span>
-        </div>
-        <p className="text-base leading-tight font-extrabold text-sky-800 dark:text-sky-300">
-          {step.label}
-        </p>
-        <p className="text-xs leading-snug text-zinc-600 dark:text-zinc-400">
-          {step.note}
-        </p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="font-semibold">{UBOOT_TEXTS.nowHas}</span>{" "}
-          {level > 0 ? track.steps[level - 1].label : track.base}
-        </p>
-        <div className="mt-auto">
-          {had && (
-            <p className="rounded-lg bg-emerald-100 px-3 py-1.5 text-center text-sm font-semibold text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
-              {"✓"} {UBOOT_TEXTS.alreadyHad}
-            </p>
-          )}
-          {!had && next && can && (
-            // **Zwei Wege zum selben Einbau.** Der Knopf ist der, den man
-            // findet, ohne ihn zu kennen; der Doppelklick ist der, den man
-            // nimmt, wenn man den Baum schon kennt und zügig ausbauen will.
-            <>
-              <button
-                type="button"
-                data-testid="uboot-buy"
-                onClick={() => onBuy(track.id)}
-                className="w-full cursor-pointer rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
-              >
-                {UBOOT_TEXTS.install} {"\u{1F48E}"} {step.cost}
-              </button>
-              <p className="mt-1 text-center text-[11px] text-zinc-500 dark:text-zinc-400">
-                {UBOOT_TEXTS.orDouble}
-              </p>
-            </>
-          )}
-          {!had && next && !can && (
-            <p className="rounded-lg bg-zinc-100 px-3 py-1.5 text-center text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-              {UBOOT_TEXTS.missing(step.cost - spare)}
-            </p>
-          )}
-          {!had && !next && (
-            <p className="rounded-lg bg-zinc-100 px-3 py-1.5 text-center text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-              {UBOOT_TEXTS.firstBelow}
-            </p>
-          )}
-        </div>
-      </>
-    );
-  }
-
-  return (
-    <div className="flex flex-1 flex-col gap-1.5 rounded-lg border-2 border-amber-700/60 bg-amber-50 p-3 shadow-inner dark:bg-zinc-900">
-      {body}
     </div>
   );
 }

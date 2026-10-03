@@ -264,6 +264,8 @@ export function swum(beast: Beast, sub: Vec, dt: number): Beast {
  * @param shots - was gerade unterwegs ist
  * @param booms - und was gerade hochgeht
  * @param reachOf - wie weit der Knall einer Waffe reicht, oder null
+ * @typeParam S - die Sorte Schuss; was hereingeht, kommt auch wieder heraus,
+ *   damit der Endlosmodus seinen eigenen Schuss durchreichen kann
  * @returns die Überlebenden, die weiterfliegenden Schüsse, die Toten und die
  *   Knalle, die dabei entstanden sind
  * @remarks
@@ -273,18 +275,18 @@ export function swum(beast: Beast, sub: Vec, dt: number): Beast {
  * billige nicht kann: Der Seeigel ist die Antwort auf die Frage, wozu man
  * einen Torpedo braucht, wenn die Harpune doch dasselbe trifft.
  */
-export function mauled(
+export function mauled<S extends Shot>(
   beasts: readonly Beast[],
-  shots: readonly Shot[],
+  shots: readonly S[],
   booms: readonly Blast[],
   reachOf: (kind: WeaponKind) => number,
 ): {
   readonly beasts: readonly Beast[];
-  readonly shots: readonly Shot[];
+  readonly shots: readonly S[];
   readonly dead: readonly Vec[];
   readonly pops: readonly { readonly at: Vec; readonly reach: number }[];
 } {
-  const left: Shot[] = [];
+  const left: S[] = [];
   const dead: Vec[] = [];
   const pops: { at: Vec; reach: number }[] = [];
   let living = beasts;

@@ -100,6 +100,57 @@ Ausgezahlt wird nur, was noch unter den Deckel passt - und **das** ist auch die
 Zahl, die das Siegblatt zeigt. Eine Belohnung anzukündigen, die nicht ankommt,
 wäre gelogen; steht da +0, sagt eine Zeile darunter, warum.
 
+## Auf dem Telefon
+
+Drei Dinge halten das Spiel auf einem kleinen Bildschirm zusammen:
+
+**Die Seekarte misst sich am Fenster, nicht am Bildschirm.** Jede Größe darauf
+steht in `cqw` - einem Hundertstel der Fensterbreite -, und das Blatt trägt dafür
+die Klasse `.game-measured` (`container-type: inline-size`). **Diese Klasse ist
+nicht schmückend:** Ohne einen solchen Container fällt `cqw` auf den
+Darstellungsbereich zurück - auf einem 1600 Pixel breiten Monitor wurden die
+Marken dann 70 statt 44 Pixel groß, während das Spielfenster bei seinen 992
+blieb. Als Inline-Stil versucht funktioniert es übrigens nicht: React trägt
+`container-type` nicht ins DOM ein. Damit sieht die Karte auf dem Telefon aus wie auf dem Bildschirm,
+nur kleiner; mit festen Pixelgrößen schoben sich vorher Marken, Namen und die
+drei Türen übereinander, weil sie für genau eine Breite gemacht waren.
+
+**Im Hintergrund der Karte schwimmt etwas vorbei**
+([components/chart-life.tsx](components/chart-life.tsx)). Dort lag vorher eine
+Insel mit Bergen - die erzählte aber von Land, und die Karte handelt von dem,
+was unter dem Strich liegt. Jetzt ziehen ein paar Bewohner quer durchs Blatt,
+blass und langsam, verschwinden an der einen Kante und kommen an der anderen
+wieder.
+
+Dasselbe steht **hinter dem Ausbaubaum**, dort aber nur Fischschwärme: Die
+Werkstatt ist der Ort zwischen zwei Tauchgängen, und ein Anglerfisch, der dort
+durchs Bild zieht, erinnert ans Gefecht, statt ans Boot denken zu lassen. Ein
+Schwarm ist Wasser mit Bewegung darin. Wer vorbeizieht, sagt also das Blatt -
+die Leinwand selbst weiß es nicht.
+
+Es sind **dieselben Tiere wie im Wasser** ({@link ./creatures drawBeast}), nur
+blasser und ohne jede Wirkung: anklicken kann man sie nicht, treffen können sie
+einen nicht. Ein zweiter Satz eigens gemalter Hintergrundfische wäre ein
+zweiter Satz, den man beim nächsten Umbau einer Qualle vergisst. Ihre Bahn
+braucht dabei keinen Zustand - sie ist der Rest einer Teilung aus Startpunkt,
+Tempo und Uhrzeit.
+
+**Die Blätter nehmen auf dem Telefon den ganzen Bildschirm** (`fixed inset-0`,
+ab `md` wieder im Fenster). Im Fenster wären Werkstatt, Buch und Erfolge dort
+zwei Finger hoch, und Text, der in zwei Finger passen muss, ist kein Text mehr.
+Die Werkstatt stellt sich dabei um: Felder eine Nummer kleiner, die Tafel nur
+so hoch wie ihr Baum - sechs Türme nebeneinander in einer Handbreit wären
+sonst sechs Türme, von denen man vier nicht sieht.
+
+**Das Vollbild gibt es überall**, nicht nur im Tauchgang: Auf dem Telefon ist es
+der einzige Weg zu einer Karte, auf der man etwas lesen kann - und dorthin will
+man, bevor man ein Gewässer aussucht. Quer gehalten füllt das Spielfenster dann
+den ganzen Bildschirm.
+
+Gesteuert wird wie in der Panzerkiste: **links ins Bild fassen**, und unter dem
+Daumen geht ein Steuerkreuz auf; rechts tippen schießt, rechts halten legt eine
+Seemine.
+
 ## Das Blatt vor dem Tauchgang
 
 Ein Klick auf ein Gewässer taucht nicht ab, sondern öffnet
@@ -191,6 +242,114 @@ Risse, und das Sonar zeichnet ihn mit einem Kreuz statt als leeres Kästchen.
 Eine Wand, der man erst am Einschlag ansieht, ob sie nachgibt, wäre kein
 Rätsel, sondern eine verschwendete Mine.
 
+## Zehn Landmarken auf dem Grund
+
+Auf dem Grund des ersten Gewässers steht ein Haus aus einer Ananas - mit
+Blätterkrone, Rundbogentür, zwei Bullaugen und dem Kamin an der rechten Flanke
+([components/landmarks.ts](components/landmarks.ts), Vorbild
+`game_instructions/UBoot/ananas_haus.jpg`). Es ist **kein Hindernis**: Sein
+Feld `H` zählt wie Tang als Wasser - man fährt hindurch, Schüsse fliegen
+hindurch, und es tut niemandem etwas.
+
+Dafür macht es aus einem Kurs einen Ort. Wer das Hafenbecken zum dritten Mal
+fährt, erkennt es nicht an seinen Felsen wieder, sondern daran, dass hier
+jemand wohnt. Es steht in einem eigenen Kursstück (`home`), das nur das erste
+Gewässer benutzt - eine Landmarke, die überall steht, ist keine.
+
+Im zweiten Gewässer steht das zweite: eine **Kuppel aus Stein** mit einer
+Fernsehantenne obendrauf (Feld `R`, Kursstück `rock`, Vorbild
+`game_instructions/UBoot/haus_patrick.webp`). Das ganze Haus ist ein
+Felsbrocken; das Einzige, was verrät, dass jemand darunter wohnt, steht oben
+drauf und ist gelb.
+
+Im dritten steht die **Bude mit dem Schild** (Feld `L`, Kursstück `shack`,
+Vorbild `game_instructions/UBoot/krosse_krabbe.webp`): ein Bretterbau wie eine
+umgedrehte Reuse, Wimpelkette davor, und links daneben auf einem Mast die
+Tafel, an der man sie erkennt. Die Schrift darauf sind drei rote Striche -
+lesen soll man das bei dieser Größe nicht, erkennen schon.
+
+Im vierten steht **die Glaskuppel mit dem Baum**
+(`HOUSE_SANDY`, Kursstück `caveDome`, Vorbild
+`game_instructions/UBoot/Haus/house_sandy.jpg`): ein Stück Land unter einer
+Glocke, mit Gras, einem Baum und einer Schleuse an der Seite. Das einzige
+Haus, in das man hineinsieht - draußen Wasser, drinnen Luft, und man sieht
+beides gleichzeitig.
+
+Zwei Dinge daran sind Absicht. Die **Schleuse ist überdacht**, denn sie ist kein
+Türpaar, sondern ein Raum: Man geht durch die äußere Luke hinein, das Wasser
+läuft ab, und erst dann geht die innere auf. Ohne Dach sähen die beiden Luken
+aus, als klebten sie von außen an der Kuppel. Und der **Baum hat Lücken**: Stamm
+mit Schattenseite, zwei Äste, eine Krone aus Büscheln in drei Grüntönen, dunkel
+von unten und hell von oben. Ein grüner Kreis auf einem Strich wäre ein
+Lutscher; was man wiedererkennt, sind die Lücken dazwischen.
+
+Im fünften steht **der Eimer** (`ABFALLEIMER`, Kursstück `caveBucket`): ein
+Blecheimer, oben breiter als unten, mit Henkel, einem Sack obendrauf und einem
+roten Schriftband quer über dem Bauch. Im sechsten **der Steinkopf**
+(`HOUSE_THADDAEUS`, Kursstück `caveMoai`): schmal oben, breit unten, mit
+Krempe, zwei Ohren, einer langen Nase und einer Tür darunter. Dass es ein Haus
+ist und kein Felsen, verraten die Augen - es sind Fenster.
+
+In den vier dunklen Gewässern wohnt niemand mehr in einem Haus - dort trifft
+man **Bewohner** ([components/dwellers.ts](components/dwellers.ts)). Im
+siebten stehen sich **zwei Fische** gegenüber (`NEMO`, Kursstück `caveNemo`,
+Vorbild `game_instructions/UBoot/Haus/nemo.jpg`): ein kleiner oranger mit drei
+weißen Binden und ein größerer blauer mit gelbem Schwanz. Zwei und nicht
+einer: Ein einzelner Fisch ist ein Fisch, zwei, die voreinander stehen, sind
+eine Begegnung.
+
+Im achten zieht **der Delfin mit dem Reiter** vorbei (`FLIPPER`, Kursstück
+`caveFlipper`, Vorbild `game_instructions/UBoot/Haus/flipper.jpg`). Der Junge
+auf seinem Rücken ist nicht Beiwerk: Ein Delfin allein wäre ein Tier wie die
+anderen im Spiel, erst der Reiter mit dem hochgerissenen Arm macht daraus den,
+den man kennt. Im neunten sitzt **die Meerjungfrau in ihrer Muschel**
+(`ARIELLE`, Kursstück `caveArielle`, Vorbild
+`game_instructions/UBoot/Haus/ariell.jpg`) - die Muschel steht hinter ihr wie
+eine Lehne und macht die Stelle schon von weitem zu einem Ort, lange bevor man
+nah genug für ein Gesicht ist.
+
+Und im zehnten wartet, kurz vor dem Wächter, **der grüne Geist** (`HOLLAENDER`,
+Kursstück `caveGhost`, Vorbild
+`game_instructions/UBoot/Haus/fliegende_holländer.webp`): Dreispitz, Bart,
+Schnurrbartlocken, erhobener Säbel, Klaue, und unten statt Beinen ein Schweif.
+Er ist das einzige Wesen im Spiel, das leuchtet und trotzdem nichts tut - wer
+ihn im Schwarzen auftauchen sieht, hält ihn für den Gegner und merkt erst beim
+Vorbeifahren, dass der eigentliche noch kommt.
+
+**Was im Dunkeln steht, leuchtet selbst.** Die sechs Häuser stehen im Hellen,
+die vier Bewohner in Gewässern, in denen das Licht aus ist - und eine
+Landmarke, die der Schleier frisst, ist keine. Darum trägt jeder von ihnen in
+`LANDMARK_GLOW` eine eigene Farbe, und `glimmer` in
+[components/render.ts](components/render.ts) zeichnet sie samt Schein noch
+einmal **über** die Dunkelheit. Das ist genau dasselbe, was `beacons` für die
+leuchtenden Tiere tut, und aus demselben Grund.
+
+**Die Landmarken heißen im Code, wie sie heißen**
+([engine/landmarks.ts](engine/landmarks.ts)): `HOUSE_SPONGEBOB`,
+`HOUSE_PATRICK`, `KROSSEN_KRABBE`, `HOUSE_SANDY`, `ABFALLEIMER`,
+`HOUSE_THADDAEUS`, `NEMO`, `FLIPPER`, `ARIELLE`, `HOLLAENDER`, in der
+Reihenfolge ihrer Gewässer. Ein
+Buchstabe im Kursplan sagt für sich genommen nichts, und `"L"` an fünf Stellen
+im Code ist eine Verabredung, an die sich niemand erinnert. Welcher Strich zu
+welcher Landmarke gehört, steht als Tafel in
+[components/landmark-art.ts](components/landmark-art.ts) - die nächste ist dort
+ein Eintrag und im Zeichner des Grundes keine Zeile.
+
+Zwei Kleinigkeiten mussten dafür mitwachsen: Eine Landmarke ist höher und breiter als
+sein Feld, also zeichnet der Grund jetzt drei Felder über den Bildrand hinaus
+statt einem - sonst verschwände es an der Kante, bevor es draußen ist. Und was
+Zierde ist, steht nicht mehr an fünf Stellen als Aufzählung, sondern einmal als
+`isDecor` in [engine/types.ts](engine/types.ts): Die nächste Landmarke kostet
+damit eine Zeile und nicht fünf.
+
+**Ein Buchstabe kann nicht beides sein.** Felder und Tiere stehen im selben
+Kursplan und werden beide über einen Buchstaben angesprochen - und `K` war
+bereits die Panzerkrabbe, als die Bude ihn bekam. Das Ergebnis: Hinter jeder
+Krabbe stand plötzlich ein Haus, und zwar in sechs Gewässern gleichzeitig.
+Seitdem ist die Bude `L`, und [engine/course.ts](engine/course.ts) vergleicht
+beim Laden beide Listen und wirft, wenn sich ein Buchstabe doppelt - der Fehler
+zeigt sich dann dort, wo er gemacht wurde, und nicht im Bild.
+
 ## Was da unten lebt
 
 Sechs Arten, und sie stehen **als Buchstaben in den Kursstücken**: `F`
@@ -213,6 +372,12 @@ seit drei Versionen von etwas anderem handelt.
 | Panzerkrabbe | 4        | läuft den Grund ab    | -                   |
 | Tiefseeaal   | 2        | schießt in Sätzen     | schnell             |
 | Anglerfisch  | 5        | **kommt auf dich zu** | leuchtet im Dunkeln |
+
+Die Qualle folgt dabei einer eigenen Vorlage
+(`game_instructions/UBoot/qualle.webp`): runde Glocke, dunkle Flecken auf
+festen Plätzen, ein heller Streifen oben links, darunter der gewellte Saum und
+**vier dicke Arme** - keine dünnen Fäden. Das ist der Unterschied zwischen
+einer Qualle und einem Quastenbesen.
 
 Zwei Entscheidungen stecken darin. **Jedes Tier hat ein Zuhause** und entfernt
 sich nie weit davon - ein Kurs, dessen Bewohner weglaufen, ist beim zweiten
@@ -290,6 +455,22 @@ Vier Kapitel: die Geschichte samt dem Affen, die Bewohner, was im Wasser liegt,
 und was man selbst dabeihat. Kein Suchfeld: Zwanzig Einträge liest man
 schneller, als man tippt.
 
+**Zwei Tafeln nebeneinander**, nach dem Vorbild aus
+`game_instructions/UBoot/enzyklodädie.png`: links ein Gitter aus Bildern unter
+dem Kapitelnamen, rechts das eine, das gerade offen ist - groß im hellen
+Rahmen, darunter der Name in Gold, der Text und zuletzt seine Kurzangaben.
+Was angewählt ist, trägt einen gelben Rahmen.
+
+Der Unterschied zur früheren Liste ist nicht die Hübschheit, sondern das
+Suchen: In einer Liste liest man Überschriften, bis die richtige kommt; in
+einem Gitter sieht man das Tier, das einen eben umgebracht hat, und klickt
+darauf. **Deshalb stehen in den Kacheln keine Namen** - stünde einer darunter,
+läse man wieder.
+
+Die große Fläche ist **breiter als hoch**, und auch das hat einen Grund: Der
+Anglerfisch trägt seine Rute weit vor sich her. Auf einem Quadrat wäre
+entweder die Rute abgeschnitten oder der Fisch eine Briefmarke.
+
 ## Der Wächter
 
 Am Ende der zehnten Fahrt bleibt das Fenster stehen
@@ -340,17 +521,165 @@ Waffe kommt niemand vorbei, mit Waffe entscheidet, wie man fährt.
 
 ## Auszeichnungen, die nicht gespeichert werden
 
-Vier Stück: drei für je eine vollständige Stufe, eine für den Wächter
-([settings/awards.ts](settings/awards.ts)). **Keine davon steht im
-Spielstand.** Eine Auszeichnung ist kein Besitz, sondern eine Feststellung über
-die gemeisterten Gewässer - und wird deshalb aus ihnen ausgerechnet statt
-nebenher mitgeschrieben. Ein Haken, der beim Speichern verlorengeht, kann so
-nicht entstehen, und wer ein Gewässer nachholt, bekommt die Auszeichnung im
-selben Moment.
+Fünf Stück: drei für je eine vollständige Stufe, eine für den Wächter, eine für
+alle zehn Gewässer auf "Unmöglich" ([settings/awards.ts](settings/awards.ts)).
+**Keine davon steht im Spielstand.** Eine Auszeichnung ist kein Besitz, sondern
+eine Feststellung über die gemeisterten Gewässer - und wird deshalb aus ihnen
+ausgerechnet statt nebenher mitgeschrieben. Ein Haken, der beim Speichern
+verlorengeht, kann so nicht entstehen, und wer ein Gewässer nachholt, bekommt
+die Auszeichnung im selben Moment.
 
 Auf der Tafel stehen auch die, die man noch nicht hat, mitsamt ihrer
 Bedingung - eine Tafel, die nur Erreichtes zeigt, ist eine Liste; eine, die
 alles zeigt, ist ein Ziel.
+
+**Gebaut nach `game_instructions/UBoot/erfolge.png`**: breite Karten in drei
+Reihen, und gerollt wird nach rechts. Links das Zeichen, rechts Name und Text,
+unten ein Balken. **Jede Karte ist gleich groß** - eine Tafel, auf der die
+geschafften Felder größer sind als die offenen, liest sich als Rangliste und
+nicht als Ziel. Dafür ist der Text auf drei Zeilen beschnitten und die Höhe
+gedeckelt: Auf dem Telefon nimmt das Blatt den ganzen Bildschirm, und drei
+Karten über neunhundert Pixel wären drei Plakate.
+
+**Angefasst wird der Streifen auch mit der Maus.** Auf dem Telefon wischt man
+ohnehin - am Rechner gäbe es sonst nur die Rollleiste ganz unten, und die muss
+man mit dem Zeiger suchen, statt die Tafel einfach weiterzuschieben. Gezogen
+wird dabei **die Tafel und nicht der Blick**: Die Karten folgen der Hand wie
+Papier unter dem Finger - nach links gezogen laufen sie nach links, und von
+rechts kommen die nächsten herein. Die Rollleiste macht es andersherum, und das
+ist kein Widerspruch, sondern der Unterschied zwischen einem Griff und dem
+Blatt selbst: Wer am Griff zieht, verschiebt den Ausschnitt; wer aufs Blatt
+fasst, verschiebt das Blatt.
+
+**Die Rollleiste gehört dabei dem Browser.** Ein Saum von vierzehn Pixeln am
+unteren Rand startet unseren Griff gar nicht erst - sonst zögen zwei an
+derselben Tafel, und unsere Richtung gewänne, weil wir in jedem Bild neu
+setzen. Genau das drehte das Ziehen am Griff um. Der Saum ist fest und nicht
+aus der Leistenhöhe gerechnet: Schwebt die Leiste über dem Inhalt, wie auf dem
+Mac und in neueren Browsern, ist diese Höhe null. Finger und
+Stift bleiben dabei außen vor: Dort wischt der Browser schon selbst, und zwei
+Hände am selben Streifen ruckeln. **Markieren lässt sich auf der Tafel nichts**
+(`select-none`) - sonst zöge man beim Schieben den halben Text blau.
+
+**Unten steht, wie weit man ist**, und nicht nur, dass es noch nicht reicht
+(`progressOf`): „1/3" für die Höhlen, „0/10" für alle Gewässer auf Unmöglich,
+„0/1" für eine Landmarke. „Noch offen" ist dasselbe für den, dem ein Gewässer
+fehlt, und für den, der noch nie getaucht ist - und genau dieser Unterschied
+ist das, was jemanden noch einmal hinunterschickt.
+
+## Zehn Haken für zehn Landmarken - und die eine Ausnahme
+
+Dazu kommen zehn weitere, eine je Landmarke: Wer an der Ananas, am Steinkopf,
+an der Meerjungfrau vorbeigefahren ist, bekommt dafür einen Haken und **zwei
+Sätze darüber, was dort steht**. Der graue Haken verrät vorher nur das
+Gewässer; die Beschreibung steht erst da, wenn er leuchtet. Eine Landmarke, die
+auf der Tafel beschrieben ist, bevor man sie gesehen hat, ist keine Entdeckung
+mehr.
+
+Diese zehn sind **die Ausnahme von der Regel oben**: Vorbeigefahren zu sein
+lässt sich aus den gemeisterten Gewässern nicht ausrechnen, denn eine Landmarke
+steht mitten im Kurs und nicht an seinem Ende. Also steht sie doch im
+Spielstand - `Profile.seen`, eine Liste von Buchstaben
+([settings/profile.ts](settings/profile.ts)).
+
+**Geschrieben wird im Moment des Vorbeifahrens, nicht am Ziel.** Wer an der
+Ananas vorbei ist und zwei Felder später auf eine Mine fährt, war trotzdem
+dort - und genau so verhält sich der Haken auch. Dafür sammelt
+[engine/course.ts](engine/course.ts) beim Auslegen ein, wo die Landmarken
+stehen (`Course.marks`), und `passedMarks` beantwortet pro Bild die Frage
+"woran bin ich schon vorbei" aus einer Liste von zwei Einträgen statt aus
+dreitausend Quadraten. Vorbei heißt dabei wirklich vorbei: ein Feld Zugabe,
+weil eine Landmarke breiter ist als ihr Quadrat und man den Haken sonst bekäme,
+während sie noch neben einem steht.
+
+**Gemeldet wird sie auch.** Sobald eine Auszeichnung dazukommt, fällt oben in
+der Mitte des Fensters ein kleiner Zettel ein, bleibt vier Sekunden stehen und
+geht wieder ([components/award-toast.tsx](components/award-toast.tsx)). Gefunden
+wird sie dabei wie auf der Tafel - aus dem **Unterschied zweier Spielstände**
+([hooks/use-award-news.ts](hooks/use-award-news.ts)) und nicht dadurch, dass
+irgendeine Stelle im Code sie "vergibt": Eine Auszeichnung ergibt sich aus dem
+Profil, und wer sie vergeben wollte, müsste an jede Stelle denken, die das
+Profil anfasst - an das Vorbeifahren, an das Ziel, an die Werkstatt, an "alles
+freischalten". So ist jede abgedeckt, auch die nächste. Beim ersten Blick wird
+nur gemerkt und nicht gemeldet, sonst bekäme jeder beim Öffnen der Seite seine
+halbe Tafel als Neuigkeit; und mehr als drei Zettel auf einmal gibt es nicht,
+weil "alles freischalten" sonst fünfzehn übereinanderstapelt.
+
+Dass in jedem Bild gefragt und fast nie geschrieben wird, trägt `withSeen`:
+Kommt nichts dazu, gibt es **dasselbe Profil** zurück, und der Aufrufer sieht
+an einem Vergleich, dass er nichts zu speichern hat.
+
+## Der Schlund: ein zweites Spiel im selben Fenster
+
+Unten links auf der Seekarte liegt ein Strudel, der nicht zur Route gehört.
+Dahinter steckt der **Endlosmodus** ([endless/](endless/)) - und der ist in
+fast allem das Gegenteil der Kampagne:
+
+|            | Kampagne                           | Schlund                                      |
+| ---------- | ---------------------------------- | -------------------------------------------- |
+| Ausschnitt | ein Fenster, das nach rechts läuft | eine Kamera am Boot, in alle Richtungen      |
+| Karte      | 14 Reihen tief, fest geschrieben   | 72 × 46 Felder, aus Stufe und Saat gewachsen |
+| Boot       | das, was du gekauft hast           | immer der Vollausbau                         |
+| Ende       | das Tor am rechten Rand            | keins                                        |
+
+**Deshalb steht er daneben und nicht darin.** Ein Weltzustand, der beides
+kann, könnte am Ende keines von beidem richtig; die zehn Gewässer sind fertig,
+und sie sollen fertig bleiben. Gemeinsam genutzt wird, was die Dinge aussehen
+lässt, wie sie aussehen: dasselbe Boot ([components/sub.ts](components/sub.ts)),
+dieselben Bewohner ([components/creatures.ts](components/creatures.ts)),
+dieselbe Steuerung ([hooks/controls.ts](hooks/controls.ts)) und derselbe Ton.
+Ein Endlosmodus, der aussieht wie ein anderes Spiel, wäre einer.
+
+**Die Karte wächst aus zwei Zahlen**, Stufe und Saat
+([endless/world.ts](endless/world.ts)). Das ist kein Geiz, sondern die
+Voraussetzung für den Koop: So muss keine Karte über die Leitung, der Gast baut
+sich aus denselben zwei Zahlen dieselbe. Nach unten wird der Fels dichter, nach
+Stufe hin werden es mehr und zähere Bewohner - und welche Art überhaupt
+mitspielt, hängt an der Stufe: Was man in der Kampagne erst spät trifft, kommt
+auch hier erst spät dazu.
+
+**Fels hält auf, er tut nicht weh.** In der Kampagne ist eine Wand tödlich,
+weil das Fenster einen hineindrückt; hier fährt man ganze Stufen an Wänden
+entlang, und ein Treffer fürs Streifen wäre keine Hürde, sondern eine Strafe
+fürs Umsehen. Wehtun können die Bewohner - und genau die sind der Grund, hier
+unten zu sein. Ein Torpedo macht trotzdem eine Tür in den Fels, so wie überall.
+
+**Links ist eine Richtung, kein Rückwärtsgang.** Ohne Fenster gibt es kein
+Vorn, also dreht sich das Boot um, wenn es nach links fährt - gespiegelt und
+nicht gedreht, denn gedreht sähe es aus, als läge es auf dem Rücken. Dass es
+sich dabei nicht neigt, gilt hier wie dort.
+
+**Je tiefer, desto weniger.** Die Dunkelheit hängt an der Tiefe und nicht am
+Gewässer; unten bleiben der Scheinwerfer und das Sonar. **Das Sonar läuft dabei
+von der ersten Sekunde an**, und es malt denselben Strich wie in der Kampagne:
+gelbe Umrisse um Fels und Bewohner, am hellsten dort, wo der Ring gerade
+vorbeiläuft. Hier unten fährt man den Vollausbau - ein Gerät, das erst in der
+Tiefe angeht, sähe aus wie ein Fehler und nicht wie Ausrüstung. Im Hellen
+spricht es leiser, weil seine Helligkeit an der Tiefe hängt. Das ist auch der
+Grund, warum man hier mit dem Vollausbau startet: Wer den Schlund fährt, will
+nicht sparen, sondern wissen, wie lange er durchhält.
+
+**Vier Gegenstände, von der Panzerkiste geliehen:** Schild, Schnellfeuer,
+Fächerschuss - und die Rettung, die nur fällt, solange wirklich jemand unten
+liegt. Sie sind dort erprobt, und wer beide Spiele spielt, muss nichts Neues
+lernen.
+
+## Zu zweit im Schlund
+
+Der Koop läuft wie der der Panzerkiste, weil er dort funktioniert: **Der Host
+rechnet, der Gast schaut zu.** Jedes Bild bringt der Host die Welt mit seinen
+eigenen Tasten als Boot eins und den gestreamten Tasten des Gastes als Boot
+zwei weiter und veröffentlicht sie zwanzigmal in der Sekunde
+([multiplayer/net.ts](multiplayer/net.ts),
+[hooks/use-uboot-online.ts](hooks/use-uboot-online.ts)). Verschickt wird der
+Zustand, wie er ist - er ist klein genug. Die Karte bleibt daheim.
+
+**Wer stirbt, ist in der nächsten Stufe wieder dabei.** Er wird nicht aus der
+Liste genommen, sondern umgelegt: Er bleibt im Bild, und beim Stufenwechsel
+steht er wieder. Vorbei ist es erst, wenn in derselben Stufe beide untergehen.
+Ein Fehler kostet damit die Stufe und nicht den Abend - und das ist der ganze
+Unterschied zwischen einem Koop, den man zu zweit spielt, und einem, bei dem
+einer zusieht.
 
 ## Das Fenster ist das Spiel
 
@@ -423,24 +752,56 @@ erfinden, egal was wann in welcher Reihenfolge gekauft wurde.
 
 **Die Werkstatt ist eine Tafel, kein Formular**
 ([components/upgrade-board.tsx](components/upgrade-board.tsx)) - gebaut nach
-der Vorlage, die klassische Ausbaubäume benutzen: unten die sechs Kategorien,
-darüber die Stufen als achteckige Felder, dazwischen Verbindungen, rechts der
-Punktestand und eine Tafel, die erklärt, was man gerade angetippt hat. Darunter
-die beiden einzigen Knöpfe, die es braucht: alles zurückholen und fertig.
+`game_instructions/UBoot/verbesserungen.png`: **der Baum füllt das Blatt**,
+unten die sechs Bahnen, darüber ihre Stufen als achteckige Felder, dazwischen
+Verbindungen. Links oben führt der Weg zurück zur Seekarte, rechts oben stehen
+die freien Punkte und gleich daneben der Knopf, der alles wieder herausholt.
+Keine Tafel an der Seite mehr.
 
-Der Ablauf ist **einmal antippen zum Ansehen, dann einbauen** - entweder über
-den Knopf auf der Tafel oder mit einem Doppelklick auf das Feld selbst. Der
-Knopf ist der Weg, den man findet, ohne ihn zu kennen; der Doppelklick ist der,
-den man nimmt, wenn man den Baum kennt und zügig ausbauen will.
-Was eine Stufe kostet, steht auf dem Feld; was sie tut, braucht einen Satz, und
-einen Satz liest niemand auf achtzig Pixeln. So kann man im Baum stöbern, ohne
-aus Versehen Punkte auszugeben, und es braucht keinen Kaufknopf, der ein
-Viertel der Tafel wegnimmt.
+Beides oben rechts, weil es dasselbe ist: Die Zahl und das Zurückholen handeln
+von denselben Punkten, und wer sieht, dass ihm welche fehlen, greift als
+Nächstes genau daneben. Eine Rückfrage gibt es dort nicht - es geht nichts
+verloren, jeder Punkt kommt zurück und kann sofort wieder ausgegeben werden.
 
-Auf den Doppelklick hört dabei **nur das Feld, das wirklich als nächstes dran
-und bezahlbar ist**. Gekauft wird ja immer die nächste Stufe einer Bahn - ohne
-diese Bedingung würde ein Doppelklick irgendwo oben im Baum die unterste Stufe
-kaufen, und zwar eine ganz andere als die, auf die man getippt hat.
+Der Ablauf ist **einmal tippen zum Ansehen, nochmal tippen zum Einbauen**. Was
+eine Stufe kostet, steht auf dem Feld; was sie tut, braucht einen Satz, und
+einen Satz liest niemand auf achtzig Pixeln - also steht er in einer
+Sprechblase **am Feld selbst**, mit einer letzten Zeile, die sagt, was das
+zweite Tippen bewirkt oder warum es nichts bewirkt („erst die Stufe darunter",
+„dafür reichen die Punkte noch nicht"). Eine Erklärung drei Handbreit neben
+dem, was sie erklärt, liest man beim dritten Mal nicht mehr.
+
+Ein Klick für beides wäre eine Falle: Wer stöbert, soll dabei keine Punkte
+ausgeben. Zwei Klicks sind der kürzeste Weg, der beides kann - und gekauft wird
+nur, was wirklich als nächstes dran und bezahlt ist; sonst bleibt es beim
+Zeigen.
+
+Am Rand kippt die Blase nach innen: Die äußerste Bahn ist auf dem Telefon nur
+einen Daumen vom Blattrand entfernt, und eine Blase, die zur Hälfte daneben
+hängt, erklärt die Hälfte.
+
+**Die Blase fängt keine Klicks ab und geht bei einem Klick daneben wieder zu.**
+Sie deckt die Nachbarfelder halb zu - also zeigt ein Klick auf so ein Feld
+dessen eigene Blase, statt in der fremden zu versanden
+(`pointer-events-none`). Und wer irgendwo sonst ins Blatt fasst, meint sie
+nicht mehr: Das Blatt schließt sie, die Felder halten ihren Klick dafür auf,
+sonst ginge sie im selben Augenblick wieder auf.
+
+**„Alles freischalten" steht oben rechts neben dem Zurückholen** - und nur
+dann da, wenn es reicht. Wer alles bezahlen kann, soll nicht fünfzehnmal tippen
+müssen; der Knopf erscheint aber erst, wenn die freien Punkte für sämtliche
+fehlenden Stufen langen. Sonst wäre „alles" eine Behauptung, und man müsste
+hinterher nachsehen, was davon wirklich eingebaut wurde. Damit steht alles, was
+mit Punkten zu tun hat, in derselben Ecke: Stand, alles kaufen, alles
+zurückholen.
+
+**Die Tafel rollt nicht.** Ein Ausbaubaum, von dem man die Hälfte erst
+herunterziehen muss, ist keine Übersicht mehr - also sagt das Blatt
+(`scroll={false}` an [components/panel.tsx](components/panel.tsx)), dass sein
+Inhalt hineinpasst, und der Baum hält sich daran: Die Felder sind eine Nummer
+kleiner, solange das Fenster schmal ist, und die Sprechblase des **obersten**
+Feldes kippt nach unten auf. Über ihm ist der Rand, und eine abgeschnittene
+Erklärung erklärt nichts.
 
 **Die Symbole sind gezeichnet, nicht aus der Emoji-Tabelle**
 ([components/upgrade-icons.tsx](components/upgrade-icons.tsx)) - und zwar
@@ -650,17 +1011,44 @@ das Bild macht einen Satz.
 | 0,25 s losgelassen | 0,75  | läuft weiter      |
 | 1,00 s losgelassen | 0,00  | nur noch Leerlauf |
 
+## Woher der Affe kommt
+
+Das Spiel heißt nicht zufällig U-Boot. In der Softwareentwicklung hängt man an
+eine Änderung gern noch ein paar Prüfer, die damit nichts zu tun haben; die
+sitzen dann unten drin, lesen mit, sagen nichts und tauchen nie auf. **U-Boote**
+nennt man sie - und genau so einer sitzt mit seinem Laptop in der Kanzel: Er
+steuert nicht, er gibt nichts frei, er schaut nur dorthin, wo es gleich knallt.
+
+Das steht als sein Eintrag in der Enzyklopädie und als Fußnote unter den Regeln.
+Für das Spiel selbst ändert es nichts - es erklärt nur, warum vorn jemand sitzt.
+
 ## Gezeichnet, nicht geklebt
 
 Das Boot ist Canvas-Code ([components/sub.ts](components/sub.ts)), kein Bild:
 Die Schraube muss sich drehen, das Glas muss über dem liegen, was dahinter ist,
 und der Affe muss aus der Kuppel heraus genau dorthin schauen, wo es gleich
-knallt. Auch das Logo der Spielesammlung ist mit demselben Code gezeichnet.
+knallt. Ein fertiges Bild kann nichts davon.
+
+**Das Boot bleibt dabei gerade.** Beim Steigen und Sinken die Nase mitzukippen
+sieht nach Flugzeug aus; ein U-Boot hält die Lage und fährt mit seinen
+Tiefenrudern auf und ab, ohne sich zu neigen. Die einzige Ausnahme ist das
+Ankommen - dort hebt es die Nase, und das ist keine Fahrt, sondern ein Jubel.
+
+**Die Form stammt aus der Vorlage** (`game_instructions/UBoot/uboot.png`): ein
+Tropfen, der nach hinten spitz zuläuft und vorn in einer großen Glaskuppel
+endet, Turm mit Kragen und abgeknicktem Periskop darüber, ein Bullauge an der
+Seite, Nietenreihen auf den Plattennähten, zwei Kufen unter dem Bauch - und
+hinter dem Glas der Affe mit dem Laptop, einen Finger am Kinn. Die Umrisslinie
+steht als Anteile seiner halben Länge und Höhe in `SHELL`, nicht als Pixel: Ein
+Boot, das größer wird, behält damit seine Form, statt an zwanzig Stellen
+nachgerechnet zu werden.
 
 ## Ton: gerechnet, nicht geladen
 
-Das Spiel klingt, und zwar **ohne eine einzige Audiodatei**
-([audio/sounds.ts](audio/sounds.ts)). Was man hört, sind ein paar
+Das Spiel klingt auch dann, wenn **keine einzige Audiodatei** etwas hergibt
+([audio/sounds.ts](audio/sounds.ts)) - und solange die Platzhalter unter
+`public/uboot/` leer sind, ist genau das der Fall. Was man dann hört, sind ein
+paar
 Oszillatoren: ein Blip für die Harpune, ein dumpfer Schlag für einen Treffer,
 Rauschen durch einen zufallenden Filter für eine Explosion, vier Töne fürs
 Ankommen, einer abwärts fürs Ende. Dazu ein tiefes Brummen aus zwei Tönen, die

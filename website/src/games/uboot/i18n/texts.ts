@@ -25,10 +25,11 @@ export const UBOOT_TEXTS = {
   encyclopedia: "Enzyklopädie",
   upgrades: "Verbesserungen",
   trophies: "Erfolge",
+  awardNew: "Erfolg freigeschaltet",
   comingSoon: "kommt noch",
   // Tauchgang
   startHint:
-    "Vorwärts drücken zum Ablegen - D, Pfeil rechts, oder rechts ins Bild ziehen.",
+    "Vorwärts drücken zum Ablegen - D, Pfeil rechts, oder links ins Bild fassen und nach rechts ziehen.",
   wrecked: "Hülle durchschlagen",
   wreckedHint: (share: number) =>
     `${share} % des Kurses geschafft. Der Affe hat es gesehen.`,
@@ -59,6 +60,33 @@ export const UBOOT_TEXTS = {
   back: "Zurück",
   forward: "Vorwärts",
   fire: "Feuern",
+  // Endlosmodus
+  deepName: "Der Schlund",
+  deepTag: "ohne Boden",
+  deepHint:
+    "Immer offen, immer das beste Boot: eine große Karte, Gegner ohne Ende, und die Frage, wie tief du kommst.",
+  deepPick: "Wie willst du tauchen?",
+  deepSolo: "Einzelspieler",
+  deepSoloHint: "Allein so weit wie möglich.",
+  deepCoop: "Koop online",
+  deepCoopHint:
+    "Zu zweit per Raumcode - wer stirbt, ist in der nächsten Stufe wieder dabei.",
+  deepStage: (stage: number) => `Stufe ${stage}`,
+  deepLeft: (many: number) =>
+    many === 1 ? "Noch 1 Bewohner" : `Noch ${many} Bewohner`,
+  deepKills: (many: number) => `${many} erledigt`,
+  deepStart:
+    "Bewege dich, dann geht es los - W A S D, oder links ins Bild fassen.",
+  deepCleared: (stage: number) => `Stufe ${stage} leergeräumt`,
+  deepDeeper: "Eine Stufe tiefer …",
+  deepOver: "Untergegangen",
+  deepReached: (stage: number, kills: number) =>
+    `Stufe ${stage} erreicht, ${kills} Bewohner erledigt.`,
+  deepAgain: "Noch einmal",
+  deepDown: "Dein Mitfahrer liegt unten - die nächste Stufe bringt ihn zurück.",
+  deepWaitingPartner: "Warte auf den Mitfahrer …",
+  deepBoons:
+    "Gegner lassen manchmal etwas fallen: Schild, Schnellfeuer, Fächerschuss - und im Koop die Rettung.",
   // Einstellungen
   musicVolume: "Musiklautstärke",
   soundVolume: "Soundlautstärke",
@@ -79,6 +107,7 @@ export const UBOOT_TEXTS = {
   pointsFree: "EP frei",
   pickOne: "Tippe eine Verbesserung an, um zu sehen, was sie tut.",
   install: "Einbauen",
+  tapAgain: "Nochmal tippen und es ist eingebaut",
   buyAll: "Alles freischalten",
   orDouble: "oder Doppelklick auf das Feld",
   missing: (points: number) => `Es fehlen noch ${points} EP`,

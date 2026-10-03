@@ -35,6 +35,10 @@ import {
   shines,
 } from "@/games/uboot/components/creatures";
 import { BREEDS } from "@/games/uboot/engine/beasts";
+import {
+  LANDMARK_ART,
+  LANDMARK_GLOW,
+} from "@/games/uboot/components/landmark-art";
 import type { PadView } from "@/games/uboot/hooks/touch-controls";
 import type { WeaponKind } from "@/games/uboot/engine/upgrades";
 
@@ -46,6 +50,9 @@ export const CANVAS_H = VIEW_H;
 
 /** Wie viele Nachkommastellen die Uhr im Bild zeigt. */
 const CLOCK_DIGITS = 2;
+
+/** Wie viele Felder über den Bildrand hinaus der Grund gezeichnet wird. */
+const TERRAIN_EDGE = 3;
 
 /** Wie weit neben dem Bild noch gezeichnet wird, in Pixeln. */
 const VIEW_EDGE = 80;
@@ -272,9 +279,6 @@ const WAKE = {
 
 /** How the boat lies in the water. */
 const BOAT = {
-  /** The most the nose tips, in radians, and the speed that reaches it. */
-  tiltMost: 0.25,
-  tiltPer: 600,
   /** How often a hurt hull blinks, per second. */
   blinks: 12,
 } as const;
@@ -601,6 +605,9 @@ export function draw(
   // Was selbst leuchtet, leuchtet auch durch den Schleier - genau wie der
   // Wächter, und aus demselben Grund.
   beacons(ctx, state, left, scene.dark);
+  // Und aus demselben Grund die Landmarken, die selbst leuchten: Eine
+  // Begegnung, die der Schleier frisst, hat nicht stattgefunden.
+  glimmer(ctx, state, course, left, scene.dark, state.time);
   sonar(ctx, state, course, left, scene.dark);
   murk(ctx, state);
   if (scene.bare !== true) {
@@ -685,8 +692,10 @@ function terrain(
   left: number,
   time: number,
 ): void {
-  const from = Math.floor(left / CELL) - 1;
-  const to = Math.ceil((left + VIEW_W) / CELL) + 1;
+  // Drei Felder Rand statt einem: Eine Landmarke ist breiter als ihr Feld und
+  // würde sonst an der Bildkante verschwinden, bevor sie draußen ist.
+  const from = Math.floor(left / CELL) - TERRAIN_EDGE;
+  const to = Math.ceil((left + VIEW_W) / CELL) + TERRAIN_EDGE;
 
   for (let col = from; col <= to; col += 1) {
     for (let row = 0; row < ROWS; row += 1) {
@@ -719,8 +728,15 @@ function terrain(
             state.dents.get(row * course.cols + col) ?? 0,
           );
           break;
-        default:
+        default: {
+          // Die Landmarken stehen in einer Tafel: Die nächste ist dort ein
+          // Eintrag und hier keine Zeile.
+          const art = LANDMARK_ART[here];
+          if (art !== undefined) {
+            art(ctx, x, y, time);
+          }
           break;
+        }
       }
     }
   }
@@ -941,6 +957,64 @@ function beacons(
   }
 }
 
+/** Wie weit der Schein einer leuchtenden Landmarke reicht, in Feldern. */
+const GLIMMER = 2.4;
+
+/**
+ * Die Landmarken, die auch im Schwarzen zu sehen sind, noch einmal darüber.
+ *
+ * @remarks
+ * Dasselbe wie {@link beacons}, nur für das, was im Kursplan steht statt im
+ * Wasser zu schwimmen: In den dunklen Gewässern wohnt niemand, der kein
+ * eigenes Licht hat - und eine Landmarke, die man nicht sieht, ist keine.
+ */
+function glimmer(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  course: Course,
+  left: number,
+  dark: number,
+  time: number,
+): void {
+  if (dark > 0) {
+    const from = Math.floor(left / CELL) - TERRAIN_EDGE;
+    const to = Math.ceil((left + VIEW_W) / CELL) + TERRAIN_EDGE;
+    for (let col = from; col <= to; col += 1) {
+      for (let row = 0; row < ROWS; row += 1) {
+        const here = solidAt(state.gone, course, col, row);
+        const shine = LANDMARK_GLOW[here];
+        const art = LANDMARK_ART[here];
+        if (shine !== undefined && art !== undefined) {
+          const x = col * CELL - left;
+          const y = SURFACE + row * CELL;
+          const reach = CELL * GLIMMER;
+          const halo = ctx.createRadialGradient(
+            x + CELL / 2,
+            y + CELL / 2,
+            0,
+            x + CELL / 2,
+            y + CELL / 2,
+            reach,
+          );
+          halo.addColorStop(0, shine);
+          halo.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.save();
+          ctx.globalAlpha = dark;
+          ctx.fillStyle = halo;
+          ctx.fillRect(
+            x + CELL / 2 - reach,
+            y + CELL / 2 - reach,
+            reach * 2,
+            reach * 2,
+          );
+          ctx.restore();
+          art(ctx, x, y, time);
+        }
+      }
+    }
+  }
+}
+
 /** Ob in diesem Quadrat etwas steht, das ein Sonar meldet. */
 function solid(cell: string): boolean {
   return cell === "#" || cell === "B" || cell === "M";
@@ -1104,14 +1178,12 @@ function boat(
   left: number,
   won: number,
 ): void {
-  // Nose up when climbing, down when diving: enough to read, not enough to
-  // look like a crash.
-  const going = Math.max(
-    -BOAT.tiltMost,
-    Math.min(BOAT.tiltMost, state.sub.vy / BOAT.tiltPer),
-  );
+  // **Das Boot bleibt gerade.** Beim Steigen und Sinken die Nase mitzukippen
+  // sieht nach Flugzeug aus; ein U-Boot hält die Lage und fährt mit seinen
+  // Tiefenrudern auf und ab, ohne sich zu neigen. Nur beim Ankommen hebt es
+  // die Nase - das ist keine Fahrt, das ist ein Jubel.
   const lift = Math.min(WIN.lift, won * WIN.rise);
-  const tilt = won > 0 ? WIN.tilt : going;
+  const tilt = won > 0 ? WIN.tilt : 0;
   // A hull that has just been hit blinks, which is the only way anybody ever
   // knows that the next rock is free as well.
   const blink =

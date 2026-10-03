@@ -11,6 +11,11 @@
  * der Weg zurück**, in der Mitte, worauf man schaut, **rechts die Werkzeuge**
  * des Blattes. Ein Zurück, das mal links und mal rechts steht, ist eines, das
  * man jedes Mal suchen muss.
+ *
+ * **Auf dem Telefon nehmen sie den ganzen Bildschirm.** Im Spielfenster wären
+ * sie dort zwei Finger hoch, und Text, der in zwei Finger passen muss, ist
+ * kein Text mehr. Ab Tabletbreite liegen sie wieder im Fenster, wo sie
+ * hingehören - da ist Platz genug.
  */
 "use client";
 
@@ -29,6 +34,15 @@ export type PanelProps = {
   readonly onClose: () => void;
   /** What belongs to this sheet alone, on the right of the heading. */
   readonly tools?: ReactNode;
+  /**
+   * Ob der Inhalt scrollen darf.
+   *
+   * @remarks
+   * Für Text ja, für eine Tafel nein: Ein Ausbaubaum, von dem man die Hälfte
+   * erst herunterrollen muss, ist keine Übersicht mehr. Wer `false` sagt,
+   * verspricht damit, dass sein Inhalt in das Blatt passt.
+   */
+  readonly scroll?: boolean;
   readonly children: ReactNode;
 };
 
@@ -43,12 +57,13 @@ export function Panel({
   title,
   onClose,
   tools,
+  scroll = true,
   children,
 }: PanelProps): ReactElement {
   return (
     <div
       data-testid="uboot-panel"
-      className="absolute inset-0 z-40 flex flex-col rounded-2xl bg-zinc-50 dark:bg-zinc-950"
+      className="fixed inset-0 z-50 flex flex-col bg-zinc-50 md:absolute md:z-40 md:rounded-2xl dark:bg-zinc-950"
     >
       <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
         <button
@@ -66,8 +81,13 @@ export function Panel({
         {tools}
       </div>
       {/* The window is a fixed size, so anything longer than it scrolls inside
-          rather than pushing the frame about. */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">{children}</div>
+          rather than pushing the frame about - es sei denn, das Blatt sagt,
+          dass es ohnehin hineinpasst. */}
+      <div
+        className={`min-h-0 flex-1 p-3 ${scroll ? "overflow-y-auto" : "overflow-hidden"}`}
+      >
+        {children}
+      </div>
     </div>
   );
 }
