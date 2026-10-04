@@ -8,18 +8,62 @@ Die Karten stehen in
 
 ## Die Zeichen
 
-| Zeichen | Was            | Tödlich? |
-| ------- | -------------- | -------- |
-| `.`     | offenes Wasser | nein     |
-| `#`     | Fels           | **ja**   |
-| `M`     | Mine           | **ja**   |
-| `~`     | Seetang        | nein     |
-| `S`     | Startpunkt     | -        |
-| `Z`     | Ausgang (Ziel) | -        |
+| Zeichen | Was                   | Tödlich? |
+| ------- | --------------------- | -------- |
+| `.`     | offenes Wasser        | nein     |
+| `#`     | gewachsener Fels      | **ja**   |
+| `B`     | Bruchfels - sprengbar | **ja**   |
+| `M`     | Treibmine             | **ja**   |
+| `~`     | Seetang               | nein     |
+| `S`     | Startpunkt            | -        |
+| `Z`     | Ausgang (Ziel)        | -        |
 
-Fels und Minen lassen sich im Spiel wegsprengen (Torpedo, Seemine). Das gilt
-immer nur fuer den laufenden Tauchgang - die Karte selbst bleibt, wie sie hier
-steht.
+**Zwei Sorten Fels.** `#` haelt alles aus und ist Grund und Decke jeder Hoehle;
+`B` ist muerbe, und ein Torpedo oder eine gelegte Seemine macht eine Tuer
+hinein. Eine Treibmine geht nach drei Harpunen oder einem Torpedo hoch. Alles
+Gesprengte gilt nur fuer den laufenden Tauchgang - die Karte selbst bleibt, wie
+sie hier steht.
+
+### Landmarken
+
+Zehn Buchstaben stehen fuer das, was auf dem Grund steht oder dort wohnt
+([`engine/landmarks.ts`](../../../website/src/games/uboot/engine/landmarks.ts)).
+Sie sind **Zierde**: Man faehrt hindurch wie durch Wasser, und jede steht in
+genau einem Gewaesser.
+
+| Zeichen | Was                 | Gewaesser         |
+| ------- | ------------------- | ----------------- |
+| `H`     | Ananashaus          | 1 Hafenbecken     |
+| `R`     | Stein mit Antenne   | 2 Seichtes Wasser |
+| `L`     | Bude mit Schild     | 3 Das Riff        |
+| `D`     | Glaskuppel mit Baum | 4 Die Hoehle      |
+| `E`     | Abfalleimer         | 5 Der Schlund     |
+| `O`     | Steinkopf           | 6 Das Labyrinth   |
+| `N`     | zwei Fische         | 7 Die Finsternis  |
+| `P`     | Delfin mit Reiter   | 8 Der Abgrund     |
+| `V`     | Meerjungfrau        | 9 Die Tiefe       |
+| `G`     | der gruene Geist    | 10 Der Waechter   |
+
+### Bewohner
+
+Sechs weitere Buchstaben setzen ein Tier an diese Stelle
+([`engine/beasts.ts`](../../../website/src/games/uboot/engine/beasts.ts)). Das
+Quadrat selbst bleibt Wasser - das Tier schwimmt ja davon.
+
+| Zeichen | Art          |
+| ------- | ------------ |
+| `F`     | Fischschwarm |
+| `Q`     | Leuchtqualle |
+| `I`     | Seeigel      |
+| `K`     | Panzerkrabbe |
+| `A`     | Tiefseeaal   |
+| `T`     | Anglerfisch  |
+
+**Ein Buchstabe gehoert entweder einem Feld oder einem Tier, nie beidem.**
+Darueber wacht [`engine/course.ts`](../../../website/src/games/uboot/engine/course.ts)
+beim Laden und wirft, wenn sich einer doppelt - passiert ist es trotzdem schon
+einmal (`K` war die Krabbe **und** die Bude, und hinter jeder Krabbe stand
+ploetzlich ein Haus).
 
 Alles, was nicht in dieser Tabelle steht, wird als offenes Wasser gelesen. Eine
 Karte mit einem Tippfehler ist damit nicht kaputt, sondern nur an einer Stelle
@@ -97,8 +141,8 @@ dass man steuern muss, weit genug, dass man es kann.
 
 ## Ein Gewaesser ist mehr als seine Bausteine
 
-Jeder Kurs in `LEVELS` bringt vier Angaben mit, die nichts mit der Karte zu tun
-haben und trotzdem dort stehen, weil sie zum Gewaesser gehoeren:
+Jeder Kurs in `LEVELS` bringt neben seinen Bausteinen noch das mit, was nichts
+mit der Karte zu tun hat und trotzdem zum Gewaesser gehoert:
 
 | Feld        | Bedeutung                                                          |
 | ----------- | ------------------------------------------------------------------ |
@@ -108,7 +152,7 @@ haben und trotzdem dort stehen, weil sie zum Gewaesser gehoeren:
 | `at`        | wo die Marke auf der Seekarte sitzt, in Prozent                    |
 | `tier`      | `easy`, `cave`, `deep` oder `final` - auch fuer die Auszeichnungen |
 | `surfacing` | ob Auftauchen hier den Sauerstoff auffuellt                        |
-| `ramp`      | ob die Dunkelheit erst unterwegs kommt (nur die letzte Fahrt)      |
+| `dusk`      | ueber welchem Baustein das Licht ausgeht (nur die letzte Fahrt)    |
 | `boss`      | ob am Ende der Waechter wartet                                     |
 
 **`dark` ist eine Design-Entscheidung, keine Deko.** Die ersten drei Gewaesser
@@ -121,6 +165,14 @@ Und `reward` steigt mit dem, was ein Kurs verlangt. Zur Orientierung: Alle
 Kurse zusammen bringen beim ersten Mal 740 EP, der volle Ausbau kostet 900 EP.
 Ein neuer Kurs verschiebt dieses Verhaeltnis - das ist in Ordnung, sollte aber
 bewusst passieren.
+
+## Der Schlund hat keine Bausteine
+
+Der Endlosmodus unten links auf der Seekarte faellt aus diesem Format heraus:
+Seine Karte ist nicht geschrieben, sondern **aus Stufe und Saat gewachsen**
+([`endless/world.ts`](../../../website/src/games/uboot/endless/world.ts)), 72
+Spalten breit und 46 Zeilen tief, und sie endet nie. Wer am Kartenformat etwas
+aendert, aendert ihn deshalb nicht mit - und umgekehrt.
 
 ## Wie viel Platz ist da eigentlich?
 

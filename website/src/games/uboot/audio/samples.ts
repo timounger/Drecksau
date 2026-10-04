@@ -182,6 +182,54 @@ export function fire(sample: Sample, volume: number): boolean {
 }
 
 /**
+ * Die Lautstärke, auf die eine Schleife hinauswill - auch während sie steigt.
+ */
+const wanted = new Map<Loop, number>();
+
+/** Und der Zeitgeber, der sie gerade dorthin bringt. */
+const swelling = new Map<Loop, ReturnType<typeof setInterval>>();
+
+/**
+ * Lässt eine Schleife von null auf ihre Lautstärke anwachsen.
+ *
+ * @param loop - welche
+ * @param audio - ihr Element
+ * @remarks
+ * Das Ziel wird in jedem Schritt neu gelesen: Wer während des Anwachsens am
+ * Regler dreht, hört das sofort und nicht erst nach einer Sekunde.
+ */
+function swell(loop: Loop, audio: HTMLAudioElement): void {
+  settle(loop);
+  // **Nach der Uhr und nicht nach Schritten.** Ein Zeitgeber kommt mal
+  // früher, mal später; gezählte Schritte machen daraus eine Sekunde, die
+  // manchmal zwei ist. Gelesen wird deshalb, wie viel Zeit wirklich vergangen
+  // ist - die Schritte sagen nur, wie oft nachgesehen wird.
+  const began = Date.now();
+  audio.volume = 0;
+  const timer = setInterval(() => {
+    const share = Math.min(1, (Date.now() - began) / SWELL[loop]);
+    try {
+      audio.volume = (wanted.get(loop) ?? 0) * share;
+    } catch {
+      settle(loop);
+    }
+    if (share >= 1) {
+      settle(loop);
+    }
+  }, SWELL_TICK);
+  swelling.set(loop, timer);
+}
+
+/** Hält das Anwachsen an, falls eines läuft. */
+function settle(loop: Loop): void {
+  const timer = swelling.get(loop);
+  if (timer !== undefined) {
+    clearInterval(timer);
+    swelling.delete(loop);
+  }
+}
+
+/**
  * Schaltet eine Schleife an oder aus, wenn es die Datei dazu gibt.
  *
  * @param loop - welche
@@ -197,10 +245,20 @@ export function keep(loop: Loop, on: boolean, volume: number): boolean {
   if (ready.has(file)) {
     try {
       const audio = running.get(loop) ?? born(loop, file);
-      audio.volume = volume;
+      wanted.set(loop, volume);
       if (on && volume > 0) {
+        // **Angefangen wird leise.** Das gilt für den ersten Start wie für
+        // jedes Weitermachen an der Stelle, an der zuletzt aufgehört wurde -
+        // beides ist für den, der zuhört, derselbe Augenblick.
+        const asleep = audio.paused;
         void audio.play().catch(() => undefined);
+        if (asleep && SWELL[loop] > 0) {
+          swell(loop, audio);
+        } else if (!swelling.has(loop)) {
+          audio.volume = volume;
+        }
       } else {
+        settle(loop);
         audio.pause();
       }
       held = true;
@@ -221,8 +279,15 @@ export function keep(loop: Loop, on: boolean, volume: number): boolean {
 export function level(music: number, sound: number): void {
   for (const [loop, audio] of running) {
     try {
-      audio.volume = isMusic(loop) ? music : sound;
-      if (audio.volume <= 0) {
+      const want = isMusic(loop) ? music : sound;
+      wanted.set(loop, want);
+      // Während eine Schleife anwächst, gehört ihr die Lautstärke: Sie liest
+      // das neue Ziel im nächsten Schritt von allein.
+      if (!swelling.has(loop)) {
+        audio.volume = want;
+      }
+      if (want <= 0) {
+        settle(loop);
         audio.pause();
       }
     } catch {
@@ -233,14 +298,44 @@ export function level(music: number, sound: number): void {
 
 /** Hält alles an - fürs Verlassen des Spiels. */
 export function quiet(): void {
-  for (const audio of running.values()) {
+  for (const [loop, audio] of running) {
     try {
+      settle(loop);
       audio.pause();
     } catch {
       // still
     }
   }
 }
+
+/**
+ * Wie lange eine Schleife braucht, bis sie auf ihrer Lautstärke ist, in
+ * Millisekunden.
+ *
+ * @remarks
+ * **Musik, die schlagartig dasteht, klingt wie ein Fehler**; eine, die über
+ * zwei Sekunden aufkommt, klingt, als hätte sie schon gespielt. Deshalb
+ * wachsen beide Musikstücke langsam an - das der Karte wie das der Tiefe.
+ *
+ * **Das Fahrgeräusch nicht**, und darum steht hier eine Null: Es hängt an der
+ * Taste nach vorn und soll im selben Augenblick da sein wie der Schub. Ein
+ * Motor, der erst nach zwei Sekunden zu hören ist, gehört zu einem anderen
+ * Boot.
+ */
+const SWELL: Readonly<Record<Loop, number>> = {
+  music: 2000,
+  chart: 2000,
+  engine: 0,
+};
+
+/**
+ * Wie oft dabei nachgesehen wird, in Millisekunden.
+ *
+ * @remarks
+ * Alle fünfzig Millisekunden, egal wie lang das Anwachsen dauert - eine feste
+ * Schrittzahl machte aus einem langen Anwachsen eine hörbare Treppe.
+ */
+const SWELL_TICK = 50;
 
 /** Das Element einer Schleife, beim ersten Mal gebaut. */
 function born(loop: Loop, file: string): HTMLAudioElement {

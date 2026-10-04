@@ -39,6 +39,7 @@ import arschloch from "./arschloch/assets/logo.webp";
 import gta from "./gta/assets/logo.webp";
 import dog from "./dog/assets/logo.webp";
 import uboot from "./uboot/assets/logo.webp";
+import bloonsTd from "./bloons-td/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -70,4 +71,5 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   gta,
   dog,
   uboot,
+  "bloons-td": bloonsTd,
 };

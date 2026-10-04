@@ -188,17 +188,33 @@ export function UbootGame(): ReactElement {
               ersten Druck nach vorn - und bis dahin führt nur dieser Knopf
               zurück zur Seekarte. Ein Weg hinaus, den es erst gibt, wenn man
               drin ist, ist keiner. */}
-            {diving && !hud.paused && (
-              <button
-                type="button"
-                data-testid="uboot-pause"
-                onClick={() => pause(true)}
-                aria-label={UBOOT_TEXTS.pause}
-                className="absolute top-3 right-3 z-40 cursor-pointer rounded-lg bg-black/55 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
-              >
-                {"\u23F8"} {UBOOT_TEXTS.pause}
-              </button>
-            )}
+            {/* **Was aus dem Bild führt, steht in einer Ecke.** Oben rechts,
+                nebeneinander: links der Weg aus dem Vollbild, rechts die
+                Pause. Zwei Wege hinaus in zwei verschiedenen Ecken sind zwei,
+                die man beide suchen muss. */}
+            <div className="absolute top-3 right-3 z-50 flex items-center gap-2">
+              {fullscreen.active && (
+                <button
+                  type="button"
+                  data-testid="uboot-fullscreen-exit"
+                  onClick={fullscreen.toggle}
+                  className="cursor-pointer rounded-lg bg-black/60 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
+                >
+                  {UBOOT_TEXTS.fullscreenExit}
+                </button>
+              )}
+              {diving && !hud.paused && (
+                <button
+                  type="button"
+                  data-testid="uboot-pause"
+                  onClick={() => pause(true)}
+                  aria-label={UBOOT_TEXTS.pause}
+                  className="cursor-pointer rounded-lg bg-black/55 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
+                >
+                  {"\u23F8"} {UBOOT_TEXTS.pause}
+                </button>
+              )}
+            </div>
 
             {diving && (
               <Overlay
@@ -223,24 +239,12 @@ export function UbootGame(): ReactElement {
                 data-testid="uboot-lay"
                 onClick={lay}
                 aria-label={UBOOT_TEXTS.layMine}
-                className={`absolute right-3 z-40 hidden cursor-pointer items-center gap-1 rounded-full bg-black/55 px-4 py-3 text-sm font-semibold text-white backdrop-blur select-none hover:bg-black/75 pointer-coarse:flex ${
-                  fullscreen.active ? "bottom-16" : "bottom-3"
-                }`}
+                className="absolute right-3 bottom-3 z-40 hidden cursor-pointer items-center gap-1 rounded-full bg-black/55 px-4 py-3 text-sm font-semibold text-white backdrop-blur select-none hover:bg-black/75 pointer-coarse:flex"
               >
                 <span aria-hidden="true" className="text-lg leading-none">
                   {"\u{1F4A3}"}
                 </span>
                 {UBOOT_TEXTS.layMine}
-              </button>
-            )}
-
-            {fullscreen.active && (
-              <button
-                type="button"
-                onClick={fullscreen.toggle}
-                className="absolute right-3 bottom-3 z-50 cursor-pointer rounded-lg bg-black/60 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/75"
-              >
-                {UBOOT_TEXTS.fullscreenExit}
               </button>
             )}
 
@@ -453,13 +457,29 @@ export function Overlay({
     screen = (
       <div
         data-testid="uboot-waiting"
-        className="pointer-events-none absolute inset-x-0 bottom-6 z-40 flex flex-col items-center gap-1 text-center text-white"
+        className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-end gap-1 pb-6 text-center text-white"
       >
         <span className="rounded-lg bg-black/55 px-4 py-2 text-sm font-semibold backdrop-blur">
           {UBOOT_TEXTS.course} {hud.level + 1} - {hud.name}
         </span>
-        <span className="rounded-lg bg-black/45 px-3 py-1 text-xs backdrop-blur">
+        {/* **Zwei Hinweise für zwei Geräte.** An der Tastatur steht da,
+            welche Taste ablegt; am Telefon gibt es keine Taste, sondern eine
+            Stelle im Bild - und die muss man zeigen, sonst sucht man sie. */}
+        <span className="rounded-lg bg-black/45 px-3 py-1 text-xs backdrop-blur pointer-coarse:hidden">
           {UBOOT_TEXTS.startHint}
+        </span>
+        {/* Der Finger zeigt nach links, dorthin, wo das Kreuz aufgeht. Ein
+            Zeichen in der Zeile und kein Kreis im Bild: Hochkant ist das
+            Fenster kaum höher als diese drei Zeilen, und eine Markierung, die
+            halb unter dem Hinweis liegt, zeigt nichts. */}
+        <span className="hidden max-w-[22rem] items-center gap-1.5 rounded-lg bg-black/45 px-3 py-1 text-xs backdrop-blur pointer-coarse:flex">
+          <span aria-hidden="true" className="text-base">
+            {"\u{1F448}"}
+          </span>
+          {UBOOT_TEXTS.startHintTouch}
+        </span>
+        <span className="hidden max-w-[22rem] rounded-lg bg-black/45 px-3 py-1 text-[11px] backdrop-blur pointer-coarse:block">
+          {UBOOT_TEXTS.startHintTouchAim}
         </span>
         <span className="rounded-lg bg-black/45 px-3 py-1 text-xs backdrop-blur">
           {gradeAt(hud.grade).name}

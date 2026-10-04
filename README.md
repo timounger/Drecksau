@@ -10,6 +10,7 @@ jedes Spiel hat seine eigene Seite.
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------- |
 | [Arschloch](website/src/games/arschloch/README.md)                 | Karten loswerden - wer als Letzter noch welche haelt, ist es.                                            | Computer + Online    |
 | [Binokel](website/src/games/binokel/README.md)                     | Schwaebisches Stichspiel - Reizen, Melden, Stechen.                                                      | Computer + Online    |
+| [Bloons TD](website/src/games/bloons-td/README.md)                 | Tuerme bauen, Ballons zerstechen - jede Runde wird es mehr.                                              | Einzelspieler        |
 | [Bohnanza](website/src/games/bohnanza/README.md)                   | Anbauen, handeln, ernten - wer die meisten Bohnentaler hat, gewinnt.                                     | Computer + Online    |
 | [Camel Up](website/src/games/camel-up/README.md)                   | Fuenf Kamele, ein Stapel - wer getragen wird, liegt vorn.                                                | Computer + Online    |
 | [CATAN](website/src/games/catan/README.md)                         | Siedeln, handeln, bauen - und die Insel unter euch aufteilen.                                            | Computer + Online    |
@@ -35,6 +36,7 @@ jedes Spiel hat seine eigene Seite.
 | [Skyjo](website/src/games/skyjo/README.md)                         | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online    |
 | [The Game](website/src/games/the-game/README.md)                   | 98 Karten auf vier Reihen - und keiner darf Zahlen nennen.                                               | Computer + Online    |
 | [The Mind](website/src/games/the-mind/README.md)                   | Kooperativ: gemeinsam aufsteigend ablegen - ohne ein Wort.                                               | Nur Online           |
+| [U-Boot](website/src/games/uboot/README.md)                        | Seitenansicht: zehn Gewaesser durchtauchen - dazu ein Endlosmodus, allein oder zu zweit.                 | Allein + Koop-Online |
 
 Weitere Spiele docken ueber die Registry an (siehe
 [Ein weiteres Spiel hinzufuegen](#ein-weiteres-spiel-hinzufuegen)).
@@ -793,4 +795,10 @@ $env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
   [Risiko](docs/games/risiko/game-rules.md) ·
   [Monopoly](docs/games/monopoly/game-rules.md) ·
   [CATAN](docs/games/catan/game-rules.md) ·
-  [Bohnanza](docs/games/bohnanza/game-rules.md)
+  [Bohnanza](docs/games/bohnanza/game-rules.md) ·
+  [Kuhle Kuehe](docs/games/kuhle-kuehe/game-rules.md) ·
+  [Arschloch](docs/games/arschloch/game-rules.md) ·
+  [GTA](docs/games/gta/game-rules.md) ·
+  [Dog](docs/games/dog/game-rules.md) ·
+  [U-Boot](docs/games/uboot/levels.md) ·
+  [Bloons TD](docs/games/bloons-td/game-rules.md)

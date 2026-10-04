@@ -39,7 +39,8 @@ export type GameId =
   | "arschloch"
   | "gta"
   | "dog"
-  | "uboot";
+  | "uboot"
+  | "bloons-td";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -343,6 +344,15 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/uboot",
     category: "action",
     addedOn: "2026-09-30",
+  },
+  {
+    id: "bloons-td",
+    name: "Bloons TD",
+    tagline: "Türme bauen, Ballons zerstechen - jede Runde wird es mehr.",
+    emoji: "\u{1F388}",
+    href: "/bloons-td",
+    category: "action",
+    addedOn: "2026-10-04",
   },
   {
     id: "bohnanza",

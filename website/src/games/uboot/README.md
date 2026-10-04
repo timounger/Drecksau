@@ -104,6 +104,12 @@ wäre gelogen; steht da +0, sagt eine Zeile darunter, warum.
 
 Drei Dinge halten das Spiel auf einem kleinen Bildschirm zusammen:
 
+**Die Werkstatt meldet sich nur, wenn man dort etwas bekommt.** Die Zahl am
+Hammer erscheint nicht, sobald Punkte übrig sind, sondern erst, wenn davon
+wirklich eine nächste Stufe bezahlbar ist (`canBuyAny`). Wer zwölf Punkte hat
+und nichts unter zwanzig vor sich, liefe sonst in eine Werkstatt, in der alles
+grau ist - und glaubt dem Hinweis beim nächsten Mal nicht mehr.
+
 **Die Seekarte misst sich am Fenster, nicht am Bildschirm.** Jede Größe darauf
 steht in `cqw` - einem Hundertstel der Fensterbreite -, und das Blatt trägt dafür
 die Klasse `.game-measured` (`container-type: inline-size`). **Diese Klasse ist
@@ -142,6 +148,11 @@ Die Werkstatt stellt sich dabei um: Felder eine Nummer kleiner, die Tafel nur
 so hoch wie ihr Baum - sechs Türme nebeneinander in einer Handbreit wären
 sonst sechs Türme, von denen man vier nicht sieht.
 
+**Was aus dem Bild führt, steht in einer Ecke:** oben rechts, nebeneinander -
+links der Weg aus dem Vollbild, rechts die Pause. Zwei Wege hinaus in zwei
+verschiedenen Ecken sind zwei, die man beide suchen muss; und unten rechts
+wohnt inzwischen der Minenknopf, der dort auch bleiben kann.
+
 **Das Vollbild gibt es überall**, nicht nur im Tauchgang: Auf dem Telefon ist es
 der einzige Weg zu einer Karte, auf der man etwas lesen kann - und dorthin will
 man, bevor man ein Gewässer aussucht. Quer gehalten füllt das Spielfenster dann
@@ -161,6 +172,15 @@ Steuerkreuz blinkte auf und verschwand, das Boot blieb liegen, und einen
 anderen Weg loszufahren gibt es auf dem Telefon nicht. Vergessen wird jetzt nur
 noch dort, wo ohnehin nicht gefahren werden kann: auf der Karte, in der Pause
 und nach dem Tauchgang.
+
+**Vor dem Ablegen steht auf dem Telefon, wie man es anfasst.** Dort hilft der
+Satz nicht, welche Taste vorwärts fährt - es gibt keine Taste, sondern eine
+Stelle im Bild, und die muss man zeigen. Also stehen im Wartebild zwei
+verschiedene Hinweise: an der Tastatur der mit `D`, am Finger der mit dem
+Zeigefinger nach links („Links ins Bild fassen: Dort geht das Steuerkreuz unter
+deinem Daumen auf"), dazu eine Zeile übers Zielen und die Seemine. Umgeschaltet
+wird über `pointer-coarse`, nicht über die Fensterbreite: Gemeint ist der
+Finger und nicht das schmale Fenster.
 
 **Ein Kreuz, das schon steht, bleibt stehen.** Der zweite Finger zielt - auch
 auf der linken Seite, denn dort schwimmt genauso viel herum wie rechts. Ohne
@@ -266,6 +286,12 @@ Eine Wand, der man erst am Einschlag ansieht, ob sie nachgibt, wäre kein
 Rätsel, sondern eine verschwendete Mine.
 
 ## Zehn Landmarken auf dem Grund
+
+**Die sechs Häuser stehen alle in Bikini Bottom.** Ananas, Stein mit Antenne,
+Krosse Krabbe, Baumkuppel, Abfalleimer, Tiki-Kopf - jedes ist ein Gebäude aus
+dem SpongeBob-Film, und genau deshalb erkennt man sie im Vorbeifahren, ohne
+dass irgendwo ein Name dabeisteht. Die vier Bewohner weiter unten kommen aus
+anderen Filmen; nur der Geist am Ende gehört wieder dorthin.
 
 Auf dem Grund des ersten Gewässers steht ein Haus aus einer Ananas - mit
 Blätterkrone, Rundbogentür, zwei Bullaugen und dem Kamin an der rechten Flanke
@@ -1089,6 +1115,26 @@ Zwei Regler statt einem, anders als bei GTA und der Panzerkiste: Dort gibt es
 eine Sorte Ton, hier laufen Dauerton und Einzelgeräusche nebeneinander und
 gehen einem unterschiedlich schnell auf die Nerven. Wer das Brummen wegdreht,
 will meistens trotzdem hören, dass er getroffen wurde.
+
+**Musik beginnt leise und wächst über zwei Sekunden auf ihre Lautstärke**
+([audio/samples.ts](audio/samples.ts), `swell`). Musik, die schlagartig
+dasteht, klingt wie ein Fehler; eine, die aufkommt, klingt, als hätte sie schon
+gespielt. Das gilt für den ersten Start wie für jedes Weitermachen an der
+Stelle, an der zuletzt aufgehört wurde - für den, der zuhört, ist beides
+derselbe Augenblick.
+
+**Das Fahrgeräusch wächst nicht**, und darum steht in seiner Zeile eine Null:
+Es hängt an der Taste nach vorn und soll im selben Augenblick da sein wie der
+Schub. Ein Motor, der erst nach zwei Sekunden zu hören ist, gehört zu einem
+anderen Boot. Wie lange eine Schleife braucht, steht deshalb je Schleife und
+nicht einmal für alle.
+
+Gerechnet wird dabei **nach der Uhr und nicht in gezählten Schritten**: Ein
+Zeitgeber kommt mal früher, mal später, und aus zwanzig gezählten Schritten
+wird so schnell eine Sekunde, die zwei ist. Gelesen wird deshalb, wie viel Zeit
+wirklich vergangen ist - die Schritte sagen nur, wie oft nachgesehen wird. Wer
+währenddessen am Regler dreht, hört das sofort: Das Ziel wird in jedem Schritt
+neu gelesen, statt beim Start eingefroren zu werden.
 
 Alles daran ist optional: Ein Browser ohne Web Audio, ein Kontext, der nicht
 starten darf, eine Stummschaltung durch das System - nichts davon darf das

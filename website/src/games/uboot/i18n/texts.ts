@@ -30,6 +30,10 @@ export const UBOOT_TEXTS = {
   // Tauchgang
   startHint:
     "Vorwärts drücken zum Ablegen - D, Pfeil rechts, oder links ins Bild fassen und nach rechts ziehen.",
+  startHintTouch:
+    "Links ins Bild fassen: Dort geht das Steuerkreuz unter deinem Daumen auf. Ziehen steuert - nach rechts ziehen legt ab.",
+  startHintTouchAim:
+    "Rechts tippen schießt dorthin. Rechts halten oder der Knopf unten legt eine Seemine.",
   wrecked: "Hülle durchschlagen",
   wreckedHint: (share: number) =>
     `${share} % des Kurses geschafft. Der Affe hat es gesehen.`,

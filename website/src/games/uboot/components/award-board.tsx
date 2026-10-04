@@ -144,7 +144,7 @@ export function AwardBoard({ profile }: AwardBoardProps): ReactElement {
         {/* Die Höhe ist gedeckelt: Auf dem Telefon nimmt das Blatt den ganzen
             Bildschirm, und drei Karten über neunhundert Pixel wären drei
             Plakate. So ist eine Karte überall ungefähr gleich groß. */}
-        <div className="grid h-full max-h-[27rem] grid-flow-col grid-rows-3 gap-3 [grid-auto-columns:19rem] max-md:[grid-auto-columns:15rem]">
+        <div className="grid h-full max-h-[27rem] grid-flow-col grid-rows-3 gap-3 [grid-auto-columns:19rem] max-md:[grid-auto-columns:16rem]">
           {AWARDS.map((award) => (
             <Card key={award.id} award={award} profile={profile} />
           ))}
@@ -193,9 +193,11 @@ function Card({ award, profile }: CardProps): ReactElement {
           >
             {award.name}
           </h3>
-          {/* Vorher die Bedingung, hinterher die Entdeckung - und beides auf
-              drei Zeilen beschnitten, damit jede Karte gleich groß bleibt. */}
-          <p className="line-clamp-3 text-xs leading-snug">
+          {/* Vorher die Bedingung, hinterher die Entdeckung - beschnitten auf
+              drei Zeilen, auf schmalen Fenstern auf vier: Dort ist eine Zeile
+              kürzer, und die Karte hat die Höhe dafür. Beschnitten wird
+              überhaupt, damit jede Karte gleich groß bleibt. */}
+          <p className="line-clamp-4 text-xs leading-snug lg:line-clamp-3">
             {lit && award.note !== undefined ? award.note : award.hint}
           </p>
         </div>

@@ -292,6 +292,25 @@ export function restCost(profile: Profile): number {
 }
 
 /**
+ * Ob die freien Punkte für überhaupt irgendetwas reichen.
+ *
+ * @param profile - der Spieler
+ * @returns true, wenn mindestens eine nächste Stufe bezahlbar ist
+ * @remarks
+ * **Nicht dasselbe wie "Punkte übrig".** Wer zwölf Punkte hat und nichts, was
+ * unter zwanzig kostet, kann nichts kaufen - und ein Hinweis an der Werkstatt,
+ * der ihn trotzdem hineinschickt, ist einer, dem er beim nächsten Mal nicht
+ * mehr glaubt.
+ */
+export function canBuyAny(profile: Profile): boolean {
+  const spare = free(profile);
+  return UPGRADES.some((track) => {
+    const cost = nextCost(track.id, profile.upgrades[track.id] ?? 0);
+    return cost !== null && cost <= spare;
+  });
+}
+
+/**
  * Ob die freien Punkte für alles Fehlende reichen.
  *
  * @param profile - der Spieler

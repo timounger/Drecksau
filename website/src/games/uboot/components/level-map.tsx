@@ -28,6 +28,7 @@ import type { PanelKind } from "@/games/uboot/components/panel";
 import { UBOOT_TEXTS } from "@/games/uboot/i18n/texts";
 import { gradeAt } from "@/games/uboot/engine/grades";
 import {
+  canBuyAny,
   canPlay,
   free,
   bestOf,
@@ -224,7 +225,11 @@ export function LevelMap({
           kind="upgrades"
           icon={"\u{1F528}"}
           label={UBOOT_TEXTS.upgrades}
-          badge={spare > 0 ? UBOOT_TEXTS.spendable(spare) : undefined}
+          // **Nur, wenn man davon auch etwas bekommt.** Punkte übrig zu
+          // haben heißt nicht, sich etwas leisten zu können: Wer zwölf hat und
+          // nichts unter zwanzig vor sich, läuft sonst in eine Werkstatt, in
+          // der alles grau ist.
+          badge={canBuyAny(profile) ? UBOOT_TEXTS.spendable(spare) : undefined}
           onOpen={onOpen}
         />
         <Door
