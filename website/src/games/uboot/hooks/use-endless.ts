@@ -68,6 +68,8 @@ export type EndlessGame = {
   /** Noch einmal von vorn, auf Stufe eins. */
   readonly restart: () => void;
   readonly pause: (on: boolean) => void;
+  /** Legt eine Seemine - der Knopf am Bild, für Finger ohne rechte Maustaste. */
+  readonly lay: () => void;
 };
 
 /** Der Anfangszustand der Anzeige. */
@@ -126,6 +128,10 @@ export function useEndless(active: boolean): EndlessGame {
     pausedRef.current = false;
     syncHud(runRef.current.state);
   }, [syncHud]);
+
+  const lay = useCallback(() => {
+    touchRef.current.lay();
+  }, []);
 
   const pause = useCallback(
     (on: boolean) => {
@@ -245,7 +251,7 @@ export function useEndless(active: boolean): EndlessGame {
     };
   }, [active, syncHud]);
 
-  return { canvasRef, hud, pad, restart, pause };
+  return { canvasRef, hud, pad, restart, pause, lay };
 }
 
 /** Allein fährt immer der erste Platz. */

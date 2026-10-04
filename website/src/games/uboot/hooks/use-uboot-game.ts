@@ -161,6 +161,8 @@ export type UbootGame = {
   readonly pause: (held: boolean) => void;
   /** Takes a changed profile from the workshop and writes it away. */
   readonly keep: (profile: Profile) => void;
+  /** Legt eine Seemine - der Knopf am Bild, für Finger ohne rechte Maustaste. */
+  readonly lay: () => void;
 };
 
 /**
@@ -394,7 +396,12 @@ export function useUbootGame(awake = true): UbootGame {
           !pausedRef.current;
         if (ready && want.forward) {
           startRef.current();
-        } else {
+        } else if (!ready) {
+          // **Nur, wenn hier gar nicht gefahren werden kann**, also auf der
+          // Karte, in der Pause und nach dem Tauchgang. Vor dem Ablegen darf
+          // nichts gelöscht werden: Ein Daumen setzt auf, zieht und steuert
+          // damit los - wer ihm zwischen Aufsetzen und Ziehen die Hand
+          // wegnimmt, lässt ihn auf dem Telefon gar nicht erst anfangen.
           controls.forget();
           thumb.forget();
         }
@@ -534,6 +541,10 @@ export function useUbootGame(awake = true): UbootGame {
     startRef.current = () => beginDive(stateRef.current.level);
   });
 
+  const lay = useCallback(() => {
+    touchRef.current.lay();
+  }, []);
+
   const pause = useCallback(
     (held: boolean) => {
       pausedRef.current = held;
@@ -575,6 +586,7 @@ export function useUbootGame(awake = true): UbootGame {
     again: () => beginDive(stateRef.current.level),
     pause,
     keep,
+    lay,
   };
 }
 

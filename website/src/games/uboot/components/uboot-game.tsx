@@ -72,6 +72,7 @@ export function UbootGame(): ReactElement {
     again,
     pause,
     keep,
+    lay,
     record,
   } = useUbootGame(deep !== "solo");
 
@@ -208,6 +209,29 @@ export function UbootGame(): ReactElement {
                 onResume={() => pause(false)}
                 onMap={toMap}
               />
+            )}
+
+            {/* **Der Minenknopf, und nur für Finger.** Am Rechner liegt die
+                Seemine auf der rechten Maustaste; auf dem Telefon gibt es die
+                nicht, und das lange Halten rechts im Bild ist zwar da, aber
+                nichts, worauf man von allein kommt. Er steht nur im Bild,
+                wenn auch wirklich Minen an Bord sind - ein Knopf, der nichts
+                tut, ist schlimmer als keiner. */}
+            {diving && hud.mines && !hud.paused && (
+              <button
+                type="button"
+                data-testid="uboot-lay"
+                onClick={lay}
+                aria-label={UBOOT_TEXTS.layMine}
+                className={`absolute right-3 z-40 hidden cursor-pointer items-center gap-1 rounded-full bg-black/55 px-4 py-3 text-sm font-semibold text-white backdrop-blur select-none hover:bg-black/75 pointer-coarse:flex ${
+                  fullscreen.active ? "bottom-16" : "bottom-3"
+                }`}
+              >
+                <span aria-hidden="true" className="text-lg leading-none">
+                  {"\u{1F4A3}"}
+                </span>
+                {UBOOT_TEXTS.layMine}
+              </button>
             )}
 
             {fullscreen.active && (

@@ -61,6 +61,15 @@ export type TouchControls = {
   readonly read: () => Pointing;
   /** Das Kreuz zum Zeichnen, oder null. */
   readonly view: () => PadView | null;
+  /**
+   * Legt beim nächsten Lesen eine Seemine.
+   *
+   * @remarks
+   * Für den Knopf auf dem Telefon. Dort gibt es keine rechte Maustaste, und
+   * das lange Halten auf der rechten Seite ist zwar da, aber es ist nichts,
+   * worauf man von allein kommt.
+   */
+  readonly lay: () => void;
   /** Lässt alles los. */
   readonly forget: () => void;
 };
@@ -82,6 +91,8 @@ export function createTouch(): TouchControls {
   let aim: { x: number; y: number } | null = null;
   let shooting = false;
   let laying = false;
+  /** Ein Druck auf den Minenknopf, der beim nächsten Lesen abgeholt wird. */
+  let pending = false;
   /** Der Finger auf der rechten Seite, mit dem Zeitpunkt seines Aufsetzens. */
   let held: { id: number; since: number } | null = null;
 
@@ -113,9 +124,13 @@ export function createTouch(): TouchControls {
           if (event.button === BUTTON.right) {
             laying = true;
           }
-        } else if (at.x < CANVAS_W / 2) {
+        } else if (at.x < CANVAS_W / 2 && pad === null) {
           pad = { id: event.pointerId, baseX: at.x, baseY: at.y, ...at };
         } else {
+          // **Ein Kreuz, das schon steht, bleibt stehen.** Der zweite Finger
+          // zielt - auch links, denn dort schwimmt genauso viel herum wie
+          // rechts. Sonst spränge das Kreuz unter dem Daumen weg, sobald man
+          // nach links schießt.
           aim = at;
           held = { id: event.pointerId, since: performance.now() };
         }
@@ -182,13 +197,17 @@ export function createTouch(): TouchControls {
       // Kurz getippt heißt schießen, lange gehalten heißt legen - und niemals
       // beides, sonst legt jeder Schuss aus Versehen eine Mine mit.
       const long = held !== null && performance.now() - held.since > LONG_MS;
+      // Der Knopf zählt für genau ein Bild: Gelegt wird eine Mine, nicht eine
+      // je Bild, solange der Finger noch auf dem Knopf liegt.
+      const pressed = pending;
+      pending = false;
       return {
         up: dy < -DEAD,
         down: dy > DEAD,
         back: dx < -DEAD,
         forward: dx > DEAD,
         fire: shooting || (held !== null && !long),
-        drop: laying || long,
+        drop: laying || long || pressed,
         aim,
       };
     },
@@ -207,6 +226,9 @@ export function createTouch(): TouchControls {
         };
       }
       return seen;
+    },
+    lay: () => {
+      pending = true;
     },
     forget,
   };

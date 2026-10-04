@@ -149,7 +149,30 @@ den ganzen Bildschirm.
 
 Gesteuert wird wie in der Panzerkiste: **links ins Bild fassen**, und unter dem
 Daumen geht ein Steuerkreuz auf; rechts tippen schießt, rechts halten legt eine
-Seemine.
+Seemine. Damit legt man auch ab - der erste Zug nach vorn startet den
+Tauchgang, auf dem Telefon wie an der Tastatur.
+
+**Und genau daran ist es eine Weile gescheitert.** Vor dem Ablegen hat die
+Schleife in jedem Bild `forget()` gerufen, um nichts Gedrücktes aus der Zeit
+davor mitzuschleppen. An der Tastatur fiel das nicht auf, weil eine gehaltene
+Taste von allein nachfeuert; der Daumen aber setzt auf und zieht **danach** -
+und zwischen diesen beiden Augenblicken war er jedes Mal gelöscht. Das
+Steuerkreuz blinkte auf und verschwand, das Boot blieb liegen, und einen
+anderen Weg loszufahren gibt es auf dem Telefon nicht. Vergessen wird jetzt nur
+noch dort, wo ohnehin nicht gefahren werden kann: auf der Karte, in der Pause
+und nach dem Tauchgang.
+
+**Ein Kreuz, das schon steht, bleibt stehen.** Der zweite Finger zielt - auch
+auf der linken Seite, denn dort schwimmt genauso viel herum wie rechts. Ohne
+diese Regel spränge das Steuerkreuz unter dem Daumen weg, sobald man nach links
+schießt, und das Boot bliebe mitten im Gefecht stehen.
+
+**Und für die Seemine gibt es einen Knopf** unten rechts im Bild - aber nur auf
+Geräten mit grobem Zeiger (`pointer-coarse`) und nur, wenn wirklich Minen an
+Bord sind. Am Rechner liegt sie auf der rechten Maustaste; auf dem Telefon gibt
+es die nicht, und das lange Halten rechts im Bild ist zwar da, aber nichts,
+worauf man von allein kommt. Ein Knopf, der nichts tut, wäre schlimmer als
+keiner - deshalb hängt er an {@link Hud.mines} und nicht einfach am Bildschirm.
 
 ## Das Blatt vor dem Tauchgang
 

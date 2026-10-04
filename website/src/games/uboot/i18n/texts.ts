@@ -60,6 +60,7 @@ export const UBOOT_TEXTS = {
   back: "Zurück",
   forward: "Vorwärts",
   fire: "Feuern",
+  layMine: "Seemine",
   // Endlosmodus
   deepName: "Der Schlund",
   deepTag: "ohne Boden",

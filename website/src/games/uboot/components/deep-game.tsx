@@ -31,7 +31,7 @@ const FULL = 100;
  * @returns den Bildschirm
  */
 export function DeepGame({ onExit }: DeepGameProps): ReactElement {
-  const { canvasRef, hud, restart, pause } = useEndless(true);
+  const { canvasRef, hud, restart, pause, lay } = useEndless(true);
   const air = Math.round((hud.air / hud.airMax) * FULL);
 
   return (
@@ -78,6 +78,24 @@ export function DeepGame({ onExit }: DeepGameProps): ReactElement {
           {UBOOT_TEXTS.toMap}
         </button>
       </div>
+
+      {/* **Der Minenknopf, und nur für Finger.** Hier unten fährt man mit
+          allem, was es gibt, also sind Minen immer an Bord - nur die rechte
+          Maustaste fehlt auf dem Telefon. */}
+      {hud.phase !== "over" && (
+        <button
+          type="button"
+          data-testid="uboot-deep-lay"
+          onClick={lay}
+          aria-label={UBOOT_TEXTS.layMine}
+          className="absolute right-3 bottom-3 z-40 hidden cursor-pointer items-center gap-1 rounded-full bg-black/55 px-4 py-3 text-sm font-semibold text-white backdrop-blur select-none hover:bg-black/75 pointer-coarse:flex"
+        >
+          <span aria-hidden="true" className="text-lg leading-none">
+            {"\u{1F4A3}"}
+          </span>
+          {UBOOT_TEXTS.layMine}
+        </button>
+      )}
 
       {hud.phase === "waiting" && (
         <p className="pointer-events-none absolute inset-x-0 bottom-6 text-center text-sm font-medium text-white drop-shadow">
