@@ -11,9 +11,15 @@
  * Die Reihenfolge ist die Lehrstunde des Spiels: Jede neue Sorte taucht einmal
  * in kleiner Zahl auf, bevor sie in großer kommt - wer beim ersten schwarzen
  * Ballon merkt, dass seine Bomben nichts tun, hat noch Zeit, etwas anderes zu
- * bauen.
+ * bauen. Dasselbe gilt für die Eigenschaften: Nachwachsend, getarnt, mit
+ * Schild und verstärkt kommen je einmal in kleiner Zahl, bevor die gerechneten
+ * Runden sie unter alles mischen.
+ *
+ * Nach der Tabelle kommen die Zeppeline, ab Runde 30 alle zehn Runden ein
+ * Boss - der Reihe nach, und bei jedem Durchgang stärker.
  */
 import type { BloonKind } from "@/games/bloons-td/engine/bloons";
+import type { Traits } from "@/games/bloons-td/engine/types";
 
 /** Eine Gruppe gleicher Ballons in einer Welle. */
 export type Group = {
@@ -23,6 +29,10 @@ export type Group = {
   readonly gap: number;
   /** Und wie lange die Gruppe nach dem Rundenstart wartet. */
   readonly delay: number;
+  /** Was die Ballons mitbringen - fehlt etwas, haben sie es nicht. */
+  readonly traits?: Partial<Traits>;
+  /** Wie viel stärker ihre Hülle ist als in der Tabelle; fehlt es, eins. */
+  readonly scale?: number;
 };
 
 /** Wie dicht die Ballons einer Gruppe standardmäßig laufen. */
@@ -75,6 +85,13 @@ const ROUNDS: readonly (readonly Group[])[] = [
     { kind: "white", count: 10, gap: GAP.loose, delay: 0 },
     { kind: "black", count: 8, gap: GAP.loose, delay: 5 },
     { kind: "pink", count: 12, gap: GAP.tight, delay: 10 },
+    {
+      kind: "blue",
+      count: 10,
+      gap: GAP.tight,
+      delay: 15,
+      traits: { regrow: true },
+    },
   ],
   [
     { kind: "purple", count: 6, gap: GAP.lazy, delay: 0 },
@@ -90,6 +107,13 @@ const ROUNDS: readonly (readonly Group[])[] = [
     { kind: "lead", count: 6, gap: GAP.lazy, delay: 0 },
     { kind: "black", count: 12, gap: GAP.loose, delay: 6 },
     { kind: "white", count: 10, gap: GAP.loose, delay: 11 },
+    {
+      kind: "green",
+      count: 6,
+      gap: GAP.loose,
+      delay: 16,
+      traits: { camo: true },
+    },
   ],
   [
     { kind: "zebra", count: 6, gap: GAP.lazy, delay: 0 },
@@ -105,6 +129,13 @@ const ROUNDS: readonly (readonly Group[])[] = [
     { kind: "rainbow", count: 4, gap: GAP.lazy, delay: 0 },
     { kind: "zebra", count: 8, gap: GAP.loose, delay: 6 },
     { kind: "lead", count: 6, gap: GAP.lazy, delay: 12 },
+    {
+      kind: "pink",
+      count: 6,
+      gap: GAP.loose,
+      delay: 17,
+      traits: { shielded: true },
+    },
   ],
   [
     { kind: "rainbow", count: 8, gap: GAP.loose, delay: 0 },
@@ -115,8 +146,78 @@ const ROUNDS: readonly (readonly Group[])[] = [
     { kind: "ceramic", count: 4, gap: GAP.lazy, delay: 0 },
     { kind: "rainbow", count: 8, gap: GAP.loose, delay: 7 },
     { kind: "lead", count: 8, gap: GAP.lazy, delay: 13 },
+    {
+      kind: "lead",
+      count: 2,
+      gap: GAP.lazy,
+      delay: 20,
+      traits: { fortified: true },
+    },
   ],
 ];
+
+/**
+ * Das Grundgerüst der gerechneten Runden: die letzte Handrunde ohne ihre
+ * Lehrgruppe am Ende.
+ */
+const BASE: readonly Group[] = [
+  { kind: "ceramic", count: 4, gap: GAP.lazy, delay: 0 },
+  { kind: "rainbow", count: 8, gap: GAP.loose, delay: 7 },
+  { kind: "lead", count: 8, gap: GAP.lazy, delay: 13 },
+];
+
+/**
+ * Ab welcher Runde etwas kommt, alle wie viele Runden einer mehr dazukommt,
+ * und wie viele es höchstens werden.
+ */
+const ARRIVAL = {
+  moab: { first: 24, every: 4, most: 8 },
+  ddt: { first: 32, every: 5, most: 6 },
+  bfb: { first: 36, every: 6, most: 4 },
+  zomg: { first: 50, every: 10, most: 3 },
+  bad: { first: 70, every: 15, most: 2 },
+} as const;
+
+/** Wann der goldene Ballon kommt: ab dieser Runde, dann alle so viele. */
+const GOLDEN = { first: 27, every: 10 } as const;
+
+/**
+ * Wann die Bosse kommen, und um wie viel stärker sie je Durchgang werden.
+ *
+ * @remarks
+ * Ab Runde 30 alle zehn Runden einer, in der Reihenfolge von
+ * {@link BOSS_ORDER}. Nach sechs Bossen fängt die Reihe von vorn an, und jeder
+ * hat dann drei Viertel mehr Hülle als beim letzten Mal.
+ */
+const BOSS = { first: 30, every: 10, growth: 0.75 } as const;
+
+/** Die Reihenfolge der Bosse. */
+export const BOSS_ORDER: readonly BloonKind[] = [
+  "bloonarius",
+  "vortex",
+  "lych",
+  "dreadbloon",
+  "phayze",
+  "blastapopoulos",
+];
+
+/** Wann in einer gerechneten Runde die Zeppeline und der Boss loslaufen. */
+const LATE = { golden: 8, boss: 10, blimps: 20, gap: 3 } as const;
+
+/**
+ * Ab wann die gerechneten Runden Eigenschaften mischen, und in welchem Takt.
+ *
+ * @remarks
+ * Ein fester Takt statt Zufall: Wer verliert, soll beim nächsten Versuch
+ * dieselbe Runde wieder bekommen.
+ */
+const MIX = {
+  regrow: 2,
+  camo: 3,
+  shielded: 4,
+  fortifyFrom: 30,
+  blimpFortifyFrom: 40,
+} as const;
 
 /** Wie stark die Zahlen nach der Tabelle je Runde zulegen. */
 const BEYOND = { growth: 0.22, most: 60 } as const;
@@ -144,18 +245,96 @@ export function waveOf(round: number): readonly Group[] {
   let wave: readonly Group[] = written ?? [];
 
   if (written === undefined) {
-    const last = ROUNDS[ROUNDS.length - 1] ?? [];
     const over = round - ROUNDS.length;
-    wave = last.map((group) => ({
+    const grown = BASE.map((group) => ({
       ...group,
       count: Math.min(
         BEYOND.most,
         Math.round(group.count * (1 + over * BEYOND.growth)),
       ),
     }));
+    wave = [...mixed(grown, round), ...late(round)];
   }
 
   return wave;
+}
+
+/**
+ * Die Grundgruppen einer gerechneten Runde mit ihren Eigenschaften.
+ *
+ * @remarks
+ * Regenbogen wächst jede zweite Runde nach, Keramik ist jede dritte getarnt
+ * und jede vierte geschützt, und ab Runde 30 kommt Blei jede zweite Runde
+ * verstärkt.
+ */
+function mixed(groups: readonly Group[], round: number): readonly Group[] {
+  return groups.map((group) => {
+    let traits: Partial<Traits> = {};
+    switch (group.kind) {
+      case "rainbow":
+        traits = { regrow: round % MIX.regrow === 0 };
+        break;
+      case "ceramic":
+        traits = {
+          camo: round % MIX.camo === 0,
+          shielded: round % MIX.shielded === 0,
+        };
+        break;
+      case "lead":
+        traits = {
+          fortified: round >= MIX.fortifyFrom && round % MIX.regrow === 0,
+        };
+        break;
+      default:
+        break;
+    }
+    return { ...group, traits };
+  });
+}
+
+/** Was nach den Grundgruppen kommt: Gold, Zeppeline und der Boss. */
+function late(round: number): readonly Group[] {
+  const groups: Group[] = [];
+  const fortified = round >= MIX.blimpFortifyFrom && round % MIX.regrow === 0;
+
+  if (round >= GOLDEN.first && (round - GOLDEN.first) % GOLDEN.every === 0) {
+    groups.push({ kind: "golden", count: 1, gap: 0, delay: LATE.golden });
+  }
+
+  let delay = LATE.blimps;
+  for (const [kind, plan] of Object.entries(ARRIVAL)) {
+    const count =
+      round < plan.first
+        ? 0
+        : Math.min(
+            plan.most,
+            1 + Math.floor((round - plan.first) / plan.every),
+          );
+    if (count > 0) {
+      groups.push({
+        kind: kind as BloonKind,
+        count,
+        gap: LATE.gap,
+        delay,
+        traits: { fortified },
+      });
+      delay += count * LATE.gap;
+    }
+  }
+
+  if (round >= BOSS.first && (round - BOSS.first) % BOSS.every === 0) {
+    const turn = (round - BOSS.first) / BOSS.every;
+    const kind = BOSS_ORDER[turn % BOSS_ORDER.length] ?? "bloonarius";
+    groups.push({
+      kind,
+      count: 1,
+      gap: 0,
+      delay: LATE.boss,
+      scale: 1 + Math.floor(turn / BOSS_ORDER.length) * BOSS.growth,
+    });
+  }
+
+  return groups;
 }
 
 /**

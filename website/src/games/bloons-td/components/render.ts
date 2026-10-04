@@ -13,10 +13,34 @@
  */
 import { BLOONS, type BloonKind } from "@/games/bloons-td/engine/bloons";
 import {
+  SEE_THROUGH,
+  drawBar,
+  drawBlimp,
+  drawBoss,
+  drawDizzy,
+  drawMarks,
+  drawShield,
+} from "@/games/bloons-td/components/blimps";
+import {
+  drawAce,
+  drawBananas,
+  drawBoat,
+  drawFarm,
+  drawHeli,
+  drawMortar,
+  drawPad,
+  drawSpikeFactory,
+  drawSub,
+  drawVillage,
+  star,
+  type MachinePose,
+} from "@/games/bloons-td/components/machines";
+import {
   BLOON_SIZE,
   TRACK,
   WATCH,
   canBuild,
+  powerOf,
 } from "@/games/bloons-td/engine/engine";
 import {
   CELL,
@@ -30,7 +54,13 @@ import {
 } from "@/games/bloons-td/engine/map";
 import { TOWERS, type TowerKind } from "@/games/bloons-td/engine/towers";
 import { NO_TIERS, statsOf } from "@/games/bloons-td/engine/upgrades";
-import type { Burst, Game, Shot, Tower } from "@/games/bloons-td/engine/types";
+import type {
+  Bloon,
+  Burst,
+  Game,
+  Shot,
+  Tower,
+} from "@/games/bloons-td/engine/types";
 
 /** Die Farben des Feldes. */
 const PAINT = {
@@ -57,6 +87,29 @@ const PAINT = {
   flash: "#f59e0b",
   flashCore: "#fef3c7",
   sticky: "rgba(250,204,21,0.9)",
+  cannonball: "#1f2937",
+  cannonballShine: "rgba(255,255,255,0.55)",
+  fireEdge: "#dc2626",
+  fireCore: "#fde047",
+  fireFlash: "#ffffff",
+  water: "#3b82c4",
+  waterDark: "#2f6fae",
+  waterLine: "rgba(255,255,255,0.35)",
+  tracer: "#fde68a",
+  laser: "#f43f5e",
+  laserCore: "#ffe4e6",
+  magic: "#a855f7",
+  magicCore: "#f5d0fe",
+  flame: "#f97316",
+  flameCore: "#fde047",
+  potion: "#84cc16",
+  potionDark: "#3f6212",
+  glassRim: "#e2e8f0",
+  thorn: "#4d7c0f",
+  shuriken: "#9ca3af",
+  shurikenDark: "#374151",
+  rocket: "#6b7280",
+  shadowAir: "rgba(0,0,0,0.25)",
 } as const;
 
 /**
@@ -97,6 +150,29 @@ const FUR = {
   brassDark: "#8a6621",
   brassLight: "#e8c877",
   wood: "#8a5a2b",
+  camo: "#4d6b3a",
+  camoDark: "#2f4422",
+  olive: "#5b6b4a",
+  iron: "#374151",
+  ironDark: "#111827",
+  purple: "#6d28d9",
+  purpleDark: "#4c1d95",
+  star: "#fde047",
+  hero: "#2563eb",
+  cape: "#dc2626",
+  capeDark: "#991b1b",
+  black: "#111827",
+  band: "#dc2626",
+  coat: "#f1f5f9",
+  brassGlass: "#a5f3fc",
+  leaf: "#4d7c0f",
+  leafLight: "#84cc16",
+  orange: "#ea580c",
+  hardHat: "#facc15",
+  hardHatDark: "#ca8a04",
+  stone: "#57534e",
+  stoneLight: "#a8a29e",
+  orb: "#c084fc",
 } as const;
 
 /** Die Maße der Zeichnung, in Teilen einer Feldbreite. */
@@ -277,6 +353,53 @@ const THROW = {
   finWide: 0.15,
 } as const;
 
+/** Was die Affen auf dem Kopf tragen, in Teilen ihrer Größe. */
+const HAT = {
+  /** Hut mit breiter Krempe: Scharfschütze. */
+  brimUp: 0.98,
+  brimWide: 0.78,
+  brimHigh: 0.2,
+  crown: 0.46,
+  /** Helme: Pfeilschuss, Pionier, Stachelexperte. */
+  helmUp: 0.9,
+  helm: 0.6,
+  helmBrim: 0.12,
+  helmLip: 0.1,
+  spike: 0.22,
+  /** Der spitze Hut des Zauberers. */
+  coneBase: 1.02,
+  coneWide: 0.6,
+  coneUp: 2.05,
+  coneTip: 0.18,
+  starAt: 1.45,
+  star: 0.1,
+  /** Das Stirnband des Ninjas. */
+  bandUp: 1.02,
+  bandHigh: 0.17,
+  bandWide: 0.58,
+  tail: 0.35,
+  tailDrop: 0.18,
+  /** Die Schutzbrille des Alchemisten. */
+  gogglesUp: 1.12,
+  goggles: 0.15,
+  gogglesApart: 0.22,
+  /** Die Blätterkrone des Druiden. */
+  leaves: 5,
+  leafFrom: -2.6,
+  leafTo: -0.55,
+  leafOut: 0.52,
+  leafLong: 0.2,
+  leafWide: 0.1,
+} as const;
+
+/** Der Umhang des Super-Affen. */
+const CAPE = {
+  top: 0.05,
+  bottom: 1.1,
+  topWide: 0.42,
+  bottomWide: 0.7,
+} as const;
+
 /** Und was er dabei in den Händen hält. */
 const GEAR = {
   /** Der Bumerang. */
@@ -289,6 +412,102 @@ const GEAR = {
   gripDown: 0.3,
   gripThick: 0.14,
   blob: 0.12,
+  /** Das Gewehr des Scharfschützen. */
+  rifleBack: 0.45,
+  rifleLong: 1.05,
+  rifle: 0.08,
+  stock: 0.2,
+  stockLong: 0.32,
+  scopeAt: 0.1,
+  scopeLong: 0.3,
+  scope: 0.1,
+  /** Die Pfeilschuss-Kanone: ein Kasten mit drei Läufen. */
+  boxBack: 0.25,
+  boxLong: 0.55,
+  box: 0.42,
+  barrels: 3,
+  barrelLong: 0.6,
+  barrelGap: 0.11,
+  barrel: 0.06,
+  /** Der Zauberstab. */
+  wandLong: 0.5,
+  wand: 0.08,
+  orb: 0.15,
+  glow: 0.28,
+  /** Der Wurfstern. */
+  starAt: 0.25,
+  starSize: 0.24,
+  starPoints: 4,
+  /** Der Trank. */
+  flaskAt: 0.25,
+  flask: 0.2,
+  neck: 0.08,
+  neckLong: 0.18,
+  /** Der Stab des Druiden. */
+  staffBack: 0.35,
+  staffLong: 0.75,
+  staff: 0.09,
+  staffLeaf: 0.16,
+  /** Die Nagelpistole. */
+  nailBack: 0.1,
+  nailLong: 0.5,
+  nailHigh: 0.26,
+  nozzle: 0.1,
+  /** Die Stachelkugel in der Hand. */
+  ballAt: 0.3,
+  ball: 0.26,
+  ballSpikes: 8,
+  ballSpike: 0.12,
+} as const;
+
+/** Die neuen Geschosse, in Teilen einer Feldbreite. */
+const MISSILE = {
+  /** Ein kleiner Pfeil für U-Boot, Boot, Flieger, Super-Affe und Pfeilschuss. */
+  smallDart: 0.5,
+  /** Der Laserstrahl. */
+  laser: 0.28,
+  laserThick: 0.05,
+  /** Die Granate des Mörsers: wie hoch ihr Bogen ist und wie sehr sie dabei wächst. */
+  shell: 0.08,
+  arc: 0.9,
+  grow: 0.7,
+  /** Die Magiekugel des Zauberers. */
+  orb: 0.07,
+  orbGlow: 0.14,
+  /** Der Wurfstern und wie schnell er sich dreht (Umdrehungen je Sekunde). */
+  shuriken: 0.1,
+  spin: 4,
+  /** Der Trank des Alchemisten. */
+  flask: 0.07,
+  neck: 0.03,
+  /** Der Dorn des Druiden. */
+  thorn: 0.12,
+  thornWide: 0.035,
+  /** Der Nagelhaufen: im Flug klein, am Boden groß, und wann er zu verblassen anfängt. */
+  pile: 0.13,
+  pileFlying: 0.08,
+  fade: 0.85,
+  /** Die Stachelkugel. */
+  ball: 0.13,
+  ballSpikes: 10,
+  ballSpike: 0.06,
+  /** Die Rakete. */
+  rocket: 0.12,
+  rocketWide: 0.04,
+  rocketFlame: 0.08,
+} as const;
+
+/** Die Leuchtspur, das Bananengeld und das Kräuseln auf dem Teich. */
+const TRAIL = {
+  tracer: 2,
+  impact: 0.5,
+  cashRise: 1,
+  cashSize: 0.18,
+  ripples: 2,
+  rippleWide: 0.18,
+  rippleAt: 0.3,
+  /** Wie hoch über dem Boden ein Flieger schwebt, in Teilen der Turmgröße. */
+  airLift: 0.9,
 } as const;
 
 /**
@@ -344,6 +563,29 @@ const TACK = {
   nailThick: 0.14,
   headSize: 0.11,
   spokes: 8,
+  /** Der Nagel im Flug: Schaft, Spitze und Kopf, in Teilen einer Feldbreite. */
+  flyingLong: 0.22,
+  flyingThick: 0.04,
+  flyingTip: 0.07,
+  flyingHead: 0.05,
+} as const;
+
+/** Der Bumerang im Flug, in Teilen einer Feldbreite. */
+const BOOMERANG = {
+  /** Wie lang ein Arm ist und wie dick. */
+  arm: 0.16,
+  thick: 0.06,
+  /** Der halbe Winkel zwischen den Armen. */
+  bend: 0.95,
+  /** Umdrehungen pro Sekunde. */
+  spin: 3,
+} as const;
+
+/** Die Kanonenkugel: Größe in Teilen einer Feldbreite, Glanzpunkt in Teilen der Kugel. */
+const CANNONBALL = {
+  size: 0.1,
+  shineAt: 0.35,
+  shine: 0.3,
 } as const;
 
 /** Links und rechts - für Ohren, Augen, Beine und Arme. */
@@ -381,10 +623,14 @@ export function draw(
   ground(ctx);
   reach(ctx, game, view);
   for (const tower of game.towers) {
-    monkey(ctx, tower, view.chosen === tower.id);
+    monkey(ctx, tower, view.chosen === tower.id, game.clock);
   }
-  for (const bloon of game.bloons) {
-    const at = spotAt(TRACK, bloon.gone);
+  // Die großen zuerst, damit kleine Ballons neben einem Zeppelin nicht unter
+  // ihm verschwinden.
+  const bySize = [...game.bloons].sort(
+    (a, b) => BLOONS[b.kind].size - BLOONS[a.kind].size,
+  );
+  for (const bloon of bySize) {
     // Ein Ballon, der steht, muss aussehen, als stehe er - sonst sieht der
     // Eisaffe aus wie ein Affe, der nichts tut.
     const hold: Hold =
@@ -395,10 +641,16 @@ export function draw(
         : bloon.thawed > game.clock
           ? "sticky"
           : null;
-    balloon(ctx, bloon.kind, at.x, at.y, bloon.hull, hold);
+    sprite(ctx, bloon, hold, game.clock);
   }
   for (const shot of game.shots) {
     flying(ctx, shot);
+  }
+  // **Wer fliegt, fliegt über allem** - auch über den Ballons, die er jagt.
+  for (const tower of game.towers) {
+    if (aloft(tower.kind)) {
+      flyer(ctx, tower, game.clock);
+    }
   }
   for (const burst of game.bursts) {
     flare(ctx, burst);
@@ -407,66 +659,336 @@ export function draw(
 }
 
 /**
+ * Ein Ballon, Zeppelin oder Boss, dort wo er gerade ist.
+ *
+ * @remarks
+ * Getarnte sind halb durchsichtig und tragen Tarnflecken, ein verschobener
+ * Phayze ist fast unsichtbar. Zeppeline fliegen mit dem Bug in Wegrichtung;
+ * Zeppeline und Bosse tragen einen Lebensbalken, Bosse dazu ihren Namen.
+ */
+function sprite(
+  ctx: CanvasRenderingContext2D,
+  bloon: Bloon,
+  hold: Hold,
+  clock: number,
+): void {
+  const breed = BLOONS[bloon.kind];
+  const at = spotAt(TRACK, bloon.gone);
+  const ahead = spotAt(TRACK, bloon.gone + 1);
+  const size = CELL * BLOON_SIZE * breed.size;
+  const phased = bloon.phased > clock;
+
+  ctx.save();
+  ctx.globalAlpha = phased
+    ? SEE_THROUGH.phased
+    : bloon.camo
+      ? SEE_THROUGH.camo
+      : 1;
+  switch (breed.class) {
+    case "bloon":
+      balloon(ctx, bloon.kind, at.x, at.y, bloon.hull / bloon.full, hold);
+      ctx.translate(at.x, at.y);
+      drawMarks(ctx, size, {
+        camo: bloon.camo,
+        regrow: bloon.regrow,
+        fortified: bloon.fortified,
+        shield: bloon.shield > 0,
+      });
+      break;
+    case "blimp":
+      ctx.translate(at.x, at.y);
+      drawBlimp(
+        ctx,
+        size,
+        Math.atan2(ahead.y - at.y, ahead.x - at.x),
+        breed.paint,
+        breed.line,
+      );
+      drawMarks(ctx, size, {
+        camo: bloon.camo,
+        regrow: false,
+        fortified: bloon.fortified,
+        shield: false,
+      });
+      if (bloon.shield > 0) {
+        drawShield(ctx, size * LOOK.hold);
+      }
+      break;
+    case "boss":
+      ctx.translate(at.x, at.y);
+      drawBoss(ctx, bloon.kind, size, breed.paint, breed.line, clock);
+      if (bloon.shield > 0) {
+        drawShield(ctx, size * LOOK.hold);
+      }
+      break;
+  }
+  ctx.globalAlpha = 1;
+  if (breed.class !== "bloon") {
+    drawBar(
+      ctx,
+      size,
+      bloon.hull / bloon.full,
+      bloon.shield / bloon.full,
+      breed.class === "boss" ? breed.name : null,
+    );
+  }
+  ctx.restore();
+}
+
+/** Ob ein Turm fliegt und deshalb über den Ballons gezeichnet wird. */
+function aloft(kind: TowerKind): boolean {
+  return TOWERS[kind].moves !== "stay";
+}
+
+/**
+ * Ein Flieger dort, wo er gerade ist - samt Schatten auf dem Boden.
+ *
+ * @remarks
+ * Der Schatten liegt unter ihm, der Flieger selbst ein Stück darüber. Ohne
+ * Schatten sieht ein Hubschrauber über der Straße aus, als stünde er darauf.
+ */
+function flyer(
+  ctx: CanvasRenderingContext2D,
+  tower: Tower,
+  clock: number,
+): void {
+  const size = CELL * LOOK.tower;
+  const pose: MachinePose = { faced: tower.faced, kick: tower.kick, clock };
+
+  ctx.fillStyle = PAINT.shadowAir;
+  ctx.beginPath();
+  ctx.ellipse(
+    tower.x,
+    tower.y + size * TRAIL.airLift,
+    size * APE.shadowWide,
+    size * APE.shadowHigh * 2,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(tower.x, tower.y);
+  if (tower.kind === "heli") {
+    drawHeli(ctx, size, pose);
+  } else {
+    drawAce(ctx, size, pose);
+  }
+  if (tower.stunned > 0) {
+    drawDizzy(ctx, size, clock);
+  }
+  ctx.restore();
+}
+
+/**
  * Ein Knall, solange man ihn sieht.
  *
  * @remarks
- * Drei Arten, drei Bilder: Ein **geplatzter Ballon** ist ein dünner Ring in
- * seiner Farbe. Ein **Bombenknall** ist eine Scheibe, die aufleuchtet und
- * verblasst. Eine **Frostwelle** ist beides plus Eiszacken am Rand - sie ist
+ * Jede Art hat ihr Bild: Ein **geplatzter Ballon** ist ein dünner Ring in
+ * seiner Farbe. Ein **Bombenknall** ist ein Feuerball mit Flammenzungen. Eine
+ * **Frostwelle** ist eine helle Scheibe mit Eiszacken am Rand - sie ist
  * der ganze Angriff des Eisaffen und nicht nur seine Begleitmusik, also muss
  * man sie auch sehen.
  */
 function flare(ctx: CanvasRenderingContext2D, burst: Burst): void {
-  const share = Math.min(1, burst.age / LOOK.burstLife);
+  const share = Math.min(1, burst.age / burst.life);
   const left = 1 - share;
   const wide = burst.reach * (LOOK.burstFrom + share);
 
-  if (burst.look === "pop") {
-    ctx.strokeStyle = burst.paint;
-    ctx.globalAlpha = left;
-    ctx.lineWidth = LOOK.line;
-    ctx.beginPath();
-    ctx.arc(burst.x, burst.y, wide, 0, Math.PI * 2);
-    ctx.stroke();
-  } else {
-    const frost = burst.look === "frost";
-    ctx.globalAlpha = left * (frost ? BOOM.frostFill : BOOM.blastFill);
-    ctx.fillStyle = frost ? PAINT.ice : burst.paint;
-    ctx.beginPath();
-    ctx.arc(burst.x, burst.y, wide, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = left;
-    ctx.strokeStyle = frost ? PAINT.frostLine : burst.paint;
-    ctx.lineWidth = LOOK.line + LOOK.line * left;
-    ctx.stroke();
-
-    // Zacken am Rand: Der Frost greift nach außen, der Knall schlägt heraus.
-    ctx.lineWidth = LOOK.line;
-    for (let spike = 0; spike < BOOM.spikes; spike += 1) {
-      const turn = (spike / BOOM.spikes) * Math.PI * 2;
-      const from = wide * BOOM.spikeFrom;
-      const to = wide * (1 + BOOM.spikeOut * left);
+  switch (burst.look) {
+    case "pop":
+      ctx.strokeStyle = burst.paint;
+      ctx.globalAlpha = left;
+      ctx.lineWidth = LOOK.line;
       ctx.beginPath();
-      ctx.moveTo(
-        burst.x + Math.cos(turn) * from,
-        burst.y + Math.sin(turn) * from,
-      );
-      ctx.lineTo(burst.x + Math.cos(turn) * to, burst.y + Math.sin(turn) * to);
+      ctx.arc(burst.x, burst.y, wide, 0, Math.PI * 2);
       ctx.stroke();
-    }
+      break;
+    case "blast":
+      fireball(ctx, burst, wide, left);
+      break;
+    case "frost":
+      frostWave(ctx, burst, wide, left);
+      break;
+    case "tracer":
+      tracer(ctx, burst, left);
+      break;
+    case "stun":
+      stunWave(ctx, burst, wide, left);
+      break;
+    case "cash":
+      ctx.globalAlpha = left;
+      drawBananas(
+        ctx,
+        burst.x,
+        burst.y - burst.reach * TRAIL.cashRise * share,
+        CELL * TRAIL.cashSize,
+      );
+      break;
   }
 
   ctx.globalAlpha = 1;
 }
 
+/**
+ * Die Leuchtspur eines Scharfschusses.
+ *
+ * @remarks
+ * Der Schuss selbst ist sofort da - zu sehen ist nur, was er hinterlässt: ein
+ * heller Strich vom Gewehr zum Ziel, der schnell verblasst, und ein Aufblitzen
+ * dort, wo er traf.
+ */
+function tracer(
+  ctx: CanvasRenderingContext2D,
+  burst: Burst,
+  left: number,
+): void {
+  const from = burst.from ?? { x: burst.x, y: burst.y };
+  ctx.globalAlpha = left;
+  ctx.strokeStyle = PAINT.tracer;
+  ctx.lineWidth = TRAIL.tracer;
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(burst.x, burst.y);
+  ctx.stroke();
+  ctx.fillStyle = PAINT.fireFlash;
+  ctx.beginPath();
+  ctx.arc(burst.x, burst.y, burst.reach * TRAIL.impact * left, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/**
+ * Der Wirbel des Vortex: ein Ring, der nach außen läuft, mit Wirbelbögen
+ * darin - so weit, wie er Türme lähmt.
+ */
+function stunWave(
+  ctx: CanvasRenderingContext2D,
+  burst: Burst,
+  wide: number,
+  left: number,
+): void {
+  ctx.globalAlpha = left;
+  ctx.strokeStyle = burst.paint;
+  ctx.lineWidth = LOOK.line * 2;
+  ctx.beginPath();
+  ctx.arc(burst.x, burst.y, wide, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.lineWidth = LOOK.line;
+  for (let swirl = 0; swirl < BOOM.spikes; swirl += 2) {
+    const turn = (swirl / BOOM.spikes) * Math.PI * 2 + left * Math.PI;
+    ctx.beginPath();
+    ctx.arc(burst.x, burst.y, wide * BOOM.spikeFrom, turn, turn + LOOK.half);
+    ctx.stroke();
+  }
+}
+
+/** Die Frostwelle des Eisaffen: eine helle Scheibe mit Eiszacken am Rand. */
+function frostWave(
+  ctx: CanvasRenderingContext2D,
+  burst: Burst,
+  wide: number,
+  left: number,
+): void {
+  ctx.globalAlpha = left * BOOM.frostFill;
+  ctx.fillStyle = PAINT.ice;
+  ctx.beginPath();
+  ctx.arc(burst.x, burst.y, wide, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = left;
+  ctx.strokeStyle = PAINT.frostLine;
+  ctx.lineWidth = LOOK.line + LOOK.line * left;
+  ctx.stroke();
+
+  // Zacken am Rand: Der Frost greift nach außen.
+  ctx.lineWidth = LOOK.line;
+  for (let spike = 0; spike < BOOM.spikes; spike += 1) {
+    const turn = (spike / BOOM.spikes) * Math.PI * 2;
+    const from = wide * BOOM.spikeFrom;
+    const to = wide * (1 + BOOM.spikeOut * left);
+    ctx.beginPath();
+    ctx.moveTo(
+      burst.x + Math.cos(turn) * from,
+      burst.y + Math.sin(turn) * from,
+    );
+    ctx.lineTo(burst.x + Math.cos(turn) * to, burst.y + Math.sin(turn) * to);
+    ctx.stroke();
+  }
+}
+
 /** Wie ein Knall aussieht. */
 const BOOM = {
-  blastFill: 0.45,
   frostFill: 0.5,
   spikes: 10,
   spikeFrom: 0.75,
   spikeOut: 0.22,
+  /** Der Feuerball: Glut und heller Kern, als Teil des ganzen Balls. */
+  glow: 0.72,
+  core: 0.42,
+  /** Wie lange am Anfang ein weißer Blitz aufleuchtet, als Teil des Knalls. */
+  flash: 0.3,
+  /** Die Flammenzungen: wie viele und wie weit sie über den Ball hinausschlagen. */
+  flames: 12,
+  flameOut: 0.45,
+  flameWide: 0.18,
 } as const;
+
+/**
+ * Der Knall einer Kanonenkugel.
+ *
+ * @remarks
+ * Ein Feuerball in drei Schichten - rot außen, orange, gelber Kern - mit
+ * Flammenzungen am Rand und einem kurzen weißen Blitz im ersten Moment. Eine
+ * einzelne blasse Scheibe sieht man im Gewimmel kaum, und die Kanone soll man
+ * hören können, ohne Ton.
+ */
+function fireball(
+  ctx: CanvasRenderingContext2D,
+  burst: Burst,
+  wide: number,
+  left: number,
+): void {
+  const { x, y } = burst;
+
+  ctx.globalAlpha = left;
+  ctx.fillStyle = PAINT.fireEdge;
+  ctx.beginPath();
+  for (let flame = 0; flame < BOOM.flames; flame += 1) {
+    const turn = (flame / BOOM.flames) * Math.PI * 2;
+    const out = wide * (1 + BOOM.flameOut * left);
+    ctx.moveTo(
+      x + Math.cos(turn - BOOM.flameWide) * wide,
+      y + Math.sin(turn - BOOM.flameWide) * wide,
+    );
+    ctx.lineTo(x + Math.cos(turn) * out, y + Math.sin(turn) * out);
+    ctx.lineTo(
+      x + Math.cos(turn + BOOM.flameWide) * wide,
+      y + Math.sin(turn + BOOM.flameWide) * wide,
+    );
+  }
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x, y, wide, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = burst.paint;
+  ctx.beginPath();
+  ctx.arc(x, y, wide * BOOM.glow, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = PAINT.fireCore;
+  ctx.beginPath();
+  ctx.arc(x, y, wide * BOOM.core * left, 0, Math.PI * 2);
+  ctx.fill();
+
+  const share = 1 - left;
+  if (share < BOOM.flash) {
+    ctx.globalAlpha = 1 - share / BOOM.flash;
+    ctx.fillStyle = PAINT.fireFlash;
+    ctx.beginPath();
+    ctx.arc(x, y, wide * BOOM.core, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
 
 /**
  * Ein Turm allein, als quadratisches Bild - für den Laden.
@@ -494,6 +1016,10 @@ export function drawTower(
       kind,
       col: 0,
       row: 0,
+      x: CELL / 2,
+      y: CELL / 2,
+      brew: 0,
+      stunned: 0,
       loaded: 0,
       aim: WATCH,
       faced: WATCH,
@@ -502,7 +1028,21 @@ export function drawTower(
       pops: 0,
     },
     false,
+    0,
   );
+  // Im Laden steht der Flieger auf seinem Platz - sonst sähe man nur den Platz.
+  if (aloft(kind)) {
+    const size = CELL * LOOK.tower;
+    const pose: MachinePose = { faced: 0, kick: 0, clock: 0 };
+    ctx.save();
+    ctx.translate(CELL / 2, CELL / 2);
+    if (kind === "heli") {
+      drawHeli(ctx, size, pose);
+    } else {
+      drawAce(ctx, size, pose);
+    }
+    ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -515,21 +1055,57 @@ function ground(ctx: CanvasRenderingContext2D): void {
       const y = row * CELL;
       // Zwei Grüntöne im Schachbrett: Eine einfarbige Wiese sieht aus wie ein
       // fehlendes Bild, und man sieht die Felder nicht, auf die man baut.
-      ctx.fillStyle =
-        cell === "."
-          ? (col + row) % 2 === 0
-            ? PAINT.grass
-            : PAINT.grassDark
-          : cell === "S"
-            ? PAINT.start
-            : PAINT.road;
+      ctx.fillStyle = groundPaint(cell, col, row);
       ctx.fillRect(x, y, CELL, CELL);
       if (cell === ".") {
         ctx.strokeStyle = PAINT.line;
         ctx.lineWidth = 1;
         ctx.strokeRect(x + LOOK.half, y + LOOK.half, CELL - 1, CELL - 1);
       }
+      if (cell === "~") {
+        ripples(ctx, x, y);
+      }
     }
+  }
+}
+
+/** Welche Farbe ein Feld hat. */
+function groundPaint(cell: string, col: number, row: number): string {
+  let paint: string;
+  switch (cell) {
+    case "S":
+      paint = PAINT.start;
+      break;
+    case "=":
+      paint = PAINT.road;
+      break;
+    case "~":
+      paint = (col + row) % 2 === 0 ? PAINT.water : PAINT.waterDark;
+      break;
+    default:
+      // Zwei Grüntöne im Schachbrett: Eine einfarbige Wiese sieht aus wie ein
+      // fehlendes Bild, und man sieht die Felder nicht, auf die man baut.
+      paint = (col + row) % 2 === 0 ? PAINT.grass : PAINT.grassDark;
+  }
+  return paint;
+}
+
+/** Zwei helle Wellen auf einem Wasserfeld, damit es nicht wie blaue Wiese aussieht. */
+function ripples(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.strokeStyle = PAINT.waterLine;
+  ctx.lineWidth = LOOK.line;
+  for (let wave = 0; wave < TRAIL.ripples; wave += 1) {
+    const cx = x + CELL * (TRAIL.rippleAt + wave * (1 - TRAIL.rippleAt * 2));
+    const cy = y + CELL * (TRAIL.rippleAt + wave * (1 - TRAIL.rippleAt * 2));
+    ctx.beginPath();
+    ctx.arc(
+      cx,
+      cy,
+      CELL * TRAIL.rippleWide,
+      Math.PI * LOOK.half * LOOK.half,
+      Math.PI * (1 - LOOK.half * LOOK.half),
+    );
+    ctx.stroke();
   }
 }
 
@@ -541,13 +1117,8 @@ function reach(ctx: CanvasRenderingContext2D, game: Game, view: View): void {
   if (chosen !== undefined && at !== null) {
     ctx.fillStyle = PAINT.range;
     ctx.beginPath();
-    ctx.arc(
-      at.x,
-      at.y,
-      statsOf(chosen.kind, chosen.tiers).range,
-      0,
-      Math.PI * 2,
-    );
+    // Mit allem, was Dorf und Trank gerade dazugeben.
+    ctx.arc(at.x, at.y, powerOf(chosen, game.towers).range, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = PAINT.rangeLine;
     ctx.lineWidth = LOOK.line;
@@ -568,6 +1139,7 @@ function monkey(
   ctx: CanvasRenderingContext2D,
   tower: Tower,
   chosen: boolean,
+  clock: number,
 ): void {
   const at = middleOf(tower.col, tower.row);
   const size = CELL * LOOK.tower;
@@ -604,19 +1176,11 @@ function monkey(
 
   ctx.save();
   ctx.translate(at.x, at.y);
-  if (tower.kind === "tack") {
-    tackShooter(ctx, size);
-  } else if (tower.kind === "bomb") {
-    cannon(ctx, size, tower.faced, tower.kick);
-  } else {
-    const wait = statsOf(tower.kind, tower.tiers).reload;
-    ape(ctx, size, tower.kind, {
-      aim: tower.faced,
-      kick: tower.kick,
-      // Wie weit der nächste Wurf gediehen ist: null gleich nach dem letzten,
-      // eins, wenn er wieder dran ist.
-      ready: wait <= 0 ? 1 : 1 - Math.min(1, tower.loaded / wait),
-    });
+  standing(ctx, size, tower, clock);
+  // **Wer betäubt ist, dem kreisen Sterne über dem Kopf** - sonst sieht ein
+  // Turm, der wegen Vortex nicht schießt, aus wie ein Fehler.
+  if (tower.stunned > 0 && !aloft(tower.kind)) {
+    drawDizzy(ctx, size, clock);
   }
   ctx.restore();
 
@@ -637,11 +1201,97 @@ function monkey(
   }
 }
 
+/**
+ * Was auf dem Feld eines Turms steht.
+ *
+ * @remarks
+ * Maschinen und Gebäude haben ihren eigenen Zeichner, alle anderen sind Affen
+ * mit Kostüm. Flieger lassen nur ihren Landeplatz zurück - sie selbst kommen
+ * später, über den Ballons.
+ */
+function standing(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  tower: Tower,
+  clock: number,
+): void {
+  const pose: MachinePose = { faced: tower.faced, kick: tower.kick, clock };
+
+  switch (tower.kind) {
+    case "tack":
+      tackShooter(ctx, size);
+      break;
+    case "bomb":
+      cannon(ctx, size, tower.faced, tower.kick);
+      break;
+    case "sub":
+      drawSub(ctx, size, pose);
+      break;
+    case "boat":
+      drawBoat(ctx, size, pose);
+      break;
+    case "heli":
+      drawPad(ctx, size, false);
+      break;
+    case "ace":
+      drawPad(ctx, size, true);
+      break;
+    case "mortar":
+      drawMortar(ctx, size, pose);
+      break;
+    case "farm":
+      drawFarm(ctx, size);
+      break;
+    case "village":
+      drawVillage(ctx, size);
+      break;
+    case "spikeFactory":
+      drawSpikeFactory(ctx, size, pose);
+      break;
+    default: {
+      const wait = statsOf(tower.kind, tower.tiers).reload;
+      ape(ctx, size, tower.kind, {
+        aim: tower.faced,
+        kick: tower.kick,
+        // Wie weit der nächste Wurf gediehen ist: null gleich nach dem letzten,
+        // eins, wenn er wieder dran ist.
+        ready: wait <= 0 ? 1 : 1 - Math.min(1, tower.loaded / wait),
+      });
+    }
+  }
+}
+
+/**
+ * Fell, Kostüm und Hände einer Sorte.
+ *
+ * @remarks
+ * Die meisten sind braune Affen in einem anderen Anzug - der Kopf bleibt
+ * Affe, nur der Rumpf trägt die Farbe der Rolle. Ein lila Kopf beim Zauberer
+ * wäre ein anderes Tier.
+ */
+const COATS: Partial<Record<TowerKind, Partial<Coat>>> = {
+  ice: { fur: FUR.ice, dark: FUR.iceDark, skin: FUR.snow, glove: FUR.glove },
+  sniper: { suit: FUR.camo, glove: FUR.camoDark },
+  dartling: { suit: FUR.olive, glove: FUR.iron },
+  wizard: { suit: FUR.purple },
+  super: { suit: FUR.hero, glove: FUR.cape },
+  ninja: { suit: FUR.black, glove: FUR.black },
+  alchemist: { suit: FUR.coat },
+  druid: { suit: FUR.leaf },
+  engineer: { suit: FUR.orange, glove: FUR.iron },
+  spiker: { suit: FUR.stone, glove: FUR.iron },
+};
+
 /** Das Fell, der Umriss und die nackte Haut einer Sorte. */
 function coatOf(kind: TowerKind): Coat {
-  return kind === "ice"
-    ? { fur: FUR.ice, dark: FUR.iceDark, skin: FUR.snow, glove: FUR.glove }
-    : { fur: FUR.brown, dark: FUR.brownDark, skin: FUR.skin, glove: FUR.skin };
+  const plain = {
+    fur: FUR.brown,
+    dark: FUR.brownDark,
+    skin: FUR.skin,
+    glove: FUR.skin,
+  };
+  const own = { ...plain, ...COATS[kind] };
+  return { ...own, suit: COATS[kind]?.suit ?? own.fur };
 }
 
 /**
@@ -656,6 +1306,8 @@ type Coat = {
   readonly dark: string;
   readonly skin: string;
   readonly glove: string;
+  /** Was der Rumpf trägt - beim gewöhnlichen Affen einfach das Fell. */
+  readonly suit: string;
 };
 
 /**
@@ -711,10 +1363,17 @@ function ape(
   if (kind === "glue") {
     pack(ctx, size);
   }
+  // Der Umhang hängt hinter ihm - außer er dreht uns den Rücken zu.
+  if (kind === "super" && back.z < 0) {
+    cape(ctx, size);
+  }
   legs(ctx, size, pose, coat.fur, coat.glove);
   body(ctx, size, pose, coat);
   if (back.z >= 0) {
     tail(ctx, size, back, coat.fur);
+  }
+  if (kind === "super" && back.z >= 0) {
+    cape(ctx, size);
   }
 
   headOf(ctx, size, kind, pose, coat);
@@ -801,7 +1460,7 @@ function body(
   const face = facet(pose.aim, 0);
   const wide = size * APE.bodyWide * mix(APE.bodyFlat, 1, Math.abs(face.z));
 
-  ctx.fillStyle = coat.fur;
+  ctx.fillStyle = coat.suit;
   ctx.strokeStyle = coat.dark;
   ctx.lineWidth = LOOK.edge;
   ctx.beginPath();
@@ -1043,6 +1702,7 @@ function headOf(
     }
   }
 
+  hat(ctx, size, kind, pose);
   if (kind === "boomerang") {
     ctx.fillStyle = FUR.cap;
     ctx.beginPath();
@@ -1079,6 +1739,194 @@ function headOf(
     );
     ctx.fill();
   }
+}
+
+/**
+ * Was die neuen Affen auf dem Kopf tragen.
+ *
+ * @remarks
+ * Auf vierundsechzig Bildpunkten erkennt man einen Affen zuerst am Kopf: Hut,
+ * Helm, Stirnband, Brille oder Blätter sagen, wer er ist, bevor man sieht,
+ * was er in der Hand hält.
+ */
+function hat(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  kind: TowerKind,
+  pose: Pose,
+): void {
+  switch (kind) {
+    case "sniper":
+      ctx.fillStyle = FUR.camo;
+      ctx.strokeStyle = FUR.camoDark;
+      ctx.lineWidth = LOOK.edge;
+      ctx.beginPath();
+      ctx.ellipse(
+        0,
+        -size * HAT.brimUp,
+        size * HAT.brimWide,
+        size * HAT.brimHigh,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, -size * HAT.brimUp, size * HAT.crown, Math.PI, 0);
+      ctx.fill();
+      ctx.stroke();
+      break;
+    case "dartling":
+      helmet(ctx, size, FUR.iron, FUR.ironDark);
+      break;
+    case "engineer":
+      helmet(ctx, size, FUR.hardHat, FUR.hardHatDark);
+      break;
+    case "spiker":
+      helmet(ctx, size, FUR.stone, FUR.iron);
+      ctx.fillStyle = FUR.stoneLight;
+      ctx.beginPath();
+      ctx.moveTo(
+        -size * HAT.spike * LOOK.half,
+        -size * (HAT.helmUp + HAT.helm) + 1,
+      );
+      ctx.lineTo(0, -size * (HAT.helmUp + HAT.helm + HAT.spike));
+      ctx.lineTo(
+        size * HAT.spike * LOOK.half,
+        -size * (HAT.helmUp + HAT.helm) + 1,
+      );
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case "wizard":
+      ctx.fillStyle = FUR.purple;
+      ctx.strokeStyle = FUR.purpleDark;
+      ctx.lineWidth = LOOK.edge;
+      ctx.beginPath();
+      ctx.moveTo(-size * HAT.coneWide, -size * HAT.coneBase);
+      ctx.lineTo(size * HAT.coneTip, -size * HAT.coneUp);
+      ctx.lineTo(size * HAT.coneWide, -size * HAT.coneBase);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = FUR.star;
+      ctx.beginPath();
+      ctx.arc(0, -size * HAT.starAt, size * HAT.star, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case "ninja": {
+      ctx.fillStyle = FUR.band;
+      ctx.fillRect(
+        -size * HAT.bandWide,
+        -size * HAT.bandUp,
+        size * HAT.bandWide * 2,
+        size * HAT.bandHigh,
+      );
+      // Die Enden des Knotens hängen hinten herunter, also auf der Seite, die
+      // vom Gesicht abgewandt ist.
+      const back = facet(pose.aim, Math.PI);
+      ctx.strokeStyle = FUR.band;
+      ctx.lineWidth = size * HAT.bandHigh * LOOK.half;
+      ctx.lineCap = "round";
+      for (const side of SIDES) {
+        ctx.beginPath();
+        ctx.moveTo(back.x * size * HAT.bandWide, -size * HAT.bandUp);
+        ctx.lineTo(
+          back.x * size * (HAT.bandWide + HAT.tail),
+          -size * HAT.bandUp + size * HAT.tailDrop * (1 + side * LOOK.half),
+        );
+        ctx.stroke();
+      }
+      ctx.lineCap = "butt";
+      break;
+    }
+    case "alchemist":
+      for (const side of SIDES) {
+        ctx.fillStyle = FUR.brass;
+        ctx.beginPath();
+        ctx.arc(
+          side * size * HAT.gogglesApart,
+          -size * HAT.gogglesUp,
+          size * HAT.goggles,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+        ctx.fillStyle = FUR.brassGlass;
+        ctx.beginPath();
+        ctx.arc(
+          side * size * HAT.gogglesApart,
+          -size * HAT.gogglesUp,
+          size * HAT.goggles * LOOK.half,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+      break;
+    case "druid":
+      ctx.fillStyle = FUR.leafLight;
+      ctx.strokeStyle = FUR.leaf;
+      ctx.lineWidth = 1;
+      for (let leaf = 0; leaf < HAT.leaves; leaf += 1) {
+        const turn = mix(HAT.leafFrom, HAT.leafTo, leaf / (HAT.leaves - 1));
+        ctx.beginPath();
+        ctx.ellipse(
+          Math.cos(turn) * size * HAT.leafOut,
+          -size * APE.headUp + Math.sin(turn) * size * HAT.leafOut,
+          size * HAT.leafLong,
+          size * HAT.leafWide,
+          turn,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+        ctx.stroke();
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+/** Ein Helm mit Schirm. */
+function helmet(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  paint: string,
+  dark: string,
+): void {
+  ctx.fillStyle = paint;
+  ctx.strokeStyle = dark;
+  ctx.lineWidth = LOOK.edge;
+  ctx.beginPath();
+  ctx.arc(0, -size * HAT.helmUp, size * HAT.helm, Math.PI, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = dark;
+  ctx.fillRect(
+    -size * (HAT.helm + HAT.helmLip),
+    -size * HAT.helmUp,
+    size * (HAT.helm + HAT.helmLip) * 2,
+    size * HAT.helmBrim,
+  );
+}
+
+/** Der rote Umhang des Super-Affen. */
+function cape(ctx: CanvasRenderingContext2D, size: number): void {
+  ctx.fillStyle = FUR.cape;
+  ctx.strokeStyle = FUR.capeDark;
+  ctx.lineWidth = LOOK.edge;
+  ctx.beginPath();
+  ctx.moveTo(-size * CAPE.topWide, size * CAPE.top);
+  ctx.lineTo(size * CAPE.topWide, size * CAPE.top);
+  ctx.lineTo(size * CAPE.bottomWide, size * CAPE.bottom);
+  ctx.lineTo(-size * CAPE.bottomWide, size * CAPE.bottom);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
 }
 
 /** Ein Ohr, dort, wo die Drehung es hingestellt hat. */
@@ -1312,6 +2160,271 @@ function gear(
     );
     ctx.fill();
   }
+  moreGear(ctx, size, kind, hand);
+}
+
+/**
+ * Was die neuen Affen in den Händen halten, im selben gedrehten Bild.
+ *
+ * @remarks
+ * Jede Waffe zeigt nach rechts, also dorthin, wohin der Affe zielt: das
+ * Gewehr mit Zielfernrohr, die Kanone mit drei Läufen, der Zauberstab mit
+ * leuchtender Kugel, der Wurfstern, der Trank, der Stab mit Blättern, die
+ * Nagelpistole und die Stachelkugel. Der Super-Affe hält nichts - er braucht
+ * nichts.
+ */
+function moreGear(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  kind: TowerKind,
+  hand: number,
+): void {
+  switch (kind) {
+    case "sniper":
+      ctx.fillStyle = FUR.wood;
+      ctx.fillRect(
+        hand - size * GEAR.rifleBack - size * GEAR.stockLong,
+        -size * GEAR.stock * LOOK.half,
+        size * GEAR.stockLong,
+        size * GEAR.stock,
+      );
+      ctx.fillStyle = FUR.iron;
+      ctx.fillRect(
+        hand - size * GEAR.rifleBack,
+        -size * GEAR.rifle * LOOK.half,
+        size * (GEAR.rifleBack + GEAR.rifleLong),
+        size * GEAR.rifle,
+      );
+      ctx.fillStyle = FUR.ironDark;
+      ctx.fillRect(
+        hand - size * GEAR.scopeAt,
+        -size * GEAR.scope * LOOK.half,
+        size * GEAR.scopeLong,
+        size * GEAR.scope,
+      );
+      break;
+    case "dartling":
+      ctx.fillStyle = FUR.iron;
+      for (let barrel = 0; barrel < GEAR.barrels; barrel += 1) {
+        const y = (barrel - (GEAR.barrels - 1) / 2) * size * GEAR.barrelGap;
+        ctx.fillRect(
+          hand + size * GEAR.boxLong - size * GEAR.boxBack,
+          y - size * GEAR.barrel * LOOK.half,
+          size * GEAR.barrelLong,
+          size * GEAR.barrel,
+        );
+      }
+      ctx.fillStyle = FUR.olive;
+      ctx.strokeStyle = FUR.camoDark;
+      ctx.lineWidth = LOOK.edge;
+      ctx.beginPath();
+      ctx.rect(
+        hand - size * GEAR.boxBack,
+        -size * GEAR.box * LOOK.half,
+        size * GEAR.boxLong,
+        size * GEAR.box,
+      );
+      ctx.fill();
+      ctx.stroke();
+      break;
+    case "wizard":
+      ctx.fillStyle = FUR.wood;
+      ctx.fillRect(
+        hand,
+        -size * GEAR.wand * LOOK.half,
+        size * GEAR.wandLong,
+        size * GEAR.wand,
+      );
+      ctx.fillStyle = PAINT.magic;
+      ctx.globalAlpha = LOOK.half;
+      ctx.beginPath();
+      ctx.arc(hand + size * GEAR.wandLong, 0, size * GEAR.glow, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = FUR.orb;
+      ctx.beginPath();
+      ctx.arc(hand + size * GEAR.wandLong, 0, size * GEAR.orb, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case "ninja":
+      shurikenAt(ctx, hand + size * GEAR.starAt, 0, size * GEAR.starSize, 0);
+      break;
+    case "alchemist":
+      flask(ctx, hand + size * GEAR.flaskAt, 0, size * GEAR.flask, 0);
+      break;
+    case "druid":
+      ctx.fillStyle = FUR.wood;
+      ctx.fillRect(
+        hand - size * GEAR.staffBack,
+        -size * GEAR.staff * LOOK.half,
+        size * (GEAR.staffBack + GEAR.staffLong),
+        size * GEAR.staff,
+      );
+      ctx.fillStyle = FUR.leafLight;
+      for (const side of SIDES) {
+        ctx.beginPath();
+        ctx.ellipse(
+          hand + size * GEAR.staffLong,
+          side * size * GEAR.staffLeaf * LOOK.half,
+          size * GEAR.staffLeaf,
+          size * GEAR.staffLeaf * LOOK.half,
+          side * LOOK.half,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+      break;
+    case "engineer":
+      ctx.fillStyle = FUR.orange;
+      ctx.strokeStyle = FUR.iron;
+      ctx.lineWidth = LOOK.edge;
+      ctx.beginPath();
+      ctx.rect(
+        hand - size * GEAR.nailBack,
+        -size * GEAR.nailHigh * LOOK.half,
+        size * GEAR.nailLong,
+        size * GEAR.nailHigh,
+      );
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = FUR.steel;
+      ctx.fillRect(
+        hand - size * GEAR.nailBack + size * GEAR.nailLong,
+        -size * GEAR.nozzle * LOOK.half,
+        size * GEAR.nozzle,
+        size * GEAR.nozzle,
+      );
+      break;
+    case "spiker":
+      spikeBall(
+        ctx,
+        hand + size * GEAR.ballAt,
+        0,
+        size * GEAR.ball,
+        size * GEAR.ballSpike,
+        GEAR.ballSpikes,
+        0,
+      );
+      break;
+    default:
+      break;
+  }
+}
+
+/** Ein Wurfstern mit vier Spitzen. */
+function shurikenAt(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  turn: number,
+): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(turn);
+  ctx.fillStyle = PAINT.shuriken;
+  ctx.strokeStyle = PAINT.shurikenDark;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let tip = 0; tip < GEAR.starPoints * 2; tip += 1) {
+    const angle = (tip / (GEAR.starPoints * 2)) * Math.PI * 2;
+    const out = tip % 2 === 0 ? size : size * LOOK.half * LOOK.half;
+    if (tip === 0) {
+      ctx.moveTo(Math.cos(angle) * out, Math.sin(angle) * out);
+    } else {
+      ctx.lineTo(Math.cos(angle) * out, Math.sin(angle) * out);
+    }
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = PAINT.shurikenDark;
+  ctx.beginPath();
+  ctx.arc(0, 0, size * LOOK.half * LOOK.half * LOOK.half, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Eine runde Trankflasche mit Hals, grün gefüllt. */
+function flask(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  turn: number,
+): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(turn);
+  ctx.fillStyle = PAINT.glassRim;
+  ctx.fillRect(
+    ((-size * GEAR.neck) / GEAR.flask) * LOOK.half,
+    -size - (size * GEAR.neckLong) / GEAR.flask,
+    (size * GEAR.neck) / GEAR.flask,
+    (size * GEAR.neckLong) / GEAR.flask + size * LOOK.half,
+  );
+  ctx.fillStyle = PAINT.potion;
+  ctx.strokeStyle = PAINT.potionDark;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, 0, size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = PAINT.shine;
+  ctx.beginPath();
+  ctx.arc(
+    -size * LOOK.shine,
+    -size * LOOK.shine,
+    size * LOOK.shine,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Eine Kugel mit Stacheln ringsum. */
+function spikeBall(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  spike: number,
+  spikes: number,
+  turn: number,
+): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(turn);
+  ctx.fillStyle = FUR.stoneLight;
+  for (let one = 0; one < spikes; one += 1) {
+    const angle = (one / spikes) * Math.PI * 2;
+    const side = angle + Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(
+      Math.cos(angle) * (size + spike),
+      Math.sin(angle) * (size + spike),
+    );
+    ctx.lineTo(
+      Math.cos(angle) * size + Math.cos(side) * spike * LOOK.half,
+      Math.sin(angle) * size + Math.sin(side) * spike * LOOK.half,
+    );
+    ctx.lineTo(
+      Math.cos(angle) * size - Math.cos(side) * spike * LOOK.half,
+      Math.sin(angle) * size - Math.sin(side) * spike * LOOK.half,
+    );
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.fillStyle = FUR.stone;
+  ctx.strokeStyle = FUR.ironDark;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, 0, size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }
 
 /**
@@ -1529,7 +2642,7 @@ function balloon(
   kind: BloonKind,
   x: number,
   y: number,
-  hull: number,
+  share: number,
   hold: Hold,
 ): void {
   const breed = BLOONS[kind];
@@ -1562,13 +2675,7 @@ function balloon(
     ctx.strokeStyle = PAINT.shell;
     ctx.lineWidth = LOOK.line;
     ctx.beginPath();
-    ctx.arc(
-      x,
-      y,
-      size * LOOK.shell,
-      0,
-      Math.PI * 2 * (hull / BLOONS.ceramic.hull),
-    );
+    ctx.arc(x, y, size * LOOK.shell, 0, Math.PI * 2 * Math.min(1, share));
     ctx.stroke();
   }
 
@@ -1615,32 +2722,319 @@ function balloon(
  *
  * @remarks
  * Der Wurfpfeil fliegt als Pfeil und dreht sich dabei in seine Flugrichtung -
- * derselbe Pfeil, den der Affe vorher in der Hand hatte, nur kleiner. Eine
- * Kugel wäre dasselbe Geschoss wie beim Nagel und beim Klecks, und dann sieht
- * man auf dem Feld nicht, wer gerade trifft.
+ * derselbe Pfeil, den der Affe vorher in der Hand hatte, nur kleiner. Jeder
+ * andere Turm schießt das, was er in der Hand hält oder womit er im Vorbild
+ * schießt - Nägel, Bumerang, Kugeln, Granaten, Magie, Wurfsterne, Tränke,
+ * Dornen. Nur Eis und Kleber bleiben farbige Kugeln; die unterscheidet die
+ * Farbe.
  */
 function flying(ctx: CanvasRenderingContext2D, shot: Shot): void {
-  if (shot.from === "dart") {
-    ctx.save();
-    ctx.translate(shot.x, shot.y);
-    ctx.rotate(Math.atan2(shot.vy, shot.vx));
-    ctx.scale(LOOK.flyingDart, LOOK.flyingDart);
-    dart(ctx, CELL * LOOK.tower);
-    ctx.restore();
-  } else {
-    ctx.fillStyle =
-      shot.from === "glue"
-        ? PAINT.glue
-        : shot.from === "ice"
-          ? PAINT.ice
-          : PAINT.shot;
-    ctx.strokeStyle = PAINT.shotLine;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(shot.x, shot.y, CELL * LOOK.shot, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+  switch (shot.from) {
+    case "dart":
+      ctx.save();
+      ctx.translate(shot.x, shot.y);
+      ctx.rotate(Math.atan2(shot.vy, shot.vx));
+      ctx.scale(LOOK.flyingDart, LOOK.flyingDart);
+      dart(ctx, CELL * LOOK.tower);
+      ctx.restore();
+      break;
+    case "tack":
+      flyingNail(ctx, shot);
+      break;
+    case "boomerang":
+      flyingBoomerang(ctx, shot);
+      break;
+    case "bomb":
+      cannonball(ctx, shot);
+      break;
+    case "engineer":
+      flyingNail(ctx, shot);
+      break;
+    case "sub":
+    case "boat":
+    case "heli":
+    case "ace":
+    case "super":
+    case "dartling":
+      bolt(ctx, shot);
+      break;
+    case "mortar":
+      shell(ctx, shot);
+      break;
+    case "wizard":
+      magic(ctx, shot);
+      break;
+    case "ninja":
+      shurikenAt(
+        ctx,
+        shot.x,
+        shot.y,
+        CELL * MISSILE.shuriken,
+        shot.age * MISSILE.spin * Math.PI * 2,
+      );
+      break;
+    case "alchemist":
+      flask(
+        ctx,
+        shot.x,
+        shot.y,
+        CELL * MISSILE.flask,
+        shot.age * MISSILE.spin * Math.PI * 2,
+      );
+      break;
+    case "druid":
+      thorn(ctx, shot);
+      break;
+    case "spikeFactory":
+      pile(ctx, shot);
+      break;
+    case "spiker":
+      spikeBall(
+        ctx,
+        shot.x,
+        shot.y,
+        CELL * MISSILE.ball,
+        CELL * MISSILE.ballSpike,
+        MISSILE.ballSpikes,
+        // Sie rollt, also dreht sie sich mit der Strecke, die sie zurücklegt.
+        (shot.road ?? 0) / (CELL * MISSILE.ball),
+      );
+      break;
+    default:
+      ctx.fillStyle =
+        shot.from === "glue"
+          ? PAINT.glue
+          : shot.from === "ice"
+            ? PAINT.ice
+            : PAINT.shot;
+      ctx.strokeStyle = PAINT.shotLine;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(shot.x, shot.y, CELL * LOOK.shot, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
   }
+}
+
+/**
+ * Ein Bumerang im Flug.
+ *
+ * @remarks
+ * Zwei Arme, die sich in einem Knick treffen - und er dreht sich um sich
+ * selbst, unabhängig davon, wohin er gerade fliegt. Der Winkel kommt aus dem
+ * Alter des Geschosses, damit jeder Bumerang für sich weiterdreht.
+ */
+function flyingBoomerang(ctx: CanvasRenderingContext2D, shot: Shot): void {
+  const arm = CELL * BOOMERANG.arm;
+
+  ctx.save();
+  ctx.translate(shot.x, shot.y);
+  ctx.rotate(shot.age * BOOMERANG.spin * Math.PI * 2);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(Math.cos(-BOOMERANG.bend) * arm, Math.sin(-BOOMERANG.bend) * arm);
+  ctx.lineTo(0, 0);
+  ctx.lineTo(Math.cos(BOOMERANG.bend) * arm, Math.sin(BOOMERANG.bend) * arm);
+  // Erst ein dunkler Rand, dann die Farbe darauf - so hebt er sich vom Gras ab.
+  ctx.strokeStyle = PAINT.shotLine;
+  ctx.lineWidth = CELL * BOOMERANG.thick + 2;
+  ctx.stroke();
+  ctx.strokeStyle = FUR.cap;
+  ctx.lineWidth = CELL * BOOMERANG.thick;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Ein kleines Geschoss in Flugrichtung: Pfeil, Laser oder Rakete.
+ *
+ * @remarks
+ * Was ein Geschoss ist, steht in seiner Schadensart: Energie fliegt als
+ * Laserstrahl, Sprengstoff als Rakete, alles andere als Pfeil. So sieht man
+ * einem Super-Affen an, ob er schon den Laser hat.
+ */
+function bolt(ctx: CanvasRenderingContext2D, shot: Shot): void {
+  ctx.save();
+  ctx.translate(shot.x, shot.y);
+  ctx.rotate(Math.atan2(shot.vy, shot.vx));
+  switch (shot.harm) {
+    case "energy":
+      ctx.lineCap = "round";
+      ctx.strokeStyle = PAINT.laser;
+      ctx.lineWidth = CELL * MISSILE.laserThick * 2;
+      ctx.beginPath();
+      ctx.moveTo(-CELL * MISSILE.laser * LOOK.half, 0);
+      ctx.lineTo(CELL * MISSILE.laser * LOOK.half, 0);
+      ctx.stroke();
+      ctx.strokeStyle = PAINT.laserCore;
+      ctx.lineWidth = CELL * MISSILE.laserThick;
+      ctx.stroke();
+      ctx.lineCap = "butt";
+      break;
+    case "explosion":
+      ctx.fillStyle = PAINT.flame;
+      ctx.beginPath();
+      ctx.moveTo(
+        -CELL * MISSILE.rocket * LOOK.half,
+        -CELL * MISSILE.rocketWide,
+      );
+      ctx.lineTo(-CELL * (MISSILE.rocket * LOOK.half + MISSILE.rocketFlame), 0);
+      ctx.lineTo(-CELL * MISSILE.rocket * LOOK.half, CELL * MISSILE.rocketWide);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = PAINT.rocket;
+      ctx.fillRect(
+        -CELL * MISSILE.rocket * LOOK.half,
+        -CELL * MISSILE.rocketWide,
+        CELL * MISSILE.rocket,
+        CELL * MISSILE.rocketWide * 2,
+      );
+      break;
+    default:
+      ctx.scale(MISSILE.smallDart, MISSILE.smallDart);
+      dart(ctx, CELL * LOOK.tower);
+  }
+  ctx.restore();
+}
+
+/**
+ * Eine Mörsergranate im Bogen.
+ *
+ * @remarks
+ * Die Engine kennt nur den Punkt am Boden, über dem sie gerade ist. Wie hoch
+ * sie dabei fliegt, ergibt sich aus der Flugzeit: in der Mitte am höchsten und
+ * am größten, an beiden Enden am Boden. Darunter liegt ihr Schatten - daran
+ * sieht man, wo sie herunterkommt.
+ */
+function shell(ctx: CanvasRenderingContext2D, shot: Shot): void {
+  const flight = shot.land?.at ?? shot.life;
+  const share = flight <= 0 ? 1 : Math.min(1, shot.age / flight);
+  const high = Math.sin(Math.PI * share);
+  const size = CELL * MISSILE.shell * (1 + MISSILE.grow * high);
+
+  ctx.fillStyle = PAINT.shade;
+  ctx.beginPath();
+  ctx.ellipse(
+    shot.x,
+    shot.y,
+    CELL * MISSILE.shell,
+    CELL * MISSILE.shell * LOOK.half,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  ctx.fillStyle = PAINT.cannonball;
+  ctx.beginPath();
+  ctx.arc(shot.x, shot.y - CELL * MISSILE.arc * high, size, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Ein Zauber: eine lila Kugel mit Schein - oder ein Feuerball. */
+function magic(ctx: CanvasRenderingContext2D, shot: Shot): void {
+  const fire = shot.blast !== null;
+  ctx.fillStyle = fire ? PAINT.flame : PAINT.magic;
+  ctx.globalAlpha = LOOK.half;
+  ctx.beginPath();
+  ctx.arc(shot.x, shot.y, CELL * MISSILE.orbGlow, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = fire ? PAINT.flameCore : PAINT.magicCore;
+  ctx.beginPath();
+  ctx.arc(shot.x, shot.y, CELL * MISSILE.orb, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Ein Dorn, die Spitze voran. */
+function thorn(ctx: CanvasRenderingContext2D, shot: Shot): void {
+  ctx.save();
+  ctx.translate(shot.x, shot.y);
+  ctx.rotate(Math.atan2(shot.vy, shot.vx));
+  ctx.fillStyle = PAINT.thorn;
+  ctx.beginPath();
+  ctx.moveTo(CELL * MISSILE.thorn * LOOK.half, 0);
+  ctx.lineTo(-CELL * MISSILE.thorn * LOOK.half, -CELL * MISSILE.thornWide);
+  ctx.lineTo(-CELL * MISSILE.thorn * LOOK.half, CELL * MISSILE.thornWide);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Ein Nagelhaufen: unterwegs klein, auf der Straße in voller Größe.
+ *
+ * @remarks
+ * Gegen Ende seiner Zeit verblasst er, damit er nicht von einem Bild aufs
+ * nächste verschwindet.
+ */
+function pile(ctx: CanvasRenderingContext2D, shot: Shot): void {
+  const landed = shot.land === null || shot.age >= shot.land.at;
+  const share = shot.life <= 0 ? 1 : shot.age / shot.life;
+  ctx.globalAlpha = share > MISSILE.fade ? (1 - share) / (1 - MISSILE.fade) : 1;
+  star(
+    ctx,
+    shot.x,
+    shot.y,
+    CELL * (landed ? MISSILE.pile : MISSILE.pileFlying),
+  );
+  ctx.globalAlpha = 1;
+}
+
+/** Eine Kanonenkugel: schwarz, schwer, mit einem Glanzpunkt oben links. */
+function cannonball(ctx: CanvasRenderingContext2D, shot: Shot): void {
+  const size = CELL * CANNONBALL.size;
+
+  ctx.fillStyle = PAINT.cannonball;
+  ctx.strokeStyle = PAINT.shotLine;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(shot.x, shot.y, size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = PAINT.cannonballShine;
+  ctx.beginPath();
+  ctx.arc(
+    shot.x - size * CANNONBALL.shineAt,
+    shot.y - size * CANNONBALL.shineAt,
+    size * CANNONBALL.shine,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+}
+
+/** Ein Reißnagel im Flug: hinten der Kopf, vorne die Spitze. */
+function flyingNail(ctx: CanvasRenderingContext2D, shot: Shot): void {
+  const long = CELL * TACK.flyingLong;
+  const thick = CELL * TACK.flyingThick;
+  const tip = CELL * TACK.flyingTip;
+  const back = -long * LOOK.half;
+
+  ctx.save();
+  ctx.translate(shot.x, shot.y);
+  ctx.rotate(Math.atan2(shot.vy, shot.vx));
+  ctx.strokeStyle = FUR.nail;
+  ctx.lineWidth = 1;
+
+  // Schaft mit Spitze.
+  ctx.fillStyle = FUR.steel;
+  ctx.beginPath();
+  ctx.moveTo(back, -thick * LOOK.half);
+  ctx.lineTo(back + long - tip, -thick * LOOK.half);
+  ctx.lineTo(back + long, 0);
+  ctx.lineTo(back + long - tip, thick * LOOK.half);
+  ctx.lineTo(back, thick * LOOK.half);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Der flache Kopf steht quer zum Schaft.
+  ctx.fillStyle = FUR.nail;
+  ctx.beginPath();
+  ctx.ellipse(back, 0, thick, CELL * TACK.flyingHead, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 /** Der Umriss des Turms, den man gerade setzen will. */

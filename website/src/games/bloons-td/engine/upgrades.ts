@@ -12,12 +12,14 @@
  * was eine Anzahl ist (Durchschläge, Nägel, Sekunden). Ein Nachladefaktor von
  * 0,85 und dann 0,784 macht 0,667 - das ist die Zahl, die im Vorbild steht.
  *
- * **Alle Preise und Wirkungen stehen so in der Vorlage**, und zwar in der
- * mittleren der vier Preisspalten - derselben, aus der auch die Grundpreise
- * der Türme kommen. Wo die Vorlage etwas kann, das es hier nicht gibt (Tarnung,
- * MOAB-Klasse), steht in der Zeile, was stattdessen passiert; erfunden ist
- * nichts, umgedeutet an drei Stellen schon. Die stehen im README.
+ * **Bei den sechs Primär-Affen stehen Preise und Wirkungen so in der
+ * Vorlage**, und zwar in der mittleren der vier Preisspalten - derselben, aus
+ * der auch die Grundpreise der Türme kommen. Bei Militär, Magie und
+ * Unterstützung tragen die Stufen die Namen des Vorbilds, die Zahlen sind aber
+ * an zwei Stufen je Säule angepasst; das steht im README.
  */
+import type { Harm } from "@/games/bloons-td/engine/bloons";
+import { CELL } from "@/games/bloons-td/engine/map";
 import {
   TOWERS,
   type Monkey,
@@ -71,14 +73,30 @@ export type Upgrade = {
   readonly slowTo?: number;
   readonly afterTo?: number;
   readonly speed?: number;
+  readonly fly?: number;
+  readonly auraReload?: number;
   /** Umgelegt: zieht durch, trifft Immune, frisst Schichten. */
   readonly soak?: boolean;
   readonly cold?: boolean;
   readonly bite?: number;
+  /** Dazugezählt: Geschosse, Rückstoß, Sekunden Trank, Einnahmen, Durchschlag der Nachbarn. */
+  readonly spokes?: number;
+  readonly push?: number;
+  readonly brew?: number;
+  readonly income?: number;
+  /** Gesetzt: Fächerwinkel, Schadensart, und ein Knall, wo vorher keiner war (in Feldbreiten). */
+  readonly fan?: number;
+  readonly harm?: Harm;
+  readonly boom?: number;
+  /** Umgelegt: Geschosse suchen ihr Ziel, er sieht Getarnte, Nachbarn sehen Getarnte, Nachbarn treffen alles. */
+  readonly seek?: boolean;
+  readonly sees?: boolean;
+  readonly auraSees?: boolean;
+  readonly auraAny?: boolean;
 };
 
 /**
- * Die zwölf Säulen, zwei je Turm.
+ * Die Säulen, zwei je Turm.
  *
  * @remarks
  * Jede Säule ist eine andere Art, besser zu werden - und nie zweimal dieselbe
@@ -279,6 +297,538 @@ export const UPGRADES: Readonly<
       },
     ],
   },
+  sniper: {
+    one: [
+      {
+        name: "Full Metal Jacket",
+        cost: 350,
+        note: "Stahlmantel: trifft jetzt auch Blei, und zwei Schichten mehr je Schuss.",
+        harm: "normal",
+        damage: 2,
+      },
+      {
+        name: "Large Calibre",
+        cost: 1200,
+        note: "Noch drei Schichten mehr - sieben je Schuss.",
+        damage: 3,
+      },
+    ],
+    two: [
+      {
+        name: "Fast Firing",
+        cost: 400,
+        note: "Schießt ein Drittel schneller.",
+        reload: 0.7,
+      },
+      {
+        name: "Night Vision Goggles",
+        cost: 400,
+        note: "Sieht getarnte Ballons und schießt noch einmal ein Drittel schneller.",
+        reload: 0.7,
+        sees: true,
+      },
+    ],
+  },
+  sub: {
+    one: [
+      {
+        name: "Barbed Darts",
+        cost: 450,
+        note: "Widerhaken: zwei Ballons mehr je Pfeil.",
+        pierce: 2,
+      },
+      {
+        name: "Heat-tipped Darts",
+        cost: 450,
+        note: "Glühende Spitzen schmelzen sich auch durch Blei.",
+        harm: "normal",
+      },
+    ],
+    two: [
+      {
+        name: "Twin Guns",
+        cost: 450,
+        note: "Zwei Rohre: schießt halb so oft noch einmal.",
+        reload: 0.67,
+      },
+      {
+        name: "Airburst Darts",
+        cost: 1000,
+        note: "Jeder Schuss zerplatzt in drei Pfeile.",
+        spokes: 2,
+        fan: 0.2,
+      },
+    ],
+  },
+  dartling: {
+    one: [
+      {
+        name: "Focused Firing",
+        cost: 250,
+        note: "Reicht ein gutes Stück weiter.",
+        range: 1.15,
+      },
+      {
+        name: "Laser Shock",
+        cost: 1100,
+        note: "Laser statt Pfeile: trifft auch Blei, aber nicht Lila, und nimmt zwei Schichten.",
+        harm: "energy",
+        damage: 1,
+      },
+    ],
+    two: [
+      {
+        name: "Faster Barrel Spin",
+        cost: 950,
+        note: "Die Trommel dreht schneller - fast halb so oft noch einmal.",
+        reload: 0.7,
+      },
+      {
+        name: "Hydra Rocket Pods",
+        cost: 2500,
+        note: "Kleine Raketen statt Pfeile: jede mit einem Knall, aber Schwarz trotzt ihnen.",
+        harm: "explosion",
+        boom: 0.45,
+        pierce: 3,
+      },
+    ],
+  },
+  heli: {
+    one: [
+      {
+        name: "Quad Darts",
+        cost: 800,
+        note: "Vier Pfeile auf einmal statt zwei.",
+        spokes: 2,
+      },
+      {
+        name: "Pursuit",
+        cost: 500,
+        note: "Fliegt schneller hinterher und weiter weg vom Landeplatz.",
+        fly: 1.6,
+        range: 1.15,
+      },
+    ],
+    two: [
+      {
+        name: "Faster Darts",
+        cost: 300,
+        note: "Schießt ein Drittel schneller.",
+        reload: 0.75,
+      },
+      {
+        name: "Downdraft",
+        cost: 1500,
+        note: "Der Rotorwind: Jeder Treffer weht den Ballon ein Stück zurück.",
+        push: 30,
+      },
+    ],
+  },
+  mortar: {
+    one: [
+      {
+        name: "Bigger Blast",
+        cost: 500,
+        note: "Der Knall reicht weiter und erfasst sechs Ballons mehr.",
+        blast: 1.4,
+        pierce: 6,
+      },
+      {
+        name: "Bloon Buster",
+        cost: 650,
+        note: "Jeder Knall nimmt zwei Schichten statt einer.",
+        damage: 1,
+      },
+    ],
+    two: [
+      {
+        name: "Faster Reload",
+        cost: 300,
+        note: "Lädt ein Drittel schneller nach.",
+        reload: 0.75,
+      },
+      {
+        name: "Shell Shock",
+        cost: 900,
+        note: "Wer im Knall steht, ist eine halbe Sekunde betäubt.",
+        slow: 0.5,
+        slowTo: 0,
+      },
+    ],
+  },
+  ace: {
+    one: [
+      {
+        name: "Rapid Fire",
+        cost: 650,
+        note: "Wirft ein Drittel öfter.",
+        reload: 0.7,
+      },
+      {
+        name: "Sharper Darts",
+        cost: 650,
+        note: "Jeder Pfeil sticht vier Ballons mehr.",
+        pierce: 4,
+      },
+    ],
+    two: [
+      {
+        name: "Neva-Miss Targeting",
+        cost: 900,
+        note: "Die Pfeile suchen sich ihr Ziel selbst.",
+        seek: true,
+      },
+      {
+        name: "Fighter Plane",
+        cost: 1500,
+        note: "Zwölf Pfeile je Ring statt acht.",
+        spokes: 4,
+      },
+    ],
+  },
+  boat: {
+    one: [
+      {
+        name: "Grape Shot",
+        cost: 550,
+        note: "Ein Fächer aus fünf Kugeln statt zwei Pfeilen.",
+        spokes: 3,
+      },
+      {
+        name: "Hot Shot",
+        cost: 500,
+        note: "Glühende Kugeln - auch gegen Blei.",
+        harm: "normal",
+      },
+    ],
+    two: [
+      {
+        name: "Long Range",
+        cost: 180,
+        note: "Ein Fünftel mehr Reichweite.",
+        range: 1.2,
+      },
+      {
+        name: "Faster Shooting",
+        cost: 300,
+        note: "Schießt ein Drittel schneller.",
+        reload: 0.75,
+      },
+    ],
+  },
+  wizard: {
+    one: [
+      {
+        name: "Guided Magic",
+        cost: 300,
+        note: "Die Blitze suchen sich ihr Ziel selbst, er sieht weiter - und getarnte Ballons.",
+        seek: true,
+        range: 1.1,
+        sees: true,
+      },
+      {
+        name: "Arcane Blast",
+        cost: 600,
+        note: "Jeder Blitz nimmt zwei Schichten.",
+        damage: 1,
+      },
+    ],
+    two: [
+      {
+        name: "Fireball",
+        cost: 300,
+        note: "Feuerbälle statt Blitze: Jeder geht beim ersten Treffer mit einem Knall hoch.",
+        boom: 0.55,
+        pierce: 5,
+      },
+      {
+        name: "Intense Magic",
+        cost: 1300,
+        note: "Zaubert ein Drittel schneller, und der Knall erfasst mehr.",
+        reload: 0.7,
+        pierce: 3,
+      },
+    ],
+  },
+  super: {
+    one: [
+      {
+        name: "Laser Blasts",
+        cost: 2500,
+        note: "Laser statt Pfeile: auch gegen Blei, nur nicht gegen Lila, und ein Ballon mehr je Schuss.",
+        harm: "energy",
+        pierce: 1,
+      },
+      {
+        name: "Plasma Blasts",
+        cost: 4000,
+        note: "Plasma: fast doppelt so schnell.",
+        reload: 0.6,
+        pierce: 1,
+      },
+    ],
+    two: [
+      {
+        name: "Super Range",
+        cost: 1000,
+        note: "Ein Fünftel mehr Reichweite.",
+        range: 1.2,
+      },
+      {
+        name: "Epic Range",
+        cost: 1200,
+        note: "Noch ein Fünftel weiter, und die Schüsse fliegen schneller.",
+        range: 1.2,
+        speed: 1.2,
+      },
+    ],
+  },
+  ninja: {
+    one: [
+      {
+        name: "Ninja Discipline",
+        cost: 300,
+        note: "Wirft schneller und sieht weiter.",
+        range: 1.1,
+        reload: 0.8,
+      },
+      {
+        name: "Sharp Shurikens",
+        cost: 350,
+        note: "Jeder Stern sticht zwei Ballons mehr.",
+        pierce: 2,
+      },
+    ],
+    two: [
+      {
+        name: "Seeking Shuriken",
+        cost: 250,
+        note: "Die Sterne suchen sich ihr Ziel selbst.",
+        seek: true,
+      },
+      {
+        name: "Double Shot",
+        cost: 850,
+        note: "Zwei Sterne auf einmal.",
+        spokes: 1,
+        fan: 0.15,
+      },
+    ],
+  },
+  alchemist: {
+    one: [
+      {
+        name: "Larger Potions",
+        cost: 250,
+        note: "Größere Flaschen: Der Spritzer reicht weiter und erfasst vier Ballons mehr.",
+        blast: 1.3,
+        pierce: 4,
+      },
+      {
+        name: "Acid Bath",
+        cost: 350,
+        note: "Stärkere Säure: zwei Schichten je Treffer.",
+        damage: 1,
+      },
+    ],
+    two: [
+      {
+        name: "Berserker Brew",
+        cost: 1200,
+        note: "Bei jedem Wurf bekommt ein Nachbar acht Sekunden lang einen Trank: schneller, weiter, schärfer.",
+        brew: 8,
+      },
+      {
+        name: "Stronger Stimulant",
+        cost: 1000,
+        note: "Der Trank hält sechs Sekunden länger.",
+        brew: 6,
+      },
+    ],
+  },
+  druid: {
+    one: [
+      {
+        name: "Hard Thorns",
+        cost: 250,
+        note: "Harte Dornen: ein Ballon mehr je Dorn, auch Blei.",
+        pierce: 1,
+        harm: "normal",
+      },
+      {
+        name: "Thorn Swarm",
+        cost: 950,
+        note: "Acht Dornen statt fünf.",
+        spokes: 3,
+      },
+    ],
+    two: [
+      {
+        name: "Druid of the Storm",
+        cost: 900,
+        note: "Sturm: Jeder Treffer weht den Ballon ein Stück zurück.",
+        push: 30,
+      },
+      {
+        name: "Heart of Thunder",
+        cost: 1000,
+        note: "Wirft fast doppelt so schnell.",
+        reload: 0.6,
+      },
+    ],
+  },
+  farm: {
+    one: [
+      {
+        name: "Increased Production",
+        cost: 500,
+        note: "Mehr Bananen: $40 mehr je Runde.",
+        income: 40,
+      },
+      {
+        name: "Greater Production",
+        cost: 600,
+        note: "Noch einmal $40 mehr je Runde.",
+        income: 40,
+      },
+    ],
+    two: [
+      {
+        name: "Valuable Bananas",
+        cost: 250,
+        note: "Wertvollere Bananen: $20 mehr je Runde.",
+        income: 20,
+      },
+      {
+        name: "Monkey Bank",
+        cost: 1500,
+        note: "Eine Bank mit Zinsen: $100 mehr je Runde.",
+        income: 100,
+      },
+    ],
+  },
+  village: {
+    one: [
+      {
+        name: "Bigger Radius",
+        cost: 400,
+        note: "Das Dorf reicht weiter und erfasst mehr Affen.",
+        range: 1.4,
+      },
+      {
+        name: "Jungle Drums",
+        cost: 1500,
+        note: "Trommeln: Alle Affen in Reichweite schießen 15 % schneller.",
+        auraReload: 0.85,
+      },
+    ],
+    two: [
+      {
+        name: "Radar Scanner",
+        cost: 500,
+        note: "Alle Affen in Reichweite sehen getarnte Ballons.",
+        auraSees: true,
+      },
+      {
+        name: "Monkey Intelligence Bureau",
+        cost: 2000,
+        note: "Der Geheimdienst: Alle Affen in Reichweite treffen jede Sorte, auch Blei, Schwarz und Lila.",
+        auraAny: true,
+      },
+    ],
+  },
+  spikeFactory: {
+    one: [
+      {
+        name: "Bigger Stacks",
+        cost: 800,
+        note: "Größere Haufen: zehn Ballons statt fünf.",
+        pierce: 5,
+      },
+      {
+        name: "White Hot Spikes",
+        cost: 600,
+        note: "Glühende Nägel - auch gegen Blei.",
+        harm: "normal",
+      },
+    ],
+    two: [
+      {
+        name: "Faster Production",
+        cost: 600,
+        note: "Ein Drittel mehr Haufen.",
+        reload: 0.75,
+      },
+      {
+        name: "Even Faster Production",
+        cost: 800,
+        note: "Noch ein Drittel mehr.",
+        reload: 0.75,
+      },
+    ],
+  },
+  engineer: {
+    one: [
+      {
+        name: "Larger Service Area",
+        cost: 250,
+        note: "Ein Fünftel mehr Reichweite.",
+        range: 1.2,
+      },
+      {
+        name: "Deconstruction",
+        cost: 350,
+        note: "Jeder Nagel nimmt zwei Schichten.",
+        damage: 1,
+      },
+    ],
+    two: [
+      {
+        name: "Oversize Nails",
+        cost: 450,
+        note: "Riesennägel: fünf Ballons mehr je Nagel, auch Blei.",
+        pierce: 5,
+        harm: "normal",
+      },
+      {
+        name: "Pin",
+        cost: 450,
+        note: "Wer getroffen wird, ist eine Sekunde festgenagelt.",
+        slow: 1,
+        slowTo: 0,
+      },
+    ],
+  },
+  spiker: {
+    one: [
+      {
+        name: "Heavier Balls",
+        cost: 400,
+        note: "Schwerere Kugeln: acht Ballons mehr je Kugel.",
+        pierce: 8,
+      },
+      {
+        name: "Spikier Balls",
+        cost: 700,
+        note: "Längere Stacheln: zwei Schichten je Treffer.",
+        damage: 1,
+      },
+    ],
+    two: [
+      {
+        name: "Faster Rolling",
+        cost: 350,
+        note: "Die Kugeln rollen halb so schnell noch einmal.",
+        speed: 1.5,
+      },
+      {
+        name: "Ball Factory",
+        cost: 900,
+        note: "Fast doppelt so viele Kugeln.",
+        reload: 0.6,
+      },
+    ],
+  },
 };
 
 /**
@@ -376,7 +926,23 @@ export function statsOf(kind: TowerKind, tiers: Tiers): Monkey {
       soak: made.soak || (step.soak ?? false),
       cold: made.cold || (step.cold ?? false),
       bite: step.bite ?? made.bite,
+      spokes: made.spokes + (step.spokes ?? 0),
+      fan: Math.max(made.fan, step.fan ?? 0),
+      harm: step.harm ?? made.harm,
+      seek: made.seek || (step.seek ?? false),
+      push: made.push + (step.push ?? 0),
+      brew: made.brew + (step.brew ?? 0),
+      income: made.income + (step.income ?? 0),
+      fly: made.fly * (step.fly ?? 1),
+      auraReload: made.auraReload * (step.auraReload ?? 1),
+      sees: made.sees || (step.sees ?? false),
+      auraSees: made.auraSees || (step.auraSees ?? false),
+      auraAny: made.auraAny || (step.auraAny ?? false),
     };
+    // Ein Knall, wo vorher keiner war: Feuerball, Raketen.
+    if (made.blast === null && step.boom !== undefined) {
+      made = { ...made, blast: CELL * step.boom };
+    }
   }
 
   return made;

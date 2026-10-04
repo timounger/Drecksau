@@ -4,9 +4,10 @@
  * @module
  * @remarks
  * **Die Karte ist Text.** Ein Punkt ist Wiese, auf der ein Turm stehen darf,
- * ein Gleichheitszeichen ist Straße, und das `S` ist der Anfang der Straße.
- * Mehr Zeichen gibt es nicht - wer eine zweite Karte bauen will, schreibt zehn
- * Zeilen und ist fertig.
+ * ein Gleichheitszeichen ist Straße, das `S` ist der Anfang der Straße und
+ * eine Tilde ist Wasser - dort stehen nur U-Boot und Boot. Mehr Zeichen gibt
+ * es nicht - wer eine zweite Karte bauen will, schreibt zehn Zeilen und ist
+ * fertig.
  *
  * **Der Weg wird abgelaufen, nicht aufgeschrieben.** Jedes Straßenfeld hat
  * genau zwei Nachbarn, die auch Straße sind (der Anfang und das Ende haben
@@ -16,7 +17,7 @@
  */
 
 /** Ein Feld der Karte. */
-export type Cell = "." | "=" | "S";
+export type Cell = "." | "=" | "S" | "~";
 
 /** Wie breit ein Feld ist, in Bildpunkten. */
 export const CELL = 64;
@@ -28,7 +29,8 @@ export const CELL = 64;
  * Zehn mal zehn. Der Weg läuft von links in der Mitte einmal quer durch alles
  * und oben rechts wieder hinaus - lang genug, dass ein Turm an einer Biegung
  * zwei Abschnitte gleichzeitig beschießt, und das ist die ganze Entscheidung
- * beim Bauen.
+ * beim Bauen. Der Teich liegt in der unteren Schleife zwischen zwei
+ * Straßenstücken, damit ein U-Boot dort beide erreicht.
  */
 export const MAP: readonly string[] = [
   "......=...",
@@ -38,7 +40,7 @@ export const MAP: readonly string[] = [
   "S==.=.===.",
   "....=.=...",
   ".====.===.",
-  ".=......=.",
+  ".=.~~~~.=.",
   ".========.",
   "..........",
 ];
@@ -67,7 +69,7 @@ export type Spot = {
 export function cellAt(col: number, row: number): Cell {
   const line = MAP[row] ?? "";
   const sign = line.charAt(col);
-  return sign === "=" || sign === "S" ? sign : ".";
+  return sign === "=" || sign === "S" || sign === "~" ? sign : ".";
 }
 
 /**
@@ -80,6 +82,17 @@ export function cellAt(col: number, row: number): Cell {
 export function isGrass(col: number, row: number): boolean {
   const inside = col >= 0 && col < COLS && row >= 0 && row < ROWS;
   return inside && cellAt(col, row) === ".";
+}
+
+/**
+ * Ob dieses Feld Wasser ist.
+ *
+ * @param col - die Spalte
+ * @param row - die Reihe
+ * @returns true, wenn dort ein U-Boot oder Boot stehen darf
+ */
+export function isWater(col: number, row: number): boolean {
+  return cellAt(col, row) === "~";
 }
 
 /** Die Mitte eines Feldes, in Bildpunkten. */
@@ -148,7 +161,8 @@ function onwards(
     const col = here.col + dx;
     const row = here.row + dy;
     const road = col >= 0 && col < COLS && row >= 0 && row < ROWS;
-    const open = road && cellAt(col, row) !== ".";
+    const cell = cellAt(col, row);
+    const open = road && (cell === "=" || cell === "S");
     if (open && !(col === came.col && row === came.row) && next === null) {
       next = { col, row };
     }

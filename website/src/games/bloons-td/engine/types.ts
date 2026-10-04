@@ -53,6 +53,31 @@ export type Bloon = {
   readonly soak: boolean;
   /** Wann ihm der ätzende Klebstoff die nächste Schicht nimmt, oder 0. */
   readonly bite: number;
+  /** Wie viel seine Hülle ganz am Anfang aushielt - für den Lebensbalken. */
+  readonly full: number;
+  /** Ob er getarnt ist: Nur wer Tarnung sieht, zielt auf ihn. */
+  readonly camo: boolean;
+  /**
+   * Ob er nachwächst, und bis zu welcher Sorte.
+   *
+   * @remarks
+   * Ein nachwachsender Ballon bekommt alle paar Sekunden eine Schicht zurück,
+   * aber nie mehr, als er beim Start hatte: `top` ist die Sorte, mit der er
+   * losgelaufen ist, `regrowAt`, wann die nächste Schicht kommt.
+   */
+  readonly regrow: boolean;
+  readonly top: BloonKind;
+  readonly regrowAt: number;
+  /** Ob er verstärkt ist - die Hülle von Blei, Keramik und Zeppelinen doppelt. */
+  readonly fortified: boolean;
+  /** Was sein Schild noch abfängt, bevor die Hülle etwas abbekommt. */
+  readonly shield: number;
+  /** Wann ein Boss das nächste Mal seine Fähigkeit einsetzt, oder 0. */
+  readonly skill: number;
+  /** Bis wann Phayze verschoben ist und ihn nichts trifft. */
+  readonly phased: number;
+  /** Wogegen ihn der Steinpanzer des Dreadbloon gerade schützt, oder null. */
+  readonly ward: Harm | null;
 };
 
 /** Ein Geschoss. */
@@ -82,6 +107,31 @@ export type Shot = {
   readonly bite: number;
   /** Wohin es zurückkommt, oder null - der Bumerang. */
   readonly back: { readonly x: number; readonly y: number } | null;
+  /** Ob es sich unterwegs selbst ein Ziel sucht. */
+  readonly seek: boolean;
+  /** Wie weit ein Treffer den Ballon zurückwirft, in Bildpunkten. */
+  readonly push: number;
+  /**
+   * Wo auf dem Weg es rollt, oder null - die Stachelkugel.
+   *
+   * @remarks
+   * Eine Kugel, die der Straße folgt, weiß wie ein Ballon nur, wie weit sie
+   * ist; ihr Punkt kommt aus `spotAt`. Sie rollt rückwärts, den Ballons
+   * entgegen.
+   */
+  readonly road: number | null;
+  /**
+   * Wo es landet und nach wie vielen Sekunden, oder null.
+   *
+   * @remarks
+   * Die Mörsergranate geht dort hoch, der Nagelhaufen bleibt dort liegen.
+   * Beide treffen unterwegs nichts - sie fliegen über die Ballons hinweg.
+   */
+  readonly land: {
+    readonly x: number;
+    readonly y: number;
+    readonly at: number;
+  } | null;
   /** Wen es schon erwischt hat, damit es niemanden zweimal trifft. */
   readonly hit: readonly number[];
 };
@@ -92,7 +142,27 @@ export type Tower = {
   readonly kind: TowerKind;
   readonly col: number;
   readonly row: number;
-  /** Wie lange es noch dauert, bis er wieder schießt. */
+  /**
+   * Wo er gerade ist, in Bildpunkten.
+   *
+   * @remarks
+   * Bei fast allen die Mitte ihres Feldes. Hubschrauber und Flugzeug fliegen
+   * aber herum, und geschossen wird von dort, wo sie gerade sind - das Feld
+   * ist nur ihr Landeplatz.
+   */
+  readonly x: number;
+  readonly y: number;
+  /** Wie lange ihn der Trank des Alchemisten noch antreibt, in Sekunden. */
+  readonly brew: number;
+  /**
+   * Wie lange er noch betäubt ist, in Sekunden.
+   *
+   * @remarks
+   * Vortex und Blastapopoulos legen Türme lahm; solange das gilt, schießt er
+   * nicht - er schwenkt nicht einmal.
+   */
+  readonly stunned: number;
+  /** Wie lange es dauert, bis er wieder schießt. */
   readonly loaded: number;
   /** Wohin er zuletzt geschossen hat, in Bogenmaß. */
   readonly aim: number;
@@ -134,12 +204,13 @@ export type Tower = {
  * Was für ein Knall das war.
  *
  * @remarks
- * Drei Dinge sehen verschieden aus, weil sie verschiedene Dinge sind: ein
- * geplatzter Ballon, der Knall einer Bombe und die Frostwelle des Eisaffen.
- * Alle drei als derselbe Ring wären drei Ereignisse, die man nicht
+ * Verschiedene Dinge sehen verschieden aus: ein geplatzter Ballon, der Knall
+ * einer Bombe, die Frostwelle des Eisaffen, die Leuchtspur eines
+ * Scharfschützen und das Geld, das eine Bananenplantage am Ende der Runde
+ * abwirft. Alle als derselbe Ring wären Ereignisse, die man nicht
  * auseinanderhält.
  */
-export type BurstLook = "pop" | "blast" | "frost";
+export type BurstLook = "pop" | "blast" | "frost" | "tracer" | "cash" | "stun";
 
 /** Ein geplatzter Ballon oder ein Knall, solange man ihn noch sieht. */
 export type Burst = {
@@ -148,7 +219,11 @@ export type Burst = {
   readonly y: number;
   readonly reach: number;
   readonly age: number;
+  /** Wie lange er zu sehen ist, in Sekunden. */
+  readonly life: number;
   readonly paint: string;
+  /** Wo eine Leuchtspur anfängt, oder null. */
+  readonly from: { readonly x: number; readonly y: number } | null;
 };
 
 /** Ein Ballon, der noch auf seinen Auftritt wartet. */
@@ -156,6 +231,18 @@ export type Waiting = {
   readonly kind: BloonKind;
   /** Wann er loslaufen soll, auf der Uhr der Runde. */
   readonly at: number;
+  /** Was er mitbringt: getarnt, nachwachsend, verstärkt, mit Schild. */
+  readonly traits: Traits;
+  /** Wie viel stärker seine Hülle ist als in der Tabelle - für Bosse. */
+  readonly scale: number;
+};
+
+/** Die Zusatzeigenschaften eines Ballons. */
+export type Traits = {
+  readonly camo: boolean;
+  readonly regrow: boolean;
+  readonly fortified: boolean;
+  readonly shielded: boolean;
 };
 
 /** Eine ganze Partie. */
@@ -176,6 +263,14 @@ export type Game = {
   readonly popped: number;
   /** Und wie viele Ballons durchgekommen sind. */
   readonly leaked: number;
+  /**
+   * Ob in dieser Partie der Schummelknopf gedrückt wurde.
+   *
+   * @remarks
+   * Dann zählt sie nicht für die Bestenliste - eine Runde, die man mit
+   * unendlich Geld erreicht, ist keine Runde, die jemand schlagen kann.
+   */
+  readonly cheated: boolean;
   readonly nextId: number;
 };
 

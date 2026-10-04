@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   build,
   canBuild,
+  cheated,
   createGame,
   sell,
   sendWave,
@@ -48,22 +49,10 @@ const MAX_FRAME = 0.25;
 
 /** Wie schnell der Schnellvorlauf ist - und wie schnell der Turbo. */
 const FAST = 3;
-const TURBO = 8;
+const TURBO = 100;
 
 /** Die drei Gangarten: normal, schnell, Turbo. */
 export const SPEEDS: readonly number[] = [1, FAST, TURBO];
-
-/** Was der Schummelknopf dazugibt. */
-const CHEAT = 10_000;
-
-/**
- * Wie lange der Auto-Start zwischen zwei Runden wartet, in Sekunden.
- *
- * @remarks
- * Nicht null: Die Prämie und das, was man zwischendurch bauen will, brauchen
- * einen Augenblick. Wer sofort die nächste Welle will, drückt den Knopf.
- */
-const AUTO_REST = 1.5;
 
 /** Was über dem Feld steht. */
 export type Hud = {
@@ -78,6 +67,8 @@ export type Hud = {
   readonly leaked: number;
   /** Das Vielfache, mit dem die Zeit gerade läuft. */
   readonly speed: number;
+  /** Ob die Partie für die Bestenliste zählt - also ohne Schummeln. */
+  readonly fair: boolean;
 };
 
 /** Was der Bildschirm von einer Partie braucht. */
@@ -98,7 +89,7 @@ export type BloonsGame = {
   /** Noch einmal von vorn. */
   readonly restart: () => void;
   readonly setSpeed: (speed: number) => void;
-  /** Zehntausend Dollar aus dem Nichts. */
+  /** Unendlich Geld, und das ganze Feld voller ausgebauter Türme. */
   readonly cheat: () => void;
   /** Ob gerade angehalten ist. */
   readonly paused: boolean;
@@ -119,6 +110,7 @@ const EMPTY_HUD: Hud = {
   popped: 0,
   leaked: 0,
   speed: 1,
+  fair: true,
 };
 
 /**
@@ -138,7 +130,6 @@ export function useBloonsGame(): BloonsGame {
   const spentRef = useRef({ ms: 0, began: 0, ended: false });
 
   const autoRef = useRef(false);
-  const restRef = useRef(0);
   const haltRef = useRef(false);
 
   const [hud, setHud] = useState<Hud>(EMPTY_HUD);
@@ -159,6 +150,7 @@ export function useBloonsGame(): BloonsGame {
       popped: game.popped,
       leaked: game.leaked,
       speed: speedRef.current,
+      fair: !game.cheated,
     };
     if (!sameHud(next, hudRef.current)) {
       hudRef.current = next;
@@ -212,14 +204,13 @@ export function useBloonsGame(): BloonsGame {
 
   // **Schummeln ist ein Knopf und kein Geheimnis.** Wer ausprobieren will, wie
   // sich ein ausgebautes Feld anfühlt, soll nicht vorher zwanzig Runden
-  // spielen müssen.
+  // spielen müssen: unendlich Geld, und jedes freie Feld bekommt den voll
+  // ausgebauten Turm, der dort am meisten bringt.
   const cheat = useCallback(() => {
-    gameRef.current = {
-      ...gameRef.current,
-      money: gameRef.current.money + CHEAT,
-    };
+    gameRef.current = cheated(gameRef.current);
+    syncChosen(gameRef.current);
     syncHud(gameRef.current);
-  }, [syncHud]);
+  }, [syncHud, syncChosen]);
 
   // **Pause hält die Zeit an, nicht das Bild.** Gezeichnet wird weiter, sonst
   // friert auch der Mauszeiger-Umriss ein und man sieht nicht mehr, wohin man
@@ -231,7 +222,6 @@ export function useBloonsGame(): BloonsGame {
 
   const setAuto = useCallback((want: boolean) => {
     autoRef.current = want;
-    restRef.current = 0;
     setKeepGoing(want);
   }, []);
 
@@ -333,25 +323,22 @@ export function useBloonsGame(): BloonsGame {
 
       // Schneller Vorlauf heißt: dasselbe Bild mehrmals rechnen. Ein größerer
       // Zeitschritt ließe Geschosse durch Ballons springen.
+      // **Auto-Start schickt die nächste Welle sofort los**, und zwar mitten
+      // im Vorlauf: Endet eine Runde im dritten von hundert Turbo-
+      // Schritten, laufen die übrigen schon in der nächsten.
       const turns = haltRef.current ? 0 : speedRef.current;
       for (let turn = 0; turn < turns; turn += 1) {
+        if (autoRef.current && gameRef.current.phase === "ready") {
+          gameRef.current = sendWave(gameRef.current);
+        }
         gameRef.current = step(gameRef.current, dt);
       }
-
-      // Auto-Start: Nach einer kurzen Pause geht die nächste Welle von
-      // selbst los - auch die allererste.
       if (
         autoRef.current &&
         !haltRef.current &&
         gameRef.current.phase === "ready"
       ) {
-        restRef.current += dt;
-        if (restRef.current >= AUTO_REST) {
-          restRef.current = 0;
-          gameRef.current = sendWave(gameRef.current);
-        }
-      } else {
-        restRef.current = 0;
+        gameRef.current = sendWave(gameRef.current);
       }
 
       if (was.phase === "running" && !haltRef.current) {
@@ -429,6 +416,7 @@ function sameHud(a: Hud, b: Hud): boolean {
     a.waiting === b.waiting &&
     a.popped === b.popped &&
     a.leaked === b.leaked &&
-    a.speed === b.speed
+    a.speed === b.speed &&
+    a.fair === b.fair
   );
 }
