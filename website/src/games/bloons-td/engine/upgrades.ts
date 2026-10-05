@@ -130,10 +130,15 @@ export const UPGRADES: Readonly<
         reload: 0.85,
       },
       {
-        name: "Very Quick Shots",
-        cost: 190,
-        note: "Wirft ein Drittel schneller als am Anfang.",
-        reload: 0.784,
+        // **Die erste Antwort auf Tarnung**, wie im Vorbild: Der Wurfpfeilaffe
+        // ist von Anfang an da, und ohne diese Stufe sieht bis Level 7
+        // niemand die getarnten Ballons, die ab Runde 24 kommen.
+        name: "Enhanced Eyesight",
+        cost: 200,
+        note: "Sieht getarnte Ballons, reicht ein Fünftel weiter und wirft noch etwas schneller.",
+        reload: 0.9,
+        range: 1.2,
+        sees: true,
       },
     ],
   },

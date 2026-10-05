@@ -5,22 +5,64 @@ die Wiese; daneben stehen Affen, die sie aufstechen, bevor sie am anderen Ende
 hinauslaufen. Jede Runde kommen mehr, und jede neue Sorte kann etwas, das die
 vorige nicht konnte.
 
-| Seite                  | Was dort ist            |
-| ---------------------- | ----------------------- |
-| `/bloons-td`           | das Spiel               |
-| `/bloons-td/statistik` | Partien und Spielzeiten |
+| Seite                  | Was dort ist                          |
+| ---------------------- | ------------------------------------- |
+| `/bloons-td`           | das Spiel                             |
+| `/bloons-td/statistik` | Partien, Spielzeiten und Bestenlisten |
+
+## Karten, Schwierigkeit und Freischalten
+
+**Erst die Karte, dann das Spiel.** Der erste Bildschirm ist die
+Kartenübersicht ([components/map-menu.tsx](components/map-menu.tsx)): oben
+Level und Erfahrung samt dem nächsten Affen, darunter die vier Karten mit Bild,
+Schwierigkeitsgrad und Medaillen. Ein Klick klappt Leicht, Mittel und Schwer
+auf.
+
+| Karte          | Grad            | Weg       |
+| -------------- | --------------- | --------- |
+| Affenwiese     | Anfänger        | 37 Felder |
+| Kurvenland     | Mittel          | 32 Felder |
+| Schlangenpfad  | Fortgeschritten | 25 Felder |
+| Kurzer Prozess | Experte         | 12 Felder |
+
+**Je kürzer der Weg, desto schwerer die Karte** - die Ballons sind schneller
+durch, und es gibt weniger Stellen, an denen ein Turm zwei Abschnitte
+erreicht. Die Wellen sind auf allen Karten dieselben.
+
+Die Schwierigkeit ändert, wie im Vorbild, Leben, Preise und Ziel
+([engine/difficulty.ts](engine/difficulty.ts)): Leicht 200 Leben, alles 15 %
+billiger, bis Runde 40; Mittel 150 Leben, Listenpreis, bis Runde 60; Schwer
+100 Leben, alles 8 % teurer, bis Runde 80. Preise werden auf fünf Dollar
+gerundet. **Wer die Zielrunde übersteht, hat gewonnen** (`phase: "won"`) und
+bekommt die Medaille; dann wählt er, ob er weiterspielt (`freeplay` - kein
+zweites "Gewonnen" mehr) oder zur Kartenauswahl zurückgeht.
+
+**Am Anfang gibt es nur den Wurfpfeilaffen** ([engine/progress.ts](engine/progress.ts)).
+Jede überstandene Runde bringt Erfahrung (20 plus 3 je Rundennummer, mal 1,0 /
+1,1 / 1,2 für Leicht / Mittel / Schwer), und jedes Level schaltet einen Affen
+frei - in der Reihenfolge des Vorbilds, in der sie auch im Laden stehen. Level 2
+braucht 150 Erfahrung, und jedes weitere jeweils 150 mehr als das davor; eine
+ganze Partie auf Leicht bringt etwa sechs Level. Gesperrte Affen stehen grau mit
+Schloss und ihrem Level im Laden, damit man weiß, worauf man hinspielt.
+Erfahrung wird je Runde gutgeschrieben, auch wenn im Turbo mehrere Runden in
+einem Bild enden. Wer geschummelt hat, bekommt keine - und hat dafür in dieser
+Partie alle Affen. Fortschritt und Medaillen liegen im Browser
+(`bloons-td-progress`) und lassen sich in der Kartenübersicht zurücksetzen -
+nach einer Rückfrage, denn es lässt sich nicht rückgängig machen. Statistik und
+Bestenliste bleiben davon unberührt.
 
 ## Die Karte ist Text
 
 Zehn Zeilen, zehn Zeichen ([engine/map.ts](engine/map.ts)): `.` ist Wiese,
 auf der ein Turm stehen darf, `=` ist Straße, `S` ist ihr Anfang und `~` ist
-Wasser. Mehr Zeichen gibt es nicht - wer eine zweite Karte bauen will, schreibt
-zehn Zeilen und ist fertig.
+Wasser. Mehr Zeichen gibt es nicht - wer eine neue Karte bauen will, schreibt
+zehn Zeilen in `MAPS` und ist fertig. Der Weg einer Karte wird einmal
+abgelaufen und dann aufgehoben (`courseOf`); jede Partie weiß, auf welcher
+Karte sie spielt (`map`).
 
 **Der Teich gehört U-Boot und Boot**, und nur ihnen: Wer auf dem Wasser steht,
-darf nicht auf die Wiese, und umgekehrt. Er liegt in der unteren Schleife
-zwischen zwei Straßenstücken, damit ein U-Boot dort beide erreicht - vier
-Felder, die sonst die besten Wiesenplätze der Karte wären.
+darf nicht auf die Wiese, und umgekehrt. Jede Karte hat Teiche neben der
+Straße, damit ein U-Boot dort etwas erreicht.
 
 **Der Weg wird abgelaufen, nicht aufgeschrieben.** Jedes Straßenfeld hat genau
 zwei Nachbarn, die auch Straße sind (Anfang und Ende haben einen), und damit
@@ -94,6 +136,10 @@ Nach den zwölf Standardsorten ([engine/bloons.ts](engine/bloons.ts)):
 | Z.O.M.G. | 4.000  | 16.656 | B.F.B. × 4               | Zeppelin, kriecht                    |
 | B.A.D.   | 31.440 | 67.200 | Z.O.M.G. × 2, D.D.T. × 3 | lässt sich nicht einmal bremsen      |
 
+Der goldene Ballon steht in der Tabelle, kommt aber derzeit in keiner Runde
+vor: Seine alte Planung (alle zehn Runden ab Runde 27) war erfunden und ist mit
+der Umstellung auf die Runden des Vorbilds herausgefallen.
+
 Die RBE-Zahlen sind die aus dem Auftrag; die Hülle ist so gewählt, dass die
 Summe aufgeht. Beim B.A.D. heißt das 31.440 Treffer Hülle - im Vorbild sind
 es weniger, dafür stecken dort andere Ballons darin.
@@ -105,9 +151,13 @@ größer, werden also auch eher getroffen, und tragen einen Lebensbalken.
 
 **Ein Boss, der durchkommt, beendet die Partie.** Seine RBE ist eine Zahl,
 die größer ist als jede Lebensanzeige (`ALL_LIVES`) - dafür braucht es keinen
-Sonderfall in der Engine. Ab Runde 30 kommt alle zehn Runden einer, der Reihe
-nach, und nach sechs Bossen fängt die Reihe mit drei Vierteln mehr Hülle von
-vorn an:
+Sonderfall in der Engine. **Wie im Vorbild kommen Bosse nicht in den normalen
+Runden**, sondern nur in der Boss-Herausforderung: In der Kartenübersicht
+wählt man unter einer Karte einen Boss, gespielt wird auf Mittel, und der Boss
+kommt in fünf Stufen in den Runden 40, 60, 80, 100 und 120 (`BOSS_TIERS`) - mit
+1-, 2-, 3,5-, 6- und 10-facher Hülle. Gewonnen hat, wer Runde 120 übersteht
+(`goalOf`); eine Medaille oder einen Platz auf der Bestenliste gibt es dafür
+nicht, Erfahrung schon:
 
 | Boss           | Hülle | Fähigkeit                                                             |
 | -------------- | ----- | --------------------------------------------------------------------- |
@@ -133,8 +183,8 @@ nicht; über ihm kreisen Sterne, sonst sieht er aus wie ein Fehler.
 Eine Eigenschaft ist keine neue Sorte, sondern etwas, das ein Ballon zu seiner
 Sorte mitbringt (`traits` in der Welle, eigene Felder im Ballon):
 
-- **Getarnt**: Nur wer Tarnung sieht (`sees`), zielt darauf - der Ninja von
-  Anfang an, der Scharfschütze mit Night Vision Goggles, der Zauberer mit
+- **Getarnt**: Nur wer Tarnung sieht (`sees`), zielt darauf - der
+  Wurfpfeilaffe mit Enhanced Eyesight, der Ninja von Anfang an, der Scharfschütze mit Night Vision Goggles, der Zauberer mit
   Guided Magic und jeder Affe neben einem Affendorf mit Radar Scanner. Wie im
   Vorbild trifft aber, was ohnehin trifft: Nagelhaufen, Stachelkugeln,
   Flugzeug-Ringe und Knalle. Radar Scanner hat dafür "Primary Training"
@@ -152,10 +202,11 @@ den Schild nicht - der gehörte der äußeren Hülle. Aus einem D.D.T. kommen wi
 im Vorbild getarnte, nachwachsende Keramik. Ein Ballon aus einem Zeppelin
 wächst nie zum Zeppelin nach.
 
-Jede Eigenschaft taucht in den Handrunden einmal in kleiner Zahl auf
-(nachwachsend in Runde 12, getarnt in 15, Schild in 18, verstärkt in 20), wie
-jede neue Sorte. Danach mischen die gerechneten Runden sie in festem Takt unter
-die Grundgruppen - ein Takt statt Zufall, damit man nach einer Niederlage
+Nachwachsend und getarnt kommen in denselben Runden zum ersten Mal wie im
+Vorbild (17 und 24). Nach Runde 40 mischen die gerechneten Runden alle vier in
+festem Takt unter die Grundgruppen; ab wann verstärkte Ballons kommen (Runde
+45, Zeppeline 70), ist geschätzt - dafür gab es keine verlässliche Quelle. Ein
+fester Takt statt Zufall - ein Takt statt Zufall, damit man nach einer Niederlage
 dieselbe Runde wieder bekommt.
 
 ## Dreiundzwanzig Affen in vier Gruppen
@@ -349,8 +400,14 @@ beides.
 zweite kauft, hat die erste schon. Multipliziert wird, was ein Verhältnis ist,
 addiert, was eine Anzahl ist - und dabei kommen genau die Zahlen der Vorlage
 heraus: 2 → 3 → 5 Durchschläge beim Wurfpfeilaffen, 4 → 8 → 13 beim Bumerang,
-14 → 20 → 30 erfasste Ballons beim Bombenwerfer, 0,95 → 0,8075 → 0,633
-Sekunden Nachladezeit.
+14 → 20 → 30 erfasste Ballons beim Bombenwerfer.
+
+**Eine Stufe ist getauscht**: Beim Wurfpfeilaffen ist die zweite Stufe der
+zweiten Säule nicht mehr "Very Quick Shots", sondern **Enhanced Eyesight** -
+die Stufe, die im Vorbild auf einer dritten Säule sitzt und Tarnung sichtbar
+macht. Ohne sie hätte man bis Level 7 keinen einzigen Affen, der die getarnten
+Ballons ab Runde 24 sieht; der Ninja kommt erst auf Level 16. Sie kostet $200,
+gibt Tarnsicht, ein Fünftel Reichweite und wirft noch etwas schneller.
 
 **Bei den Primär-Affen sind Namen und Preise die der Vorlage**, aus der
 mittleren der vier Preisspalten - derselben, aus der auch die Grundpreise der
@@ -437,16 +494,30 @@ auf dem Bild kein Turm mehr, sondern ein Schalter. Seine zweite Säule hebt die
 Grenze auf zwölf und dann auf zwanzig, die erste verlängert den Frost von
 einer auf zwei Sekunden.
 
-## Die ersten zwanzig Runden stehen von Hand da
+## Die ersten vierzig Runden stehen von Hand da
 
 Eine Welle ist eine Ansage ("jetzt kommt zum ersten Mal Blei"), und eine Ansage
 schreibt man auf, statt sie auszurechnen ([engine/waves.ts](engine/waves.ts)).
-Jede neue Sorte taucht einmal in kleiner Zahl auf, bevor sie in großer kommt:
-Wer beim ersten schwarzen Ballon merkt, dass seine Bomben nichts tun, hat noch
-Zeit, etwas anderes zu bauen.
+**Jede Sorte kommt in derselben Runde zum ersten Mal wie im Vorbild**:
 
-Erst danach wird gerechnet, weil nach zwanzig Runden keine Ansage mehr kommt,
-sondern nur noch mehr. Ein Ende hat das Spiel nicht - die Frage ist, wie lange
+| Runde | zum ersten Mal | Runde | zum ersten Mal |
+| ----- | -------------- | ----- | -------------- |
+| 17    | nachwachsend   | 28    | Blei           |
+| 20    | Schwarz        | 38    | Keramik        |
+| 22    | Weiß           | 40    | M.O.A.B.       |
+| 24    | getarnt, Zebra | 60    | B.F.B.         |
+| 25    | Lila           | 80    | Z.O.M.G.       |
+| 26    | Regenbogen     | 90    | D.D.T.         |
+|       |                | 100   | B.A.D.         |
+
+Die Mengen sind an dieses Spiel angepasst, nicht abgeschrieben. Jede neue Sorte
+taucht einmal in kleiner Zahl auf, bevor sie in großer kommt: Wer beim ersten
+schwarzen Ballon merkt, dass seine Bomben nichts tun, hat noch Zeit, etwas
+anderes zu bauen. Die Zielrunden der Schwierigkeiten (40, 60, 80) sind ebenfalls
+die des Vorbilds.
+
+Erst nach Runde 40 wird gerechnet, weil danach keine Ansage mehr kommt, sondern
+nur noch mehr - und die Zeppeline in ihren Runden. Ein Ende hat das Spiel nicht - die Frage ist, wie lange
 hält, was man gebaut hat.
 
 ## Ein Bild, in dieser Reihenfolge
@@ -456,9 +527,13 @@ Erst laufen die Ballons, dann schießen die Türme, dann fliegen die Geschosse
 wirklich vor ihm liegt, und nicht auf die Stelle, an der etwas vor einem
 Sechzigstel einer Sekunde war.
 
-Gezielt wird auf den **vordersten** Ballon in Reichweite. Das ist in der
-Vorlage eine Einstellung je Turm; hier ist es eine Regel, und sie ist die, die
-man in neun von zehn Fällen ohnehin will.
+Gezielt wird zunächst auf den **ersten** Ballon in Reichweite - den, der
+gleich durchkommt. Wie im Vorbild lässt sich das je Turm umstellen (`target`):
+**Erster**, **Letzter** (der gerade erst kam) oder **Stärkster** (die meisten
+Treffer darin, bei Gleichstand der vordere). Das kostet nichts und geht auch
+mitten in der Welle. Angeboten wird die Wahl nur bei Türmen, die sich
+überhaupt ein Ziel suchen (`aims`): Wer pulsiert, rundum wirft, streut oder
+gar nicht schießt, dem ist es gleich.
 
 **Eine Ausnahme gibt es, und sie steht in der Tabelle**
 ([engine/towers.ts](engine/towers.ts), `picks`): Der Klebstoffschütze nimmt
@@ -514,7 +589,11 @@ Feld verlor allein in Runde 50 über dreitausend.
 ## Die Bestenliste
 
 Am Ende einer Partie und auf der Statistikseite steht die Liste der zehn, die
-am längsten durchgehalten haben ([components/leaderboard.tsx](components/leaderboard.tsx)).
+am längsten durchgehalten haben - **eine je Karte und Schwierigkeit**, denn
+Runde 50 auf dem kurzen Weg mit hundert Leben ist eine andere Leistung als auf
+der langen Wiese mit zweihundert. Die Wiese auf Mittel behält den alten Namen
+`bloons-td`, damit niemand von der Liste fällt, der schon draufsteht. Auf der
+Statistikseite wählt man Karte und Schwierigkeit aus ([components/leaderboard.tsx](components/leaderboard.tsx)).
 Sie ist dieselbe, die auch U-Boot, Panzerkiste und RV There Yet benutzen
 (`src/online/leaderboard`): gespeichert in der Datenbank der Online-Räume unter
 `rooms/bloons-td-__best`, ein Platz je Name mit seiner besten Partie.

@@ -17,7 +17,15 @@ import {
 } from "@/games/bloons-td/engine/bloons";
 import { GROUPS, TOWERS, TOWER_ORDER } from "@/games/bloons-td/engine/towers";
 import { MOST, UPGRADES } from "@/games/bloons-td/engine/upgrades";
-import { START } from "@/games/bloons-td/engine/types";
+import {
+  DIFFICULTIES,
+  DIFFICULTY_ORDER,
+} from "@/games/bloons-td/engine/difficulty";
+import { MAPS, MAP_ORDER } from "@/games/bloons-td/engine/map";
+import { UNLOCK } from "@/games/bloons-td/engine/progress";
+
+/** Hundert, für Prozent. */
+const PERCENT = 100;
 
 /** Wie eine Schadensart auf Deutsch heißt. */
 const HARM = {
@@ -37,9 +45,39 @@ export const BLOONS_RULES: GameRules = {
     "Ballons laufen über einen Weg quer durch die Wiese. Du baust Affen daneben, die sie zerstechen, bevor sie am anderen Ende hinauslaufen. Jede Runde kommen mehr, und jede neue Sorte kann etwas, das die vorige nicht konnte.",
   sections: [
     {
+      title: "Karten und Schwierigkeit",
+      table: [
+        ["Schwierigkeit", "Leben", "Preise", "Ziel"],
+        ...DIFFICULTY_ORDER.map((one) => [
+          DIFFICULTIES[one].name,
+          String(DIFFICULTIES[one].lives),
+          `${Math.round(DIFFICULTIES[one].price * PERCENT)} %`,
+          `Runde ${DIFFICULTIES[one].goal}`,
+        ]),
+      ],
+      list: [
+        `Es gibt ${MAP_ORDER.length} Karten: ${MAP_ORDER.map((one) => MAPS[one].name).join(", ")}. Je kürzer der Weg, desto schwerer.`,
+        "Jede Karte gibt es auf Leicht, Mittel und Schwer. Wer die Zielrunde übersteht, hat gewonnen und bekommt die Medaille - danach kann er weiterspielen, solange es hält, oder zurück zur Kartenauswahl.",
+        "Du fängst immer mit $650 an.",
+      ],
+    },
+    {
+      title: "Affen freischalten",
+      list: [
+        "Am Anfang gibt es nur den Wurfpfeilaffen. Jede überstandene Runde bringt Erfahrung - je später die Runde und je schwerer, desto mehr -, und mit jedem Level kommt ein Affe dazu.",
+        `Die Reihenfolge ist die des Vorbilds: ${Object.entries(UNLOCK)
+          .sort((a, b) => a[1] - b[1])
+          .map(
+            ([kind, level]) =>
+              `${TOWERS[kind as keyof typeof TOWERS].name} (${level})`,
+          )
+          .join(", ")}.`,
+        "Fortschritt und Medaillen speichert dein Browser. In der Kartenübersicht lässt sich beides zurücksetzen - dann fängst du wieder mit dem Wurfpfeilaffen an.",
+      ],
+    },
+    {
       title: "Der Ablauf",
       list: [
-        `Du fängst mit $${START.money} und ${START.lives} Leben an.`,
         "Zwischen den Runden baust du: Affe im Laden wählen, auf ein Wiesenfeld klicken. U-Boot und Boot gehören in den Teich, auf der Straße geht nichts.",
         "Dann schickst du die nächste Welle los. Sie läuft, bis kein Ballon mehr da ist - weder in der Luft noch im Wartebereich.",
         "Jede zerstochene Schicht bringt einen Dollar, jede überstandene Runde eine Prämie. Je später die Runde, desto höher. Bananenplantagen zahlen am Rundenende noch etwas dazu.",
@@ -63,7 +101,7 @@ export const BLOONS_RULES: GameRules = {
         "Vier Gruppen wie im Vorbild: Primär, Militär, Magie und Unterstützung.",
         'Wichtiger als der Schaden ist die Schadensart: Spitzes prallt am Bleiballon ab, Sprengstoff am schwarzen, Eis am weißen, Energie (Magie, Laser) am lila. Gegen "alles" ist keine Sorte gefeit. Ein Feld aus lauter gleichen Affen steht irgendwann still.',
         "Zwei von ihnen zerstören gar nichts: Der Eisaffe hält auf, der Klebstoffschütze bremst. Beide lernen es erst durch eine Verbesserung (Deep Freeze, Corrosive Glue) - bis dahin brauchen sie jemanden neben sich, der zusticht.",
-        "Jeder zielt auf den vordersten Ballon in Reichweite - außer dem Klebstoffschützen: Der sucht sich den vordersten, an dem noch nichts klebt, und schweigt, wenn alle kleben.",
+        "Jeder zielt zunächst auf den ersten Ballon in Reichweite. Wer einen fertigen Affen antippt, kann umstellen: Erster (der am weitesten ist), Letzter (der gerade erst kam) oder Stärkster (der mit den meisten Treffern darin). Das kostet nichts und geht auch mitten in der Welle. Der Klebstoffschütze nimmt dabei immer nur Ballons, an denen noch nichts klebt.",
         "Der Eisaffe wirft nie: Alle 2,2 Sekunden geht in seinem Umkreis eine Frostwelle los, ob ein Ballon in der Nähe ist oder nicht. Wen sie erfasst, der steht eine Sekunde lang still. Der Bombenwerfer trifft mit einem Knall mehrere Ballons auf einmal, lädt dafür am längsten nach, und der Bumerang trifft auf dem Rückweg ein zweites Mal.",
         "Scharfschütze und Mörser reichen über die ganze Karte. Der Scharfschuss trifft sofort, die Mörsergranate erst eine Sekunde später dort, wo der Ballon dann sein müsste.",
         "Der Hubschrauber fliegt dem vordersten Ballon in der Nähe seines Landeplatzes hinterher, das Flugzeug kreist um sein Feld und wirft dabei ununterbrochen Pfeile in alle Richtungen.",
@@ -108,24 +146,25 @@ export const BLOONS_RULES: GameRules = {
       body: [
         "Die Zahl ist nicht die Lebenspunktezahl, sondern die Summe aus allem, was in dem Ballon steckt: Ein schwarzer enthält zwei rosa, also elf Treffer insgesamt.",
         "Deshalb wird ein Spielfeld nicht dadurch leichter, dass man die Hülle schnell aufsticht - dahinter kommt dann alles auf einmal.",
-        "Der goldene Ballon kommt ab Runde 27 alle zehn Runden einmal. Er kostet nichts, wenn er durchkommt, bringt aber $300, wenn man ihn erwischt.",
-        "Die Zeppeline kommen ab Runde 24 (M.O.A.B.), 32 (D.D.T.), 36 (B.F.B.), 50 (Z.O.M.G.) und 70 (B.A.D.). Sie lassen sich nicht einfrieren und nicht zurückwehen, und über jedem hängt ein Lebensbalken.",
+        "Die Sorten kommen in denselben Runden zum ersten Mal wie im Vorbild: Schwarz 20, Weiß 22, Zebra 24, Lila 25, Regenbogen 26, Blei 28, Keramik 38.",
+        "Die Zeppeline ebenso: M.O.A.B. ab Runde 40, B.F.B. ab 60, Z.O.M.G. ab 80, D.D.T. ab 90 und B.A.D. ab 100. Sie lassen sich nicht einfrieren und nicht zurückwehen, und über jedem hängt ein Lebensbalken.",
       ],
     },
     {
       title: "Eigenschaften",
       list: [
-        "Getarnt (Tarnflecken, halb durchsichtig): Nur wer Tarnung sieht, zielt darauf - der Ninja von Anfang an, der Scharfschütze mit Night Vision Goggles, der Zauberer mit Guided Magic und jeder Affe neben einem Affendorf mit Radar Scanner. Nagelhaufen, Stachelkugeln, Flugzeug-Ringe und Knalle treffen sie trotzdem.",
+        "Getarnt (Tarnflecken, halb durchsichtig): Nur wer Tarnung sieht, zielt darauf - der Wurfpfeilaffe mit Enhanced Eyesight (die frühe Antwort, ab Level 1), der Ninja von Anfang an, der Scharfschütze mit Night Vision Goggles, der Zauberer mit Guided Magic und jeder Affe neben einem Affendorf mit Radar Scanner. Nagelhaufen, Stachelkugeln, Flugzeug-Ringe und Knalle treffen sie trotzdem.",
         "Nachwachsend (grünes Plus): bekommt alle zweieinhalb Sekunden eine Schicht zurück, aber nie mehr, als er am Anfang hatte.",
         "Verstärkt (Metallbänder): Blei, Keramik und Zeppeline halten doppelt so viel aus.",
         "Mit Schild (blauer Ring): Ein Schild aus der halben Hülle fängt zuerst alles ab.",
-        "Jede Eigenschaft taucht in den ersten zwanzig Runden einmal in kleiner Zahl auf, danach werden sie unter alles gemischt. Was aus einem Ballon herauskommt, erbt Tarnung, Nachwachsen und Verstärkung - den Schild nicht.",
+        "Nachwachsend kommt zum ersten Mal in Runde 17, getarnt in Runde 24 - wie im Vorbild. Mit Schild und verstärkt kommen erst nach Runde 40 dazu. Was aus einem Ballon herauskommt, erbt Tarnung, Nachwachsen und Verstärkung - den Schild nicht.",
       ],
     },
     {
       title: "Bosse",
       list: [
-        "Ab Runde 30 kommt alle zehn Runden ein Boss: Bloonarius, Vortex, Lych, Dreadbloon, Phayze, Blastapopoulos - danach von vorn, jedes Mal mit drei Vierteln mehr Hülle.",
+        "Bosse kommen wie im Vorbild nur in der Boss-Herausforderung, nie im normalen Spiel. Die wählst du in der Kartenübersicht unter der Karte: einen Boss aussuchen, gespielt wird auf Mittel.",
+        "Der Boss kommt in fünf Stufen in den Runden 40, 60, 80, 100 und 120, jedes Mal mit mehr Hülle. Wer Runde 120 übersteht, hat die Herausforderung geschafft.",
         "Kommt ein Boss durch, ist die Partie verloren. Einfrieren, bremsen und zurückwehen wirken bei keinem.",
         "Vortex lähmt alle sechs Sekunden die Türme in seiner Nähe für zwei Sekunden.",
         "Bloonarius spuckt alle vier Sekunden drei Keramikballons aus.",

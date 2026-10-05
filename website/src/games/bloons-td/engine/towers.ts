@@ -320,8 +320,8 @@ export const TOWERS: Readonly<Record<TowerKind, Monkey>> = {
     pierce: 14,
     harm: "explosion",
     shooting: "single",
-    speed: 300,
-    life: 2,
+    speed: 800,
+    life: 0.6,
     blast: CELL * BLAST.bomb,
     paint: "#4b5563",
     note: "Knackt Blei - und ist der Einzige, dem Schwarz nichts abnimmt.",
@@ -668,29 +668,36 @@ export const GROUPS: readonly {
   { group: "support", name: "Unterstützung" },
 ];
 
-/** In welcher Reihenfolge sie im Laden stehen. */
+/**
+ * In welcher Reihenfolge sie im Laden stehen.
+ *
+ * @remarks
+ * Die des Vorbilds - und dieselbe, in der man sie freischaltet. So steigen die
+ * Level im Laden von links nach rechts, und der nächste gesperrte Affe steht
+ * immer gleich neben dem letzten freien.
+ */
 export const TOWER_ORDER: readonly TowerKind[] = [
   "dart",
   "boomerang",
-  "tack",
   "bomb",
+  "tack",
   "ice",
   "glue",
   "sniper",
   "sub",
-  "dartling",
+  "boat",
+  "ace",
   "heli",
   "mortar",
-  "ace",
-  "boat",
+  "dartling",
   "wizard",
   "super",
   "ninja",
   "alchemist",
   "druid",
   "farm",
-  "village",
   "spikeFactory",
+  "village",
   "engineer",
   "spiker",
 ];

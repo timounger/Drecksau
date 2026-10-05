@@ -4,6 +4,9 @@
  * @module
  */
 
+/** Hundert, für Prozent. */
+const PERCENT = 100;
+
 /** Alle Beschriftungen, an einer Stelle. */
 export const BLOONS_TEXTS = {
   title: "Bloons TD",
@@ -13,6 +16,8 @@ export const BLOONS_TEXTS = {
   newGameTitle: "Alles abreißen und von vorn anfangen",
   // Anzeige
   round: (round: number) => `Runde ${round}`,
+  roundOf: (round: number, goal: number, freeplay: boolean) =>
+    freeplay ? `Runde ${round} · Freispiel` : `Runde ${round} / ${goal}`,
   roundNext: (round: number) => `Runde ${round} starten`,
   money: (money: number) => (Number.isFinite(money) ? `$${money}` : "$∞"),
   lives: (lives: number) => `${lives} Leben`,
@@ -45,6 +50,8 @@ export const BLOONS_TEXTS = {
   towerPops: (many: number) =>
     many === 1 ? "1 Schicht zerstochen" : `${many} Schichten zerstochen`,
   sell: (money: number) => `Verkaufen für $${money}`,
+  target: "Zielt auf",
+  targets: { first: "Erster", last: "Letzter", strong: "Stärkster" },
   // Verbesserungen
   upgrades: "Verbesserungen",
   path: (nr: number) => `Säule ${nr}`,
@@ -57,6 +64,46 @@ export const BLOONS_TEXTS = {
   overHint: (round: number) =>
     `Bis Runde ${round} gehalten. Die Ballons sind durch.`,
   again: "Noch einmal",
+  // Ziel geschafft
+  won: "Gewonnen!",
+  wonHint: (map: string, difficulty: string, goal: number) =>
+    `${map} auf ${difficulty} - Runde ${goal} überstanden. Die Medaille ist deine. Weiterspielen, solange es hält?`,
+  keepGoing: "Weiterspielen",
+  wonBossHint: (boss: string) =>
+    `${boss} in allen fünf Stufen besiegt - Runde 120 überstanden! Weiterspielen, solange es hält?`,
+  bossMode: (boss: string) => `Boss: ${boss}`,
+  bossChallenge: "Boss-Herausforderung",
+  bossChallengeInfo: (rounds: readonly number[]) =>
+    `Auf Mittel. Der Boss kommt in den Runden ${rounds.join(", ")} - jedes Mal stärker.`,
+  toMaps: "Zur Kartenauswahl",
+  maps: "Karten",
+  // Freischalten
+  lockedAt: (level: number) => `ab Level ${level}`,
+  levelShort: (level: number) => `Lv ${level}`,
+  // Kartenübersicht
+  mapsTitle: "Karte wählen",
+  level: (level: number) => `Level ${level}`,
+  xpProgress: (have: number, need: number) => `${have} / ${need} Erfahrung`,
+  xpMax: "Alle Affen freigeschaltet",
+  nextUnlock: (name: string, level: number) =>
+    `Als Nächstes: ${name} auf Level ${level}`,
+  unlockedCount: (have: number, all: number) =>
+    `${have} von ${all} Affen freigeschaltet`,
+  mapLevels: {
+    beginner: "Anfänger",
+    intermediate: "Mittel",
+    advanced: "Fortgeschritten",
+    expert: "Experte",
+  },
+  difficultyInfo: (lives: number, goal: number, price: number) =>
+    `${lives} Leben · bis Runde ${goal} · Preise ${price === 1 ? "normal" : price < 1 ? `${Math.round((1 - price) * PERCENT)} % billiger` : `${Math.round((price - 1) * PERCENT)} % teurer`}`,
+  play: "Spielen",
+  reset: "Fortschritt zurücksetzen",
+  resetQuestion:
+    "Wirklich? Level, freigeschaltete Affen und alle Medaillen sind dann weg.",
+  resetYes: "Ja, zurücksetzen",
+  resetNo: "Abbrechen",
+  medal: (difficulty: string) => `Medaille: ${difficulty} geschafft`,
   // Bestenliste
   boardTitle: "Bestenliste",
   boardSubtitle: "Die zehn, die am längsten durchgehalten haben",
@@ -76,6 +123,8 @@ export const BLOONS_TEXTS = {
   boardEntered: "Eingetragen!",
   boardNamePlaceholder: "Dein Name",
   boardRound: (round: number) => `Runde ${round}`,
+  boardMap: "Karte",
+  boardDifficulty: "Schwierigkeit",
   // Steuerung
   controls: "Steuerung",
   controlsHint:

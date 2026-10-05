@@ -30,8 +30,14 @@ import {
   middleOf,
   spotAt,
   trackOf,
+  type MapId,
   type Spot,
 } from "@/games/bloons-td/engine/map";
+import {
+  DIFFICULTIES,
+  priceOf,
+  type Difficulty,
+} from "@/games/bloons-td/engine/difficulty";
 import {
   TOWERS,
   TOWER_ORDER,
@@ -48,21 +54,49 @@ import {
   statsOf,
   type Path,
 } from "@/games/bloons-td/engine/upgrades";
-import { waveOf } from "@/games/bloons-td/engine/waves";
+import { BOSS_TIERS, waveOf } from "@/games/bloons-td/engine/waves";
 import {
-  START,
   type Bloon,
   type Burst,
   type Game,
   type Shot,
+  type Target,
   type Tower,
   type Traits,
   type Waiting,
 } from "@/games/bloons-td/engine/types";
 
-/** Der Weg und seine Länge - für alle Partien derselbe. */
-export const TRACK: readonly Spot[] = trackOf();
-export const TRACK_LENGTH = lengthOf(TRACK);
+/** Der Weg einer Karte, einmal abgelaufen, und seine Länge. */
+export type Course = {
+  readonly map: MapId;
+  readonly track: readonly Spot[];
+  readonly length: number;
+};
+
+/** Jeder Weg wird nur einmal abgelaufen. */
+const COURSES = new Map<MapId, Course>();
+
+/**
+ * Der Weg einer Karte.
+ *
+ * @param map - welche Karte
+ * @returns ihr Weg und seine Länge
+ * @remarks
+ * Der Weg hängt nur an der Karte, also wird er nur einmal abgelaufen und dann
+ * aufgehoben - jedes Bild fragt danach, für jeden Ballon und jeden Turm.
+ */
+export function courseOf(map: MapId): Course {
+  const known = COURSES.get(map);
+  let course: Course;
+  if (known === undefined) {
+    const track = trackOf(map);
+    course = { map, track, length: lengthOf(track) };
+    COURSES.set(map, course);
+  } else {
+    course = known;
+  }
+  return course;
+}
 
 /** Wohin ein frisch gebauter Turm schaut: zum Betrachter. */
 export const WATCH = Math.PI / 2;
@@ -145,14 +179,21 @@ const ROLL_AHEAD = 0.5;
 /**
  * Eine frische Partie.
  *
+ * @param map - auf welcher Karte
+ * @param difficulty - wie schwer
+ * @param boss - der Boss der Boss-Herausforderung, oder null
  * @returns der Zustand vor der ersten Runde
  */
-export function createGame(): Game {
+export function createGame(
+  map: MapId = "meadow",
+  difficulty: Difficulty = "medium",
+  boss: BloonKind | null = null,
+): Game {
   return {
     phase: "ready",
     round: 0,
-    money: START.money,
-    lives: START.lives,
+    money: DIFFICULTIES[difficulty].money,
+    lives: DIFFICULTIES[difficulty].lives,
     towers: [],
     bloons: [],
     shots: [],
@@ -162,6 +203,10 @@ export function createGame(): Game {
     popped: 0,
     leaked: 0,
     cheated: false,
+    map,
+    difficulty,
+    freeplay: false,
+    boss,
     nextId: 1,
   };
 }
@@ -184,9 +229,14 @@ export function canBuild(
   row: number,
 ): boolean {
   const free = !game.towers.some((one) => one.col === col && one.row === row);
-  const ground = TOWERS[kind].water ? isWater(col, row) : isGrass(col, row);
+  const ground = TOWERS[kind].water
+    ? isWater(game.map, col, row)
+    : isGrass(game.map, col, row);
   return (
-    ground && free && game.money >= TOWERS[kind].cost && game.phase !== "over"
+    ground &&
+    free &&
+    game.money >= priceOf(TOWERS[kind].cost, game.difficulty) &&
+    game.phase !== "over"
   );
 }
 
@@ -231,11 +281,12 @@ export function build(
     kick: 0,
     tiers: NO_TIERS,
     pops: 0,
+    target: "first",
   };
   return may
     ? {
         ...game,
-        money: game.money - TOWERS[kind].cost,
+        money: game.money - priceOf(TOWERS[kind].cost, game.difficulty),
         towers: [...game.towers, tower],
         nextId: game.nextId + 1,
       }
@@ -255,9 +306,50 @@ export function sell(game: Game, id: number): Game {
     ? game
     : {
         ...game,
-        money: game.money + refundOfTower(gone.kind, gone.tiers),
+        money: game.money + refundOf(game.difficulty, gone),
         towers: game.towers.filter((one) => one.id !== id),
       };
+}
+
+/**
+ * Was ein Turm beim Verkauf einbringt, auf dieser Schwierigkeit.
+ *
+ * @param difficulty - die Schwierigkeit, für die Preise
+ * @param tower - der Turm
+ * @returns der Betrag, abgerundet
+ */
+export function refundOf(difficulty: Difficulty, tower: Tower): number {
+  return Math.floor(
+    refundOfTower(tower.kind, tower.tiers) * DIFFICULTIES[difficulty].price,
+  );
+}
+
+/**
+ * Welche Runde man überstehen muss, um zu gewinnen.
+ *
+ * @param game - die Partie
+ * @returns die Zielrunde: die der Schwierigkeit, oder in der
+ *   Boss-Herausforderung die der letzten Boss-Stufe
+ */
+export function goalOf(game: Game): number {
+  const last = BOSS_TIERS[BOSS_TIERS.length - 1]?.round ?? 0;
+  return game.boss === null ? DIFFICULTIES[game.difficulty].goal : last;
+}
+
+/**
+ * Weiterspielen, nachdem das Ziel geschafft ist.
+ *
+ * @param game - die gewonnene Partie
+ * @returns dieselbe Partie, bereit für die nächste Runde und ohne Ziel
+ * @remarks
+ * Wie im Vorbild der Freispiel-Modus: Es geht mit allem weiter, was steht,
+ * und es kommt kein zweites "Gewonnen" - nur noch die Frage, wie lange es
+ * hält.
+ */
+export function keepPlaying(game: Game): Game {
+  return game.phase === "won"
+    ? { ...game, phase: "ready", freeplay: true }
+    : game;
 }
 
 /**
@@ -277,7 +369,7 @@ export function canUpgrade(game: Game, id: number, path: Path): boolean {
     tower !== undefined &&
     step !== null &&
     tower.tiers[path] < MOST &&
-    game.money >= step.cost &&
+    game.money >= priceOf(step.cost, game.difficulty) &&
     game.phase !== "over"
   );
 }
@@ -303,7 +395,7 @@ export function upgrade(game: Game, id: number, path: Path): Game {
   return may && tower !== undefined && step !== null
     ? {
         ...game,
-        money: game.money - step.cost,
+        money: game.money - priceOf(step.cost, game.difficulty),
         towers: game.towers.map((one) =>
           one.id === id
             ? { ...one, tiers: { ...one.tiers, [path]: one.tiers[path] + 1 } }
@@ -311,6 +403,45 @@ export function upgrade(game: Game, id: number, path: Path): Game {
         ),
       }
     : game;
+}
+
+/**
+ * Die Partie, in der dieser Turm auf jemand anderen zielt.
+ *
+ * @param game - die Partie
+ * @param id - welcher Turm
+ * @param target - auf wen er künftig zielt
+ * @returns die neue Partie
+ * @remarks
+ * Kostet nichts und geht auch mitten in der Welle - wie im Vorbild.
+ */
+export function aimAt(game: Game, id: number, target: Target): Game {
+  return {
+    ...game,
+    towers: game.towers.map((one) =>
+      one.id === id ? { ...one, target } : one,
+    ),
+  };
+}
+
+/**
+ * Ob es bei diesem Turm etwas einzustellen gibt.
+ *
+ * @param kind - welcher Turm
+ * @returns true, wenn er sich ein Ziel sucht
+ * @remarks
+ * Wer nicht zielt, dem ist es gleich: Der Eisaffe pulsiert, der
+ * Reißnagelwerfer und das Flugzeug werfen rundum, die Nagelfabrik streut, und
+ * Plantage und Dorf schießen gar nicht.
+ */
+export function aims(kind: TowerKind): boolean {
+  const shooting = TOWERS[kind].shooting;
+  return (
+    shooting === "single" ||
+    shooting === "snipe" ||
+    shooting === "lob" ||
+    shooting === "roll"
+  );
 }
 
 /**
@@ -382,7 +513,10 @@ function villageSpots(game: Game): readonly { col: number; row: number }[] {
       const taken = game.towers.some(
         (one) => one.col === col && one.row === row,
       );
-      if (!taken && (isGrass(col, row) || isWater(col, row))) {
+      if (
+        !taken &&
+        (isGrass(game.map, col, row) || isWater(game.map, col, row))
+      ) {
         free.push({ col, row });
       }
     }
@@ -402,7 +536,7 @@ function villageSpots(game: Game): readonly { col: number; row: number }[] {
         (one) => one.col === spot.col && one.row === spot.row,
       );
       const count = open.filter((cell) => near(spot, cell)).length;
-      if (!used && isGrass(spot.col, spot.row) && count > most) {
+      if (!used && isGrass(game.map, spot.col, spot.row) && count > most) {
         best = spot;
         most = count;
       }
@@ -424,12 +558,13 @@ function villageSpots(game: Game): readonly { col: number; row: number }[] {
 
 /** Der Turm, der auf diesem Feld am meisten bringt, oder null, wenn dort nichts geht. */
 function bestAt(game: Game, col: number, row: number): TowerKind | null {
+  const course = courseOf(game.map);
   let best: TowerKind | null = null;
   let most = 0;
 
   for (const kind of TOWER_ORDER) {
     if (!NEVER_CHEAT.includes(kind) && canBuild(game, kind, col, row)) {
-      const worth = worthAt(kind, col, row);
+      const worth = worthAt(kind, col, row, course);
       if (worth > most) {
         best = kind;
         most = worth;
@@ -450,13 +585,18 @@ function bestAt(game: Game, col: number, row: number): TowerKind | null {
  * Geschosse fliegen ins Gras. Wer die ganze Karte erreicht, zählt die ganze
  * Straße, ein Nagelhaufen landet ohnehin auf ihr.
  */
-function worthAt(kind: TowerKind, col: number, row: number): number {
+function worthAt(
+  kind: TowerKind,
+  col: number,
+  row: number,
+  course: Course,
+): number {
   const monkey = statsOf(kind, MAXED);
   const at = middleOf(col, row);
   let road = 0;
   let all = 0;
-  for (let gone = 0; gone < TRACK_LENGTH; gone += CELL * DROP_STEP) {
-    const spot = spotAt(TRACK, gone);
+  for (let gone = 0; gone < course.length; gone += CELL * DROP_STEP) {
+    const spot = spotAt(course.track, gone);
     all += 1;
     if (Math.hypot(spot.x - at.x, spot.y - at.y) <= monkey.range) {
       road += 1;
@@ -492,7 +632,7 @@ export function sendWave(game: Game): Game {
   const waiting: Waiting[] = [];
   let id = game.nextId;
 
-  for (const group of waveOf(round)) {
+  for (const group of waveOf(round, game.boss)) {
     const traits: Traits = {
       camo: group.traits?.camo ?? false,
       regrow: group.traits?.regrow ?? false,
@@ -615,6 +755,7 @@ function powersOf(towers: readonly Tower[]): readonly Monkey[] {
 
 /** Ein Bild, während eine Welle läuft. */
 function running(game: Game, slice: number): Game {
+  const course = courseOf(game.map);
   const clock = game.clock + slice;
   const bursts: Burst[] = [];
   let money = game.money;
@@ -641,7 +782,7 @@ function running(game: Game, slice: number): Game {
     const bite = bitten
       ? clock + (bloon.bite - (bloon.bite - BITE))
       : bloon.bite;
-    if (gone >= TRACK_LENGTH) {
+    if (gone >= course.length) {
       lives -= breed.costly ? breed.rbe : 0;
       leaked += 1;
     } else {
@@ -651,7 +792,7 @@ function running(game: Game, slice: number): Game {
 
   // Die Bosse setzen ihre Fähigkeiten ein - bevor die Türme schießen, damit
   // ein gelähmter Turm in diesem Bild auch wirklich nicht schießt.
-  const bossed = bossesAct(walked, game.towers, clock, nextId);
+  const bossed = bossesAct(walked, game.towers, clock, nextId, course);
   nextId = bossed.nextId;
   walked.push(...bossed.spawned);
   bursts.push(...bossed.bursts);
@@ -668,7 +809,7 @@ function running(game: Game, slice: number): Game {
   const brewers: number[] = [];
   const fired = bossed.towers.map((tower, at) => {
     const power = powers[at] ?? statsOf(tower.kind, tower.tiers);
-    const made = fire(tower, power, walked, clock, nextId, slice);
+    const made = fire(tower, power, walked, clock, nextId, slice, course);
     nextId = made.nextId;
     shots.push(...made.shots);
     bursts.push(...made.bursts);
@@ -688,7 +829,14 @@ function running(game: Game, slice: number): Game {
   const towers = brewed(fired, brewers, powers);
 
   // Und was fliegt, trifft.
-  const flown = fly([...game.shots, ...shots], walked, clock, slice, credit);
+  const flown = fly(
+    [...game.shots, ...shots],
+    walked,
+    clock,
+    slice,
+    credit,
+    course,
+  );
   bursts.push(...flown.bursts);
 
   // Wer durch ist, platzt - und hinterlässt, was in ihm steckte.
@@ -701,7 +849,7 @@ function running(game: Game, slice: number): Game {
       // Gold und Bosse bringen beim Platzen eine Prämie.
       money += 1 + breed.bonus;
       popped += 1;
-      bursts.push(burst(bloon, breed.paint));
+      bursts.push(burst(bloon, breed.paint, course));
       for (const [at, kind] of breed.inside.entries()) {
         left.push(born(nextId++, kind, bloon, at, clock));
       }
@@ -711,6 +859,9 @@ function running(game: Game, slice: number): Game {
   const done = waiting.length === 0 && left.length === 0;
   const beaten = lives <= 0;
   const paid = done && !beaten;
+  // **Wer die Zielrunde übersteht, hat gewonnen** - und darf danach wählen, ob
+  // er weiterspielt.
+  const won = paid && !game.freeplay && game.round >= goalOf(game);
 
   // **Die Plantagen zahlen am Ende der Runde**, zusammen mit der Prämie - und
   // man sieht es an jeder einzelnen.
@@ -733,7 +884,7 @@ function running(game: Game, slice: number): Game {
 
   return {
     ...game,
-    phase: beaten ? "over" : done ? "ready" : "running",
+    phase: beaten ? "over" : won ? "won" : done ? "ready" : "running",
     clock,
     money:
       money + (paid ? PAYOUT.base + game.round * PAYOUT.perRound + harvest : 0),
@@ -987,6 +1138,7 @@ function bossesAct(
   towers: readonly Tower[],
   clock: number,
   nextId: number,
+  course: Course,
 ): Bossed {
   let next = [...towers];
   const spawnedNow: Bloon[] = [];
@@ -996,7 +1148,7 @@ function bossesAct(
   for (const [at, bloon] of bloons.entries()) {
     const every = EVERY[bloon.kind];
     if (every !== undefined && clock >= bloon.skill) {
-      const spot = spotAt(TRACK, bloon.gone);
+      const spot = spotAt(course.track, bloon.gone);
       const act = skillOf(bloon.kind, bloon.ward);
       let boss: Bloon = { ...bloon, skill: clock + every };
 
@@ -1192,8 +1344,8 @@ function born(
 }
 
 /** Ein Platzer an der Stelle eines Ballons. */
-function burst(bloon: Bloon, paint: string): Burst {
-  const at = spotAt(TRACK, bloon.gone);
+function burst(bloon: Bloon, paint: string, course: Course): Burst {
+  const at = spotAt(course.track, bloon.gone);
   return {
     look: "pop",
     x: at.x,
@@ -1256,6 +1408,7 @@ function fire(
   clock: number,
   nextId: number,
   slice: number,
+  course: Course,
 ): Fired {
   const pad = middleOf(tower.col, tower.row);
   // **Der Eisaffe sucht sich niemanden.** Er wirft nichts, er lässt in seinem
@@ -1269,8 +1422,17 @@ function fire(
   const target =
     beats || idle
       ? null
-      : leader(bloons, pad, monkey.range, monkey.picks, clock, monkey.sees);
-  const seen = target === null ? null : spotAt(TRACK, target.gone);
+      : leader(
+          bloons,
+          pad,
+          monkey.range,
+          monkey.picks,
+          clock,
+          monkey.sees,
+          tower.target,
+          course,
+        );
+  const seen = target === null ? null : spotAt(course.track, target.gone);
   // Wer fliegt, fliegt zuerst - geschossen wird von dort, wo er dann ist.
   const where = dazed
     ? { x: tower.x, y: tower.y, heading: null }
@@ -1315,7 +1477,7 @@ function fire(
           paint: monkey.paint,
           from: null,
         });
-        frozen.push(...frostOf(bloons, at, monkey, clock));
+        frozen.push(...frostOf(bloons, at, monkey, clock, course));
         break;
       case "snipe":
         if (
@@ -1340,16 +1502,16 @@ function fire(
         break;
       case "lob":
         if (target !== null) {
-          shots.push(lobbed(id++, tower, monkey, at, target, clock));
+          shots.push(lobbed(id++, tower, monkey, at, target, clock, course));
         }
         break;
       case "drop":
-        shots.push(dropped(id, tower, monkey, at, pad));
+        shots.push(dropped(id, tower, monkey, at, pad, course));
         id += 1;
         break;
       case "roll":
         if (target !== null) {
-          shots.push(rolled(id++, tower, monkey, target));
+          shots.push(rolled(id++, tower, monkey, target, course));
         }
         break;
       case "ring":
@@ -1450,10 +1612,11 @@ function frostOf(
   at: Spot,
   monkey: Monkey,
   clock: number,
+  course: Course,
 ): readonly number[] {
   return bloons
     .filter((bloon) => {
-      const spot = spotAt(TRACK, bloon.gone);
+      const spot = spotAt(course.track, bloon.gone);
       const near = Math.hypot(spot.x - at.x, spot.y - at.y) <= monkey.range;
       const reached = monkey.cold || open(bloon, monkey.harm, clock);
       return near && reached && bloon.phased <= clock;
@@ -1533,12 +1696,13 @@ function lobbed(
   at: Spot,
   target: Bloon,
   clock: number,
+  course: Course,
 ): Shot {
   const ahead = Math.min(
-    TRACK_LENGTH,
+    course.length,
     target.gone + paceOf(target, clock) * monkey.life,
   );
-  const land = spotAt(TRACK, ahead);
+  const land = spotAt(course.track, ahead);
   const flight = Math.max(monkey.life, MIN_FLIGHT);
   return {
     ...thrown(id, tower, monkey, at, 0),
@@ -1563,10 +1727,11 @@ function dropped(
   monkey: Monkey,
   at: Spot,
   pad: Spot,
+  course: Course,
 ): Shot {
   const spots: Spot[] = [];
-  for (let gone = 0; gone < TRACK_LENGTH; gone += CELL * DROP_STEP) {
-    const spot = spotAt(TRACK, gone);
+  for (let gone = 0; gone < course.length; gone += CELL * DROP_STEP) {
+    const spot = spotAt(course.track, gone);
     if (Math.hypot(spot.x - pad.x, spot.y - pad.y) <= monkey.range) {
       spots.push(spot);
     }
@@ -1592,9 +1757,15 @@ function dropped(
  * einen Hang hinunterschickt, den sie heraufkommen. Ihr Tempo steht in `vx`,
  * denn eine Richtung braucht sie nicht: Die gibt ihr die Straße.
  */
-function rolled(id: number, tower: Tower, monkey: Monkey, target: Bloon): Shot {
-  const road = Math.min(TRACK_LENGTH, target.gone + CELL * ROLL_AHEAD);
-  const at = spotAt(TRACK, road);
+function rolled(
+  id: number,
+  tower: Tower,
+  monkey: Monkey,
+  target: Bloon,
+  course: Course,
+): Shot {
+  const road = Math.min(course.length, target.gone + CELL * ROLL_AHEAD);
+  const at = spotAt(course.track, road);
   return {
     ...thrown(id, tower, monkey, at, 0),
     vx: monkey.speed,
@@ -1628,6 +1799,7 @@ const SCATTER = { a: 12.9898, b: 43758.5453 } as const;
  * @param picks - ob ihm jeder recht ist oder nur ein ungebremster
  * @param clock - die Uhr der Runde, für genau diese Frage
  * @param sees - ob der Turm getarnte Ballons sieht
+ * @param target - ob der erste, der letzte oder der stärkste gewählt wird
  * @returns der Ballon oder null, wenn keiner passt
  * @remarks
  * **"fresh" kann leer ausgehen, und das ist die Absicht.** Ein
@@ -1642,21 +1814,55 @@ function leader(
   picks: Picking,
   clock: number,
   sees: boolean,
+  target: Target,
+  course: Course,
 ): Bloon | null {
   let best: Bloon | null = null;
 
   for (const bloon of bloons) {
-    const spot = spotAt(TRACK, bloon.gone);
+    const spot = spotAt(course.track, bloon.gone);
     const near = Math.hypot(spot.x - at.x, spot.y - at.y) <= range;
     const may = picks === "front" || bloon.slowed <= clock;
     // Getarnte sieht nur, wer Tarnung sieht; einen verschobenen Phayze keiner.
     const visible = (sees || !bloon.camo) && bloon.phased <= clock;
-    if (near && may && visible && (best === null || bloon.gone > best.gone)) {
+    if (
+      near &&
+      may &&
+      visible &&
+      (best === null || better(bloon, best, target))
+    ) {
       best = bloon;
     }
   }
 
   return best;
+}
+
+/**
+ * Ob ein Ballon nach dieser Zielwahl vor einem anderen kommt.
+ *
+ * @remarks
+ * Beim stärksten zählt, wie viele Treffer in ihm stecken, und bei Gleichstand
+ * der, der weiter ist - zwei gleiche Keramik sind gleich stark, aber die
+ * vordere kommt zuerst durch.
+ */
+function better(bloon: Bloon, than: Bloon, target: Target): boolean {
+  let result: boolean;
+  switch (target) {
+    case "last":
+      result = bloon.gone < than.gone;
+      break;
+    case "strong": {
+      const mine = BLOONS[bloon.kind].rbe;
+      const theirs = BLOONS[than.kind].rbe;
+      result = mine > theirs || (mine === theirs && bloon.gone > than.gone);
+      break;
+    }
+    case "first":
+      result = bloon.gone > than.gone;
+      break;
+  }
+  return result;
 }
 
 /** Was fliegt, und was es dabei trifft. */
@@ -1666,6 +1872,7 @@ function fly(
   clock: number,
   slice: number,
   credit: Map<number, number>,
+  course: Course,
 ): {
   readonly shots: readonly Shot[];
   readonly bloons: Bloon[];
@@ -1675,7 +1882,7 @@ function fly(
   const bursts: Burst[] = [];
 
   for (const shot of shots) {
-    const moved = steered(shot, slice, bloons, clock);
+    const moved = steered(shot, slice, bloons, clock, course);
     let alive = moved;
     let spent = false;
     // Was im Bogen fliegt, fliegt über alles hinweg, bis es landet.
@@ -1686,12 +1893,12 @@ function fly(
       // Die Granate geht dort hoch, wo sie landet - ob dort jemand ist oder
       // nicht.
       bursts.push(blastAt(alive));
-      blow(bloons, alive, credit, clock);
+      blow(bloons, alive, credit, clock, course);
       spent = true;
     }
 
     for (const [at, bloon] of bloons.entries()) {
-      const spot = spotAt(TRACK, bloon.gone);
+      const spot = spotAt(course.track, bloon.gone);
       // Ein Zeppelin ist größer als ein Ballon - und trifft man auch eher.
       const close =
         Math.hypot(spot.x - alive.x, spot.y - alive.y) <
@@ -1720,7 +1927,7 @@ function fly(
         };
         if (alive.blast !== null) {
           bursts.push(blastAt(alive));
-          blow(bloons, alive, credit, clock);
+          blow(bloons, alive, credit, clock, course);
           spent = true;
         }
       }
@@ -1771,6 +1978,7 @@ function steered(
   slice: number,
   bloons: readonly Bloon[],
   clock: number,
+  course: Course,
 ): Shot {
   const age = shot.age + slice;
   const back = shot.back;
@@ -1781,7 +1989,7 @@ function steered(
 
   if (shot.road !== null) {
     const road = shot.road - shot.vx * slice;
-    const at = spotAt(TRACK, Math.max(0, road));
+    const at = spotAt(course.track, Math.max(0, road));
     next = { ...shot, x: at.x, y: at.y, road, age };
   } else if (land !== null && age >= land.at) {
     next = { ...shot, x: land.x, y: land.y, vx: 0, vy: 0, age };
@@ -1795,7 +2003,7 @@ function steered(
       vy = Math.sin(turn) * pace;
     }
     if (shot.seek && land === null) {
-      const bent = sought(shot, bloons, slice, clock);
+      const bent = sought(shot, bloons, slice, clock, course);
       vx = bent.vx;
       vy = bent.vy;
     }
@@ -1825,6 +2033,7 @@ function sought(
   bloons: readonly Bloon[],
   slice: number,
   clock: number,
+  course: Course,
 ): { readonly vx: number; readonly vy: number } {
   let best: Spot | null = null;
   let bestGap = CELL * SEEK.reach;
@@ -1835,7 +2044,7 @@ function sought(
       !shot.hit.includes(bloon.id) &&
       open(bloon, shot.harm, clock)
     ) {
-      const spot = spotAt(TRACK, bloon.gone);
+      const spot = spotAt(course.track, bloon.gone);
       const gap = Math.hypot(spot.x - shot.x, spot.y - shot.y);
       if (gap < bestGap) {
         best = spot;
@@ -1880,12 +2089,13 @@ function blow(
   shot: Shot,
   credit: Map<number, number>,
   clock: number,
+  course: Course,
 ): void {
   const reach = shot.blast ?? 0;
   const inside: number[] = [];
 
   for (const [at, bloon] of bloons.entries()) {
-    const spot = spotAt(TRACK, bloon.gone);
+    const spot = spotAt(course.track, bloon.gone);
     // Vom Rand gemessen und nicht von der Mitte: Ein Zeppelin, dessen Bug im
     // Knall steckt, steckt im Knall.
     const gap =
@@ -1897,7 +2107,10 @@ function blow(
   }
 
   const caught = inside
-    .sort((a, b) => nearness(bloons, a, shot) - nearness(bloons, b, shot))
+    .sort(
+      (a, b) =>
+        nearness(bloons, a, shot, course) - nearness(bloons, b, shot, course),
+    )
     .slice(0, shot.pierce);
   for (const at of caught) {
     const bloon = bloons[at];
@@ -1918,9 +2131,14 @@ function score(credit: Map<number, number>, by: number): void {
 }
 
 /** Wie weit ein Ballon vom Einschlag weg ist. */
-function nearness(bloons: Bloon[], at: number, shot: Shot): number {
+function nearness(
+  bloons: Bloon[],
+  at: number,
+  shot: Shot,
+  course: Course,
+): number {
   const bloon = bloons[at];
-  const spot = bloon === undefined ? null : spotAt(TRACK, bloon.gone);
+  const spot = bloon === undefined ? null : spotAt(course.track, bloon.gone);
 
   return spot === null
     ? Infinity

@@ -12,20 +12,44 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  aimAt,
   build,
   canBuild,
   cheated,
   createGame,
+  goalOf,
+  keepPlaying,
   sell,
   sendWave,
   step,
   upgrade,
 } from "@/games/bloons-td/engine/engine";
 import type { Path } from "@/games/bloons-td/engine/upgrades";
-import { CELL, COLS, ROWS } from "@/games/bloons-td/engine/map";
-import type { TowerKind } from "@/games/bloons-td/engine/towers";
-import type { Game, Phase, Tower } from "@/games/bloons-td/engine/types";
-import { WRITTEN_ROUNDS } from "@/games/bloons-td/engine/waves";
+import { CELL, COLS, ROWS, type MapId } from "@/games/bloons-td/engine/map";
+import { TOWERS, type TowerKind } from "@/games/bloons-td/engine/towers";
+import type { BloonKind } from "@/games/bloons-td/engine/bloons";
+import {
+  DIFFICULTIES,
+  type Difficulty,
+} from "@/games/bloons-td/engine/difficulty";
+import {
+  NO_PROGRESS,
+  clearProgress,
+  isUnlocked,
+  levelOf,
+  loadProgress,
+  saveProgress,
+  unlockedAt,
+  withMedal,
+  xpOfRound,
+  type Progress,
+} from "@/games/bloons-td/engine/progress";
+import type {
+  Game,
+  Phase,
+  Target,
+  Tower,
+} from "@/games/bloons-td/engine/types";
 import { CANVAS_H, CANVAS_W, draw } from "@/games/bloons-td/components/render";
 import { fitCanvas } from "@/lib/screen/fit-canvas";
 import {
@@ -54,9 +78,23 @@ const TURBO = 100;
 /** Die drei Gangarten: normal, schnell, Turbo. */
 export const SPEEDS: readonly number[] = [1, FAST, TURBO];
 
+/** Wie lange die Meldung über einen Levelaufstieg zu sehen ist, in Millisekunden. */
+const NOTE_MS = 5000;
+
+/** Was gerade zu sehen ist: die Kartenübersicht oder eine Partie. */
+export type Screen = "menu" | "game";
+
 /** Was über dem Feld steht. */
 export type Hud = {
   readonly phase: Phase;
+  /** Wo und wie schwer gespielt wird, und welche Runde das Ziel ist. */
+  readonly map: MapId;
+  readonly difficulty: Difficulty;
+  readonly goal: number;
+  /** Ob das Ziel schon geschafft ist und weitergespielt wird. */
+  readonly freeplay: boolean;
+  /** Der Boss der Boss-Herausforderung, oder null. */
+  readonly boss: BloonKind | null;
   readonly round: number;
   readonly money: number;
   readonly lives: number;
@@ -74,6 +112,27 @@ export type Hud = {
 /** Was der Bildschirm von einer Partie braucht. */
 export type BloonsGame = {
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  /** Kartenübersicht oder Partie. */
+  readonly screen: Screen;
+  /** Eine Partie auf dieser Karte und Schwierigkeit anfangen. */
+  readonly start: (
+    map: MapId,
+    difficulty: Difficulty,
+    boss: BloonKind | null,
+  ) => void;
+  /** Zurück zur Kartenübersicht - die laufende Partie ist dann vorbei. */
+  readonly toMenu: () => void;
+  /** Nach dem Sieg weiterspielen. */
+  readonly keepGoing: () => void;
+  /** Erfahrung, Level und Medaillen über alle Partien. */
+  readonly progress: Progress;
+  readonly level: number;
+  /** Ob dieser Affe gerade zu haben ist - freigeschaltet oder geschummelt. */
+  readonly unlocked: (kind: TowerKind) => boolean;
+  /** Eine Meldung über einen Levelaufstieg, oder null. */
+  readonly note: string | null;
+  /** Erfahrung, Level und Medaillen löschen - zurück auf Anfang. */
+  readonly resetProgress: () => void;
   readonly hud: Hud;
   /** Was im Laden ausgewählt ist. */
   readonly picked: TowerKind | null;
@@ -86,6 +145,8 @@ export type BloonsGame = {
   readonly sellChosen: () => void;
   /** Den angetippten Turm auf einer Säule eine Stufe weiterbauen. */
   readonly upgradeChosen: (path: Path) => void;
+  /** Einstellen, auf wen der angetippte Turm zielt. */
+  readonly aimChosen: (target: Target) => void;
   /** Noch einmal von vorn. */
   readonly restart: () => void;
   readonly setSpeed: (speed: number) => void;
@@ -102,6 +163,11 @@ export type BloonsGame = {
 /** Die Anzeige, bevor es irgendeine Partie gibt. */
 const EMPTY_HUD: Hud = {
   phase: "ready",
+  map: "meadow",
+  difficulty: "medium",
+  goal: DIFFICULTIES.medium.goal,
+  freeplay: false,
+  boss: null,
   round: 0,
   money: 0,
   lives: 0,
@@ -137,11 +203,21 @@ export function useBloonsGame(): BloonsGame {
   const [paused, setHalted] = useState(false);
   const [picked, setPicked] = useState<TowerKind | null>(null);
   const [chosen, setChosen] = useState<Tower | null>(null);
+  const [screen, setScreen] = useState<Screen>("menu");
+  const [progress, setProgress] = useState<Progress>(NO_PROGRESS);
+  const [note, setNote] = useState<string | null>(null);
+  const progressRef = useRef<Progress>(NO_PROGRESS);
+  const noteRef = useRef(0);
   const hudRef = useRef(hud);
 
   const syncHud = useCallback((game: Game) => {
     const next: Hud = {
       phase: game.phase,
+      map: game.map,
+      difficulty: game.difficulty,
+      goal: goalOf(game),
+      freeplay: game.freeplay,
+      boss: game.boss,
       round: game.round,
       money: game.money,
       lives: game.lives,
@@ -202,6 +278,17 @@ export function useBloonsGame(): BloonsGame {
     [syncHud, syncChosen],
   );
 
+  const aimChosen = useCallback(
+    (target: Target) => {
+      const id = chosenRef.current;
+      if (id !== null) {
+        gameRef.current = aimAt(gameRef.current, id, target);
+        syncChosen(gameRef.current);
+      }
+    },
+    [syncChosen],
+  );
+
   // **Schummeln ist ein Knopf und kein Geheimnis.** Wer ausprobieren will, wie
   // sich ein ausgebautes Feld anfühlt, soll nicht vorher zwanzig Runden
   // spielen müssen: unendlich Geld, und jedes freie Feld bekommt den voll
@@ -225,19 +312,106 @@ export function useBloonsGame(): BloonsGame {
     setKeepGoing(want);
   }, []);
 
+  /** Eine frische Partie auf dieser Karte und Schwierigkeit. */
+  const begin = useCallback(
+    (map: MapId, difficulty: Difficulty, boss: BloonKind | null) => {
+      gameRef.current = createGame(map, difficulty, boss);
+      chosenRef.current = null;
+      pickedRef.current = null;
+      haltRef.current = false;
+      setHalted(false);
+      setChosen(null);
+      setPicked(null);
+      spentRef.current = { ms: 0, began: Date.now(), ended: false };
+      recordGameStarted(GAME_ID, Date.now());
+      invalidateStats();
+      syncHud(gameRef.current);
+    },
+    [syncHud],
+  );
+
   const restart = useCallback(() => {
-    gameRef.current = createGame();
-    chosenRef.current = null;
-    pickedRef.current = null;
+    begin(
+      gameRef.current.map,
+      gameRef.current.difficulty,
+      gameRef.current.boss,
+    );
+  }, [begin]);
+
+  const start = useCallback(
+    (map: MapId, difficulty: Difficulty, boss: BloonKind | null) => {
+      begin(map, difficulty, boss);
+      setScreen("game");
+    },
+    [begin],
+  );
+
+  const toMenu = useCallback(() => {
     haltRef.current = false;
     setHalted(false);
-    setChosen(null);
-    setPicked(null);
-    spentRef.current = { ms: 0, began: Date.now(), ended: false };
-    recordGameStarted(GAME_ID, Date.now());
-    invalidateStats();
+    setScreen("menu");
+  }, []);
+
+  const keepGoing = useCallback(() => {
+    gameRef.current = keepPlaying(gameRef.current);
     syncHud(gameRef.current);
   }, [syncHud]);
+
+  /**
+   * Eine Runde ist überstanden: Erfahrung gutschreiben, beim Sieg die Medaille
+   * - und wer dabei aufsteigt, erfährt, welcher Affe dazukommt.
+   *
+   * @remarks
+   * Wer geschummelt hat, bekommt nichts. Sonst hätte man mit einem Druck auf
+   * den Knopf und hundertfachem Tempo in einer Minute alle Affen.
+   */
+  const completed = useCallback((game: Game) => {
+    if (!game.cheated) {
+      const had = progressRef.current;
+      let next: Progress = {
+        ...had,
+        xp: had.xp + xpOfRound(game.round, game.difficulty),
+      };
+      // Die Medaille gibt es für die Karte, nicht für den Boss.
+      if (game.phase === "won" && game.boss === null) {
+        next = withMedal(next, game.map, game.difficulty);
+      }
+      const before = levelOf(had.xp);
+      const after = levelOf(next.xp);
+      progressRef.current = next;
+      saveProgress(next);
+      setProgress(next);
+      if (after > before) {
+        const fresh: string[] = [];
+        for (let level = before + 1; level <= after; level += 1) {
+          fresh.push(...unlockedAt(level).map((kind) => TOWERS[kind].name));
+        }
+        setNote(
+          fresh.length > 0
+            ? `Level ${after}! Neu: ${fresh.join(", ")}`
+            : `Level ${after}!`,
+        );
+        window.clearTimeout(noteRef.current);
+        noteRef.current = window.setTimeout(() => setNote(null), NOTE_MS);
+      }
+    }
+  }, []);
+
+  const resetProgress = useCallback(() => {
+    clearProgress();
+    progressRef.current = NO_PROGRESS;
+    setProgress(NO_PROGRESS);
+  }, []);
+
+  // Der Fortschritt steht im Browser - gelesen wird er erst hier, damit die
+  // vorgerenderte Seite und das erste Bild im Browser übereinstimmen.
+  useEffect(() => {
+    const stored = loadProgress();
+    progressRef.current = stored;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading browser storage once on mount
+    setProgress(stored);
+    return () => window.clearTimeout(noteRef.current);
+  }, []);
 
   const setSpeed = useCallback(
     (speed: number) => {
@@ -246,14 +420,6 @@ export function useBloonsGame(): BloonsGame {
     },
     [syncHud],
   );
-
-  // **Eine Partie zählt, sobald sie offen ist.** Wer das Spiel aufruft, hat
-  // es gespielt - die Statistik fragt nicht, wie weit jemand gekommen ist.
-  useEffect(() => {
-    spentRef.current = { ms: 0, began: Date.now(), ended: false };
-    recordGameStarted(GAME_ID, Date.now());
-    invalidateStats();
-  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -331,7 +497,13 @@ export function useBloonsGame(): BloonsGame {
         if (autoRef.current && gameRef.current.phase === "ready") {
           gameRef.current = sendWave(gameRef.current);
         }
+        const before = gameRef.current.phase;
         gameRef.current = step(gameRef.current, dt);
+        // Im Turbo enden in einem Bild mehrere Runden - jede zählt einzeln.
+        const after = gameRef.current.phase;
+        if (before === "running" && (after === "ready" || after === "won")) {
+          completed(gameRef.current);
+        }
       }
       if (
         autoRef.current &&
@@ -353,13 +525,16 @@ export function useBloonsGame(): BloonsGame {
       }
 
       // **Einmal je Partie gezählt.** Das Ende kommt genau einmal, auch wenn
-      // die Schleife danach weiterläuft.
-      if (gameRef.current.phase === "over" && !spentRef.current.ended) {
+      // die Schleife danach weiterläuft: beim Sieg als gewonnen, und wer danach
+      // weiterspielt und verliert, hat trotzdem gewonnen.
+      const ending =
+        gameRef.current.phase === "over" || gameRef.current.phase === "won";
+      if (ending && !spentRef.current.ended) {
         spentRef.current.ended = true;
         recordPlayTime(GAME_ID, spentRef.current.ms, Date.now());
         spentRef.current.ms = 0;
         recordGameFinished(GAME_ID, {
-          won: gameRef.current.round > WRITTEN_ROUNDS,
+          won: gameRef.current.phase === "won" || gameRef.current.freeplay,
           durationMs: Date.now() - spentRef.current.began,
           finishedAt: Date.now(),
         });
@@ -384,10 +559,25 @@ export function useBloonsGame(): BloonsGame {
       canvas.removeEventListener("pointerleave", leave);
       canvas.removeEventListener("pointerdown", down);
     };
-  }, [syncHud, syncChosen]);
+  }, [syncHud, syncChosen, completed, screen]);
+
+  const level = levelOf(progress.xp);
+  const unlocked = useCallback(
+    (kind: TowerKind) => !hud.fair || isUnlocked(kind, level),
+    [hud.fair, level],
+  );
 
   return {
     canvasRef,
+    screen,
+    start,
+    toMenu,
+    keepGoing,
+    progress,
+    level,
+    unlocked,
+    note,
+    resetProgress,
     hud,
     picked,
     pick,
@@ -395,6 +585,7 @@ export function useBloonsGame(): BloonsGame {
     send,
     sellChosen,
     upgradeChosen,
+    aimChosen,
     restart,
     setSpeed,
     cheat,
@@ -409,6 +600,10 @@ export function useBloonsGame(): BloonsGame {
 function sameHud(a: Hud, b: Hud): boolean {
   return (
     a.phase === b.phase &&
+    a.map === b.map &&
+    a.difficulty === b.difficulty &&
+    a.freeplay === b.freeplay &&
+    a.boss === b.boss &&
     a.round === b.round &&
     a.money === b.money &&
     a.lives === b.lives &&

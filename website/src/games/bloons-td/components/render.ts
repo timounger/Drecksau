@@ -37,7 +37,7 @@ import {
 } from "@/games/bloons-td/components/machines";
 import {
   BLOON_SIZE,
-  TRACK,
+  courseOf,
   WATCH,
   canBuild,
   powerOf,
@@ -51,6 +51,8 @@ import {
   cellAt,
   middleOf,
   spotAt,
+  type MapId,
+  type Spot,
 } from "@/games/bloons-td/engine/map";
 import { TOWERS, type TowerKind } from "@/games/bloons-td/engine/towers";
 import { NO_TIERS, statsOf } from "@/games/bloons-td/engine/upgrades";
@@ -620,7 +622,7 @@ export function draw(
   game: Game,
   view: View,
 ): void {
-  ground(ctx);
+  ground(ctx, game.map);
   reach(ctx, game, view);
   for (const tower of game.towers) {
     monkey(ctx, tower, view.chosen === tower.id, game.clock);
@@ -641,7 +643,7 @@ export function draw(
         : bloon.thawed > game.clock
           ? "sticky"
           : null;
-    sprite(ctx, bloon, hold, game.clock);
+    sprite(ctx, bloon, hold, game.clock, courseOf(game.map).track);
   }
   for (const shot of game.shots) {
     flying(ctx, shot);
@@ -671,10 +673,11 @@ function sprite(
   bloon: Bloon,
   hold: Hold,
   clock: number,
+  track: readonly Spot[],
 ): void {
   const breed = BLOONS[bloon.kind];
-  const at = spotAt(TRACK, bloon.gone);
-  const ahead = spotAt(TRACK, bloon.gone + 1);
+  const at = spotAt(track, bloon.gone);
+  const ahead = spotAt(track, bloon.gone + 1);
   const size = CELL * BLOON_SIZE * breed.size;
   const phased = bloon.phased > clock;
 
@@ -1026,6 +1029,7 @@ export function drawTower(
       kick: 0,
       tiers: NO_TIERS,
       pops: 0,
+      target: "first",
     },
     false,
     0,
@@ -1046,11 +1050,32 @@ export function drawTower(
   ctx.restore();
 }
 
+/**
+ * Eine Karte allein, als quadratisches Bild - für die Kartenübersicht.
+ *
+ * @param ctx - die Zeichenfläche
+ * @param map - welche Karte
+ * @param box - wie breit und hoch das Bild ist, in Bildpunkten
+ * @remarks
+ * Derselbe Zeichner wie im Spiel, nur kleiner: Was man in der Übersicht
+ * wählt, sieht genauso aus wie das, worauf man danach baut.
+ */
+export function drawMap(
+  ctx: CanvasRenderingContext2D,
+  map: MapId,
+  box: number,
+): void {
+  ctx.save();
+  ctx.scale(box / FIELD_W, box / FIELD_H);
+  ground(ctx, map);
+  ctx.restore();
+}
+
 /** Wiese, Straße und das Startfeld. */
-function ground(ctx: CanvasRenderingContext2D): void {
+function ground(ctx: CanvasRenderingContext2D, map: MapId): void {
   for (let row = 0; row < ROWS; row += 1) {
     for (let col = 0; col < COLS; col += 1) {
-      const cell = cellAt(col, row);
+      const cell = cellAt(map, col, row);
       const x = col * CELL;
       const y = row * CELL;
       // Zwei Grüntöne im Schachbrett: Eine einfarbige Wiese sieht aus wie ein

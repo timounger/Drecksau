@@ -1,13 +1,17 @@
 /**
- * Das Spielfeld: Wiese, Straße und der Weg, den die Ballons nehmen.
+ * Die Karten: Wiese, Straße, Teich und der Weg, den die Ballons nehmen.
  *
  * @module
  * @remarks
  * **Die Karte ist Text.** Ein Punkt ist Wiese, auf der ein Turm stehen darf,
  * ein Gleichheitszeichen ist Straße, das `S` ist der Anfang der Straße und
  * eine Tilde ist Wasser - dort stehen nur U-Boot und Boot. Mehr Zeichen gibt
- * es nicht - wer eine zweite Karte bauen will, schreibt zehn Zeilen und ist
- * fertig.
+ * es nicht - wer eine neue Karte bauen will, schreibt zehn Zeilen in
+ * {@link MAPS} und ist fertig.
+ *
+ * **Je kürzer der Weg, desto schwerer die Karte**: Auf einem kurzen Weg sind
+ * die Ballons schneller durch, und es gibt weniger Stellen, an denen ein Turm
+ * zwei Abschnitte auf einmal erreicht.
  *
  * **Der Weg wird abgelaufen, nicht aufgeschrieben.** Jedes Straßenfeld hat
  * genau zwei Nachbarn, die auch Straße sind (der Anfang und das Ende haben
@@ -22,32 +26,112 @@ export type Cell = "." | "=" | "S" | "~";
 /** Wie breit ein Feld ist, in Bildpunkten. */
 export const CELL = 64;
 
+/** Welche Karten es gibt. */
+export type MapId = "meadow" | "bends" | "snake" | "short";
+
+/** Wie schwer eine Karte im Vorbild hieße. */
+export type MapLevel = "beginner" | "intermediate" | "advanced" | "expert";
+
+/** Eine Karte: ihr Name, wie schwer sie ist, und ihre zehn Zeilen. */
+export type MapDef = {
+  readonly name: string;
+  readonly level: MapLevel;
+  /** Ein Satz für die Kartenübersicht. */
+  readonly note: string;
+  readonly rows: readonly string[];
+};
+
 /**
- * Die Karte selbst.
+ * Alle Karten, zehn mal zehn Felder.
  *
  * @remarks
- * Zehn mal zehn. Der Weg läuft von links in der Mitte einmal quer durch alles
- * und oben rechts wieder hinaus - lang genug, dass ein Turm an einer Biegung
- * zwei Abschnitte gleichzeitig beschießt, und das ist die ganze Entscheidung
- * beim Bauen. Der Teich liegt in der unteren Schleife zwischen zwei
- * Straßenstücken, damit ein U-Boot dort beide erreicht.
+ * Die erste ist die alte und einzige Karte von früher: Der Weg läuft von links
+ * in der Mitte einmal quer durch alles und oben wieder hinaus. Die anderen
+ * werden der Reihe nach kürzer - beim "kurzen Prozess" sind es kaum zwölf
+ * Felder vom Eingang bis zum Ausgang.
  */
-export const MAP: readonly string[] = [
-  "......=...",
-  "......=...",
-  "..===.===.",
-  "..=.=...=.",
-  "S==.=.===.",
-  "....=.=...",
-  ".====.===.",
-  ".=.~~~~.=.",
-  ".========.",
-  "..........",
+export const MAPS: Readonly<Record<MapId, MapDef>> = {
+  meadow: {
+    name: "Affenwiese",
+    level: "beginner",
+    note: "Ein langer Weg in Schleifen, mit einem Teich zwischen zwei Straßen.",
+    rows: [
+      "......=...",
+      "......=...",
+      "..===.===.",
+      "..=.=...=.",
+      "S==.=.===.",
+      "....=.=...",
+      ".====.===.",
+      ".=.~~~~.=.",
+      ".========.",
+      "..........",
+    ],
+  },
+  bends: {
+    name: "Kurvenland",
+    level: "intermediate",
+    note: "Weite Kurven und zwei kleine Teiche - etwas kürzer als die Wiese.",
+    rows: [
+      "S=====....",
+      ".....=....",
+      ".~~..=....",
+      ".~~..=====",
+      ".........=",
+      ".=========",
+      ".=........",
+      ".=...~~...",
+      ".======...",
+      "......=...",
+    ],
+  },
+  snake: {
+    name: "Schlangenpfad",
+    level: "advanced",
+    note: "Hinunter, hinauf, hinüber und wieder hinunter. Kurz und eng.",
+    rows: [
+      ".S........",
+      ".=..=====.",
+      ".=..=...=.",
+      ".=..=.~.=.",
+      ".=..=.~.=.",
+      ".====...=.",
+      "........=.",
+      "..~~....=.",
+      "..~~....=.",
+      "........=.",
+    ],
+  },
+  short: {
+    name: "Kurzer Prozess",
+    level: "expert",
+    note: "Zwölf Felder vom Eingang zum Ausgang. Hier zählt jeder Turm.",
+    rows: [
+      "..........",
+      "..........",
+      ".~~.......",
+      ".~~.......",
+      "S=====....",
+      ".....=....",
+      ".....=====",
+      "..........",
+      "..~~......",
+      "..........",
+    ],
+  },
+};
+
+/** In welcher Reihenfolge die Karten in der Übersicht stehen. */
+export const MAP_ORDER: readonly MapId[] = [
+  "meadow",
+  "bends",
+  "snake",
+  "short",
 ];
 
-/** Wie viele Felder die Karte breit und hoch ist. */
-export const COLS = MAP[0]?.length ?? 0;
-export const ROWS = MAP.length;
+/** Wie viele Felder jede Karte breit und hoch ist. */
+export const COLS = 10;
+export const ROWS = 10;
 
 /** Und wie groß das Feld damit in Bildpunkten ist. */
 export const FIELD_W = COLS * CELL;
@@ -62,12 +146,13 @@ export type Spot = {
 /**
  * Was auf einem Feld liegt.
  *
+ * @param map - welche Karte
  * @param col - die Spalte
  * @param row - die Reihe
  * @returns das Zeichen - außerhalb der Karte zählt alles als Wiese
  */
-export function cellAt(col: number, row: number): Cell {
-  const line = MAP[row] ?? "";
+export function cellAt(map: MapId, col: number, row: number): Cell {
+  const line = MAPS[map].rows[row] ?? "";
   const sign = line.charAt(col);
   return sign === "=" || sign === "S" || sign === "~" ? sign : ".";
 }
@@ -75,24 +160,26 @@ export function cellAt(col: number, row: number): Cell {
 /**
  * Ob auf diesem Feld ein Turm stehen darf.
  *
+ * @param map - welche Karte
  * @param col - die Spalte
  * @param row - die Reihe
  * @returns true, wenn es Wiese innerhalb der Karte ist
  */
-export function isGrass(col: number, row: number): boolean {
+export function isGrass(map: MapId, col: number, row: number): boolean {
   const inside = col >= 0 && col < COLS && row >= 0 && row < ROWS;
-  return inside && cellAt(col, row) === ".";
+  return inside && cellAt(map, col, row) === ".";
 }
 
 /**
  * Ob dieses Feld Wasser ist.
  *
+ * @param map - welche Karte
  * @param col - die Spalte
  * @param row - die Reihe
  * @returns true, wenn dort ein U-Boot oder Boot stehen darf
  */
-export function isWater(col: number, row: number): boolean {
-  return cellAt(col, row) === "~";
+export function isWater(map: MapId, col: number, row: number): boolean {
+  return cellAt(map, col, row) === "~";
 }
 
 /** Die Mitte eines Feldes, in Bildpunkten. */
@@ -111,21 +198,22 @@ const STEPS: readonly (readonly [number, number])[] = [
 /**
  * Der Weg, den die Ballons nehmen - von `S` bis hinaus aus dem Bild.
  *
+ * @param map - welche Karte
  * @returns die Mitten aller Straßenfelder in der Reihenfolge des Weges, und
  *   dahinter ein Punkt außerhalb der Karte
  * @remarks
  * Am Ende steht ein Punkt **neben** der Karte: Ein Ballon, der auf dem letzten
  * Feld verschwindet, verschwindet mitten im Bild. Er soll hinauslaufen.
  */
-export function trackOf(): readonly Spot[] {
+export function trackOf(map: MapId): readonly Spot[] {
   const way: Spot[] = [];
-  let here: { col: number; row: number } | null = findStart();
+  let here: { col: number; row: number } | null = findStart(map);
   let came = { col: -1, row: -1 };
 
   while (here !== null) {
     const step: { col: number; row: number } = here;
     way.push(middleOf(step.col, step.row));
-    here = onwards(step, came);
+    here = onwards(map, step, came);
     came = step;
   }
 
@@ -136,12 +224,12 @@ export function trackOf(): readonly Spot[] {
 }
 
 /** Wo das `S` steht. */
-function findStart(): { col: number; row: number } {
+function findStart(map: MapId): { col: number; row: number } {
   let found = { col: 0, row: 0 };
 
   for (let row = 0; row < ROWS; row += 1) {
     for (let col = 0; col < COLS; col += 1) {
-      if (cellAt(col, row) === "S") {
+      if (cellAt(map, col, row) === "S") {
         found = { col, row };
       }
     }
@@ -152,6 +240,7 @@ function findStart(): { col: number; row: number } {
 
 /** Das nächste Straßenfeld, das nicht das vorige ist. */
 function onwards(
+  map: MapId,
   here: { col: number; row: number },
   came: { col: number; row: number },
 ): { col: number; row: number } | null {
@@ -161,7 +250,7 @@ function onwards(
     const col = here.col + dx;
     const row = here.row + dy;
     const road = col >= 0 && col < COLS && row >= 0 && row < ROWS;
-    const cell = cellAt(col, row);
+    const cell = cellAt(map, col, row);
     const open = road && (cell === "=" || cell === "S");
     if (open && !(col === came.col && row === came.row) && next === null) {
       next = { col, row };

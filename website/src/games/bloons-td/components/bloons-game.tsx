@@ -18,7 +18,17 @@ import {
   drawTower,
 } from "@/games/bloons-td/components/render";
 import { Leaderboard } from "@/games/bloons-td/components/leaderboard";
-import { payoutOf } from "@/games/bloons-td/engine/engine";
+import { MapMenu } from "@/games/bloons-td/components/map-menu";
+import { aims, payoutOf, refundOf } from "@/games/bloons-td/engine/engine";
+import {
+  DIFFICULTIES,
+  priceOf,
+  type Difficulty,
+} from "@/games/bloons-td/engine/difficulty";
+import { MAPS } from "@/games/bloons-td/engine/map";
+import { BLOONS } from "@/games/bloons-td/engine/bloons";
+import { UNLOCK } from "@/games/bloons-td/engine/progress";
+import type { Target } from "@/games/bloons-td/engine/types";
 import {
   GROUPS,
   TOWERS,
@@ -29,7 +39,6 @@ import {
   MOST,
   lastOf,
   nextOf,
-  refundOfTower,
   type Path,
   type Tiers,
 } from "@/games/bloons-td/engine/upgrades";
@@ -53,6 +62,7 @@ export function BloonsGame(): ReactElement {
     send,
     sellChosen,
     upgradeChosen,
+    aimChosen,
     restart,
     setSpeed,
     cheat,
@@ -60,6 +70,15 @@ export function BloonsGame(): ReactElement {
     setPaused,
     auto,
     setAuto,
+    screen,
+    start,
+    toMenu,
+    keepGoing,
+    progress,
+    level,
+    unlocked,
+    note,
+    resetProgress,
   } = useBloonsGame();
   // **Im Vollbild ist alles dabei, was man zum Spielen braucht**: Anzeige,
   // Tempo, Feld und Laden. Nur das Feld allein wäre schön anzusehen, aber man
@@ -67,6 +86,34 @@ export function BloonsGame(): ReactElement {
   const stageRef = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreen(stageRef);
   const full = fullscreen.active;
+  const ended = hud.phase === "over" || hud.phase === "won";
+
+  // **Erst die Karte, dann das Spiel**: Ohne gewählte Karte gibt es kein Feld,
+  // sondern die Übersicht - mit Level, Medaillen und den drei Schwierigkeiten.
+  if (screen === "menu") {
+    return (
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
+        <GameHeader
+          rules={BLOONS_RULES}
+          title={BLOONS_TEXTS.title}
+          subtitle={BLOONS_TEXTS.subtitle}
+        >
+          <Link
+            href="/bloons-td/statistik"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {BLOONS_TEXTS.statistics}
+          </Link>
+        </GameHeader>
+        <MapMenu
+          progress={progress}
+          level={level}
+          onStart={start}
+          onReset={resetProgress}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4">
@@ -75,6 +122,14 @@ export function BloonsGame(): ReactElement {
         title={BLOONS_TEXTS.title}
         subtitle={BLOONS_TEXTS.subtitle}
       >
+        <button
+          type="button"
+          data-testid="btd-maps"
+          onClick={toMenu}
+          className="cursor-pointer rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          {BLOONS_TEXTS.maps}
+        </button>
         <button
           type="button"
           data-testid="btd-new-game"
@@ -114,7 +169,14 @@ export function BloonsGame(): ReactElement {
           <div className="flex flex-wrap items-center gap-2">
             <Stat testId="btd-money">{BLOONS_TEXTS.money(hud.money)}</Stat>
             <Stat testId="btd-lives">{BLOONS_TEXTS.lives(hud.lives)}</Stat>
-            <Stat testId="btd-round">{BLOONS_TEXTS.round(hud.round)}</Stat>
+            <Stat testId="btd-round">
+              {BLOONS_TEXTS.roundOf(hud.round, hud.goal, hud.freeplay)}
+            </Stat>
+            <Stat testId="btd-map">
+              {hud.boss === null
+                ? `${MAPS[hud.map].name} · ${DIFFICULTIES[hud.difficulty].name}`
+                : `${MAPS[hud.map].name} · ${BLOONS_TEXTS.bossMode(BLOONS[hud.boss].name)}`}
+            </Stat>
             <Stat>{BLOONS_TEXTS.left(hud.bloons + hud.waiting)}</Stat>
             <Stat>{BLOONS_TEXTS.popped(hud.popped)}</Stat>
           </div>
@@ -181,6 +243,62 @@ export function BloonsGame(): ReactElement {
               </button>
             )}
 
+            {/* Eine Meldung, wenn ein Level erreicht und ein Affe dazugekommen
+              ist - oben auf dem Feld, wo man ohnehin hinschaut. */}
+            {note !== null && (
+              <p
+                data-testid="btd-level-note"
+                role="status"
+                className="pointer-events-none absolute inset-x-0 top-16 z-20 mx-auto w-fit max-w-[90%] rounded-full bg-amber-500 px-4 py-2 text-center text-sm font-bold text-white shadow-lg"
+              >
+                {note}
+              </p>
+            )}
+
+            {/* **Das Ziel ist geschafft** - weiterspielen, solange es hält,
+              oder zurück zur Kartenauswahl. */}
+            {hud.phase === "won" && (
+              <div
+                data-testid="btd-won"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="btd-won-title"
+                className="absolute inset-0 z-40 flex items-center justify-center rounded-2xl bg-emerald-950/60 p-4"
+              >
+                <div className="flex w-72 flex-col gap-3 rounded-2xl bg-white p-5 text-center shadow-xl dark:bg-zinc-900">
+                  <h2 id="btd-won-title" className="text-2xl font-bold">
+                    {BLOONS_TEXTS.won}
+                  </h2>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                    {hud.boss === null
+                      ? BLOONS_TEXTS.wonHint(
+                          MAPS[hud.map].name,
+                          DIFFICULTIES[hud.difficulty].name,
+                          hud.goal,
+                        )
+                      : BLOONS_TEXTS.wonBossHint(BLOONS[hud.boss].name)}
+                  </p>
+                  <button
+                    type="button"
+                    data-testid="btd-keep-going"
+                    autoFocus
+                    onClick={keepGoing}
+                    className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+                  >
+                    {BLOONS_TEXTS.keepGoing}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="btd-to-maps"
+                    onClick={toMenu}
+                    className="cursor-pointer rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    {BLOONS_TEXTS.toMaps}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {hud.phase === "over" && (
               <div
                 data-testid="btd-over"
@@ -196,7 +314,15 @@ export function BloonsGame(): ReactElement {
                   und auf dem roten Schleier wäre das Namensfeld kaum zu
                   sehen. */}
                 <div className="w-full max-w-sm rounded-2xl bg-white text-left text-zinc-900 shadow-lg dark:bg-zinc-900 dark:text-zinc-100">
-                  <Leaderboard run={{ round: hud.round, fair: hud.fair }} />
+                  <Leaderboard
+                    map={hud.map}
+                    difficulty={hud.difficulty}
+                    run={{
+                      round: hud.round,
+                      // Die Boss-Herausforderung ist eine andere Wertung.
+                      fair: hud.fair && hud.boss === null,
+                    }}
+                  />
                 </div>
                 <button
                   type="button"
@@ -206,13 +332,21 @@ export function BloonsGame(): ReactElement {
                 >
                   {BLOONS_TEXTS.again}
                 </button>
+                <button
+                  type="button"
+                  data-testid="btd-over-maps"
+                  onClick={toMenu}
+                  className="cursor-pointer rounded-lg border border-white/60 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10"
+                >
+                  {BLOONS_TEXTS.toMaps}
+                </button>
                 <span className="mb-auto" />
               </div>
             )}
 
             {/* Der Pausenknopf sitzt oben rechts auf dem Feld, wo man ihn in
               jedem Spiel sucht - und hält sofort an. */}
-            {!paused && hud.phase !== "over" && (
+            {!paused && !ended && (
               <button
                 type="button"
                 data-testid="btd-pause"
@@ -229,7 +363,7 @@ export function BloonsGame(): ReactElement {
             {/* **Pause ist ein Menü**: weiter oder von vorn. Solange es offen
               ist, steht die Zeit - und auf das Feld klickt man nicht aus
               Versehen. */}
-            {paused && hud.phase !== "over" && (
+            {paused && !ended && (
               <div
                 data-testid="btd-paused"
                 role="dialog"
@@ -257,6 +391,14 @@ export function BloonsGame(): ReactElement {
                     className="cursor-pointer rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
                   >
                     {BLOONS_TEXTS.restart}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="btd-pause-maps"
+                    onClick={toMenu}
+                    className="cursor-pointer rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    {BLOONS_TEXTS.toMaps}
                   </button>
                 </div>
               </div>
@@ -297,6 +439,8 @@ export function BloonsGame(): ReactElement {
                         key={kind}
                         kind={kind}
                         money={hud.money}
+                        price={priceOf(TOWERS[kind].cost, hud.difficulty)}
+                        locked={unlocked(kind) ? null : UNLOCK[kind]}
                         picked={picked === kind}
                         onPick={() => pick(picked === kind ? null : kind)}
                       />
@@ -315,6 +459,36 @@ export function BloonsGame(): ReactElement {
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {BLOONS_TEXTS.towerPops(chosen.pops)}
                   </p>
+                  {aims(chosen.kind) && (
+                    <div
+                      role="radiogroup"
+                      aria-label={BLOONS_TEXTS.target}
+                      className="flex flex-col gap-1"
+                    >
+                      <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                        {BLOONS_TEXTS.target}
+                      </span>
+                      <div className="grid grid-cols-3 gap-1">
+                        {TARGETS.map((target) => (
+                          <button
+                            key={target}
+                            type="button"
+                            role="radio"
+                            aria-checked={chosen.target === target}
+                            data-testid={`btd-target-${target}`}
+                            onClick={() => aimChosen(target)}
+                            className={`cursor-pointer rounded-lg border px-2 py-1 text-xs font-semibold ${
+                              chosen.target === target
+                                ? "border-sky-500 bg-sky-600 text-white"
+                                : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                            }`}
+                          >
+                            {BLOONS_TEXTS.targets[target]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {PATHS.map((path, nr) => (
                     <PathButton
                       key={path}
@@ -323,6 +497,7 @@ export function BloonsGame(): ReactElement {
                       path={path}
                       nr={nr + 1}
                       money={hud.money}
+                      difficulty={hud.difficulty}
                       onBuy={() => upgradeChosen(path)}
                     />
                   ))}
@@ -332,9 +507,7 @@ export function BloonsGame(): ReactElement {
                     onClick={sellChosen}
                     className="cursor-pointer rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-500"
                   >
-                    {BLOONS_TEXTS.sell(
-                      refundOfTower(chosen.kind, chosen.tiers),
-                    )}
+                    {BLOONS_TEXTS.sell(refundOf(hud.difficulty, chosen))}
                   </button>
                 </div>
               ) : picked !== null ? (
@@ -342,7 +515,9 @@ export function BloonsGame(): ReactElement {
                   <h3 className="flex items-center justify-between gap-2 text-sm font-bold">
                     {TOWERS[picked].name}
                     <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                      {BLOONS_TEXTS.cost(TOWERS[picked].cost)}
+                      {BLOONS_TEXTS.cost(
+                        priceOf(TOWERS[picked].cost, hud.difficulty),
+                      )}
                     </span>
                   </h3>
                   <p className="text-xs leading-snug text-zinc-500 dark:text-zinc-400">
@@ -448,6 +623,9 @@ function SpeedButton({
   );
 }
 
+/** Die drei Zielwahlen, in der Reihenfolge der Knöpfe. */
+const TARGETS: readonly Target[] = ["first", "last", "strong"];
+
 /** Die beiden Säulen, in der Reihenfolge, in der sie dastehen. */
 const PATHS: readonly Path[] = ["one", "two"];
 
@@ -465,6 +643,8 @@ type PathButtonProps = {
   readonly path: Path;
   readonly nr: number;
   readonly money: number;
+  /** Für die Preise. */
+  readonly difficulty: Difficulty;
   readonly onBuy: () => void;
 };
 
@@ -482,10 +662,12 @@ function PathButton({
   path,
   nr,
   money,
+  difficulty,
   onBuy,
 }: PathButtonProps): ReactElement {
   const step = nextOf(kind, path, tiers);
-  const afford = step !== null && money >= step.cost;
+  const price = step === null ? 0 : priceOf(step.cost, difficulty);
+  const afford = step !== null && money >= price;
   // Auf einer vollen Säule steht, was man gekauft hat - nicht ein Strich.
   const shown = step ?? lastOf(kind, path, tiers);
 
@@ -504,7 +686,7 @@ function PathButton({
         <span
           className={`text-xs font-semibold ${afford ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-400"}`}
         >
-          {step === null ? BLOONS_TEXTS.full : BLOONS_TEXTS.buy(step.cost)}
+          {step === null ? BLOONS_TEXTS.full : BLOONS_TEXTS.buy(price)}
         </span>
       </span>
       <span className="text-sm font-bold">{shown?.name ?? "-"}</span>
@@ -519,6 +701,10 @@ function PathButton({
 type ShopTileProps = {
   readonly kind: TowerKind;
   readonly money: number;
+  /** Was er auf dieser Schwierigkeit kostet. */
+  readonly price: number;
+  /** Ab welchem Level er zu haben ist, oder null, wenn er es schon ist. */
+  readonly locked: number | null;
   readonly picked: boolean;
   readonly onPick: () => void;
 };
@@ -531,40 +717,70 @@ type ShopTileProps = {
  * und wofür er gut ist, stehen unten im Beschreibungsfeld, sobald man ihn
  * anklickt. Dreiundzwanzig Kacheln mit je drei Zeilen Text wären eine Liste
  * zum Lesen; hier soll man erkennen, nicht lesen.
+ *
+ * Ein Affe, der noch nicht freigeschaltet ist, steht trotzdem da - als
+ * Schatten mit Schloss und dem Level, ab dem es ihn gibt. So weiß man, worauf
+ * man hinspielt.
  */
 function ShopTile({
   kind,
   money,
+  price,
+  locked,
   picked,
   onPick,
 }: ShopTileProps): ReactElement {
   const monkey = TOWERS[kind];
-  const afford = money >= monkey.cost;
+  const afford = money >= price;
 
   return (
     <button
       type="button"
       data-testid={`btd-shop-${kind}`}
       aria-pressed={picked}
-      aria-label={`${monkey.name}, ${BLOONS_TEXTS.cost(monkey.cost)}`}
-      title={monkey.name}
+      aria-label={
+        locked === null
+          ? `${monkey.name}, ${BLOONS_TEXTS.cost(price)}`
+          : `${monkey.name}, ${BLOONS_TEXTS.lockedAt(locked)}`
+      }
+      title={
+        locked === null
+          ? monkey.name
+          : `${monkey.name} - ${BLOONS_TEXTS.lockedAt(locked)}`
+      }
       onClick={onPick}
-      disabled={!afford && !picked}
+      disabled={locked !== null || (!afford && !picked)}
       className={`relative flex aspect-square cursor-pointer items-center justify-center rounded-xl border-2 disabled:cursor-not-allowed disabled:opacity-50 ${
         picked
           ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40"
           : "border-zinc-200 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
       }`}
     >
-      <TowerIcon kind={kind} />
+      <span
+        className={`block h-full w-full ${locked === null ? "" : "opacity-60 grayscale"}`}
+      >
+        <TowerIcon kind={kind} />
+      </span>
+      {locked !== null && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 flex items-center justify-center rounded-lg bg-zinc-900/50 text-xl"
+        >
+          {"\u{1F512}"}
+        </span>
+      )}
       <span
         className={`absolute inset-x-0 bottom-0 rounded-b-lg bg-white/80 py-0.5 text-center text-[0.65rem] leading-tight font-semibold dark:bg-zinc-900/80 ${
-          afford
-            ? "text-emerald-700 dark:text-emerald-400"
-            : "text-red-600 dark:text-red-400"
+          locked !== null
+            ? "text-zinc-600 dark:text-zinc-300"
+            : afford
+              ? "text-emerald-700 dark:text-emerald-400"
+              : "text-red-600 dark:text-red-400"
         }`}
       >
-        {BLOONS_TEXTS.cost(monkey.cost)}
+        {locked === null
+          ? BLOONS_TEXTS.cost(price)
+          : BLOONS_TEXTS.levelShort(locked)}
       </span>
     </button>
   );

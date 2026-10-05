@@ -6,7 +6,7 @@
 import type { Metadata } from "next";
 import type { ReactElement } from "react";
 import { StatsView } from "@/components/stats-view";
-import { Leaderboard } from "@/games/bloons-td/components/leaderboard";
+import { LeaderboardPicker } from "@/games/bloons-td/components/leaderboard";
 
 export const metadata: Metadata = {
   title: "Bloons TD - Statistik",
@@ -29,7 +29,7 @@ export default function BloonsTdStatistikPage(): ReactElement {
       </div>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pb-4">
         {/* Die Bestenliste aller, unter den eigenen Zahlen dieses Browsers. */}
-        <Leaderboard />
+        <LeaderboardPicker />
       </div>
     </main>
   );

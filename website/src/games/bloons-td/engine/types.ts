@@ -9,6 +9,8 @@
  * sonst.
  */
 import type { BloonKind, Harm } from "@/games/bloons-td/engine/bloons";
+import type { Difficulty } from "@/games/bloons-td/engine/difficulty";
+import type { MapId } from "@/games/bloons-td/engine/map";
 import type { TowerKind } from "@/games/bloons-td/engine/towers";
 import type { Tiers } from "@/games/bloons-td/engine/upgrades";
 
@@ -18,6 +20,8 @@ export type Phase =
   | "ready"
   /** Eine Welle läuft. */
   | "running"
+  /** Das Ziel der Schwierigkeit ist erreicht - weiterspielen oder aufhören. */
+  | "won"
   /** Die Leben sind alle. */
   | "over";
 
@@ -198,7 +202,19 @@ export type Tower = {
    * sehen gleich aus; hieran sieht man, welcher von beiden sein Geld wert ist.
    */
   readonly pops: number;
+  /** Auf wen er zielt: den ersten, den letzten oder den stärksten Ballon. */
+  readonly target: Target;
 };
+
+/**
+ * Auf wen ein Turm zielt - einstellbar je Turm.
+ *
+ * @remarks
+ * `first` ist der Ballon, der am weitesten ist, `last` der, der am wenigsten
+ * weit ist, `strong` der mit den meisten Treffern darin. Wie im Vorbild ist
+ * "erster" voreingestellt: Er ist es, der gleich durchkommt.
+ */
+export type Target = "first" | "last" | "strong";
 
 /**
  * Was für ein Knall das war.
@@ -271,13 +287,25 @@ export type Game = {
    * unendlich Geld erreicht, ist keine Runde, die jemand schlagen kann.
    */
   readonly cheated: boolean;
+  /** Auf welcher Karte gespielt wird. */
+  readonly map: MapId;
+  /** Und wie schwer: Leben, Preise und die Runde, die man schaffen muss. */
+  readonly difficulty: Difficulty;
+  /**
+   * Ob das Ziel schon geschafft ist und einfach weitergespielt wird.
+   *
+   * @remarks
+   * Dann gibt es kein zweites "Gewonnen" mehr - die Partie läuft, bis die
+   * Leben alle sind.
+   */
+  readonly freeplay: boolean;
+  /**
+   * Der Boss der Boss-Herausforderung, oder null im normalen Spiel.
+   *
+   * @remarks
+   * Wie im Vorbild kommen Bosse nur in diesem eigenen Modus vor - dort in den
+   * Runden 40, 60, 80, 100 und 120, und gewonnen hat, wer Runde 120 übersteht.
+   */
+  readonly boss: BloonKind | null;
   readonly nextId: number;
 };
-
-/** Womit eine Partie anfängt. */
-export const START = {
-  /** Geld für zwei Türme und ein bisschen Mut. */
-  money: 650,
-  /** Und so viele Leben - jeder durchgekommene Treffer kostet eines. */
-  lives: 150,
-} as const;
