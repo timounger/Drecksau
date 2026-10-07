@@ -216,7 +216,7 @@ export const UBOOT_CODEX: readonly CodexChapter[] = [
     id: "boat",
     title: "Was du dabeihast",
     intro:
-      "Alles davon wird in der Werkstatt gekauft, und alles zusammen kostet mehr, als zehn Gewässer beim ersten Mal einbringen. Die erste Frage ist deshalb nicht, wann du alles hast, sondern welches Boot du willst.",
+      "Alles davon wird in der Werkstatt gekauft, und alles zusammen kostet genau so viel, wie die zehn Gewässer beim ersten Mal einbringen. Bis du alle geschafft hast, ist die Frage deshalb nicht, wann du alles hast, sondern welches Boot du willst.",
     entries: [
       {
         id: "harpoon",
@@ -242,6 +242,19 @@ export const UBOOT_CODEX: readonly CodexChapter[] = [
         body: [
           "Dasselbe Rohr, besser bestückt. Langsamer und seltener, aber was er trifft, ist beim ersten Mal weg, und den Fels daneben nimmt er gleich mit: Ein Torpedo macht eine Tür, wo vorher eine Wand war.",
           "Er ist die einzige Antwort auf den Seeigel - Stacheln halten Stiche auf, aber keinen Knall.",
+        ],
+      },
+      {
+        id: "homing",
+        title: "Lenkrakete",
+        icon: "\u{1F3AF}",
+        facts: [
+          ["Schuss", "Linksklick - sie ersetzt den Torpedo"],
+          ["Wirkung", "wie der Torpedo, lenkt selbst nach"],
+        ],
+        body: [
+          "Ein Torpedo mit Suchkopf - zu erkennen am roten Licht an der Nase. Er knallt genauso und nimmt den Fels genauso mit.",
+          "Wer knapp vorbeizielt, trifft trotzdem: Sie dreht in einer Kurve auf das nächste Tier, den Wächter oder eine Mine in ihrer Nähe. Wer in die völlig falsche Richtung schießt, dem hilft auch sie nicht.",
         ],
       },
       {

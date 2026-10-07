@@ -38,6 +38,7 @@ import {
 } from "./types";
 import type { Gear, WeaponKind } from "./upgrades";
 import { bitten, mauled, swum } from "./beasts";
+import { SEEK, steered } from "./homing";
 
 /** How fast the window moves right, in pixels a second. */
 const WINDOW_SPEED = 84;
@@ -197,6 +198,7 @@ const GUARD = {
 const BITE: Readonly<Record<WeaponKind, number>> = {
   harpoon: 1,
   torpedo: 3,
+  homing: 3,
   mine: 3,
 };
 
@@ -255,6 +257,9 @@ const ARMS: Readonly<
   // Gegner, der zieht, muss man sonst vorhalten, und das kann eine Maus nicht
   // erklären.
   torpedo: { speed: 330, reload: 1.1, life: 2.6, reach: 42 },
+  // Die Lenkrakete ist ein Torpedo, der nachlenkt (siehe ./homing) - und lebt
+  // deshalb etwas länger, damit sie die Kurve auch zu Ende fliegen kann.
+  homing: { speed: 330, reload: 1.1, life: 3, reach: 42 },
   // Gelegt statt geschossen: Sie bleibt, wo sie hingelegt wurde, und geht nach
   // ihrer Zeit hoch. Die einzige Waffe, die man nicht zielt, sondern platziert.
   mine: { speed: 0, reload: 1.6, life: 2.4, reach: 66 },
@@ -299,14 +304,13 @@ export function step(
     const spin = state.spin + (SCREW_IDLE + SCREW_DRIVEN * wash) * slice;
 
     const armed = armoury(state, input, held, slice);
-    const flying = fly(
+    // Die Lenkraketen drehen auf ihr Ziel, bevor alles einen Schritt fliegt.
+    const aimed = steered(
       armed.shots,
-      state.gone,
-      state.dents,
-      course,
-      window,
+      targetsOf(armed.shots, state.beasts, state.boss, state.gone, course),
       slice,
     );
+    const flying = fly(aimed, state.gone, state.dents, course, window, slice);
     const blasts = smoke([...state.blasts, ...flying.blasts], slice);
 
     // Der Wächter: erscheint, wenn man ihm nahe kommt, und was auf ihn
@@ -626,6 +630,47 @@ function armoury(
     laid: lays ? ARMS.mine.reload : laid,
     fired,
   };
+}
+
+/**
+ * Wohin eine Lenkrakete in der Kampagne lenken kann: auf jedes Tier, das noch
+ * lebt, auf den Wächter und auf die Minen im Fels.
+ *
+ * @remarks
+ * Nach Minen wird nur im Umkreis der Lenkraketen gesucht, nicht auf dem ganzen
+ * Kurs - weiter, als eine Lenkrakete schaut ({@link SEEK}), braucht es nicht.
+ */
+function targetsOf(
+  shots: readonly Shot[],
+  beasts: GameState["beasts"],
+  boss: GameState["boss"],
+  gone: ReadonlySet<number>,
+  course: Course,
+): readonly Vec[] {
+  const targets: Vec[] = beasts
+    .filter((beast) => beast.hull > 0)
+    .map((beast) => ({ x: beast.x, y: beast.y }));
+  if (boss !== null && boss.hull > 0) {
+    targets.push({ x: boss.x, y: boss.y });
+  }
+  const span = Math.ceil(SEEK.reach / CELL);
+  const seen = new Set<number>();
+  for (const shot of shots) {
+    if (shot.kind === "homing") {
+      const col = Math.floor(shot.x / CELL);
+      const row = Math.floor(shot.y / CELL);
+      for (let c = col - span; c <= col + span; c += 1) {
+        for (let r = row - span; r <= row + span; r += 1) {
+          const at = r * course.cols + c;
+          if (!seen.has(at) && solidAt(gone, course, c, r) === "M") {
+            seen.add(at);
+            targets.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2 });
+          }
+        }
+      }
+    }
+  }
+  return targets;
 }
 
 /** Everything in the water on its way somewhere, one frame on. */

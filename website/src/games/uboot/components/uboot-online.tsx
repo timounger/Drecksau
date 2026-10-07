@@ -499,7 +499,8 @@ function Searching({
     }
     const db = database();
     const timer = setInterval(
-      () => void hostEntry(db, UBOOT_GAME_ID, match.code, COOP_WISH, Date.now()),
+      () =>
+        void hostEntry(db, UBOOT_GAME_ID, match.code, COOP_WISH, Date.now()),
       HEARTBEAT_MS,
     );
     return () => clearInterval(timer);

@@ -19,6 +19,7 @@
  * Gast genau das, was der Host sieht.
  */
 import { bitten, mauled, swum } from "@/games/uboot/engine/beasts";
+import { steered as homed } from "@/games/uboot/engine/homing";
 import {
   CELL,
   SUB_DISC,
@@ -117,6 +118,8 @@ const ARMS: Readonly<
 > = {
   harpoon: { speed: 620, reload: 0.42, life: 1.1, reach: 0 },
   torpedo: { speed: 520, reload: 0.62, life: 1.5, reach: 54 },
+  // Wie der Torpedo, nur lenkt sie nach - und lebt dafür etwas länger.
+  homing: { speed: 520, reload: 0.62, life: 1.8, reach: 54 },
   mine: { speed: 0, reload: 1.6, life: 2.4, reach: 66 },
 };
 
@@ -271,8 +274,16 @@ function dive(
     return armed.diver;
   });
 
-  // Dann, was schon unterwegs ist.
-  const flying = fly([...state.shots, ...shots], world, gone, slice);
+  // Dann, was schon unterwegs ist - die Lenkraketen drehen vorher auf das
+  // nächste Tier.
+  const aimed = homed(
+    [...state.shots, ...shots],
+    state.beasts
+      .filter((beast) => beast.hull > 0)
+      .map((beast) => ({ x: beast.x, y: beast.y })),
+    slice,
+  );
+  const flying = fly(aimed, world, gone, slice);
   blasts.push(...flying.blasts);
 
   // Was die Schüsse von den Bewohnern übrig lassen.

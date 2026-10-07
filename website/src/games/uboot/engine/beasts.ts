@@ -147,6 +147,7 @@ export const BEAST_LETTERS: Readonly<Record<string, BeastKind>> = {
 const TEETH: Readonly<Record<WeaponKind, number>> = {
   harpoon: 1,
   torpedo: 3,
+  homing: 3,
   mine: 3,
 };
 

@@ -130,19 +130,25 @@ Nach den zwölf Standardsorten ([engine/bloons.ts](engine/bloons.ts)):
 | Sorte    | Hülle  | RBE    | Darin                    | Besonderheit                         |
 | -------- | ------ | ------ | ------------------------ | ------------------------------------ |
 | Gold     | 300    | 300    | nichts                   | sehr schnell, kostet nichts, $300    |
-| M.O.A.B. | 200    | 616    | Keramik × 4              | Zeppelin                             |
-| D.D.T.   | 400    | 816    | Keramik × 4              | getarnt, immun gegen spitz und Knall |
-| B.F.B.   | 700    | 3.164  | M.O.A.B. × 4             | Zeppelin, langsam                    |
-| Z.O.M.G. | 4.000  | 16.656 | B.F.B. × 4               | Zeppelin, kriecht                    |
-| B.A.D.   | 31.440 | 67.200 | Z.O.M.G. × 2, D.D.T. × 3 | lässt sich nicht einmal bremsen      |
+| M.O.A.B. | 110    | 526    | Keramik × 4              | Zeppelin                             |
+| D.D.T.   | 220    | 636    | Keramik × 4              | getarnt, immun gegen spitz und Knall |
+| B.F.B.   | 385    | 2.489  | M.O.A.B. × 4             | Zeppelin, langsam                    |
+| Z.O.M.G. | 2.200  | 12.156 | B.F.B. × 4               | Zeppelin, kriecht                    |
+| B.A.D.   | 17.292 | 43.512 | Z.O.M.G. × 2, D.D.T. × 3 | lässt sich nicht einmal bremsen      |
 
 Der goldene Ballon steht in der Tabelle, kommt aber derzeit in keiner Runde
 vor: Seine alte Planung (alle zehn Runden ab Runde 27) war erfunden und ist mit
 der Umstellung auf die Runden des Vorbilds herausgefallen.
 
-Die RBE-Zahlen sind die aus dem Auftrag; die Hülle ist so gewählt, dass die
-Summe aufgeht. Beim B.A.D. heißt das 31.440 Treffer Hülle - im Vorbild sind
-es weniger, dafür stecken dort andere Ballons darin.
+**Die Hülle der Zeppeline ist 55 % der Ausgangswerte** (M.O.A.B. 200 wie im
+Vorbild, die anderen aus den RBE-Zahlen des Auftrags), und die RBE ist daraus
+neu gerechnet. Im Vorbild machen die Türme pro Treffer deutlich mehr Schaden;
+hier nimmt fast alles eine Schicht. Mit den vollen Werten war der erste
+M.O.A.B. ein Sprung: Ein wenig ausgebautes Feld, das Runde 39 mit zehn Türmen
+schafft, brauchte für Runde 40 vierzehn. Mit 110 Hülle sind es elf - leicht
+schwerer als die Runde davor, wie eine neue Sorte sein soll. Gemessen mit
+einem Prüfskript über die kleinste Turmzahl, die eine Runde ohne
+Lebensverlust übersteht.
 
 **Zeppeline und Bosse lassen sich nicht einfrieren und nicht zurückwehen**,
 nur bremsen - und B.A.D. und die Bosse nicht einmal das (`class`, `steady`).

@@ -80,7 +80,44 @@ export type Profile = {
    * im Moment des Vorbeifahrens geschrieben und nicht am Ziel.
    */
   readonly seen: readonly string[];
+  /**
+   * Nach welcher Werkstatt-Ordnung dieser Spielstand gerechnet ist.
+   *
+   * @remarks
+   * Siehe {@link LADDER}. Ein Spielstand ohne diese Zahl ist einer von vor der
+   * Lenkrakete und wird beim Laden umgerechnet ({@link cleaned}).
+   */
+  readonly ladder: number;
 };
+
+/**
+ * Die Werkstatt-Ordnung, nach der heute gerechnet wird.
+ *
+ * @remarks
+ * **2 seit der Lenkrakete.** Davor war die dritte Stufe der Bewaffnung die
+ * Seemine, heute ist sie die Lenkrakete und die Seemine die vierte - und die
+ * Gewässer zahlten weniger. Ein alter Spielstand wird deshalb nicht verworfen,
+ * sondern umgerechnet: Wer die Seemine hatte, behält sie, und was die
+ * Gewässer heute mehr zahlen, wird für jedes schon geschaffte nachgezahlt.
+ */
+const LADDER = 2;
+
+/** Was die zehn Gewässer vor der Lenkrakete beim ersten Mal zahlten, nach Nummer. */
+const OLD_REWARDS: Readonly<Record<number, number>> = {
+  0: 25,
+  1: 35,
+  2: 45,
+  3: 55,
+  4: 65,
+  5: 75,
+  6: 85,
+  7: 95,
+  8: 110,
+  9: 150,
+};
+
+/** Auf welcher Stufe der Bewaffnung die Seemine vor der Lenkrakete lag. */
+const OLD_MINES = 3;
 
 /** A player who has just arrived. */
 export const NEW_PROFILE: Profile = {
@@ -90,6 +127,7 @@ export const NEW_PROFILE: Profile = {
   grade: DEFAULT_GRADE,
   best: [],
   seen: [],
+  ladder: LADDER,
 };
 
 /** Was in {@link Profile.best} steht, solange ein Gewässer offen ist. */
@@ -392,9 +430,9 @@ export const FULL_UPGRADES: Readonly<Record<UpgradeId, number>> =
  * wäre eine Zahl, die nur noch wächst, und die erste Fahrt, bei der sie
  * wächst, ohne dass sich etwas ändert, ist eine Fahrt zu viel.
  *
- * Alle zehn Gewässer bringen beim ersten Mal weniger ein, als der Vollausbau
- * kostet. Wiederholungen zahlen ein Viertel - der Rest ist also erfahrbar, nur
- * eben nicht beliebig oft.
+ * Alle zehn Gewässer bringen beim ersten Mal zusammen genau den Vollausbau ein.
+ * Wiederholungen zahlen ein Viertel - wer ein Gewässer auslässt oder nicht
+ * schafft, holt den Rest so herein, nur eben nicht beliebig oft.
  *
  * Aus der Tabelle gerechnet und nicht hingeschrieben: Eine siebte Bahn
  * verschiebt den Deckel von allein.
@@ -454,6 +492,7 @@ function isProfile(value: unknown): value is Profile {
  * game. What comes out of here is always dive-able.
  */
 function cleaned(stored: Profile): Profile {
+  const old = (stored.ladder ?? 1) < LADDER;
   const upgrades = { ...NO_UPGRADES };
   for (const id of Object.keys(NO_UPGRADES) as UpgradeId[]) {
     const held = Math.floor(stored.upgrades[id] ?? 0);
@@ -462,6 +501,22 @@ function cleaned(stored: Profile): Profile {
   const done = [...new Set(stored.done)]
     .filter((level) => Number.isInteger(level))
     .filter((level) => level >= 0 && level < LEVEL_COUNT);
+  // **Ein Spielstand von vor der Lenkrakete.** Wer die Seemine hatte (damals
+  // Stufe 3), behält sie - heute ist sie Stufe 4, und die Lenkrakete davor
+  // gibt es samt ihrem Preis dazu. Und für jedes schon geschaffte Gewässer
+  // wird nachgezahlt, was es heute mehr bringt.
+  const hadMines = old && (stored.upgrades.weapon ?? 0) >= OLD_MINES;
+  if (hadMines) {
+    upgrades.weapon = topLevel("weapon");
+  }
+  const homing = nextCost("weapon", OLD_MINES - 1) ?? 0;
+  const backPay = old
+    ? done.reduce(
+        (sum, level) =>
+          sum + (LEVELS[level]?.reward ?? 0) - (OLD_REWARDS[level] ?? 0),
+        hadMines ? homing : 0,
+      )
+    : 0;
   // **Ein alter Spielstand kennt die Schwierigkeit noch nicht.** Was damals
   // geschafft wurde, war genau das heutige "Mittel" - also steht es als
   // "Mittel" da und nicht als nichts.
@@ -480,11 +535,12 @@ function cleaned(stored: Profile): Profile {
     // Auch hier der Deckel: Ein Spielstand von früher - oder einer, in den
     // jemand von Hand eine große Zahl geschrieben hat - kommt beschnitten
     // heraus. Was durch diese Tür geht, ist immer spielbar.
-    xp: Math.max(0, Math.min(XP_CAP, Math.floor(stored.xp))),
+    xp: Math.max(0, Math.min(XP_CAP, Math.floor(stored.xp) + backPay)),
     upgrades,
     done,
     grade: heldGrade(stored.grade ?? DEFAULT_GRADE),
     best,
     seen,
+    ladder: LADDER,
   };
 }

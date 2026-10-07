@@ -18,10 +18,10 @@ export type UpgradeId =
   "oxygen" | "armour" | "weapon" | "light" | "dive" | "engine";
 
 /** Was im Wasser unterwegs sein kann. */
-export type WeaponKind = "harpoon" | "torpedo" | "mine";
+export type WeaponKind = "harpoon" | "torpedo" | "homing" | "mine";
 
 /** Und was davon aus dem Rohr kommt. */
-export type Gun = "harpoon" | "torpedo";
+export type Gun = "harpoon" | "torpedo" | "homing";
 
 /** One step of one track. */
 export type Step = {
@@ -57,8 +57,8 @@ export type Gear = {
    * Was im Bug steckt, oder null für ein Boot ohne alles.
    *
    * @remarks
-   * **Der Torpedo ersetzt die Harpune**, er kommt nicht dazu: Es ist dasselbe
-   * Rohr, nur besser bestückt. Wer beides gleichzeitig hätte, müsste sich im
+   * **Der Torpedo ersetzt die Harpune**, und die Lenkrakete den Torpedo - sie
+   * kommen nicht dazu: Es ist dasselbe Rohr, nur besser bestückt. Wer beides gleichzeitig hätte, müsste sich im
    * Gefecht zwischen zwei Knöpfen entscheiden, und das ist keine Entscheidung,
    * sondern ein Handgriff.
    */
@@ -87,7 +87,7 @@ export type Gear = {
 };
 
 /** Ab welcher Stufe der Bewaffnung es was gibt. */
-const ARMED = { torpedo: 2, mines: 3 } as const;
+const ARMED = { harpoon: 1, torpedo: 2, homing: 3, mines: 4 } as const;
 
 /** The boat as it comes: air for a short course, one hull, nothing else. */
 const STOCK = {
@@ -200,6 +200,11 @@ export const UPGRADES: readonly Upgrade[] = [
         cost: 60,
         label: "Torpedo - ein Treffer genügt",
         note: "Ersetzt die Harpune im selben Rohr: langsamer, seltener - aber was er trifft, ist weg, und den Fels nimmt er gleich mit.",
+      },
+      {
+        cost: 80,
+        label: "Lenkrakete - findet ihr Ziel selbst",
+        note: "Ersetzt den Torpedo im selben Rohr und knallt genauso. Wer knapp vorbeizielt, trifft trotzdem: Sie lenkt von selbst auf das nächste Tier, den Wächter oder eine Mine in ihrer Nähe.",
       },
       {
         cost: 100,
@@ -356,12 +361,25 @@ export function gearFrom(levels: Readonly<Record<UpgradeId, number>>): Gear {
   return {
     air: STOCK.air + held("oxygen") * AIR_STEP,
     hull: STOCK.hull + held("armour"),
-    gun: gun === 0 ? null : gun === 1 ? "harpoon" : "torpedo",
+    gun: gunOf(gun),
     mines: gun >= ARMED.mines,
     light: held("light"),
     dive: planes > 0 ? DIVE_RATE[planes - 1] : STOCK.dive,
     push: screw > 0 ? PUSH_RATE[screw - 1] : STOCK.push,
   };
+}
+
+/** Was bei dieser Stufe der Bewaffnung im Rohr steckt. */
+function gunOf(level: number): Gun | null {
+  let gun: Gun | null = null;
+  if (level >= ARMED.homing) {
+    gun = "homing";
+  } else if (level >= ARMED.torpedo) {
+    gun = "torpedo";
+  } else if (level >= ARMED.harpoon) {
+    gun = "harpoon";
+  }
+  return gun;
 }
 
 /** The boat with nothing bought, for the first dive and for the tests. */

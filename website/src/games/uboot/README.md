@@ -84,7 +84,7 @@ eine der beiden Spalten frei ist.
 
 ## Punkte haben einen Deckel
 
-`XP_CAP` ist der Vollausbau: **900 Punkte**, aus der Tabelle gerechnet und
+`XP_CAP` ist der Vollausbau: **980 Punkte**, aus der Tabelle gerechnet und
 nicht hingeschrieben ([settings/profile.ts](settings/profile.ts)). Mehr kann
 niemand ansammeln - weder durch Wiederholen noch über die Abkürzung in den
 Einstellungen, und ein von Hand aufgeblasener Spielstand kommt beim Laden
@@ -94,8 +94,18 @@ Punkte sind in diesem Spiel kein Guthaben, sondern die Frage, welches Boot man
 fährt. Diese Frage ist beantwortet, sobald alles gekauft werden kann; eine Zahl,
 die danach weiterwächst, ohne dass sich etwas ändert, misst nur noch Fleiß.
 
-Die Rechnung geht trotzdem auf: Alle zehn Gewässer bringen beim ersten Mal 740,
-eine zweite Runde zahlt je ein Viertel und füllt damit genau auf 900 auf.
+**Die Rechnung geht exakt auf**: Alle zehn Gewässer bringen beim ersten Mal
+zusammen genau 980 - wer jedes einmal geschafft hat, kann jede Stufe jeder Bahn
+kaufen. Wiederholungen zahlen je ein Viertel; das hilft, solange man noch
+Gewässer offen hat, und füllt nie über den Vollausbau hinaus.
+
+Früher zahlten die Gewässer zusammen nur 740 bei einem Vollausbau von 900, und
+der Rest war nur über Wiederholungen zu holen. Mit der Lenkrakete (80 Punkte)
+wurden die Belohnungen auf 30, 45, 60, 75, 85, 100, 110, 125, 150 und 200
+angehoben. **Alte Spielstände werden beim Laden umgerechnet** (`ladder`): Wer
+die Seemine hatte (damals Stufe 3 der Bewaffnung), behält sie als Stufe 4 und
+bekommt die Lenkrakete samt ihrem Preis dazu, und für jedes schon geschaffte
+Gewässer wird nachgezahlt, was es heute mehr bringt.
 Ausgezahlt wird nur, was noch unter den Deckel passt - und **das** ist auch die
 Zahl, die das Siegblatt zeigt. Eine Belohnung anzukündigen, die nicht ankommt,
 wäre gelogen; steht da +0, sagt eine Zeile darunter, warum.
@@ -452,11 +462,12 @@ geradeaus, denn eine Tastatur hat keinen Ort, auf den sie deuten kann.
 Die Engine kennt zwei Arten, etwas kaputt zu machen, und sie sind absichtlich
 verschieden:
 
-| Waffe   | Wie sie wirkt                        | Auf eine Mine |
-| ------- | ------------------------------------ | ------------- |
-| Harpune | sticht, `reach: 0`                   | drei Treffer  |
-| Torpedo | sprengt, `reach: 42`, nimmt Fels mit | ein Treffer   |
-| Seemine | wird gelegt, `speed: 0`, `reach: 66` | ein Treffer   |
+| Waffe      | Wie sie wirkt                        | Auf eine Mine |
+| ---------- | ------------------------------------ | ------------- |
+| Harpune    | sticht, `reach: 0`                   | drei Treffer  |
+| Torpedo    | sprengt, `reach: 42`, nimmt Fels mit | ein Treffer   |
+| Lenkrakete | wie der Torpedo, lenkt selbst nach   | ein Treffer   |
+| Seemine    | wird gelegt, `speed: 0`, `reach: 66` | ein Treffer   |
 
 Die Stiche stehen als `dents` im Weltzustand, nach demselben Schlüssel wie
 `gone` (`row * cols + col`) und genauso nur für diesen Tauchgang. Und man sieht
@@ -464,8 +475,17 @@ sie: Mit jedem Stich fehlt der Mine ein Dorn, die Kugel wird bleicher und ein
 Riss läuft über sie. Eine Waffe, bei der man mitzählen muss, statt hinzusehen,
 wäre keine.
 
-**Der Torpedo ersetzt die Harpune**, er kommt nicht dazu - es ist dasselbe Rohr,
-nur besser bestückt. Die Seemine kommt dazu, hat ihre eigene Uhr (`laid`) und
+**Der Torpedo ersetzt die Harpune** und die Lenkrakete den Torpedo, sie kommen
+nicht dazu - es ist dasselbe Rohr, nur besser bestückt.
+
+**Die Lenkrakete lenkt nach, sie springt nicht** ([engine/homing.ts](engine/homing.ts)).
+Jedes Bild sucht sie das nächste Ziel im Umkreis von 170 Pixeln - in der
+Kampagne ein Tier, den Wächter oder eine Mine im Fels, im Endlosen die Tiere -
+und dreht mit höchstens 4,5 Bogenmaß je Sekunde darauf zu, bei gleichem Tempo.
+Wer knapp daneben zielt, trifft trotzdem; wer in die völlig falsche Richtung
+schießt, nicht. Sie lebt drei Sekunden statt 2,6, damit sie die Kurve auch zu
+Ende fliegen kann, und trägt ein rotes Suchlicht an der Nase. Im Endlosen, wo
+das Boot immer voll ausgebaut ist, ist sie die Waffe im Rohr. Die Seemine kommt dazu, hat ihre eigene Uhr (`laid`) und
 blockiert das Rohr nicht: Sie wird nicht geschossen, sondern platziert, bleibt
 liegen, wo man sie gelassen hat, und geht nach 2,4 Sekunden hoch. Deshalb steht
 sie trotzdem in `shots` - was sie unterscheidet, ist nur, dass ihre
@@ -863,7 +883,7 @@ Pfade in SVG:
 | ----------- | --------------------------------------------------- |
 | Sauerstoff  | eine Blase mehr, von einer bis vier                 |
 | Rüstung     | eine Panzerplatte mehr auf dem Schild               |
-| Waffen      | Harpune, Torpedo, Seemine - drei Dinge, drei Formen |
+| Waffen      | Harpune, Torpedo, Lenkrakete, Seemine - vier Formen |
 | Licht       | Scheinwerfer mit Kegel, dann Sonarbögen             |
 | Tiefenruder | ein Winkelpaar mehr, nach oben und nach unten       |
 | Antrieb     | ein Blatt mehr an der Schraube, und eine größere    |
@@ -888,9 +908,9 @@ Das Zurücksetzen fragt **nicht** nach - dabei geht nichts verloren: Jeder Punkt
 kommt sofort zurück und kann neu vergeben werden. Eine Sicherheitsfrage stünde
 nur dem im Weg, wofür der Knopf da ist, nämlich ein anderes Boot auszuprobieren.
 
-Die Zahlen sind mit Absicht knapp: Alle zehn Gewässer beim ersten Mal bringen
-**740 EP**, der volle Ausbau kostet **900 EP**. Die erste Frage ist also nicht,
-wann man alles hat, sondern **welches Boot** man will - eines, das vier Treffer
+Alle zehn Gewässer beim ersten Mal bringen **980 EP**, genau so viel wie der
+volle Ausbau. Unterwegs ist die erste Frage also nicht, wann man alles hat,
+sondern **welches Boot** man will - eines, das vier Treffer
 aushält, ist ein anderes als eines, das im Dunkeln sieht.
 
 Und die Engine weiß von all dem nichts. Sie bekommt ein {@link Gear} - Luft,

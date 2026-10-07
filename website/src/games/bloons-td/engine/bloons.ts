@@ -15,7 +15,10 @@
  * Spielfeld voller Wurfpfeilaffen steht vor einem Bleiballon still.
  *
  * Danach kommen die **Zeppeline** (MOAB-Klasse), die man nicht einfrieren und
- * nicht zurückwehen kann, der **goldene Ballon**, der nichts kostet, aber viel
+ * nicht zurückwehen kann. Ihre Hülle ist 55 % der des Vorbilds: Dort machen
+ * die Türme pro Treffer deutlich mehr Schaden, hier nimmt fast alles eine
+ * Schicht - mit den Zahlen des Vorbilds war der erste M.O.A.B. ein Sprung,
+ * für den man auf einmal viel mehr Türme brauchte als eine Runde davor. der **goldene Ballon**, der nichts kostet, aber viel
  * bringt, und die **Bosse** - ein Boss, der durchkommt, beendet die Partie.
  */
 
@@ -299,11 +302,11 @@ export const BLOONS: Readonly<Record<BloonKind, Breed>> = {
     paint: "#2f6fd6",
     line: "#163a7a",
     pace: 1,
-    hull: 200,
+    hull: 110,
     inside: ["ceramic", "ceramic", "ceramic", "ceramic"],
     immune: [],
-    rbe: 616,
-    note: "Der erste Zeppelin: zweihundert Treffer Hülle, darin vier Keramik.",
+    rbe: 526,
+    note: "Der erste Zeppelin: hundertzehn Treffer Hülle, darin vier Keramik.",
     size: 2.2,
     class: "blimp",
     fortifiable: true,
@@ -314,10 +317,10 @@ export const BLOONS: Readonly<Record<BloonKind, Breed>> = {
     paint: "#2b2f2b",
     line: "#5be35b",
     pace: 3.5,
-    hull: 400,
+    hull: 220,
     inside: ["ceramic", "ceramic", "ceramic", "ceramic"],
     immune: ["sharp", "explosion"],
-    rbe: 816,
+    rbe: 636,
     note: "Getarnt, aus Blei und schwarz zugleich - und so schnell wie ein rosa Ballon. Darin vier Keramik.",
     size: 2,
     class: "blimp",
@@ -330,11 +333,11 @@ export const BLOONS: Readonly<Record<BloonKind, Breed>> = {
     paint: "#d63a2f",
     line: "#7a1a14",
     pace: 0.25,
-    hull: 700,
+    hull: 385,
     inside: ["moab", "moab", "moab", "moab"],
     immune: [],
-    rbe: 3164,
-    note: "Langsam und schwer: siebenhundert Treffer Hülle, darin vier M.O.A.B.",
+    rbe: 2489,
+    note: "Langsam und schwer: knapp vierhundert Treffer Hülle, darin vier M.O.A.B.",
     size: 2.7,
     class: "blimp",
     fortifiable: true,
@@ -345,11 +348,11 @@ export const BLOONS: Readonly<Record<BloonKind, Breed>> = {
     paint: "#2e3a2e",
     line: "#7fdc4a",
     pace: 0.18,
-    hull: 4000,
+    hull: 2200,
     inside: ["bfb", "bfb", "bfb", "bfb"],
     immune: [],
-    rbe: 16656,
-    note: "Kriecht nur, aber viertausend Treffer Hülle und darin vier B.F.B.",
+    rbe: 12156,
+    note: "Kriecht nur, aber zweitausendzweihundert Treffer Hülle und darin vier B.F.B.",
     size: 3.2,
     class: "blimp",
     fortifiable: true,
@@ -360,10 +363,10 @@ export const BLOONS: Readonly<Record<BloonKind, Breed>> = {
     paint: "#6b2fb3",
     line: "#2e0f57",
     pace: 0.18,
-    hull: 31440,
+    hull: 17292,
     inside: ["zomg", "zomg", "ddt", "ddt", "ddt"],
     immune: [],
-    rbe: 67200,
+    rbe: 43512,
     note: "Der größte Zeppelin. Lässt sich nicht einmal bremsen, und darin stecken zwei Z.O.M.G. und drei D.D.T.",
     size: 3.8,
     class: "blimp",

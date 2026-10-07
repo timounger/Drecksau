@@ -87,6 +87,7 @@ const AIR_WARN = 15;
 const SHOT_VOICE: Readonly<Record<WeaponKind, Noise>> = {
   harpoon: "shot",
   torpedo: "launch",
+  homing: "launch",
   mine: "lay",
 };
 

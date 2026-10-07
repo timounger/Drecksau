@@ -516,8 +516,25 @@ const AIR = {
 const ARMS_NAMES: Readonly<Record<WeaponKind, string>> = {
   harpoon: "Harpune",
   torpedo: "Torpedo",
+  homing: "Lenkrakete",
   mine: "Seemine",
 };
+
+/**
+ * Der Suchkopf der Lenkrakete: ein rotes Licht an der Nase, das pulsiert.
+ *
+ * @remarks
+ * Derselbe Körper wie der Torpedo - es ist ja ein Torpedo, der nachlenkt.
+ * Ohne ein eigenes Zeichen sähe man nicht, ob man schon die bessere Waffe
+ * hat.
+ */
+const SEEKER = {
+  light: "#ff4d4d",
+  glow: "rgba(255,77,77,0.45)",
+  size: 2.6,
+  halo: 6,
+  pace: 9,
+} as const;
 
 /** Wie das Zielkreuz aussieht, das dem Zeiger folgt. */
 const MARK = {
@@ -1264,10 +1281,38 @@ function flying(
       case "torpedo":
         torpedo(ctx, x, y, turn, state.time);
         break;
+      case "homing":
+        torpedo(ctx, x, y, turn, state.time);
+        seeker(ctx, x, y, turn, state.time);
+        break;
       default:
         dropped(ctx, x, y, shot);
     }
   }
+}
+
+/** Das rote Suchlicht an der Nase einer Lenkrakete. */
+function seeker(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  turn: number,
+  time: number,
+): void {
+  const nose = TORP.long / 2;
+  const pulse = (Math.sin(time * SEEKER.pace) + 1) / 2;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(turn);
+  ctx.fillStyle = SEEKER.glow;
+  ctx.beginPath();
+  ctx.arc(nose, 0, (SEEKER.halo * (1 + pulse)) / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = SEEKER.light;
+  ctx.beginPath();
+  ctx.arc(nose, 0, SEEKER.size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 /** A harpoon: a shaft with a head on it and nothing else. */

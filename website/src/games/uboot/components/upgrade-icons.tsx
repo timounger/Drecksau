@@ -103,6 +103,7 @@ const INK = {
   brass: "#f0b429",
   warm: "#ffd97a",
   hot: "#ff6b3d",
+  seek: "#ff2d55",
   deep: "#24323f",
 } as const;
 
@@ -211,60 +212,91 @@ function Shield({ plates }: { readonly plates: number }): ReactElement {
   );
 }
 
-/** Bewaffnung: Harpune, Torpedo, Seemine - drei Dinge, drei Formen. */
+/**
+ * Bewaffnung: Harpune, Torpedo, Lenkrakete, Seemine - vier Dinge, vier Formen.
+ *
+ * @remarks
+ * Die Lenkrakete ist ein Torpedo mit rotem Suchkopf und einer geschwungenen
+ * Bahn dahinter: dieselbe Waffe, die um die Ecke findet.
+ */
 function Arms({ kind }: { readonly kind: number }): ReactElement {
   let art: ReactElement;
 
-  if (kind === 0) {
-    // Harpune: Schaft, Widerhaken, Spitze.
-    art = (
-      <g stroke={INK.steel} strokeWidth="2" strokeLinecap="round" fill="none">
-        <path d="M3 20 L16.5 6.5" />
-        <path d="M11 7.5 L16.5 6.5 L15.5 12" strokeWidth="1.6" />
-        <path d="M16.5 6.5 L21 2" stroke={INK.brass} />
-      </g>
-    );
-  } else if (kind === 1) {
-    // Torpedo: Nase, Körper, Leitwerk.
-    art = (
-      <g>
-        <path
-          d="M3.5 12 C3.5 9.5 7 8 12 8 c4.5 0 7.5 1.6 8.5 4 -1 2.4 -4 4 -8.5 4 -5 0 -8.5 -1.5 -8.5 -4 Z"
-          fill={INK.steel}
-          stroke={INK.steelDark}
-          strokeWidth="1"
-        />
-        <path d="M3.5 12 L1 8 L1 16 Z" fill={INK.steelDark} />
-        <circle cx="18" cy="12" r="1.6" fill={INK.hot} />
-      </g>
-    );
-  } else {
-    // Seemine: Kugel mit Stacheln, wie die im Wasser.
-    art = (
-      <g>
-        {Array.from({ length: SIZE.spikes }, (_, spike) => {
-          const turn =
-            ((spike * SIZE.turn) / SIZE.spikes / SIZE.half) * Math.PI;
-          return (
-            <line
-              key={spike}
-              x1={SIZE.middle + Math.cos(turn) * SIZE.ball}
-              y1={SIZE.middle + Math.sin(turn) * SIZE.ball}
-              x2={SIZE.middle + Math.cos(turn) * SIZE.spike}
-              y2={SIZE.middle + Math.sin(turn) * SIZE.spike}
-              stroke={INK.steelDark}
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          );
-        })}
-        <circle cx="12" cy="12" r="6.5" fill={INK.deep} />
-        <circle cx="14.4" cy="9.6" r="1.5" fill={INK.hot} />
-      </g>
-    );
+  switch (kind) {
+    case 0:
+      // Harpune: Schaft, Widerhaken, Spitze.
+      art = (
+        <g stroke={INK.steel} strokeWidth="2" strokeLinecap="round" fill="none">
+          <path d="M3 20 L16.5 6.5" />
+          <path d="M11 7.5 L16.5 6.5 L15.5 12" strokeWidth="1.6" />
+          <path d="M16.5 6.5 L21 2" stroke={INK.brass} />
+        </g>
+      );
+      break;
+    case 1:
+      // Torpedo: Nase, Körper, Leitwerk.
+      art = <Torpedo nose={INK.hot} />;
+      break;
+    case 2:
+      // Lenkrakete: ein Torpedo mit Suchkopf, und die Kurve, die er fliegt.
+      art = (
+        <g>
+          <path
+            d="M2 21 C4 14 8 18 10 13"
+            stroke={INK.steelDark}
+            strokeWidth="1.4"
+            strokeDasharray="1.6 1.6"
+            fill="none"
+          />
+          <g transform="translate(3 -3) scale(0.85)">
+            <Torpedo nose={INK.seek} />
+          </g>
+        </g>
+      );
+      break;
+    default:
+      // Seemine: Kugel mit Stacheln, wie die im Wasser.
+      art = (
+        <g>
+          {Array.from({ length: SIZE.spikes }, (_, spike) => {
+            const turn =
+              ((spike * SIZE.turn) / SIZE.spikes / SIZE.half) * Math.PI;
+            return (
+              <line
+                key={spike}
+                x1={SIZE.middle + Math.cos(turn) * SIZE.ball}
+                y1={SIZE.middle + Math.sin(turn) * SIZE.ball}
+                x2={SIZE.middle + Math.cos(turn) * SIZE.spike}
+                y2={SIZE.middle + Math.sin(turn) * SIZE.spike}
+                stroke={INK.steelDark}
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            );
+          })}
+          <circle cx="12" cy="12" r="6.5" fill={INK.deep} />
+          <circle cx="14.4" cy="9.6" r="1.5" fill={INK.hot} />
+        </g>
+      );
   }
 
   return art;
+}
+
+/** Ein Torpedo von der Seite: Nase, Körper, Leitwerk - und die Farbe der Nase. */
+function Torpedo({ nose }: { readonly nose: string }): ReactElement {
+  return (
+    <g>
+      <path
+        d="M3.5 12 C3.5 9.5 7 8 12 8 c4.5 0 7.5 1.6 8.5 4 -1 2.4 -4 4 -8.5 4 -5 0 -8.5 -1.5 -8.5 -4 Z"
+        fill={INK.steel}
+        stroke={INK.steelDark}
+        strokeWidth="1"
+      />
+      <path d="M3.5 12 L1 8 L1 16 Z" fill={INK.steelDark} />
+      <circle cx="18" cy="12" r="1.6" fill={nose} />
+    </g>
+  );
 }
 
 /** Licht, erste Stufe: der Scheinwerfer mit seinem Kegel. */

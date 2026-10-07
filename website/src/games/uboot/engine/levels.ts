@@ -40,7 +40,15 @@ export type Level = {
   readonly hint: string;
   /** Left to right, in the order they are dived through. */
   readonly pieces: readonly PieceName[];
-  /** What mastering it is worth in experience points, the first time. */
+  /**
+   * What mastering it is worth in experience points, the first time.
+   *
+   * @remarks
+   * **Alle zehn zusammen bringen genau den Vollausbau** - nicht weniger und
+   * nicht mehr. Wer jedes Gewässer einmal geschafft hat, kann jede Stufe jeder
+   * Bahn kaufen; Wiederholungen sind dann nur noch für die Bestzeit da. Wer die
+   * Preise in der Werkstatt ändert, muss diese Zahlen mitziehen.
+   */
   readonly reward: number;
   /**
    * How dark this water is, from nought to one.
@@ -695,7 +703,7 @@ export const LEVELS: readonly Level[] = [
     name: "Hafenbecken",
     hint: "Flach, hell und harmlos. Auftauchen füllt die Luft.",
     pieces: ["start", "open", "kelp", "spires", "home", "finish"],
-    reward: 25,
+    reward: 30,
     dark: 0,
     at: { x: 7, y: 18 },
     tier: "easy",
@@ -705,7 +713,7 @@ export const LEVELS: readonly Level[] = [
     name: "Seichtes Wasser",
     hint: "Die ersten Minen. Alles davon sieht man kommen.",
     pieces: ["start", "open", "spires", "rock", "mines", "open", "finish"],
-    reward: 35,
+    reward: 45,
     dark: 0,
     at: { x: 17, y: 42 },
     tier: "easy",
@@ -725,7 +733,7 @@ export const LEVELS: readonly Level[] = [
       "mines",
       "finish",
     ],
-    reward: 45,
+    reward: 60,
     dark: 0,
     at: { x: 27, y: 20 },
     tier: "easy",
@@ -744,7 +752,7 @@ export const LEVELS: readonly Level[] = [
       "caveOut",
       "finish",
     ],
-    reward: 55,
+    reward: 75,
     dark: 0,
     at: { x: 37, y: 48 },
     tier: "cave",
@@ -763,7 +771,7 @@ export const LEVELS: readonly Level[] = [
       "caveOut",
       "finish",
     ],
-    reward: 65,
+    reward: 85,
     dark: 0,
     at: { x: 47, y: 24 },
     tier: "cave",
@@ -783,7 +791,7 @@ export const LEVELS: readonly Level[] = [
       "caveOut",
       "finish",
     ],
-    reward: 75,
+    reward: 100,
     dark: 0,
     at: { x: 57, y: 54 },
     tier: "cave",
@@ -802,7 +810,7 @@ export const LEVELS: readonly Level[] = [
       "caveOut",
       "finish",
     ],
-    reward: 85,
+    reward: 110,
     dark: 1,
     at: { x: 67, y: 28 },
     tier: "deep",
@@ -822,7 +830,7 @@ export const LEVELS: readonly Level[] = [
       "caveOut",
       "finish",
     ],
-    reward: 95,
+    reward: 125,
     dark: 1,
     at: { x: 76, y: 60 },
     tier: "deep",
@@ -843,7 +851,7 @@ export const LEVELS: readonly Level[] = [
       "caveOut",
       "finish",
     ],
-    reward: 110,
+    reward: 150,
     dark: 1,
     at: { x: 86, y: 32 },
     tier: "deep",
@@ -871,7 +879,7 @@ export const LEVELS: readonly Level[] = [
       "arena",
       "finish",
     ],
-    reward: 150,
+    reward: 200,
     dark: 1,
     at: { x: 94, y: 68 },
     tier: "final",
