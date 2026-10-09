@@ -80,6 +80,10 @@ export function BloonsGame(): ReactElement {
     note,
     resetProgress,
   } = useBloonsGame();
+  const autoHold = useHold(
+    () => cheat("towers"),
+    () => setAuto(!auto),
+  );
   // **Im Vollbild ist alles dabei, was man zum Spielen braucht**: Anzeige,
   // Tempo, Feld und Laden. Nur das Feld allein wäre schön anzusehen, aber man
   // könnte keinen Affen mehr bauen.
@@ -167,8 +171,14 @@ export function BloonsGame(): ReactElement {
         {/* Die Zahlen, die man im Blick haben muss - und rechts das Tempo. */}
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <div className="flex flex-wrap items-center gap-2">
-            <Stat testId="btd-money">{BLOONS_TEXTS.money(hud.money)}</Stat>
-            <Stat testId="btd-lives">{BLOONS_TEXTS.lives(hud.lives)}</Stat>
+            {/* **Geheim**: Wer das Geld eine Sekunde lang gedrückt hält, hat
+                unendlich davon - und wer die Leben gedrückt hält, ebenso. */}
+            <Stat testId="btd-money" onHold={() => cheat("money")}>
+              {BLOONS_TEXTS.money(hud.money)}
+            </Stat>
+            <Stat testId="btd-lives" onHold={() => cheat("lives")}>
+              {BLOONS_TEXTS.lives(hud.lives)}
+            </Stat>
             <Stat testId="btd-round">
               {BLOONS_TEXTS.roundOf(hud.round, hud.goal, hud.freeplay)}
             </Stat>
@@ -181,13 +191,15 @@ export function BloonsGame(): ReactElement {
             <Stat>{BLOONS_TEXTS.popped(hud.popped)}</Stat>
           </div>
           <div className="flex items-center gap-2">
+            {/* **Geheim**: Auto-Start eine Sekunde lang gedrückt halten
+                stellt auf jedes freie Feld den besten Affen, voll ausgebaut. */}
             <button
               type="button"
               data-testid="btd-auto"
               aria-pressed={auto}
-              onClick={() => setAuto(!auto)}
+              {...autoHold}
               title={BLOONS_TEXTS.autoHint}
-              className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
+              className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm select-none ${
                 auto
                   ? "border-sky-500 bg-sky-600 text-white"
                   : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
@@ -195,18 +207,14 @@ export function BloonsGame(): ReactElement {
             >
               {BLOONS_TEXTS.auto}
             </button>
-            {/* Der Turbo gehört zum Schummeln und taucht erst danach auf. */}
-            {SPEEDS.map((speed, nr) =>
-              nr === TURBO_NR && hud.fair ? null : (
-                <SpeedButton
-                  key={speed}
-                  nr={nr}
-                  on={hud.speed === speed}
-                  onPick={() => setSpeed(speed)}
-                  onHold={nr === FAST_NR ? cheat : null}
-                />
-              ),
-            )}
+            {SPEEDS.map((speed, nr) => (
+              <SpeedButton
+                key={speed}
+                nr={nr}
+                on={hud.speed === speed}
+                onPick={() => setSpeed(speed)}
+              />
+            ))}
           </div>
         </div>
 
@@ -546,49 +554,33 @@ export function BloonsGame(): ReactElement {
   );
 }
 
-/** Welcher der Tempoknöpfe der schnelle ist und welcher der Turbo. */
-const FAST_NR = 1;
-const TURBO_NR = 2;
-
-/** Wie lange man "Schnell" gedrückt halten muss, um zu schummeln, in Millisekunden. */
+/** Wie lange man für eine Schummelei gedrückt halten muss, in Millisekunden. */
 const HOLD_MS = 1000;
 
-/** Props of {@link SpeedButton}. */
-type SpeedButtonProps = {
-  readonly nr: number;
-  readonly on: boolean;
-  readonly onPick: () => void;
-  /** Was passiert, wenn man ihn lange gedrückt hält, oder null. */
-  readonly onHold: (() => void) | null;
+/** Was ein Element braucht, damit es auf langes Drücken hört. */
+type HoldHandlers = {
+  readonly onPointerDown: () => void;
+  readonly onPointerUp: () => void;
+  readonly onPointerLeave: () => void;
+  readonly onPointerCancel: () => void;
+  readonly onContextMenu: (event: { preventDefault: () => void }) => void;
+  readonly onClick: () => void;
 };
 
 /**
- * Ein Tempoknopf.
+ * Langes Drücken: eine Sekunde gehalten, löst es aus.
  *
+ * @param onHold - was nach einer Sekunde Drücken passiert
+ * @param onClick - was ein gewöhnlicher Klick tut, oder nichts
+ * @returns die Handler für das Element
  * @remarks
- * **"Schnell" hat ein Geheimnis**: Wer ihn eine Sekunde lang gedrückt hält,
- * schummelt. Das Loslassen danach wählt dann nicht auch noch das Tempo - der
- * lange Druck war kein Klick.
+ * Das Loslassen nach dem langen Druck ist kein Klick mehr - sonst schaltete
+ * ein lang gedrückter Auto-Start danach auch noch um.
  */
-function SpeedButton({
-  nr,
-  on,
-  onPick,
-  onHold,
-}: SpeedButtonProps): ReactElement {
+function useHold(onHold: () => void, onClick?: () => void): HoldHandlers {
   const timer = useRef<number | null>(null);
   const held = useRef(false);
 
-  const start = () => {
-    held.current = false;
-    if (onHold !== null) {
-      timer.current = window.setTimeout(() => {
-        held.current = true;
-        timer.current = null;
-        onHold();
-      }, HOLD_MS);
-    }
-  };
   const stop = () => {
     if (timer.current !== null) {
       window.clearTimeout(timer.current);
@@ -596,22 +588,44 @@ function SpeedButton({
     }
   };
 
+  return {
+    onPointerDown: () => {
+      held.current = false;
+      stop();
+      timer.current = window.setTimeout(() => {
+        held.current = true;
+        timer.current = null;
+        onHold();
+      }, HOLD_MS);
+    },
+    onPointerUp: stop,
+    onPointerLeave: stop,
+    onPointerCancel: stop,
+    onContextMenu: (event) => event.preventDefault(),
+    onClick: () => {
+      if (!held.current) {
+        onClick?.();
+      }
+      held.current = false;
+    },
+  };
+}
+
+/** Props of {@link SpeedButton}. */
+type SpeedButtonProps = {
+  readonly nr: number;
+  readonly on: boolean;
+  readonly onPick: () => void;
+};
+
+/** Ein Tempoknopf: normal, schnell oder Turbo - alle drei immer da. */
+function SpeedButton({ nr, on, onPick }: SpeedButtonProps): ReactElement {
   return (
     <button
       type="button"
       data-testid={`btd-speed-${nr}`}
       aria-pressed={on}
-      onPointerDown={start}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-      onContextMenu={(event) => event.preventDefault()}
-      onClick={() => {
-        if (!held.current) {
-          onPick();
-        }
-        held.current = false;
-      }}
+      onClick={onPick}
       className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm select-none ${
         on
           ? "border-emerald-500 bg-emerald-600 text-white"
@@ -825,14 +839,21 @@ function TowerIcon({ kind }: { readonly kind: TowerKind }): ReactElement {
 type StatProps = {
   readonly children: string;
   readonly testId?: string;
+  /** Was langes Drücken auslöst, oder nichts. */
+  readonly onHold?: () => void;
 };
 
+/** Nichts - für eine Zahl, die auf langes Drücken nicht hört. */
+const IDLE = (): void => undefined;
+
 /** Eine Zahl über dem Feld. */
-function Stat({ children, testId }: StatProps): ReactElement {
+function Stat({ children, testId, onHold }: StatProps): ReactElement {
+  const hold = useHold(onHold ?? IDLE);
   return (
     <span
+      {...(onHold === undefined ? {} : hold)}
       data-testid={testId}
-      className="rounded-lg bg-zinc-100 px-2 py-1 text-sm font-medium dark:bg-zinc-900"
+      className="rounded-lg bg-zinc-100 px-2 py-1 text-sm font-medium select-none dark:bg-zinc-900"
     >
       {children}
     </span>

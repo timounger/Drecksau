@@ -45,6 +45,7 @@ import { DOG_TEXTS as T } from "@/games/dog/i18n/texts";
 import { loadPlayerName, savePlayerName } from "@/online/player-name";
 import { PlayArea } from "./dog-play";
 import { seatOnTurn } from "@/games/dog/engine/moves";
+import { teamPlay } from "@/games/dog/engine/board";
 import { turnKeyOf } from "@/online/room";
 import { TurnClock, useTurnClock } from "@/online/turn-clock";
 import { database } from "@/online/firebase-app";
@@ -773,7 +774,7 @@ function Playing({
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900">
           <span className="font-semibold">
             {game.phase === "passing"
-              ? T.passing
+              ? T.passing(teamPlay(game.seats))
               : onTurn === mySeat
                 ? T.yourTurn
                 : T.waitingFor(game.players[onTurn ?? 0]?.name ?? "?")}

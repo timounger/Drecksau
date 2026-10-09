@@ -6,8 +6,9 @@
  * A hundred and ten cards - eight of every rank of a French pack and six
  * jokers. Thirteen ranks, and seven of them are more than a number: the ace and
  * the king fetch a piece out of the kennel, the four also walks backwards, the
- * seven is split over several pieces and burns everything it passes, the jack
- * swaps two pieces, and the joker is whichever of them you need.
+ * seven is split over several pieces and burns everything it passes, the swap
+ * card - the jack of a French pack - swaps two pieces, and the joker is
+ * whichever of them you need.
  *
  * Every one of those is a row in {@link POWERS} rather than a branch in the
  * rules: what a rank can do is a property of the rank, and the referee in
@@ -26,7 +27,8 @@ export type Rank =
   | "8"
   | "9"
   | "10"
-  | "J"
+  /** The swap card: the jack of a French pack, "Tauschen" in Dog. */
+  | "swap"
   | "Q"
   | "K"
   | "joker";
@@ -82,7 +84,7 @@ export const POWERS: Readonly<Record<Rank, Power>> = {
   "8": plain(8),
   "9": plain(9),
   "10": plain(10),
-  J: { ...plain(0), steps: [], swaps: true },
+  swap: { ...plain(0), steps: [], swaps: true },
   Q: plain(12),
   K: { ...plain(13), starts: true },
   joker: { ...plain(0), steps: [], wild: true },
@@ -102,7 +104,7 @@ export const RANKS: readonly Rank[] = [
   "8",
   "9",
   "10",
-  "J",
+  "swap",
   "Q",
   "K",
   "joker",
@@ -134,15 +136,22 @@ export const CARD_NAMES: Readonly<Record<Rank, string>> = {
   "8": "Acht",
   "9": "Neun",
   "10": "Zehn",
-  J: "Bube",
+  swap: "Bube",
   Q: "Dame",
   K: "König",
   joker: "Joker",
 };
 
-/** What is printed on the face of the card. */
+/**
+ * What is printed on the face of the card - as on the cards of the real game.
+ *
+ * @remarks
+ * The ace says what it does, "1/11"; the queen and the king are simply 12 and
+ * 13; the jack is the swap card, an arrow both ways; and the joker is a
+ * question mark.
+ */
 export const CARD_FACES: Readonly<Record<Rank, string>> = {
-  A: "A",
+  A: "1/11",
   "2": "2",
   "3": "3",
   "4": "4",
@@ -152,10 +161,10 @@ export const CARD_FACES: Readonly<Record<Rank, string>> = {
   "8": "8",
   "9": "9",
   "10": "10",
-  J: "B",
-  Q: "D",
-  K: "K",
-  joker: "★",
+  swap: "⇄",
+  Q: "12",
+  K: "13",
+  joker: "?",
 };
 
 /**

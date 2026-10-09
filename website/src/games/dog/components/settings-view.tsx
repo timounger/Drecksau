@@ -1,5 +1,6 @@
 /**
- * Dog settings: what you are called, and how many sit at the table.
+ * Dog settings: what you are called, which colour you play, and how many sit
+ * at the table.
  *
  * @module
  */
@@ -7,7 +8,7 @@
 
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
-import { DOG_TEXTS as T } from "@/games/dog/i18n/texts";
+import { DOG_TEXTS as T, SEAT_COLOURS } from "@/games/dog/i18n/texts";
 import {
   MAX_NAME,
   PLAYER_COUNTS,
@@ -90,8 +91,7 @@ export function DogSettingsView(): ReactElement {
         <div>
           <h2 className="text-sm font-semibold">Dein Name</h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Steht an deiner Ecke des Bretts. Du spielst immer Grün und sitzt
-            oben.
+            Steht an deiner Ecke des Bretts. Du sitzt immer unten.
           </p>
         </div>
         <input
@@ -104,6 +104,45 @@ export function DogSettingsView(): ReactElement {
           }
           className="w-56 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
+      </section>
+
+      <section className="flex flex-col gap-2 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+        <div>
+          <h2 className="text-sm font-semibold">Deine Farbe</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            In dieser Farbe spielst du gegen den Computer. Wer sonst diese Farbe
+            hätte, bekommt deine bisherige - so trägt nie jemand dieselbe Farbe
+            wie du. Gilt ab dem nächsten Spiel und auch für das laufende.
+          </p>
+        </div>
+        <div
+          role="radiogroup"
+          aria-label="Deine Farbe"
+          className="flex flex-wrap gap-1.5"
+        >
+          {SEAT_COLOURS.map((colour, at) => (
+            <button
+              key={colour.name}
+              type="button"
+              role="radio"
+              aria-checked={settings.colour === at}
+              data-testid={`dog-colour-${String(at)}`}
+              onClick={() => updateSettings({ ...settings, colour: at })}
+              className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm ${
+                settings.colour === at
+                  ? "border-zinc-900 font-semibold dark:border-zinc-100"
+                  : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className="inline-block h-4 w-4 rounded-full"
+                style={{ background: colour.solid }}
+              />
+              {colour.name}
+            </button>
+          ))}
+        </div>
       </section>
 
       <p className="text-xs text-zinc-500 dark:text-zinc-400">{T.tagline}</p>

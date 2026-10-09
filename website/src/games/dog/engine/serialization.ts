@@ -8,6 +8,11 @@
  * every move goes through anyway. What these guards insist on is that every
  * field is there and of the right kind, so that the rest of the game may read a
  * state without asking twice.
+ *
+ * One thing they do repair: the swap card used to be called "J", after the jack
+ * it is in a French pack. A game saved, or a room opened, before it was renamed
+ * still holds such cards, and they are renamed "swap" as they are read - so
+ * nothing in flight is lost to the rename.
  */
 import {
   HOME_DEPTH,
@@ -17,7 +22,7 @@ import {
   ringSize,
   type Piece,
 } from "./board";
-import { RANKS, type Card } from "./cards";
+import { RANKS, type Card, type Rank } from "./cards";
 import {
   PHASES,
   type DogGame,
@@ -88,7 +93,7 @@ export function isDogMove(value: unknown): value is DogMove {
     (move.kind !== "redraw" || Number.isInteger(move.card)) &&
     (move.kind !== "play" ||
       (Number.isInteger(move.card) &&
-        RANKS.includes(move.as) &&
+        RANKS.includes(renamed(move, "as")) &&
         isAct(move.act)))
   );
 }
@@ -156,8 +161,28 @@ function areCards(value: unknown): value is readonly Card[] {
 function isCard(value: unknown): value is Card {
   const card = value as Card;
   return (
-    isObject(value) && Number.isInteger(card.id) && RANKS.includes(card.rank)
+    isObject(value) &&
+    Number.isInteger(card.id) &&
+    RANKS.includes(renamed(card, "rank"))
   );
+}
+
+/** What the swap card was called before it was renamed. */
+const OLD_SWAP = "J";
+
+/**
+ * A rank read back, with the old name of the swap card repaired in place.
+ *
+ * @param holder - the card or move just read, fresh from JSON
+ * @param field - where it keeps its rank
+ * @returns the rank, renamed if it was the old one
+ */
+function renamed<T extends object>(holder: T, field: keyof T): Rank {
+  const record = holder as Record<keyof T, unknown>;
+  if (record[field] === OLD_SWAP) {
+    record[field] = "swap";
+  }
+  return record[field] as Rank;
 }
 
 /** Whether this is a seat at this table. */

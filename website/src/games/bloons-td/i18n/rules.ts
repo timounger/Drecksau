@@ -153,7 +153,7 @@ export const BLOONS_RULES: GameRules = {
     {
       title: "Eigenschaften",
       list: [
-        "Getarnt (Tarnflecken, halb durchsichtig): Nur wer Tarnung sieht, zielt darauf - der Wurfpfeilaffe mit Enhanced Eyesight (die frühe Antwort, ab Level 1), der Ninja von Anfang an, der Scharfschütze mit Night Vision Goggles, der Zauberer mit Guided Magic und jeder Affe neben einem Affendorf mit Radar Scanner. Nagelhaufen, Stachelkugeln, Flugzeug-Ringe und Knalle treffen sie trotzdem.",
+        "Getarnt (Tarnflecken, halb durchsichtig): Nur wer Tarnung sieht, zielt darauf - der Wurfpfeilaffe mit Enhanced Eyesight (die frühe Antwort, ab Level 1), der Ninja und der Super-Affe von Anfang an, der Scharfschütze mit Night Vision Goggles, der Zauberer mit Guided Magic und jeder Affe neben einem Affendorf mit Radar Scanner. Nagelhaufen, Stachelkugeln, Flugzeug-Ringe und Knalle treffen sie trotzdem.",
         "Nachwachsend (grünes Plus): bekommt alle zweieinhalb Sekunden eine Schicht zurück, aber nie mehr, als er am Anfang hatte.",
         "Verstärkt (Metallbänder): Blei, Keramik und Zeppeline halten doppelt so viel aus.",
         "Mit Schild (blauer Ring): Ein Schild aus der halben Hülle fängt zuerst alles ab.",

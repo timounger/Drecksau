@@ -9,6 +9,10 @@ import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
 import { PlayArea } from "@/games/dog/components/dog-play";
+import {
+  SeatColoursProvider,
+  coloursFor,
+} from "@/games/dog/components/seat-colours";
 import { partnerOf, teamOf, teamPlay } from "@/games/dog/engine/board";
 import { seatOnTurn } from "@/games/dog/engine/moves";
 import { useDogGame } from "@/games/dog/hooks/use-dog-game";
@@ -98,7 +102,7 @@ export function DogScreen(): ReactElement {
           {over
             ? T.gameOver
             : game.phase === "passing"
-              ? T.passing
+              ? T.passing(teams)
               : waiting === mySeat
                 ? T.yourTurn
                 : T.waitingFor(game.players[waiting ?? 0]?.name ?? "?")}
@@ -113,7 +117,13 @@ export function DogScreen(): ReactElement {
         </span>
       </div>
 
-      {!over && <PlayArea game={game} mySeat={mySeat} onMove={play} />}
+      {/* Die Farbe aus den Einstellungen: Du sitzt immer auf dem ersten
+          Platz, gezeichnet wird er in deiner Farbe. */}
+      {!over && (
+        <SeatColoursProvider value={coloursFor(settings.colour)}>
+          <PlayArea game={game} mySeat={mySeat} onMove={play} />
+        </SeatColoursProvider>
+      )}
 
       <section className="rounded-2xl border border-zinc-200 p-3 text-xs dark:border-zinc-800">
         <h2 className="mb-1 font-semibold">{T.log}</h2>

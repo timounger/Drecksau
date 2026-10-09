@@ -1079,6 +1079,23 @@ function walkedParts(
   return board;
 }
 
+/**
+ * Where the pieces stand once some parts of a seven are walked.
+ *
+ * @param game - the game as it stands
+ * @param parts - the parts walked so far, in order
+ * @returns the pieces after them, or null when one of them cannot be walked
+ * @remarks
+ * For the screen: while a seven is being laid out, the board shows what the
+ * parts chosen so far have already done, and each next part lands from there.
+ */
+export function piecesAfter(
+  game: DogGame,
+  parts: readonly Step[],
+): readonly Piece[] | null {
+  return walkedParts(game.pieces, parts, ringSize(game.seats));
+}
+
 /** Whoever ended up back in their kennel between two boards. */
 function hitsBetween(
   before: readonly Piece[],

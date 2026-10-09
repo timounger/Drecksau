@@ -27,7 +27,7 @@
  */
 "use client";
 
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import {
   HOME_DEPTH,
   piecesPerSeat,
@@ -36,7 +36,7 @@ import {
   type Piece,
 } from "@/games/dog/engine/board";
 import type { DogGame } from "@/games/dog/engine/state";
-import { SEAT_COLOURS } from "@/games/dog/i18n/texts";
+import { useSeatColours } from "@/games/dog/components/seat-colours";
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- from here on the
    numbers are the drawing: how far an arm reaches, how deep the valley between
@@ -60,9 +60,6 @@ const TIP_WIDE = 0.28;
 /** How big a field is. */
 const FIELD = 8.4;
 
-/** How big a piece is. */
-const PIECE = 7.4;
-
 /** How far apart two fields of a home are. */
 const HOME_GAP = 23;
 
@@ -81,9 +78,6 @@ const FRAME = "#0c0f14";
 /** And the blue of the board itself. */
 const BOARD = "#2b5fc0";
 
-/** The lighter blue of the plate in the middle. */
-const PLATE = "#3f8ed8";
-
 /** An empty field of the track. */
 const EMPTY = "#f8fafc";
 
@@ -92,6 +86,14 @@ const INK = "#111827";
 
 /** A point in the picture. */
 type Spot = { readonly x: number; readonly y: number };
+
+/** A field the picked piece could go to. */
+export type Target = {
+  /** The piece as it would stand there. */
+  readonly piece: Piece;
+  /** What that move is called, for screen readers. */
+  readonly label: string;
+};
 
 /** What the board shows and what it lets the player do. */
 export type DogBoardProps = {
@@ -104,6 +106,32 @@ export type DogBoardProps = {
   readonly picked: number | null;
   /** Called when a piece is clicked. */
   readonly onPick: (piece: number) => void;
+  /**
+   * The fields the picked piece could go to, when there is more than one - the
+   * piece as it would stand there, and what that move is called.
+   */
+  readonly targets?: readonly Target[];
+  /** Called when one of them is clicked, with its place in the list. */
+  readonly onTarget?: (index: number) => void;
+  /**
+   * Called when the pointer comes onto a piece that can be picked, and with
+   * null when it leaves it again.
+   */
+  readonly onHover?: (piece: number | null) => void;
+  /**
+   * The piece under the pointer as it would stand after its move - or after
+   * each of them, when it has several. Drawn faintly, as a preview.
+   */
+  readonly ghosts?: readonly Piece[];
+  /**
+   * What to do next, shown in the middle of the board - or nothing. Shown only
+   * where the board has room for it, see {@link middleOf}.
+   */
+  readonly actions?: ReactNode;
+  /** And the player's cards, in a row just below the middle. */
+  readonly hand?: ReactNode;
+  /** Something laid over the whole board for a moment - the opening. */
+  readonly overlay?: ReactNode;
 };
 
 /**
@@ -118,95 +146,470 @@ export function DogBoard({
   pickable,
   picked,
   onPick,
+  targets = [],
+  onTarget,
+  onHover,
+  ghosts = [],
+  actions,
+  hand,
+  overlay,
 }: DogBoardProps): ReactElement {
+  const palette = useSeatColours();
   const seats = game.seats;
+  const middle = middleOf(seats, game.players[mySeat]?.hand.length ?? 0);
   const open = new Set(pickable);
   const loop = fieldSpots(seats);
   const ring = ringSize(seats);
   return (
     <div className="overflow-x-auto rounded-2xl">
-      <svg
-        viewBox={`0 0 ${String(SIZE)} ${String(SIZE)}`}
-        className="block h-auto w-full min-w-[320px]"
-        role="img"
-        aria-label={`Spielbrett mit ${String(ring)} Feldern, ${String(seats)} Zielen und ${String(seats)} Zwingern`}
-        data-testid="dog-board"
-      >
-        <defs>
-          <filter id="dog-speckle">
-            {/* The printed board is mottled rather than flat. */}
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.9"
-              numOctaves={3}
-              result="noise"
-            />
-            <feColorMatrix in="noise" type="saturate" values="0" />
-            <feComponentTransfer>
-              <feFuncA type="linear" slope="0.22" intercept="0" />
-            </feComponentTransfer>
-          </filter>
-        </defs>
-        <rect width={SIZE} height={SIZE} rx={10} fill={FRAME} />
-        <rect
-          x={8}
-          y={8}
-          width={SIZE - 16}
-          height={SIZE - 16}
-          rx={4}
-          fill={BOARD}
-        />
-        <rect
-          x={8}
-          y={8}
-          width={SIZE - 16}
-          height={SIZE - 16}
-          rx={4}
-          filter="url(#dog-speckle)"
-          opacity={0.5}
-        />
-        <Badges />
-        <Plate />
-        <Thread points={loop} closed />
-        {Array.from({ length: seats }, (unused, seat) => (
-          <Quarter
-            key={seat}
-            seat={seat}
-            seats={seats}
-            name={game.players[seat]?.name ?? SEAT_COLOURS[seat]?.name ?? "?"}
-            mine={seat === mySeat}
+      <div className="relative min-w-[320px]">
+        <svg
+          viewBox={`0 0 ${String(SIZE)} ${String(SIZE)}`}
+          className="block h-auto w-full select-none"
+          role="img"
+          aria-label={`Spielbrett mit ${String(ring)} Feldern, ${String(seats)} Zielen und ${String(seats)} Zwingern`}
+          data-testid="dog-board"
+        >
+          <defs>
+            {/* Licht von links oben auf jedem Spielkegel, in einer Tönung,
+                die deutlich dunkler ist als die Farbe der Felder - so hebt sich
+                eine Figur auf ihrem eigenen Start- oder Zielfeld ab. Ein
+                Verlauf für den Körper, einer für den runden Kopf. */}
+            {palette.slice(0, seats).map((colour, seat) => {
+              const deep = shade(colour.solid, -PAWN.deeper);
+              const night = shade(colour.solid, -PAWN.dark);
+              return (
+                <g key={colour.name}>
+                  <linearGradient id={`dog-pawn-${String(seat)}`} x1="0" x2="1">
+                    <stop offset="0" stopColor={shade(deep, PAWN.light)} />
+                    <stop offset="0.38" stopColor={deep} />
+                    <stop offset="1" stopColor={night} />
+                  </linearGradient>
+                  <radialGradient
+                    id={`dog-pawn-head-${String(seat)}`}
+                    cx="0.35"
+                    cy="0.3"
+                    r="0.8"
+                  >
+                    <stop offset="0" stopColor={shade(deep, PAWN.shine)} />
+                    <stop offset="0.45" stopColor={deep} />
+                    <stop offset="1" stopColor={night} />
+                  </radialGradient>
+                </g>
+              );
+            })}
+            <filter id="dog-speckle">
+              {/* The printed board is mottled rather than flat. */}
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency="0.9"
+                numOctaves={3}
+                result="noise"
+              />
+              <feColorMatrix in="noise" type="saturate" values="0" />
+              <feComponentTransfer>
+                <feFuncA type="linear" slope="0.22" intercept="0" />
+              </feComponentTransfer>
+            </filter>
+          </defs>
+          <rect width={SIZE} height={SIZE} rx={10} fill={FRAME} />
+          <rect
+            x={8}
+            y={8}
+            width={SIZE - 16}
+            height={SIZE - 16}
+            rx={4}
+            fill={BOARD}
           />
-        ))}
-        {loop.map((at, field) => {
-          const owner =
-            field % (ring / seats) === 0 ? field / (ring / seats) : null;
-          const colour = owner === null ? undefined : SEAT_COLOURS[owner];
-          return (
-            <circle
-              key={field}
-              cx={at.x}
-              cy={at.y}
-              r={FIELD}
-              fill={colour?.solid ?? EMPTY}
-              stroke={INK}
-              strokeWidth={1.4}
-            />
-          );
-        })}
-        {game.pieces.map((piece) => (
-          <PieceDot
-            key={piece.id}
-            piece={piece}
-            seats={seats}
-            mine={piece.seat === mySeat}
-            open={open.has(piece.id)}
-            picked={picked === piece.id}
-            onPick={onPick}
+          <rect
+            x={8}
+            y={8}
+            width={SIZE - 16}
+            height={SIZE - 16}
+            rx={4}
+            filter="url(#dog-speckle)"
+            opacity={0.5}
           />
-        ))}
-      </svg>
+          <Badges />
+          <Thread points={loop} closed />
+          {Array.from({ length: seats }, (unused, seat) => (
+            <Quarter
+              key={seat}
+              seat={seat}
+              seats={seats}
+              name={game.players[seat]?.name ?? palette[seat]?.name ?? "?"}
+              mine={seat === mySeat}
+            />
+          ))}
+          {loop.map((at, field) => {
+            const owner =
+              field % (ring / seats) === 0 ? field / (ring / seats) : null;
+            const colour = owner === null ? undefined : palette[owner];
+            return (
+              <circle
+                key={field}
+                cx={at.x}
+                cy={at.y}
+                r={FIELD}
+                fill={colour?.solid ?? EMPTY}
+                stroke={INK}
+                strokeWidth={1.4}
+              />
+            );
+          })}
+          {/* Von hinten nach vorn: Wer weiter unten steht, steht vor dem, der
+              weiter oben steht - sonst ragt ein Kopf durch einen Fuß. */}
+          {[...game.pieces]
+            .sort((a, b) => spotOf(a, seats).y - spotOf(b, seats).y)
+            .map((piece) => (
+              <PieceDot
+                key={piece.id}
+                piece={piece}
+                seats={seats}
+                mine={piece.seat === mySeat}
+                open={open.has(piece.id)}
+                picked={picked === piece.id}
+                onPick={onPick}
+                onHover={onHover}
+              />
+            ))}
+          {/* **So stünde die Figur danach**: Solange der Zeiger auf einer
+              wählbaren Figur liegt, steht sie blass dort, wo ihr Zug sie
+              hinbringt. Für den Zeiger durchlässig, sonst verlöre die Figur
+              darunter ihn. */}
+          {ghosts.map((ghost) => {
+            const at = spotOf(ghost, seats);
+            return (
+              <g
+                key={`ghost-${String(ghost.id)}-${JSON.stringify(ghost.spot)}`}
+                opacity={GHOST}
+                pointerEvents="none"
+                data-testid="dog-ghost"
+              >
+                <Pawn
+                  x={at.x}
+                  y={at.y}
+                  seat={ghost.seat}
+                  mine={ghost.seat === mySeat}
+                />
+              </g>
+            );
+          })}
+          {/* **Wohin die gewählte Figur gehen kann**, wenn es mehr als ein
+              Feld ist: Die Felder leuchten, und ein Klick darauf spielt den
+              Zug. Über den Figuren, damit auch ein besetztes Feld - wer dort
+              steht, wird geschlagen oder getauscht - den Klick bekommt. */}
+          {/* Erst die Klickflächen über den Feldern - so hoch, wie eine Figur
+              darauf ragt -, dann alle Felder obenauf: Liegen zwei Ziele
+              nebeneinander, gehört jedes Feld sich selbst und nicht der
+              Fläche über dem Nachbarn. */}
+          {targets.map((target, index) => {
+            const at = spotOf(target.piece, seats);
+            return (
+              <rect
+                key={`reach-${String(target.piece.id)}-${JSON.stringify(target.piece.spot)}`}
+                x={at.x - FIELD - 3}
+                y={at.y - TARGET_REACH}
+                width={(FIELD + 3) * 2}
+                height={TARGET_REACH}
+                fill="transparent"
+                aria-hidden="true"
+                onClick={() => onTarget?.(index)}
+                style={{ cursor: "pointer" }}
+              />
+            );
+          })}
+          {targets.map((target, index) => (
+            <TargetMark
+              key={`${String(target.piece.id)}-${JSON.stringify(target.piece.spot)}`}
+              at={spotOf(target.piece, seats)}
+              label={target.label}
+              index={index}
+              onTarget={onTarget}
+            />
+          ))}
+        </svg>
+        {/* **Was zu tun ist, steht in der Mitte** des Bretts - und
+          die eigenen Karten liegen gleich darunter in einer Reihe. Beide Felder
+          sind genau so groß, wie dort zwischen Zielfeldern und Weg Platz ist,
+          und alles darin misst sich an ihrer Breite (cqw): Es wächst mit dem
+          Brett. */}
+        {actions !== undefined && middle !== null && (
+          <div
+            data-testid="dog-hub"
+            className="game-measured absolute flex items-center justify-center overflow-y-auto rounded-[8%] bg-white/90 text-zinc-900 shadow-lg select-none"
+            style={boxStyle(middle.panel)}
+          >
+            {actions}
+          </div>
+        )}
+        {hand !== undefined && middle !== null && (
+          <div
+            data-testid="dog-strip"
+            className="game-measured absolute flex items-center justify-center select-none"
+            style={boxStyle(middle.strip)}
+          >
+            {hand}
+          </div>
+        )}
+        {overlay}
+      </div>
     </div>
   );
+}
+
+/** Wie deutlich die Vorschau einer Figur zu sehen ist. */
+const GHOST = 0.6;
+
+/** Wie weit die Klickfläche eines Zielfelds über das Feld hinaufreicht - so
+ * hoch, wie eine Figur darauf ragt. */
+const TARGET_REACH = 22;
+
+/** Ein Feld, auf das die gewählte Figur gehen kann. */
+function TargetMark({
+  at,
+  label,
+  index,
+  onTarget,
+}: {
+  readonly at: Spot;
+  readonly label: string;
+  readonly index: number;
+  readonly onTarget: ((index: number) => void) | undefined;
+}): ReactElement {
+  return (
+    <g
+      role="button"
+      aria-label={label}
+      data-testid={`dog-target-${String(index)}`}
+      onClick={() => onTarget?.(index)}
+      style={{ cursor: "pointer" }}
+    >
+      <circle
+        cx={at.x}
+        cy={at.y}
+        r={FIELD + 3}
+        fill="#fbbf24"
+        fillOpacity={0.25}
+        stroke="#fbbf24"
+        strokeWidth={2.5}
+        className="animate-pulse"
+      />
+    </g>
+  );
+}
+
+/** A length in the picture as a share of its width, for CSS. */
+function share(units: number): string {
+  return `${String((units / SIZE) * 100)}%`;
+}
+
+/** A rectangle in the picture, in its own units. */
+export type Box = {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+};
+
+/** Where the two things in the middle go: what to do, and the cards. */
+export type Middle = {
+  /** What to do next: the top of the free square, down to just past centre. */
+  readonly panel: Box;
+  /** The cards: a row just below the centre, as wide as there is room. */
+  readonly strip: Box;
+};
+
+/** A box as CSS, in shares of the picture. */
+function boxStyle(box: Box): {
+  left: string;
+  top: string;
+  width: string;
+  height: string;
+} {
+  return {
+    left: share(box.x),
+    top: share(box.y),
+    width: share(box.w),
+    height: share(box.h),
+  };
+}
+
+/**
+ * Where the panel and the row of cards go in the middle of the board, if
+ * there is room.
+ *
+ * @param seats - how many sit at the table
+ * @param cards - how many cards lie in the row
+ * @returns the two boxes, or null at a table without a free middle
+ * @remarks
+ * The panel is the upper part of the free square ({@link hubOf}). **The row
+ * of cards is as big as it can be**: every height of row is tried at every
+ * place a little below the centre, each as wide as it gets without touching a
+ * single field of the track or of a home, and the one with the biggest cards
+ * wins - a card is as wide as three quarters of the row's height, or as wide
+ * as its share of the row, whichever is less. The row is then cut to exactly
+ * those cards, so they fill it.
+ *
+ * Worked out once per table and hand size, and remembered: it is a search,
+ * and the board asks every frame.
+ */
+export function middleOf(seats: number, cards: number): Middle | null {
+  const key = `${String(seats)}/${String(cards)}`;
+  const known = middles.get(key);
+  let middle: Middle | null;
+  if (known === undefined) {
+    middle = searched(seats, Math.max(1, cards));
+    middles.set(key, middle);
+  } else {
+    middle = known;
+  }
+  return middle;
+}
+
+/**
+ * Wie eine Karte in der Reihe geschnitten ist (so breit wie drei Viertel ihrer
+ * Höhe) und wie weit zwei auseinanderliegen (als Teil einer Kartenbreite) -
+ * für die Reihe, die genau auf diese Maße zugeschnitten ist.
+ */
+export const CARD_CUT = { shape: 0.75, gap: 0.12 } as const;
+
+/** What {@link middleOf} has already worked out. */
+const middles = new Map<string, Middle | null>();
+
+/** The search behind {@link middleOf}. */
+function searched(seats: number, cards: number): Middle | null {
+  const hub = hubOf(seats);
+  let middle: Middle | null = null;
+  if (hub !== null) {
+    const panel = {
+      x: MID - hub,
+      y: MID - hub,
+      w: hub * 2,
+      h: hub * STRIP.panel,
+    };
+    const fields = [...fieldSpots(seats), ...homeFields(seats)];
+    // Fallback: the bottom of the free square, which always fits.
+    const inside = hub * (2 - STRIP.panel - STRIP.highest);
+    let best = {
+      y: MID + hub * STRIP.highest,
+      size: Math.min(cardOf(hub * 2, cards), inside * STRIP.shape),
+    };
+    for (let top = STRIP.highest; top <= STRIP.lowest; top += STRIP.down) {
+      const y = MID + hub * top;
+      for (
+        let high = STRIP.tallest;
+        high >= STRIP.shortest;
+        high -= STRIP.down
+      ) {
+        const h = hub * high;
+        let w = hub * STRIP.widest;
+        while (w > 0 && !clear({ x: MID - w / 2, y, w, h }, fields)) {
+          w -= STRIP.step;
+        }
+        const size = Math.min(cardOf(w, cards), h * STRIP.shape);
+        if (w > 0 && size > best.size) {
+          best = { y, size };
+        }
+      }
+    }
+    // Cut to exactly the cards and their gaps, centred.
+    const w = best.size * cards + (cards - 1) * best.size * STRIP.gap;
+    middle = {
+      panel,
+      strip: { x: MID - w / 2, y: best.y, w, h: best.size / STRIP.shape },
+    };
+  }
+  return middle;
+}
+
+/** How wide a card is when this many share a row this wide, gaps included. */
+function cardOf(width: number, cards: number): number {
+  return width / (cards + (cards - 1) * STRIP.gap);
+}
+
+/**
+ * The proportions of the middle.
+ *
+ * @remarks
+ * In shares of half the free square: the panel runs from the top of the
+ * square to `panel` below it, just past the centre; a row may start anywhere
+ * from `highest` to `lowest` below the centre, be from `shortest` to
+ * `tallest` tall (in steps of `down`) and up to `widest` wide, narrowed in
+ * steps of `step` picture units. A card is `shape` as wide as it is tall, and
+ * the gap between two is `gap` of a card's width.
+ */
+const STRIP = {
+  panel: 1.1,
+  highest: 0.15,
+  lowest: 1,
+  down: 0.05,
+  tallest: 1.6,
+  shortest: 0.3,
+  widest: 3.6,
+  step: 2,
+  shape: CARD_CUT.shape,
+  gap: CARD_CUT.gap,
+} as const;
+
+/** Every field of every home, wherever it lies. */
+function homeFields(seats: number): readonly Spot[] {
+  const spots: Spot[] = [];
+  for (let seat = 0; seat < seats; seat += 1) {
+    for (let slot = 0; slot < HOME_DEPTH; slot += 1) {
+      spots.push(homeSpot(seat, seats, slot));
+    }
+  }
+  return spots;
+}
+
+/** Whether a box keeps clear of every field, with a margin. */
+function clear(box: Box, fields: readonly Spot[]): boolean {
+  const reach = FIELD + HUB_MARGIN;
+  return fields.every(
+    (at) =>
+      at.x < box.x - reach ||
+      at.x > box.x + box.w + reach ||
+      at.y < box.y - reach ||
+      at.y > box.y + box.h + reach,
+  );
+}
+
+/** How far the free middle keeps clear of the homes and the track. */
+const HUB_MARGIN = 4;
+
+/** The smallest middle that is still worth putting cards into. */
+const HUB_LEAST = 36;
+
+/**
+ * How big the free square in the middle of the board is, if there is one.
+ *
+ * @param seats - how many sit at the table
+ * @returns half its side, in picture units, or null when there is no room
+ * @remarks
+ * The square must keep clear of two things: the innermost field of every home,
+ * which points at the middle along its arm, and the track where it dips in
+ * between two arms. Along an arm the edge of a square lies further out the
+ * more slanted the arm is, so each arm is measured in its own direction. At a
+ * table of two the homes run almost into the middle, and there is no square.
+ */
+export function hubOf(seats: number): number | null {
+  const slice = (Math.PI * 2) / seats;
+  const inner =
+    ARM_OUT * Math.cos(slice * TIP_WIDE) -
+    HOME_GAP * HOME_DEPTH -
+    FIELD -
+    HUB_MARGIN;
+  let half = (ARM_IN - FIELD - HUB_MARGIN) / Math.SQRT2;
+  for (let seat = 0; seat < seats; seat += 1) {
+    const angle = armAngle(seat, seats);
+    const along = Math.max(
+      Math.abs(Math.cos(angle)),
+      Math.abs(Math.sin(angle)),
+    );
+    half = Math.min(half, inner * along);
+  }
+  return half >= HUB_LEAST ? half : null;
 }
 
 /** The DOG badge in each of the four corners of the printed board. */
@@ -252,37 +655,6 @@ function Badges(): ReactElement {
   );
 }
 
-/** The card-shaped plate in the middle of the board. */
-function Plate(): ReactElement {
-  return (
-    <g transform={`translate(${String(MID)} ${String(MID)}) rotate(45)`}>
-      <rect
-        x={-38}
-        y={-38}
-        width={76}
-        height={76}
-        rx={8}
-        fill={PLATE}
-        stroke="#9fd2f4"
-        strokeWidth={1.5}
-      />
-      <text
-        transform="rotate(-45)"
-        x={0}
-        y={1}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize={17}
-        fontWeight={800}
-        letterSpacing={2}
-        fill="#1e4f97"
-      >
-        DOG
-      </text>
-    </g>
-  );
-}
-
 /** The thin thread the printed board draws between two fields. */
 function Thread({
   points,
@@ -321,7 +693,8 @@ function Quarter({
   readonly name: string;
   readonly mine: boolean;
 }): ReactElement {
-  const colour = SEAT_COLOURS[seat];
+  const palette = useSeatColours();
+  const colour = palette[seat];
   const homes = Array.from({ length: HOME_DEPTH }, (unused, slot) =>
     homeSpot(seat, seats, slot),
   );
@@ -384,6 +757,7 @@ function PieceDot({
   open,
   picked,
   onPick,
+  onHover,
 }: {
   readonly piece: Piece;
   readonly seats: number;
@@ -391,43 +765,211 @@ function PieceDot({
   readonly open: boolean;
   readonly picked: boolean;
   readonly onPick: (piece: number) => void;
+  readonly onHover: ((piece: number | null) => void) | undefined;
 }): ReactElement {
-  const colour = SEAT_COLOURS[piece.seat];
   const at = spotOf(piece, seats);
   return (
     <g
       onClick={open ? () => onPick(piece.id) : undefined}
+      onMouseEnter={open ? () => onHover?.(piece.id) : undefined}
+      onMouseLeave={open ? () => onHover?.(null) : undefined}
       style={{ cursor: open ? "pointer" : "default" }}
       data-testid={`dog-piece-${String(piece.id)}`}
     >
+      {/* Der Schatten auf dem Feld - so steht die Figur darauf. */}
+      <ellipse
+        cx={at.x + PAWN.drift}
+        cy={at.y + PAWN.foot}
+        rx={PAWN.base + 1}
+        ry={PAWN.flat + 0.6}
+        fill="#000000"
+        opacity={0.35}
+      />
       {(open || picked) && (
-        <circle
+        <ellipse
           cx={at.x}
-          cy={at.y}
-          r={PIECE + 5}
+          cy={at.y + PAWN.foot}
+          rx={PAWN.base + 5}
+          ry={PAWN.flat + 3}
           fill="none"
           stroke={picked ? "#fbbf24" : "#f8fafc"}
-          strokeWidth={3}
-          opacity={picked ? 1 : 0.85}
+          strokeWidth={2.5}
+          opacity={picked ? 1 : 0.9}
         />
       )}
-      <circle
-        cx={at.x}
-        cy={at.y}
-        r={PIECE}
-        fill={colour?.solid ?? "#94a3b8"}
-        stroke={mine ? "#f8fafc" : INK}
-        strokeWidth={mine ? 2.5 : 1.5}
+      <Pawn x={at.x} y={at.y} seat={piece.seat} mine={mine} />
+    </g>
+  );
+}
+
+/**
+ * Die Maße eines Spielkegels, in Bildpunkten des Bretts.
+ *
+ * @remarks
+ * Gedrechselt wie eine Figur aus Holz, schräg von oben gesehen: ein Fuß mit
+ * sichtbarer Kante und einer zweiten Stufe darauf, eine schlanke Taille, ein
+ * doppelter Kragen und ein runder Kopf. Der Fuß steht auf der Mitte des Feldes
+ * (`foot` darunter), der Kopf ragt darüber hinaus - wie eine echte Figur über
+ * ihr Feld.
+ *
+ * Die Farben: `deeper` macht die Figur dunkler als ihr Feld, `light` und
+ * `shine` hellen die Lichtseite und den Kopf auf, `dark` ist die
+ * Schattenseite.
+ */
+const PAWN = {
+  foot: 3,
+  base: 7.4,
+  flat: 3,
+  edge: 1.4,
+  step: 1.7,
+  stepWide: 5.2,
+  stepFlat: 2.1,
+  hip: 4.4,
+  waist: 1.7,
+  neck: -9.6,
+  neckWide: 2,
+  collar: 3.9,
+  collarFlat: 1.35,
+  ring: 2.7,
+  ringUp: 1.2,
+  ringFlat: 0.9,
+  head: 4.4,
+  headUp: 5,
+  drift: 1.2,
+  deeper: 0.3,
+  light: 0.4,
+  shine: 0.55,
+  dark: 0.68,
+} as const;
+
+/** Ein Spielkegel, mit dem Fuß auf diesem Punkt. */
+function Pawn({
+  x,
+  y,
+  seat,
+  mine,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly seat: number;
+  readonly mine: boolean;
+}): ReactElement {
+  const palette = useSeatColours();
+  const colour = palette[seat];
+  const solid = colour?.solid ?? "#94a3b8";
+  const body = `url(#dog-pawn-${String(seat)})`;
+  const head = `url(#dog-pawn-head-${String(seat)})`;
+  // Der Rand in der dunklen Tönung der eigenen Farbe statt in Schwarz; die
+  // eigenen Figuren tragen einen feinen hellen Rand.
+  const line = mine ? "#f8fafc" : (colour?.ink ?? INK);
+  const width = mine ? 1.1 : 0.8;
+  const footY = y + PAWN.foot;
+  const stepY = footY - PAWN.step;
+  const neckY = y + PAWN.neck;
+  const headY = neckY - PAWN.headUp;
+  const left = `M ${String(x - PAWN.hip)} ${String(stepY)} C ${String(x - PAWN.waist)} ${String(stepY - 3)}, ${String(x - PAWN.waist)} ${String(neckY + 3)}, ${String(x - PAWN.neckWide)} ${String(neckY)}`;
+  const right = `${String(x + PAWN.neckWide)} ${String(neckY)} C ${String(x + PAWN.waist)} ${String(neckY + 3)}, ${String(x + PAWN.waist)} ${String(stepY - 3)}, ${String(x + PAWN.hip)} ${String(stepY)}`;
+  return (
+    <g>
+      {/* Der Fuß: die Kante unten, dunkel, und die Fläche obendrauf. */}
+      <ellipse
+        cx={x}
+        cy={footY + PAWN.edge}
+        rx={PAWN.base}
+        ry={PAWN.flat}
+        fill={shade(solid, -PAWN.dark)}
+        stroke={line}
+        strokeWidth={width}
       />
+      <ellipse
+        cx={x}
+        cy={footY}
+        rx={PAWN.base}
+        ry={PAWN.flat}
+        fill={body}
+        stroke={line}
+        strokeWidth={width}
+      />
+      {/* Die zweite Stufe des Fußes. */}
+      <ellipse
+        cx={x}
+        cy={stepY}
+        rx={PAWN.stepWide}
+        ry={PAWN.stepFlat}
+        fill={body}
+        stroke={line}
+        strokeWidth={width}
+      />
+      {/* Der Körper: schlank nach oben. Die Fläche ohne Rand, der Rand nur an
+          den beiden Seiten - sonst liefe ein Strich quer über den Fuß. */}
+      <path d={`${left} L ${right} Z`} fill={body} />
+      <path d={left} fill="none" stroke={line} strokeWidth={width} />
+      <path d={`M ${right}`} fill="none" stroke={line} strokeWidth={width} />
+      {/* Ein schmaler Glanz auf der Lichtseite des Körpers. */}
+      <path
+        d={`M ${String(x - PAWN.hip + 1.6)} ${String(stepY - 1)} C ${String(x - PAWN.waist + 0.3)} ${String(stepY - 3.5)}, ${String(x - PAWN.waist + 0.3)} ${String(neckY + 3)}, ${String(x - PAWN.neckWide + 0.7)} ${String(neckY + 1)}`}
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth={0.9}
+        strokeLinecap="round"
+        opacity={0.35}
+      />
+      {/* Der doppelte Kragen unter dem Kopf. */}
+      <ellipse
+        cx={x}
+        cy={neckY}
+        rx={PAWN.collar}
+        ry={PAWN.collarFlat}
+        fill={body}
+        stroke={line}
+        strokeWidth={width}
+      />
+      <ellipse
+        cx={x}
+        cy={neckY - PAWN.ringUp}
+        rx={PAWN.ring}
+        ry={PAWN.ringFlat}
+        fill={body}
+        stroke={line}
+        strokeWidth={width}
+      />
+      {/* Und der Kopf: rund, mit Glanzpunkt. */}
       <circle
-        cx={at.x - 2}
-        cy={at.y - 2.5}
-        r={2.2}
+        cx={x}
+        cy={headY}
+        r={PAWN.head}
+        fill={head}
+        stroke={line}
+        strokeWidth={width}
+      />
+      <ellipse
+        cx={x - 1.4}
+        cy={headY - 1.6}
+        rx={1.4}
+        ry={1}
         fill="#ffffff"
-        opacity={0.55}
+        opacity={0.6}
       />
     </g>
   );
+}
+
+/**
+ * Eine Farbe heller oder dunkler gemischt.
+ *
+ * @param hex - die Farbe als `#rrggbb`
+ * @param amount - wie weit: positiv zu Weiß hin, negativ zu Schwarz hin, bis eins
+ * @returns die gemischte Farbe als `#rrggbb`
+ */
+function shade(hex: string, amount: number): string {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const target = amount >= 0 ? 255 : 0;
+  const share = Math.abs(amount);
+  const mix = (channel: number) =>
+    Math.round(channel + (target - channel) * share)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${mix((value >> 16) & 255)}${mix((value >> 8) & 255)}${mix(value & 255)}`;
 }
 
 /** Where a piece stands, in the picture. */
@@ -482,7 +1024,22 @@ function outline(seats: number): readonly Spot[] {
   }
   // Rounded only at the turns themselves: every run is cut into three first,
   // so the curve that rounds a corner has no room to bow the straight bits.
-  return smooth(subdivide(corners));
+  const points = smooth(subdivide(corners));
+  // **Begun right on the first start corner**: the rounded curve starts a bit
+  // along the tip, and the start field would then lie one field past the
+  // corner - with a white field between it and the kennel beside the corner.
+  const corner = polar(armAngle(0, seats) - tip, ARM_OUT);
+  let nearest = 0;
+  points.forEach((point, at) => {
+    const best = points[nearest] ?? point;
+    if (
+      Math.hypot(point.x - corner.x, point.y - corner.y) <
+      Math.hypot(best.x - corner.x, best.y - corner.y)
+    ) {
+      nearest = at;
+    }
+  });
+  return [...points.slice(nearest), ...points.slice(0, nearest)];
 }
 
 /** Cuts every run of a closed polygon into three, so bends stay local. */

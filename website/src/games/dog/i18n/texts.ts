@@ -42,9 +42,17 @@ export const DOG_TEXTS = {
   online: "Online",
   yourTurn: "Du bist dran",
   waitingFor: (who: string): string => `${who} ist dran`,
-  passing: "Schiebt eurem Partner eine Karte zu",
-  passYours: "Wähle eine Karte für deinen Partner",
-  passed: "Karte liegt bereit",
+  // Im Partnerspiel geht die Karte an den Partner gegenüber, sonst an den
+  // nächsten Spieler zur Linken - und das ist ein Gegner.
+  passing: (teams: boolean): string =>
+    teams
+      ? "Jeder schiebt seinem Partner eine Karte zu"
+      : "Jeder schiebt dem Gegner zu seiner Linken eine Karte zu",
+  passYours: (who: string, teams: boolean): string =>
+    teams
+      ? `Wähle eine Karte für deinen Partner ${who}`
+      : `Wähle eine Karte für ${who}, deinen Gegner zur Linken`,
+  passed: (who: string): string => `Deine Karte für ${who} liegt bereit`,
   round: (round: number, cards: number): string =>
     `Runde ${round} - ${cards} Karten`,
   team: (team: number): string => `Team ${team}`,
@@ -54,8 +62,10 @@ export const DOG_TEXTS = {
   won: (team: string): string => `${team} hat gewonnen!`,
   gameOver: "Spiel vorbei",
   yourCards: "Deine Karten",
+  swapCard: "Tauschen",
   pickCard: "Karte wählen",
   pickPiece: "Figur wählen",
+  pickField: "Wohin? Klicke auf ein leuchtendes Feld",
   pickOther: "Mit welcher Figur tauschen?",
   cancel: "Zurück",
   fold: "Aussetzen - ich kann nichts spielen",
@@ -67,8 +77,10 @@ export const DOG_TEXTS = {
   fivePieces: "Fünf Figuren, eine steht schon auf dem Startfeld",
   foldHint:
     "Keine deiner Karten lässt sich spielen. Die Runde ist für dich vorbei.",
-  jokerAs: "Der Joker gilt als",
-  sevenLeft: (left: number): string => `Noch ${left} Schritte zu verteilen`,
+  jokerSeven: "Als Sieben aufteilen",
+  whichMove: "Was soll geschehen?",
+  sevenLeft: (left: number): string =>
+    `Noch ${left} ${left === 1 ? "Schritt" : "Schritte"} zu verteilen`,
   sevenUndo: "Sieben neu aufteilen",
   steps: (steps: number): string => `${steps} vor`,
   stepsBack: (steps: number): string => `${steps} zurück`,

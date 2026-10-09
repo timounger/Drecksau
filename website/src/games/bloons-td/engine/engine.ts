@@ -445,8 +445,35 @@ export function aims(kind: TowerKind): boolean {
 }
 
 /**
- * Die Partie nach dem Schummelknopf: unendlich Geld, und jedes freie Feld
- * trägt den voll ausgebauten Turm, der dort am meisten bringt.
+ * Geschummelt: unendlich Geld.
+ *
+ * @param game - die Partie
+ * @returns dieselbe Partie mit unendlich Geld - und nicht mehr für die Bestenliste
+ */
+export function rich(game: Game): Game {
+  return game.phase === "over"
+    ? game
+    : { ...game, money: Infinity, cheated: true };
+}
+
+/**
+ * Geschummelt: unendlich Leben.
+ *
+ * @param game - die Partie
+ * @returns dieselbe Partie mit unendlich Leben - kein Ballon kostet mehr eines
+ * @remarks
+ * Unendlich minus alles ist unendlich: Die Rechnung der Runde bleibt, wie sie
+ * ist, und verloren wird nie mehr.
+ */
+export function immortal(game: Game): Game {
+  return game.phase === "over"
+    ? game
+    : { ...game, lives: Infinity, cheated: true };
+}
+
+/**
+ * Geschummelt: Jedes freie Feld trägt den voll ausgebauten Turm, der dort am
+ * meisten bringt.
  *
  * @param game - die Partie
  * @returns die neue Partie, oder die alte, wenn sie schon vorbei ist
@@ -458,10 +485,11 @@ export function aims(kind: TowerKind): boolean {
  * liegt. Jedes übrige Feld bekommt dann den Turm, der von dort aus den
  * meisten Schaden auf die Straße bringt ({@link worthAt}).
  *
- * Nie gebaut werden die Bananenplantage - bei unendlich Geld bringt sie
- * nichts - und der Alchemist, dessen Tränke Lych stiehlt.
+ * Nie gebaut werden die Bananenplantage - bei geschenkten Türmen bringt sie
+ * nichts - und der Alchemist, dessen Tränke Lych stiehlt. Die Türme kosten
+ * nichts: Das Geld der Partie ist danach dasselbe wie vorher.
  */
-export function cheated(game: Game): Game {
+export function stocked(game: Game): Game {
   let next: Game = { ...game, money: Infinity, cheated: true };
 
   for (const spot of villageSpots(next)) {
@@ -476,7 +504,7 @@ export function cheated(game: Game): Game {
     }
   }
 
-  return game.phase === "over" ? game : next;
+  return game.phase === "over" ? game : { ...next, money: game.money };
 }
 
 /**

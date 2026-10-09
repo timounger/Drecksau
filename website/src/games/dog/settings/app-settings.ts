@@ -13,6 +13,7 @@
  * would be a different game with the same cards.
  */
 import { DEFAULT_SEATS, SEAT_COUNTS, teamPlay } from "@/games/dog/engine/board";
+import { SEAT_COLOURS } from "@/games/dog/i18n/texts";
 import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 
 /** Schema version of the stored settings - raise it on breaking changes. */
@@ -62,19 +63,40 @@ export const DEFAULT_NAME = "Du";
 /** How long a name may be. */
 export const MAX_NAME = 12;
 
+/** The colour a first-time visitor plays: green, as the board is printed. */
+export const DEFAULT_COLOUR = 0;
+
 /** What the player can configure. */
 export type DogSettings = {
   /** What the player is called at the table. */
   readonly name: string;
   /** How many sit at it, the player included. */
   readonly playerCount: number;
+  /** Which colour the player plays, as an index into the seat colours. */
+  readonly colour: number;
 };
 
 /** What a first-time visitor gets. */
 export const DEFAULT_SETTINGS: DogSettings = {
   name: DEFAULT_NAME,
   playerCount: DEFAULT_PLAYER_COUNT,
+  colour: DEFAULT_COLOUR,
 };
+
+/**
+ * Holds a colour to one the board has.
+ *
+ * @param colour - the value read back from storage or a control
+ * @returns an index into the seat colours
+ */
+export function clampColour(colour: unknown): number {
+  return typeof colour === "number" &&
+    Number.isInteger(colour) &&
+    colour >= 0 &&
+    colour < SEAT_COLOURS.length
+    ? colour
+    : DEFAULT_COLOUR;
+}
 
 /**
  * Loads the stored settings.
@@ -86,6 +108,7 @@ export function loadSettings(): DogSettings {
   return {
     name: clampName(stored?.name),
     playerCount: clampPlayers(stored?.playerCount),
+    colour: clampColour(stored?.colour),
   };
 }
 
@@ -98,6 +121,7 @@ export function saveSettings(settings: DogSettings): void {
   writeStored(SETTINGS_KEY, SETTINGS_VERSION, {
     name: clampName(settings.name),
     playerCount: clampPlayers(settings.playerCount),
+    colour: clampColour(settings.colour),
   });
 }
 

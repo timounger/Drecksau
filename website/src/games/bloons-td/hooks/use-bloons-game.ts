@@ -15,7 +15,9 @@ import {
   aimAt,
   build,
   canBuild,
-  cheated,
+  immortal,
+  rich,
+  stocked,
   createGame,
   goalOf,
   keepPlaying,
@@ -70,6 +72,9 @@ const FLUSH_MS = 15_000;
 
 /** Das längste Bild, das als Spielzeit zählt, in Sekunden. */
 const MAX_FRAME = 0.25;
+
+/** Die Schummeleien: unendlich Geld, unendlich Leben, ein Feld voller Türme. */
+export type Cheat = "money" | "lives" | "towers";
 
 /** Wie schnell der Schnellvorlauf ist - und wie schnell der Turbo. */
 const FAST = 3;
@@ -150,8 +155,8 @@ export type BloonsGame = {
   /** Noch einmal von vorn. */
   readonly restart: () => void;
   readonly setSpeed: (speed: number) => void;
-  /** Unendlich Geld, und das ganze Feld voller ausgebauter Türme. */
-  readonly cheat: () => void;
+  /** Schummeln: unendlich Geld, unendlich Leben oder ein Feld voller Türme. */
+  readonly cheat: (kind: Cheat) => void;
   /** Ob gerade angehalten ist. */
   readonly paused: boolean;
   readonly setPaused: (paused: boolean) => void;
@@ -289,15 +294,29 @@ export function useBloonsGame(): BloonsGame {
     [syncChosen],
   );
 
-  // **Schummeln ist ein Knopf und kein Geheimnis.** Wer ausprobieren will, wie
-  // sich ein ausgebautes Feld anfühlt, soll nicht vorher zwanzig Runden
-  // spielen müssen: unendlich Geld, und jedes freie Feld bekommt den voll
-  // ausgebauten Turm, der dort am meisten bringt.
-  const cheat = useCallback(() => {
-    gameRef.current = cheated(gameRef.current);
-    syncChosen(gameRef.current);
-    syncHud(gameRef.current);
-  }, [syncHud, syncChosen]);
+  // **Drei geheime Schummeleien**, jede für sich: unendlich Geld, unendlich
+  // Leben, oder jedes freie Feld bekommt den voll ausgebauten Turm, der dort
+  // am meisten bringt. Wer eine davon nutzt, kommt nicht mehr auf die
+  // Bestenliste und sammelt keine Erfahrung.
+  const cheat = useCallback(
+    (kind: Cheat) => {
+      let next: Game;
+      switch (kind) {
+        case "money":
+          next = rich(gameRef.current);
+          break;
+        case "lives":
+          next = immortal(gameRef.current);
+          break;
+        default:
+          next = stocked(gameRef.current);
+      }
+      gameRef.current = next;
+      syncChosen(gameRef.current);
+      syncHud(gameRef.current);
+    },
+    [syncHud, syncChosen],
+  );
 
   // **Pause hält die Zeit an, nicht das Bild.** Gezeichnet wird weiter, sonst
   // friert auch der Mauszeiger-Umriss ein und man sieht nicht mehr, wohin man
@@ -320,6 +339,10 @@ export function useBloonsGame(): BloonsGame {
       pickedRef.current = null;
       haltRef.current = false;
       setHalted(false);
+      // Jede neue Partie beginnt ohne Auto-Start - die erste Welle schickt
+      // man selbst los, wenn die ersten Affen stehen.
+      autoRef.current = false;
+      setKeepGoing(false);
       setChosen(null);
       setPicked(null);
       spentRef.current = { ms: 0, began: Date.now(), ended: false };

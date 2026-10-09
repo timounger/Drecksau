@@ -517,8 +517,10 @@ export const TOWERS: Readonly<Record<TowerKind, Monkey>> = {
     shooting: "single",
     speed: 700,
     life: 0.7,
+    // Der Super-Affe sieht alles - auch getarnte Ballons, von Anfang an.
+    sees: true,
     paint: "#2563eb",
-    note: "Vierzehn Pfeile je Sekunde. Teuer, und jeden Dollar wert - nur nicht gegen Blei, bis zum Laser.",
+    note: "Vierzehn Pfeile je Sekunde, und er sieht getarnte Ballons. Teuer, und jeden Dollar wert - nur nicht gegen Blei, bis zum Laser.",
   },
   ninja: {
     ...PLAIN,
@@ -535,7 +537,7 @@ export const TOWERS: Readonly<Record<TowerKind, Monkey>> = {
     life: 1,
     sees: true,
     paint: "#b91c1c",
-    note: "Schnelle Wurfsterne, die später ihr Ziel von selbst finden. Der Einzige, der von Anfang an getarnte Ballons sieht.",
+    note: "Schnelle Wurfsterne, die später ihr Ziel von selbst finden. Sieht von Anfang an getarnte Ballons.",
   },
   alchemist: {
     ...PLAIN,

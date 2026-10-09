@@ -48,7 +48,7 @@ const KEEP: Readonly<Record<Rank, number>> = {
   A: 16,
   K: 14,
   "7": 18,
-  J: 10,
+  swap: 10,
   "4": 8,
   "2": 1,
   "3": 1,

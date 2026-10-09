@@ -20,7 +20,8 @@ export const BLOONS_TEXTS = {
     freeplay ? `Runde ${round} · Freispiel` : `Runde ${round} / ${goal}`,
   roundNext: (round: number) => `Runde ${round} starten`,
   money: (money: number) => (Number.isFinite(money) ? `$${money}` : "$∞"),
-  lives: (lives: number) => `${lives} Leben`,
+  lives: (lives: number) =>
+    Number.isFinite(lives) ? `${lives} Leben` : "∞ Leben",
   left: (many: number) => `${many} in der Luft`,
   popped: (many: number) => `${many} zerstochen`,
   payout: (money: number) =>

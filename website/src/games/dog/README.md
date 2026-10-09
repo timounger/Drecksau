@@ -9,7 +9,78 @@ dritt und zu fünft spielt jeder für sich, mit fünf Figuren und vier Zielfelde
 
 - Gegen den Computer: `/dog`
 - Online zu zweit bis zu sechst: `/dog/online`
-- Einstellungen: die Spielerzahl (2 bis 6) und der eigene Name
+- Einstellungen: die Spielerzahl (2 bis 6), der eigene Name und die eigene
+  Farbe. Du sitzt immer auf dem ersten Platz (unten); die gewählte Farbe und
+  Grün tauschen nur die Plätze, so trägt nie jemand dieselbe Farbe wie du
+  ([components/seat-colours.tsx](components/seat-colours.tsx)). Das gilt für
+  das Spiel gegen den Computer; online bleiben die Farben die gedruckten.
+- Der Text auf dem Brett lässt sich nicht markieren (`select-none`) - wer eine
+  Figur antippt, soll nicht nebenbei einen Namen auswählen.
+- **Die Figuren sind Spielkegel in 2,5D** (`Pawn` in
+  [components/dog-board.tsx](components/dog-board.tsx)), gedrechselt wie aus
+  Holz und schräg von oben gesehen: ein Fuß mit sichtbarer Kante und einer
+  zweiten Stufe, eine schlanke Taille, ein doppelter Kragen und ein runder
+  Kopf, Licht von links oben und ein Schatten auf dem Feld. **Sie sind deutlich
+  dunkler als die Farbe ihrer Felder** und haben einen Rand in der dunklen
+  Tönung ihrer Farbe - so hebt sich eine Figur auf ihrem eigenen Start- oder
+  Zielfeld ab. Der Fuß steht auf der Feldmitte, der Kopf ragt darüber hinaus,
+  und gezeichnet wird von hinten nach vorn. Eigene Figuren haben einen feinen
+  hellen Rand.
+- **Das Startfeld liegt genau auf der Ecke der Spitze**, direkt neben dem
+  Zwinger. Vorher begann die gerundete Bahn ein Stück weiter, und zwischen
+  Zwinger und Startfeld schien ein weißes Feld zu liegen (`outline` in
+  [components/dog-board.tsx](components/dog-board.tsx)).
+- **Die Karten sehen aus wie die des echten Spiels**: rot oder blau, die
+  Schrift immer schwarz. Rot sind alle Karten mit besonderer Fähigkeit: die 1/11,
+  die 4, die 7, die 13, der Joker ("?") und die Tauschkarte; alle anderen blau. Aufgedruckt ist, was auf den echten Karten
+  steht: die 1 über der 11 statt Ass, die 4 mit einem Plus-Minus dahinter, die
+  7 in der Mitte eines großen Feuers, hinter der 1/11 und der 13 - den Karten, mit denen man aus dem Zwinger kommt - ein helles Startdreieck wie auf einem Play-Knopf, 12 und 13 statt Dame und König, ein Doppelpfeil mit
+  "Tauschen" statt Bube und ein Fragezeichen für den Joker (`CARD_FACES` in
+  [engine/cards.ts](engine/cards.ts), `CardFace` und `RED_CARDS` in
+  [components/dog-play.tsx](components/dog-play.tsx)). Alles darauf misst sich
+  an der Schriftgröße der Karte (`em`) und passt so auf die große wie auf die
+  kleine. Die Zahlen stehen kursiv in Hemi Head (`CARD_FONT`). Die Schrift ist
+  nicht frei und wird nicht mitgeliefert: Sie greift nur, wo sie auf dem Gerät
+  installiert ist, sonst steht dort Arial Black kursiv.
+- In der Mitte des Bretts ist kein DOG-Schild mehr: Dort stehen jetzt, was zu
+  tun ist, und die eigenen Karten.
+- **Karte, Figur - und der Zug ist gespielt**: Kann die gewählte Figur mit der
+  Karte nur eines, geschieht es sofort. Kann sie mehreres (die 4 vor oder
+  zurück, die 1 oder die 11, ins Ziel oder weiter, ein Teil der Sieben, mit
+  wem sie tauscht), leuchten die Felder, auf die sie gehen kann, und ein Klick
+  auf eines spielt den Zug - Knöpfe für Schritte gibt es nicht mehr. Wohin
+  ein Zug führt, rechnet das Regelwerk selbst aus (`applyMove`, für die
+  Sieben `piecesAfter` in [engine/moves.ts](engine/moves.ts)); beim Aufteilen
+  der Sieben zeigt das Brett schon, wo die Figuren nach den gewählten Teilen
+  stehen.
+- **Vorschau beim Darüberfahren**: Liegt eine Karte und ist der Zeiger auf
+  einer wählbaren Figur, steht sie blass dort, wohin ihr Zug sie bringt - bei
+  mehreren Möglichkeiten an jedem dieser Felder (`ghosts` an `DogBoard`).
+- **Auftakt: Der Hund bricht durch die Leinwand.** Beginnt ein neues Spiel
+  (allein wie online), liegt über dem Brett eine helle Leinwand. Sie beult sich
+  zweimal, reißt von der Mitte aus ein, die Fetzen fliegen davon, und die
+  Bulldogge des Logos springt heraus; nach rund zwei Sekunden blendet alles aus.
+  Ein Klick überspringt es, bei abgeschalteter Bewegung im System entfällt es.
+  Nur CSS und ein Bild ([components/dog-intro.tsx](components/dog-intro.tsx),
+  das Logo liegt verkleinert in `public/dog/logo.webp`). Neu ist ein Spiel,
+  solange in Runde 1 die eigene Karte noch nicht weitergeschoben ist; erkannt
+  an der frisch ausgeteilten Hand, damit es auch nach einem ebenso frischen
+  Spiel wieder kommt.
+- Unter dem Brett steht keine Zeile mehr, wer wie viele Figuren im Ziel hat -
+  das sieht man auf dem Brett.
+- **Was zu tun ist, steht in der Mitte des Bretts**:
+  "Wähle eine Karte", "Figur wählen", Zurück, Aussetzen.
+  **Die eigenen Karten liegen gleich darunter in einer Reihe** und bleiben dort
+  sichtbar, während man wählt. Beide Felder sind genau so groß, wie zwischen den
+  Feldern Platz ist (`middleOf` in [components/dog-board.tsx](components/dog-board.tsx)):
+  **Die Karten sind so groß, wie es zwischen den Feldern gerade noch passt**:
+  Jede Höhe und Lage der Reihe knapp unter der Mitte wird durchprobiert, jede so
+  breit, wie es geht, ohne ein Feld des Wegs oder eines Ziels zu berühren, und
+  die Lage mit den größten Karten gewinnt. Wie groß, hängt also auch davon ab,
+  wie viele Karten man noch hat - mit zweien werden sie größer als mit sechs.
+  Das wird je Tisch und Kartenzahl einmal ausgerechnet und gemerkt. Alles darin misst sich an der Breite seines Feldes (`cqw`), wächst
+  also mit dem Brett. Zu zweit reichen die Zielfelder fast bis zur Mitte; dann
+  liegen Karten und Auswahl wie früher unter dem Brett.
 
 ## Der Tisch ist eine Zahl, kein Konstantenblock
 
@@ -39,7 +110,7 @@ der sie auseinandergehen:
 | gewonnen bei      | acht Figuren im Ziel       | vier Figuren im Ziel                        |
 
 Jede dieser Zeilen ist genau eine Funktion in `engine/board.ts`
-(`piecesPerSeat`, `partnerOf`, `giftSeat`, `piecesToWin`) - und der
+(`piecesPerSeat`, `partnerOf`, `giftSeat`, `piecesToWin`) - und die
 Schiedsrichter fragt sie, statt die Spielerzahl selbst zu kennen.
 
 Der Kartentausch bei einer toten Hand ist die einzige Regel mit einem
@@ -105,8 +176,17 @@ jeder Knopf, den es gibt, ein Zug, der funktioniert. Das ist hier mehr wert als
 sonst: Die Regeln zum Startfeld, zum Ziel und zur Sieben sind genau die, die
 man am Tisch vergisst.
 
-Der Joker fragt zuerst, was er sein soll, und spielt danach die Karte, die er
-geworden ist - eine Auswahl, kein zweiter Regelzweig.
+**Der Joker fragt nicht, was er sein soll.** Wer ihn legt, wählt gleich die
+Figur, und es leuchtet alles, was irgendeine Karte mit ihr könnte: jede
+Schrittzahl, die 4 zurück, ins Ziel, aus dem Zwinger, tauschen und die Sieben,
+soweit eine Figur sie ganz geht. Welche Karte er war, ergibt sich aus dem
+gewählten Feld; gespielt wird dann genau diese Karte - eine Auswahl, kein
+zweiter Regelzweig. Führen zwei Werte zum selben Ergebnis (Ass oder König aus
+dem Zwinger), zählt einer. Landen zwei auf demselben Feld und tun doch
+Verschiedenes (dort schlagen oder mit dem dort tauschen), fragt ein Klick auf
+das Feld nach. Die Sieben auf mehrere Figuren aufzuteilen, gibt es als Knopf
+"Als Sieben aufteilen"; wirkungslos abgelegt wird der Joker nur, wenn er sonst
+nichts kann.
 
 ## Das Brett ist dem gedruckten nachgebaut
 

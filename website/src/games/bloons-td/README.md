@@ -412,7 +412,8 @@ heraus: 2 → 3 → 5 Durchschläge beim Wurfpfeilaffen, 4 → 8 → 13 beim Bum
 zweiten Säule nicht mehr "Very Quick Shots", sondern **Enhanced Eyesight** -
 die Stufe, die im Vorbild auf einer dritten Säule sitzt und Tarnung sichtbar
 macht. Ohne sie hätte man bis Level 7 keinen einzigen Affen, der die getarnten
-Ballons ab Runde 24 sieht; der Ninja kommt erst auf Level 16. Sie kostet $200,
+Ballons ab Runde 24 sieht; der Ninja kommt erst auf Level 16, der Super-Affe -
+der Tarnung ebenfalls von Anfang an sieht - auf Level 15. Sie kostet $200,
 gibt Tarnsicht, ein Fünftel Reichweite und wirft noch etwas schneller.
 
 **Bei den Primär-Affen sind Namen und Preise die der Vorlage**, aus der
@@ -561,15 +562,26 @@ erklären.
 ## Was nicht zum Spiel gehört
 
 **Auto-Start** schickt die nächste Welle sofort nach dem Ende der vorigen von
-selbst los, auch mitten im Vorlauf.
+selbst los, auch mitten im Vorlauf. Jede neue Partie beginnt mit
+ausgeschaltetem Auto-Start.
 
-**Der Cheat ist versteckt**: Wer den Knopf "Schnell" eine Sekunde lang
-gedrückt hält, bekommt unendlich Geld, und jedes freie Feld einen voll
-ausgebauten Turm. Das Loslassen danach wählt nicht auch noch das Tempo. Erst
-danach erscheint der **Turbo**, der hundert Bilder statt einem rechnet - er
-gehört zum Schummeln, im fairen Spiel gibt es nur Normal und Schnell. Im
-Regelblatt steht beides nicht; dass geschummelt wurde, merkt sich die Partie
-trotzdem (`cheated`), und dann kommt sie nicht auf die Bestenliste.
+Der **Turbo** rechnet hundert Bilder statt einem und ist immer da, neben
+Normal und Schnell - er ist kein Schummeln, nur schneller.
+
+**Drei Schummeleien sind versteckt**, jede eine Sekunde langes Drücken
+(`useHold` in [components/bloons-game.tsx](components/bloons-game.tsx)):
+
+| Gedrückt halten | Bringt                                                            |
+| --------------- | ----------------------------------------------------------------- |
+| das Geld        | unendlich Geld (`rich`)                                           |
+| die Leben       | unendlich Leben, verloren wird nie mehr (`immortal`)              |
+| Auto-Start      | auf jedes freie Feld den besten Affen, voll ausgebaut (`stocked`) |
+
+Das Loslassen nach dem langen Druck ist kein Klick: Auto-Start schaltet dabei
+nicht auch noch um. Die geschenkten Türme kosten nichts, das Geld bleibt, wie
+es war. Im Regelblatt steht nichts davon; dass geschummelt wurde, merkt sich
+die Partie trotzdem (`cheated`), und dann kommt sie nicht auf die Bestenliste
+und bringt keine Erfahrung.
 
 **Im Vollbild** geht nicht nur das Feld auf den ganzen Bildschirm, sondern
 Anzeige, Tempo, Feld und Laden zusammen - nur das Feld allein wäre schön
@@ -578,7 +590,7 @@ fehlt, hat das Feld oben links seinen eigenen Knopf "Vollbild beenden".
 
 ## Der Schummelknopf baut, was am meisten bringt
 
-`cheated` verteilt nicht zufällig, sondern in zwei Schritten. **Erst die
+`stocked` verteilt nicht zufällig, sondern in zwei Schritten. **Erst die
 Dörfer**: so wenige wie möglich, gierig dorthin, wo eines die meisten noch
 nicht versorgten Felder erreicht, bis jedes freie Feld in Reichweite eines
 Dorfs liegt. Voll ausgebaut geben sie jedem Nachbarn Tarn-Erkennung und
@@ -586,7 +598,7 @@ lassen ihn jede Sorte treffen. **Dann jedes übrige Feld**: der Turm mit dem
 höchsten geschätzten Schaden auf die Straße (`worthAt` - Treffer je Sekunde
 mal Schaden mal erreichte Straße).
 
-Bananenplantagen baut er nie, denn bei unendlich Geld bringen sie nichts, und
+Bananenplantagen baut er nie, denn bei geschenkten Türmen bringen sie nichts, und
 Alchemisten auch nicht, weil Lych ihre Tränke stiehlt. Heraus kommen fünf
 Dörfer, Super-Affen auf der Wiese und Boote im Teich, und gemessen übersteht
 dieses Feld neunzig Runden ohne ein verlorenes Leben. Ein zufällig gefülltes
@@ -606,9 +618,9 @@ Sie ist dieselbe, die auch U-Boot, Panzerkiste und RV There Yet benutzen
 
 Gewertet wird die Runde, in der die Ballons durchkamen - ein Ende hat das
 Spiel nicht, also ist "wie weit" die einzige Zahl, die man schlagen kann.
-**Wer den Cheat gedrückt hat, kommt nicht auf die Liste**: Die Partie merkt
-sich das (`cheated`), und eine mit unendlich Geld erreichte Runde ist keine,
-die jemand schlagen kann.
+**Wer geschummelt hat, kommt nicht auf die Liste**: Die Partie merkt sich das
+(`cheated`), und eine mit unendlich Geld oder Leben erreichte Runde ist keine,
+die jemand schlagen kann. Der Turbo zählt nicht als Schummeln.
 
 ## Was noch fehlt
 
