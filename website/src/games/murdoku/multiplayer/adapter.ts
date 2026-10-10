@@ -28,7 +28,7 @@ import {
   type Board,
 } from "@/games/murdoku/engine/board";
 import { LEVELS } from "@/games/murdoku/engine/levels";
-import { culpritOf, solutionOf } from "@/games/murdoku/engine/rules";
+import { checked, culpritOf, solutionOf } from "@/games/murdoku/engine/rules";
 import type { Cell, Level } from "@/games/murdoku/engine/types";
 import type { OnlineAdapter, SeatSetup } from "@/online/adapter";
 
@@ -41,13 +41,23 @@ export const MAX_PLAYERS = 6;
 
 /** How a case solved together ended, or was guessed at. */
 export type OnlineOutcome = {
-  readonly kind: "right" | "wrong";
+  readonly kind: "right";
   /** Who was named. */
   readonly who: string;
   /** The seat that named them. */
   readonly by: number;
   /** How long it took, for a right answer. */
   readonly ms: number;
+};
+
+/** A check of the map, as somebody asked for it with "Bestätigen". */
+export type OnlineCheck = {
+  /** Per suspect whether they stand right. */
+  readonly results: Readonly<Record<string, boolean>>;
+  /** The seat that asked. */
+  readonly by: number;
+  /** New with every check, so it is shown again even with the same answer. */
+  readonly nonce: number;
 };
 
 /** One case being solved together. */
@@ -62,6 +72,8 @@ export type MurdokuOnlineGame = {
   /** Whether it has been looked at - then the case is no longer won fairly. */
   readonly peeked: boolean;
   readonly outcome: OnlineOutcome | null;
+  /** The last check of the map, until it changes - or null. */
+  readonly check: OnlineCheck | null;
   /** When the case began, as the host's clock had it. */
   readonly startedAt: number;
   /** Who is at the table, by seat. */
@@ -83,9 +95,10 @@ export type MurdokuMove =
   | { readonly kind: "restart" }
   | { readonly kind: "hint" }
   | { readonly kind: "hideHints" }
+  | { readonly kind: "allHints" }
   | { readonly kind: "step"; readonly index: number }
   | { readonly kind: "peek"; readonly on: boolean }
-  | { readonly kind: "accuse"; readonly id: string; readonly at: number };
+  | { readonly kind: "confirm"; readonly at: number };
 
 /** What the host chooses before the start: the case, and the clock. */
 export type MurdokuOptions = {
@@ -130,6 +143,7 @@ export const murdokuAdapter: OnlineAdapter<
       peeking: false,
       peeked: false,
       outcome: null,
+      check: null,
       startedAt: options.startedAt,
       names: seats.map((seat) => seat.name),
     };
@@ -196,7 +210,7 @@ function played(
   const level = levelOf(game);
   // While the solution is on the map, the notes underneath stay as they are.
   const write = (board: Board): MurdokuOnlineGame =>
-    game.peeking ? game : { ...game, board, outcome: null };
+    game.peeking ? game : { ...game, board, outcome: null, check: null };
   let next: MurdokuOnlineGame;
   switch (move.kind) {
     case "mark":
@@ -220,6 +234,16 @@ function played(
     case "hint":
       next = { ...game, shown: Math.min(game.shown + 1, level.hints.length) };
       break;
+    case "allHints": {
+      const done = write(
+        level.hints.reduce(
+          (notes, step) => stepped(level, notes, step),
+          game.board,
+        ),
+      );
+      next = { ...done, shown: level.hints.length };
+      break;
+    }
     case "hideHints":
       next = { ...game, shown: 0 };
       break;
@@ -238,37 +262,47 @@ function played(
       };
       break;
     default:
-      next = accused(game, level, seat, move.id, move.at);
+      next = confirmed(game, level, seat, move.at);
   }
   return next;
 }
 
-/** Somebody names the culprit. */
-function accused(
+/**
+ * Somebody presses "Bestätigen": the map is checked against the solution.
+ *
+ * @remarks
+ * Only with everybody placed - the button is only there then, and a move
+ * from an older screen is ignored. When all stand right the case is solved,
+ * and the culprit follows from the map; nobody has to name him.
+ */
+function confirmed(
   game: MurdokuOnlineGame,
   level: Level,
   seat: number,
-  who: string,
   at: number,
 ): MurdokuOnlineGame {
+  const results = checked(level, game.board.placement);
   const solution = solutionOf(level);
-  const culprit = solution === null ? null : culpritOf(level, solution);
-  const right = culprit !== null && who === culprit;
-  return {
-    ...game,
-    peeking: false,
-    // A right answer shows where everybody stood.
-    board:
-      right && solution !== null
-        ? { placement: solution, notes: {}, crosses: [] }
-        : game.board,
-    outcome: {
-      kind: right ? "right" : "wrong",
-      who,
-      by: seat,
-      ms: Math.max(0, at - game.startedAt),
-    },
-  };
+  const complete = level.suspects.every(
+    (one) => game.board.placement[one.id] !== undefined,
+  );
+  let next = game;
+  if (results !== null && solution !== null && complete && !game.peeking) {
+    const right = Object.values(results).every(Boolean);
+    next = {
+      ...game,
+      check: { results, by: seat, nonce: at },
+      outcome: right
+        ? {
+            kind: "right",
+            who: culpritOf(level, solution) ?? "",
+            by: seat,
+            ms: Math.max(0, at - game.startedAt),
+          }
+        : null,
+    };
+  }
+  return next;
 }
 
 /** Whether a value read off the wire is a field. */
@@ -306,6 +340,7 @@ function isBoard(value: unknown): value is Board {
 function isOnlineGame(value: unknown): value is MurdokuOnlineGame {
   const game = value as MurdokuOnlineGame;
   const outcome = game?.outcome;
+  const check = game?.check;
   return (
     typeof value === "object" &&
     value !== null &&
@@ -315,11 +350,20 @@ function isOnlineGame(value: unknown): value is MurdokuOnlineGame {
     typeof game.peeking === "boolean" &&
     typeof game.peeked === "boolean" &&
     Number.isFinite(game.startedAt) &&
+    (check === null ||
+      (typeof check === "object" &&
+        Number.isInteger(check.by) &&
+        Number.isFinite(check.nonce) &&
+        typeof check.results === "object" &&
+        check.results !== null &&
+        Object.values(check.results).every(
+          (one) => typeof one === "boolean",
+        ))) &&
     Array.isArray(game.names) &&
     game.names.every((name) => typeof name === "string") &&
     (outcome === null ||
       (typeof outcome === "object" &&
-        (outcome.kind === "right" || outcome.kind === "wrong") &&
+        outcome.kind === "right" &&
         typeof outcome.who === "string" &&
         Number.isInteger(outcome.by) &&
         Number.isFinite(outcome.ms)))
@@ -355,14 +399,15 @@ function isMurdokuMove(value: unknown): value is MurdokuMove {
         break;
       case "restart":
       case "hint":
+      case "allHints":
       case "hideHints":
         valid = true;
         break;
       case "step":
         valid = Number.isInteger(move.index);
         break;
-      case "accuse":
-        valid = typeof move.id === "string" && Number.isFinite(move.at);
+      case "confirm":
+        valid = Number.isFinite(move.at);
         break;
       default:
         valid = false;

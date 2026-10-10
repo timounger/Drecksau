@@ -15,8 +15,14 @@ import {
   standingOn,
   type Board,
 } from "./board";
-import { isStandable } from "./rules";
+import { isStandable, sizeOf } from "./rules";
 import type { Cell, Hint, Level } from "./types";
+
+/** The longer side of a case's map - every row and column lies within it. */
+function sideOf(level: Level): number {
+  const { rows, cols } = sizeOf(level);
+  return Math.max(rows, cols);
+}
 
 /**
  * Puts a person down for certain, crossing out their row and column.
@@ -34,7 +40,7 @@ export function settled(
   cell: Cell,
 ): Board {
   return isStandable(level, cell)
-    ? placed(board, id, cell, level.size, (one) => isStandable(level, one))
+    ? placed(board, id, cell, sideOf(level), (one) => isStandable(level, one))
     : board;
 }
 

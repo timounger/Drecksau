@@ -1,30 +1,38 @@
 /**
  * Murdoku on screen: the list of cases, and a case with its suspects, its map
- * and the accusation.
+ * and the check of the map.
  *
  * @module
  */
 "use client";
 
 import Link from "next/link";
-import { useRef, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
 import { EMPTY_BOARD } from "@/games/murdoku/engine/board";
-import { LEVELS, THING_KEYS } from "@/games/murdoku/engine/levels";
+import { DIFFICULTY_ORDER, LEVELS } from "@/games/murdoku/engine/levels";
 import {
   cluePoints,
-  solutionOf,
-  verdictOf,
+  groundAt,
+  groundDef,
+  isInside,
+  sizeOf,
+  thingAt,
+  thingDef,
 } from "@/games/murdoku/engine/rules";
-import type { Level, Suspect, Thing } from "@/games/murdoku/engine/types";
-import { CaseMap, THING_FACES } from "@/games/murdoku/components/case-map";
-import { useMurdoku, type MurdokuApi } from "@/games/murdoku/hooks/use-murdoku";
+import type { Difficulty, Level, Suspect } from "@/games/murdoku/engine/types";
+import { CaseMap } from "@/games/murdoku/components/case-map";
+import {
+  useMurdoku,
+  type Check,
+  type MurdokuApi,
+} from "@/games/murdoku/hooks/use-murdoku";
 import { MURDOKU_RULES } from "@/games/murdoku/i18n/rules";
 import {
   DIFFICULTY_NAMES,
   MURDOKU_TEXTS as T,
+  TRAIT_NAMES,
   clueText,
-  thingName,
 } from "@/games/murdoku/i18n/texts";
 
 /** A thousand, for milliseconds. */
@@ -47,6 +55,13 @@ export function MurdokuGame(): ReactElement {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-4">
       <GameHeader rules={MURDOKU_RULES} title={T.title} subtitle={T.subtitle}>
+        <Link
+          href="/murdoku/statistik"
+          data-testid="murdoku-stats-link"
+          className={BUTTON}
+        >
+          {T.statistics}
+        </Link>
         <Link
           href="/murdoku/online"
           data-testid="murdoku-online-link"
@@ -74,13 +89,45 @@ export function MurdokuGame(): ReactElement {
   );
 }
 
-/** The cases to choose from. */
+/** The cases to choose from - all of them, or one difficulty. */
 function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
+  const [filter, setFilter] = useState<Difficulty | "all">("all");
+  const shown = LEVELS.filter(
+    (level) => filter === "all" || level.difficulty === filter,
+  );
   return (
     <section className="flex flex-col gap-3" data-testid="murdoku-list">
       <h2 className="text-lg font-bold">{T.chooseCase}</h2>
+      <div
+        className="flex flex-wrap gap-1.5"
+        role="group"
+        aria-label={T.difficulty}
+        data-testid="murdoku-filter"
+      >
+        {(["all", ...DIFFICULTY_ORDER] as const).map((one) => {
+          const count = LEVELS.filter(
+            (level) => one === "all" || level.difficulty === one,
+          ).length;
+          return (
+            <button
+              key={one}
+              type="button"
+              aria-pressed={filter === one}
+              data-testid={`murdoku-filter-${one}`}
+              onClick={() => setFilter(one)}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-sm font-semibold ${
+                filter === one
+                  ? "border-sky-600 bg-sky-600 text-white"
+                  : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {`${one === "all" ? T.allCases : DIFFICULTY_NAMES[one]} (${String(count)})`}
+            </button>
+          );
+        })}
+      </div>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {LEVELS.map((level, at) => {
+        {shown.map((level) => {
           const solved = game.solved.has(level.id);
           return (
             <li key={level.id}>
@@ -95,9 +142,7 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
                   <CaseMap level={level} board={EMPTY_BOARD} preview />
                 </span>
                 <span className="flex items-center justify-between gap-2">
-                  <span className="text-base font-bold">
-                    {`${String(at + 1)}. ${level.name}`}
-                  </span>
+                  <span className="text-base font-bold">{level.name}</span>
                   <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
                     {DIFFICULTY_NAMES[level.difficulty]}
                   </span>
@@ -137,12 +182,17 @@ export function CaseView({
   // Solved, or the solution on the map: then only looking, no playing.
   const over = game.outcome?.kind === "right" || game.peeking;
   const picked = level.suspects.find((one) => one.id === game.selected);
+  const complete = level.suspects.every(
+    (one) => game.board.placement[one.id] !== undefined,
+  );
+  const reveal = useReveal(game.check, level.suspects);
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100">
-        {level.story}
-      </p>
+      <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100">
+        <span className="flex-1">{level.story}</span>
+        <CaseClock game={game} />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         <section className="flex flex-col gap-2">
@@ -161,6 +211,20 @@ export function CaseView({
               </li>
             ))}
           </ul>
+          {/* What the printed case says under its suspects, with the magnifier. */}
+          {(level.rules ?? []).length > 0 && (
+            <ul
+              className="flex flex-col gap-1.5 rounded-2xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100"
+              data-testid="murdoku-rules"
+            >
+              {(level.rules ?? []).map((rule) => (
+                <li key={rule.text} className="flex gap-2">
+                  <span aria-hidden="true">{"\u{1F50E}"}</span>
+                  {rule.text}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="flex flex-col gap-3">
@@ -182,16 +246,35 @@ export function CaseView({
               board={game.board}
               onTap={game.tap}
               onHold={game.hold}
+              canHold={game.selected !== null}
               onClear={game.clear}
-              glow={
-                picked === undefined
-                  ? []
-                  : cluePoints(level, picked, game.board.placement)
-              }
+              verdicts={reveal.verdicts}
+              glow={picked === undefined ? [] : cluePoints(level, picked)}
             />
           </div>
           <Legend level={level} />
+          {game.culprit !== null && (
+            <p className="text-sm font-medium" data-testid="murdoku-result">
+              {T.gaveUp(
+                level.suspects.find((one) => one.id === game.culprit)?.name ??
+                  "?",
+                level.culprit.name,
+              )}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
+            {/* **Bestätigen** checks the map - only once everybody, the
+                victim too, stands somewhere. */}
+            <button
+              type="button"
+              data-testid="murdoku-confirm"
+              onClick={game.confirm}
+              disabled={!complete || over}
+              title={complete ? undefined : T.confirmHint}
+              className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {T.confirm}
+            </button>
             {game.undoable && (
               <button
                 type="button"
@@ -210,17 +293,11 @@ export function CaseView({
             >
               {T.restart}
             </button>
-            <button
-              type="button"
-              data-testid="murdoku-hint"
-              onClick={game.hint}
+            <HintButton
+              game={game}
+              total={level.hints.length}
               disabled={over || game.shownHints >= level.hints.length}
-              className={BUTTON}
-            >
-              {game.shownHints === 0
-                ? T.hint
-                : `${T.hint} (${String(game.shownHints)}/${String(level.hints.length)})`}
-            </button>
+            />
             <RevealButton
               game={game}
               disabled={game.outcome?.kind === "right"}
@@ -290,11 +367,227 @@ export function CaseView({
               </button>
             </div>
           )}
-          <Accusation game={game} level={level} />
+          <ResultDialog game={game} level={level} done={reveal.done} />
         </section>
       </div>
     </div>
   );
+}
+
+/** How long each pawn waits for its ring after "Bestätigen", in milliseconds. */
+const REVEAL_STEP_MS = 280;
+
+/**
+ * The answer to "Bestätigen", one pawn after another.
+ *
+ * @param check - the answer, or null before any
+ * @param suspects - everybody, in the order they are ringed - A first
+ * @returns the rings shown so far, and whether all are shown
+ */
+function useReveal(
+  check: Check | null,
+  suspects: readonly Suspect[],
+): {
+  readonly verdicts: Readonly<Record<string, boolean>>;
+  readonly done: boolean;
+} {
+  const [shown, setShown] = useState({ nonce: -1, count: 0 });
+  const nonce = check?.nonce ?? null;
+  const total = suspects.length;
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    if (nonce !== null) {
+      let count = 0;
+      const timer = window.setInterval(() => {
+        count += 1;
+        setShown({ nonce, count });
+        if (count >= total) {
+          window.clearInterval(timer);
+        }
+      }, REVEAL_STEP_MS);
+      cleanup = () => window.clearInterval(timer);
+    }
+    return cleanup;
+  }, [nonce, total]);
+  const count = check !== null && shown.nonce === check.nonce ? shown.count : 0;
+  return {
+    verdicts:
+      check === null
+        ? {}
+        : Object.fromEntries(
+            suspects
+              .slice(0, count)
+              .map((one) => [one.id, check.results[one.id] === true]),
+          ),
+    done: check !== null && count >= total,
+  };
+}
+
+/**
+ * What came of "Bestätigen", once every pawn has its ring: solved, with the
+ * culprit named - or how many stand wrong, and the choice to start over or to
+ * go on correcting.
+ */
+function ResultDialog({
+  game,
+  level,
+  done,
+}: {
+  readonly game: MurdokuApi;
+  readonly level: Level;
+  readonly done: boolean;
+}): ReactElement {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [dismissed, setDismissed] = useState<number | null>(null);
+  const check = game.check;
+  const nonce = check?.nonce ?? null;
+  const open = done && nonce !== null && nonce !== dismissed;
+  useEffect(() => {
+    if (open && dialog.current !== null && !dialog.current.open) {
+      dialog.current.showModal();
+    }
+  }, [open]);
+  const close = () => {
+    setDismissed(nonce);
+    dialog.current?.close();
+  };
+  const results = Object.values(check?.results ?? {});
+  const wrong = results.filter((one) => !one).length;
+  const solved = check !== null && wrong === 0;
+  const outcome = game.outcome;
+  const nameOf = (id: string) =>
+    level.suspects.find((one) => one.id === id)?.name ?? "?";
+
+  return (
+    <dialog
+      ref={dialog}
+      data-testid="murdoku-result-dialog"
+      aria-labelledby="murdoku-result-title"
+      onClose={() => setDismissed(nonce)}
+      className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-2xl bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-zinc-950/30 dark:bg-zinc-900 dark:text-zinc-100"
+    >
+      <div className="flex flex-col gap-4 p-5">
+        <div className="flex items-start gap-3">
+          <span
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-2xl ${
+              solved
+                ? "bg-emerald-100 dark:bg-emerald-950"
+                : "bg-rose-100 dark:bg-rose-950"
+            }`}
+            aria-hidden="true"
+          >
+            {solved ? "\u{1F389}" : "\u{1F50D}"}
+          </span>
+          <div className="flex flex-col gap-1">
+            <h2 id="murdoku-result-title" className="text-lg font-bold">
+              {solved ? T.solvedTitle : T.wrongTitle}
+            </h2>
+            <p
+              className="text-sm text-zinc-600 dark:text-zinc-300"
+              data-testid="murdoku-result-text"
+            >
+              {solved && outcome?.kind === "right"
+                ? game.peeked
+                  ? T.rightPeeked(nameOf(outcome.who), level.culprit.name)
+                  : T.right(nameOf(outcome.who), level.culprit.name)
+                : T.wrongCount(wrong, results.length)}
+            </p>
+            {solved && outcome?.kind === "right" && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {clockText(outcome.ms)}
+                {game.hints > 0 ? ` - ${T.hintsUsed(game.hints)}` : ""}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          {solved && game.next !== null && (
+            <button
+              type="button"
+              data-testid="murdoku-next"
+              onClick={() => {
+                close();
+                game.next?.();
+              }}
+              className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              {T.nextCase}
+            </button>
+          )}
+          {game.canReplay && (
+            <button
+              type="button"
+              data-testid="murdoku-replay"
+              onClick={() => {
+                close();
+                game.replay();
+              }}
+              className="cursor-pointer rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              {T.replay}
+            </button>
+          )}
+          <button
+            type="button"
+            data-testid="murdoku-edit"
+            onClick={close}
+            autoFocus
+            className="cursor-pointer rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          >
+            {solved ? T.close : T.edit}
+          </button>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+/** How often the clock is redrawn, in milliseconds. */
+const CLOCK_TICK_MS = 1000;
+
+/**
+ * How long the case has been worked on - running while it is open, standing
+ * still once it is solved.
+ */
+function CaseClock({ game }: { readonly game: MurdokuApi }): ReactElement {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    if (game.running) {
+      const timer = window.setInterval(
+        () => setTick((one) => one + 1),
+        CLOCK_TICK_MS,
+      );
+      cleanup = () => window.clearInterval(timer);
+    }
+    return cleanup;
+  }, [game.running]);
+  const ms = game.outcome?.kind === "right" ? game.outcome.ms : game.elapsed();
+  return (
+    <span
+      data-testid="murdoku-clock"
+      title={T.clockTitle}
+      className="shrink-0 rounded-full bg-white/80 px-3 py-1 font-mono text-sm font-bold text-rose-900 tabular-nums dark:bg-zinc-900/60 dark:text-rose-100"
+    >
+      {`\u23F1 ${clockText(ms)}`}
+    </span>
+  );
+}
+
+/**
+ * A time as the clock shows it.
+ *
+ * @param ms - the time
+ * @returns "4:07", or "1:04:07" from an hour on
+ */
+export function clockText(ms: number): string {
+  const seconds = Math.floor(ms / SECOND);
+  const minutes = Math.floor(seconds / MINUTE);
+  const hours = Math.floor(minutes / MINUTE);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return hours > 0
+    ? `${String(hours)}:${pad(minutes % MINUTE)}:${pad(seconds % MINUTE)}`
+    : `${String(minutes)}:${pad(seconds % MINUTE)}`;
 }
 
 /**
@@ -302,19 +595,23 @@ export function CaseView({
  * to the map, and only with what this map actually has.
  */
 function Legend({ level }: { readonly level: Level }): ReactElement {
-  const present = new Set<Thing>();
-  for (const row of level.thingMap) {
-    for (const key of row) {
-      const thing = THING_KEYS[key];
-      if (thing !== undefined) {
-        present.add(thing);
+  const { rows, cols } = sizeOf(level);
+  const things = new Set<string>();
+  const grounds = new Set<string>();
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const cell = { row, col };
+      const thing = thingAt(level, cell);
+      if (thing !== null) {
+        things.add(thing);
+      }
+      if (isInside(level, cell)) {
+        grounds.add(groundAt(level, cell));
       }
     }
   }
-  const things = THING_ORDER.filter((thing) => present.has(thing));
-  const water = level.areas.some((area) => area.ground === "water");
-  const free = things.filter((thing) => STANDS_ON.has(thing));
-  const blocked = things.filter((thing) => !STANDS_ON.has(thing));
+  const free = [...things].filter((id) => thingDef(level, id).standable);
+  const blocked = [...things].filter((id) => !thingDef(level, id).standable);
   return (
     <div
       className="grid gap-2 text-xs sm:grid-cols-2"
@@ -325,18 +622,20 @@ function Legend({ level }: { readonly level: Level }): ReactElement {
           {T.canStand}
         </span>
         <span className="flex flex-wrap gap-x-3 gap-y-1">
-          {water && (
-            <span className="flex items-center gap-1">
-              <span
-                className="inline-block h-4 w-4 rounded-sm"
-                style={{ backgroundColor: WATER_TINT }}
-                aria-hidden="true"
-              />
-              {T.water}
-            </span>
-          )}
-          {free.map((thing) => (
-            <LegendItem key={thing} thing={thing} />
+          {[...grounds]
+            .filter((id) => groundDef(id).standable !== false)
+            .map((id) => (
+              <span key={id} className="flex items-center gap-1">
+                <span
+                  className="inline-block h-4 w-4 rounded-sm border border-zinc-300 dark:border-zinc-600"
+                  style={{ backgroundColor: groundDef(id).colour }}
+                  aria-hidden="true"
+                />
+                {groundDef(id).name}
+              </span>
+            ))}
+          {free.map((id) => (
+            <LegendItem key={id} level={level} thing={id} />
           ))}
         </span>
       </div>
@@ -345,8 +644,20 @@ function Legend({ level }: { readonly level: Level }): ReactElement {
           {T.cannotStand}
         </span>
         <span className="flex flex-wrap gap-x-3 gap-y-1">
-          {blocked.map((thing) => (
-            <LegendItem key={thing} thing={thing} />
+          {[...grounds]
+            .filter((id) => groundDef(id).standable === false)
+            .map((id) => (
+              <span key={id} className="flex items-center gap-1">
+                <span
+                  className="inline-block h-4 w-4 rounded-sm border border-zinc-300 dark:border-zinc-600"
+                  style={{ backgroundColor: groundDef(id).colour }}
+                  aria-hidden="true"
+                />
+                {groundDef(id).name}
+              </span>
+            ))}
+          {blocked.map((id) => (
+            <LegendItem key={id} level={level} thing={id} />
           ))}
         </span>
       </div>
@@ -355,34 +666,82 @@ function Legend({ level }: { readonly level: Level }): ReactElement {
 }
 
 /** One thing in the legend: how it looks and what it is called. */
-function LegendItem({ thing }: { readonly thing: Thing }): ReactElement {
+function LegendItem({
+  level,
+  thing,
+}: {
+  readonly level: Level;
+  readonly thing: string;
+}): ReactElement {
+  const def = thingDef(level, thing);
   return (
     <span className="flex items-center gap-1">
       <span className="text-base leading-none" aria-hidden="true">
-        {THING_FACES[thing]}
+        {def.emoji}
       </span>
-      {thingName(thing)}
+      {def.name}
     </span>
   );
 }
 
-/** The things in the order the legend lists them. */
-const THING_ORDER: readonly Thing[] = [
-  "house",
-  "boat",
-  "tree",
-  "shrub",
-  "shark",
-  "boar",
-  "boulder",
-  "cactus",
-];
+/** How long "Tipp" has to be held to show and carry out every step, in milliseconds. */
+const ALL_HINTS_MS = 1000;
 
-/** The things somebody may stand on. */
-const STANDS_ON: ReadonlySet<Thing> = new Set<Thing>(["house", "boat"]);
-
-/** The colour of water in the legend - the sea on the map. */
-const WATER_TINT = "#a7d3f2";
+/**
+ * "Tipp": a click shows the next step of the way, holding it for a second
+ * shows every step and carries them all out. The release after the hold is
+ * not a click as well.
+ */
+function HintButton({
+  game,
+  total,
+  disabled,
+}: {
+  readonly game: MurdokuApi;
+  readonly total: number;
+  readonly disabled: boolean;
+}): ReactElement {
+  const timer = useRef<number | null>(null);
+  const held = useRef(false);
+  const stop = () => {
+    if (timer.current !== null) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+  };
+  return (
+    <button
+      type="button"
+      data-testid="murdoku-hint"
+      disabled={disabled}
+      title={T.hintHold}
+      onPointerDown={() => {
+        held.current = false;
+        stop();
+        timer.current = window.setTimeout(() => {
+          timer.current = null;
+          held.current = true;
+          game.allHints();
+        }, ALL_HINTS_MS);
+      }}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+      onContextMenu={(event) => event.preventDefault()}
+      onClick={() => {
+        if (!held.current) {
+          game.hint();
+        }
+        held.current = false;
+      }}
+      className={`${BUTTON} select-none`}
+    >
+      {game.shownHints === 0
+        ? T.hint
+        : `${T.hint} (${String(game.shownHints)}/${String(total)})`}
+    </button>
+  );
+}
 
 /**
  * "Lösung zeigen" and "Lösung ausblenden" - with a proper question the first
@@ -519,8 +878,7 @@ function SuspectCard({
 }): ReactElement {
   const chosen = game.selected === suspect.id;
   const placed = game.board.placement[suspect.id] !== undefined;
-  const verdict = verdictOf(level, suspect, game.board.placement);
-  const victim = suspect.clue.kind === "victim";
+  const victim = suspect.clue.victim === true;
   return (
     <button
       type="button"
@@ -553,17 +911,29 @@ function SuspectCard({
       </span>
       <span className="flex items-center gap-1 text-sm font-bold">
         {suspect.name}
-        {verdict === "holds" && (
-          <span className="text-emerald-600" aria-label="passt">
+        {/* Only that the person stands somewhere - not whether it is right;
+            that is what "Bestätigen" is for. */}
+        {placed && (
+          <span className="text-emerald-600" aria-label={T.placed}>
             {"✓"}
           </span>
         )}
-        {verdict === "broken" && (
-          <span className="text-red-600" aria-label="passt nicht">
-            {"✗"}
-          </span>
-        )}
       </span>
+      {/* What the portrait would show and the clues ask about - a cap,
+          glasses, being a zookeeper. Without the printed faces it has to
+          be said. */}
+      {(suspect.traits ?? []).length > 0 && (
+        <span className="flex flex-wrap justify-center gap-1">
+          {(suspect.traits ?? []).map((trait) => (
+            <span
+              key={trait}
+              className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            >
+              {TRAIT_NAMES[trait] ?? trait}
+            </span>
+          ))}
+        </span>
+      )}
       {victim && (
         <span className="text-[11px] font-bold tracking-wide text-rose-700 uppercase dark:text-rose-300">
           {T.victim}
@@ -573,85 +943,5 @@ function SuspectCard({
         {clueText(level, suspect)}
       </span>
     </button>
-  );
-}
-
-/** "The thief is ..." - and what came of it. */
-function Accusation({
-  game,
-  level,
-}: {
-  readonly game: MurdokuApi;
-  readonly level: Level;
-}): ReactElement {
-  const outcome = game.outcome;
-  const nameOf = (id: string) =>
-    level.suspects.find((one) => one.id === id)?.name ?? "?";
-  const over = outcome?.kind === "right" || game.peeking;
-  const solvable = solutionOf(level) !== null;
-
-  return (
-    <div
-      className="flex flex-col gap-2 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
-      data-testid="murdoku-accusation"
-    >
-      <span className="text-sm font-bold">{T.accuse(level.culprit.name)}</span>
-      {!solvable && (
-        <span className="text-sm text-red-600">{T.noSolution}</span>
-      )}
-      {!over && (
-        <>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            {T.accuseHint}
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {level.suspects
-              .filter((one) => one.clue.kind !== "victim")
-              .map((suspect) => (
-                <button
-                  key={suspect.id}
-                  type="button"
-                  data-testid={`murdoku-accuse-${suspect.id}`}
-                  onClick={() => game.accuse(suspect.id)}
-                  className="cursor-pointer rounded-full border px-3 py-1 text-sm font-semibold hover:brightness-95"
-                  style={{ borderColor: suspect.colour, color: suspect.colour }}
-                >
-                  {suspect.name}
-                </button>
-              ))}
-          </div>
-        </>
-      )}
-      {outcome?.kind === "wrong" && (
-        <p
-          className="text-sm font-medium text-red-700 dark:text-red-400"
-          data-testid="murdoku-result"
-        >
-          {T.wrong(nameOf(outcome.who))}
-        </p>
-      )}
-      {outcome?.kind === "right" && (
-        <p
-          className="text-base font-bold text-emerald-700 dark:text-emerald-400"
-          data-testid="murdoku-result"
-        >
-          {game.peeked
-            ? T.rightPeeked(nameOf(outcome.who), level.culprit.name)
-            : T.right(nameOf(outcome.who), level.culprit.name)}{" "}
-          <span className="font-normal">
-            {T.time(
-              Math.floor(outcome.ms / SECOND / MINUTE),
-              Math.floor(outcome.ms / SECOND) % MINUTE,
-            )}
-            {game.hints > 0 ? ` - ${T.hintsUsed(game.hints)}` : ""}
-          </span>
-        </p>
-      )}
-      {game.culprit !== null && (
-        <p className="text-sm font-medium" data-testid="murdoku-result">
-          {T.gaveUp(nameOf(game.culprit), level.culprit.name)}
-        </p>
-      )}
-    </div>
   );
 }

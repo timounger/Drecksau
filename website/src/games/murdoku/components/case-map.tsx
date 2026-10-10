@@ -17,10 +17,15 @@ import { cellKey, standingOn, type Board } from "@/games/murdoku/engine/board";
 import {
   areaAt,
   clashesOf,
+  groundAt,
+  groundDef,
+  isInside,
   isStandable,
+  sizeOf,
   thingAt,
+  thingDef,
 } from "@/games/murdoku/engine/rules";
-import type { Cell, Level, Thing } from "@/games/murdoku/engine/types";
+import type { Cell, Level } from "@/games/murdoku/engine/types";
 import { MURDOKU_TEXTS as T } from "@/games/murdoku/i18n/texts";
 
 /** One field, in units of the picture. */
@@ -31,18 +36,6 @@ const MARGIN = 40;
 
 /** How thick a border between two areas is. */
 const BORDER = 6;
-
-/** How each thing looks. */
-export const THING_FACES: Readonly<Record<Thing, string>> = {
-  house: "\u{1F3E0}",
-  boat: "\u{1F6F6}",
-  tree: "\u{1F332}",
-  shrub: "\u{1F33F}",
-  shark: "\u{1F988}",
-  boar: "\u{1F417}",
-  boulder: "\u{1FAA8}",
-  cactus: "\u{1F335}",
-};
 
 /** Sizes inside a field, as parts of it. */
 const LOOK = {
@@ -76,6 +69,16 @@ type CaseMapProps = {
   /** Called with the field that was right-clicked: wipe the marks in it. */
   readonly onClear?: (cell: Cell) => void;
   /**
+   * Whether holding a field can place anybody - only with a suspect picked.
+   * Without one there is no ring, because nothing would come of it.
+   */
+  readonly canHold?: boolean;
+  /**
+   * The answer to "Bestätigen", as far as it has been shown: per suspect
+   * whether they stand right - a green ring, or a red one.
+   */
+  readonly verdicts?: Readonly<Record<string, boolean>>;
+  /**
    * Small, for the list of cases: only the ground, the borders and the
    * things - no numbers, no names, nothing to tap.
    */
@@ -88,13 +91,13 @@ type CaseMapProps = {
 const GLOW = { inset: 5, round: 14, line: 5 } as const;
 
 /** How long a field has to be held to place somebody for certain, in milliseconds. */
-export const HOLD_MS = 500;
+export const HOLD_MS = 300;
 
 /**
  * How long a press has to last before the ring appears at all, in
  * milliseconds - an ordinary click never shows it.
  */
-export const HOLD_DELAY_MS = 500;
+export const HOLD_DELAY_MS = 200;
 
 /** The ring that fills while a field is held: its size as part of a field, and its line. */
 const RING = { radius: 0.4, line: 10 } as const;
@@ -108,10 +111,17 @@ const RING = { radius: 0.4, line: 10 } as const;
  * animation starts when its element appears - with every press anew.
  */
 const RING_KEYFRAMES =
-  "@keyframes murdoku-ring { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }";
+  "@keyframes murdoku-ring { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } } @keyframes murdoku-verdict { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }";
 
-/** Where the pencil marks sit in a field: a three by three grid, one spot per suspect. */
-const MARKS = { across: 3, step: 0.29, font: 0.22 } as const;
+/** How thick the ring of a checked pawn is. */
+const VERDICT_LINE = 8;
+
+/**
+ * Where the pencil marks sit in a field: a square grid with a spot per
+ * suspect - three by three for nine, four by four for sixteen. How far apart
+ * and how big, as parts of a field divided by the grid's width.
+ */
+const MARKS = { spread: 0.87, font: 0.66 } as const;
 
 /**
  * The map.
@@ -125,15 +135,19 @@ export function CaseMap({
   onTap,
   onHold,
   onClear,
+  canHold = true,
+  verdicts = {},
   preview = false,
   glow = [],
 }: CaseMapProps): ReactElement {
   // **Tap or hold.** A short press pencils in, a long one places for certain.
-  // The ring only shows after half a second - a click never flashes it - and
-  // then fills in another half; full means placed. Let go before the ring
+  // The ring only shows after a fifth of a second - a click never flashes it -
+  // and then fills in under a third; full means placed. Let go before the ring
   // shows and it was a tap; let go while it fills and nothing happens at all.
+  // Without a suspect picked there is no hold: every press is a tap.
   const timer = useRef<number | null>(null);
   const filling = useRef(false);
+  const plain = useRef(false);
   const [holding, setHolding] = useState<Cell | null>(null);
   // Which kind of pointer pressed last. A right click wipes a field - but a
   // phone sends the same "context menu" on a long press, and there the long
@@ -142,8 +156,9 @@ export function CaseMap({
   const press = (cell: Cell, button: number, kind: string) => {
     pointer.current = kind;
     stop();
+    plain.current = button === 0 && !canHold;
     // Only the main button holds; the right one never places anybody.
-    if (button === 0) {
+    if (button === 0 && canHold) {
       timer.current = window.setTimeout(() => {
         filling.current = true;
         setHolding(cell);
@@ -157,7 +172,8 @@ export function CaseMap({
     }
   };
   const release = (cell: Cell) => {
-    const tapped = timer.current !== null && !filling.current;
+    const tapped =
+      plain.current || (timer.current !== null && !filling.current);
     stop();
     if (tapped) {
       onTap?.(cell);
@@ -169,16 +185,23 @@ export function CaseMap({
       timer.current = null;
     }
     filling.current = false;
+    plain.current = false;
     setHolding(null);
   };
 
-  const size = level.size * FIELD;
+  const { rows, cols } = sizeOf(level);
+  const width = cols * FIELD;
+  const height = rows * FIELD;
+  // Only the fields of the map - a case need not be square.
   const cells: Cell[] = [];
-  for (let row = 0; row < level.size; row += 1) {
-    for (let col = 0; col < level.size; col += 1) {
-      cells.push({ row, col });
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      if (isInside(level, { row, col })) {
+        cells.push({ row, col });
+      }
     }
   }
+  const across = Math.ceil(Math.sqrt(level.suspects.length));
   const placed = Object.values(board.placement);
   const blocked = (cell: Cell) =>
     placed.some(
@@ -190,7 +213,7 @@ export function CaseMap({
 
   return (
     <svg
-      viewBox={`${String(-MARGIN)} ${String(-MARGIN)} ${String(size + MARGIN * 2)} ${String(size + MARGIN * 2)}`}
+      viewBox={`${String(-MARGIN)} ${String(-MARGIN)} ${String(width + MARGIN * 2)} ${String(height + MARGIN * 2)}`}
       className="block h-auto w-full touch-manipulation select-none"
       role="img"
       aria-label={T.boardLabel(level.name)}
@@ -235,13 +258,26 @@ export function CaseMap({
           <circle cx="7" cy="9" r="1.6" fill="#b08d3c" fillOpacity={0.3} />
           <circle cx="21" cy="22" r="1.4" fill="#b08d3c" fillOpacity={0.3} />
         </pattern>
+        <pattern
+          id="murdoku-floor"
+          width="50"
+          height="50"
+          patternUnits="userSpaceOnUse"
+        >
+          <path
+            d="M0 25 H50 M25 0 V25 M0 0 V0"
+            stroke="#78716c"
+            strokeOpacity={0.18}
+            strokeWidth={2}
+          />
+        </pattern>
       </defs>
 
       <rect
         x={-MARGIN}
         y={-MARGIN}
-        width={size + MARGIN * 2}
-        height={size + MARGIN * 2}
+        width={width + MARGIN * 2}
+        height={height + MARGIN * 2}
         rx={18}
         className="fill-white dark:fill-zinc-900"
       />
@@ -249,6 +285,13 @@ export function CaseMap({
       {/* The ground. */}
       {cells.map((cell) => {
         const area = areaAt(level, cell);
+        const ground = groundDef(groundAt(level, cell));
+        // The area's own colour, unless the case paints its ground field by
+        // field - then the ground shows, water in a habitat included.
+        const fill =
+          level.groundMap === undefined
+            ? (area?.tint ?? ground.colour)
+            : ground.colour;
         return (
           <g key={`ground-${cellKey(cell)}`}>
             <rect
@@ -256,41 +299,26 @@ export function CaseMap({
               y={cell.row * FIELD}
               width={FIELD}
               height={FIELD}
-              fill={area.tint}
+              fill={fill}
+              stroke="#1f2937"
+              strokeOpacity={0.22}
+              strokeWidth={1.5}
             />
-            <rect
-              x={cell.col * FIELD}
-              y={cell.row * FIELD}
-              width={FIELD}
-              height={FIELD}
-              fill={`url(#murdoku-${area.ground === "water" ? "waves" : area.ground})`}
-            />
+            {ground.pattern !== "none" && (
+              <rect
+                x={cell.col * FIELD}
+                y={cell.row * FIELD}
+                width={FIELD}
+                height={FIELD}
+                fill={`url(#murdoku-${ground.pattern})`}
+              />
+            )}
           </g>
         );
       })}
 
-      {/* The fine grid, then the thick lines between areas. */}
-      {Array.from({ length: level.size + 1 }, (unused, at) => (
-        <g
-          key={`grid-${String(at)}`}
-          stroke="#1f2937"
-          strokeOpacity={0.22}
-          strokeWidth={1.5}
-        >
-          <line x1={at * FIELD} y1={0} x2={at * FIELD} y2={size} />
-          <line x1={0} y1={at * FIELD} x2={size} y2={at * FIELD} />
-        </g>
-      ))}
+      {/* The thick lines between areas and round the edge of the map. */}
       {cells.flatMap((cell) => borders(level, cell))}
-      <rect
-        x={0}
-        y={0}
-        width={size}
-        height={size}
-        fill="none"
-        stroke="#111827"
-        strokeWidth={BORDER * 2}
-      />
 
       {/* What the chosen suspect's clue points at, glowing under the things. */}
       {glow.map((cell) => (
@@ -323,7 +351,7 @@ export function CaseMap({
             dominantBaseline="central"
             fontSize={FIELD * LOOK.thing}
           >
-            {THING_FACES[thing]}
+            {thingDef(level, thing).emoji}
           </text>
         );
       })}
@@ -378,14 +406,11 @@ export function CaseMap({
         return marks.map((id) => {
           const at = level.suspects.findIndex((one) => one.id === id);
           const suspect = level.suspects[at];
-          const x =
-            col * FIELD +
-            FIELD / 2 +
-            ((at % MARKS.across) - 1) * FIELD * MARKS.step;
+          const step = (FIELD * MARKS.spread) / across;
+          const middle = (across - 1) / 2;
+          const x = col * FIELD + FIELD / 2 + ((at % across) - middle) * step;
           const y =
-            row * FIELD +
-            FIELD / 2 +
-            (Math.floor(at / MARKS.across) - 1) * FIELD * MARKS.step;
+            row * FIELD + FIELD / 2 + (Math.floor(at / across) - middle) * step;
           return (
             <text
               key={`mark-${key}-${id}`}
@@ -394,7 +419,7 @@ export function CaseMap({
               y={y}
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize={FIELD * MARKS.font}
+              fontSize={(FIELD * MARKS.font) / across}
               fontWeight={800}
               fill={suspect?.colour ?? "#111827"}
               stroke="#ffffff"
@@ -418,27 +443,39 @@ export function CaseMap({
             letter={suspect.id}
             colour={suspect.colour}
             clash={clashing.has(suspect.id)}
+            verdict={verdicts[suspect.id]}
           />
         );
       })}
 
       {/* Row and column numbers. */}
-      {Array.from({ length: preview ? 0 : level.size }, (unused, at) => (
-        <g
-          key={`number-${String(at)}`}
+      {Array.from({ length: preview ? 0 : cols }, (unused, at) => (
+        <text
+          key={`column-${String(at)}`}
+          x={at * FIELD + FIELD / 2}
+          y={-MARGIN / 2}
           fontSize={19}
           fontWeight={700}
           textAnchor="middle"
           dominantBaseline="central"
           className="fill-zinc-500 dark:fill-zinc-400"
         >
-          <text x={at * FIELD + FIELD / 2} y={-MARGIN / 2}>
-            {`C${String(at + 1)}`}
-          </text>
-          <text x={-MARGIN / 2} y={at * FIELD + FIELD / 2}>
-            {`R${String(at + 1)}`}
-          </text>
-        </g>
+          {`C${String(at + 1)}`}
+        </text>
+      ))}
+      {Array.from({ length: preview ? 0 : rows }, (unused, at) => (
+        <text
+          key={`row-${String(at)}`}
+          x={-MARGIN / 2}
+          y={at * FIELD + FIELD / 2}
+          fontSize={19}
+          fontWeight={700}
+          textAnchor="middle"
+          dominantBaseline="central"
+          className="fill-zinc-500 dark:fill-zinc-400"
+        >
+          {`R${String(at + 1)}`}
+        </text>
       ))}
 
       {/* The ring that fills while a field is held - full means placed. */}
@@ -511,43 +548,70 @@ function cellOf(key: string): Cell {
   return { row, col };
 }
 
-/** The thick lines on a field's edges where it meets another area. */
+/**
+ * The thick lines on a field's edges: where it meets another area, and where
+ * the map ends - at its edge or at a field that is not part of it.
+ */
 function borders(level: Level, cell: Cell): ReactElement[] {
-  const home = areaAt(level, cell).key;
+  const home = areaAt(level, cell)?.key;
   const x = cell.col * FIELD;
   const y = cell.row * FIELD;
-  const lines: ReactElement[] = [];
-  const right = { row: cell.row, col: cell.col + 1 };
-  const below = { row: cell.row + 1, col: cell.col };
-  if (right.col < level.size && areaAt(level, right).key !== home) {
-    lines.push(
-      <line
-        key={`border-r-${cellKey(cell)}`}
-        x1={x + FIELD}
-        y1={y}
-        x2={x + FIELD}
-        y2={y + FIELD}
-        stroke="#111827"
-        strokeWidth={BORDER}
-        strokeLinecap="square"
-      />,
-    );
-  }
-  if (below.row < level.size && areaAt(level, below).key !== home) {
-    lines.push(
-      <line
-        key={`border-b-${cellKey(cell)}`}
-        x1={x}
-        y1={y + FIELD}
-        x2={x + FIELD}
-        y2={y + FIELD}
-        stroke="#111827"
-        strokeWidth={BORDER}
-        strokeLinecap="square"
-      />,
-    );
-  }
-  return lines;
+  const sides = [
+    {
+      side: "r",
+      next: { row: cell.row, col: cell.col + 1 },
+      x1: x + FIELD,
+      y1: y,
+      x2: x + FIELD,
+      y2: y + FIELD,
+    },
+    {
+      side: "b",
+      next: { row: cell.row + 1, col: cell.col },
+      x1: x,
+      y1: y + FIELD,
+      x2: x + FIELD,
+      y2: y + FIELD,
+    },
+    {
+      side: "l",
+      next: { row: cell.row, col: cell.col - 1 },
+      x1: x,
+      y1: y,
+      x2: x,
+      y2: y + FIELD,
+    },
+    {
+      side: "t",
+      next: { row: cell.row - 1, col: cell.col },
+      x1: x,
+      y1: y,
+      x2: x + FIELD,
+      y2: y,
+    },
+  ];
+  return sides.flatMap((one) => {
+    const edge = !isInside(level, one.next);
+    // Between two areas the line is drawn once, from the left or upper field.
+    const between =
+      !edge &&
+      (one.side === "r" || one.side === "b") &&
+      areaAt(level, one.next)?.key !== home;
+    return edge || between
+      ? [
+          <line
+            key={`border-${one.side}-${cellKey(cell)}`}
+            x1={one.x1}
+            y1={one.y1}
+            x2={one.x2}
+            y2={one.y2}
+            stroke="#111827"
+            strokeWidth={edge ? BORDER * 2 : BORDER}
+            strokeLinecap="square"
+          />,
+        ]
+      : [];
+  });
 }
 
 /** An area's name, on a little sign at the bottom left of its field. */
@@ -596,11 +660,14 @@ function Pawn({
   letter,
   colour,
   clash,
+  verdict,
 }: {
   readonly cell: Cell;
   readonly letter: string;
   readonly colour: string;
   readonly clash: boolean;
+  /** Right or wrong after "Bestätigen", or nothing before. */
+  readonly verdict: boolean | undefined;
 }): ReactElement {
   const x = cell.col * FIELD + FIELD / 2;
   const y = cell.row * FIELD + FIELD / 2;
@@ -623,7 +690,22 @@ function Pawn({
         stroke="#ffffff"
         strokeWidth={5}
       />
-      {clash && (
+      {verdict !== undefined && (
+        <circle
+          data-testid={`murdoku-verdict-${letter}-${verdict ? "right" : "wrong"}`}
+          cx={x}
+          cy={y}
+          r={r + PAWN_LOOK.ring}
+          fill="none"
+          stroke={verdict ? "#16a34a" : "#dc2626"}
+          strokeWidth={VERDICT_LINE}
+          style={{
+            transformOrigin: `${String(x)}px ${String(y)}px`,
+            animation: "murdoku-verdict 220ms ease-out",
+          }}
+        />
+      )}
+      {clash && verdict === undefined && (
         <circle
           cx={x}
           cy={y}

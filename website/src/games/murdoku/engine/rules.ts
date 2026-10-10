@@ -1,32 +1,31 @@
 /**
- * The rules of Murdoku: where somebody may stand, what a clue means, who was
- * alone with the victim - and the solver that proves a case has one answer.
+ * The rules of Murdoku: where somebody may stand, what a clue says about a
+ * placement, who was alone with the victim - and the solver that proves a
+ * case has one answer.
  *
  * @module
  * @remarks
- * Three rules and the clues. **One person per row and per column.** People
- * stand only on free fields, in a house or on a boat - never on a tree, a
- * rock or an animal. **"Beside" means the field to the left, right, above or
- * below, and in the same area**: a house across the water is not beside
- * anybody on the shore. And the culprit is whoever was alone with the victim
- * in the victim's area.
+ * Three rules hold for every case. **At most one person per row and per
+ * column.** People stand only on the map and only where they can - on free
+ * ground, in water, on a chair, never on a tree or an animal. **"Beside"
+ * means the field to the left, right, above or below, and in the same
+ * area.** The culprit is whoever was alone with the victim in the victim's
+ * area. Everything else is the case's own clues and rules (see ./types).
  */
-import { THING_KEYS } from "./levels";
+import { GROUNDS, THINGS } from "./catalog";
 import type {
   Area,
   Cell,
-  Clue,
+  Context,
+  GroundDef,
   Level,
   Placement,
   Suspect,
-  Thing,
+  ThingDef,
 } from "./types";
 
 /** What a clue says about a placement so far. */
 export type Verdict = "holds" | "broken" | "open";
-
-/** The things somebody may stand on. */
-const STANDABLE: ReadonlySet<Thing> = new Set<Thing>(["house", "boat"]);
 
 /** The four neighbours of a field. */
 const STEPS: readonly Cell[] = [
@@ -40,19 +39,40 @@ const STEPS: readonly Cell[] = [
 const ENOUGH = 2;
 
 /**
+ * How many rows and columns a case's map has.
+ *
+ * @param level - the case
+ * @returns its rows and columns
+ */
+export function sizeOf(level: Level): { rows: number; cols: number } {
+  return {
+    rows: level.areaMap.length,
+    cols: Math.max(...level.areaMap.map((line) => line.length)),
+  };
+}
+
+/**
+ * Whether a field is part of the map.
+ *
+ * @param level - the case
+ * @param cell - the field
+ * @returns false off the edges and on fields marked `.`
+ */
+export function isInside(level: Level, cell: Cell): boolean {
+  const key = level.areaMap[cell.row]?.[cell.col];
+  return key !== undefined && key !== ".";
+}
+
+/**
  * The area a field belongs to.
  *
  * @param level - the case
  * @param cell - the field
- * @returns its area
+ * @returns its area, or null off the map
  */
-export function areaAt(level: Level, cell: Cell): Area {
-  const key = level.areaMap[cell.row]?.[cell.col] ?? "";
-  const area = level.areas.find((one) => one.key === key);
-  if (area === undefined) {
-    throw new Error(`No area "${key}" in case ${level.id}`);
-  }
-  return area;
+export function areaAt(level: Level, cell: Cell): Area | null {
+  const key = level.areaMap[cell.row]?.[cell.col] ?? ".";
+  return level.areas.find((one) => one.key === key) ?? null;
 }
 
 /**
@@ -60,11 +80,49 @@ export function areaAt(level: Level, cell: Cell): Area {
  *
  * @param level - the case
  * @param cell - the field
- * @returns the thing, or null for a free field
+ * @returns the thing's id, or null for nothing
  */
-export function thingAt(level: Level, cell: Cell): Thing | null {
+export function thingAt(level: Level, cell: Cell): string | null {
   const key = level.thingMap[cell.row]?.[cell.col] ?? ".";
-  return THING_KEYS[key] ?? null;
+  return key === "." ? null : (level.things[key] ?? null);
+}
+
+/**
+ * What a thing is.
+ *
+ * @param level - the case, for the things it brings itself
+ * @param id - the thing's id
+ * @returns its definition
+ */
+export function thingDef(level: Level, id: string): ThingDef {
+  const def = level.extraThings?.[id] ?? THINGS[id];
+  if (def === undefined) {
+    throw new Error(`Unknown thing "${id}" in case ${level.id}`);
+  }
+  return def;
+}
+
+/**
+ * A field's ground.
+ *
+ * @param level - the case
+ * @param cell - the field
+ * @returns the ground's id - from the ground map, or the area's own
+ */
+export function groundAt(level: Level, cell: Cell): string {
+  const key = level.groundMap?.[cell.row]?.[cell.col];
+  const mapped = key === undefined ? undefined : level.grounds?.[key];
+  return mapped ?? areaAt(level, cell)?.ground ?? "floor";
+}
+
+/**
+ * What a ground is.
+ *
+ * @param id - the ground's id
+ * @returns its definition
+ */
+export function groundDef(id: string): GroundDef {
+  return GROUNDS[id] ?? (GROUNDS.floor as GroundDef);
 }
 
 /**
@@ -72,33 +130,97 @@ export function thingAt(level: Level, cell: Cell): Thing | null {
  *
  * @param level - the case
  * @param cell - the field
- * @returns true on a free field, in a house or on a boat
+ * @returns true on the map, where nothing stands or what stands can be stood on
  */
 export function isStandable(level: Level, cell: Cell): boolean {
   const thing = thingAt(level, cell);
-  return thing === null || STANDABLE.has(thing);
+  return (
+    isInside(level, cell) &&
+    groundDef(groundAt(level, cell)).standable !== false &&
+    (thing === null || thingDef(level, thing).standable)
+  );
 }
 
 /**
- * The kinds of thing beside a field - next to it and in the same area.
+ * The context a clue is checked against.
  *
  * @param level - the case
- * @param cell - the field
- * @returns every kind found on the up to four fields around it
+ * @param placement - where people stand
+ * @param self - whose clue
+ * @returns the helpers the clue's code uses
  */
-export function thingsBeside(level: Level, cell: Cell): ReadonlySet<Thing> {
-  const home = areaAt(level, cell).key;
-  const found = new Set<Thing>();
-  for (const step of STEPS) {
-    const next = { row: cell.row + step.row, col: cell.col + step.col };
-    if (inside(level, next) && areaAt(level, next).key === home) {
-      const thing = thingAt(level, next);
-      if (thing !== null) {
-        found.add(thing);
+export function contextOf(
+  level: Level,
+  placement: Placement,
+  self: string,
+): Context {
+  const { rows, cols } = sizeOf(level);
+  const inside = (cell: Cell) => isInside(level, cell);
+  const areaOf = (cell: Cell) => areaAt(level, cell)?.key ?? null;
+  const is = (cell: Cell, what: string) => {
+    const thing = thingAt(level, cell);
+    return (
+      thing !== null &&
+      (thing === what || (thingDef(level, thing).kinds ?? []).includes(what))
+    );
+  };
+  const neighbours = (cell: Cell) =>
+    STEPS.map((step) => ({
+      row: cell.row + step.row,
+      col: cell.col + step.col,
+    })).filter((next) => inside(next) && areaOf(next) === areaOf(cell));
+  const besideCount = (cell: Cell, what: string) =>
+    neighbours(cell).filter((next) => is(next, what)).length;
+  const personAt = (cell: Cell) =>
+    Object.entries(placement).find(
+      ([, there]) => there.row === cell.row && there.col === cell.col,
+    )?.[0] ?? null;
+  return {
+    level,
+    placement,
+    self,
+    cell: placement[self] ?? { row: -1, col: -1 },
+    rows,
+    cols,
+    inside,
+    areaOf,
+    thingAt: (cell) => thingAt(level, cell),
+    is,
+    groundAt: (cell) => groundAt(level, cell),
+    standable: (cell) => isStandable(level, cell),
+    neighbours,
+    besideCount,
+    beside: (cell, what) => besideCount(cell, what) > 0,
+    besideGround: (cell, ground) =>
+      neighbours(cell).some((next) => groundAt(level, next) === ground),
+    cellOf: (id) => placement[id],
+    personAt,
+    peopleIn: (area) =>
+      Object.entries(placement)
+        .filter(([, there]) => areaOf(there) === area)
+        .map(([id]) => id),
+    people: () => Object.keys(placement),
+    has: (id, trait) => {
+      const suspect = level.suspects.find((one) => one.id === id);
+      return (
+        suspect !== undefined &&
+        ((trait === "woman" && suspect.pronoun === "sie") ||
+          (trait === "man" && suspect.pronoun === "er") ||
+          (suspect.traits ?? []).includes(trait))
+      );
+    },
+    cellsOf: (area) => {
+      const found: Cell[] = [];
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+          if (areaOf({ row, col }) === area) {
+            found.push({ row, col });
+          }
+        }
       }
-    }
-  }
-  return found;
+      return found;
+    },
+  };
 }
 
 /**
@@ -116,9 +238,34 @@ export function verdictOf(
   placement: Placement,
 ): Verdict {
   const cell = placement[suspect.id];
-  return cell === undefined
-    ? "open"
-    : judge(level, suspect.clue, cell, suspect.id, placement);
+  const clue = suspect.clue;
+  const all = level.suspects.every((one) => placement[one.id] !== undefined);
+  let verdict: Verdict = "open";
+  if (cell !== undefined) {
+    const context = contextOf(level, placement, suspect.id);
+    const unaryOk = clue.unary === undefined || clue.unary(context);
+    const rulesOk = (level.rules ?? []).every(
+      (rule) => rule.unary === undefined || rule.unary(suspect, context),
+    );
+    const company = context
+      .peopleIn(context.areaOf(cell) ?? "")
+      .filter((id) => id !== suspect.id).length;
+    const ready = clue.global
+      ? all
+      : (clue.uses ?? []).every((id) => placement[id] !== undefined);
+    if (!unaryOk || !rulesOk || (clue.victim === true && company > 1)) {
+      verdict = "broken";
+    } else if (clue.victim === true && !all) {
+      verdict = "open";
+    } else if (clue.victim === true) {
+      verdict = company === 1 ? "holds" : "broken";
+    } else if (clue.check === undefined) {
+      verdict = "holds";
+    } else if (ready) {
+      verdict = clue.check(context) ? "holds" : "broken";
+    }
+  }
+  return verdict;
 }
 
 /**
@@ -148,17 +295,24 @@ export function clashesOf(
 }
 
 /**
- * Whether the case is solved: everybody placed, nobody clashing, every clue met.
+ * Whether a placement meets everything: everybody placed, nobody clashing,
+ * every clue and every rule of the case met.
  *
  * @param level - the case
  * @param placement - where people stand
- * @returns true when this is the solution
+ * @returns true when this is a solution
  */
 export function isSolved(level: Level, placement: Placement): boolean {
+  const context = contextOf(level, placement, level.suspects[0]?.id ?? "");
   return (
     level.suspects.every((one) => placement[one.id] !== undefined) &&
     clashesOf(level, placement).size === 0 &&
-    level.suspects.every((one) => verdictOf(level, one, placement) === "holds")
+    level.suspects.every(
+      (one) => verdictOf(level, one, placement) === "holds",
+    ) &&
+    (level.rules ?? []).every(
+      (rule) => rule.check === undefined || rule.check(context),
+    )
   );
 }
 
@@ -170,13 +324,66 @@ export function isSolved(level: Level, placement: Placement): boolean {
  * @returns the culprit's id, or null when the victim is not alone with exactly one
  */
 export function culpritOf(level: Level, placement: Placement): string | null {
-  const victim = level.suspects.find((one) => one.clue.kind === "victim");
+  const victim = level.suspects.find((one) => one.clue.victim === true);
   const cell = victim === undefined ? undefined : placement[victim.id];
+  const area = cell === undefined ? null : (areaAt(level, cell)?.key ?? null);
   const company =
-    victim === undefined || cell === undefined
+    victim === undefined || area === null
       ? []
-      : sharing(level, cell, victim.id, placement);
+      : Object.entries(placement)
+          .filter(
+            ([id, there]) =>
+              id !== victim.id && areaAt(level, there)?.key === area,
+          )
+          .map(([id]) => id);
   return company.length === 1 ? (company[0] ?? null) : null;
+}
+
+/**
+ * The solution of a case, as its solution sheet has it.
+ *
+ * @param level - the case
+ * @returns where everybody stood
+ */
+export function solutionOf(level: Level): Placement {
+  return level.solution;
+}
+
+/**
+ * Who stands where the solution has them.
+ *
+ * @param level - the case
+ * @param placement - where people stand
+ * @returns per suspect whether they stand on their field
+ */
+export function checked(
+  level: Level,
+  placement: Placement,
+): Readonly<Record<string, boolean>> {
+  return Object.fromEntries(
+    level.suspects.map((one) => {
+      const here = placement[one.id];
+      const there = level.solution[one.id];
+      return [
+        one.id,
+        here !== undefined &&
+          there !== undefined &&
+          here.row === there.row &&
+          here.col === there.col,
+      ];
+    }),
+  );
+}
+
+/**
+ * The fields a clue points at - what lights up while its suspect is chosen.
+ *
+ * @param level - the case
+ * @param suspect - whose clue
+ * @returns the fields its clue names
+ */
+export function cluePoints(level: Level, suspect: Suspect): readonly Cell[] {
+  return suspect.clue.glow?.(level) ?? [];
 }
 
 /**
@@ -185,201 +392,70 @@ export function culpritOf(level: Level, placement: Placement): string | null {
  * @param level - the case
  * @returns the solutions found - exactly one for a fair case
  * @remarks
- * Backtracking, one suspect at a time, onto every free row and column whose
- * field the suspect's own clue does not already rule out. Nine people on a
- * board of nine is done in well under a second.
+ * First, each suspect's own clue and the case's rules rule out what fields
+ * they could be on at all. Then backtracking, always going on with the
+ * suspect who has the fewest fields left in free rows and columns, and
+ * checking every clue as soon as the people it names stand. Used to prove a
+ * case fair when it is entered; the game itself checks against the solution
+ * sheet.
  */
 export function solve(level: Level): readonly Placement[] {
-  const found: Placement[] = [];
-  const cells: Cell[] = [];
-  for (let row = 0; row < level.size; row += 1) {
-    for (let col = 0; col < level.size; col += 1) {
-      if (isStandable(level, { row, col })) {
-        cells.push({ row, col });
+  const { rows, cols } = sizeOf(level);
+  const domains = new Map<string, readonly Cell[]>();
+  for (const suspect of level.suspects) {
+    const cells: Cell[] = [];
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const cell = { row, col };
+        if (
+          isStandable(level, cell) &&
+          verdictOf(level, suspect, { [suspect.id]: cell }) !== "broken"
+        ) {
+          cells.push(cell);
+        }
       }
     }
+    domains.set(suspect.id, cells);
   }
 
-  const place = (at: number, placement: Placement) => {
-    const suspect = level.suspects[at];
-    if (suspect === undefined) {
+  const found: Placement[] = [];
+  const place = (placement: Placement) => {
+    const taken = Object.values(placement);
+    const free = (cell: Cell) =>
+      !taken.some((there) => there.row === cell.row || there.col === cell.col);
+    const left = level.suspects
+      .filter((one) => placement[one.id] === undefined)
+      .map((one) => ({
+        suspect: one,
+        cells: (domains.get(one.id) ?? []).filter(free),
+      }));
+    if (left.length === 0) {
       if (isSolved(level, placement)) {
         found.push(placement);
       }
     } else {
-      const taken = Object.values(placement);
-      for (const cell of cells) {
-        const free = !taken.some(
-          (there) => there.row === cell.row || there.col === cell.col,
-        );
-        if (free && found.length < ENOUGH) {
-          const next = { ...placement, [suspect.id]: cell };
-          const fits = level.suspects
-            .slice(0, at + 1)
-            .every((one) => verdictOf(level, one, next) !== "broken");
+      const next = left.reduce((best, one) =>
+        one.cells.length < best.cells.length ? one : best,
+      );
+      for (const cell of next.cells) {
+        if (found.length < ENOUGH) {
+          const tried = { ...placement, [next.suspect.id]: cell };
+          const fits =
+            level.suspects.every(
+              (one) => verdictOf(level, one, tried) !== "broken",
+            ) &&
+            (level.rules ?? []).every(
+              (rule) =>
+                rule.prune === undefined ||
+                rule.prune(contextOf(level, tried, next.suspect.id)),
+            );
           if (fits) {
-            place(at + 1, next);
+            place(tried);
           }
         }
       }
     }
   };
-  place(0, {});
+  place({});
   return found;
-}
-
-/** The solution of every case worked out so far, by case. */
-const solutions = new Map<string, Placement | null>();
-
-/**
- * The one solution of a case.
- *
- * @param level - the case
- * @returns where everybody stood, or null if the case has none or several
- */
-export function solutionOf(level: Level): Placement | null {
-  let known = solutions.get(level.id);
-  if (known === undefined) {
-    const all = solve(level);
-    known = all.length === 1 ? (all[0] ?? null) : null;
-    solutions.set(level.id, known);
-  }
-  return known;
-}
-
-/**
- * The fields a clue points at - what lights up while its suspect is chosen.
- *
- * @param level - the case
- * @param suspect - whose clue
- * @param placement - where people stand, for a clue about somebody else
- * @returns every house for "in a house", every shrub for "beside a shrub" -
- *   the things themselves, even where one can only stand next to them - the
- *   whole area, row or column for those, and nothing for a clue about numbers
- *   of people
- */
-export function cluePoints(
-  level: Level,
-  suspect: Suspect,
-  placement: Placement,
-): readonly Cell[] {
-  const clue = suspect.clue;
-  const all: Cell[] = [];
-  for (let row = 0; row < level.size; row += 1) {
-    for (let col = 0; col < level.size; col += 1) {
-      all.push({ row, col });
-    }
-  }
-  let points: readonly Cell[];
-  switch (clue.kind) {
-    case "on":
-    case "beside":
-      points = all.filter((cell) => thingAt(level, cell) === clue.thing);
-      break;
-    case "in":
-      points = all.filter((cell) => areaAt(level, cell).key === clue.area);
-      break;
-    case "column":
-      points = all.filter((cell) => cell.col === clue.col);
-      break;
-    case "row":
-      points = all.filter((cell) => cell.row === clue.row);
-      break;
-    case "besideSame": {
-      // What the other one stands beside - once they stand somewhere.
-      const there = placement[clue.other];
-      const kinds =
-        there === undefined ? new Set<Thing>() : thingsBeside(level, there);
-      points = all.filter((cell) => {
-        const thing = thingAt(level, cell);
-        return thing !== null && kinds.has(thing);
-      });
-      break;
-    }
-    default:
-      points = [];
-  }
-  return points;
-}
-
-/** Whether a field lies on the map. */
-function inside(level: Level, cell: Cell): boolean {
-  return (
-    cell.row >= 0 &&
-    cell.col >= 0 &&
-    cell.row < level.size &&
-    cell.col < level.size
-  );
-}
-
-/** Everybody else standing in the same area as this field. */
-function sharing(
-  level: Level,
-  cell: Cell,
-  self: string,
-  placement: Placement,
-): readonly string[] {
-  const home = areaAt(level, cell).key;
-  return Object.entries(placement)
-    .filter(([id, there]) => id !== self && areaAt(level, there).key === home)
-    .map(([id]) => id);
-}
-
-/** What one clue says about a suspect standing on this field. */
-function judge(
-  level: Level,
-  clue: Clue,
-  cell: Cell,
-  self: string,
-  placement: Placement,
-): Verdict {
-  const all = level.suspects.every((one) => placement[one.id] !== undefined);
-  let verdict: Verdict;
-  switch (clue.kind) {
-    case "on":
-      verdict = said(thingAt(level, cell) === clue.thing);
-      break;
-    case "in":
-      verdict = said(areaAt(level, cell).key === clue.area);
-      break;
-    case "beside":
-      verdict = said(thingsBeside(level, cell).has(clue.thing));
-      break;
-    case "column":
-      verdict = said(cell.col === clue.col);
-      break;
-    case "row":
-      verdict = said(cell.row === clue.row);
-      break;
-    case "besideSame": {
-      const there = placement[clue.other];
-      const mine = thingsBeside(level, cell);
-      verdict =
-        there === undefined
-          ? said(mine.size > 0, "open")
-          : said([...thingsBeside(level, there)].some((one) => mine.has(one)));
-      break;
-    }
-    case "crowd": {
-      const company = sharing(level, cell, self, placement).length;
-      const island = areaAt(level, cell).island;
-      verdict =
-        !island || company > clue.others
-          ? "broken"
-          : all
-            ? said(company === clue.others)
-            : "open";
-      break;
-    }
-    default: {
-      const company = sharing(level, cell, self, placement).length;
-      verdict = company > 1 ? "broken" : all ? said(company === 1) : "open";
-    }
-  }
-  return verdict;
-}
-
-/** A yes or no as a verdict - with what a yes means, when it is not final. */
-function said(yes: boolean, ifYes: Verdict = "holds"): Verdict {
-  return yes ? ifYes : "broken";
 }

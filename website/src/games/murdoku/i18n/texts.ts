@@ -3,76 +3,26 @@
  *
  * @module
  * @remarks
- * The clues are not written out per case but put together from the clue
- * itself ({@link clueText}): a case only says "beside a boar", and the
- * sentence follows. That way a clue on screen can never say something other
- * than what the referee checks.
+ * The clues themselves are not here: each case carries its own sentences,
+ * translated from the printed page, beside the checks behind them.
  */
-import type { Clue, Difficulty, Level, Suspect, Thing } from "../engine/types";
-
-/** How each thing is spoken of. */
-const THINGS: Readonly<
-  Record<
-    Thing,
-    { readonly name: string; readonly on: string; readonly beside: string }
-  >
-> = {
-  house: { name: "Haus", on: "in einem Haus", beside: "einem Haus" },
-  boat: { name: "Boot", on: "auf einem Boot", beside: "einem Boot" },
-  tree: { name: "Baum", on: "auf einem Baum", beside: "einem Baum" },
-  shrub: { name: "Strauch", on: "in einem Strauch", beside: "einem Strauch" },
-  shark: { name: "Hai", on: "bei einem Hai", beside: "einem Hai" },
-  boar: {
-    name: "Wildschwein",
-    on: "bei einem Wildschwein",
-    beside: "einem Wildschwein",
-  },
-  boulder: { name: "Felsen", on: "auf einem Felsen", beside: "einem Felsen" },
-  cactus: { name: "Kaktus", on: "bei einem Kaktus", beside: "einem Kaktus" },
-};
-
-/**
- * What a thing is called, on its own.
- *
- * @param thing - the thing
- * @returns its name, e.g. "Wildschwein"
- */
-export function thingName(thing: Thing): string {
-  return THINGS[thing].name;
-}
-
-/** The ordinals for rows and columns, from the first. */
-const ORDINALS: readonly string[] = [
-  "ersten",
-  "zweiten",
-  "dritten",
-  "vierten",
-  "fünften",
-  "sechsten",
-  "siebten",
-  "achten",
-  "neunten",
-  "zehnten",
-];
-
-/** Small numbers as words. */
-const NUMBERS: readonly string[] = [
-  "keiner",
-  "einer",
-  "zwei",
-  "drei",
-  "vier",
-  "fünf",
-  "sechs",
-  "sieben",
-  "acht",
-];
+import type { Difficulty, Level, Suspect } from "../engine/types";
 
 /** What the difficulties are called. */
 export const DIFFICULTY_NAMES: Readonly<Record<Difficulty, string>> = {
   easy: "Leicht",
   medium: "Mittel",
   hard: "Schwer",
+  expert: "Experte",
+};
+
+/** How the traits of suspects are shown on their cards. */
+export const TRAIT_NAMES: Readonly<Record<string, string>> = {
+  cap: "\u{1F9E2} Kappe",
+  glasses: "\u{1F453} Brille",
+  hat: "\u{1F3A9} Hut",
+  visitor: "Besucher",
+  zookeeper: "Tierpfleger",
 };
 
 /** The fixed texts. */
@@ -81,6 +31,8 @@ export const MURDOKU_TEXTS = {
   subtitle: "Ein Kriminalrätsel wie ein Sudoku",
   cases: "Fälle",
   chooseCase: "Wähle einen Fall",
+  difficulty: "Schwierigkeit",
+  allCases: "Alle",
   solved: "Gelöst",
   resume: "Weiter",
   open: "Ermitteln",
@@ -88,9 +40,15 @@ export const MURDOKU_TEXTS = {
   playOnline: "Gemeinsam online",
   suspects: "Die Verdächtigen",
   victim: "Das Opfer",
+  placed: "gesetzt",
   undo: "Rückgängig",
   restart: "Von vorn",
   hint: "Tipp",
+  nextCase: "Nächster Fall",
+  clockTitle: "So lange arbeitest du schon an diesem Fall",
+  statistics: "Statistik",
+  hintHold:
+    "Klick: nächster Tipp. Eine Sekunde halten: alle Tipps zeigen und ausführen.",
   canStand: "Hier kann jemand sein",
   cannotStand: "Hier kann niemand sein",
   water: "Wasser",
@@ -105,12 +63,19 @@ export const MURDOKU_TEXTS = {
     `Richtig, ${name} ist ${culprit} - mit Blick in die Lösung.`,
   revealYes: "Ja, Lösung zeigen",
   revealNo: "Weiter knobeln",
-  accuse: (culprit: string) => `${capital(culprit)} ist ...`,
-  accuseHint: "Wenn du sicher bist, klage an.",
+  confirm: "Bestätigen",
+  confirmHint: "Erst wenn alle Personen und das Opfer fest gesetzt sind.",
+  solvedTitle: "Fall gelöst!",
+  wrongTitle: "Noch nicht ganz",
+  wrongCount: (wrong: number, all: number) =>
+    wrong === 1
+      ? `1 von ${String(all)} steht falsch - rot umkreist.`
+      : `${String(wrong)} von ${String(all)} stehen falsch - rot umkreist.`,
+  replay: "Nochmal",
+  edit: "Bearbeiten",
+  close: "Schließen",
   right: (name: string, culprit: string) =>
     `Richtig! ${name} ist ${culprit}. Fall gelöst.`,
-  wrong: (name: string) =>
-    `${name} war es nicht. Prüfe noch einmal, wer mit dem Opfer allein war.`,
   gaveUp: (name: string, culprit: string) =>
     `Aufgelöst: ${name} war ${culprit}.`,
   hintsUsed: (count: number) => (count === 1 ? "1 Tipp" : `${count} Tipps`),
@@ -121,53 +86,13 @@ export const MURDOKU_TEXTS = {
 } as const;
 
 /**
- * A suspect's clue as a sentence.
+ * A suspect's clue as printed.
  *
- * @param level - the case, for the names of areas and people
+ * @param level - the case
  * @param suspect - whose clue
  * @returns what the clue card says
  */
 export function clueText(level: Level, suspect: Suspect): string {
-  const who = capital(suspect.pronoun);
-  return sentence(level, suspect.clue, who);
-}
-
-/** The sentence for one clue. */
-function sentence(level: Level, clue: Clue, who: string): string {
-  let text: string;
-  switch (clue.kind) {
-    case "on":
-      text = `${who} war ${THINGS[clue.thing].on}.`;
-      break;
-    case "in": {
-      const area = level.areas.find((one) => one.key === clue.area);
-      text = `${who} war ${area?.at ?? "?"}.`;
-      break;
-    }
-    case "beside":
-      text = `${who} war neben ${THINGS[clue.thing].beside}.`;
-      break;
-    case "column":
-      text = `${who} war in der ${ORDINALS[clue.col] ?? "?"} Spalte.`;
-      break;
-    case "row":
-      text = `${who} war in der ${ORDINALS[clue.row] ?? "?"} Reihe.`;
-      break;
-    case "besideSame": {
-      const other = level.suspects.find((one) => one.id === clue.other);
-      text = `${who} war neben derselben Art Gegenstand (oder Tier) wie ${other?.name ?? "?"}.`;
-      break;
-    }
-    case "crowd":
-      text = `${who} war auf einer Insel mit ${NUMBERS[clue.others] ?? String(clue.others)} anderen Personen.`;
-      break;
-    default:
-      text = `${who} war allein mit ${level.culprit.dative}.`;
-  }
-  return text;
-}
-
-/** A word with its first letter in capitals. */
-function capital(word: string): string {
-  return word.charAt(0).toUpperCase() + word.slice(1);
+  void level;
+  return suspect.clue.text;
 }

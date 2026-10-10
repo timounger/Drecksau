@@ -5,7 +5,7 @@
  * @module
  * @remarks
  * What is shared lives in the room: the notes, the steps shown, the solution
- * on the map, the accusation. What is one's own stays here: which suspect one
+ * on the map, the check. What is one's own stays here: which suspect one
  * has picked up to place. Every action turns into a move for the host, stated
  * as the result it wants (see ../multiplayer/adapter), and the map changes
  * when the host's answer comes back.
@@ -63,9 +63,8 @@ export function useMurdokuOnline(
   };
 
   const hold = (cell: Cell) => {
-    const marks = board.notes[cellKey(cell)] ?? [];
-    const who = selected ?? (marks.length === 1 ? marks[0] : undefined);
-    if (!over && who !== undefined && isStandable(level, cell)) {
+    const who = selected;
+    if (!over && who !== null && isStandable(level, cell)) {
       send({ kind: "place", id: who, cell });
       setSelected(null);
     }
@@ -111,12 +110,35 @@ export function useMurdokuOnline(
     restart: () => send({ kind: "restart" }),
     hint: () => send({ kind: "hint" }),
     hideHints: () => send({ kind: "hideHints" }),
+    allHints: () => {
+      setSelected(null);
+      send({ kind: "allHints" });
+    },
     applyHint: (index) => send({ kind: "step", index }),
     reveal: () => {
       setSelected(null);
       send({ kind: "peek", on: true });
     },
     hideSolution: () => send({ kind: "peek", on: false }),
-    accuse: (id) => send({ kind: "accuse", id, at: Date.now() }),
+    check:
+      game.check === null
+        ? null
+        : { results: game.check.results, nonce: game.check.nonce },
+    confirm: () => {
+      setSelected(null);
+      send({ kind: "confirm", at: Date.now() });
+    },
+    // Once solved, the host opens the next case for everybody instead.
+    canReplay: game.outcome?.kind !== "right",
+    replay: () => send({ kind: "restart" }),
+    // The clock of a case together runs from when the host opened it; once
+    // solved, it shows how long that took.
+    elapsed: () =>
+      game.outcome?.kind === "right"
+        ? game.outcome.ms
+        : Math.max(0, Date.now() - game.startedAt),
+    running: game.outcome?.kind !== "right",
+    // The next case together is opened by the host, from the lobby.
+    next: null,
   };
 }

@@ -6,7 +6,7 @@
  * The shared online layer does the room, the host and the wire
  * ({@link useOnlineRoom}); the case itself is drawn by the same view as at
  * one screen ({@link CaseView}), fed by {@link useMurdokuOnline}. So the map,
- * the suspects, the tips and the accusation look and work exactly as they do
+ * the suspects, the tips and the check look and work exactly as they do
  * alone - only that every mark one player makes appears on everybody's map.
  */
 "use client";
@@ -81,7 +81,8 @@ const L = {
   newCase: "Nächster Fall",
   waitingForNext: "Warte auf den Host - er kann den nächsten Fall öffnen.",
   solvedBy: (name: string) => `Gelöst von ${name}!`,
-  guessedBy: (name: string, who: string) => `${name} hat ${who} angeklagt.`,
+  checkedBy: (name: string) =>
+    `${name} hat bestätigt - noch nicht alles richtig.`,
   watching:
     "Du bist dazugekommen, als der Fall schon offen war, und schaust zu. Beim nächsten Fall bist du dabei.",
   error:
@@ -355,8 +356,6 @@ function SharedCase({
   const seated = seats.some((seat) => seat.id === room.seatId);
   const solved = game.outcome?.kind === "right";
   const level = api.level ?? LEVELS[0];
-  const nameOf = (id: string) =>
-    level?.suspects.find((one) => one.id === id)?.name ?? "?";
 
   return (
     <div className="flex flex-col gap-4 xl:flex-row">
@@ -366,7 +365,7 @@ function SharedCase({
             {L.watching}
           </p>
         )}
-        {game.outcome !== null && (
+        {(solved || game.check !== null) && (
           <p
             data-testid="murdoku-online-outcome"
             className={`rounded-lg px-3 py-2 text-sm font-semibold ${
@@ -376,11 +375,8 @@ function SharedCase({
             }`}
           >
             {solved
-              ? L.solvedBy(game.names[game.outcome.by] ?? "?")
-              : L.guessedBy(
-                  game.names[game.outcome.by] ?? "?",
-                  nameOf(game.outcome.who),
-                )}
+              ? L.solvedBy(game.names[game.outcome?.by ?? -1] ?? "?")
+              : L.checkedBy(game.names[game.check?.by ?? -1] ?? "?")}
           </p>
         )}
         {solved &&

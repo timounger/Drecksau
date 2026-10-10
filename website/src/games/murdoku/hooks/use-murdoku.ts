@@ -12,15 +12,15 @@ import {
   cellKey,
   crossed,
   noted,
-  placed,
   removed,
   standingOn,
   wiped,
   type Board,
 } from "@/games/murdoku/engine/board";
-import { stepped } from "@/games/murdoku/engine/actions";
+import { settled, stepped } from "@/games/murdoku/engine/actions";
 import { LEVELS } from "@/games/murdoku/engine/levels";
 import {
+  checked,
   culpritOf,
   isStandable,
   solutionOf,
@@ -30,6 +30,7 @@ import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 import {
   recordGameFinished,
   recordGameStarted,
+  recordPlayTime,
 } from "@/lib/stats/stats-recorder";
 import { invalidateStats } from "@/lib/stats/stats-store";
 
@@ -53,18 +54,50 @@ type Notes = {
   readonly hints: number;
   /** Whether the solution has been looked at - then the case can no longer be won. */
   readonly peeked?: boolean;
+  /** How long the case has been played so far - only while it was on screen. */
+  readonly playedMs?: number;
+};
+
+/** What a case's solving has come to so far. */
+export type CaseRecord = {
+  /** How often it was solved. */
+  readonly solves: number;
+  /** The fastest solve. */
+  readonly bestMs: number;
+  /** The last solve. */
+  readonly lastMs: number;
+  /** All the time spent solving it, every solve together. */
+  readonly totalMs: number;
 };
 
 /** Everything kept between visits. */
 type Stored = {
   readonly solved: readonly string[];
   readonly open: Readonly<Record<string, Notes>>;
+  /** Per case, how its solves went. */
+  readonly records?: Readonly<Record<string, CaseRecord>>;
 };
+
+/** A gap longer than this between two looks at the clock is not counted - a tab left open. */
+const MAX_GAP_MS = 60_000;
+
+/** How often the time played is written down and counted, in milliseconds. */
+const FLUSH_MS = 15_000;
 
 /** How a case ended, once it has. */
 export type Outcome =
   | { readonly kind: "right"; readonly who: string; readonly ms: number }
   | { readonly kind: "wrong"; readonly who: string };
+
+/**
+ * The answer to "Bestätigen": per suspect whether they stand right, and a
+ * number that is new with every press, so the check is shown again even
+ * when the answer is the same.
+ */
+export type Check = {
+  readonly results: Readonly<Record<string, boolean>>;
+  readonly nonce: number;
+};
 
 /** What the screen gets from {@link useMurdoku}. */
 export type MurdokuApi = {
@@ -106,13 +139,28 @@ export type MurdokuApi = {
   hint: () => void;
   /** Folds the steps shown away again. */
   hideHints: () => void;
+  /** Shows every step of the way at once and carries them all out. */
+  allHints: () => void;
   /** Carries out what a step of the way concludes: puts people down, crosses fields out. */
   applyHint: (index: number) => void;
   /** Puts the solution on the map. */
   reveal: () => void;
   /** Takes it off again - back to the player's own notes. */
   hideSolution: () => void;
-  accuse: (id: string) => void;
+  /** The last check, until the map changes - or null. */
+  readonly check: Check | null;
+  /** Checks the map: everybody placed, each right or wrong. */
+  confirm: () => void;
+  /** Whether "Nochmal" can start the case over. */
+  readonly canReplay: boolean;
+  /** Starts the case over - a fresh case once it was solved. */
+  replay: () => void;
+  /** How long the open case has been played, right now. */
+  elapsed: () => number;
+  /** Whether its clock is running - not once it is solved. */
+  readonly running: boolean;
+  /** Opens the next case, or null after the last one. */
+  readonly next: (() => void) | null;
 };
 
 /**
@@ -127,11 +175,43 @@ export function useMurdoku(): MurdokuApi {
   const [history, setHistory] = useState<readonly Board[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [check, setCheck] = useState<Check | null>(null);
   const [hints, setHints] = useState(0);
   const [shownHints, setShownHints] = useState(0);
   const [peeking, setPeeking] = useState(false);
   const [peeked, setPeeked] = useState(false);
   const startedAt = useRef(0);
+  // **The clock of the open case.** What was played before, and since when it
+  // runs now - null while it stands still: solved, or the tab out of sight.
+  // `counted` is how much of it the collection's statistics already have.
+  const clock = useRef({ played: 0, since: null as number | null, counted: 0 });
+
+  /** How long the open case has been played, up to now. */
+  const elapsed = useCallback(() => {
+    const now = Date.now();
+    const since = clock.current.since;
+    return (
+      clock.current.played +
+      (since === null ? 0 : Math.min(now - since, MAX_GAP_MS))
+    );
+  }, []);
+
+  /** Books the time played since the last booking, for the statistics. */
+  const count = useCallback(() => {
+    const total = elapsed();
+    const fresh = total - clock.current.counted;
+    if (fresh > 0) {
+      clock.current.counted = total;
+      recordPlayTime(GAME_ID, fresh, Date.now());
+      invalidateStats();
+    }
+  }, [elapsed]);
+
+  /** Stops the clock where it is. */
+  const halt = useCallback(() => {
+    count();
+    clock.current = { ...clock.current, played: elapsed(), since: null };
+  }, [count, elapsed]);
 
   // The progress is read once after the first render, so the page the server
   // sent and the first one in the browser are the same.
@@ -143,6 +223,24 @@ export function useMurdoku(): MurdokuApi {
     }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Out of sight, the clock stands still; back in sight, it runs on. Now
+  // and then the time played is booked, so a closed tab loses little.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) {
+        halt();
+      } else if (level !== null && outcome?.kind !== "right") {
+        clock.current = { ...clock.current, since: Date.now() };
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    const timer = window.setInterval(count, FLUSH_MS);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(timer);
+    };
+  }, [count, halt, level, outcome]);
 
   /** Keeps the progress, in memory and in the browser. */
   const keep = useCallback((next: Stored) => {
@@ -156,6 +254,8 @@ export function useMurdoku(): MurdokuApi {
       if (level !== null) {
         setHistory((before) => [...before, board].slice(-HISTORY));
         setBoard(next);
+        // A changed map is no longer the map that was checked.
+        setCheck(null);
         keep({
           ...stored,
           open: {
@@ -163,6 +263,7 @@ export function useMurdoku(): MurdokuApi {
             [level.id]: {
               board: next,
               startedAt: startedAt.current,
+              playedMs: elapsed(),
               hints: nextHints,
               peeked,
             },
@@ -170,7 +271,7 @@ export function useMurdoku(): MurdokuApi {
         });
       }
     },
-    [board, hints, keep, level, peeked, stored],
+    [board, elapsed, hints, keep, level, peeked, stored],
   );
 
   /** The case is over: off the list of open ones, onto the solved one if won. */
@@ -182,28 +283,42 @@ export function useMurdoku(): MurdokuApi {
         );
         // A case whose solution was looked at is not solved, even when the
         // culprit is named afterwards - and it was counted as lost already.
+        halt();
+        const took = clock.current.played;
+        const before = stored.records?.[level.id];
+        const fair = won && !peeked;
         keep({
           solved:
-            won && !peeked && !stored.solved.includes(level.id)
+            fair && !stored.solved.includes(level.id)
               ? [...stored.solved, level.id]
               : stored.solved,
           open,
+          records: fair
+            ? {
+                ...stored.records,
+                [level.id]: {
+                  solves: (before?.solves ?? 0) + 1,
+                  bestMs: Math.min(before?.bestMs ?? took, took),
+                  lastMs: took,
+                  totalMs: (before?.totalMs ?? 0) + took,
+                },
+              }
+            : stored.records,
         });
         setBoard(final);
         setSelected(null);
         setPeeking(false);
         if (!peeked) {
-          const now = Date.now();
           recordGameFinished(GAME_ID, {
             won,
-            durationMs: now - startedAt.current,
-            finishedAt: now,
+            durationMs: took,
+            finishedAt: Date.now(),
           });
           invalidateStats();
         }
       }
     },
-    [keep, level, peeked, stored],
+    [halt, keep, level, peeked, stored],
   );
 
   const open = useCallback(
@@ -214,9 +329,13 @@ export function useMurdoku(): MurdokuApi {
       setHistory([]);
       setSelected(null);
       setOutcome(null);
+      setCheck(null);
       setShownHints(0);
       setPeeking(false);
       setPeeked(notes?.peeked ?? false);
+      // The clock picks up where the case was left - or starts at nought.
+      const played = notes?.playedMs ?? 0;
+      clock.current = { played, since: Date.now(), counted: played };
       if (notes === undefined) {
         // A fresh case counts as a game begun; picking one up again does not.
         startedAt.current = Date.now();
@@ -234,11 +353,12 @@ export function useMurdoku(): MurdokuApi {
   );
 
   const toList = useCallback(() => {
+    halt();
     setLevel(null);
     setPeeking(false);
     setSelected(null);
     setOutcome(null);
-  }, []);
+  }, [halt]);
 
   const select = useCallback((id: string | null) => {
     setSelected(id);
@@ -268,20 +388,10 @@ export function useMurdoku(): MurdokuApi {
 
   const hold = useCallback(
     (cell: Cell) => {
-      const marks = board.notes[cellKey(cell)] ?? [];
-      const who = selected ?? (marks.length === 1 ? marks[0] : undefined);
+      const who = selected;
       const over = outcome?.kind === "right" || peeking;
-      if (
-        !over &&
-        level !== null &&
-        who !== undefined &&
-        isStandable(level, cell)
-      ) {
-        write(
-          placed(board, who, cell, level.size, (one) =>
-            isStandable(level, one),
-          ),
-        );
+      if (!over && level !== null && who !== null && isStandable(level, cell)) {
+        write(settled(level, board, who, cell));
         setSelected(null);
         setOutcome(null);
       }
@@ -307,6 +417,7 @@ export function useMurdoku(): MurdokuApi {
       setHistory(history.slice(0, -1));
       setBoard(before);
       setOutcome(null);
+      setCheck(null);
       keep({
         ...stored,
         open: {
@@ -314,13 +425,14 @@ export function useMurdoku(): MurdokuApi {
           [level.id]: {
             board: before,
             startedAt: startedAt.current,
+            playedMs: elapsed(),
             hints,
             peeked,
           },
         },
       });
     }
-  }, [history, hints, keep, level, peeked, stored]);
+  }, [history, elapsed, hints, keep, level, peeked, stored]);
 
   const restart = useCallback(() => {
     write(EMPTY_BOARD);
@@ -348,13 +460,32 @@ export function useMurdoku(): MurdokuApi {
           [level.id]: {
             board,
             startedAt: startedAt.current,
+            playedMs: elapsed(),
             hints: next,
             peeked,
           },
         },
       });
     }
-  }, [board, hints, keep, level, peeked, shownHints, stored]);
+  }, [board, elapsed, hints, keep, level, peeked, shownHints, stored]);
+
+  // **All at once**: every step shown and every step carried out, in one
+  // write - one "undo" takes it all back.
+  const allHints = useCallback(() => {
+    const over = outcome?.kind === "right" || peeking;
+    if (level !== null && !over) {
+      const total = level.hints.length;
+      const done = level.hints.reduce(
+        (notes, step) => stepped(level, notes, step),
+        board,
+      );
+      setHints(total);
+      setShownHints(total);
+      write(done, total);
+      setSelected(null);
+      setOutcome(null);
+    }
+  }, [board, level, outcome, peeking, write]);
 
   // **A step can be carried out.** It puts down who it names and crosses out
   // the fields it rules out - in one go, so one "undo" takes it back.
@@ -393,6 +524,7 @@ export function useMurdoku(): MurdokuApi {
             [level.id]: {
               board,
               startedAt: startedAt.current,
+              playedMs: elapsed(),
               hints,
               peeked: true,
             },
@@ -407,33 +539,36 @@ export function useMurdoku(): MurdokuApi {
         invalidateStats();
       }
     }
-  }, [board, hints, keep, level, peeked, stored]);
+  }, [board, elapsed, hints, keep, level, peeked, stored]);
 
   const hideSolution = useCallback(() => {
     setPeeking(false);
   }, []);
 
-  const accuse = useCallback(
-    (id: string) => {
-      const solution = level === null ? null : solutionOf(level);
-      if (level !== null && solution !== null) {
-        const culprit = culpritIn(level, solution);
-        if (id === culprit) {
-          setOutcome({
-            kind: "right",
-            who: id,
-            ms: Date.now() - startedAt.current,
-          });
-          finish(true, { placement: solution, notes: {}, crosses: [] });
-        } else {
-          setOutcome({ kind: "wrong", who: id });
-        }
+  // **"Bestätigen" checks the whole map at once.** Each suspect is right or
+  // wrong against the solution; when all are right the case is solved, and
+  // the culprit is whoever was alone with the victim - nobody has to name him.
+  const confirm = useCallback(() => {
+    const results = level === null ? null : checked(level, board.placement);
+    const solution = level === null ? null : solutionOf(level);
+    if (level !== null && results !== null && solution !== null) {
+      setCheck({ results, nonce: Date.now() });
+      setSelected(null);
+      if (Object.values(results).every(Boolean)) {
+        setOutcome({
+          kind: "right",
+          who: culpritIn(level, solution),
+          ms: elapsed(),
+        });
+        finish(true, board);
       }
-    },
-    [finish, level],
-  );
+    }
+  }, [board, elapsed, finish, level]);
 
   const solution = level === null ? null : solutionOf(level);
+  const at =
+    level === null ? -1 : LEVELS.findIndex((one) => one.id === level.id);
+  const following = at < 0 ? undefined : LEVELS[at + 1];
   return {
     level,
     solved: new Set(stored.solved),
@@ -465,16 +600,44 @@ export function useMurdoku(): MurdokuApi {
     restart,
     hint,
     hideHints,
+    allHints,
     applyHint,
     reveal,
     hideSolution,
-    accuse,
+    check,
+    confirm,
+    canReplay: true,
+    elapsed,
+    running: level !== null && outcome?.kind !== "right",
+    next: following === undefined ? null : () => open(following.id),
+    replay: () => {
+      if (level !== null && outcome?.kind === "right") {
+        // Solved: the case begins anew, as if picked from the list.
+        open(level.id);
+      } else {
+        restart();
+      }
+      setCheck(null);
+    },
   };
 }
 
 /** The culprit of a solved case - whoever shares the victim's area. */
 function culpritIn(level: Level, solution: Placement): string {
   return culpritOf(level, solution) ?? "";
+}
+
+/**
+ * What has been solved, read back for the statistics page.
+ *
+ * @returns the ids of the solved cases and each case's record
+ */
+export function loadMurdokuRecords(): {
+  readonly solved: readonly string[];
+  readonly records: Readonly<Record<string, CaseRecord>>;
+} {
+  const read = readStored(STORE_KEY, STORE_VERSION, isStored);
+  return { solved: read?.solved ?? [], records: read?.records ?? {} };
 }
 
 /** Whether a value read back is the stored progress. */
