@@ -20,7 +20,7 @@ import {
   groundAt,
   groundDef,
   isInside,
-  isStandable,
+  isStandableForAny,
   sizeOf,
   thingAt,
   thingDef,
@@ -379,9 +379,10 @@ export function CaseMap({
       )}
 
       {/* The player's crosses. */}
-      {/* Only where somebody could stand - a cross on a rock says nothing. */}
+      {/* Only where some piece could be - a cross on a rock says nothing,
+          unless a treasure could be buried beneath it. */}
       {board.crosses
-        .filter((key) => isStandable(level, cellOf(key)))
+        .filter((key) => isStandableForAny(level, cellOf(key)))
         .map((key) => {
           const { row, col } = cellOf(key);
           const x = col * FIELD + FIELD / 2;
@@ -512,32 +513,33 @@ export function CaseMap({
       )}
 
       {/* On top of everything, one invisible target per field. */}
-      {(preview ? [] : cells.filter((cell) => isStandable(level, cell))).map(
-        (cell) => (
-          <rect
-            key={`tap-${cellKey(cell)}`}
-            data-testid={`murdoku-cell-${String(cell.row)}-${String(cell.col)}`}
-            x={cell.col * FIELD}
-            y={cell.row * FIELD}
-            width={FIELD}
-            height={FIELD}
-            fill="transparent"
-            className="cursor-pointer hover:fill-white/25"
-            onPointerDown={(event) =>
-              press(cell, event.button, event.pointerType)
+      {(preview
+        ? []
+        : cells.filter((cell) => isStandableForAny(level, cell))
+      ).map((cell) => (
+        <rect
+          key={`tap-${cellKey(cell)}`}
+          data-testid={`murdoku-cell-${String(cell.row)}-${String(cell.col)}`}
+          x={cell.col * FIELD}
+          y={cell.row * FIELD}
+          width={FIELD}
+          height={FIELD}
+          fill="transparent"
+          className="cursor-pointer hover:fill-white/25"
+          onPointerDown={(event) =>
+            press(cell, event.button, event.pointerType)
+          }
+          onPointerUp={() => release(cell)}
+          onPointerLeave={stop}
+          onPointerCancel={stop}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            if (pointer.current === "mouse") {
+              onClear?.(cell);
             }
-            onPointerUp={() => release(cell)}
-            onPointerLeave={stop}
-            onPointerCancel={stop}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              if (pointer.current === "mouse") {
-                onClear?.(cell);
-              }
-            }}
-          />
-        ),
-      )}
+          }}
+        />
+      ))}
     </svg>
   );
 }

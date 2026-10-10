@@ -33,6 +33,8 @@ import {
   MURDOKU_TEXTS as T,
   TRAIT_NAMES,
   clueText,
+  revealedText,
+  solvedText,
 } from "@/games/murdoku/i18n/texts";
 
 /** A thousand, for milliseconds. */
@@ -92,12 +94,43 @@ export function MurdokuGame(): ReactElement {
 /** The cases to choose from - all of them, or one difficulty. */
 function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
   const [filter, setFilter] = useState<Difficulty | "all">("all");
-  const shown = LEVELS.filter(
+  const [query, setQuery] = useState("");
+  const [hideSolved, setHideSolved] = useState(false);
+  // The search and the tick narrow the cases first, so the counts on the
+  // difficulty chips tell what a click on them would show.
+  const needle = query.trim().toLowerCase();
+  const found = LEVELS.filter(
+    (level) =>
+      level.name.toLowerCase().includes(needle) &&
+      (!hideSolved || !game.solved.has(level.id)),
+  );
+  const shown = found.filter(
     (level) => filter === "all" || level.difficulty === filter,
   );
   return (
     <section className="flex flex-col gap-3" data-testid="murdoku-list">
       <h2 className="text-lg font-bold">{T.chooseCase}</h2>
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={T.search}
+          aria-label={T.search}
+          data-testid="murdoku-search"
+          className="w-full max-w-sm rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        />
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={hideSolved}
+            onChange={(event) => setHideSolved(event.target.checked)}
+            data-testid="murdoku-hide-solved"
+            className="h-4 w-4 cursor-pointer accent-sky-600"
+          />
+          {T.hideSolved}
+        </label>
+      </div>
       <div
         className="flex flex-wrap gap-1.5"
         role="group"
@@ -105,7 +138,7 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
         data-testid="murdoku-filter"
       >
         {(["all", ...DIFFICULTY_ORDER] as const).map((one) => {
-          const count = LEVELS.filter(
+          const count = found.filter(
             (level) => one === "all" || level.difficulty === one,
           ).length;
           return (
@@ -126,6 +159,9 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
           );
         })}
       </div>
+      {shown.length === 0 && (
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">{T.noCases}</p>
+      )}
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {shown.map((level) => {
           const solved = game.solved.has(level.id);
@@ -255,11 +291,7 @@ export function CaseView({
           <Legend level={level} />
           {game.culprit !== null && (
             <p className="text-sm font-medium" data-testid="murdoku-result">
-              {T.gaveUp(
-                level.suspects.find((one) => one.id === game.culprit)?.name ??
-                  "?",
-                level.culprit.name,
-              )}
+              {revealedText(level, game.culprit)}
             </p>
           )}
           <div className="flex flex-wrap gap-2">
@@ -270,7 +302,13 @@ export function CaseView({
               data-testid="murdoku-confirm"
               onClick={game.confirm}
               disabled={!complete || over}
-              title={complete ? undefined : T.confirmHint}
+              title={
+                complete
+                  ? undefined
+                  : level.treasure === undefined
+                    ? T.confirmHint
+                    : T.confirmTreasureHint
+              }
               className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {T.confirm}
@@ -455,8 +493,6 @@ function ResultDialog({
   const wrong = results.filter((one) => !one).length;
   const solved = check !== null && wrong === 0;
   const outcome = game.outcome;
-  const nameOf = (id: string) =>
-    level.suspects.find((one) => one.id === id)?.name ?? "?";
 
   return (
     <dialog
@@ -487,9 +523,7 @@ function ResultDialog({
               data-testid="murdoku-result-text"
             >
               {solved && outcome?.kind === "right"
-                ? game.peeked
-                  ? T.rightPeeked(nameOf(outcome.who), level.culprit.name)
-                  : T.right(nameOf(outcome.who), level.culprit.name)
+                ? solvedText(level, outcome.who, game.peeked)
                 : T.wrongCount(wrong, results.length)}
             </p>
             {solved && outcome?.kind === "right" && (
@@ -806,7 +840,9 @@ function RevealButton({
                 {T.revealTitle}
               </h2>
               <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                {T.revealText}
+                {game.level?.treasure === undefined
+                  ? T.revealText
+                  : T.revealTreasureText}
               </p>
             </div>
           </div>
@@ -879,6 +915,7 @@ function SuspectCard({
   const chosen = game.selected === suspect.id;
   const placed = game.board.placement[suspect.id] !== undefined;
   const victim = suspect.clue.victim === true;
+  const treasure = level.treasure === suspect.id;
   return (
     <button
       type="button"
@@ -891,7 +928,9 @@ function SuspectCard({
           ? "border-amber-400 bg-amber-50 shadow-md dark:bg-amber-950/40"
           : victim
             ? "border-rose-200 bg-rose-50 hover:border-rose-300 dark:border-rose-900 dark:bg-rose-950/30"
-            : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900"
+            : treasure
+              ? "border-amber-300 bg-amber-50 hover:border-amber-400 dark:border-amber-800 dark:bg-amber-950/30"
+              : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900"
       }`}
     >
       <span className="relative">
@@ -937,6 +976,11 @@ function SuspectCard({
       {victim && (
         <span className="text-[11px] font-bold tracking-wide text-rose-700 uppercase dark:text-rose-300">
           {T.victim}
+        </span>
+      )}
+      {treasure && (
+        <span className="text-[11px] font-bold tracking-wide text-amber-700 uppercase dark:text-amber-300">
+          {T.treasure}
         </span>
       )}
       <span className="text-xs leading-snug text-zinc-600 dark:text-zinc-300">

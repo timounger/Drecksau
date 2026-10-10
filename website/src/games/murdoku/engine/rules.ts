@@ -142,6 +142,35 @@ export function isStandable(level: Level, cell: Cell): boolean {
 }
 
 /**
+ * Whether a certain piece may lie on a field.
+ *
+ * @param level - the case
+ * @param id - the piece
+ * @param cell - the field
+ * @returns for a person, whether anybody may stand there; for a buried piece,
+ *   whether the field is on the map at all
+ */
+export function isStandableFor(level: Level, id: string, cell: Cell): boolean {
+  const buried = level.suspects.some(
+    (one) => one.id === id && one.buried === true,
+  );
+  return buried ? isInside(level, cell) : isStandable(level, cell);
+}
+
+/**
+ * Whether any piece of the case may lie on a field - where pencil marks and
+ * crosses make sense.
+ *
+ * @param level - the case
+ * @param cell - the field
+ * @returns true where people can stand, and anywhere on the map in a case
+ *   with a buried piece
+ */
+export function isStandableForAny(level: Level, cell: Cell): boolean {
+  return level.suspects.some((one) => isStandableFor(level, one.id, cell));
+}
+
+/**
  * The context a clue is checked against.
  *
  * @param level - the case
@@ -270,7 +299,7 @@ export function verdictOf(
 
 /**
  * Who stands where they may not: in a row or column with somebody else, or on
- * a field nobody can stand on.
+ * a field they cannot be on.
  *
  * @param level - the case
  * @param placement - where people stand
@@ -287,7 +316,7 @@ export function clashesOf(
       ([other, there]) =>
         other !== id && (there.row === cell.row || there.col === cell.col),
     );
-    if (crowded || !isStandable(level, cell)) {
+    if (crowded || !isStandableFor(level, id, cell)) {
       clashing.add(id);
     }
   }
@@ -317,13 +346,30 @@ export function isSolved(level: Level, placement: Placement): boolean {
 }
 
 /**
- * Who was alone with the victim.
+ * Who the culprit is: whoever was alone with the victim - or, in a case
+ * without a victim, whom the case's own rule names. In a treasure hunt it is
+ * the treasure: the piece whose field is the answer.
  *
  * @param level - the case
  * @param placement - where people stand
- * @returns the culprit's id, or null when the victim is not alone with exactly one
+ * @returns the culprit's id, or null when there is none
  */
 export function culpritOf(level: Level, placement: Placement): string | null {
+  let found: string | null;
+  if (level.treasure !== undefined) {
+    found = placement[level.treasure] === undefined ? null : level.treasure;
+  } else if (level.findCulprit === undefined) {
+    found = alongsideVictim(level, placement);
+  } else {
+    found = level.findCulprit(
+      contextOf(level, placement, level.suspects[0]?.id ?? ""),
+    );
+  }
+  return found;
+}
+
+/** Whoever was alone with the victim in the victim's area, or null. */
+function alongsideVictim(level: Level, placement: Placement): string | null {
   const victim = level.suspects.find((one) => one.clue.victim === true);
   const cell = victim === undefined ? undefined : placement[victim.id];
   const area = cell === undefined ? null : (areaAt(level, cell)?.key ?? null);
@@ -408,7 +454,7 @@ export function solve(level: Level): readonly Placement[] {
       for (let col = 0; col < cols; col += 1) {
         const cell = { row, col };
         if (
-          isStandable(level, cell) &&
+          isStandableFor(level, suspect.id, cell) &&
           verdictOf(level, suspect, { [suspect.id]: cell }) !== "broken"
         ) {
           cells.push(cell);
@@ -448,7 +494,9 @@ export function solve(level: Level): readonly Placement[] {
               (rule) =>
                 rule.prune === undefined ||
                 rule.prune(contextOf(level, tried, next.suspect.id)),
-            );
+            ) &&
+            (level.prune === undefined ||
+              level.prune(contextOf(level, tried, next.suspect.id)));
           if (fits) {
             place(tried);
           }

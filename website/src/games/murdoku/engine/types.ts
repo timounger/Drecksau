@@ -152,6 +152,11 @@ export type Suspect = {
   readonly pronoun: "sie" | "er";
   /** What else is true of them, as the portraits show: "cap", "glasses", "zookeeper" … */
   readonly traits?: readonly string[];
+  /**
+   * Whether the piece can lie anywhere on the map, even under a thing nobody
+   * can stand on - a buried treasure. People never can.
+   */
+  readonly buried?: boolean;
   readonly clue: Clue;
   /** The colour of the pawn and the portrait. */
   readonly colour: string;
@@ -160,7 +165,8 @@ export type Suspect = {
 };
 
 /** How hard a case is, as printed on it. */
-export type Difficulty = "easy" | "medium" | "hard" | "expert";
+export type Difficulty =
+  "veryEasy" | "easy" | "medium" | "hard" | "expert" | "family" | "treasure";
 
 /** One step of the way to the solution. */
 export type Hint = {
@@ -202,4 +208,20 @@ export type Level = {
   readonly hints: readonly Hint[];
   /** Where everybody stood, as the solution sheet has it. */
   readonly solution: Placement;
+  /**
+   * Who the culprit is, for a case without a victim - "whoever stood in the
+   * top row drew the caricature". Without it, the culprit is whoever was
+   * alone with the victim.
+   */
+  readonly findCulprit?: (context: Context) => string | null;
+  /**
+   * The piece whose field is the answer, for a case without a crime - a
+   * treasure hunt. Then nobody is named: the case is solved by where it lies.
+   */
+  readonly treasure?: string;
+  /**
+   * A lookahead for the solver only, never shown: false when the partial
+   * placement can no longer be completed. For a case without printed rules.
+   */
+  readonly prune?: (context: Context) => boolean;
 };

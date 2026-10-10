@@ -232,40 +232,28 @@ export const THE_BACKYARD_GARDEN: Level = {
   ],
   hints: [
     {
-      text: "Nach Aarons Hinweis sind Aaron und Elyse beide im Wohnzimmer. Elyse sitzt also auf dem Stuhl im Wohnzimmer, in Reihe 9, Spalte 5. Streiche ihre Reihe und Spalte.",
-      place: { E: { row: 8, col: 4 } },
+      text: "Laut As Hinweis sind A und E beide im Wohnzimmer, also ist E auf dem Wohnzimmerstuhl in R9C5. Blockiere ihre Reihe und Spalte. Das isoliert A in R8 C6.",
+      place: { E: { row: 8, col: 4 }, A: { row: 7, col: 5 } },
     },
     {
-      text: "Damit bleibt für Aaron nur noch ein Feld.",
-      place: { A: { row: 7, col: 5 } },
-    },
-    {
-      text: "Damit bleibt für Franklin nur noch ein Feld auf einem Teppich.",
+      text: "Da F auf einem Teppich sein muss, muss er in R6 C7 sein, dem letzten Teppichfeld.",
       place: { F: { row: 5, col: 6 } },
     },
     {
-      text: "Damit bleibt für Denise nur noch ein Feld im Schlafzimmer.",
-      place: { D: { row: 6, col: 2 } },
+      text: "B ist im Schuppen in R5, blockiere den Rest von R5. Das isoliert D auf dem letzten Feld im Schlafzimmer. Das isoliert B auf dem letzten Feld im Schuppen.",
+      place: { D: { row: 6, col: 2 }, B: { row: 4, col: 1 } },
     },
     {
-      text: "Damit bleibt für Bruce nur noch ein Feld im Schuppen.",
-      place: { B: { row: 4, col: 1 } },
-    },
-    {
-      text: "Damit bleibt für Carissa nur noch ein Feld neben einem Baum.",
+      text: "Es bleibt ein Feld übrig, auf dem C neben einem Baum sein kann, das isoliert C in R1 C1.",
       place: { C: { row: 0, col: 0 } },
     },
     {
-      text: "Damit bleibt für Holden nur noch ein Feld im Teich.",
+      text: "H muss allein sein. Er kann nicht im Garten sein (G muss dort sein), und er kann nicht im Hinterhof sein, da C bereits dort ist. H ist im Teich in R2 C4.",
       place: { H: { row: 1, col: 3 } },
     },
     {
-      text: "Damit bleibt für Gilbert nur noch ein Feld im Garten.",
-      place: { G: { row: 2, col: 8 } },
-    },
-    {
-      text: "Für Violet bleibt das letzte Feld, allein mit Carissa im Hinterhof. Carissa ist die Mörderin!",
-      place: { V: { row: 3, col: 7 } },
+      text: "Damit bleibt ein Feld übrig, auf dem G im Garten sein kann. V ist auf dem letzten verbleibenden Feld.",
+      place: { G: { row: 2, col: 8 }, V: { row: 3, col: 7 } },
     },
   ],
   solution: {

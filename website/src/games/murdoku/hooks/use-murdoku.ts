@@ -22,7 +22,8 @@ import { LEVELS } from "@/games/murdoku/engine/levels";
 import {
   checked,
   culpritOf,
-  isStandable,
+  isStandableFor,
+  isStandableForAny,
   solutionOf,
 } from "@/games/murdoku/engine/rules";
 import type { Cell, Level, Placement } from "@/games/murdoku/engine/types";
@@ -369,13 +370,16 @@ export function useMurdoku(): MurdokuApi {
       const there = standingOn(board, cell);
       if (outcome?.kind === "right" || peeking) {
         // A finished case, or the solution on the map, is only looked at.
-      } else if (level === null || !isStandable(level, cell)) {
+      } else if (level === null || !isStandableForAny(level, cell)) {
         // Nobody can stand on a tree, a rock or an animal - so there is
-        // nothing to mark, cross out or place there either.
+        // nothing to mark, cross out or place there either. Only a buried
+        // piece, a treasure, can lie beneath them.
       } else if (selected !== null) {
         // A tap only pencils in: "she might have been here". The person stays
         // chosen, so several fields can be marked in a row.
-        write(noted(board, selected, cell));
+        if (isStandableFor(level, selected, cell)) {
+          write(noted(board, selected, cell));
+        }
       } else if (there !== null) {
         write(removed(board, there));
         setOutcome(null);
@@ -390,7 +394,12 @@ export function useMurdoku(): MurdokuApi {
     (cell: Cell) => {
       const who = selected;
       const over = outcome?.kind === "right" || peeking;
-      if (!over && level !== null && who !== null && isStandable(level, cell)) {
+      if (
+        !over &&
+        level !== null &&
+        who !== null &&
+        isStandableFor(level, who, cell)
+      ) {
         write(settled(level, board, who, cell));
         setSelected(null);
         setOutcome(null);

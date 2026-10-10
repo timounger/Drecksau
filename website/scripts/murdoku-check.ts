@@ -16,7 +16,7 @@ import {
   areaAt,
   checked,
   culpritOf,
-  isStandable,
+  isStandableFor,
   sizeOf,
   solve,
   thingAt,
@@ -92,7 +92,7 @@ function problemsOf(level: Level): readonly string[] {
     const cell = level.solution[suspect.id];
     if (cell === undefined) {
       problems.push(`solution has no place for ${suspect.id}`);
-    } else if (!isStandable(level, cell)) {
+    } else if (!isStandableFor(level, suspect.id, cell)) {
       problems.push(
         `solution puts ${suspect.id} on R${cell.row + 1}C${cell.col + 1}, where nobody can stand`,
       );
@@ -137,8 +137,12 @@ function check(level: Level): boolean {
         `  MISMATCH${wrong.length > 0 ? `: ${wrong.join(", ")} differ` : ""}`,
       );
     }
+    const treasure =
+      level.treasure === undefined ? undefined : level.solution[level.treasure];
     console.log(
-      `  culprit on the sheet: ${culpritOf(level, level.solution) ?? "NONE - the victim is not alone with exactly one"}`,
+      treasure === undefined
+        ? `  culprit on the sheet: ${culpritOf(level, level.solution) ?? "NONE - the victim is not alone with exactly one"}`
+        : `  treasure on the sheet: R${treasure.row + 1}C${treasure.col + 1}`,
     );
     ok = matches && culpritOf(level, level.solution) !== null;
   }

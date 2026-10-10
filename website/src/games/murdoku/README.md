@@ -6,12 +6,35 @@ je einem Hinweis, wo sie waren. Wer für jede Person ihr Feld findet, weiß, wer
 mit dem Opfer allein war - das ist der Täter.
 
 Nach den Rätseln von **Murdoku** von Manuel Garand ([murdoku.com](https://murdoku.com)).
-Die Fälle sind seine Probefälle, nach Schwierigkeit in
-`game_instructions/Murdoku/Easy`, `Medium`, `Hard` und `Expert` abgelegt, je
-mit Lösungsblatt daneben (`<Name>_Solution.png`). Ins Deutsche übertragen sind
+Die Fälle liegen nach Schwierigkeit in
+`game_instructions/Murdoku/<Schwierigkeit>/<Fall>/` (`Sehr Leicht`, `Leicht`,
+`Mittel`, `Schwer`, `Experte`, `Familie`, `Schatzsuche`), manche mit Lösungsblatt daneben
+(`<Name>_Solution.png`), die anderen mit den offiziellen Tipps. Ins Deutsche übertragen sind
 Titel, Bereiche, Hinweise und der Lösungsweg. Die Bilder des Originals sind
 nicht übernommen: Karte, Figuren und Logo sind hier selbst gezeichnet, die
 Gegenstände sind Emojis.
+
+Dazu kommen ein Fall aus einer anderen Reihe ("City Bus" von
+murdermysterypuzzles.com, Hiroji Osaka) und die Gruppe **Familie**
+(`game_instructions/Murdoku/Familie`, PDFs ohne Lösungsblatt): Dort hat der
+Löser die einzige Lösung gefunden, und der Lösungsweg in den Tipps ist selbst
+geschrieben. Familienfälle haben oft kein Opfer - der Täter ist dann, wer in der
+obersten Reihe stand oder auf den Krümeln; das sagt der Fall selbst
+(`findCulprit`). Das Wort für den Täter folgt der Person: "die Diebin", "die
+Täterin" (`culpritWord`).
+
+Die Gruppe **Schatzsuche** (`difficulty: "treasure"`) ist der erste
+Wettbewerbsfall "The Treasure Hunt" (PDF ohne Lösungsblatt, 24x24 mit 23
+Piraten): Es gibt kein Verbrechen, gesucht ist das Feld des Schatzes. Der Schatz
+ist ein eigenes Stück mit Karte (`treasure` am Fall nennt es) und liegt auf
+dem allerletzten Feld - in der einzigen Reihe und Spalte, die übrig bleiben.
+Er darf auch unter einem Gegenstand vergraben sein, auf dem sonst niemand
+stehen kann (`buried` am Stück, `isStandableFor` in
+[engine/rules.ts](engine/rules.ts)); Personen dürfen dort nach wie vor nicht
+hin. Nach "Bestätigen" nennt der Dialog statt eines Täters die Stelle: "Der
+Schatz liegt in Reihe 4, Spalte 11". Auch hier hat der Löser die einzige
+Lösung gefunden (mit einem eigenen Vorausblick im Fall, `prune`), und der
+Lösungsweg ist selbst geschrieben.
 
 ## Regeln
 
@@ -102,7 +125,9 @@ Prüfskript stellt sicher, dass sie die einzige ist.
 - **Felder, auf denen niemand stehen kann** (Baum, Strauch, Hai, Wildschwein,
   Felsen, Kaktus), nehmen keinen Tipp an: kein Vormerken, kein Setzen, kein
   Kreuz - sie haben gar keine Klickfläche. Auch das Auskreuzen von Reihe und
-  Spalte lässt sie aus. Unter der Karte steht wie im gedruckten Fall, was
+  Spalte lässt sie aus. Nur in einem Fall mit vergrabenem Schatz sind sie
+  anklickbar und werden mit ausgekreuzt (`isStandableForAny`), denn der Schatz
+  könnte darunter liegen; vormerken und setzen lässt sich dort nur der Schatz. Unter der Karte steht wie im gedruckten Fall, was
   besetzt werden kann und was nicht, mit genau den Dingen dieser Karte.
 - Zwei feste Personen in einer Reihe oder Spalte bekommen einen roten Ring.
   Ein Haken am Namen heißt nur, dass die Person schon fest steht - **nicht**,

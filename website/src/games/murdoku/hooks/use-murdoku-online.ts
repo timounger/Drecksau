@@ -16,7 +16,8 @@ import { useState } from "react";
 import { cellKey, standingOn } from "@/games/murdoku/engine/board";
 import {
   culpritOf,
-  isStandable,
+  isStandableFor,
+  isStandableForAny,
   solutionOf,
 } from "@/games/murdoku/engine/rules";
 import type { Cell } from "@/games/murdoku/engine/types";
@@ -50,10 +51,12 @@ export function useMurdokuOnline(
   const tap = (cell: Cell) => {
     const key = cellKey(cell);
     const there = standingOn(board, cell);
-    if (!over && isStandable(level, cell)) {
+    if (!over && isStandableForAny(level, cell)) {
       if (selected !== null) {
         const has = (board.notes[key] ?? []).includes(selected);
-        send({ kind: "mark", id: selected, cell, on: !has });
+        if (isStandableFor(level, selected, cell)) {
+          send({ kind: "mark", id: selected, cell, on: !has });
+        }
       } else if (there !== null) {
         send({ kind: "remove", id: there });
       } else {
@@ -64,7 +67,7 @@ export function useMurdokuOnline(
 
   const hold = (cell: Cell) => {
     const who = selected;
-    if (!over && who !== null && isStandable(level, cell)) {
+    if (!over && who !== null && isStandableFor(level, who, cell)) {
       send({ kind: "place", id: who, cell });
       setSelected(null);
     }

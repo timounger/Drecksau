@@ -15,7 +15,7 @@ import {
   standingOn,
   type Board,
 } from "./board";
-import { isStandable, sizeOf } from "./rules";
+import { isStandableFor, isStandableForAny, sizeOf } from "./rules";
 import type { Cell, Hint, Level } from "./types";
 
 /** The longer side of a case's map - every row and column lies within it. */
@@ -31,7 +31,8 @@ function sideOf(level: Level): number {
  * @param board - the notes
  * @param id - who
  * @param cell - where
- * @returns the notes with them there - or unchanged where nobody can stand
+ * @returns the notes with them there - or unchanged where they cannot be;
+ *   the crosses go on every field of the row and column some piece could be on
  */
 export function settled(
   level: Level,
@@ -39,8 +40,10 @@ export function settled(
   id: string,
   cell: Cell,
 ): Board {
-  return isStandable(level, cell)
-    ? placed(board, id, cell, sideOf(level), (one) => isStandable(level, one))
+  return isStandableFor(level, id, cell)
+    ? placed(board, id, cell, sideOf(level), (one) =>
+        isStandableForAny(level, one),
+      )
     : board;
 }
 
@@ -60,7 +63,7 @@ export function stepped(level: Level, board: Board, step: Hint): Board {
   }
   const crosses = new Set(next.crosses);
   for (const cell of step.cross ?? []) {
-    if (isStandable(level, cell) && standingOn(next, cell) === null) {
+    if (isStandableForAny(level, cell) && standingOn(next, cell) === null) {
       crosses.add(cellKey(cell));
     }
   }
@@ -88,7 +91,7 @@ export function markSet(
   on: boolean,
 ): Board {
   const has = (board.notes[cellKey(cell)] ?? []).includes(id);
-  return has === on || !isStandable(level, cell)
+  return has === on || !isStandableFor(level, id, cell)
     ? board
     : noted(board, id, cell);
 }
@@ -109,5 +112,7 @@ export function crossSet(
   on: boolean,
 ): Board {
   const has = board.crosses.includes(cellKey(cell));
-  return has === on || !isStandable(level, cell) ? board : crossed(board, cell);
+  return has === on || !isStandableForAny(level, cell)
+    ? board
+    : crossed(board, cell);
 }

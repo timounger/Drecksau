@@ -94,8 +94,8 @@ export const PREPPERS: Level = {
     },
     {
       key: "S",
-      name: "Schutzraum",
-      at: "im Schutzraum",
+      name: "Sicherheitsraum",
+      at: "im Sicherheitsraum",
       ground: "stone",
       tint: "#b9c8d8",
       label: { row: 8, col: 1 },
@@ -246,7 +246,7 @@ export const PREPPERS: Level = {
   ],
   hints: [
     {
-      text: "Weil Edna in der untersten Reihe steht, passt Carolina nicht mit einem Mann in den Schutzraum. Carolina ist also im Schlafzimmer, und der unbekannte Mann liegt auf dem Bett in Reihe 5. Streiche den Rest von Reihe 5.",
+      text: "Da Cs Hinweis besagt, dass ein Mann auf dem Bett ist, wissen wir, dass dieser Mann das Bett in R5 belegen muss. Streiche alle anderen Felder in R5.",
       cross: [
         { row: 4, col: 0 },
         { row: 4, col: 1 },
@@ -257,31 +257,23 @@ export const PREPPERS: Level = {
       ],
     },
     {
-      text: "Damit bleibt für Howie nur noch ein Feld im Badezimmer.",
-      place: { H: { row: 5, col: 1 } },
+      text: "H muss in R6 C2 sein, denn das ist das letzte verfügbare Feld im Badezimmer. Das bedeutet, dass C R7 C5 belegen muss, um im selben Raum wie der Mann auf dem Bett zu sein.",
+      place: { H: { row: 5, col: 1 }, C: { row: 6, col: 4 } },
     },
     {
-      text: "Damit bleibt für Carolina nur noch ein Feld im Schlafzimmer.",
-      place: { C: { row: 6, col: 4 } },
+      text: "Da B im Schlafzimmer ist, muss er der Mann auf dem Bett sein, in R5 C6. Damit bleibt ein Feld übrig, auf dem F neben dem Fernseher sein kann, also ist F in R2 C7.",
+      place: { B: { row: 4, col: 5 }, F: { row: 1, col: 6 } },
     },
     {
-      text: "Damit bleibt für Greg nur noch der letzte Stuhl - und Blake ist der Mann auf dem Bett.",
-      place: { G: { row: 3, col: 3 }, B: { row: 4, col: 5 } },
-    },
-    {
-      text: "Damit bleibt für Friedrich nur noch das Feld neben dem Fernseher.",
-      place: { F: { row: 1, col: 6 } },
-    },
-    {
-      text: "Damit bleibt für Daryl nur noch das Bett im Schutzraum, mit Edna in Reihe 9, Spalte 3 (dem letzten Feld im Schutzraum).",
+      text: "Konzentrieren wir uns auf D: Da ihr Hinweis besagt, dass jemand anderes in ihrem Bereich neben einem Regal war, können wir herleiten, dass D in R8 C1 im Sicherheitsraum ist, dem einzigen verbleibenden Bereich, der sie und eine weitere Person neben dem Bücherregal aufnehmen kann. Das bedeutet, dass die Person neben dem Bücherregal im Sicherheitsraum R9 C3 belegen muss. Wir wissen, dass diese Person E ist, da sie in der untersten Reihe ist.",
       place: { D: { row: 7, col: 0 }, E: { row: 8, col: 2 } },
     },
     {
-      text: "Damit bleibt für Angelo nur noch das letzte Feld, das nicht neben einem Karton liegt.",
-      place: { A: { row: 0, col: 8 } },
+      text: "G belegt R4 C4, denn das ist der letzte Stuhl. Da A nicht neben einer Kiste sein kann, muss er in R1 C9 sein.",
+      place: { G: { row: 3, col: 3 }, A: { row: 0, col: 8 } },
     },
     {
-      text: "Für Vivianna bleibt das letzte Feld im Hof, allein mit Angelo. Angelo ist der Mörder!",
+      text: "Damit bleibt das letzte Feld R3 C8 für V, also ist A der Mörder.",
       place: { V: { row: 2, col: 7 } },
     },
   ],

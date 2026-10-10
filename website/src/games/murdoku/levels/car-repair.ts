@@ -14,8 +14,8 @@ import type { Level } from "../engine/types";
 /** The case. */
 export const CAR_REPAIR: Level = {
   id: "car-repair",
-  name: "Autowerkstatt",
-  difficulty: "easy",
+  name: "Autoreparatur",
+  difficulty: "veryEasy",
   story:
     "Vaughn wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
@@ -120,23 +120,23 @@ export const CAR_REPAIR: Level = {
   ],
   hints: [
     {
-      text: "Diane ist allein im Wartebereich. Crystal kann also auf keinem der Stühle dort sitzen - ihr bleibt nur der Stuhl im Empfang. Streiche ihre Reihe und Spalte.",
+      text: "Da D allein im Wartebereich ist, kann C nur auf dem einzigen Stuhl am Empfang sitzen, in R1 C2.",
       place: { C: { row: 0, col: 1 } },
     },
     {
-      text: "Damit bleibt für Brock nur noch ein Ölfleck. Streiche seine Reihe und Spalte.",
+      text: "Das isoliert B auf dem letzten Feld mit Öllache.",
       place: { B: { row: 4, col: 3 } },
     },
     {
-      text: "Damit bleibt für Anthony nur noch ein Feld in einem Auto. Streiche seine Reihe und Spalte.",
+      text: "Das isoliert A auf dem letzten Feld in einem Auto.",
       place: { A: { row: 5, col: 4 } },
     },
     {
-      text: "Damit bleibt für Diane nur noch ein Feld im Wartebereich. Streiche ihre Reihe und Spalte.",
+      text: "Das isoliert D auf dem letzten Feld im Wartebereich.",
       place: { D: { row: 2, col: 5 } },
     },
     {
-      text: "Damit bleibt für Emilio nur noch ein Feld neben einem Regal, und für Vaughn das letzte Feld. Vaughn war allein mit Crystal im Empfang. Crystal ist die Mörderin!",
+      text: "Das isoliert E auf dem letzten Feld neben einem Regal, dann V auf dem letzten verbleibenden Feld.",
       place: { E: { row: 3, col: 2 }, V: { row: 1, col: 0 } },
     },
   ],

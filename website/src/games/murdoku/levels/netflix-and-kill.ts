@@ -22,8 +22,8 @@ function onlyOneSitting(c: Context): boolean {
 /** The case. */
 export const NETFLIX_AND_KILL: Level = {
   id: "netflix-and-kill",
-  name: "Netflix und Mord",
-  difficulty: "easy",
+  name: "Netflix and Kill",
+  difficulty: "veryEasy",
   story:
     "Vaughn wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
@@ -126,28 +126,24 @@ export const NETFLIX_AND_KILL: Level = {
   ],
   hints: [
     {
-      text: "Enid kann nicht auf einem Stuhl sitzen (Charlottes Hinweis). Damit bleibt ihr nur das letzte Feld neben dem Fernseher. Streiche ihre ganze Reihe und Spalte.",
+      text: "Da C die einzige Person ist, die auf einem Stuhl sitzt, gibt es nur ein Feld, auf dem E neben dem Fernseher sein kann: R4 C6.",
       place: { E: { row: 3, col: 5 } },
     },
     {
-      text: "Damit bleibt für Dean nur noch ein Feld in der Küche.",
+      text: "Damit bleibt ein Feld in der Küche für D.",
       place: { D: { row: 4, col: 1 } },
     },
     {
-      text: "Damit bleibt für Barbara nur noch ein Feld auf dem Bett.",
+      text: "Da B auf dem Bett ist, muss sie das einzige verbleibende Bettfeld belegen, R1 C1.",
       place: { B: { row: 0, col: 0 } },
     },
     {
-      text: "Damit bleibt für Austin nur noch ein Feld neben dem Regal.",
+      text: "Danach ist das einzige verbleibende Feld, auf dem A neben einem Regal sein kann, R6 C4.",
       place: { A: { row: 5, col: 3 } },
     },
     {
-      text: "Damit bleibt für Charlotte nur noch ein Stuhl.",
-      place: { C: { row: 2, col: 4 } },
-    },
-    {
-      text: "Für Vaughn bleibt das letzte Feld, allein mit Barbara im Schlafzimmer. Barbara ist die Mörderin!",
-      place: { V: { row: 1, col: 2 } },
+      text: "C muss den letzten Stuhl in R3 C5 belegen. Das isoliert V auf dem letzten verbleibenden Feld.",
+      place: { C: { row: 2, col: 4 }, V: { row: 1, col: 2 } },
     },
   ],
   solution: {
