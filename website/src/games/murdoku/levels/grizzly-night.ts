@@ -54,6 +54,7 @@ export const GRIZZLY_NIGHT: Level = {
   id: "grizzly-night",
   name: "Grizzly-Nacht",
   difficulty: "hard",
+  series: { book: "online" },
   story:
     "Victor wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

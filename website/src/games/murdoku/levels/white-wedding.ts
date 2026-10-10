@@ -118,6 +118,7 @@ export const WHITE_WEDDING: Level = {
   id: "white-wedding",
   name: "Weiße Hochzeit",
   difficulty: "medium",
+  series: { book: "online" },
   story:
     "Vikram wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

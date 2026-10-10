@@ -18,6 +18,7 @@ export const THE_GARAGE_BAND: Level = {
   id: "the-garage-band",
   name: "Die Garagenband",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Viper wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

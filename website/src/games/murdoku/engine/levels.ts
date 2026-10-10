@@ -59,10 +59,44 @@ import { GRIZZLY_NIGHT } from "../levels/grizzly-night";
 import { MINI_GOLF } from "../levels/mini-golf";
 import { MAIN_STREET } from "../levels/main-street";
 import { HOLIDAY_SHOPPING } from "../levels/holiday-shopping";
+import { THE_BANDIT_RAID } from "../levels/the-bandit-raid";
+import { THE_ROADSIDE_INN } from "../levels/the-roadside-inn";
+import { THE_WATER_WHEEL } from "../levels/the-water-wheel";
+import { THE_FIRST_CASE } from "../levels/the-first-case";
+import { THE_CATHEDRAL } from "../levels/the-cathedral";
+import { THE_HOLIDAY_FLAT } from "../levels/the-holiday-flat";
+import { ENGLISH_BREAKFAST } from "../levels/english-breakfast";
+import { THE_CAFE } from "../levels/the-cafe";
+import { THE_LAB } from "../levels/the-lab";
+import { THE_LOCAL_BOOKSHOP } from "../levels/the-local-bookshop";
+import { STUDY_SESSION } from "../levels/study-session";
+import { FOUR_WINDOWS } from "../levels/four-windows";
+import { BACKYARD_HOT_TUB } from "../levels/backyard-hot-tub";
+import { DEMOLITION_ZONE } from "../levels/demolition-zone";
+import { VISITING_AUNT_ELLEN } from "../levels/visiting-aunt-ellen";
+import { THE_FAMILY_ESTATE } from "../levels/the-family-estate";
+import { THE_SUPERMARKET } from "../levels/the-supermarket";
+import { THE_OLD_TAVERN } from "../levels/the-old-tavern";
+import { THE_BIRTHDAY_PARTY } from "../levels/the-birthday-party";
+import { THE_POLICE_STATION } from "../levels/the-police-station";
+import { DOOMSCROLLING } from "../levels/doomscrolling";
+import { A_STUNNING_MANSION } from "../levels/a-stunning-mansion";
+import { KING_SIZE_BEDS } from "../levels/king-size-beds";
+import { THE_CLOTHING_STORE } from "../levels/the-clothing-store";
+import { THE_LIBRARIANS_HOUSE } from "../levels/the-librarians-house";
+import { THE_HAIR_SALON } from "../levels/the-hair-salon";
+import { THE_GROCERY_STORE } from "../levels/the-grocery-store";
+import { SEMI_DETACHED_HOUSE } from "../levels/semi-detached-house";
+import { THE_ELECTRONICS_STORE } from "../levels/the-electronics-store";
+import { FLIGHT_85 } from "../levels/flight-85";
+import { KNOCKOUT } from "../levels/knockout";
+import { RAINY_DAY } from "../levels/rainy-day";
+import { GAME_NIGHT } from "../levels/game-night";
+import { BEACH_RESTAURANT } from "../levels/beach-restaurant";
 import { DELIVERY_24H } from "../levels/delivery-24h";
 import { THE_BOOK_CLUB } from "../levels/the-book-club";
 import { THE_TREASURE_HUNT } from "../levels/the-treasure-hunt";
-import type { Difficulty, Level } from "./types";
+import type { Difficulty, Level, Series } from "./types";
 
 /** Every case, easiest first. */
 export const LEVELS: readonly Level[] = [
@@ -89,6 +123,40 @@ export const LEVELS: readonly Level[] = [
   THE_RIDING_LESSON,
   A_HORSE_WITH_NO_NAME,
   MIDNIGHT_RAIN,
+  THE_BANDIT_RAID,
+  THE_ROADSIDE_INN,
+  THE_WATER_WHEEL,
+  THE_FIRST_CASE,
+  THE_CATHEDRAL,
+  THE_HOLIDAY_FLAT,
+  ENGLISH_BREAKFAST,
+  THE_CAFE,
+  THE_LAB,
+  THE_LOCAL_BOOKSHOP,
+  STUDY_SESSION,
+  FOUR_WINDOWS,
+  BACKYARD_HOT_TUB,
+  DEMOLITION_ZONE,
+  VISITING_AUNT_ELLEN,
+  THE_FAMILY_ESTATE,
+  THE_SUPERMARKET,
+  THE_OLD_TAVERN,
+  THE_BIRTHDAY_PARTY,
+  THE_POLICE_STATION,
+  DOOMSCROLLING,
+  A_STUNNING_MANSION,
+  KING_SIZE_BEDS,
+  THE_CLOTHING_STORE,
+  THE_LIBRARIANS_HOUSE,
+  THE_HAIR_SALON,
+  THE_GROCERY_STORE,
+  SEMI_DETACHED_HOUSE,
+  THE_ELECTRONICS_STORE,
+  FLIGHT_85,
+  KNOCKOUT,
+  RAINY_DAY,
+  GAME_NIGHT,
+  BEACH_RESTAURANT,
   // Medium
   FISHING_AT_THE_LAKE,
   THE_FRENCH_RESTAURANT,
@@ -126,6 +194,15 @@ export const LEVELS: readonly Level[] = [
   THE_CARICATURE,
   // Treasure
   THE_TREASURE_HUNT,
+];
+
+/** The book series, in the order they came out. */
+export const SERIES_ORDER: readonly Series[] = [
+  "original",
+  "timeTravel",
+  "worldTravel",
+  "beyondGrave",
+  "online",
 ];
 
 /** The difficulties, easiest first. */

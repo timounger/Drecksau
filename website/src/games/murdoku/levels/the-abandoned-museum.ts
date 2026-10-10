@@ -68,6 +68,7 @@ export const THE_ABANDONED_MUSEUM: Level = {
   id: "the-abandoned-museum",
   name: "Das verlassene Museum",
   difficulty: "hard",
+  series: { book: "online" },
   story:
     "Vicky wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

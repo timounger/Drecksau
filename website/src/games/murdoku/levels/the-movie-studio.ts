@@ -32,6 +32,7 @@ export const THE_MOVIE_STUDIO: Level = {
   id: "the-movie-studio",
   name: "Das Filmstudio",
   difficulty: "expert",
+  series: { book: "online" },
   story:
     "Vaughn wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

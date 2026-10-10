@@ -12,7 +12,7 @@
  * Rows and columns are counted from 1 here, as they are printed.
  */
 import { areaAt, groundAt, isInside, sizeOf, thingAt, thingDef } from "./rules";
-import type { Cell, Clue, Context, Level } from "./types";
+import type { Cell, Clue, Context, Level, Rule } from "./types";
 
 /** A clue without its sentence - what the pieces build. */
 export type ClueParts = Omit<Clue, "text">;
@@ -242,4 +242,21 @@ function isThing(level: Level, cell: Cell, what: string): boolean {
     thing !== null &&
     (thing === what || (thingDef(level, thing).kinds ?? []).includes(what))
   );
+}
+
+/**
+ * The rule of the books with crowned areas: nobles (the trait "noble") were
+ * only in areas with a crown. Others may be there too - a guard at the altar.
+ *
+ * @param text - the rule as shown, naming the crowned areas
+ * @param crowned - the keys of the areas with a crown
+ * @returns the rule
+ */
+export function nobility(text: string, crowned: readonly string[]): Rule {
+  return {
+    text,
+    unary: (suspect, c) =>
+      !(suspect.traits ?? []).includes("noble") ||
+      crowned.includes(c.areaOf(c.cell) ?? ""),
+  };
 }

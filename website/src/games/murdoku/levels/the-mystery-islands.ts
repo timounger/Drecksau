@@ -392,6 +392,7 @@ export const THE_MYSTERY_ISLANDS: Level = {
   id: "the-mystery-islands",
   name: "Die geheimnisvollen Inseln",
   difficulty: "expert",
+  series: { book: "online" },
   story:
     "Vincent wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

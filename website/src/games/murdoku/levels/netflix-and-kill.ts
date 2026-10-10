@@ -24,6 +24,7 @@ export const NETFLIX_AND_KILL: Level = {
   id: "netflix-and-kill",
   name: "Netflix and Kill",
   difficulty: "veryEasy",
+  series: { book: "online" },
   story:
     "Vaughn wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

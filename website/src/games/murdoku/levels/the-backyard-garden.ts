@@ -24,6 +24,7 @@ export const THE_BACKYARD_GARDEN: Level = {
   id: "the-backyard-garden",
   name: "Der Hinterhofgarten",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Violet wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

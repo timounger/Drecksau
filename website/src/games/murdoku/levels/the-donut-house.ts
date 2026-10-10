@@ -126,6 +126,7 @@ export const THE_DONUT_HOUSE: Level = {
   id: "the-donut-house",
   name: "Das Donut-Haus",
   difficulty: "hard",
+  series: { book: "online" },
   story:
     "Vallie wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

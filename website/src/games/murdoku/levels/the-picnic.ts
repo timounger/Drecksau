@@ -16,6 +16,7 @@ export const THE_PICNIC: Level = {
   id: "the-picnic",
   name: "Das Picknick",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Vicky wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

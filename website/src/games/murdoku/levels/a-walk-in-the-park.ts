@@ -26,6 +26,7 @@ export const A_WALK_IN_THE_PARK: Level = {
   id: "a-walk-in-the-park",
   name: "Ein Spaziergang im Park",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Vince wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

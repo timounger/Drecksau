@@ -40,6 +40,7 @@ export const PREPPERS: Level = {
   id: "preppers",
   name: "Prepper",
   difficulty: "medium",
+  series: { book: "online" },
   story:
     "Vivianna wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

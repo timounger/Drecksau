@@ -25,6 +25,7 @@ export const THE_FLOWER_SHOP: Level = {
   id: "the-flower-shop",
   name: "Der Blumenladen",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Vickie wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

@@ -416,6 +416,7 @@ export const THE_GOLF_COURSE: Level = {
   id: "the-golf-course",
   name: "Der Golfplatz",
   difficulty: "expert",
+  series: { book: "online" },
   story:
     "Vinny wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer auf einer Bahn.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

@@ -55,6 +55,7 @@ export const FISHING_AT_THE_LAKE: Level = {
   id: "fishing-at-the-lake",
   name: "Angeln am See",
   difficulty: "medium",
+  series: { book: "online" },
   story:
     "Vadim wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

@@ -57,6 +57,7 @@ export const CITY_BUS: Level = {
   id: "city-bus",
   name: "Stadtbus",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Everett wurde gestern Abend überfallen! Finde heraus, wer es war. Der Täter war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Täter", dative: "dem Täter" },

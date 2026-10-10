@@ -26,6 +26,7 @@ export const THE_CARICATURE: Level = {
   id: "the-caricature",
   name: "Die Karikatur",
   difficulty: "family",
+  series: { book: "online" },
   story:
     "Jemand hat eine gemeine Karikatur der Lehrerin an die Tafel gemalt! Finde heraus, wo alle im Klassenzimmer waren. Der Täter war in der obersten Reihe.",
   culprit: { name: "der Täter", dative: "dem Täter" },

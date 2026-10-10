@@ -6,7 +6,7 @@
  * The clues themselves are not here: each case carries its own sentences,
  * translated from the printed page, beside the checks behind them.
  */
-import type { Difficulty, Level, Suspect } from "../engine/types";
+import type { Difficulty, Level, Series, Suspect } from "../engine/types";
 
 /** What the difficulties are called. */
 export const DIFFICULTY_NAMES: Readonly<Record<Difficulty, string>> = {
@@ -19,12 +19,52 @@ export const DIFFICULTY_NAMES: Readonly<Record<Difficulty, string>> = {
   treasure: "Schatzsuche",
 };
 
+/** What the book series are called. */
+export const SERIES_NAMES: Readonly<Record<Series, string>> = {
+  original: "Das Murdoku-Original",
+  timeTravel: "Murdoku 2: Auf Zeitreise",
+  worldTravel: "Murdoku 3: Auf Weltreise",
+  beyondGrave: "Murdoku: Beyond the Grave",
+  online: "Online-Rätsel",
+};
+
+/**
+ * The labels of a case in words: where it comes from, and how hard it is.
+ *
+ * @param level - the case
+ * @returns the label
+ */
+export function categoryText(level: Level): string {
+  return [
+    level.series === undefined ? undefined : SERIES_NAMES[level.series.book],
+    level.difficulty === undefined
+      ? undefined
+      : DIFFICULTY_NAMES[level.difficulty],
+  ]
+    .filter((one) => one !== undefined)
+    .join(" \u00B7 ");
+}
+
+/**
+ * A case's name as shown - with its number in the book in front, as the book
+ * prints it ("3. English Breakfast").
+ *
+ * @param level - the case
+ * @returns the name
+ */
+export function titleOf(level: Level): string {
+  return level.series?.number === undefined
+    ? level.name
+    : `${String(level.series.number)}. ${level.name}`;
+}
+
 /** How the traits of suspects are shown on their cards. */
 export const TRAIT_NAMES: Readonly<Record<string, string>> = {
   cap: "\u{1F9E2} Kappe",
   eyepatch: "\u{1F3F4}\u200D\u2620\uFE0F Augenklappe",
   glasses: "\u{1F453} Brille",
   hat: "\u{1F3A9} Hut",
+  noble: "\u{1F451} Adlig",
   visitor: "Besucher",
   zookeeper: "Tierpfleger",
 };
@@ -37,13 +77,16 @@ export const MURDOKU_TEXTS = {
   chooseCase: "Wähle einen Fall",
   difficulty: "Schwierigkeit",
   allCases: "Alle",
+  series: "Buchreihe",
+  allSeries: "Alle Reihen",
+  noSeries: "Weitere Fälle",
   search: "Fall suchen ...",
   hideSolved: "Gelöste ausblenden",
   noCases: "Kein Fall passt dazu.",
   solved: "Gelöst",
   resume: "Weiter",
   open: "Ermitteln",
-  toCases: "Alle Fälle",
+  toCases: "Zurück zur Levelübersicht",
   playOnline: "Gemeinsam online",
   suspects: "Die Verdächtigen",
   victim: "Das Opfer",

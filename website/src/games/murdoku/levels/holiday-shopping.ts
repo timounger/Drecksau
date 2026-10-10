@@ -39,6 +39,7 @@ export const HOLIDAY_SHOPPING: Level = {
   id: "holiday-shopping",
   name: "Weihnachtseinkäufe",
   difficulty: "medium",
+  series: { book: "online" },
   story:
     "Vlimbo wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

@@ -13,7 +13,7 @@ import {
   loadMurdokuRecords,
   type CaseRecord,
 } from "@/games/murdoku/hooks/use-murdoku";
-import { DIFFICULTY_NAMES } from "@/games/murdoku/i18n/texts";
+import { categoryText, titleOf } from "@/games/murdoku/i18n/texts";
 
 /** The words of the table. */
 const L = {
@@ -22,7 +22,7 @@ const L = {
     `${String(done)} von ${String(all)} gelöst`,
   total: (time: string) => `Lösezeit insgesamt: ${time}`,
   caseName: "Fall",
-  difficulty: "Schwierigkeit",
+  difficulty: "Kategorie",
   best: "Bestzeit",
   last: "Zuletzt",
   solves: "Gelöst",
@@ -88,12 +88,10 @@ export function MurdokuStats(): ReactElement {
                 >
                   <td className="py-1.5 pr-3 font-medium">
                     {read.solved.includes(level.id)
-                      ? `✓ ${level.name}`
-                      : level.name}
+                      ? `✓ ${titleOf(level)}`
+                      : titleOf(level)}
                   </td>
-                  <td className="py-1.5 pr-3">
-                    {DIFFICULTY_NAMES[level.difficulty]}
-                  </td>
+                  <td className="py-1.5 pr-3">{categoryText(level)}</td>
                   <td className="py-1.5 pr-3">
                     {record === undefined ? L.notYet : L.times(record.solves)}
                   </td>

@@ -10,7 +10,11 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
 import { EMPTY_BOARD } from "@/games/murdoku/engine/board";
-import { DIFFICULTY_ORDER, LEVELS } from "@/games/murdoku/engine/levels";
+import {
+  DIFFICULTY_ORDER,
+  LEVELS,
+  SERIES_ORDER,
+} from "@/games/murdoku/engine/levels";
 import {
   cluePoints,
   groundAt,
@@ -20,7 +24,12 @@ import {
   thingAt,
   thingDef,
 } from "@/games/murdoku/engine/rules";
-import type { Difficulty, Level, Suspect } from "@/games/murdoku/engine/types";
+import type {
+  Difficulty,
+  Level,
+  Series,
+  Suspect,
+} from "@/games/murdoku/engine/types";
 import { CaseMap } from "@/games/murdoku/components/case-map";
 import {
   useMurdoku,
@@ -31,10 +40,12 @@ import { MURDOKU_RULES } from "@/games/murdoku/i18n/rules";
 import {
   DIFFICULTY_NAMES,
   MURDOKU_TEXTS as T,
+  SERIES_NAMES,
   TRAIT_NAMES,
   clueText,
   revealedText,
   solvedText,
+  titleOf,
 } from "@/games/murdoku/i18n/texts";
 
 /** A thousand, for milliseconds. */
@@ -71,29 +82,127 @@ export function MurdokuGame(): ReactElement {
         >
           {T.playOnline}
         </Link>
-        {game.level !== null && (
-          <button
-            type="button"
-            data-testid="murdoku-to-list"
-            onClick={game.toList}
-            className={BUTTON}
-          >
-            {T.toCases}
-          </button>
-        )}
       </GameHeader>
       {game.level === null ? (
         <CaseList game={game} />
       ) : (
-        <CaseView game={game} level={game.level} />
+        <CaseView game={game} level={game.level} onBack={game.toList} />
       )}
     </div>
   );
 }
 
+/** The colour of each book's label - each book its own, none like the difficulty's blue. */
+const SERIES_BADGE: Readonly<Record<Series, string>> = {
+  original:
+    "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
+  timeTravel:
+    "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
+  worldTravel: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200",
+  beyondGrave:
+    "bg-emerald-800 text-emerald-50 dark:bg-emerald-900 dark:text-emerald-100",
+  online:
+    "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200",
+};
+
+/** A chosen series chip, in its book's colour - neutral for all and for none. */
+const SERIES_CHIP: Readonly<Record<SeriesChoice, string>> = {
+  all: "border-zinc-700 bg-zinc-700 text-white dark:border-zinc-300 dark:bg-zinc-300 dark:text-zinc-900",
+  none: "border-zinc-700 bg-zinc-700 text-white dark:border-zinc-300 dark:bg-zinc-300 dark:text-zinc-900",
+  original: "border-violet-600 bg-violet-600 text-white",
+  timeTravel: "border-orange-600 bg-orange-600 text-white",
+  worldTravel: "border-cyan-600 bg-cyan-600 text-white",
+  beyondGrave: "border-emerald-800 bg-emerald-800 text-white",
+  online: "border-yellow-500 bg-yellow-500 text-zinc-900",
+};
+
+/** The look of every label beside a case's name. */
+const BADGE = "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold";
+
+/**
+ * The labels beside a case's name: where it comes from in that collection's
+ * colour, and how hard it is in blue - whichever of the two it has.
+ *
+ * @param props - the case
+ * @returns the labels
+ */
+export function CategoryBadge({
+  level,
+}: {
+  readonly level: Level;
+}): ReactElement {
+  return (
+    <span className="flex flex-wrap justify-end gap-1">
+      {level.series !== undefined && (
+        <span
+          data-testid="murdoku-category"
+          className={`${BADGE} ${SERIES_BADGE[level.series.book]}`}
+        >
+          {SERIES_NAMES[level.series.book]}
+        </span>
+      )}
+      {level.difficulty !== undefined && (
+        <span
+          data-testid="murdoku-difficulty"
+          className={`${BADGE} bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200`}
+        >
+          {DIFFICULTY_NAMES[level.difficulty]}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** What the series chips choose: every case, one book, or the cases from no book. */
+type SeriesChoice = Series | "all" | "none";
+
+/**
+ * Whether a case belongs to what the series chips chose.
+ *
+ * @param level - the case
+ * @param choice - all, one book, or none
+ * @returns whether it is shown
+ */
+function isInSeries(level: Level, choice: SeriesChoice): boolean {
+  let fits: boolean;
+  switch (choice) {
+    case "all":
+      fits = true;
+      break;
+    case "none":
+      fits = level.series === undefined;
+      break;
+    default:
+      fits = level.series?.book === choice;
+  }
+  return fits;
+}
+
+/**
+ * The words on a series chip.
+ *
+ * @param choice - all, one book, or none
+ * @returns its label
+ */
+function seriesLabel(choice: SeriesChoice): string {
+  let label: string;
+  switch (choice) {
+    case "all":
+      label = T.allSeries;
+      break;
+    case "none":
+      label = T.noSeries;
+      break;
+    default:
+      label = SERIES_NAMES[choice];
+  }
+  return label;
+}
+
 /** The cases to choose from - all of them, or one difficulty. */
 function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
   const [filter, setFilter] = useState<Difficulty | "all">("all");
+  const [series, setSeries] = useState<SeriesChoice>("all");
   const [query, setQuery] = useState("");
   const [hideSolved, setHideSolved] = useState(false);
   // The search and the tick narrow the cases first, so the counts on the
@@ -101,12 +210,18 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
   const needle = query.trim().toLowerCase();
   const found = LEVELS.filter(
     (level) =>
-      level.name.toLowerCase().includes(needle) &&
+      titleOf(level).toLowerCase().includes(needle) &&
       (!hideSolved || !game.solved.has(level.id)),
   );
-  const shown = found.filter(
-    (level) => filter === "all" || level.difficulty === filter,
-  );
+  const inSeries = found.filter((level) => isInSeries(level, series));
+  // A book is read in its own order, so the cases of one keep it.
+  const shown = inSeries
+    .filter((level) => filter === "all" || level.difficulty === filter)
+    .toSorted((one, other) =>
+      series === "all" || series === "none"
+        ? 0
+        : (one.series?.number ?? 0) - (other.series?.number ?? 0),
+    );
   return (
     <section className="flex flex-col gap-3" data-testid="murdoku-list">
       <h2 className="text-lg font-bold">{T.chooseCase}</h2>
@@ -138,7 +253,7 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
         data-testid="murdoku-filter"
       >
         {(["all", ...DIFFICULTY_ORDER] as const).map((one) => {
-          const count = found.filter(
+          const count = inSeries.filter(
             (level) => one === "all" || level.difficulty === one,
           ).length;
           return (
@@ -155,6 +270,32 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
               }`}
             >
               {`${one === "all" ? T.allCases : DIFFICULTY_NAMES[one]} (${String(count)})`}
+            </button>
+          );
+        })}
+      </div>
+      <div
+        className="flex flex-wrap gap-1.5"
+        role="group"
+        aria-label={T.series}
+        data-testid="murdoku-series"
+      >
+        {(["all", ...SERIES_ORDER, "none"] as const).map((one) => {
+          const count = found.filter((level) => isInSeries(level, one)).length;
+          return (
+            <button
+              key={one}
+              type="button"
+              aria-pressed={series === one}
+              data-testid={`murdoku-series-${one}`}
+              onClick={() => setSeries(one)}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-sm font-semibold ${
+                series === one
+                  ? SERIES_CHIP[one]
+                  : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {`${seriesLabel(one)} (${String(count)})`}
             </button>
           );
         })}
@@ -178,10 +319,8 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
                   <CaseMap level={level} board={EMPTY_BOARD} preview />
                 </span>
                 <span className="flex items-center justify-between gap-2">
-                  <span className="text-base font-bold">{level.name}</span>
-                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
-                    {DIFFICULTY_NAMES[level.difficulty]}
-                  </span>
+                  <span className="text-base font-bold">{titleOf(level)}</span>
+                  <CategoryBadge level={level} />
                 </span>
                 <span className="text-sm text-zinc-600 dark:text-zinc-400">
                   {level.story}
@@ -205,15 +344,19 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
 /**
  * One open case - at one screen, or online with everybody on the same map.
  *
- * @param props - the game, as either hook hands it over, and its case
+ * @param props - the game, as either hook hands it over, its case and the way
+ *   back to the list (only at one screen)
  * @returns the case
  */
 export function CaseView({
   game,
   level,
+  onBack,
 }: {
   readonly game: MurdokuApi;
   readonly level: Level;
+  /** Back to the list of cases - only at one screen; online the room decides. */
+  readonly onBack?: () => void;
 }): ReactElement {
   // Solved, or the solution on the map: then only looking, no playing.
   const over = game.outcome?.kind === "right" || game.peeking;
@@ -225,9 +368,27 @@ export function CaseView({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Which case this is - here as well as in the list, so it is never
+          a guess, online neither. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-xl font-bold" data-testid="murdoku-case-name">
+          {titleOf(level)}
+        </h2>
+        <CategoryBadge level={level} />
+      </div>
       <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100">
         <span className="flex-1">{level.story}</span>
         <CaseClock game={game} />
+        {onBack !== undefined && (
+          <button
+            type="button"
+            data-testid="murdoku-to-list"
+            onClick={onBack}
+            className="shrink-0 cursor-pointer rounded-full border border-rose-300 bg-white/80 px-3 py-1 text-sm font-semibold text-rose-900 hover:bg-white dark:border-rose-800 dark:bg-zinc-900/60 dark:text-rose-100 dark:hover:bg-zinc-900"
+          >
+            {T.toCases}
+          </button>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">

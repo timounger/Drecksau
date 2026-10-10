@@ -17,10 +17,13 @@ import { RulesButton } from "@/components/rules-button";
 import { EMPTY_BOARD } from "@/games/murdoku/engine/board";
 import { LEVELS } from "@/games/murdoku/engine/levels";
 import { CaseMap } from "@/games/murdoku/components/case-map";
-import { CaseView } from "@/games/murdoku/components/murdoku-game";
+import {
+  CaseView,
+  CategoryBadge,
+} from "@/games/murdoku/components/murdoku-game";
 import { useMurdokuOnline } from "@/games/murdoku/hooks/use-murdoku-online";
 import { MURDOKU_RULES } from "@/games/murdoku/i18n/rules";
-import { DIFFICULTY_NAMES } from "@/games/murdoku/i18n/texts";
+import { titleOf } from "@/games/murdoku/i18n/texts";
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -259,7 +262,7 @@ function Lobby({
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold">{L.chooseCase}</h2>
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {LEVELS.map((level, at) => (
+            {LEVELS.map((level) => (
               <li key={level.id}>
                 <button
                   type="button"
@@ -276,10 +279,8 @@ function Lobby({
                     <CaseMap level={level} board={EMPTY_BOARD} preview />
                   </span>
                   <span className="flex items-center justify-between gap-2 text-sm font-bold">
-                    {`${String(at + 1)}. ${level.name}`}
-                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
-                      {DIFFICULTY_NAMES[level.difficulty]}
-                    </span>
+                    {titleOf(level)}
+                    <CategoryBadge level={level} />
                   </span>
                 </button>
               </li>

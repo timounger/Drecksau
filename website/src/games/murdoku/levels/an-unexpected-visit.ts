@@ -49,6 +49,7 @@ export const AN_UNEXPECTED_VISIT: Level = {
   id: "an-unexpected-visit",
   name: "Unangemeldeter Besuch",
   difficulty: "medium",
+  series: { book: "online" },
   story:
     "Virginia wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

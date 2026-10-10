@@ -56,6 +56,7 @@ export const THE_FRENCH_RESTAURANT: Level = {
   id: "the-french-restaurant",
   name: "Das französische Restaurant",
   difficulty: "medium",
+  series: { book: "online" },
   story:
     "Vincent wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

@@ -79,6 +79,7 @@ export const MINI_GOLF: Level = {
   id: "mini-golf",
   name: "Minigolf",
   difficulty: "hard",
+  series: { book: "online" },
   story:
     "Valeria wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

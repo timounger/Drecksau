@@ -42,6 +42,7 @@ export const THE_BOOK_CLUB: Level = {
   id: "the-book-club",
   name: "Der Buchclub",
   difficulty: "veryEasy",
+  series: { book: "online" },
   story:
     "Vinita wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

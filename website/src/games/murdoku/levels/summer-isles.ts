@@ -61,6 +61,7 @@ export const SUMMER_ISLES: Level = {
   id: "summer-isles",
   name: "Sommerinseln",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Eine Hündin wurde gestohlen! Finde heraus, wer es war. Der Dieb war allein mit ihr in einem Bereich.",
   culprit: { name: "der Dieb", dative: "dem Dieb" },

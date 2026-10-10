@@ -38,6 +38,7 @@ export const THE_TERRACOTTA_COURTYARD: Level = {
   id: "the-terracotta-courtyard",
   name: "Der Terrakotta-Innenhof",
   difficulty: "medium",
+  series: { book: "online" },
   story:
     "Vernon wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

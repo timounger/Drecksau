@@ -28,6 +28,7 @@ export const A_HORSE_WITH_NO_NAME: Level = {
   id: "a-horse-with-no-name",
   name: "Ein Pferd ohne Namen",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Vin wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

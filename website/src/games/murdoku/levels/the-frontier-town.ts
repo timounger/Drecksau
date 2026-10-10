@@ -64,6 +64,7 @@ export const THE_FRONTIER_TOWN: Level = {
   id: "the-frontier-town",
   name: "Die Siedlerstadt",
   difficulty: "hard",
+  series: { book: "online" },
   story:
     "Virgil wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

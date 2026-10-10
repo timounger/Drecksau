@@ -35,6 +35,7 @@ export const DELIVERY_24H: Level = {
   id: "delivery-24h",
   name: "24-Stunden-Lieferung",
   difficulty: "veryEasy",
+  series: { book: "online" },
   story:
     "Viraj wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

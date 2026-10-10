@@ -27,6 +27,7 @@ export const THE_BEACH: Level = {
   id: "the-beach",
   name: "Der Strand",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Valentino wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

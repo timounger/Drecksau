@@ -1,0 +1,253 @@
+/**
+ * Visiting Aunt Ellen: a family get-together in Aunt Ellen's flat - a bedroom,
+ * a bathroom, a guest room, a dining room, a living room and a kitchen - with
+ * a murdered man.
+ *
+ * @module
+ * @remarks
+ * After the case of Murdoku by Manuel Garand
+ * (`game_instructions/Murdoku/Leicht/Besuch bei Tante Ellen/Besuch bei Tante Ellen.png`,
+ * no solution sheet - the solver proves the one solution, with the culprit
+ * pencilled in on the photographed page).
+ * Oswin is the victim; whoever was alone with him killed him.
+ *
+ * The four windows sit in the left wall; standing in front of one means being
+ * on the field right beside it. The beds and the armchairs - the chairs - can
+ * be stood on; the tables, the shelves, the TV and the plant cannot. A field
+ * is in a corner of its room when the room's border (or the map's edge) runs
+ * along two of its sides that meet.
+ */
+import { all, alone, beside, inArea, on, own, victim } from "../engine/clues";
+import type { Cell, Context, Level } from "../engine/types";
+
+/** Whether a field lies in a corner of its area. */
+function inCorner(c: Context, cell: Cell): boolean {
+  const area = c.areaOf(cell);
+  const outside = (row: number, col: number): boolean =>
+    c.areaOf({ row, col }) !== area;
+  const vertical =
+    outside(cell.row - 1, cell.col) || outside(cell.row + 1, cell.col);
+  const horizontal =
+    outside(cell.row, cell.col - 1) || outside(cell.row, cell.col + 1);
+  return vertical && horizontal;
+}
+
+/** How many people stand on a bed. */
+function onBeds(c: Context): number {
+  return c.people().filter((id) => {
+    const there = c.cellOf(id);
+    return there !== undefined && c.is(there, "bed");
+  }).length;
+}
+
+/** The case. */
+export const VISITING_AUNT_ELLEN: Level = {
+  id: "visiting-aunt-ellen",
+  name: "Besuch bei Tante Ellen",
+  series: { book: "original", number: 10 },
+  story:
+    "Bei Familientreffen kochen die Gemüter immer hoch. Oswin wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  culprit: { name: "der Mörder", dative: "dem Mörder" },
+  areas: [
+    {
+      key: "S",
+      name: "Schlafzimmer",
+      at: "im Schlafzimmer",
+      ground: "floor",
+      tint: "#f1e6b8",
+      label: { row: 3, col: 0 },
+    },
+    {
+      key: "B",
+      name: "Badezimmer",
+      at: "im Badezimmer",
+      ground: "stone",
+      tint: "#eef1f4",
+      label: { row: 3, col: 2 },
+    },
+    {
+      key: "G",
+      name: "Gästezimmer",
+      at: "im Gästezimmer",
+      ground: "floor",
+      tint: "#f3e3e6",
+      label: { row: 2, col: 5 },
+    },
+    {
+      key: "E",
+      name: "Esszimmer",
+      at: "im Esszimmer",
+      ground: "stone",
+      tint: "#f2c3a8",
+      label: { row: 5, col: 6 },
+    },
+    {
+      key: "W",
+      name: "Wohnzimmer",
+      at: "im Wohnzimmer",
+      ground: "floor",
+      tint: "#e3d6bd",
+      label: { row: 7, col: 1 },
+    },
+    {
+      key: "K",
+      name: "Küche",
+      at: "in der Küche",
+      ground: "floor",
+      tint: "#ede6d6",
+      label: { row: 7, col: 5 },
+    },
+  ],
+  areaMap: [
+    "SSSSGGGG",
+    "SSBBGGGG",
+    "SSBBGGGG",
+    "SSBBEEEE",
+    "WWWWEEEE",
+    "WWWWEEEE",
+    "WWWWEEKK",
+    "WWWKKKKK",
+  ],
+  thingMap: [
+    "bb.sbtb.",
+    "w..tbtb.",
+    "w......t",
+    ".s.....t",
+    ".c..ct..",
+    "wt.vct..",
+    "w....c.t",
+    "ssp....s",
+  ],
+  things: {
+    b: "bed",
+    c: "chair",
+    p: "plant",
+    s: "shelf",
+    t: "table",
+    v: "tv",
+    w: "window",
+  },
+  extraThings: {
+    window: { name: "Fenster", emoji: "\u{1FA9F}", standable: true },
+  },
+  suspects: [
+    {
+      id: "A",
+      name: "Albert",
+      pronoun: "er",
+      clue: { text: "Er war neben einem Regal.", ...beside("shelf") },
+      colour: "#b91c1c",
+      face: "\u{1F9D4}",
+    },
+    {
+      id: "B",
+      name: "Berti",
+      pronoun: "er",
+      clue: { text: "Er war neben einem Bett.", ...beside("bed") },
+      colour: "#15803d",
+      face: "\u{1F9D4}",
+    },
+    {
+      id: "C",
+      name: "Carolina",
+      pronoun: "sie",
+      clue: { text: "Sie war neben der Pflanze.", ...beside("plant") },
+      colour: "#0e7490",
+      face: "\u{1F469}",
+    },
+    {
+      id: "D",
+      name: "Desiree",
+      pronoun: "sie",
+      clue: {
+        text: "Sie war allein im Schlafzimmer.",
+        ...all(inArea("S"), alone()),
+      },
+      colour: "#7c3aed",
+      face: "\u{1F471}‍♀️",
+    },
+    {
+      id: "E",
+      name: "Ellen",
+      pronoun: "sie",
+      clue: { text: "Sie saß auf einem Stuhl.", ...on("chair") },
+      colour: "#be185d",
+      face: "\u{1F475}",
+    },
+    {
+      id: "F",
+      name: "Farouk",
+      pronoun: "er",
+      clue: { text: "Er war vor einem Fenster.", ...on("window") },
+      colour: "#334155",
+      face: "\u{1F9D4}",
+    },
+    {
+      id: "G",
+      name: "Gustaf",
+      pronoun: "er",
+      clue: {
+        text: "Er war in einer Ecke seines Raumes.",
+        ...own((c) => inCorner(c, c.cell)),
+      },
+      colour: "#ea580c",
+      face: "\u{1F468}",
+    },
+    {
+      id: "O",
+      name: "Oswin",
+      pronoun: "er",
+      clue: {
+        text: "Er war im letzten verbleibenden Feld, allein mit der Person, die den Mord beging.",
+        ...victim(),
+      },
+      colour: "#d97706",
+      face: "\u{1F474}",
+    },
+  ],
+  rules: [
+    {
+      text: "Genau eine Person war auf einem Bett.",
+      check: (c) => onBeds(c) === 1,
+    },
+    {
+      text: "Jetzt, wo die Fälle kniffliger werden, gibt es manchmal allgemeine Hinweise, die du zusammen mit den Hinweisen der Verdächtigen beachten musst. - Chief Williams",
+    },
+  ],
+  hints: [
+    {
+      text: "Carolina war neben der Pflanze in R8 C3. R8 C2 ist ein Regal und R8 C4 gehört schon zur Küche - Carolina war in R7 C3. Blockiere den Rest von R7 und C3.",
+      place: { C: { row: 6, col: 2 } },
+    },
+    {
+      text: "Farouk war vor einem Fenster: R2 C1, R3 C1, R6 C1 oder R7 C1. R7 ist gesperrt, und R2 C1 und R3 C1 liegen im Schlafzimmer, wo Desiree allein war. Farouk war in R6 C1.",
+      place: { F: { row: 5, col: 0 } },
+    },
+    {
+      text: "Albert war neben einem Regal. Neben den Regalen im Schlafzimmer darf er nicht sein (Desiree war dort allein), neben denen im Wohnzimmer sind R7 C1 und R7 C2 gesperrt. Bleibt das Regal in der Küche: Albert war in R8 C7.",
+      place: { A: { row: 7, col: 6 } },
+    },
+    {
+      text: "Ellen saß auf einem Stuhl. R6 und R7 sind gesperrt, also R5 C2 oder R5 C5. Desiree war im Schlafzimmer, wo C1 und C3 gesperrt sind - sie war in C2. Also saß Ellen in R5 C5.",
+      place: { E: { row: 4, col: 4 } },
+    },
+    {
+      text: "Frei sind noch R1 bis R4 in C2, C4, C6 und C8, und Desiree hat C2. Berti war neben einem Bett - in C4 und C6 geht das nicht, er war in C8. Gustaf war in einer Ecke: In C4 und C6 ist das nur R4 C4, die Ecke des Badezimmers. Für Oswin bleibt in C6 nur R3 C6 im Gästezimmer.",
+      place: { G: { row: 3, col: 3 }, O: { row: 2, col: 5 } },
+    },
+    {
+      text: "Genau eine Person war auf einem Bett. Berti in R1 C8 oder R2 C8 lag nicht auf einem, also lag Desiree auf dem Bett in R1 C2, und Berti war in R2 C8. Oswin war im Gästezimmer allein mit Berti - Berti ist der Mörder!",
+      place: { D: { row: 0, col: 1 }, B: { row: 1, col: 7 } },
+    },
+  ],
+  solution: {
+    A: { row: 7, col: 6 },
+    B: { row: 1, col: 7 },
+    C: { row: 6, col: 2 },
+    D: { row: 0, col: 1 },
+    E: { row: 4, col: 4 },
+    F: { row: 5, col: 0 },
+    G: { row: 3, col: 3 },
+    O: { row: 2, col: 5 },
+  },
+};

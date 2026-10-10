@@ -42,6 +42,7 @@ export const THE_COURTROOM: Level = {
   id: "the-courtroom",
   name: "Der Gerichtssaal",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Vanessa wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

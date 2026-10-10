@@ -41,6 +41,7 @@ export const SLEEPING_WITH_THE_FISHES: Level = {
   id: "sleeping-with-the-fishes",
   name: "Bei den Fischen schlafen",
   difficulty: "hard",
+  series: { book: "online" },
   story:
     "Vincenza wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

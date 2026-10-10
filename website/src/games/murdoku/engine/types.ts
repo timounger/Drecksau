@@ -165,6 +165,10 @@ export type Suspect = {
 };
 
 /** How hard a case is, as printed on it. */
+/** The collection a case comes from: a book, or the puzzles published online. */
+export type Series =
+  "original" | "timeTravel" | "worldTravel" | "beyondGrave" | "online";
+
 export type Difficulty =
   "veryEasy" | "easy" | "medium" | "hard" | "expert" | "family" | "treasure";
 
@@ -183,7 +187,10 @@ export type Level = {
   /** Stable, for the saved progress - never reuse one. */
   readonly id: string;
   readonly name: string;
-  readonly difficulty: Difficulty;
+  /** How hard the case is - not for a case from a book, which has its series instead. */
+  readonly difficulty?: Difficulty;
+  /** Where the case comes from, and for a book its number in it. */
+  readonly series?: { readonly book: Series; readonly number?: number };
   /** What happened, in a sentence or two. */
   readonly story: string;
   /** The word for the culprit, as subject and after "mit" - "der Dieb", "dem Dieb". */

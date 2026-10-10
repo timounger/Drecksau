@@ -25,6 +25,7 @@ export const THE_ART_SCHOOL: Level = {
   id: "the-art-school",
   name: "Kunstschule",
   difficulty: "medium",
+  series: { book: "online" },
   story:
     "Veronica wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

@@ -17,6 +17,7 @@ export const THE_COOKIE_THIEF: Level = {
   id: "the-cookie-thief",
   name: "Der Keksdieb",
   difficulty: "family",
+  series: { book: "online" },
   story:
     "Jemand hat alle Kekse aufgegessen! Die Krümel liegen noch auf dem Boden … aber wer war es? Finde heraus, wo alle zur Tatzeit waren. Der Keksdieb stand genau auf den Krümeln.",
   culprit: { name: "der Dieb", dative: "dem Dieb" },

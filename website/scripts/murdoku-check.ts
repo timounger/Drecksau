@@ -110,7 +110,9 @@ function show(placement: Placement): string {
 
 /** Checks one case; true when it is sound. */
 function check(level: Level): boolean {
-  console.log(`\n== ${level.id} (${level.name}, ${level.difficulty})`);
+  console.log(
+    `\n== ${level.id} (${level.name}, ${level.difficulty ?? level.series?.book ?? ""})`,
+  );
   const problems = problemsOf(level);
   problems.forEach((one) => console.log(`  PROBLEM: ${one}`));
   let ok = problems.length === 0;

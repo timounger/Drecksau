@@ -64,6 +64,7 @@ export const THE_RETIREMENT_VILLAGE: Level = {
   id: "the-retirement-village",
   name: "Die Seniorensiedlung",
   difficulty: "medium",
+  series: { book: "online" },
   story:
     "Violet wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

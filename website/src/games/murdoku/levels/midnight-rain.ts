@@ -63,6 +63,7 @@ export const MIDNIGHT_RAIN: Level = {
   id: "midnight-rain",
   name: "Mitternachtsregen",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Vasilisa wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

@@ -27,6 +27,7 @@ export const BEACH_BONFIRE: Level = {
   id: "beach-bonfire",
   name: "Lagerfeuer am Strand",
   difficulty: "veryEasy",
+  series: { book: "online" },
   story:
     "Van wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

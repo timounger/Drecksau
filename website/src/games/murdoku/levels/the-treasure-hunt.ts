@@ -449,6 +449,7 @@ export const THE_TREASURE_HUNT: Level = {
   id: "the-treasure-hunt",
   name: "Die Schatzsuche",
   difficulty: "treasure",
+  series: { book: "online" },
   story:
     "Auf der Pirateninsel ist ein Schatz vergraben! Finde heraus, wo die 23 Piraten standen - der Schatz liegt auf dem allerletzten Feld, in der einzigen Reihe und Spalte, die übrig bleiben.",
   culprit: { name: "der Schatz", dative: "dem Schatz" },

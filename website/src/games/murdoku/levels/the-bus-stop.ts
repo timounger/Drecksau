@@ -57,6 +57,7 @@ export const THE_BUS_STOP: Level = {
   id: "the-bus-stop",
   name: "Die Bushaltestelle",
   difficulty: "easy",
+  series: { book: "online" },
   story:
     "Vala wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

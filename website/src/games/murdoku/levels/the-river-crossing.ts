@@ -75,6 +75,7 @@ export const THE_RIVER_CROSSING: Level = {
   id: "the-river-crossing",
   name: "Die Flussüberquerung",
   difficulty: "hard",
+  series: { book: "online" },
   story:
     "Valeria wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

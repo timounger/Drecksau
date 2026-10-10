@@ -76,6 +76,7 @@ export const NEIGHBOURHOOD_FEUD: Level = {
   id: "neighbourhood-feud",
   name: "Nachbarschaftsstreit",
   difficulty: "medium",
+  series: { book: "online" },
   story:
     "Vivi wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },

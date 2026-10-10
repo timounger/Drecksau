@@ -284,6 +284,7 @@ export const MAIN_STREET: Level = {
   id: "main-street",
   name: "Hauptstraße",
   difficulty: "expert",
+  series: { book: "online" },
   story:
     "Virgil wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
