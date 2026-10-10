@@ -260,6 +260,7 @@ function Hero(): ReactElement | null {
           alt=""
           fill
           sizes="56rem"
+          loading="eager"
           aria-hidden
           className="scale-125 object-cover blur-2xl"
         />
@@ -276,6 +277,7 @@ function Hero(): ReactElement | null {
                 alt=""
                 fill
                 sizes="8rem"
+                loading="eager"
                 className="object-cover"
               />
             </span>
@@ -351,7 +353,7 @@ function Found({
       {COLLECTION_TEXTS.noResults}
     </p>
   ) : (
-    <Grid games={matches} marks={marks} />
+    <Grid games={matches} marks={marks} eager={new Set(firstOf(matches))} />
   );
 }
 
@@ -365,6 +367,16 @@ function Shelves({
   readonly fresh: readonly GameDefinition[] | null;
   readonly marks: Marks;
 }): ReactElement {
+  // Die Karten oben auf der Seite: das erste Regal, das Spiele zeigt - oder,
+  // solange "Beliebt" noch lädt, auch "Neu", das danach nach oben rücken kann.
+  const quiet = (popular?.length ?? 0) === 0;
+  const eager = new Set([
+    ...firstOf(popular ?? []),
+    ...(quiet ? firstOf(fresh ?? []) : []),
+    ...(quiet && (fresh?.length ?? 0) === 0
+      ? firstOf(gamesIn(CATEGORIES[0]?.id ?? ""))
+      : []),
+  ]);
   return (
     <div className="flex flex-col gap-8">
       {/* **The shelf keeps its place while it is being fetched.** Its order
@@ -385,6 +397,7 @@ function Shelves({
           games={popular ?? []}
           marks={marks}
           ghosts={popular === null ? GHOST_GUESS : 0}
+          eager={eager}
         />
       )}
       {fresh?.length !== 0 && (
@@ -395,6 +408,7 @@ function Shelves({
           games={fresh ?? []}
           marks={marks}
           ghosts={fresh === null ? GHOST_GUESS : 0}
+          eager={eager}
         />
       )}
       {CATEGORIES.map((category) => (
@@ -404,6 +418,7 @@ function Shelves({
           title={category.name}
           games={gamesIn(category.id)}
           marks={marks}
+          eager={eager}
         />
       ))}
     </div>
@@ -418,6 +433,7 @@ function Shelf({
   games,
   marks,
   ghosts = 0,
+  eager,
 }: {
   readonly id: string;
   readonly title: string;
@@ -427,6 +443,8 @@ function Shelf({
   readonly marks: Marks;
   /** How many blank cards to hold the space with while the games are fetched. */
   readonly ghosts?: number;
+  /** The games whose art loads straight away, see {@link ABOVE_FOLD}. */
+  readonly eager: ReadonlySet<string>;
 }): ReactElement {
   return (
     <section
@@ -447,7 +465,7 @@ function Shelf({
       {ghosts > 0 ? (
         <GhostGrid many={ghosts} />
       ) : (
-        <Grid games={games} marks={marks} />
+        <Grid games={games} marks={marks} eager={eager} />
       )}
     </section>
   );
@@ -462,19 +480,49 @@ function Shelf({
 function Grid({
   games,
   marks,
+  eager,
 }: {
   readonly games: readonly GameDefinition[];
   readonly marks: Marks;
+  /** The games whose art loads straight away, see {@link ABOVE_FOLD}. */
+  readonly eager: ReadonlySet<string>;
 }): ReactElement {
   return (
     <ul className={GRID}>
       {games.map((game) => (
         <li key={game.id}>
-          <GameCard game={game} mark={markOf(game, marks)} />
+          <GameCard
+            game={game}
+            mark={markOf(game, marks)}
+            eager={eager.has(game.id)}
+          />
         </li>
       ))}
     </ul>
   );
+}
+
+/**
+ * How many cards of the first shelf load their art straight away.
+ *
+ * @remarks
+ * **The first row is what the page is judged by.** Its artwork is the
+ * largest thing on screen when the page has loaded - the browser's "largest
+ * contentful paint" - and a lazy image there is fetched only once the page
+ * has worked out it is visible, which is late. Two rows of the widest grid;
+ * on a phone that is a card or two more than is seen, which costs nothing.
+ * Everything further down stays lazy.
+ *
+ * By game rather than by place: the same game on a shelf further down loads
+ * straight away too. It is the same file, fetched once either way - and Next
+ * keeps one record per file, so a lazy copy below would otherwise overwrite
+ * the eager one above and it would warn about the image at the top.
+ */
+const ABOVE_FOLD = 6;
+
+/** The first games of a list - the ones that load straight away. */
+function firstOf(games: readonly GameDefinition[]): readonly string[] {
+  return games.slice(0, ABOVE_FOLD).map((game) => game.id);
 }
 
 /** What a mark is called on screen. */
@@ -526,9 +574,12 @@ const ART =
 function GameCard({
   game,
   mark,
+  eager,
 }: {
   readonly game: GameDefinition;
   readonly mark: Mark;
+  /** Whether its art loads straight away rather than once it is scrolled to. */
+  readonly eager: boolean;
 }): ReactElement {
   return (
     <Link
@@ -547,6 +598,7 @@ function GameCard({
           alt=""
           fill
           sizes="(min-width: 1024px) 18rem, 50vw"
+          loading={eager ? "eager" : "lazy"}
           aria-hidden
           className="look-showcase:block hidden scale-125 object-cover blur-xl"
         />
@@ -555,6 +607,7 @@ function GameCard({
           alt=""
           fill
           sizes="(min-width: 1024px) 18rem, 50vw"
+          loading={eager ? "eager" : "lazy"}
           className="look-showcase:object-contain look-showcase:p-2 object-cover"
         />
         {mark !== null && (

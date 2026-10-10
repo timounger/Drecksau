@@ -40,7 +40,8 @@ export type GameId =
   | "gta"
   | "dog"
   | "uboot"
-  | "bloons-td";
+  | "bloons-td"
+  | "murdoku";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -362,6 +363,16 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/bohnanza",
     category: "karten",
     addedOn: "2026-08-26",
+  },
+  {
+    id: "murdoku",
+    name: "Murdoku",
+    tagline:
+      "Ein Kriminalrätsel wie ein Sudoku - wer war mit dem Opfer allein?",
+    emoji: "\u{1F575}️",
+    href: "/murdoku",
+    category: "gemeinsam",
+    addedOn: "2026-10-10",
   },
 ];
 
