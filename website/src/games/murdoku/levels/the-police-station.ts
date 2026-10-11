@@ -46,8 +46,7 @@ export const THE_POLICE_STATION: Level = {
   id: "the-police-station",
   name: "Die Polizeistation",
   series: { book: "original", number: 18 },
-  story:
-    "Immerhin mussten wir für die Ermittlungen nicht weit fahren. Odin wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Immerhin mussten wir für die Ermittlungen nicht weit fahren.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -129,6 +128,29 @@ export const THE_POLICE_STATION: Level = {
     s: "shelf",
     t: "table",
   },
+  shapes: [
+    [
+      { row: 3, col: 6 },
+      { row: 4, col: 6 },
+      { row: 4, col: 5 },
+    ],
+    [
+      { row: 6, col: 1 },
+      { row: 7, col: 1 },
+      { row: 7, col: 2 },
+    ],
+    [
+      { row: 6, col: 7 },
+      { row: 7, col: 7 },
+      { row: 8, col: 7 },
+      { row: 6, col: 8 },
+    ],
+  ],
+  pieces: [
+    { at: { row: 0, col: 4 }, rows: 2, cols: 1 },
+    { at: { row: 1, col: 6 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 0 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -150,7 +172,6 @@ export const THE_POLICE_STATION: Level = {
       id: "C",
       name: "Charlie",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war neben einer Pflanze.", ...beside("plant") },
       colour: "#0e7490",
       face: "\u{1F468}‍\u{1F9B3}",
@@ -159,7 +180,6 @@ export const THE_POLICE_STATION: Level = {
       id: "D",
       name: "Donovan",
       pronoun: "er",
-      traits: ["cap"],
       clue: { text: "Er war neben einem Fernseher.", ...beside("tv") },
       colour: "#6366f1",
       face: "\u{1F9D4}",
@@ -210,7 +230,6 @@ export const THE_POLICE_STATION: Level = {
       id: "O",
       name: "Odin",
       pronoun: "er",
-      traits: ["cap"],
       clue: {
         text: "Er war allein mit der Person, die den Mord beging.",
         ...victim(),

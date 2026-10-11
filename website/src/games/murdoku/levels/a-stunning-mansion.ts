@@ -30,7 +30,7 @@ export const A_STUNNING_MANSION: Level = {
   name: "Ein umwerfendes Herrenhaus",
   series: { book: "original", number: 17 },
   story:
-    "Ich werde zu solchen Partys nicht eingeladen. Wenn das dort so abgeht, ist das vielleicht auch besser so. Owen wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Ich werde zu solchen Partys nicht eingeladen. Wenn das dort so abgeht, ist das vielleicht auch besser so.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -121,6 +121,19 @@ export const A_STUNNING_MANSION: Level = {
     s: "statue",
     t: "table",
   },
+  shapes: [
+    [
+      { row: 4, col: 8 },
+      { row: 5, col: 8 },
+      { row: 5, col: 7 },
+      { row: 5, col: 6 },
+    ],
+  ],
+  pieces: [
+    { at: { row: 1, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 1, col: 5 }, rows: 2, cols: 3 },
+    { at: { row: 4, col: 4 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",
@@ -134,7 +147,6 @@ export const A_STUNNING_MANSION: Level = {
       id: "B",
       name: "Barbara",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war im Arbeitszimmer.", ...inArea("A") },
       colour: "#15803d",
       face: "\u{1F475}",

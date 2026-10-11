@@ -182,6 +182,12 @@ export const THE_RETIREMENT_VILLAGE: Level = {
   extraThings: {
     cart: { name: "Golfwagen", emoji: "\u{1F6FA}", standable: true },
   },
+  pieces: [
+    { at: { row: 0, col: 3 }, rows: 2, cols: 1 },
+    { at: { row: 5, col: 9 }, rows: 2, cols: 1 },
+    { at: { row: 7, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 8, col: 3 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

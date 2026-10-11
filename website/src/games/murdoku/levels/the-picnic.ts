@@ -80,6 +80,10 @@ export const THE_PICNIC: Level = {
     b: "boulder",
     s: "table",
   },
+  pieces: [
+    { at: { row: 1, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 0 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -93,7 +97,6 @@ export const THE_PICNIC: Level = {
       id: "B",
       name: "Bruno",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er saß auf einem Stuhl im Pavillon.",
         ...all(on("seat"), inArea("V")),

@@ -21,7 +21,7 @@ export const THE_HOLIDAY_FLAT: Level = {
   name: "Ferienwohnung",
   series: { book: "original", number: 2 },
   story:
-    "Jemand wird die Kaution für das AirBnB verlieren, wenn diese Blutflecken nicht beseitigt werden. Oscar wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Jemand wird die Kaution für das AirBnB verlieren, wenn diese Blutflecken nicht beseitigt werden.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -66,12 +66,15 @@ export const THE_HOLIDAY_FLAT: Level = {
     p: "plant",
     t: "table",
   },
+  pieces: [
+    { at: { row: 2, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 2, col: 4 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
       name: "Arianna",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war neben einem Fernseher.", ...beside("tv") },
       colour: "#b91c1c",
       face: "\u{1F469}",
@@ -96,7 +99,6 @@ export const THE_HOLIDAY_FLAT: Level = {
       id: "D",
       name: "Dario",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war neben einer Pflanze und er war auf einem Bett.",
         ...all(beside("plant"), on("bed")),
@@ -123,6 +125,7 @@ export const THE_HOLIDAY_FLAT: Level = {
   ],
   rules: [
     {
+      note: true,
       text: "Kollege, dieser kleine Notizblock könnte praktisch sein, um dir Notizen zu machen. Du kannst dich später bei mir bedanken. - Chief Williams",
     },
   ],

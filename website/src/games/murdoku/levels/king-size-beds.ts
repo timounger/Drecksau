@@ -54,8 +54,7 @@ export const KING_SIZE_BEDS: Level = {
   id: "king-size-beds",
   name: "Kingsize-Betten",
   series: { book: "original", number: 16 },
-  story:
-    "Das könnte unser erster Fall von Königsmord sein. Otis wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Das könnte unser erster Fall von Königsmord sein.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -137,6 +136,28 @@ export const KING_SIZE_BEDS: Level = {
     r: "shelf",
     t: "table",
   },
+  shapes: [
+    [
+      { row: 1, col: 4 },
+      { row: 2, col: 4 },
+      { row: 3, col: 4 },
+      { row: 3, col: 3 },
+    ],
+  ],
+  pieces: [
+    { at: { row: 0, col: 6 }, rows: 2, cols: 1 },
+    { at: { row: 0, col: 7 }, rows: 2, cols: 1 },
+    { at: { row: 4, col: 5 }, rows: 1, cols: 3 },
+    { at: { row: 5, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 1 }, rows: 1, cols: 2 },
+  ],
+  windows: [
+    { at: { row: 1, col: 8 }, side: "right" },
+    { at: { row: 4, col: 8 }, side: "right" },
+    { at: { row: 7, col: 8 }, side: "right" },
+    { at: { row: 6, col: 0 }, side: "left" },
+    { at: { row: 8, col: 0 }, side: "left" },
+  ],
   suspects: [
     {
       id: "A",
@@ -192,7 +213,6 @@ export const KING_SIZE_BEDS: Level = {
       id: "F",
       name: "Fata",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war neben einem Regal.", ...beside("shelf") },
       colour: "#9f1239",
       face: "\u{1F469}",
@@ -209,7 +229,6 @@ export const KING_SIZE_BEDS: Level = {
       id: "H",
       name: "Hazel",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie saß nicht auf einem Stuhl. Sie war nicht im Schlafzimmer.",
         ...all(not(on("chair")), not(inArea("S"))),
@@ -221,7 +240,6 @@ export const KING_SIZE_BEDS: Level = {
       id: "O",
       name: "Otis",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war im letzten verbleibenden Feld, allein mit der Person, die den Mord beging.",
         ...victim(),

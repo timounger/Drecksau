@@ -41,8 +41,7 @@ export const THE_CLOTHING_STORE: Level = {
   id: "the-clothing-store",
   name: "Das Bekleidungsgeschäft",
   series: { book: "original", number: 26 },
-  story:
-    "Halte Ausschau nach jemandem, der todschick angezogen ist. Ornella wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Halte Ausschau nach jemandem, der todschick angezogen ist.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -133,12 +132,20 @@ export const THE_CLOTHING_STORE: Level = {
     "..rrr..t.",
   ],
   things: { c: "chair", p: "plant", r: "rug", s: "shelf", t: "table" },
+  pieces: [
+    { at: { row: 1, col: 1 }, rows: 2, cols: 1 },
+    { at: { row: 0, col: 2 }, rows: 1, cols: 2 },
+    { at: { row: 1, col: 5 }, rows: 2, cols: 1 },
+    { at: { row: 0, col: 6 }, rows: 1, cols: 2 },
+    { at: { row: 0, col: 8 }, rows: 2, cols: 1 },
+    { at: { row: 4, col: 8 }, rows: 2, cols: 1 },
+    { at: { row: 8, col: 2 }, rows: 1, cols: 3 },
+  ],
   suspects: [
     {
       id: "A",
       name: "Adeline",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war in Umkleide 1 oder 6. Sie war neben einem Stuhl.",
         ...all(inArea("1", "6"), beside("chair")),
@@ -178,7 +185,6 @@ export const THE_CLOTHING_STORE: Level = {
       id: "D",
       name: "Dylan",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war auf einem Teppich.", ...on("rug") },
       colour: "#6366f1",
       face: "\u{1F471}‍♂️",

@@ -142,6 +142,11 @@ export const THE_FRENCH_RESTAURANT: Level = {
     c: "chair",
     p: "plant",
   },
+  pieces: [
+    { at: { row: 1, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 3 }, rows: 2, cols: 1 },
+    { at: { row: 7, col: 0 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -181,7 +186,6 @@ export const THE_FRENCH_RESTAURANT: Level = {
       id: "D",
       name: "Denis",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war neben einem Regal. Er war nicht in der Küche.",
         ...all(beside("shelf"), not(inArea("K"))),
@@ -241,7 +245,6 @@ export const THE_FRENCH_RESTAURANT: Level = {
       id: "V",
       name: "Vincent",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war allein mit dem Mörder.", ...victim() },
       colour: "#d97706",
       face: "\u{1F468}",

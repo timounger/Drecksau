@@ -20,6 +20,7 @@ import { CaseMap } from "@/games/murdoku/components/case-map";
 import {
   CaseView,
   CategoryBadge,
+  useCaseFilter,
 } from "@/games/murdoku/components/murdoku-game";
 import { useMurdokuOnline } from "@/games/murdoku/hooks/use-murdoku-online";
 import { MURDOKU_RULES } from "@/games/murdoku/i18n/rules";
@@ -245,6 +246,8 @@ function Lobby({
   const seats = room.room?.seats ?? [];
   const enough = seats.length >= MIN_PLAYERS;
   const [levelId, setLevelId] = useState(LEVELS[0]?.id ?? "");
+  const picked = LEVELS.find((level) => level.id === levelId);
+  const { controls, shown } = useCaseFilter(null);
 
   return (
     <div className="flex max-w-3xl flex-col gap-5" data-testid="murdoku-lobby">
@@ -258,45 +261,31 @@ function Lobby({
 
       <SeatList room={room} />
 
+      {/* Start, voice and leaving first; the long list of cases below. */}
       {room.isHost ? (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold">{L.chooseCase}</h2>
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {LEVELS.map((level) => (
-              <li key={level.id}>
-                <button
-                  type="button"
-                  aria-pressed={level.id === levelId}
-                  data-testid={`murdoku-online-case-${level.id}`}
-                  onClick={() => setLevelId(level.id)}
-                  className={`flex w-full cursor-pointer flex-col gap-2 rounded-2xl border-2 bg-white p-3 text-left dark:bg-zinc-900 ${
-                    level.id === levelId
-                      ? "border-sky-500"
-                      : "border-zinc-200 hover:border-sky-300 dark:border-zinc-800"
-                  }`}
-                >
-                  <span className="block overflow-hidden rounded-xl">
-                    <CaseMap level={level} board={EMPTY_BOARD} preview />
-                  </span>
-                  <span className="flex items-center justify-between gap-2 text-sm font-bold">
-                    {titleOf(level)}
-                    <CategoryBadge level={level} />
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            data-testid="murdoku-online-start"
-            disabled={!enough}
-            onClick={() =>
-              room.start({ levelId, startedAt: Date.now(), autoPlayMs: null })
-            }
-            className="cursor-pointer self-start rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {L.startGame}
-          </button>
+        <section className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              data-testid="murdoku-online-start"
+              disabled={!enough}
+              onClick={() =>
+                room.start({ levelId, startedAt: Date.now(), autoPlayMs: null })
+              }
+              className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {L.startGame}
+            </button>
+            {picked !== undefined && (
+              <span
+                className="flex items-center gap-2 text-sm"
+                data-testid="murdoku-online-picked"
+              >
+                <span className="font-semibold">{titleOf(picked)}</span>
+                <CategoryBadge level={picked} />
+              </span>
+            )}
+          </div>
           {!enough && (
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               {L.needPlayers}
@@ -322,6 +311,38 @@ function Lobby({
       >
         {L.leaveRoom}
       </button>
+
+      {room.isHost && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold">{L.chooseCase}</h2>
+          {controls}
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {shown.map((level) => (
+              <li key={level.id}>
+                <button
+                  type="button"
+                  aria-pressed={level.id === levelId}
+                  data-testid={`murdoku-online-case-${level.id}`}
+                  onClick={() => setLevelId(level.id)}
+                  className={`flex h-full w-full cursor-pointer flex-col gap-2 rounded-2xl border-2 bg-white p-3 text-left dark:bg-zinc-900 ${
+                    level.id === levelId
+                      ? "border-sky-500"
+                      : "border-zinc-200 hover:border-sky-300 dark:border-zinc-800"
+                  }`}
+                >
+                  <span className="block aspect-square overflow-hidden rounded-xl">
+                    <CaseMap level={level} board={EMPTY_BOARD} preview />
+                  </span>
+                  <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm font-bold">
+                    <span className="min-w-0">{titleOf(level)}</span>
+                    <CategoryBadge level={level} />
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

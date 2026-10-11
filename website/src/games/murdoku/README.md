@@ -15,7 +15,7 @@ nicht übernommen: Karte, Figuren und Logo sind hier selbst gezeichnet, die
 Gegenstände sind Emojis.
 
 Dazu kommen ein Fall aus einer anderen Reihe ("City Bus" von
-murdermysterypuzzles.com, Hiroji Osaka) und die Gruppe **Familie**
+murdermysterypuzzles.com, Hiroji Osaka) und die Reihe **Familie Murdoku**
 (`game_instructions/Murdoku/Familie`, PDFs ohne Lösungsblatt): Dort hat der
 Löser die einzige Lösung gefunden, und der Lösungsweg in den Tipps ist selbst
 geschrieben. Familienfälle haben oft kein Opfer - der Täter ist dann, wer in der
@@ -23,7 +23,7 @@ obersten Reihe stand oder auf den Krümeln; das sagt der Fall selbst
 (`findCulprit`). Das Wort für den Täter folgt der Person: "die Diebin", "die
 Täterin" (`culpritWord`).
 
-Die Gruppe **Schatzsuche** (`difficulty: "treasure"`) ist der erste
+In der Reihe **Wettbewerb** (`series: { book: "contest" }`) steht der erste
 Wettbewerbsfall "The Treasure Hunt" (PDF ohne Lösungsblatt, 24x24 mit 23
 Piraten): Es gibt kein Verbrechen, gesucht ist das Feld des Schatzes. Der Schatz
 ist ein eigenes Stück mit Karte (`treasure` am Fall nennt es) und liegt auf

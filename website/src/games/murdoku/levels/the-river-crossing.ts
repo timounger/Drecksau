@@ -164,6 +164,10 @@ export const THE_RIVER_CROSSING: Level = {
       kinds: ["seat", "animal"],
     },
   },
+  pieces: [
+    { at: { row: 1, col: 6 }, rows: 1, cols: 2 },
+    { at: { row: 5, col: 4 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

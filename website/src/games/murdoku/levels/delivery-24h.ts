@@ -93,6 +93,11 @@ export const DELIVERY_24H: Level = {
     s: "shrub",
     k: "crate",
   },
+  pieces: [
+    { at: { row: 0, col: 3 }, rows: 1, cols: 2 },
+    { at: { row: 1, col: 1 }, rows: 2, cols: 1 },
+    { at: { row: 3, col: 3 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

@@ -130,6 +130,11 @@ export type Clue = {
 export type Rule = {
   /** The rule as printed, in German. */
   readonly text: string;
+  /**
+   * A note stuck on the page (the detective's post-it) rather than a rule
+   * under the magnifier: shown as a note, and never checked.
+   */
+  readonly note?: true;
   /** What a suspect's own field must be like under this rule. */
   readonly unary?: (suspect: Suspect, context: Context) => boolean;
   /** What must hold once everybody stands. */
@@ -141,6 +146,19 @@ export type Rule = {
    * The context's suspect is the one placed last.
    */
   readonly prune?: (context: Context) => boolean;
+};
+
+/** The side of a field a window is on. */
+export type Side = "top" | "bottom" | "left" | "right";
+
+/** A window in the wall beside a field: the field in front of it, and the side. */
+export type WallWindow = { readonly at: Cell; readonly side: Side };
+
+/** One thing over a block of fields, from its top left field. */
+export type Piece = {
+  readonly at: Cell;
+  readonly rows: number;
+  readonly cols: number;
 };
 
 /** One person of the case. */
@@ -167,10 +185,15 @@ export type Suspect = {
 /** How hard a case is, as printed on it. */
 /** The collection a case comes from: a book, or the puzzles published online. */
 export type Series =
-  "original" | "timeTravel" | "worldTravel" | "beyondGrave" | "online";
+  | "original"
+  | "timeTravel"
+  | "worldTravel"
+  | "beyondGrave"
+  | "family"
+  | "online"
+  | "contest";
 
-export type Difficulty =
-  "veryEasy" | "easy" | "medium" | "hard" | "expert" | "family" | "treasure";
+export type Difficulty = "veryEasy" | "easy" | "medium" | "hard" | "expert";
 
 /** One step of the way to the solution. */
 export type Hint = {
@@ -208,6 +231,22 @@ export type Level = {
   readonly things: Readonly<Record<string, string>>;
   /** Things this case needs that the catalog does not have. */
   readonly extraThings?: Readonly<Record<string, ThingDef>>;
+  /**
+   * Things that stretch over several fields - one bed over two - drawn as one
+   * piece. Each field keeps its letter in the thing map; this is only how the
+   * map looks.
+   */
+  readonly pieces?: readonly Piece[];
+  /**
+   * Things whose fields make one object of another shape than a block - a
+   * table round a corner. Each list is the fields of one; only the look.
+   */
+  readonly shapes?: readonly (readonly Cell[])[];
+  /**
+   * Windows drawn in the wall at the side of their field, rather than as a
+   * sign on it. The field keeps its window in the thing map for the clues.
+   */
+  readonly windows?: readonly WallWindow[];
   readonly suspects: readonly Suspect[];
   /** Rules of the whole case, printed under the suspects. */
   readonly rules?: readonly Rule[];

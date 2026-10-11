@@ -406,6 +406,15 @@ export const MAIN_STREET: Level = {
     cone: { name: "Leitkegel", emoji: "\u{1F6A7}", standable: false },
     bin: { name: "Mülleimer", emoji: "\u{1F5D1}️", standable: false },
   },
+  pieces: [
+    { at: { row: 2, col: 5 }, rows: 1, cols: 4 },
+    { at: { row: 5, col: 3 }, rows: 1, cols: 2 },
+    { at: { row: 5, col: 7 }, rows: 1, cols: 3 },
+    { at: { row: 6, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 6 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 9 }, rows: 1, cols: 2 },
+    { at: { row: 9, col: 6 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

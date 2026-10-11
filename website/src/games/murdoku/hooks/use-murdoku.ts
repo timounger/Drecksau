@@ -164,6 +164,32 @@ export type MurdokuApi = {
   readonly next: (() => void) | null;
 };
 
+/** Where the open case is kept in the browser's history entry. */
+const CASE_KEY = "murdokuCase";
+
+/**
+ * A history entry's state as a plain record, to add the case to it.
+ *
+ * @param state - the entry's state, whatever another part put there
+ * @returns its fields, or none
+ */
+function asRecord(state: unknown): Readonly<Record<string, unknown>> {
+  return typeof state === "object" && state !== null
+    ? (state as Record<string, unknown>)
+    : {};
+}
+
+/**
+ * The case a history entry has open.
+ *
+ * @param state - the entry's state
+ * @returns the case's id, or null on the list
+ */
+function caseIn(state: unknown): string | null {
+  const id = asRecord(state)[CASE_KEY];
+  return typeof id === "string" ? id : null;
+}
+
 /**
  * Murdoku, as state.
  *
@@ -322,7 +348,7 @@ export function useMurdoku(): MurdokuApi {
     [halt, keep, level, peeked, stored],
   );
 
-  const open = useCallback(
+  const show = useCallback(
     (id: string) => {
       const found = LEVELS.find((one) => one.id === id) ?? null;
       const notes = stored.open[id];
@@ -353,13 +379,51 @@ export function useMurdoku(): MurdokuApi {
     [stored],
   );
 
-  const toList = useCallback(() => {
+  const leave = useCallback(() => {
     halt();
     setLevel(null);
     setPeeking(false);
     setSelected(null);
     setOutcome(null);
   }, [halt]);
+
+  // An open case is a step in the browser's history, so its back button
+  // leads to the list of cases first, not out of the game.
+  const open = useCallback(
+    (id: string) => {
+      const state: unknown = window.history.state;
+      if (caseIn(state) === null) {
+        window.history.pushState({ ...asRecord(state), [CASE_KEY]: id }, "");
+      } else {
+        // The next case takes the place of the last one, not a new step.
+        window.history.replaceState({ ...asRecord(state), [CASE_KEY]: id }, "");
+      }
+      show(id);
+    },
+    [show],
+  );
+
+  const toList = useCallback(() => {
+    if (caseIn(window.history.state) === null) {
+      leave();
+    } else {
+      // The step back clears the case, through the listener below.
+      window.history.back();
+    }
+  }, [leave]);
+
+  useEffect(() => {
+    const follow = (): void => {
+      const id = caseIn(window.history.state);
+      if (id === null) {
+        leave();
+      } else {
+        show(id);
+      }
+    };
+    window.addEventListener("popstate", follow);
+    return () => window.removeEventListener("popstate", follow);
+  }, [leave, show]);
 
   const select = useCallback((id: string | null) => {
     setSelected(id);

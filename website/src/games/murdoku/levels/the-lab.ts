@@ -30,8 +30,7 @@ export const THE_LAB: Level = {
   id: "the-lab",
   name: "Das Labor",
   series: { book: "original", number: 9 },
-  story:
-    "Eine Schutzbrille kann dich wohl nicht vor allem schützen. Oskar wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Eine Schutzbrille kann dich wohl nicht vor allem schützen.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -110,12 +109,24 @@ export const THE_LAB: Level = {
     t: "table",
     v: "tv",
   },
+  shapes: [
+    [
+      { row: 6, col: 3 },
+      { row: 7, col: 1 },
+      { row: 7, col: 2 },
+      { row: 7, col: 3 },
+    ],
+  ],
+  pieces: [
+    { at: { row: 0, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 1, col: 5 }, rows: 1, cols: 2 },
+    { at: { row: 5, col: 0 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
       name: "Armin",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war im selben Raum wie Estella. Er saß auf einem Stuhl.",
         ...all(
@@ -135,7 +146,6 @@ export const THE_LAB: Level = {
       id: "B",
       name: "Bernhard",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war im Lagerraum.", ...inArea("L") },
       colour: "#15803d",
       face: "\u{1F9D4}",
@@ -169,7 +179,6 @@ export const THE_LAB: Level = {
       id: "E",
       name: "Estella",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war in der ersten Spalte.", ...column(1) },
       colour: "#9f1239",
       face: "\u{1F469}",
@@ -178,7 +187,6 @@ export const THE_LAB: Level = {
       id: "F",
       name: "Frank",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war neben einem Fernseher.", ...beside("tv") },
       colour: "#ea580c",
       face: "\u{1F468}‍\u{1F9B0}",
@@ -195,7 +203,6 @@ export const THE_LAB: Level = {
       id: "O",
       name: "Oskar",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war im letzten verbleibenden Feld, allein mit der Person, die den Mord beging.",
         ...victim(),

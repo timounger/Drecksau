@@ -57,7 +57,7 @@ export const THE_BANDIT_RAID: Level = {
   name: "Der Banditenüberfall",
   series: { book: "timeTravel", number: 2 },
   story:
-    "Kann man denn nicht mal mehr in Ruhe mit königlichem Geleit über Land reisen? Ortimer wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Kann man denn nicht mal mehr in Ruhe mit königlichem Geleit über Land reisen?",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -229,6 +229,7 @@ export const THE_BANDIT_RAID: Level = {
   rules: [
     nobility("Adlige (\u{1F451}) waren nur in den Kutschen.", ["N", "S"]),
     {
+      note: true,
       text: "Dieser Tatort ist wirklich weitläufig. Das liegt daran, dass es zwei leere Reihen gibt.",
     },
   ],

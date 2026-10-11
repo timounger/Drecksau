@@ -10,8 +10,9 @@
  * the photographed page).
  * Ole is the victim; whoever was alone with him killed him.
  *
- * The armchairs can be stood on (sitting means being on one); the L-shaped
- * bar, the till, the tables and the plants cannot.
+ * The armchairs can be stood on (sitting means being on one); the till, the
+ * tables and the plants cannot. The counter at the Theke is a table round the
+ * corner, drawn as one (`shapes`).
  */
 import {
   about,
@@ -31,7 +32,7 @@ export const THE_CAFE: Level = {
   name: "Das Café",
   series: { book: "original", number: 7 },
   story:
-    "Auf dem Kaffee des Opfers steht »Lindsey« ... überlassen wir das Ausfüllen der Sterbeurkunde lieber nicht dem Barista. Ole wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Auf dem Kaffee des Opfers steht »Lindsey« ... überlassen wir das Ausfüllen der Sterbeurkunde lieber nicht dem Barista.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -60,18 +61,25 @@ export const THE_CAFE: Level = {
     },
   ],
   areaMap: ["TTTTWW", "TTTTWW", "TTTTHH", "HHHHHH", "HHHHHH", "HHHHHH"],
-  thingMap: ["...b.c", "...b..", ".rbb.t", ".ctt.c", "..cct.", "c.p.cp"],
+  thingMap: ["...t.c", "...t..", ".rtt.t", ".ctt.c", "..cct.", "c.p.cp"],
   things: {
-    b: "bar",
     c: "chair",
     p: "plant",
     r: "cashRegister",
     t: "table",
   },
   extraThings: {
-    bar: { name: "Tresen", emoji: "\u{1F9C1}", standable: false },
     cashRegister: { name: "Kasse", emoji: "\u{1F4B5}", standable: false },
   },
+  shapes: [
+    [
+      { row: 0, col: 3 },
+      { row: 1, col: 3 },
+      { row: 2, col: 3 },
+      { row: 2, col: 2 },
+    ],
+  ],
+  pieces: [{ at: { row: 3, col: 2 }, rows: 1, cols: 2 }],
   suspects: [
     {
       id: "A",
@@ -88,7 +96,6 @@ export const THE_CAFE: Level = {
       id: "B",
       name: "Bea",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war neben der Kasse.", ...beside("cashRegister") },
       colour: "#15803d",
       face: "\u{1F475}",
@@ -122,7 +129,6 @@ export const THE_CAFE: Level = {
       id: "E",
       name: "Eberhard",
       pronoun: "er",
-      traits: ["cap"],
       clue: {
         text: "Er saß auf einem Stuhl. Er war nicht neben einem Tisch.",
         ...all(on("chair"), not(beside("table"))),
@@ -134,7 +140,6 @@ export const THE_CAFE: Level = {
       id: "O",
       name: "Ole",
       pronoun: "er",
-      traits: ["cap"],
       clue: {
         text: "Er war im letzten verbleibenden Feld, allein mit der Person, die den Mord beging.",
         ...victim(),

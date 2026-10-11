@@ -25,8 +25,7 @@ export const FOUR_WINDOWS: Level = {
   id: "four-windows",
   name: "Vier Fenster",
   series: { book: "original", number: 4 },
-  story:
-    "Trotz all des Sonnenlichts geschahen hier zwielichtige Dinge. Olivia wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Trotz all des Sonnenlichts geschahen hier zwielichtige Dinge.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -72,6 +71,16 @@ export const FOUR_WINDOWS: Level = {
     t: "table",
     p: "plant",
   },
+  pieces: [
+    { at: { row: 1, col: 3 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 0 }, rows: 1, cols: 2 },
+  ],
+  windows: [
+    { at: { row: 0, col: 0 }, side: "left" },
+    { at: { row: 0, col: 5 }, side: "right" },
+    { at: { row: 5, col: 0 }, side: "left" },
+    { at: { row: 5, col: 5 }, side: "right" },
+  ],
   extraThings: {
     window: { name: "Fenster", emoji: "\u{1FA9F}", standable: true },
   },
@@ -91,7 +100,6 @@ export const FOUR_WINDOWS: Level = {
       id: "B",
       name: "Ben",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er saß auf einem Stuhl.", ...on("chair") },
       colour: "#15803d",
       face: "\u{1F468}",
@@ -100,7 +108,6 @@ export const FOUR_WINDOWS: Level = {
       id: "C",
       name: "Cathrin",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war vor einem Fenster.", ...on("window") },
       colour: "#0e7490",
       face: "\u{1F471}‍♀️",
@@ -128,7 +135,6 @@ export const FOUR_WINDOWS: Level = {
       id: "O",
       name: "Olivia",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war im letzten verbleibenden Feld.", ...victim() },
       colour: "#d97706",
       face: "\u{1F469}",

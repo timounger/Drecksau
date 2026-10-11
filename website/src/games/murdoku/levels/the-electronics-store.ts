@@ -31,8 +31,7 @@ export const THE_ELECTRONICS_STORE: Level = {
   id: "the-electronics-store",
   name: "Elektroladen",
   series: { book: "original", number: 24 },
-  story:
-    "Hier stand wohl jemand sehr unter Spannung. Odo wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Hier stand wohl jemand sehr unter Spannung.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -107,6 +106,7 @@ export const THE_ELECTRONICS_STORE: Level = {
   extraThings: {
     cashRegister: { name: "Kasse", emoji: "\u{1F4B5}", standable: false },
   },
+  pieces: [{ at: { row: 6, col: 3 }, rows: 1, cols: 2 }],
   suspects: [
     {
       id: "A",
@@ -143,7 +143,6 @@ export const THE_ELECTRONICS_STORE: Level = {
       id: "D",
       name: "Daniel",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war neben einem Tisch. Er war nördlich von Bobby.",
         ...all(
@@ -161,7 +160,6 @@ export const THE_ELECTRONICS_STORE: Level = {
       id: "E",
       name: "Emir",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "In seiner Spalte war keine Kiste, weder im selben Raum noch anderswo.",
         ...own((c) =>

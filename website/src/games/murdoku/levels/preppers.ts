@@ -142,6 +142,11 @@ export const PREPPERS: Level = {
     h: "shrub",
     d: "bed",
   },
+  pieces: [
+    { at: { row: 0, col: 6 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 4 }, rows: 1, cols: 2 },
+    { at: { row: 7, col: 0 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",
@@ -171,7 +176,6 @@ export const PREPPERS: Level = {
       id: "C",
       name: "Carolina",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "In ihrem Bereich war ein Mann auf dem Bett.",
         ...all(
@@ -206,7 +210,6 @@ export const PREPPERS: Level = {
       id: "E",
       name: "Edna",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war in der untersten Reihe.", ...row(9) },
       colour: "#7c3aed",
       face: "\u{1F469}‍\u{1F9B0}",
@@ -223,7 +226,6 @@ export const PREPPERS: Level = {
       id: "G",
       name: "Greg",
       pronoun: "er",
-      traits: ["hat"],
       clue: { text: "Er saß auf einem Stuhl.", ...on("chair") },
       colour: "#ea580c",
       face: "\u{1F920}",

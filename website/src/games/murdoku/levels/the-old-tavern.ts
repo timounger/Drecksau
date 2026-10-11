@@ -20,8 +20,7 @@ export const THE_OLD_TAVERN: Level = {
   id: "the-old-tavern",
   name: "Die alte Taverne",
   series: { book: "original", number: 13 },
-  story:
-    "Seit 1987 ist nichts passiert, was annähernd so aufregend war. Oleg wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Seit 1987 ist nichts passiert, was annähernd so aufregend war.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -78,6 +77,10 @@ export const THE_OLD_TAVERN: Level = {
     "ss....s.",
   ],
   things: { c: "chair", t: "table", p: "plant", s: "shelf", v: "tv" },
+  pieces: [
+    { at: { row: 5, col: 0 }, rows: 2, cols: 1 },
+    { at: { row: 5, col: 2 }, rows: 1, cols: 4 },
+  ],
   suspects: [
     {
       id: "A",

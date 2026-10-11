@@ -93,6 +93,27 @@ import { KNOCKOUT } from "../levels/knockout";
 import { RAINY_DAY } from "../levels/rainy-day";
 import { GAME_NIGHT } from "../levels/game-night";
 import { BEACH_RESTAURANT } from "../levels/beach-restaurant";
+import { THE_CARE_HOME } from "../levels/the-care-home";
+import { BEST_PIZZA_IN_TOWN } from "../levels/best-pizza-in-town";
+import { OCTAVIAS_NEW_HOUSE } from "../levels/octavias-new-house";
+import { MASKED_BALL } from "../levels/masked-ball";
+import { VALENTINES_DAY } from "../levels/valentines-day";
+import { SHOPPING_MALL } from "../levels/shopping-mall";
+import { THE_PETROL_STATION } from "../levels/the-petrol-station";
+import { THE_CHESS_TOURNAMENT } from "../levels/the-chess-tournament";
+import { THE_CONCERT } from "../levels/the-concert";
+import { DIM_SUM } from "../levels/dim-sum";
+import { THE_BLACK_LOTUS } from "../levels/the-black-lotus";
+import { MIDNIGHT_TRAIN } from "../levels/midnight-train";
+import { PRISON_BREAK } from "../levels/prison-break";
+import { BASEMENT_DWELLER } from "../levels/basement-dweller";
+import { THE_CASINO } from "../levels/the-casino";
+import { STUDENT_DORM } from "../levels/student-dorm";
+import { FAMILY_REUNION } from "../levels/family-reunion";
+import { THE_CABIN_IN_THE_WOODS } from "../levels/the-cabin-in-the-woods";
+import { DINNER_PARTY } from "../levels/dinner-party";
+import { THE_CINEMA } from "../levels/the-cinema";
+import { GLOOM_AND_DOOM } from "../levels/gloom-and-doom";
 import { DELIVERY_24H } from "../levels/delivery-24h";
 import { THE_BOOK_CLUB } from "../levels/the-book-club";
 import { THE_TREASURE_HUNT } from "../levels/the-treasure-hunt";
@@ -157,6 +178,27 @@ export const LEVELS: readonly Level[] = [
   RAINY_DAY,
   GAME_NIGHT,
   BEACH_RESTAURANT,
+  THE_CARE_HOME,
+  BEST_PIZZA_IN_TOWN,
+  OCTAVIAS_NEW_HOUSE,
+  MASKED_BALL,
+  VALENTINES_DAY,
+  SHOPPING_MALL,
+  THE_PETROL_STATION,
+  THE_CHESS_TOURNAMENT,
+  THE_CONCERT,
+  DIM_SUM,
+  THE_BLACK_LOTUS,
+  MIDNIGHT_TRAIN,
+  PRISON_BREAK,
+  BASEMENT_DWELLER,
+  THE_CASINO,
+  STUDENT_DORM,
+  FAMILY_REUNION,
+  THE_CABIN_IN_THE_WOODS,
+  DINNER_PARTY,
+  THE_CINEMA,
+  GLOOM_AND_DOOM,
   // Medium
   FISHING_AT_THE_LAKE,
   THE_FRENCH_RESTAURANT,
@@ -202,7 +244,9 @@ export const SERIES_ORDER: readonly Series[] = [
   "timeTravel",
   "worldTravel",
   "beyondGrave",
+  "family",
   "online",
+  "contest",
 ];
 
 /** The difficulties, easiest first. */
@@ -212,6 +256,4 @@ export const DIFFICULTY_ORDER: readonly Difficulty[] = [
   "medium",
   "hard",
   "expert",
-  "family",
-  "treasure",
 ];

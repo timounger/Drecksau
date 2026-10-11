@@ -32,8 +32,7 @@ export const THE_WATER_WHEEL: Level = {
   id: "the-water-wheel",
   name: "Das Wasserrad",
   series: { book: "timeTravel", number: 3 },
-  story:
-    "Wer hier herumlungert, wird gnadenlos durch die Mühle gedreht. Osmar wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Wer hier herumlungert, wird gnadenlos durch die Mühle gedreht.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -134,6 +133,12 @@ export const THE_WATER_WHEEL: Level = {
       standable: false,
     },
   },
+  pieces: [
+    { at: { row: 1, col: 5 }, rows: 2, cols: 1 },
+    { at: { row: 3, col: 0 }, rows: 2, cols: 1 },
+    { at: { row: 6, col: 2 }, rows: 1, cols: 2 },
+    { at: { row: 7, col: 3 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

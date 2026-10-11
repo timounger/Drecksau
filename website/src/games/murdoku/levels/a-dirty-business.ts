@@ -157,6 +157,10 @@ export const A_DIRTY_BUSINESS: Level = {
     v: "tv",
     b: "bed",
   },
+  pieces: [
+    { at: { row: 2, col: 0 }, rows: 2, cols: 1 },
+    { at: { row: 5, col: 7 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

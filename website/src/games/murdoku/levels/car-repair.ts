@@ -64,6 +64,10 @@ export const CAR_REPAIR: Level = {
     a: "car",
     o: "oilSlick",
   },
+  pieces: [
+    { at: { row: 4, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 5, col: 3 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -77,7 +81,6 @@ export const CAR_REPAIR: Level = {
       id: "B",
       name: "Brock",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war auf einem Ölfleck.", ...on("oilSlick") },
       colour: "#15803d",
       face: "\u{1F468}",
@@ -94,7 +97,6 @@ export const CAR_REPAIR: Level = {
       id: "D",
       name: "Diane",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war allein im Wartebereich.",
         ...all(inArea("W"), alone()),

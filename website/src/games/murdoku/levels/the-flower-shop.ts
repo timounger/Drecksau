@@ -104,6 +104,7 @@ export const THE_FLOWER_SHOP: Level = {
       kinds: ["plant"],
     },
   },
+  pieces: [{ at: { row: 0, col: 0 }, rows: 1, cols: 2 }],
   suspects: [
     {
       id: "A",

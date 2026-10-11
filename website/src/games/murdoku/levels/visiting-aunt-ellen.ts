@@ -45,8 +45,7 @@ export const VISITING_AUNT_ELLEN: Level = {
   id: "visiting-aunt-ellen",
   name: "Besuch bei Tante Ellen",
   series: { book: "original", number: 10 },
-  story:
-    "Bei Familientreffen kochen die Gemüter immer hoch. Oswin wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Bei Familientreffen kochen die Gemüter immer hoch.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -130,6 +129,19 @@ export const VISITING_AUNT_ELLEN: Level = {
   extraThings: {
     window: { name: "Fenster", emoji: "\u{1FA9F}", standable: true },
   },
+  pieces: [
+    { at: { row: 0, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 0, col: 4 }, rows: 2, cols: 1 },
+    { at: { row: 0, col: 5 }, rows: 2, cols: 1 },
+    { at: { row: 0, col: 6 }, rows: 2, cols: 1 },
+    { at: { row: 4, col: 5 }, rows: 2, cols: 1 },
+  ],
+  windows: [
+    { at: { row: 1, col: 0 }, side: "left" },
+    { at: { row: 2, col: 0 }, side: "left" },
+    { at: { row: 5, col: 0 }, side: "left" },
+    { at: { row: 6, col: 0 }, side: "left" },
+  ],
   suspects: [
     {
       id: "A",
@@ -211,6 +223,7 @@ export const VISITING_AUNT_ELLEN: Level = {
       check: (c) => onBeds(c) === 1,
     },
     {
+      note: true,
       text: "Jetzt, wo die Fälle kniffliger werden, gibt es manchmal allgemeine Hinweise, die du zusammen mit den Hinweisen der Verdächtigen beachten musst. - Chief Williams",
     },
   ],

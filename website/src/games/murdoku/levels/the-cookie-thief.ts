@@ -16,8 +16,7 @@ import type { Level } from "../engine/types";
 export const THE_COOKIE_THIEF: Level = {
   id: "the-cookie-thief",
   name: "Der Keksdieb",
-  difficulty: "family",
-  series: { book: "online" },
+  series: { book: "family" },
   story:
     "Jemand hat alle Kekse aufgegessen! Die Krümel liegen noch auf dem Boden … aber wer war es? Finde heraus, wo alle zur Tatzeit waren. Der Keksdieb stand genau auf den Krümeln.",
   culprit: { name: "der Dieb", dative: "dem Dieb" },
@@ -71,12 +70,15 @@ export const THE_COOKIE_THIEF: Level = {
     crumbs: { name: "Krümel", emoji: "\u{1F36A}", standable: true },
     present: { name: "Geschenk", emoji: "\u{1F381}", standable: false },
   },
+  pieces: [
+    { at: { row: 0, col: 4 }, rows: 1, cols: 2 },
+    { at: { row: 3, col: 0 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",
       name: "Adam",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war neben einem Geschenk.", ...beside("present") },
       colour: "#15803d",
       face: "\u{1F9D4}",
@@ -131,7 +133,6 @@ export const THE_COOKIE_THIEF: Level = {
       id: "F",
       name: "Fred",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er saß auf einem Stuhl.", ...on("seat") },
       colour: "#4338ca",
       face: "\u{1F466}",

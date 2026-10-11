@@ -110,7 +110,6 @@ export const A_HORSE_WITH_NO_NAME: Level = {
       id: "C",
       name: "Cornelius",
       pronoun: "er",
-      traits: ["hat"],
       clue: {
         text: "Er war nördlich von Aldous.",
         ...about(["A"], (c) => {
@@ -141,7 +140,6 @@ export const A_HORSE_WITH_NO_NAME: Level = {
       id: "V",
       name: "Vin",
       pronoun: "er",
-      traits: ["hat"],
       clue: {
         text: "Nicht der Gesetzlose. Er war allein mit dem Mörder.",
         ...all(victim(), not(on("horse"))),

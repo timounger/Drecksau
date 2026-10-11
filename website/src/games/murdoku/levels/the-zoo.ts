@@ -333,6 +333,13 @@ export const THE_ZOO: Level = {
     E: "elephant",
     h: "shark",
   },
+  pieces: [
+    { at: { row: 9, col: 9 }, rows: 2, cols: 2 },
+    { at: { row: 12, col: 10 }, rows: 2, cols: 2 },
+    { at: { row: 9, col: 14 }, rows: 2, cols: 1 },
+    { at: { row: 11, col: 14 }, rows: 2, cols: 1 },
+    { at: { row: 14, col: 14 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",

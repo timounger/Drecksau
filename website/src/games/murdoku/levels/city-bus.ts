@@ -100,12 +100,26 @@ export const CITY_BUS: Level = {
   grounds: { ".": "floor", c: "carpet" },
   thingMap: ["c..c.ct.", "cmcc.cc.", "c.......", "c..m.c..", "cccc.cc."],
   things: { c: "chair", m: "mud", t: "table" },
+  windows: [
+    { at: { row: 0, col: 1 }, side: "top" },
+    { at: { row: 0, col: 3 }, side: "top" },
+    { at: { row: 0, col: 4 }, side: "top" },
+    { at: { row: 0, col: 7 }, side: "top" },
+    { at: { row: 4, col: 1 }, side: "bottom" },
+    { at: { row: 4, col: 3 }, side: "bottom" },
+    { at: { row: 4, col: 4 }, side: "bottom" },
+    { at: { row: 4, col: 7 }, side: "bottom" },
+    { at: { row: 1, col: 0 }, side: "left" },
+    { at: { row: 2, col: 0 }, side: "left" },
+    { at: { row: 1, col: 7 }, side: "right" },
+    { at: { row: 2, col: 7 }, side: "right" },
+    { at: { row: 3, col: 7 }, side: "right" },
+  ],
   suspects: [
     {
       id: "A",
       name: "Audrey",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Alle im Bus saßen auf einem Stuhl, außer ihr.",
         unary: (c) => !c.is(c.cell, "seat"),

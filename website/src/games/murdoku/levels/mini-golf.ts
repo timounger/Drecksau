@@ -175,6 +175,7 @@ export const MINI_GOLF: Level = {
   extraThings: {
     flag: { name: "Fahne", emoji: "\u{1F6A9}", standable: true },
   },
+  pieces: [{ at: { row: 0, col: 7 }, rows: 1, cols: 2 }],
   suspects: [
     {
       id: "A",

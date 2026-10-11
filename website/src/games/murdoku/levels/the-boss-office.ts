@@ -581,6 +581,13 @@ export const THE_BOSS_OFFICE: Level = {
       standable: false,
     },
   },
+  pieces: [
+    { at: { row: 1, col: 1 }, rows: 1, cols: 4 },
+    { at: { row: 6, col: 4 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 12 }, rows: 1, cols: 4 },
+    { at: { row: 7, col: 2 }, rows: 2, cols: 1 },
+    { at: { row: 9, col: 12 }, rows: 1, cols: 4 },
+  ],
   suspects: [
     {
       id: "A",

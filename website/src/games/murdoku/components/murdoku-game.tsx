@@ -30,7 +30,11 @@ import type {
   Series,
   Suspect,
 } from "@/games/murdoku/engine/types";
-import { CaseMap } from "@/games/murdoku/components/case-map";
+import {
+  CaseMap,
+  DRAWN_THINGS,
+  DrawnThing,
+} from "@/games/murdoku/components/case-map";
 import {
   useMurdoku,
   type Check,
@@ -86,7 +90,12 @@ export function MurdokuGame(): ReactElement {
       {game.level === null ? (
         <CaseList game={game} />
       ) : (
-        <CaseView game={game} level={game.level} onBack={game.toList} />
+        <CaseView
+          game={game}
+          level={game.level}
+          onBack={game.toList}
+          onOpen={game.open}
+        />
       )}
     </div>
   );
@@ -101,8 +110,10 @@ const SERIES_BADGE: Readonly<Record<Series, string>> = {
   worldTravel: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200",
   beyondGrave:
     "bg-emerald-800 text-emerald-50 dark:bg-emerald-900 dark:text-emerald-100",
+  family: "bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-200",
   online:
     "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200",
+  contest: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
 };
 
 /** A chosen series chip, in its book's colour - neutral for all and for none. */
@@ -113,7 +124,9 @@ const SERIES_CHIP: Readonly<Record<SeriesChoice, string>> = {
   timeTravel: "border-orange-600 bg-orange-600 text-white",
   worldTravel: "border-cyan-600 bg-cyan-600 text-white",
   beyondGrave: "border-emerald-800 bg-emerald-800 text-white",
+  family: "border-pink-600 bg-pink-600 text-white",
   online: "border-yellow-500 bg-yellow-500 text-zinc-900",
+  contest: "border-red-600 bg-red-600 text-white",
 };
 
 /** The look of every label beside a case's name. */
@@ -132,7 +145,7 @@ export function CategoryBadge({
   readonly level: Level;
 }): ReactElement {
   return (
-    <span className="flex flex-wrap justify-end gap-1">
+    <span className="flex shrink-0 flex-wrap justify-end gap-1">
       {level.series !== undefined && (
         <span
           data-testid="murdoku-category"
@@ -199,8 +212,43 @@ function seriesLabel(choice: SeriesChoice): string {
   return label;
 }
 
+/** The arrows beside the way back to the list. */
+const STEP_BUTTON =
+  "cursor-pointer rounded-full border border-rose-300 bg-white/80 px-2.5 py-1 text-sm font-bold text-rose-900 hover:bg-white disabled:cursor-default disabled:opacity-40 dark:border-rose-800 dark:bg-zinc-900/60 dark:text-rose-100 dark:hover:bg-zinc-900";
+
+/**
+ * The cases before and after this one in its own collection - a book in the
+ * book's order, the others as the list has them.
+ *
+ * @param level - the open case
+ * @returns the one before and the one after, where there is one
+ */
+function neighboursOf(
+  level: Level,
+): readonly [Level | undefined, Level | undefined] {
+  const row = LEVELS.filter(
+    (one) => one.series?.book === level.series?.book,
+  ).toSorted(
+    (one, other) => (one.series?.number ?? 0) - (other.series?.number ?? 0),
+  );
+  const at = row.findIndex((one) => one.id === level.id);
+  return [row[at - 1], row[at + 1]];
+}
+
 /** The cases to choose from - all of them, or one difficulty. */
-function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
+/**
+ * The filters over the cases - search, series and, for a series that has
+ * them, difficulties - and the cases they let through, a book in its order.
+ * Used by the list at one screen and by the host online.
+ *
+ * @param solved - the cases solved here, for "Gelöste ausblenden"; null
+ *   leaves that tick out
+ * @returns the filter controls and the cases to show
+ */
+export function useCaseFilter(solved: ReadonlySet<string> | null): {
+  readonly controls: ReactElement;
+  readonly shown: readonly Level[];
+} {
   const [filter, setFilter] = useState<Difficulty | "all">("all");
   const [series, setSeries] = useState<SeriesChoice>("all");
   const [query, setQuery] = useState("");
@@ -211,20 +259,26 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
   const found = LEVELS.filter(
     (level) =>
       titleOf(level).toLowerCase().includes(needle) &&
-      (!hideSolved || !game.solved.has(level.id)),
+      (!hideSolved || solved === null || !solved.has(level.id)),
   );
   const inSeries = found.filter((level) => isInSeries(level, series));
+  const graded =
+    series !== "all" &&
+    LEVELS.some(
+      (level) => isInSeries(level, series) && level.difficulty !== undefined,
+    );
   // A book is read in its own order, so the cases of one keep it.
   const shown = inSeries
-    .filter((level) => filter === "all" || level.difficulty === filter)
+    .filter(
+      (level) => !graded || filter === "all" || level.difficulty === filter,
+    )
     .toSorted((one, other) =>
       series === "all" || series === "none"
         ? 0
         : (one.series?.number ?? 0) - (other.series?.number ?? 0),
     );
-  return (
-    <section className="flex flex-col gap-3" data-testid="murdoku-list">
-      <h2 className="text-lg font-bold">{T.chooseCase}</h2>
+  const controls = (
+    <>
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search"
@@ -235,44 +289,18 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
           data-testid="murdoku-search"
           className="w-full max-w-sm rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={hideSolved}
-            onChange={(event) => setHideSolved(event.target.checked)}
-            data-testid="murdoku-hide-solved"
-            className="h-4 w-4 cursor-pointer accent-sky-600"
-          />
-          {T.hideSolved}
-        </label>
-      </div>
-      <div
-        className="flex flex-wrap gap-1.5"
-        role="group"
-        aria-label={T.difficulty}
-        data-testid="murdoku-filter"
-      >
-        {(["all", ...DIFFICULTY_ORDER] as const).map((one) => {
-          const count = inSeries.filter(
-            (level) => one === "all" || level.difficulty === one,
-          ).length;
-          return (
-            <button
-              key={one}
-              type="button"
-              aria-pressed={filter === one}
-              data-testid={`murdoku-filter-${one}`}
-              onClick={() => setFilter(one)}
-              className={`cursor-pointer rounded-full border px-3 py-1 text-sm font-semibold ${
-                filter === one
-                  ? "border-sky-600 bg-sky-600 text-white"
-                  : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-              }`}
-            >
-              {`${one === "all" ? T.allCases : DIFFICULTY_NAMES[one]} (${String(count)})`}
-            </button>
-          );
-        })}
+        {solved !== null && (
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={hideSolved}
+              onChange={(event) => setHideSolved(event.target.checked)}
+              data-testid="murdoku-hide-solved"
+              className="h-4 w-4 cursor-pointer accent-sky-600"
+            />
+            {T.hideSolved}
+          </label>
+        )}
       </div>
       <div
         className="flex flex-wrap gap-1.5"
@@ -280,26 +308,77 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
         aria-label={T.series}
         data-testid="murdoku-series"
       >
-        {(["all", ...SERIES_ORDER, "none"] as const).map((one) => {
-          const count = found.filter((level) => isInSeries(level, one)).length;
-          return (
-            <button
-              key={one}
-              type="button"
-              aria-pressed={series === one}
-              data-testid={`murdoku-series-${one}`}
-              onClick={() => setSeries(one)}
-              className={`cursor-pointer rounded-full border px-3 py-1 text-sm font-semibold ${
-                series === one
-                  ? SERIES_CHIP[one]
-                  : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-              }`}
-            >
-              {`${seriesLabel(one)} (${String(count)})`}
-            </button>
-          );
-        })}
+        {/* A series with no case yet stays out of sight until it has one. */}
+        {(["all", ...SERIES_ORDER, "none"] as const)
+          .filter((one) => LEVELS.some((level) => isInSeries(level, one)))
+          .map((one) => {
+            const count = found.filter((level) =>
+              isInSeries(level, one),
+            ).length;
+            return (
+              <button
+                key={one}
+                type="button"
+                aria-pressed={series === one}
+                data-testid={`murdoku-series-${one}`}
+                onClick={() => {
+                  setSeries(one);
+                  setFilter("all");
+                }}
+                className={`cursor-pointer rounded-full border px-3 py-1 text-sm font-semibold ${
+                  series === one
+                    ? SERIES_CHIP[one]
+                    : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {`${seriesLabel(one)} (${String(count)})`}
+              </button>
+            );
+          })}
       </div>
+      {/* Only a series whose cases have difficulties gets the difficulty
+          chips - for a book they would all read the same. */}
+      {graded && (
+        <div
+          className="flex flex-wrap gap-1.5"
+          role="group"
+          aria-label={T.difficulty}
+          data-testid="murdoku-filter"
+        >
+          {(["all", ...DIFFICULTY_ORDER] as const).map((one) => {
+            const count = inSeries.filter(
+              (level) => one === "all" || level.difficulty === one,
+            ).length;
+            return (
+              <button
+                key={one}
+                type="button"
+                aria-pressed={filter === one}
+                data-testid={`murdoku-filter-${one}`}
+                onClick={() => setFilter(one)}
+                className={`cursor-pointer rounded-full border px-3 py-1 text-sm font-semibold ${
+                  filter === one
+                    ? "border-sky-600 bg-sky-600 text-white"
+                    : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {`${one === "all" ? T.allCases : DIFFICULTY_NAMES[one]} (${String(count)})`}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+  return { controls, shown };
+}
+
+function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
+  const { controls, shown } = useCaseFilter(game.solved);
+  return (
+    <section className="flex flex-col gap-3" data-testid="murdoku-list">
+      <h2 className="text-lg font-bold">{T.chooseCase}</h2>
+      {controls}
       {shown.length === 0 && (
         <p className="text-sm text-zinc-500 dark:text-zinc-400">{T.noCases}</p>
       )}
@@ -312,13 +391,13 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
                 type="button"
                 data-testid={`murdoku-case-${level.id}`}
                 onClick={() => game.open(level.id)}
-                className="flex w-full cursor-pointer flex-col gap-2 rounded-2xl border border-zinc-200 bg-white p-4 text-left shadow-sm hover:border-sky-400 dark:border-zinc-800 dark:bg-zinc-900"
+                className="flex h-full w-full cursor-pointer flex-col gap-2 rounded-2xl border border-zinc-200 bg-white p-4 text-left shadow-sm hover:border-sky-400 dark:border-zinc-800 dark:bg-zinc-900"
               >
                 {/* What the map looks like, before one opens the case. */}
-                <span className="block overflow-hidden rounded-xl">
+                <span className="block aspect-square overflow-hidden rounded-xl">
                   <CaseMap level={level} board={EMPTY_BOARD} preview />
                 </span>
-                <span className="flex items-center justify-between gap-2">
+                <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                   <span className="text-base font-bold">{titleOf(level)}</span>
                   <CategoryBadge level={level} />
                 </span>
@@ -344,20 +423,24 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
 /**
  * One open case - at one screen, or online with everybody on the same map.
  *
- * @param props - the game, as either hook hands it over, its case and the way
- *   back to the list (only at one screen)
+ * @param props - the game, as either hook hands it over, its case, and at one
+ *   screen the way back to the list and to the cases beside it
  * @returns the case
  */
 export function CaseView({
   game,
   level,
   onBack,
+  onOpen,
 }: {
   readonly game: MurdokuApi;
   readonly level: Level;
   /** Back to the list of cases - only at one screen; online the room decides. */
   readonly onBack?: () => void;
+  /** Another case, the one before or after - only at one screen too. */
+  readonly onOpen?: (id: string) => void;
 }): ReactElement {
+  const [before, after] = neighboursOf(level);
   // Solved, or the solution on the map: then only looking, no playing.
   const over = game.outcome?.kind === "right" || game.peeking;
   const picked = level.suspects.find((one) => one.id === game.selected);
@@ -379,15 +462,40 @@ export function CaseView({
       <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100">
         <span className="flex-1">{level.story}</span>
         <CaseClock game={game} />
-        {onBack !== undefined && (
-          <button
-            type="button"
-            data-testid="murdoku-to-list"
-            onClick={onBack}
-            className="shrink-0 cursor-pointer rounded-full border border-rose-300 bg-white/80 px-3 py-1 text-sm font-semibold text-rose-900 hover:bg-white dark:border-rose-800 dark:bg-zinc-900/60 dark:text-rose-100 dark:hover:bg-zinc-900"
-          >
-            {T.toCases}
-          </button>
+        {onBack !== undefined && onOpen !== undefined && (
+          <span className="flex shrink-0 items-center gap-1">
+            {/* The arrows side by side, the way back at the far right. */}
+            <button
+              type="button"
+              data-testid="murdoku-previous"
+              aria-label={T.previousCase}
+              title={before === undefined ? undefined : titleOf(before)}
+              disabled={before === undefined}
+              onClick={() => before !== undefined && onOpen(before.id)}
+              className={STEP_BUTTON}
+            >
+              {"\u2190"}
+            </button>
+            <button
+              type="button"
+              data-testid="murdoku-next"
+              aria-label={T.nextCaseArrow}
+              title={after === undefined ? undefined : titleOf(after)}
+              disabled={after === undefined}
+              onClick={() => after !== undefined && onOpen(after.id)}
+              className={STEP_BUTTON}
+            >
+              {"\u2192"}
+            </button>
+            <button
+              type="button"
+              data-testid="murdoku-to-list"
+              onClick={onBack}
+              className="cursor-pointer rounded-full border border-rose-300 bg-white/80 px-3 py-1 text-sm font-semibold text-rose-900 hover:bg-white dark:border-rose-800 dark:bg-zinc-900/60 dark:text-rose-100 dark:hover:bg-zinc-900"
+            >
+              {T.toCases}
+            </button>
+          </span>
         )}
       </div>
 
@@ -409,19 +517,39 @@ export function CaseView({
             ))}
           </ul>
           {/* What the printed case says under its suspects, with the magnifier. */}
-          {(level.rules ?? []).length > 0 && (
+          {(level.rules ?? []).some((rule) => rule.note !== true) && (
             <ul
               className="flex flex-col gap-1.5 rounded-2xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100"
               data-testid="murdoku-rules"
             >
-              {(level.rules ?? []).map((rule) => (
-                <li key={rule.text} className="flex gap-2">
-                  <span aria-hidden="true">{"\u{1F50E}"}</span>
-                  {rule.text}
-                </li>
-              ))}
+              {(level.rules ?? [])
+                .filter((rule) => rule.note !== true)
+                .map((rule) => (
+                  <li key={rule.text} className="flex gap-2">
+                    <span aria-hidden="true">{"\u{1F50E}"}</span>
+                    {rule.text}
+                  </li>
+                ))}
             </ul>
           )}
+          {/* The detective's post-its: a word on the side, not a rule. */}
+          {(level.rules ?? [])
+            .filter((rule) => rule.note === true)
+            .map((rule) => (
+              <p
+                key={rule.text}
+                className="relative max-w-md rotate-[-1deg] self-start bg-yellow-200 p-3 pt-4 text-sm text-yellow-950 shadow-md dark:bg-yellow-300 dark:text-yellow-950"
+                data-testid="murdoku-note"
+              >
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-2 left-1/2 -translate-x-1/2"
+                >
+                  {"\u{1F4CC}"}
+                </span>
+                {rule.text}
+              </p>
+            ))}
         </section>
 
         <section className="flex flex-col gap-3">
@@ -871,9 +999,16 @@ function LegendItem({
   const def = thingDef(level, thing);
   return (
     <span className="flex items-center gap-1">
-      <span className="text-base leading-none" aria-hidden="true">
-        {def.emoji}
-      </span>
+      {DRAWN_THINGS.has(thing) ? (
+        // Drawn as on the map, not an emoji.
+        <svg viewBox="0 0 100 100" className="h-5 w-5" aria-hidden="true">
+          <DrawnThing thing={thing} x={0} y={0} width={100} height={100} />
+        </svg>
+      ) : (
+        <span className="text-base leading-none" aria-hidden="true">
+          {def.emoji}
+        </span>
+      )}
       {def.name}
     </span>
   );

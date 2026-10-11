@@ -132,6 +132,12 @@ export const SLEEPING_WITH_THE_FISHES: Level = {
     s: "shelf",
     t: "table",
   },
+  pieces: [
+    { at: { row: 0, col: 2 }, rows: 1, cols: 2 },
+    { at: { row: 1, col: 6 }, rows: 1, cols: 2 },
+    { at: { row: 2, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 1 }, rows: 1, cols: 3 },
+  ],
   suspects: [
     {
       id: "A",

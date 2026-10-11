@@ -35,8 +35,7 @@ export const THE_SUPERMARKET: Level = {
   id: "the-supermarket",
   name: "Der Supermarkt",
   series: { book: "original", number: 15 },
-  story:
-    "Hier wirst du immer fündig ... oder ermordet. Ottilie wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Hier wirst du immer fündig ... oder ermordet.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -116,6 +115,34 @@ export const THE_SUPERMARKET: Level = {
     cashRegister: { name: "Kasse", emoji: "\u{1F4B5}", standable: false },
     radio: { name: "Radio", emoji: "\u{1F4FB}", standable: false },
   },
+  shapes: [
+    [
+      { row: 3, col: 2 },
+      { row: 3, col: 3 },
+      { row: 4, col: 3 },
+      { row: 5, col: 3 },
+      { row: 6, col: 3 },
+      { row: 7, col: 3 },
+    ],
+    [
+      { row: 6, col: 1 },
+      { row: 6, col: 2 },
+      { row: 7, col: 1 },
+    ],
+    [
+      { row: 5, col: 5 },
+      { row: 6, col: 5 },
+      { row: 7, col: 5 },
+      { row: 6, col: 6 },
+    ],
+  ],
+  pieces: [{ at: { row: 7, col: 6 }, rows: 1, cols: 2 }],
+  windows: [
+    { at: { row: 4, col: 0 }, side: "left" },
+    { at: { row: 5, col: 0 }, side: "left" },
+    { at: { row: 7, col: 0 }, side: "left" },
+    { at: { row: 8, col: 0 }, side: "left" },
+  ],
   suspects: [
     {
       id: "A",
@@ -163,7 +190,6 @@ export const THE_SUPERMARKET: Level = {
       id: "D",
       name: "Dylan",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war nicht neben einem Regal, einem Tisch oder einer Kiste.",
         ...all(
@@ -212,7 +238,6 @@ export const THE_SUPERMARKET: Level = {
       id: "H",
       name: "Hanno",
       pronoun: "er",
-      traits: ["cap"],
       clue: { text: "Er war neben der Kasse.", ...beside("cashRegister") },
       colour: "#4338ca",
       face: "\u{1F9D4}",
@@ -221,7 +246,6 @@ export const THE_SUPERMARKET: Level = {
       id: "O",
       name: "Ottilie",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war allein mit der Person, die den Mord beging.",
         ...victim(),

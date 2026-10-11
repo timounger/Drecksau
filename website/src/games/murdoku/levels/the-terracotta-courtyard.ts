@@ -143,6 +143,12 @@ export const THE_TERRACOTTA_COURTYARD: Level = {
     t: "table",
     v: "tv",
   },
+  pieces: [
+    { at: { row: 1, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 8 }, rows: 2, cols: 1 },
+    { at: { row: 7, col: 1 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -156,7 +162,6 @@ export const THE_TERRACOTTA_COURTYARD: Level = {
       id: "B",
       name: "Bill",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Es gab irgendwo in seiner Reihe ein Regal und ein weiteres Regal in seiner Spalte.",
         ...own(shelvesAcross),

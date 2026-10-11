@@ -160,6 +160,7 @@ export const HOLIDAY_SHOPPING: Level = {
     teddyBear: { name: "Teddybär", emoji: "\u{1F9F8}", standable: false },
     bin: { name: "Mülleimer", emoji: "\u{1F5D1}️", standable: false },
   },
+  pieces: [{ at: { row: 9, col: 8 }, rows: 1, cols: 2 }],
   suspects: [
     {
       id: "A",

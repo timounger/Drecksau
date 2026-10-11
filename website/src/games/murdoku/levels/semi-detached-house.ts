@@ -38,7 +38,7 @@ export const SEMI_DETACHED_HOUSE: Level = {
   name: "Doppelhaushälfte",
   series: { book: "original", number: 23 },
   story:
-    "Wie viel weiß man wirklich über seine Nachbarn? Eine Menge, wenn ihre Wände so dünn sind wie meine. Oswald wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Wie viel weiß man wirklich über seine Nachbarn? Eine Menge, wenn ihre Wände so dünn sind wie meine.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -117,6 +117,13 @@ export const SEMI_DETACHED_HOUSE: Level = {
     p: "plant",
     t: "table",
   },
+  pieces: [
+    { at: { row: 0, col: 4 }, rows: 1, cols: 2 },
+    { at: { row: 1, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 6 }, rows: 2, cols: 1 },
+    { at: { row: 5, col: 1 }, rows: 2, cols: 1 },
+    { at: { row: 5, col: 7 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",
@@ -133,7 +140,6 @@ export const SEMI_DETACHED_HOUSE: Level = {
       id: "B",
       name: "Beth",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war in einem ihrer eigenen Räume.",
         ...inArea(...BETHS),

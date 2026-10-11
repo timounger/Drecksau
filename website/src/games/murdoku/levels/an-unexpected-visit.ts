@@ -134,6 +134,14 @@ export const AN_UNEXPECTED_VISIT: Level = {
     u: "rug",
     v: "tv",
   },
+  pieces: [
+    { at: { row: 1, col: 0 }, rows: 2, cols: 1 },
+    { at: { row: 0, col: 7 }, rows: 2, cols: 1 },
+    { at: { row: 3, col: 3 }, rows: 2, cols: 3 },
+    { at: { row: 5, col: 8 }, rows: 3, cols: 1 },
+    { at: { row: 7, col: 1 }, rows: 2, cols: 1 },
+    { at: { row: 7, col: 6 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

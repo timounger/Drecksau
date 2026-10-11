@@ -1,0 +1,329 @@
+/**
+ * Das Kino: two cinema halls, the corridor, the entrance, the ticket counter
+ * and the projection room, with a murdered film-goer.
+ *
+ * @module
+ * @remarks
+ * After the case of Murdoku by Manuel Garand
+ * (`game_instructions/Murdoku/Das Murdoku-Orginal/51. Kino.png`, no solution
+ * sheet - the solver proves the one solution, with the culprit pencilled in
+ * on the photographed page).
+ * Obi is the victim; whoever was alone with him killed him.
+ *
+ * The armchairs are the chairs; they and the rugs can be stood on. The
+ * L-shaped counter is the table; it, the cash registers, the TVs and the
+ * plants cannot. The windows are the bars in the outer walls; standing in
+ * front of one means being on the field right beside it. A field is in a
+ * corner of its room when the room's border runs along two of its sides that
+ * meet: one above or below it, one to its left or right.
+ */
+import {
+  all,
+  alone,
+  beside,
+  cellsWhere,
+  counting,
+  inArea,
+  not,
+  on,
+  own,
+  victim,
+} from "../engine/clues";
+import { areaAt } from "../engine/rules";
+import type { Cell, Context, Level } from "../engine/types";
+
+/** The fields right in front of a window. */
+const WINDOWS: readonly Cell[] = [
+  { row: 0, col: 5 },
+  { row: 4, col: 0 },
+];
+
+/** Whether a field lies right in front of a window. */
+function byWindow(cell: Cell): boolean {
+  return WINDOWS.some((one) => one.row === cell.row && one.col === cell.col);
+}
+
+/** Whether a field lies in a corner of its area, given the area of each field. */
+function inCorner(areaOf: (cell: Cell) => string | null, cell: Cell): boolean {
+  const area = areaOf(cell);
+  const outside = (row: number, col: number): boolean =>
+    areaOf({ row, col }) !== area;
+  const vertical =
+    outside(cell.row - 1, cell.col) || outside(cell.row + 1, cell.col);
+  const horizontal =
+    outside(cell.row, cell.col - 1) || outside(cell.row, cell.col + 1);
+  return vertical && horizontal;
+}
+
+/** Whether a field is in a corner of one of the two halls. */
+function hallCorner(
+  areaOf: (cell: Cell) => string | null,
+  cell: Cell,
+): boolean {
+  return ["A", "B"].includes(areaOf(cell) ?? "") && inCorner(areaOf, cell);
+}
+
+/** Whether a TV stands in the suspect's row and area. */
+function tvInRowAndRoom(c: Context): boolean {
+  return c
+    .cellsOf(c.areaOf(c.cell) ?? "")
+    .some((cell) => cell.row === c.cell.row && c.is(cell, "tv"));
+}
+
+/** Whether another woman stands in the suspect's area. */
+function anotherWomanInRoom(c: Context): boolean {
+  return c
+    .peopleIn(c.areaOf(c.cell) ?? "")
+    .some((id) => id !== c.self && c.has(id, "woman"));
+}
+
+/** The case. */
+export const THE_CINEMA: Level = {
+  id: "the-cinema",
+  name: "Das Kino",
+  series: { book: "original", number: 51 },
+  story:
+    "Deshalb vermeide ich keine Spoiler. Man weiß nie, ob man das Ende des Films noch erlebt.",
+  culprit: { name: "der Mörder", dative: "dem Mörder" },
+  areas: [
+    {
+      key: "A",
+      name: "Saal A",
+      at: "in Saal A",
+      ground: "floor",
+      tint: "#e2dcf0",
+      label: { row: 3, col: 0 },
+    },
+    {
+      key: "F",
+      name: "Flur",
+      at: "im Flur",
+      ground: "floor",
+      tint: "#ecdcdc",
+      label: { row: 5, col: 5 },
+    },
+    {
+      key: "B",
+      name: "Saal B",
+      at: "in Saal B",
+      ground: "floor",
+      tint: "#e2dcf0",
+      label: { row: 6, col: 7 },
+    },
+    {
+      key: "E",
+      name: "Eingang",
+      at: "im Eingang",
+      ground: "floor",
+      tint: "#e6dcea",
+      label: { row: 5, col: 1 },
+    },
+    {
+      key: "K",
+      name: "Kassentheke",
+      at: "an der Kassentheke",
+      ground: "floor",
+      tint: "#dcd6e2",
+      label: { row: 8, col: 2 },
+    },
+    {
+      key: "V",
+      name: "Vorführraum",
+      at: "im Vorführraum",
+      ground: "floor",
+      tint: "#e6dcdc",
+      label: { row: 8, col: 7 },
+    },
+  ],
+  areaMap: [
+    "AAAAFFBBB",
+    "AAAAFFBBB",
+    "AAAAFFBBB",
+    "AAAAFFBBB",
+    "EEEEFFBBB",
+    "EEEEFFBBB",
+    "KKKKKKBBB",
+    "KKKKKKVVV",
+    "KKKKKKVVV",
+  ],
+  thingMap: [
+    ".cc.prccc",
+    "cc.crr..c",
+    "cc.crrcc.",
+    ".vv......",
+    "rrrr..c.c",
+    "rrrpp.ccc",
+    "...rr....",
+    "rkTTTT.vv",
+    ".kT.r.r..",
+  ],
+  things: {
+    T: "table",
+    c: "chair",
+    k: "cashRegister",
+    p: "plant",
+    r: "rug",
+    v: "tv",
+  },
+  extraThings: {
+    cashRegister: { name: "Kasse", emoji: "\u{1F4B5}", standable: false },
+  },
+  pieces: [
+    { at: { row: 6, col: 3 }, rows: 1, cols: 2 },
+    { at: { row: 7, col: 2 }, rows: 1, cols: 4 },
+  ],
+  windows: [
+    { at: { row: 0, col: 5 }, side: "top" },
+    { at: { row: 4, col: 0 }, side: "left" },
+  ],
+  suspects: [
+    {
+      id: "A",
+      name: "Anna",
+      pronoun: "sie",
+      clue: { text: "Sie war neben dem Tisch.", ...beside("table") },
+      colour: "#b91c1c",
+      face: "\u{1F469}",
+    },
+    {
+      id: "B",
+      name: "Buff",
+      pronoun: "er",
+      clue: { text: "Er war neben einer Pflanze.", ...beside("plant") },
+      colour: "#15803d",
+      face: "\u{1F9D4}",
+    },
+    {
+      id: "C",
+      name: "Carry",
+      pronoun: "sie",
+      clue: {
+        text: "Sie war auf einem Teppich. Eine weitere Frau war in ihrem Raum.",
+        ...all(on("rug"), counting(anotherWomanInRoom)),
+      },
+      colour: "#0e7490",
+      face: "\u{1F469}‍\u{1F9B0}",
+    },
+    {
+      id: "D",
+      name: "Dory",
+      pronoun: "sie",
+      clue: {
+        text: "Sie war allein und vor einem Fenster.",
+        ...all(
+          own((c) => byWindow(c.cell)),
+          alone(),
+        ),
+        glow: () => WINDOWS,
+      },
+      colour: "#6366f1",
+      face: "\u{1F469}‍\u{1F9B0}",
+    },
+    {
+      id: "E",
+      name: "Effie",
+      pronoun: "sie",
+      clue: {
+        text: "Sie saß nicht auf einem Stuhl.",
+        ...not(on("chair")),
+      },
+      colour: "#7c3aed",
+      face: "\u{1F469}",
+    },
+    {
+      id: "F",
+      name: "Fred",
+      pronoun: "er",
+      clue: {
+        text: "Er war in derselben Zeile und im selben Raum wie ein Fernseher.",
+        ...own(tvInRowAndRoom),
+      },
+      colour: "#9f1239",
+      face: "\u{1F468}",
+    },
+    {
+      id: "G",
+      name: "Galadriel",
+      pronoun: "sie",
+      clue: { text: "Sie war im Vorführraum.", ...inArea("V") },
+      colour: "#ea580c",
+      face: "\u{1F471}‍♀️",
+    },
+    {
+      id: "H",
+      name: "Hans",
+      pronoun: "er",
+      clue: {
+        text: "Er war in einer Ecke von Saal A oder B.",
+        ...own((c) => hallCorner(c.areaOf, c.cell)),
+        glow: (level) =>
+          cellsWhere(level, (cell) =>
+            hallCorner((one) => areaAt(level, one)?.key ?? null, cell),
+          ),
+      },
+      colour: "#4338ca",
+      face: "\u{1F471}‍♂️",
+    },
+    {
+      id: "O",
+      name: "Obi",
+      pronoun: "er",
+      clue: {
+        text: "Er war allein mit der Person, die den Mord beging.",
+        ...victim(),
+      },
+      colour: "#d97706",
+      face: "\u{1F468}",
+    },
+  ],
+  hints: [
+    {
+      text: "Buff war neben einer Pflanze - die stehen nur im Flur und im Eingang. Dory war allein vor einem Fenster: in R1 C6 im Flur oder in R5 C1 im Eingang. In einem der beiden Räume war also Dory allein, im anderen Buff.",
+    },
+    {
+      text: "Angenommen, Dory stand in R1 C6. Dann war Buff im Eingang, und im Flur war nur Dory. In R2 und R3 könnten dann nur Effie und Obi stehen - Hans' Ecken liegen in R1, R4 und R7, und Carry fände dort keinen Teppich außerhalb des Flurs. Für R5 und R6 bliebe nur Buff: Fred, Anna und Galadriel haben dort keinen Platz, und Carry fände im Eingang keine weitere Frau. Das geht nicht.",
+    },
+    {
+      text: "Dory stand also in R5 C1, allein im Eingang, und Buff war im Flur. Carry war auf einem Teppich mit einer weiteren Frau: Im Flur wären das mit Buff drei Personen in nur zwei Spalten, und im Eingang war Dory allein. Carry war an der Kassentheke oder im Vorführraum.",
+      place: { D: { row: 4, col: 0 } },
+    },
+    {
+      text: "In R7 bis R9 standen damit Anna, Galadriel und Carry - sonst niemand. Fred war in derselben Zeile wie ein Fernseher: in R4, und R4 C1 liegt in Dorys Spalte - Fred stand in R4 C4. Hans' Ecken in R4 und R7 fallen weg: Er war in R1.",
+      place: { F: { row: 3, col: 3 } },
+    },
+    {
+      text: "Wer stand in C2? Dort sind in Saal A nur Stühle, im Eingang war Dory allein, R7 C2 passt weder zu Anna noch zu Carry, und darunter stehen Kassen. Effie saß nicht, Hans steht in einer Ecke - es bleibt nur Obi, in R2 C2 oder R3 C2. Obi war allein mit einer Person, und Fred ist schon in Saal A: Sonst war dort niemand.",
+    },
+    {
+      text: "Auch in C3 kommt Saal A nicht mehr in Frage, im Eingang war Dory allein, R8 C3 und R9 C3 gehören zur Theke. Bleibt R7 C3 neben dem Tisch: Anna. In R8 sind nur R8 C1 (Dorys Spalte) und R8 C7 frei - dort stand Galadriel. Carry bleibt nur der Teppich R9 C5.",
+      place: {
+        A: { row: 6, col: 2 },
+        G: { row: 7, col: 6 },
+        C: { row: 8, col: 4 },
+      },
+    },
+    {
+      text: "Buff neben der Pflanze: R2 C5 liegt in Carrys Spalte, also R6 C6. Hans' Ecke in R1: C1 und C7 sind belegt - R1 C9. Für Effie bleibt C8 in R2 oder R3, und R3 C8 ist ein Stuhl: R2 C8. Obi stand in R3 C2.",
+      place: {
+        B: { row: 5, col: 5 },
+        H: { row: 0, col: 8 },
+        E: { row: 1, col: 7 },
+        O: { row: 2, col: 1 },
+      },
+    },
+    {
+      text: "Obi war in Saal A allein mit Fred - Fred ist der Mörder!",
+    },
+  ],
+  solution: {
+    A: { row: 6, col: 2 },
+    B: { row: 5, col: 5 },
+    C: { row: 8, col: 4 },
+    D: { row: 4, col: 0 },
+    E: { row: 1, col: 7 },
+    F: { row: 3, col: 3 },
+    G: { row: 7, col: 6 },
+    H: { row: 0, col: 8 },
+    O: { row: 2, col: 1 },
+  },
+};

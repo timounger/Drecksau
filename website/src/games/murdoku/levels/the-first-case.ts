@@ -23,7 +23,7 @@ export const THE_FIRST_CASE: Level = {
   name: "Dein erster Fall",
   series: { book: "original", number: 1 },
   story:
-    "Dieser sollte nicht allzu knifflig sein. Erinnere dich einfach an dein Training. Oliver wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Dieser sollte nicht allzu knifflig sein. Erinnere dich einfach an dein Training.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -62,6 +62,11 @@ export const THE_FIRST_CASE: Level = {
   areaMap: ["WWWSSS", "WWWSSS", "WWWSSS", "EEEZZZ", "EEEZZZ", "EEEZZZ"],
   thingMap: [".f..f.", "..r.b.", "....b.", "t....t", "..p..p", "t....."],
   things: { f: "window", r: "rug", b: "bed", t: "table", p: "plant" },
+  pieces: [{ at: { row: 1, col: 4 }, rows: 2, cols: 1 }],
+  windows: [
+    { at: { row: 0, col: 1 }, side: "top" },
+    { at: { row: 0, col: 4 }, side: "top" },
+  ],
   extraThings: {
     window: { name: "Fenster", emoji: "\u{1FA9F}", standable: true },
   },
@@ -117,6 +122,7 @@ export const THE_FIRST_CASE: Level = {
   ],
   rules: [
     {
+      note: true,
       text: "Man sagt, man vergisst seinen ersten Fall nie. Obwohl das bei mir nicht stimmte ... ein Verdächtiger hat mich bewusstlos geschlagen und ich verlor mein Gedächtnis. Ich hoffe, du hast mehr Glück!",
     },
   ],

@@ -125,6 +125,11 @@ export const THE_BUS_STOP: Level = {
   extraThings: {
     bus: { name: "Bus", emoji: "\u{1F68C}", standable: true },
   },
+  pieces: [
+    { at: { row: 5, col: 0 }, rows: 1, cols: 3 },
+    { at: { row: 5, col: 5 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 3 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

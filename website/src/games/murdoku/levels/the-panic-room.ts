@@ -183,6 +183,12 @@ export const THE_PANIC_ROOM: Level = {
     r: "tree",
     b: "bed",
   },
+  pieces: [
+    { at: { row: 0, col: 5 }, rows: 1, cols: 2 },
+    { at: { row: 1, col: 1 }, rows: 1, cols: 3 },
+    { at: { row: 7, col: 4 }, rows: 2, cols: 1 },
+    { at: { row: 7, col: 8 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",

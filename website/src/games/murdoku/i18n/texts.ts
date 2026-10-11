@@ -15,8 +15,6 @@ export const DIFFICULTY_NAMES: Readonly<Record<Difficulty, string>> = {
   medium: "Mittel",
   hard: "Schwer",
   expert: "Experte",
-  family: "Familie",
-  treasure: "Schatzsuche",
 };
 
 /** What the book series are called. */
@@ -25,7 +23,9 @@ export const SERIES_NAMES: Readonly<Record<Series, string>> = {
   timeTravel: "Murdoku 2: Auf Zeitreise",
   worldTravel: "Murdoku 3: Auf Weltreise",
   beyondGrave: "Murdoku: Beyond the Grave",
+  family: "Familie Murdoku",
   online: "Online-Rätsel",
+  contest: "Wettbewerb",
 };
 
 /**
@@ -87,6 +87,8 @@ export const MURDOKU_TEXTS = {
   resume: "Weiter",
   open: "Ermitteln",
   toCases: "Zurück zur Levelübersicht",
+  previousCase: "Vorheriger Fall",
+  nextCaseArrow: "Nächster Fall",
   playOnline: "Gemeinsam online",
   suspects: "Die Verdächtigen",
   victim: "Das Opfer",

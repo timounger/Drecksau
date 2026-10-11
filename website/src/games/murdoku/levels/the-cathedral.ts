@@ -29,7 +29,7 @@ export const THE_CATHEDRAL: Level = {
   name: "Die Kathedrale",
   series: { book: "timeTravel", number: 4 },
   story:
-    "Mal sehen, ob du durch die Wand des Beichtstuhls den einen oder anderen Hinweis aufschnappen kannst. Oswin wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Mal sehen, ob du durch die Wand des Beichtstuhls den einen oder anderen Hinweis aufschnappen kannst.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {

@@ -54,8 +54,7 @@ export const RAINY_DAY: Level = {
   id: "rainy-day",
   name: "Regentag",
   series: { book: "original", number: 30 },
-  story:
-    "Dieser Niederschlag stand in keinem Wetterbericht. Othello wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Dieser Niederschlag stand in keinem Wetterbericht.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -138,6 +137,15 @@ export const RAINY_DAY: Level = {
     s: "shelf",
     t: "table",
   },
+  pieces: [
+    { at: { row: 0, col: 1 }, rows: 2, cols: 1 },
+    { at: { row: 1, col: 2 }, rows: 1, cols: 2 },
+    { at: { row: 3, col: 3 }, rows: 1, cols: 3 },
+    { at: { row: 4, col: 8 }, rows: 2, cols: 1 },
+    { at: { row: 5, col: 5 }, rows: 1, cols: 2 },
+    { at: { row: 7, col: 1 }, rows: 2, cols: 1 },
+    { at: { row: 8, col: 4 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -151,7 +159,6 @@ export const RAINY_DAY: Level = {
       id: "B",
       name: "Betty",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war allein in der Küche.",
         ...all(inArea("K"), alone()),
@@ -163,7 +170,6 @@ export const RAINY_DAY: Level = {
       id: "C",
       name: "Carlos",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war neben einem Tisch. Er war nicht im Esszimmer.",
         ...all(beside("table"), not(inArea("Z"))),
@@ -194,7 +200,6 @@ export const RAINY_DAY: Level = {
       id: "F",
       name: "Florian",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war neben einer Pflanze.", ...beside("plant") },
       colour: "#9f1239",
       face: "\u{1F474}",
@@ -211,7 +216,6 @@ export const RAINY_DAY: Level = {
       id: "H",
       name: "Hannah",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war in einer Ecke.",
         ...own((c) => inCorner(c.areaOf, c.cell)),
@@ -227,7 +231,6 @@ export const RAINY_DAY: Level = {
       id: "O",
       name: "Othello",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war allein mit der Person, die den Mord beging.",
         ...victim(),

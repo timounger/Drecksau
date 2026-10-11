@@ -187,6 +187,11 @@ export const THE_REMOTE_VILLAGE: Level = {
     u: "rug",
     x: "box",
   },
+  pieces: [
+    { at: { row: 3, col: 6 }, rows: 1, cols: 2 },
+    { at: { row: 5, col: 5 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 4 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

@@ -94,6 +94,7 @@ export const THE_BEACH: Level = {
     ".......",
   ],
   things: { t: "table", c: "chair", b: "boulder" },
+  pieces: [{ at: { row: 0, col: 4 }, rows: 1, cols: 2 }],
   suspects: [
     {
       id: "A",

@@ -103,6 +103,10 @@ export const THE_GARAGE_BAND: Level = {
     speaker: { name: "Lautsprecher", emoji: "\u{1F50A}", standable: false },
     drums: { name: "Schlagzeug", emoji: "\u{1F941}", standable: false },
   },
+  pieces: [
+    { at: { row: 0, col: 4 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 0 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

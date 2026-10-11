@@ -30,8 +30,7 @@ export const THE_ROADSIDE_INN: Level = {
   id: "the-roadside-inn",
   name: "Das Gasthaus am Wegesrand",
   series: { book: "timeTravel", number: 1 },
-  story:
-    "Eigentlich ist das hier nur eine Zwischenstation, keine Endstation. Odo wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Eigentlich ist das hier nur eine Zwischenstation, keine Endstation.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -84,6 +83,11 @@ export const THE_ROADSIDE_INN: Level = {
       kinds: ["seat", "animal"],
     },
   },
+  pieces: [
+    { at: { row: 0, col: 5 }, rows: 2, cols: 1 },
+    { at: { row: 2, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 3, col: 0 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",

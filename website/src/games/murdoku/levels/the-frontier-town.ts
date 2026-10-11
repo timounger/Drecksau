@@ -168,6 +168,11 @@ export const THE_FRONTIER_TOWN: Level = {
     },
     safe: { name: "Tresor", emoji: "\u{1F512}", standable: false },
   },
+  pieces: [
+    { at: { row: 1, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 1, col: 5 }, rows: 1, cols: 2 },
+    { at: { row: 8, col: 6 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -199,7 +204,6 @@ export const THE_FRONTIER_TOWN: Level = {
       id: "C",
       name: "Curtis",
       pronoun: "er",
-      traits: ["hat"],
       clue: { text: "Er saß auf einem Stuhl.", ...on("chair") },
       colour: "#0e7490",
       face: "\u{1F920}",
@@ -208,7 +212,6 @@ export const THE_FRONTIER_TOWN: Level = {
       id: "D",
       name: "Duke",
       pronoun: "er",
-      traits: ["hat"],
       clue: {
         text: "Nicht der Gesetzlose. Er war neben einem Stuhl.",
         ...beside("chair"),

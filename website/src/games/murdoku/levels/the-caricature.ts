@@ -25,8 +25,7 @@ import type { Level } from "../engine/types";
 export const THE_CARICATURE: Level = {
   id: "the-caricature",
   name: "Die Karikatur",
-  difficulty: "family",
-  series: { book: "online" },
+  series: { book: "family" },
   story:
     "Jemand hat eine gemeine Karikatur der Lehrerin an die Tafel gemalt! Finde heraus, wo alle im Klassenzimmer waren. Der Täter war in der obersten Reihe.",
   culprit: { name: "der Täter", dative: "dem Täter" },
@@ -85,12 +84,17 @@ export const THE_CARICATURE: Level = {
       kinds: ["furniture"],
     },
   },
+  pieces: [{ at: { row: 1, col: 2 }, rows: 1, cols: 3 }],
+  windows: [
+    { at: { row: 1, col: 0 }, side: "left" },
+    { at: { row: 3, col: 0 }, side: "left" },
+    { at: { row: 6, col: 0 }, side: "left" },
+  ],
   suspects: [
     {
       id: "A",
       name: "Anabella",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war im hinteren Bereich, zusammen mit jemandem, der auf einem Stuhl saß.",
         ...all(
@@ -135,7 +139,6 @@ export const THE_CARICATURE: Level = {
       id: "E",
       name: "Elliot",
       pronoun: "er",
-      traits: ["cap"],
       clue: { text: "Er war in der fünften Spalte.", ...column(5) },
       colour: "#7c3aed",
       face: "\u{1F9D1}",

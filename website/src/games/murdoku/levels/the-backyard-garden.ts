@@ -145,6 +145,10 @@ export const THE_BACKYARD_GARDEN: Level = {
       kinds: ["plant"],
     },
   },
+  pieces: [
+    { at: { row: 8, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 7, col: 8 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",

@@ -68,8 +68,7 @@ export const DEMOLITION_ZONE: Level = {
   id: "demolition-zone",
   name: "Abrisszone",
   series: { book: "original", number: 11 },
-  story:
-    "Mit Absperrband erwürgt? Das ist mal was Neues. Orlando wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Mit Absperrband erwürgt? Das ist mal was Neues.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -147,6 +146,11 @@ export const DEMOLITION_ZONE: Level = {
   extraThings: {
     boulder: { name: "Felsbrocken", emoji: "\u{1FAA8}", standable: false },
   },
+  pieces: [
+    { at: { row: 4, col: 2 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 5 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 0 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

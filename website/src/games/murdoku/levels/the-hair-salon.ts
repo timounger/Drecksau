@@ -31,7 +31,7 @@ export const THE_HAIR_SALON: Level = {
   name: "Der Friseursalon",
   series: { book: "original", number: 25 },
   story:
-    "Vielleicht sollten sie den Laden umbenennen ... »Live and Dye« wirkt jetzt etwas unsensibel. Olympia wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Vielleicht sollten sie den Laden umbenennen ... »Live and Dye« wirkt jetzt etwas unsensibel.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -103,6 +103,12 @@ export const THE_HAIR_SALON: Level = {
     s: "shelf",
     t: "table",
   },
+  pieces: [
+    { at: { row: 0, col: 4 }, rows: 1, cols: 3 },
+    { at: { row: 5, col: 0 }, rows: 2, cols: 1 },
+    { at: { row: 6, col: 3 }, rows: 1, cols: 2 },
+    { at: { row: 7, col: 3 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

@@ -177,6 +177,13 @@ export const THE_MOVIE_STUDIO: Level = {
     s: "shelf",
     v: "tv",
   },
+  pieces: [
+    { at: { row: 1, col: 0 }, rows: 2, cols: 1 },
+    { at: { row: 1, col: 4 }, rows: 3, cols: 1 },
+    { at: { row: 6, col: 12 }, rows: 1, cols: 2 },
+    { at: { row: 7, col: 13 }, rows: 1, cols: 2 },
+    { at: { row: 14, col: 2 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",

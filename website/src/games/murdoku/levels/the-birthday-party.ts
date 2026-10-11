@@ -22,7 +22,7 @@ export const THE_BIRTHDAY_PARTY: Level = {
   name: "Die Geburtstagsparty",
   series: { book: "original", number: 14 },
   story:
-    "Als ob ein Mord nicht schon erschreckend genug wäre - es ist auch noch ein Clown am Tatort? Odette wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Als ob ein Mord nicht schon erschreckend genug wäre - es ist auch noch ein Clown am Tatort?",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -107,6 +107,15 @@ export const THE_BIRTHDAY_PARTY: Level = {
   extraThings: {
     present: { name: "Geschenk", emoji: "\u{1F381}", standable: false },
   },
+  pieces: [
+    { at: { row: 0, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 0, col: 5 }, rows: 2, cols: 1 },
+    { at: { row: 0, col: 8 }, rows: 3, cols: 1 },
+    { at: { row: 1, col: 2 }, rows: 1, cols: 2 },
+    { at: { row: 3, col: 4 }, rows: 2, cols: 1 },
+    { at: { row: 7, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 7, col: 6 }, rows: 1, cols: 3 },
+  ],
   suspects: [
     {
       id: "A",

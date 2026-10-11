@@ -11,8 +11,7 @@
  * pencilled in on the photographed page).
  * Oriana is the victim; whoever was alone with her killed her.
  *
- * Chairs and beds can be stood on; shelves, tables, plants, the kitchen
- * counter and the TV cannot.
+ * Chairs and beds can be stood on; shelves, tables, plants and the TV cannot.
  */
 import { all, beside, counting, inArea, on, victim } from "../engine/clues";
 import type { Level } from "../engine/types";
@@ -22,8 +21,7 @@ export const THE_LIBRARIANS_HOUSE: Level = {
   id: "the-librarians-house",
   name: "Das Haus der Bibliothekarin",
   series: { book: "original", number: 20 },
-  story:
-    "Finden wir den Täter und beenden dieses düstere Kapitel. Oriana wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Finden wir den Täter und beenden dieses düstere Kapitel.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -97,7 +95,7 @@ export const THE_LIBRARIANS_HOUSE: Level = {
   thingMap: [
     "..sc.ss.s",
     ".tct....s",
-    "ksct.c..s",
+    "tsct.c..s",
     "s.....ps.",
     "..ct...ts",
     "sc.fps...",
@@ -109,20 +107,20 @@ export const THE_LIBRARIANS_HOUSE: Level = {
     b: "bed",
     c: "chair",
     f: "tv",
-    k: "counter",
     p: "plant",
     s: "shelf",
     t: "table",
   },
-  extraThings: {
-    counter: { name: "Herd", emoji: "\u{1F373}", standable: false },
-  },
+  pieces: [
+    { at: { row: 1, col: 3 }, rows: 2, cols: 1 },
+    { at: { row: 6, col: 0 }, rows: 2, cols: 1 },
+    { at: { row: 7, col: 4 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
       name: "Arwin",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war in der Küche.", ...inArea("K") },
       colour: "#b91c1c",
       face: "\u{1F9D4}",
@@ -150,7 +148,6 @@ export const THE_LIBRARIANS_HOUSE: Level = {
       id: "D",
       name: "Daphne",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie saß auf einem Stuhl im Esszimmer.",
         ...all(inArea("E"), on("chair")),
@@ -162,7 +159,6 @@ export const THE_LIBRARIANS_HOUSE: Level = {
       id: "E",
       name: "Enya",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war neben dem Fernseher.", ...beside("tv") },
       colour: "#be185d",
       face: "\u{1F469}‍\u{1F9B0}",
@@ -196,7 +192,6 @@ export const THE_LIBRARIANS_HOUSE: Level = {
       id: "H",
       name: "Hudson",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er saß auf einem Stuhl.", ...on("chair") },
       colour: "#4338ca",
       face: "\u{1F468}‍\u{1F9B2}",
@@ -205,7 +200,6 @@ export const THE_LIBRARIANS_HOUSE: Level = {
       id: "O",
       name: "Oriana",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war allein mit der Person, die den Mord beging.",
         ...victim(),

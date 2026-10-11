@@ -31,8 +31,7 @@ export const GAME_NIGHT: Level = {
   id: "game-night",
   name: "Spieleabend",
   series: { book: "original", number: 21 },
-  story:
-    "Jemand muss direkt ins Gefängnis ... ohne vorher über LOS zu gehen. Ondine wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Jemand muss direkt ins Gefängnis ... ohne vorher über LOS zu gehen.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -79,6 +78,11 @@ export const GAME_NIGHT: Level = {
   areaMap: ["GGGBBB", "GGGBBB", "SWWWWB", "SWWWWB", "SSSKKK", "SSSKKK"],
   thingMap: ["bb.pc.", "......", "pcttc.", ".cttp.", "...t..", ".bb..t"],
   things: { b: "bed", c: "chair", p: "plant", t: "table" },
+  pieces: [
+    { at: { row: 0, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 2, col: 2 }, rows: 2, cols: 2 },
+    { at: { row: 5, col: 1 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -122,7 +126,6 @@ export const GAME_NIGHT: Level = {
       id: "E",
       name: "Elias",
       pronoun: "er",
-      traits: ["cap", "glasses"],
       clue: { text: "Er war neben einer Pflanze.", ...beside("plant") },
       colour: "#7c3aed",
       face: "\u{1F9D4}",

@@ -136,6 +136,12 @@ export const THE_WINE_CELLAR: Level = {
     t: "table",
     v: "tv",
   },
+  pieces: [
+    { at: { row: 0, col: 4 }, rows: 2, cols: 1 },
+    { at: { row: 0, col: 7 }, rows: 1, cols: 2 },
+    { at: { row: 5, col: 8 }, rows: 2, cols: 1 },
+    { at: { row: 8, col: 0 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",

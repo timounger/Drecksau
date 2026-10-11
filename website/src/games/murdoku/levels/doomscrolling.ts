@@ -39,7 +39,7 @@ export const DOOMSCROLLING: Level = {
   name: "Doomscrolling",
   series: { book: "original", number: 19 },
   story:
-    "Das Opfer starb bei seiner Lieblingsbeschäftigung: auf einen Bildschirm starren. Ortwin wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Das Opfer starb bei seiner Lieblingsbeschäftigung: auf einen Bildschirm starren.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -129,12 +129,17 @@ export const DOOMSCROLLING: Level = {
     s: "shelf",
     t: "table",
   },
+  pieces: [
+    { at: { row: 0, col: 7 }, rows: 2, cols: 1 },
+    { at: { row: 1, col: 1 }, rows: 3, cols: 1 },
+    { at: { row: 3, col: 4 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 8 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",
       name: "Arne",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war neben einem Fernseher und neben einem Regal.",
         ...all(beside("tv"), beside("shelf")),
@@ -146,7 +151,6 @@ export const DOOMSCROLLING: Level = {
       id: "B",
       name: "Balthasar",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war neben einem Fernseher.", ...beside("tv") },
       colour: "#15803d",
       face: "\u{1F468}",
@@ -166,7 +170,6 @@ export const DOOMSCROLLING: Level = {
       id: "D",
       name: "Detlev",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war auf einem Bett.", ...on("bed") },
       colour: "#6366f1",
       face: "\u{1F9D4}",
@@ -175,7 +178,6 @@ export const DOOMSCROLLING: Level = {
       id: "E",
       name: "Eva",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war die einzige Person, die auf einem Stuhl saß.",
         ...all(on("chair"), counting(onlyOneOnAChair)),
@@ -206,7 +208,6 @@ export const DOOMSCROLLING: Level = {
       id: "H",
       name: "Helen",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war allein im Esszimmer mit Balthasar.",
         ...all(inArea("E"), counting(aloneWith("B"))),
@@ -218,7 +219,6 @@ export const DOOMSCROLLING: Level = {
       id: "O",
       name: "Ortwin",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war allein mit der Person, die den Mord beging.",
         ...victim(),

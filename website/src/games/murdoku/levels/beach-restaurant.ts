@@ -40,7 +40,7 @@ export const BEACH_RESTAURANT: Level = {
   name: "Strandrestaurant",
   series: { book: "original", number: 27 },
   story:
-    "Wir sind hier auf uns allein gestellt ... die Zeugen stecken alle den Kopf in den Sand. Olena wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Wir sind hier auf uns allein gestellt ... die Zeugen stecken alle den Kopf in den Sand.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -120,6 +120,15 @@ export const BEACH_RESTAURANT: Level = {
     r: "rug",
     t: "table",
   },
+  pieces: [
+    { at: { row: 0, col: 3 }, rows: 1, cols: 2 },
+    { at: { row: 1, col: 0 }, rows: 1, cols: 3 },
+    { at: { row: 2, col: 6 }, rows: 2, cols: 1 },
+    { at: { row: 3, col: 2 }, rows: 1, cols: 2 },
+    { at: { row: 5, col: 4 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 6 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -136,7 +145,6 @@ export const BEACH_RESTAURANT: Level = {
       id: "B",
       name: "Briana",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war neben einem Regal.", ...beside("shelf") },
       colour: "#15803d",
       face: "\u{1F469}‍\u{1F9B0}",
@@ -145,7 +153,6 @@ export const BEACH_RESTAURANT: Level = {
       id: "C",
       name: "Cleo",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie saß auf einem Stuhl im Speiseraum.",
         ...all(on("chair"), inArea("S")),
@@ -204,7 +211,6 @@ export const BEACH_RESTAURANT: Level = {
       id: "H",
       name: "Hope",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war die einzige Person auf einem Teppich.",
         ...all(on("rug"), counting(onlyOneOnARug)),

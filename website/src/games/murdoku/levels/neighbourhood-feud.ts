@@ -169,12 +169,18 @@ export const NEIGHBOURHOOD_FEUD: Level = {
       kinds: ["furniture"],
     },
   },
+  pieces: [
+    { at: { row: 3, col: 5 }, rows: 1, cols: 2 },
+    { at: { row: 5, col: 6 }, rows: 2, cols: 1 },
+    { at: { row: 6, col: 2 }, rows: 2, cols: 1 },
+    { at: { row: 6, col: 3 }, rows: 2, cols: 1 },
+    { at: { row: 7, col: 0 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
       name: "Arnold",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war allein in einem seiner eigenen Bereiche.",
         ...all(inArea(...ARNOLDS_AREAS), alone()),

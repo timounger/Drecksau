@@ -152,6 +152,7 @@ export const THE_HIKING_TRIP: Level = {
     s: "shrub",
     d: "table",
   },
+  pieces: [{ at: { row: 12, col: 2 }, rows: 1, cols: 2 }],
   suspects: [
     {
       id: "A",

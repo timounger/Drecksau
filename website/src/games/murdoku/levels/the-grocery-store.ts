@@ -29,8 +29,7 @@ export const THE_GROCERY_STORE: Level = {
   id: "the-grocery-store",
   name: "Der Lebensmittelladen",
   series: { book: "original", number: 29 },
-  story:
-    "Sie hatte keine Ahnung, dass ihr Verfallsdatum erreicht war. Opal wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Sie hatte keine Ahnung, dass ihr Verfallsdatum erreicht war.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -105,12 +104,28 @@ export const THE_GROCERY_STORE: Level = {
     "ctrrtc..t",
   ],
   things: { c: "chair", r: "rug", s: "shelf", t: "table" },
+  pieces: [
+    { at: { row: 0, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 0, col: 2 }, rows: 1, cols: 2 },
+    { at: { row: 0, col: 4 }, rows: 3, cols: 1 },
+    { at: { row: 1, col: 2 }, rows: 3, cols: 1 },
+    { at: { row: 1, col: 7 }, rows: 1, cols: 2 },
+    { at: { row: 2, col: 3 }, rows: 2, cols: 1 },
+    { at: { row: 2, col: 5 }, rows: 4, cols: 1 },
+    { at: { row: 3, col: 6 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 1 }, rows: 2, cols: 1 },
+    { at: { row: 4, col: 6 }, rows: 3, cols: 1 },
+    { at: { row: 4, col: 7 }, rows: 4, cols: 1 },
+    { at: { row: 6, col: 2 }, rows: 1, cols: 2 },
+    { at: { row: 7, col: 4 }, rows: 2, cols: 1 },
+    { at: { row: 7, col: 8 }, rows: 2, cols: 1 },
+    { at: { row: 8, col: 2 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
       name: "Alysha",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war die einzige Person auf einem Teppich.",
         ...all(
@@ -162,7 +177,6 @@ export const THE_GROCERY_STORE: Level = {
       id: "D",
       name: "Dominic",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war in der fünften Zeile.", ...row(5) },
       colour: "#6366f1",
       face: "\u{1F468}",

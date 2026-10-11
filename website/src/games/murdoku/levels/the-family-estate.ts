@@ -24,7 +24,7 @@ export const THE_FAMILY_ESTATE: Level = {
   name: "Das Familienanwesen",
   series: { book: "original", number: 12 },
   story:
-    "Nichts bringt das Schlechteste in Menschen so gut zum Vorschein wie der Streit ums Testament. Osvaldo wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Nichts bringt das Schlechteste in Menschen so gut zum Vorschein wie der Streit ums Testament.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -124,6 +124,12 @@ export const THE_FAMILY_ESTATE: Level = {
       kinds: ["furniture"],
     },
   },
+  pieces: [
+    { at: { row: 0, col: 3 }, rows: 2, cols: 1 },
+    { at: { row: 0, col: 8 }, rows: 2, cols: 1 },
+    { at: { row: 3, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 3, col: 7 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",
@@ -140,7 +146,6 @@ export const THE_FAMILY_ESTATE: Level = {
       id: "B",
       name: "Belinda",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie saß auf einem Stuhl im Keller.",
         ...all(on("chair"), inArea("K")),
@@ -160,7 +165,6 @@ export const THE_FAMILY_ESTATE: Level = {
       id: "D",
       name: "Dario",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war im Schlafzimmer.", ...inArea("S") },
       colour: "#6366f1",
       face: "\u{1F468}",
@@ -169,7 +173,6 @@ export const THE_FAMILY_ESTATE: Level = {
       id: "E",
       name: "Edwin",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war auf einem Bett.", ...on("bed") },
       colour: "#7c3aed",
       face: "\u{1F468}",
@@ -194,7 +197,6 @@ export const THE_FAMILY_ESTATE: Level = {
       id: "H",
       name: "Helena",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war im Keller, in einer Ecke des Raumes.",
         ...all(

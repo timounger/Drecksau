@@ -198,7 +198,6 @@ export const THE_ABANDONED_MUSEUM: Level = {
       id: "D",
       name: "Dylan",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war neben einem Tisch.", ...beside("table") },
       colour: "#6366f1",
       face: "\u{1F468}",

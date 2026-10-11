@@ -32,7 +32,7 @@ export const ENGLISH_BREAKFAST: Level = {
   name: "English Breakfast",
   series: { book: "original", number: 3 },
   story:
-    "Sieht wirklich gemütlich aus, aber jetzt wissen wir, dass sich hier etwas zusammenbraute. Orville wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Sieht wirklich gemütlich aus, aber jetzt wissen wir, dass sich hier etwas zusammenbraute.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -86,12 +86,18 @@ export const ENGLISH_BREAKFAST: Level = {
     r: "rug",
     t: "table",
   },
+  pieces: [
+    { at: { row: 0, col: 0 }, rows: 2, cols: 1 },
+    { at: { row: 2, col: 0 }, rows: 2, cols: 1 },
+    { at: { row: 3, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 0, col: 4 }, rows: 1, cols: 2 },
+  ],
+  windows: [{ at: WINDOW, side: "right" }],
   suspects: [
     {
       id: "A",
       name: "Alexander",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war auf einem Bett.", ...on("bed") },
       colour: "#b91c1c",
       face: "\u{1F468}",

@@ -23,8 +23,7 @@ export const BACKYARD_HOT_TUB: Level = {
   id: "backyard-hot-tub",
   name: "Whirlpool im Hintergarten",
   series: { book: "original", number: 8 },
-  story:
-    "Sieht aus, als wären ein paar Emotionen hochgekocht. Ophelia wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Sieht aus, als wären ein paar Emotionen hochgekocht.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -95,6 +94,11 @@ export const BACKYARD_HOT_TUB: Level = {
     "bb.t.tt",
   ],
   things: { t: "table", p: "plant", c: "chair", r: "tv", b: "bed" },
+  pieces: [
+    { at: { row: 0, col: 1 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 6, col: 5 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -124,7 +128,6 @@ export const BACKYARD_HOT_TUB: Level = {
       id: "D",
       name: "Daphne",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war auf dem Bett.", ...on("bed") },
       colour: "#7c3aed",
       face: "\u{1F469}‍\u{1F9B0}",
@@ -155,7 +158,6 @@ export const BACKYARD_HOT_TUB: Level = {
       id: "O",
       name: "Ophelia",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war im letzten verbleibenden Feld, allein mit der Person, die den Mord beging.",
         ...victim(),
@@ -166,6 +168,7 @@ export const BACKYARD_HOT_TUB: Level = {
   ],
   rules: [
     {
+      note: true,
       text: "Beachte, dass jeder Bereich mit einer schwarzen Umrandung als Raum zählt. Die Terrasse, der Garten und der Whirlpool sind also Räume.",
     },
   ],

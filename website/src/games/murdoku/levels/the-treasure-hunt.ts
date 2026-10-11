@@ -448,8 +448,7 @@ const HINTS: readonly Hint[] = [
 export const THE_TREASURE_HUNT: Level = {
   id: "the-treasure-hunt",
   name: "Die Schatzsuche",
-  difficulty: "treasure",
-  series: { book: "online" },
+  series: { book: "contest" },
   story:
     "Auf der Pirateninsel ist ein Schatz vergraben! Finde heraus, wo die 23 Piraten standen - der Schatz liegt auf dem allerletzten Feld, in der einzigen Reihe und Spalte, die übrig bleiben.",
   culprit: { name: "der Schatz", dative: "dem Schatz" },
@@ -678,6 +677,17 @@ export const THE_TREASURE_HUNT: Level = {
       kinds: ["animal"],
     },
   },
+  pieces: [
+    { at: { row: 0, col: 4 }, rows: 2, cols: 1 },
+    { at: { row: 0, col: 21 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 19 }, rows: 1, cols: 2 },
+    { at: { row: 7, col: 9 }, rows: 1, cols: 2 },
+    { at: { row: 9, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 13, col: 14 }, rows: 2, cols: 1 },
+    { at: { row: 17, col: 20 }, rows: 1, cols: 2 },
+    { at: { row: 19, col: 5 }, rows: 1, cols: 2 },
+    { at: { row: 21, col: 13 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",

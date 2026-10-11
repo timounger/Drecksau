@@ -61,8 +61,7 @@ export const FLIGHT_85: Level = {
   id: "flight-85",
   name: "Flug 85",
   series: { book: "original", number: 22 },
-  story:
-    "Was für eine sinnlose Verschwendung von Vielfliegermeilen. Omar wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Was für eine sinnlose Verschwendung von Vielfliegermeilen.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -136,7 +135,6 @@ export const FLIGHT_85: Level = {
       id: "A",
       name: "Angela",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war die einzige Person in einer der Toiletten.",
         ...all(inArea("T", "U"), counting(onlyOneInTheToilets)),
@@ -171,7 +169,6 @@ export const FLIGHT_85: Level = {
       id: "C",
       name: "Cassius",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war in derselben Spalte wie ein Fernseher in seinem Raum.",
         ...own(tvInColumn),
@@ -212,6 +209,7 @@ export const FLIGHT_85: Level = {
   ],
   rules: [
     {
+      note: true,
       text: "Detective, manche Tatorte haben ungewöhnliche Abmessungen. Dieser hier hat zum Beispiel zehn Zeilen und sechs Spalten, was bedeutet, dass vier Zeilen leer sein werden. - Chief Williams",
     },
   ],

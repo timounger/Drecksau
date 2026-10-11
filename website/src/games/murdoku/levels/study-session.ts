@@ -38,7 +38,7 @@ export const STUDY_SESSION: Level = {
   name: "Lernsession",
   series: { book: "original", number: 5 },
   story:
-    "Er dachte wahrscheinlich, bei seiner Abschlussprüfung durchzufallen wäre das Schlimmste, was ihm passieren könnte. Olaf wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Er dachte wahrscheinlich, bei seiner Abschlussprüfung durchzufallen wäre das Schlimmste, was ihm passieren könnte.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -87,6 +87,12 @@ export const STUDY_SESSION: Level = {
   extraThings: {
     window: { name: "Fenster", emoji: "\u{1FA9F}", standable: true },
   },
+  pieces: [{ at: { row: 3, col: 4 }, rows: 1, cols: 2 }],
+  windows: [
+    { at: { row: 0, col: 1 }, side: "top" },
+    { at: { row: 0, col: 4 }, side: "top" },
+    { at: { row: 3, col: 0 }, side: "left" },
+  ],
   suspects: [
     {
       id: "A",
@@ -114,7 +120,6 @@ export const STUDY_SESSION: Level = {
       id: "C",
       name: "Clara",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: {
         text: "Sie war die einzige Person vor einem Fenster.",
         ...all(
@@ -152,6 +157,7 @@ export const STUDY_SESSION: Level = {
   ],
   rules: [
     {
+      note: true,
       text: "Tipp: Wenn du weißt, dass Aaron auf einem bestimmten Bett ist, kann niemand sonst in Feldern dieser Spalte sein.",
     },
   ],

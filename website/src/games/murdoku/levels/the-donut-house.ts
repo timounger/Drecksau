@@ -201,6 +201,13 @@ export const THE_DONUT_HOUSE: Level = {
     u: "rug",
     v: "tv",
   },
+  pieces: [
+    { at: { row: 0, col: 2 }, rows: 1, cols: 2 },
+    { at: { row: 2, col: 7 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 6 }, rows: 3, cols: 1 },
+    { at: { row: 7, col: 5 }, rows: 1, cols: 2 },
+    { at: { row: 8, col: 4 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -249,7 +256,6 @@ export const THE_DONUT_HOUSE: Level = {
       id: "F",
       name: "Fabrice",
       pronoun: "er",
-      traits: ["glasses"],
       clue: { text: "Er war neben einer Pflanze.", ...beside("plant") },
       colour: "#9f1239",
       face: "\u{1F468}",

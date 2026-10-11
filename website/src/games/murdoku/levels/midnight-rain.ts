@@ -132,6 +132,10 @@ export const MIDNIGHT_RAIN: Level = {
     bin: { name: "Mülleimer", emoji: "\u{1F5D1}️", standable: false },
     streetLamp: { name: "Laterne", emoji: "\u{1F3EE}", standable: false },
   },
+  pieces: [
+    { at: { row: 1, col: 0 }, rows: 1, cols: 2 },
+    { at: { row: 4, col: 5 }, rows: 1, cols: 2 },
+  ],
   suspects: [
     {
       id: "A",
@@ -167,7 +171,6 @@ export const MIDNIGHT_RAIN: Level = {
       id: "D",
       name: "Dale",
       pronoun: "er",
-      traits: ["cap", "glasses"],
       clue: {
         text: "Genau eine Spalte östlich von ihm war ein Mann im Auto.",
         ...all(own(carInColumnEast), counting(manInACarEast)),

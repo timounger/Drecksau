@@ -117,8 +117,7 @@ export const KNOCKOUT: Level = {
   id: "knockout",
   name: "K.O.!",
   series: { book: "original", number: 28 },
-  story:
-    "Für diesen armen Kerl hat sich's ausgezählt. Orhan wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+  story: "Für diesen armen Kerl hat sich's ausgezählt.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -205,6 +204,10 @@ export const KNOCKOUT: Level = {
     locker: { name: "Spind", emoji: "\u{1F5C4}️", standable: false },
     punchingBag: { name: "Boxsack", emoji: "\u{1F94A}", standable: false },
   },
+  pieces: [
+    { at: { row: 3, col: 3 }, rows: 3, cols: 3 },
+    { at: { row: 4, col: 1 }, rows: 2, cols: 1 },
+  ],
   suspects: [
     {
       id: "A",

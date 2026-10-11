@@ -22,7 +22,7 @@ export const THE_LOCAL_BOOKSHOP: Level = {
   name: "Der örtliche Buchladen",
   series: { book: "original", number: 6 },
   story:
-    "Ein gebrochener Rücken ist immer furchtbar, nicht nur bei einem Buch. Olga wurde ermordet! Finde heraus, wer es war. Der Mörder war allein mit dem Opfer in einem Bereich.",
+    "Ein gebrochener Rücken ist immer furchtbar, nicht nur bei einem Buch.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -104,7 +104,6 @@ export const THE_LOCAL_BOOKSHOP: Level = {
       id: "D",
       name: "Damian",
       pronoun: "er",
-      traits: ["glasses"],
       clue: {
         text: "Er war südlich von Aria.",
         ...about(["A"], (c) => {
@@ -119,7 +118,6 @@ export const THE_LOCAL_BOOKSHOP: Level = {
       id: "E",
       name: "Ekaterina",
       pronoun: "sie",
-      traits: ["glasses"],
       clue: { text: "Sie war in der Liebesromane-Abteilung.", ...inArea("L") },
       colour: "#334155",
       face: "\u{1F475}",
