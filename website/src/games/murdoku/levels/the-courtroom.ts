@@ -161,6 +161,35 @@ export const THE_COURTROOM: Level = {
     v: "tv",
     t: "table",
   },
+  // The rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 1, col: 6 },
+      { row: 1, col: 7 },
+    ],
+    [
+      { row: 5, col: 1 },
+      { row: 6, col: 1 },
+    ],
+    [
+      { row: 6, col: 3 },
+      { row: 6, col: 4 },
+      { row: 6, col: 5 },
+    ],
+    [
+      { row: 7, col: 4 },
+      { row: 8, col: 4 },
+    ],
+  ],
+  // The table round the corner in the jury box.
+  shapes: [
+    [
+      { row: 8, col: 7 },
+      { row: 7, col: 7 },
+      { row: 6, col: 7 },
+      { row: 6, col: 8 },
+    ],
+  ],
   pieces: [
     { at: { row: 1, col: 0 }, rows: 1, cols: 2 },
     { at: { row: 2, col: 3 }, rows: 1, cols: 3 },
@@ -168,7 +197,6 @@ export const THE_COURTROOM: Level = {
     { at: { row: 3, col: 6 }, rows: 4, cols: 1 },
     { at: { row: 4, col: 3 }, rows: 1, cols: 2 },
     { at: { row: 6, col: 0 }, rows: 2, cols: 1 },
-    { at: { row: 6, col: 7 }, rows: 3, cols: 1 },
   ],
   suspects: [
     {

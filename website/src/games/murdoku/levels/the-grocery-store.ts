@@ -104,6 +104,13 @@ export const THE_GROCERY_STORE: Level = {
     "ctrrtc..t",
   ],
   things: { c: "chair", r: "rug", s: "shelf", t: "table" },
+  shapes: [
+    [
+      { row: 7, col: 0 },
+      { row: 7, col: 1 },
+      { row: 8, col: 1 },
+    ],
+  ],
   pieces: [
     { at: { row: 0, col: 0 }, rows: 1, cols: 2 },
     { at: { row: 0, col: 2 }, rows: 1, cols: 2 },

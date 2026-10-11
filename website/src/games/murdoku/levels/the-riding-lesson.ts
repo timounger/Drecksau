@@ -73,7 +73,7 @@ export const THE_RIDING_LESSON: Level = {
     "GGGSSSSSS",
     "GGGSSSSSS",
     "GGGSSSSSS",
-    "GGRRRRRSS",
+    "GGRRRRSSS",
     "RRRRRRRRW",
     "RRRRRRRRW",
     "WRRRRRRRW",
@@ -84,7 +84,7 @@ export const THE_RIDING_LESSON: Level = {
     "k.kxth...",
     "t..htttht",
     "x.k.....h",
-    "....h...t",
+    "....h..tt",
     "..m......",
     ".h...h...",
     ".m...m...",
@@ -108,6 +108,16 @@ export const THE_RIDING_LESSON: Level = {
       kinds: ["seat", "animal"],
     },
   },
+  // The table round the corner in the stable.
+  shapes: [
+    [
+      { row: 0, col: 4 },
+      { row: 1, col: 4 },
+      { row: 1, col: 5 },
+      { row: 1, col: 6 },
+    ],
+  ],
+  pieces: [{ at: { row: 3, col: 7 }, rows: 1, cols: 2 }],
   suspects: [
     {
       id: "A",

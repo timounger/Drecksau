@@ -336,9 +336,24 @@ export const THE_ZOO: Level = {
   pieces: [
     { at: { row: 9, col: 9 }, rows: 2, cols: 2 },
     { at: { row: 12, col: 10 }, rows: 2, cols: 2 },
-    { at: { row: 9, col: 14 }, rows: 2, cols: 1 },
-    { at: { row: 11, col: 14 }, rows: 2, cols: 1 },
-    { at: { row: 14, col: 14 }, rows: 2, cols: 1 },
+  ],
+  // The counters round the corner at the concessions and the entrance.
+  shapes: [
+    [
+      { row: 9, col: 14 },
+      { row: 10, col: 14 },
+      { row: 10, col: 15 },
+    ],
+    [
+      { row: 11, col: 14 },
+      { row: 12, col: 14 },
+      { row: 12, col: 13 },
+    ],
+    [
+      { row: 14, col: 13 },
+      { row: 14, col: 14 },
+      { row: 15, col: 14 },
+    ],
   ],
   suspects: [
     {

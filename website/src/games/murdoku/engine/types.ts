@@ -61,6 +61,10 @@ export type Area = {
   readonly tint?: string;
   /** The field its name is printed on, at its bottom left. */
   readonly label: Cell;
+  /** The sign ends at the label field\'s right edge and reaches to the left, where the field to its right is taken. */
+  readonly labelEnd?: true;
+  /** The sign keeps its full size and may reach past the area, even past the map's edge - as the book prints it. */
+  readonly labelOverhang?: true;
 };
 
 /** What the clues are checked against. */
@@ -135,6 +139,8 @@ export type Rule = {
    * under the magnifier: shown as a note, and never checked.
    */
   readonly note?: true;
+  /** The areas this rule is about, marked with a crown on their signs - the nobles' rooms. */
+  readonly crowned?: readonly string[];
   /** What a suspect's own field must be like under this rule. */
   readonly unary?: (suspect: Suspect, context: Context) => boolean;
   /** What must hold once everybody stands. */
@@ -152,13 +158,31 @@ export type Rule = {
 export type Side = "top" | "bottom" | "left" | "right";
 
 /** A window in the wall beside a field: the field in front of it, and the side. */
-export type WallWindow = { readonly at: Cell; readonly side: Side };
+export type WallWindow = {
+  readonly at: Cell;
+  readonly side: Side;
+  /** A chalkboard on the wall instead of a window - only the look. */
+  readonly board?: true;
+  /** How many fields along the wall it reaches, from `at` to the right or down; one if left out. */
+  readonly length?: number;
+  /** What is written in chalk on a board. */
+  readonly text?: string;
+};
 
 /** One thing over a block of fields, from its top left field. */
 export type Piece = {
   readonly at: Cell;
   readonly rows: number;
   readonly cols: number;
+  /** A rug drawn as a plain mat - the red mat in a boxing ring - without border pattern or fringe. */
+  readonly plain?: true;
+  /**
+   * What the piece shows, when its fields carry different things - a car
+   * whose back field is a thing of its own, or a rug whose top left field has
+   * a plant on it. Fields of that thing or kind give way to the piece; any
+   * other thing on it is drawn on top.
+   */
+  readonly thing?: string;
 };
 
 /** One person of the case. */
@@ -234,7 +258,8 @@ export type Level = {
   /**
    * Things that stretch over several fields - one bed over two - drawn as one
    * piece. Each field keeps its letter in the thing map; this is only how the
-   * map looks.
+   * map looks. A field in the block with another thing on it (a chair on the
+   * rug) shows that thing on top.
    */
   readonly pieces?: readonly Piece[];
   /**
@@ -242,6 +267,11 @@ export type Level = {
    * table round a corner. Each list is the fields of one; only the look.
    */
   readonly shapes?: readonly (readonly Cell[])[];
+  /**
+   * Fields with carpet underfoot (a ground) drawn as one rug over them, like
+   * the rugs that are things - only the look, the ground stays as it is.
+   */
+  readonly carpets?: readonly (readonly Cell[])[];
   /**
    * Windows drawn in the wall at the side of their field, rather than as a
    * sign on it. The field keeps its window in the thing map for the clues.

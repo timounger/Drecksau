@@ -63,7 +63,7 @@ export const THE_ROADSIDE_INN: Level = {
       at: "auf der Straße",
       ground: "stone",
       tint: "#9a98b0",
-      label: { row: 5, col: 3 },
+      label: { row: 5, col: 2 },
     },
   ],
   areaMap: ["KKKKGG", "KKSSGG", "SSSSSS", "SSSSSS", "SSSRRR", "RRRR.."],

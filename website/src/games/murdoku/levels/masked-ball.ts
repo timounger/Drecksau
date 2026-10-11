@@ -181,10 +181,18 @@ export const MASKED_BALL: Level = {
     r: "rug",
     t: "table",
   },
+  shapes: [
+    [
+      { row: 7, col: 3 },
+      { row: 8, col: 2 },
+      { row: 8, col: 3 },
+      { row: 8, col: 4 },
+    ],
+  ],
   pieces: [
+    { at: { row: 2, col: 2 }, rows: 3, cols: 3 },
     { at: { row: 3, col: 6 }, rows: 1, cols: 2 },
     { at: { row: 5, col: 0 }, rows: 2, cols: 2 },
-    { at: { row: 8, col: 2 }, rows: 1, cols: 3 },
   ],
   windows: [
     { at: { row: 3, col: 0 }, side: "left" },

@@ -60,7 +60,7 @@ export const THE_ART_SCHOOL: Level = {
       at: "im Malatelier",
       ground: "floor",
       tint: "#f3e3c3",
-      label: { row: 4, col: 6 },
+      label: { row: 4, col: 7 },
     },
     {
       key: "G",
@@ -121,6 +121,25 @@ export const THE_ART_SCHOOL: Level = {
     t: "table",
     e: "easel",
   },
+  // The rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 0, col: 3 },
+      { row: 0, col: 4 },
+      { row: 0, col: 5 },
+      { row: 1, col: 3 },
+      { row: 1, col: 4 },
+      { row: 1, col: 5 },
+    ],
+    [
+      { row: 5, col: 1 },
+      { row: 6, col: 1 },
+      { row: 7, col: 1 },
+      { row: 7, col: 2 },
+      { row: 7, col: 3 },
+      { row: 7, col: 4 },
+    ],
+  ],
   suspects: [
     {
       id: "A",

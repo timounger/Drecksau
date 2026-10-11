@@ -150,13 +150,24 @@ export const DIM_SUM: Level = {
     s: "shelf",
     t: "table",
   },
+  shapes: [
+    [
+      { row: 3, col: 3 },
+      { row: 4, col: 3 },
+      { row: 4, col: 4 },
+    ],
+    [
+      { row: 7, col: 3 },
+      { row: 7, col: 4 },
+      { row: 8, col: 3 },
+    ],
+  ],
   pieces: [
     { at: { row: 1, col: 0 }, rows: 2, cols: 1 },
     { at: { row: 1, col: 1 }, rows: 1, cols: 2 },
     { at: { row: 3, col: 0 }, rows: 1, cols: 2 },
     { at: { row: 3, col: 7 }, rows: 2, cols: 2 },
     { at: { row: 6, col: 5 }, rows: 2, cols: 2 },
-    { at: { row: 7, col: 3 }, rows: 1, cols: 2 },
   ],
   windows: [
     { at: { row: 5, col: 8 }, side: "right" },

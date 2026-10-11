@@ -132,6 +132,15 @@ export const GRIZZLY_NIGHT: Level = {
     u: "rug",
     x: "bear",
   },
+  // The L-shaped rugs, as the page draws them.
+  shapes: [
+    [
+      { row: 7, col: 2 },
+      { row: 8, col: 2 },
+      { row: 8, col: 1 },
+      { row: 8, col: 0 },
+    ],
+  ],
   pieces: [
     { at: { row: 0, col: 1 }, rows: 1, cols: 2 },
     { at: { row: 1, col: 3 }, rows: 1, cols: 2 },

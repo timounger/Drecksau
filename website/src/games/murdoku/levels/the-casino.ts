@@ -145,8 +145,15 @@ export const THE_CASINO: Level = {
     "v.p..vvvv",
   ],
   things: { c: "chair", p: "plant", t: "table", v: "tv" },
+  shapes: [
+    [
+      { row: 0, col: 2 },
+      { row: 1, col: 0 },
+      { row: 1, col: 1 },
+      { row: 1, col: 2 },
+    ],
+  ],
   pieces: [
-    { at: { row: 1, col: 0 }, rows: 1, cols: 3 },
     { at: { row: 3, col: 0 }, rows: 1, cols: 2 },
     { at: { row: 4, col: 3 }, rows: 2, cols: 2 },
   ],

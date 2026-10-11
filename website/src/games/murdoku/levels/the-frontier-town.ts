@@ -171,7 +171,14 @@ export const THE_FRONTIER_TOWN: Level = {
   pieces: [
     { at: { row: 1, col: 1 }, rows: 1, cols: 2 },
     { at: { row: 1, col: 5 }, rows: 1, cols: 2 },
-    { at: { row: 8, col: 6 }, rows: 1, cols: 2 },
+  ],
+  // The counter round the corner in the bank.
+  shapes: [
+    [
+      { row: 7, col: 7 },
+      { row: 8, col: 7 },
+      { row: 8, col: 6 },
+    ],
   ],
   suspects: [
     {

@@ -10,7 +10,7 @@
  * Osmond is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they and the beds can be stood on. Tables
- * (the kitchen counter among them), shelves, plants and the record player
+ * (the kitchen counter among them), shelves, plants and the TV
  * cannot.
  */
 /* eslint-disable @typescript-eslint/no-magic-numbers -- the case is data: rows, columns and counts straight off the printed page. */
@@ -200,17 +200,10 @@ export const VALENTINES_DAY: Level = {
   things: {
     b: "bed",
     c: "chair",
-    m: "recordPlayer",
+    m: "tv",
     p: "plant",
     s: "shelf",
     t: "table",
-  },
-  extraThings: {
-    recordPlayer: {
-      name: "Plattenspieler",
-      emoji: "\u{1F3B5}",
-      standable: false,
-    },
   },
   pieces: [
     { at: { row: 0, col: 4 }, rows: 1, cols: 2 },
@@ -311,11 +304,11 @@ export const VALENTINES_DAY: Level = {
   prune: stillPossible,
   hints: [
     {
-      text: "Harald war mit Bastian im Wohnzimmer, und eine Frau stand eine Spalte westlich und zwei Reihen nördlich von ihm. Stünde er in R3, läge dort in R1 eine Pflanze, ein Tisch oder der Plattenspieler (R3 C5 ist selbst eine Pflanze, R3 C9 ein Regal) - Harald war in R4 bis R6, in C8 oder C9. Die Frau stand also in R2 bis R4, in C7 oder C8. R4 gehört Dave, R2 und R3 liegen im Wohnzimmer, und dort war nur eine Frau. Carly war allein mit einem Mann, Gabriella ganz allein - beide nicht dort. Felicity war neben einer Pflanze - keines dieser Felder. Es bleibt Aaliyah, die neben einem Regal stand: nur R3 C8. Harald stand in R5 C9.",
+      text: "Harald war mit Bastian im Wohnzimmer, und eine Frau stand eine Spalte westlich und zwei Reihen nördlich von ihm. Stünde er in R3, läge dort in R1 eine Pflanze, ein Tisch oder der Fernseher (R3 C5 ist selbst eine Pflanze, R3 C9 ein Regal) - Harald war in R4 bis R6, in C8 oder C9. Die Frau stand also in R2 bis R4, in C7 oder C8. R4 gehört Dave, R2 und R3 liegen im Wohnzimmer, und dort war nur eine Frau. Carly war allein mit einem Mann, Gabriella ganz allein - beide nicht dort. Felicity war neben einer Pflanze - keines dieser Felder. Es bleibt Aaliyah, die neben einem Regal stand: nur R3 C8. Harald stand in R5 C9.",
       place: { A: { row: 2, col: 7 }, H: { row: 4, col: 8 } },
     },
     {
-      text: "Im Wohnzimmer waren nur Bastian, Harald und Aaliyah. Wer stand in R1? R1 C1 liegt neben einem Regal - dort hätte nur Aaliyah sein dürfen. R1 C2 ist ein Regal, R1 C3 eine Pflanze, R1 C5 und R1 C6 sind Tische, R1 C7 ist der Plattenspieler, C8 und C9 sind besetzt. Bleibt der Stuhl in R1 C4 im Wohnzimmer: Dort saß Bastian.",
+      text: "Im Wohnzimmer waren nur Bastian, Harald und Aaliyah. Wer stand in R1? R1 C1 liegt neben einem Regal - dort hätte nur Aaliyah sein dürfen. R1 C2 ist ein Regal, R1 C3 eine Pflanze, R1 C5 und R1 C6 sind Tische, R1 C7 ist der Fernseher, C8 und C9 sind besetzt. Bleibt der Stuhl in R1 C4 im Wohnzimmer: Dort saß Bastian.",
       place: { B: { row: 0, col: 3 } },
     },
     {

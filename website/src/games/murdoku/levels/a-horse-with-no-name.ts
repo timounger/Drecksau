@@ -9,8 +9,8 @@
  * sheet; the solver proves the case has exactly one solution). Vin is the
  * victim; whoever was alone with him killed him. Exactly one suspect is the
  * outlaw, and the outlaw sat on the horse - so somebody sits on it, and it
- * is not Vin. The horse can be sat on; the cacti, the boulders, the
- * backpack and the table cannot.
+ * is not Vin. The horse and the chair can be sat on; the cacti, the
+ * boulders and the table cannot.
  */
 import { about, all, beside, inArea, not, on, victim } from "../engine/clues";
 import type { Context, Level } from "../engine/types";
@@ -64,7 +64,7 @@ export const A_HORSE_WITH_NO_NAME: Level = {
     b: "boulder",
     k: "cactus",
     p: "horse",
-    r: "backpack",
+    r: "chair",
     t: "table",
   },
   extraThings: {
@@ -74,7 +74,6 @@ export const A_HORSE_WITH_NO_NAME: Level = {
       standable: true,
       kinds: ["seat", "animal"],
     },
-    backpack: { name: "Rucksack", emoji: "\u{1F392}", standable: false },
   },
   suspects: [
     {

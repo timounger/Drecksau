@@ -175,6 +175,13 @@ export const STUDENT_DORM: Level = {
     s: "shelf",
     t: "table",
   },
+  shapes: [
+    [
+      { row: 6, col: 7 },
+      { row: 7, col: 7 },
+      { row: 7, col: 8 },
+    ],
+  ],
   pieces: [
     { at: { row: 0, col: 1 }, rows: 2, cols: 1 },
     { at: { row: 1, col: 0 }, rows: 2, cols: 1 },

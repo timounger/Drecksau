@@ -143,6 +143,20 @@ export const THE_TERRACOTTA_COURTYARD: Level = {
     t: "table",
     v: "tv",
   },
+  // The rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 3, col: 8 },
+      { row: 4, col: 8 },
+      { row: 4, col: 7 },
+      { row: 4, col: 6 },
+    ],
+    [
+      { row: 5, col: 6 },
+      { row: 5, col: 7 },
+      { row: 6, col: 6 },
+    ],
+  ],
   pieces: [
     { at: { row: 1, col: 1 }, rows: 1, cols: 2 },
     { at: { row: 4, col: 0 }, rows: 1, cols: 2 },

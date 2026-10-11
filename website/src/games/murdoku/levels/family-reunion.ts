@@ -146,6 +146,13 @@ export const FAMILY_REUNION: Level = {
     s: "shelf",
     t: "table",
   },
+  shapes: [
+    [
+      { row: 7, col: 7 },
+      { row: 7, col: 8 },
+      { row: 8, col: 8 },
+    ],
+  ],
   pieces: [
     { at: { row: 1, col: 7 }, rows: 2, cols: 1 },
     { at: { row: 2, col: 4 }, rows: 1, cols: 2 },

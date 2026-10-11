@@ -16,9 +16,10 @@
  * being on the field right beside it. A field is in a corner of its room when
  * the room's border runs along two of its sides that meet.
  *
- * Unfinished: as transcribed, the case has 60 solutions. The bottom of the
- * photographed page, where a magnifier rule would stand, is cut off. The
- * solution is the one pencilled in on the page; there are no hints yet.
+ * The magnifier rule under the map is cut off in the photo; its printed
+ * wording ("Genau eine Person saß auf einem Stuhl.") came from the book. Without
+ * it the case has 60 solutions, with it exactly the pencilled one. The hints
+ * are our own solution path.
  */
 import {
   alone,
@@ -76,11 +77,11 @@ function tvInRow(c: Context): boolean {
     .some((cell) => cell.row === c.cell.row && c.is(cell, "tv"));
 }
 
-/** How many people stand on a rug. */
-function onRugs(c: Context): number {
+/** How many people stand on a thing of this id or kind. */
+function countOn(c: Context, what: string): number {
   return c.people().filter((id) => {
     const there = c.cellOf(id);
-    return there !== undefined && c.is(there, "rug");
+    return there !== undefined && c.is(there, what);
   }).length;
 }
 
@@ -171,6 +172,21 @@ export const OPEN_PLAN_OFFICE: Level = {
     r: "rug",
     t: "table",
   },
+  pieces: [
+    { at: { row: 0, col: 1 }, rows: 2, cols: 2 },
+    { at: { row: 2, col: 1 }, rows: 2, cols: 2 },
+    { at: { row: 1, col: 5 }, rows: 3, cols: 1 },
+    { at: { row: 1, col: 6 }, rows: 2, cols: 2, thing: "rug" },
+    { at: { row: 5, col: 1 }, rows: 4, cols: 2, thing: "rug" },
+    { at: { row: 6, col: 6 }, rows: 2, cols: 2 },
+    { at: { row: 8, col: 5 }, rows: 1, cols: 2 },
+  ],
+  windows: [
+    { at: { row: 0, col: 0 }, side: "left" },
+    { at: { row: 2, col: 0 }, side: "left" },
+    { at: { row: 0, col: 6 }, side: "top" },
+    { at: { row: 0, col: 7 }, side: "top" },
+  ],
   suspects: [
     {
       id: "A",
@@ -180,7 +196,7 @@ export const OPEN_PLAN_OFFICE: Level = {
         text: "Insgesamt waren vier Personen auf einem Teppich, aber er war keine davon.",
         ...all(
           not(own((c) => c.is(c.cell, "rug"))),
-          counting((c) => onRugs(c) === ON_RUGS),
+          counting((c) => countOn(c, "rug") === ON_RUGS),
         ),
       },
       colour: "#b91c1c",
@@ -286,7 +302,70 @@ export const OPEN_PLAN_OFFICE: Level = {
       face: "\u{1F469}",
     },
   ],
-  hints: [],
+  rules: [
+    {
+      text: "Genau eine Person saß auf einem Stuhl.",
+      check: (c) => countOn(c, "chair") === 1,
+    },
+  ],
+  hints: [
+    {
+      text: "Teppiche liegen nur in den Spalten 2, 3, 7 und 8. Insgesamt standen vier Personen auf einem Teppich - also stand in jeder dieser vier Spalten die Person auf einem Teppich, und Angelo war in keiner davon. Blockiere die Felder dieser Spalten ohne Teppich.",
+      cross: [
+        { row: 4, col: 1 },
+        { row: 4, col: 2 },
+        { row: 0, col: 6 },
+        { row: 3, col: 6 },
+        { row: 4, col: 6 },
+        { row: 5, col: 6 },
+        { row: 0, col: 7 },
+        { row: 3, col: 7 },
+        { row: 4, col: 7 },
+        { row: 5, col: 7 },
+        { row: 8, col: 7 },
+      ],
+    },
+    {
+      text: "Die Fenster R1 C7 und R1 C8 liegen in den Spalten 7 und 8, aber auf keinem Teppich: Fatima stand in Spalte 1 vor einem Fenster in Büro A (R1 C1) oder Büro B (R3 C1). Belah war allein in Büro A oder B, also im anderen der beiden Büros - sonst war dort niemand. In den Zeilen 1 bis 4 standen nur Fatima, Belah und die zwei Personen in Büro C; der Flur R1-R4 C5 blieb leer.",
+      cross: [
+        { row: 0, col: 4 },
+        { row: 1, col: 4 },
+        { row: 2, col: 4 },
+        { row: 3, col: 4 },
+      ],
+    },
+    {
+      text: "Genau eine Person saß auf einem Stuhl. Der Stuhl R6 C7 liegt in Spalte 7 ohne Teppich, R8 C1 in Fatimas Spalte. Säße jemand auf R1 C6, stünde Fatima in R3 C1 und Belah in Zeile 2 von Büro A - für die zweite Person in Büro C bliebe nur Zeile 4, wo R4 C7 und R4 C8 keine Teppiche sind. Also saß Belah auf dem Stuhl R4 C4, und Fatima stand in R1 C1.",
+      place: { B: { row: 3, col: 3 }, F: { row: 0, col: 0 } },
+    },
+    {
+      text: "Büro C bekommt die Zeilen 2 und 3. In Zeile 2 ist dort nur R2 C7 frei, die zweite Person stand in R3 C8 oder R3 C9.",
+    },
+    {
+      text: "Dagmar war in der untersten Zeile ihres Raumes: Büro A und B sind voll, und in Zeile 4 von Büro C ist nichts frei - sie war in Zeile 9. Eli war in einer Ecke außerhalb des Flurs: R1 C6 und R1 C9 liegen in Fatimas Zeile, R6 C1 und R9 C1 in ihrer Spalte, R6 C4 und R9 C4 in Belahs Spalte, R9 C9 in Dagmars Zeile. Eli war in R6 C6 in Büro D.",
+      place: { E: { row: 5, col: 5 } },
+    },
+    {
+      text: "Die Spalten 2 und 3 stehen auf einem Teppich im Pausenraum: Spalte 3 in R8 C3 (R6 gehört Eli), Spalte 2 in R7 C2 oder R9 C2 (R8 ist belegt). Im Pausenraum und in Büro C waren also je zwei Personen, in Büro D war Eli. Harriet war allein - das geht nur im Flur, und nur wenn Zeile 5 und Spalte 5 dieselbe Person haben: Harriet in R5 C5.",
+      place: { H: { row: 4, col: 4 } },
+    },
+    {
+      text: "Übrig sind die Zeilen 7 und 9 für Spalte 2 und für Büro D. Stünde die zweite Person in Büro C in R3 C8, bliebe Büro D nur R9 C9 und Spalte 2 nur R7 C2. Angelo (kein Teppich) müsste nach R9 C9, und Dagmar hätte in Zeile 9 keinen Platz. Also stand in Büro C jemand in R3 C9, in Büro D jemand in R7 C8 und im Pausenraum jemand in R9 C2.",
+    },
+    {
+      text: "Dagmar war in R9 C2, Angelo ohne Teppich in R3 C9, Georg in Büro C in R2 C7. Calvin stand in R7 C8 - der Fernseher R7 C9 ist in seinem Raum und seiner Zeile.",
+      place: {
+        D: { row: 8, col: 1 },
+        A: { row: 2, col: 8 },
+        G: { row: 1, col: 6 },
+        C: { row: 6, col: 7 },
+      },
+    },
+    {
+      text: "Odelia war in R8 C3 im Pausenraum, allein mit Dagmar - Dagmar ist die Mörderin!",
+      place: { O: { row: 7, col: 2 } },
+    },
+  ],
   solution: {
     A: { row: 2, col: 8 },
     B: { row: 3, col: 3 },

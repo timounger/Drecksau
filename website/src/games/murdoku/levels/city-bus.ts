@@ -100,6 +100,26 @@ export const CITY_BUS: Level = {
   grounds: { ".": "floor", c: "carpet" },
   thingMap: ["c..c.ct.", "cmcc.cc.", "c.......", "c..m.c..", "cccc.cc."],
   things: { c: "chair", m: "mud", t: "table" },
+  // The rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 1, col: 1 },
+      { row: 2, col: 1 },
+      { row: 3, col: 1 },
+    ],
+    [
+      { row: 2, col: 2 },
+      { row: 2, col: 3 },
+      { row: 2, col: 4 },
+      { row: 2, col: 5 },
+    ],
+    [
+      { row: 2, col: 6 },
+      { row: 2, col: 7 },
+      { row: 3, col: 6 },
+      { row: 3, col: 7 },
+    ],
+  ],
   windows: [
     { at: { row: 0, col: 1 }, side: "top" },
     { at: { row: 0, col: 3 }, side: "top" },

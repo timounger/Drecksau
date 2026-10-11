@@ -120,6 +120,13 @@ export const BEACH_RESTAURANT: Level = {
     r: "rug",
     t: "table",
   },
+  shapes: [
+    [
+      { row: 2, col: 8 },
+      { row: 3, col: 8 },
+      { row: 3, col: 7 },
+    ],
+  ],
   pieces: [
     { at: { row: 0, col: 3 }, rows: 1, cols: 2 },
     { at: { row: 1, col: 0 }, rows: 1, cols: 3 },

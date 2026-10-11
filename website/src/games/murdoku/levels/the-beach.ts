@@ -94,6 +94,21 @@ export const THE_BEACH: Level = {
     ".......",
   ],
   things: { t: "table", c: "chair", b: "boulder" },
+  // The beach towels, as the page draws them.
+  carpets: [
+    [
+      { row: 2, col: 1 },
+      { row: 3, col: 1 },
+    ],
+    [
+      { row: 4, col: 5 },
+      { row: 4, col: 6 },
+    ],
+    [
+      { row: 5, col: 3 },
+      { row: 5, col: 4 },
+    ],
+  ],
   pieces: [{ at: { row: 0, col: 4 }, rows: 1, cols: 2 }],
   suspects: [
     {

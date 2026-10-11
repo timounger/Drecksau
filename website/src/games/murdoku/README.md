@@ -6,17 +6,20 @@ je einem Hinweis, wo sie waren. Wer für jede Person ihr Feld findet, weiß, wer
 mit dem Opfer allein war - das ist der Täter.
 
 Nach den Rätseln von **Murdoku** von Manuel Garand ([murdoku.com](https://murdoku.com)).
-Die Fälle liegen nach Schwierigkeit in
-`game_instructions/Murdoku/<Schwierigkeit>/<Fall>/` (`Sehr Leicht`, `Leicht`,
-`Mittel`, `Schwer`, `Experte`, `Familie`, `Schatzsuche`), manche mit Lösungsblatt daneben
-(`<Name>_Solution.png`), die anderen mit den offiziellen Tipps. Ins Deutsche übertragen sind
-Titel, Bereiche, Hinweise und der Lösungsweg. Die Bilder des Originals sind
-nicht übernommen: Karte, Figuren und Logo sind hier selbst gezeichnet, die
-Gegenstände sind Emojis.
+Die Vorlagen liegen nach Reihe in `game_instructions/Murdoku/`:
+`Das Murdoku-Orginal/<Nr>. <Fall>/` und `Murdoku 2 - Auf Zeitreise/<Nr>. <Fall>/`
+(Seiten der Bücher), `Online Rätsel/<Schwierigkeit>/<Fall>/` (`Sehr Leicht`,
+`Leicht`, `Mittel`, `Schwer`, `Experte`, `Blitz`), `Familie/` und `Wettbewerb/`;
+manche mit Lösungsblatt daneben (`<Name>_Solution.png`), die anderen mit den
+offiziellen Tipps. Ins Deutsche übertragen sind Titel, Bereiche, Hinweise und
+der Lösungsweg. Die Bilder des Originals sind nicht übernommen: Karte, Figuren
+und Logo sind hier selbst gezeichnet - viele Gegenstände als eigene Zeichnung
+nach dem Vorbild der Seite (siehe [Die Karte](#die-karte)), der Rest als Emoji.
 
-Dazu kommen ein Fall aus einer anderen Reihe ("City Bus" von
-murdermysterypuzzles.com, Hiroji Osaka) und die Reihe **Familie Murdoku**
-(`game_instructions/Murdoku/Familie`, PDFs ohne Lösungsblatt): Dort hat der
+Dazu kommen ein Fall aus einer anderen Reihe ("Stadtbus" nach "City Bus" von
+murdermysterypuzzles.com, Hiroji Osaka, bei den Online-Rätseln) und die Reihe
+**Familie Murdoku** (`game_instructions/Murdoku/Familie`, PDFs ohne
+Lösungsblatt): Dort hat der
 Löser die einzige Lösung gefunden, und der Lösungsweg in den Tipps ist selbst
 geschrieben. Familienfälle haben oft kein Opfer - der Täter ist dann, wer in der
 obersten Reihe stand oder auf den Krümeln; das sagt der Fall selbst
@@ -36,6 +39,39 @@ Schatz liegt in Reihe 4, Spalte 11". Auch hier hat der Löser die einzige
 Lösung gefunden (mit einem eigenen Vorausblick im Fall, `prune`), und der
 Lösungsweg ist selbst geschrieben.
 
+## Reihen und Fallauswahl
+
+Jeder Fall gehört zu einer Reihe (`series: { book, number }` am Fall); ohne
+Reihe steht er unter "Weitere Fälle". Die Reihen haben ein farbiges Label
+(`SERIES_BADGE` in [components/murdoku-game.tsx](components/murdoku-game.tsx)):
+Das Murdoku-Original lila, Murdoku 2: Auf Zeitreise orange, Auf Weltreise
+hellblau, Beyond the Grave dunkelgrün, Familie Murdoku pink, Online-Rätsel gelb,
+Wettbewerb rot. Die Fallnummer eines Buchs steht im Titel ("3. English
+Breakfast", `titleOf`), nicht im Label. Eine Schwierigkeit (`difficulty`)
+haben nur die Online-Rätsel.
+
+- **Oben die Reihen, darunter die Schwierigkeiten**: Ein Chip je Reihe mit der
+  Zahl ihrer Fälle, der gewählte in der Farbe der Reihe; eine Reihe ohne Fälle
+  ist ausgeblendet. Die Schwierigkeits-Chips erscheinen nur für eine Reihe, deren
+  Fälle Schwierigkeiten haben. Eine Kategorie "Alle" gibt es nicht - beim ersten
+  Besuch ist "Das Murdoku-Original" gewählt.
+- **Die Suche geht über alle Reihen**, egal welche gewählt ist, und listet die
+  Treffer alphabetisch, jeden mit seinem Label. Ein × im Feld oder Esc leert
+  sie; ein Klick auf eine Reihe beendet sie ebenfalls.
+- **Sortierung** (`inOrder`, `byName` in [engine/levels.ts](engine/levels.ts)):
+  ein Buch nach seinen Nummern, die anderen nach Schwierigkeit und darin nach
+  dem Namen - ohne Artikel, "Der Buchclub" steht unter B. Die Reihenfolge der
+  Liste `LEVELS` selbst spielt keine Rolle.
+- Filter, Suche und "Gelöste ausblenden" bleiben im Browser gespeichert
+  (`drecksau-app/murdoku/list`). Zurück aus einem Fall - auch mit der Zurück-Taste
+  des Browsers - steht die Liste wie verlassen, an derselben Stelle.
+- Im Fall führen ← → neben "Zurück zur Levelübersicht" zum vorigen und
+  nächsten Fall derselben Reihe, in derselben Reihenfolge wie die Liste.
+- **Die Vorschauen werden erst gezeichnet, wenn ihre Karte in die Nähe des
+  Bildschirms kommt** (`CasePreview` in
+  [components/case-map.tsx](components/case-map.tsx)) - fünfzig Karten auf
+  einmal wären viele tausend Formen und machten jeden Wechsel der Reihe träge.
+
 ## Regeln
 
 - In jeder Reihe und jeder Spalte steht genau eine Person.
@@ -53,12 +89,16 @@ Lösungsweg ist selbst geschrieben.
 | [engine/catalog.ts](engine/catalog.ts)                                 | Alle Gegenstände und Untergründe: Name, Emoji, besetzbar, Art       |
 | [engine/clues.ts](engine/clues.ts)                                     | Fertige Bausteine für Hinweise: auf, neben, im Bereich, Spalte …    |
 | [engine/rules.ts](engine/rules.ts)                                     | Karte lesen, Hinweise prüfen, Zusammenstöße, Täter, **Löser**       |
-| [engine/levels.ts](engine/levels.ts)                                   | Die Liste der Fälle                                                 |
+| [engine/levels.ts](engine/levels.ts)                                   | Die Liste der Fälle, Reihen, Schwierigkeiten, Sortierung            |
 | [levels/](levels/)                                                     | Ein Fall je Datei                                                   |
 | [engine/board.ts](engine/board.ts)                                     | Die Notizen des Spielers: Personen setzen, Kreuze                   |
 | [hooks/use-murdoku.ts](hooks/use-murdoku.ts)                           | Zustand, Speichern im Browser, Statistik                            |
 | [components/case-map.tsx](components/case-map.tsx)                     | Die Karte als SVG                                                   |
 | [components/murdoku-game.tsx](components/murdoku-game.tsx)             | Fallauswahl mit Filter, Verdächtige, Werkzeuge, Bestätigen          |
+| [components/murdoku-online.tsx](components/murdoku-online.tsx)         | Gemeinsam online: Raum, Fallauswahl des Hosts                       |
+| [components/murdoku-stats.tsx](components/murdoku-stats.tsx)           | Die Fälle auf der Statistikseite                                    |
+| [i18n/texts.ts](i18n/texts.ts)                                         | Die deutschen Texte, Namen der Reihen und Schwierigkeiten           |
+| [i18n/emphasis.ts](i18n/emphasis.ts)                                   | Welche Wörter eines Hinweises fett stehen                           |
 | [../../../scripts/murdoku-check.ts](../../../scripts/murdoku-check.ts) | Prüft jeden Fall: Daten, genau eine Lösung, gleich dem Lösungsblatt |
 
 **Ein Hinweis ist ein kleines Stück Code, kein Eintrag in einer Liste.** Die
@@ -79,6 +119,37 @@ Bereichskarte. Der Untergrund kann je Feld angegeben werden (Wasser in einem
 Gehege, Teppich), und ein Gegenstand über mehrere Felder - ein Auto, ein
 Elefant - steht auf jedem davon.
 
+## Die Karte
+
+Die Karte soll aussehen wie die gedruckte Seite. Was nur zum Aussehen gehört,
+ändert am Rätsel nichts; das Prüfskript sieht es nicht.
+
+- **Ein Ding über mehrere Felder** (`pieces`: Rechteck mit `at`, `rows`,
+  `cols`) wird einmal gezeichnet: ein Bett mit Kissen und Decke, ein Tisch
+  über drei Felder, ein Auto über zwei, ein Elefant über vier.
+- **Tische und Teppiche um die Ecke** (`shapes`: die Felder als Liste, L- oder
+  T-förmig) werden als ein Stück gezeichnet - ein Tresen ist kein eigenes Ding,
+  nur ein Tisch in anderer Form. Ob Tisch oder Teppich, sagt das erste Feld.
+- **Teppichboden** wird als Teppich gezeichnet, wenn seine Felder in
+  `carpets` stehen (je Teppich eine Liste); ohne das ist er nur eingefärbt -
+  richtig für einen gemusterten oder gefliesten Boden, der kein Teppich ist.
+- **Fenster und Tafeln in der Wand** (`windows`: Feld und Seite): Ein Fenster
+  sitzt auf der Wandlinie, nicht im Feld. `board` macht daraus eine Tafel über
+  `length` Felder, mit Kreideschrift `text`.
+- **Schilder der Bereiche**: `labelEnd` endet das Schild an seinem Feld statt
+  dort zu beginnen; zu lange Namen werden kleiner, damit sie im Bereich
+  bleiben - außer mit `labelOverhang`, dann ragen sie wie im Buch hinaus.
+  Bereiche, die eine Regel als Adelsräume nennt (`crowned`), tragen eine Krone.
+- **Eigene Zeichnungen statt Emoji** (`DrawnThing`, `DRAWN_THINGS` in
+  [components/case-map.tsx](components/case-map.tsx)): Tisch, Schreibtisch,
+  Teppich, Matte, Bett, Regal, Kasse, Schutt, Karton, Holzkiste, Statue, Spind,
+  Boxsack, Auto, Bus, Kutsche, Boot, Ölfleck, Schlamm- und Wasserpfütze,
+  Schachtisch, Wasserrad, Krümel, Strauch, Staffelei, gerahmtes Bild (an der
+  Wand oben im Feld), Seerosenblatt, Klavier, Lautsprecher, Schlagzeug, Tresor
+  und Laterne. Dieselbe Zeichnung steht in der Legende unter der Karte.
+- **Post-its** (`note: true` an einer Regel) stehen als gelber Zettel unter
+  den Verdächtigen statt als Lupen-Hinweis und werden nie geprüft.
+
 **Der Löser** (`solve`) schließt erst für jede Person aus, was ihr eigener
 Hinweis und die Regeln nicht zulassen, und probiert dann per Backtracking immer
 die Person mit den wenigsten verbleibenden Feldern, wobei jeder Hinweis geprüft
@@ -91,6 +162,13 @@ Prüfskript stellt sicher, dass sie die einzige ist.
 - In der Fallauswahl zeigt jede Karte eine Vorschau der Karte des Falls -
   dieselbe Zeichnung wie im Spiel, nur ohne Nummern, Namen und Klickflächen
   (`preview` an `CaseMap`).
+- **Die Schlagwörter der Hinweise sind fett**, wie auf den gedruckten Seiten
+  ([i18n/emphasis.ts](i18n/emphasis.ts)): Richtungen und Beziehungen (neben,
+  allein mit, nicht, nördlich, Reihe, Spalte, Ecke, Wand, erste/letzte …), die
+  Dinge, Untergründe und Bereiche des Falls und die Namen der Verdächtigen. Das
+  gilt für die Hinweise der Verdächtigen und die Lupen-Hinweise, nicht für den
+  Lösungsweg. Wo ein Text anders betont sein soll, markiert er seine fetten
+  Wörter selbst mit `**…**` - dann gilt nur das.
 
 - **Tippen merkt vor, Halten setzt fest.** Person wählen und Felder antippen,
   auf denen sie gewesen sein könnte: Dort steht ihr Buchstabe klein, in ihrer
@@ -173,6 +251,8 @@ Prüfskript stellt sicher, dass sie die einzige ist.
   jedem Spiel (begonnen, gewonnen, Spielzeit), darunter je Fall, wie oft er
   gelöst wurde, Bestzeit, letzte Zeit und Zeit gesamt, und wie viele Fälle
   gelöst sind ([components/murdoku-stats.tsx](components/murdoku-stats.tsx)).
+  Die Fälle stehen nach Reihe gruppiert, jede mit "x von y gelöst", in derselben
+  Reihenfolge wie die Fallauswahl.
   Die Zeiten je Fall liegen beim gespeicherten Fortschritt (`records`).
   Gezählt wird nur ein Fall ohne Blick in die Lösung.
 
@@ -220,7 +300,11 @@ deutscher Name, "im …"/"auf der …", Untergrund, Feld für das Namensschild),
 Bereichs- und Gegenstandskarte als Buchstabenbilder (`.` = nichts bzw. außerhalb),
 bei Bedarf eine Untergrundkarte, die Verdächtigen mit deutschem Hinweis und der
 Prüfung dahinter, die Regeln, der Lösungsweg als `hints` und die Lösung vom
-Lösungsblatt. Dann in [engine/levels.ts](engine/levels.ts) eintragen und
+Lösungsblatt. Dazu die Reihe (`series`, bei einem Buch mit `number`) und bei
+einem Online-Rätsel die Schwierigkeit, und was die Seite zeigt: Dinge über
+mehrere Felder (`pieces`), Tische und Teppiche um die Ecke (`shapes`), Teppiche
+(`carpets`), Fenster (`windows`). Dann in
+[engine/levels.ts](engine/levels.ts) eintragen und
 `npm run murdoku` laufen lassen: Es prüft die Daten, löst jeden Fall und
 meldet `OK` nur bei genau einer Lösung, die dem Lösungsblatt gleicht, und einem
 Täter.

@@ -142,6 +142,30 @@ export const THE_FRENCH_RESTAURANT: Level = {
     c: "chair",
     p: "plant",
   },
+  // The rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 0, col: 6 },
+      { row: 0, col: 7 },
+    ],
+    [
+      { row: 4, col: 7 },
+      { row: 5, col: 7 },
+    ],
+    [
+      { row: 6, col: 2 },
+      { row: 7, col: 2 },
+      { row: 8, col: 2 },
+      { row: 8, col: 3 },
+      { row: 8, col: 4 },
+      { row: 8, col: 5 },
+      { row: 8, col: 6 },
+    ],
+    [
+      { row: 8, col: 7 },
+      { row: 8, col: 8 },
+    ],
+  ],
   pieces: [
     { at: { row: 1, col: 1 }, rows: 1, cols: 2 },
     { at: { row: 6, col: 3 }, rows: 2, cols: 1 },

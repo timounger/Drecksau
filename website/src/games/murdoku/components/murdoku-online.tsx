@@ -14,9 +14,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 import { RulesButton } from "@/components/rules-button";
-import { EMPTY_BOARD } from "@/games/murdoku/engine/board";
 import { LEVELS } from "@/games/murdoku/engine/levels";
-import { CaseMap } from "@/games/murdoku/components/case-map";
+import { CasePreview } from "@/games/murdoku/components/case-map";
 import {
   CaseView,
   CategoryBadge,
@@ -330,9 +329,7 @@ function Lobby({
                       : "border-zinc-200 hover:border-sky-300 dark:border-zinc-800"
                   }`}
                 >
-                  <span className="block aspect-square overflow-hidden rounded-xl">
-                    <CaseMap level={level} board={EMPTY_BOARD} preview />
-                  </span>
+                  <CasePreview level={level} />
                   <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm font-bold">
                     <span className="min-w-0">{titleOf(level)}</span>
                     <CategoryBadge level={level} />

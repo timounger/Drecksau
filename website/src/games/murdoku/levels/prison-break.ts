@@ -119,6 +119,16 @@ export const PRISON_BREAK: Level = {
     "rrfffffff",
   ],
   grounds: { f: "floor", r: "carpet" },
+  carpets: [
+    [
+      { row: 6, col: 0 },
+      { row: 6, col: 1 },
+      { row: 7, col: 0 },
+      { row: 7, col: 1 },
+      { row: 8, col: 0 },
+      { row: 8, col: 1 },
+    ],
+  ],
   thingMap: [
     "c....ttc.",
     "...c.c...",

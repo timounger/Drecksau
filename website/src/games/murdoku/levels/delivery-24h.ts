@@ -84,6 +84,21 @@ export const DELIVERY_24H: Level = {
   areaMap: ["EEESSS", "EEESSS", "EEEKKK", "EEEKKK", "VVGGGG", "VVGGGG"],
   groundMap: ["fffffc", "fffffc", "fffccf", "ffffff", "ccgggg", "ffgggg"],
   grounds: { f: "floor", c: "carpet", g: "grass" },
+  // The three rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 0, col: 5 },
+      { row: 1, col: 5 },
+    ],
+    [
+      { row: 2, col: 3 },
+      { row: 2, col: 4 },
+    ],
+    [
+      { row: 4, col: 0 },
+      { row: 4, col: 1 },
+    ],
+  ],
   thingMap: [".c.bb.", "ct..p.", "ct....", "p..tt.", "...s..", ".k..s."],
   things: {
     c: "chair",

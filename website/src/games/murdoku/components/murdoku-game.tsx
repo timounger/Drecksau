@@ -9,9 +9,11 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
-import { EMPTY_BOARD } from "@/games/murdoku/engine/board";
+import { readStored, storageKey, writeStored } from "@/lib/storage/local-store";
 import {
   DIFFICULTY_ORDER,
+  byName,
+  inOrder,
   LEVELS,
   SERIES_ORDER,
 } from "@/games/murdoku/engine/levels";
@@ -32,6 +34,7 @@ import type {
 } from "@/games/murdoku/engine/types";
 import {
   CaseMap,
+  CasePreview,
   DRAWN_THINGS,
   DrawnThing,
 } from "@/games/murdoku/components/case-map";
@@ -40,6 +43,7 @@ import {
   type Check,
   type MurdokuApi,
 } from "@/games/murdoku/hooks/use-murdoku";
+import { emphasise } from "@/games/murdoku/i18n/emphasis";
 import { MURDOKU_RULES } from "@/games/murdoku/i18n/rules";
 import {
   DIFFICULTY_NAMES,
@@ -116,9 +120,8 @@ const SERIES_BADGE: Readonly<Record<Series, string>> = {
   contest: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
 };
 
-/** A chosen series chip, in its book's colour - neutral for all and for none. */
+/** A chosen series chip, in its book's colour - neutral for the cases from no book. */
 const SERIES_CHIP: Readonly<Record<SeriesChoice, string>> = {
-  all: "border-zinc-700 bg-zinc-700 text-white dark:border-zinc-300 dark:bg-zinc-300 dark:text-zinc-900",
   none: "border-zinc-700 bg-zinc-700 text-white dark:border-zinc-300 dark:bg-zinc-300 dark:text-zinc-900",
   original: "border-violet-600 bg-violet-600 text-white",
   timeTravel: "border-orange-600 bg-orange-600 text-white",
@@ -166,50 +169,109 @@ export function CategoryBadge({
   );
 }
 
-/** What the series chips choose: every case, one book, or the cases from no book. */
-type SeriesChoice = Series | "all" | "none";
+/** The choices in the list's filters. */
+type ListChoices = {
+  readonly filter: Difficulty | "all";
+  readonly series: SeriesChoice;
+  readonly query: string;
+  readonly hideSolved: boolean;
+};
+
+/** The list's filters and where it was scrolled to, kept while one plays a case. */
+type ListMemory = ListChoices & { readonly scroll: number };
+
+/** The collection the list starts with, the first time one comes. */
+const FIRST_SERIES: SeriesChoice = "original";
+
+/**
+ * The list's memory at one screen: back from a case, the list is as it was
+ * left - same filters, same place. Only for this visit of the page.
+ */
+const LIST_MEMORY: { current: ListMemory } = {
+  current: {
+    filter: "all",
+    series: FIRST_SERIES,
+    query: "",
+    hideSolved: false,
+    scroll: 0,
+  },
+};
+
+/**
+ * Keeps the list's choices for the next visit.
+ *
+ * @param choices - the filters as they are now
+ */
+function keepChoices(choices: ListChoices): void {
+  LIST_MEMORY.current = { ...LIST_MEMORY.current, ...choices };
+  writeStored(CHOICES_KEY, CHOICES_VERSION, choices);
+}
+
+/** Where the list's choices are kept in this browser, and their version. */
+const CHOICES_KEY = storageKey("murdoku", "list");
+const CHOICES_VERSION = 1;
+
+/**
+ * Whether a stored value is a set of the list's choices.
+ *
+ * @param value - what was stored
+ * @returns whether it can be used
+ */
+function isChoices(value: unknown): value is ListChoices {
+  const one: Readonly<Record<string, unknown>> =
+    typeof value === "object" && value !== null
+      ? (value as Record<string, unknown>)
+      : {};
+  return (
+    (one.filter === "all" ||
+      DIFFICULTY_ORDER.some((difficulty) => difficulty === one.filter)) &&
+    (one.series === "none" ||
+      SERIES_ORDER.some((series) => series === one.series)) &&
+    typeof one.query === "string" &&
+    typeof one.hideSolved === "boolean"
+  );
+}
+
+/**
+ * The list's choices saved in this browser.
+ *
+ * @returns them, or null when there are none
+ */
+function loadChoices(): ListChoices | null {
+  return readStored(CHOICES_KEY, CHOICES_VERSION, isChoices);
+}
+
+/**
+ * Keeps where the list is scrolled to, as a case is opened from it.
+ */
+function keepScroll(): void {
+  LIST_MEMORY.current = { ...LIST_MEMORY.current, scroll: window.scrollY };
+}
+
+/** What the series chips choose: one book, or the cases from no book. */
+type SeriesChoice = Series | "none";
 
 /**
  * Whether a case belongs to what the series chips chose.
  *
  * @param level - the case
- * @param choice - all, one book, or none
+ * @param choice - one book, or none
  * @returns whether it is shown
  */
 function isInSeries(level: Level, choice: SeriesChoice): boolean {
-  let fits: boolean;
-  switch (choice) {
-    case "all":
-      fits = true;
-      break;
-    case "none":
-      fits = level.series === undefined;
-      break;
-    default:
-      fits = level.series?.book === choice;
-  }
-  return fits;
+  return choice === "none"
+    ? level.series === undefined
+    : level.series?.book === choice;
 }
 
 /**
  * The words on a series chip.
  *
- * @param choice - all, one book, or none
+ * @param choice - one book, or none
  * @returns its label
  */
 function seriesLabel(choice: SeriesChoice): string {
-  let label: string;
-  switch (choice) {
-    case "all":
-      label = T.allSeries;
-      break;
-    case "none":
-      label = T.noSeries;
-      break;
-    default:
-      label = SERIES_NAMES[choice];
-  }
-  return label;
+  return choice === "none" ? T.noSeries : SERIES_NAMES[choice];
 }
 
 /** The arrows beside the way back to the list. */
@@ -228,31 +290,66 @@ function neighboursOf(
 ): readonly [Level | undefined, Level | undefined] {
   const row = LEVELS.filter(
     (one) => one.series?.book === level.series?.book,
-  ).toSorted(
-    (one, other) => (one.series?.number ?? 0) - (other.series?.number ?? 0),
-  );
+  ).toSorted(inOrder);
   const at = row.findIndex((one) => one.id === level.id);
   return [row[at - 1], row[at + 1]];
 }
 
-/** The cases to choose from - all of them, or one difficulty. */
 /**
  * The filters over the cases - search, series and, for a series that has
- * them, difficulties - and the cases they let through, a book in its order.
- * Used by the list at one screen and by the host online.
+ * them, difficulties - and the cases they let through, in their
+ * collection's order. A search looks through every collection, whichever
+ * is chosen, and lists what it finds by name. Used by the list at one
+ * screen and by the host online.
  *
  * @param solved - the cases solved here, for "Gelöste ausblenden"; null
  *   leaves that tick out
+ * @param memory - the choices to start with, kept from the last visit
+ * @param keep - where to keep the choices for the next visit
+ * @param load - the choices saved in this browser, read once the page is up
  * @returns the filter controls and the cases to show
  */
-export function useCaseFilter(solved: ReadonlySet<string> | null): {
+export function useCaseFilter(
+  solved: ReadonlySet<string> | null,
+  memory?: ListMemory,
+  keep?: (choices: ListChoices) => void,
+  load?: () => ListChoices | null,
+): {
   readonly controls: ReactElement;
   readonly shown: readonly Level[];
 } {
-  const [filter, setFilter] = useState<Difficulty | "all">("all");
-  const [series, setSeries] = useState<SeriesChoice>("all");
-  const [query, setQuery] = useState("");
-  const [hideSolved, setHideSolved] = useState(false);
+  const [filter, setFilter] = useState<Difficulty | "all">(
+    memory?.filter ?? "all",
+  );
+  const [series, setSeries] = useState<SeriesChoice>(
+    memory?.series ?? FIRST_SERIES,
+  );
+  const [query, setQuery] = useState(memory?.query ?? "");
+  const [hideSolved, setHideSolved] = useState(memory?.hideSolved ?? false);
+  // What was chosen is kept for the next time the list is shown.
+  // The saved choices only after the first drawing: the page the server sent
+  // knows nothing of this browser.
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+  useEffect(() => {
+    const saved = load?.();
+    if (saved !== undefined && saved !== null) {
+      setFilter(saved.filter);
+      setSeries(saved.series);
+      setQuery(saved.query);
+      setHideSolved(saved.hideSolved);
+    }
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+  // A change by hand is kept - only then, so the saved choices are never
+  // overwritten by the defaults before they are read.
+  const change = (next: Partial<ListChoices>): void => {
+    const choices = { filter, series, query, hideSolved, ...next };
+    setFilter(choices.filter);
+    setSeries(choices.series);
+    setQuery(choices.query);
+    setHideSolved(choices.hideSolved);
+    keep?.(choices);
+  };
   // The search and the tick narrow the cases first, so the counts on the
   // difficulty chips tell what a click on them would show.
   const needle = query.trim().toLowerCase();
@@ -262,39 +359,58 @@ export function useCaseFilter(solved: ReadonlySet<string> | null): {
       (!hideSolved || solved === null || !solved.has(level.id)),
   );
   const inSeries = found.filter((level) => isInSeries(level, series));
+  const searching = needle !== "";
+  // While searching, the difficulty chips would narrow what is not shown.
   const graded =
-    series !== "all" &&
+    !searching &&
     LEVELS.some(
       (level) => isInSeries(level, series) && level.difficulty !== undefined,
     );
-  // A book is read in its own order, so the cases of one keep it.
-  const shown = inSeries
-    .filter(
-      (level) => !graded || filter === "all" || level.difficulty === filter,
-    )
-    .toSorted((one, other) =>
-      series === "all" || series === "none"
-        ? 0
-        : (one.series?.number ?? 0) - (other.series?.number ?? 0),
-    );
+  const shown = searching
+    ? found.toSorted(byName)
+    : inSeries
+        .filter(
+          (level) => !graded || filter === "all" || level.difficulty === filter,
+        )
+        .toSorted(inOrder);
   const controls = (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={T.search}
-          aria-label={T.search}
-          data-testid="murdoku-search"
-          className="w-full max-w-sm rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        />
+        {/* A cross in the field clears the search, as does Escape. */}
+        <span className="relative w-full max-w-sm">
+          <input
+            type="text"
+            value={query}
+            onChange={(event) => change({ query: event.target.value })}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                change({ query: "" });
+              }
+            }}
+            placeholder={T.search}
+            aria-label={T.search}
+            data-testid="murdoku-search"
+            className="w-full rounded-lg border border-zinc-300 bg-white py-2 pr-9 pl-3 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          {query !== "" && (
+            <button
+              type="button"
+              onClick={() => change({ query: "" })}
+              aria-label={T.clearSearch}
+              title={T.clearSearch}
+              data-testid="murdoku-search-clear"
+              className="absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-base leading-none text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+            >
+              ×
+            </button>
+          )}
+        </span>
         {solved !== null && (
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={hideSolved}
-              onChange={(event) => setHideSolved(event.target.checked)}
+              onChange={(event) => change({ hideSolved: event.target.checked })}
               data-testid="murdoku-hide-solved"
               className="h-4 w-4 cursor-pointer accent-sky-600"
             />
@@ -309,7 +425,7 @@ export function useCaseFilter(solved: ReadonlySet<string> | null): {
         data-testid="murdoku-series"
       >
         {/* A series with no case yet stays out of sight until it has one. */}
-        {(["all", ...SERIES_ORDER, "none"] as const)
+        {([...SERIES_ORDER, "none"] as const)
           .filter((one) => LEVELS.some((level) => isInSeries(level, one)))
           .map((one) => {
             const count = found.filter((level) =>
@@ -319,14 +435,14 @@ export function useCaseFilter(solved: ReadonlySet<string> | null): {
               <button
                 key={one}
                 type="button"
-                aria-pressed={series === one}
+                aria-pressed={!searching && series === one}
                 data-testid={`murdoku-series-${one}`}
                 onClick={() => {
-                  setSeries(one);
-                  setFilter("all");
+                  // Choosing a collection leaves the search, to show it.
+                  change({ series: one, filter: "all", query: "" });
                 }}
                 className={`cursor-pointer rounded-full border px-3 py-1 text-sm font-semibold ${
-                  series === one
+                  !searching && series === one
                     ? SERIES_CHIP[one]
                     : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
                 }`}
@@ -355,7 +471,7 @@ export function useCaseFilter(solved: ReadonlySet<string> | null): {
                 type="button"
                 aria-pressed={filter === one}
                 data-testid={`murdoku-filter-${one}`}
-                onClick={() => setFilter(one)}
+                onClick={() => change({ filter: one })}
                 className={`cursor-pointer rounded-full border px-3 py-1 text-sm font-semibold ${
                   filter === one
                     ? "border-sky-600 bg-sky-600 text-white"
@@ -374,7 +490,19 @@ export function useCaseFilter(solved: ReadonlySet<string> | null): {
 }
 
 function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
-  const { controls, shown } = useCaseFilter(game.solved);
+  const { controls, shown } = useCaseFilter(
+    game.solved,
+    LIST_MEMORY.current,
+    keepChoices,
+    loadChoices,
+  );
+  // Back to where the list was left, once it is drawn.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() =>
+      window.scrollTo(0, LIST_MEMORY.current.scroll),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
   return (
     <section className="flex flex-col gap-3" data-testid="murdoku-list">
       <h2 className="text-lg font-bold">{T.chooseCase}</h2>
@@ -390,13 +518,14 @@ function CaseList({ game }: { readonly game: MurdokuApi }): ReactElement {
               <button
                 type="button"
                 data-testid={`murdoku-case-${level.id}`}
-                onClick={() => game.open(level.id)}
+                onClick={() => {
+                  keepScroll();
+                  game.open(level.id);
+                }}
                 className="flex h-full w-full cursor-pointer flex-col gap-2 rounded-2xl border border-zinc-200 bg-white p-4 text-left shadow-sm hover:border-sky-400 dark:border-zinc-800 dark:bg-zinc-900"
               >
                 {/* What the map looks like, before one opens the case. */}
-                <span className="block aspect-square overflow-hidden rounded-xl">
-                  <CaseMap level={level} board={EMPTY_BOARD} preview />
-                </span>
+                <CasePreview level={level} />
                 <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                   <span className="text-base font-bold">{titleOf(level)}</span>
                   <CategoryBadge level={level} />
@@ -527,7 +656,9 @@ export function CaseView({
                 .map((rule) => (
                   <li key={rule.text} className="flex gap-2">
                     <span aria-hidden="true">{"\u{1F50E}"}</span>
-                    {rule.text}
+                    <span>
+                      <Emphasised level={level} text={rule.text} />
+                    </span>
                   </li>
                 ))}
             </ul>
@@ -1197,6 +1328,34 @@ function PawnButton({
 }
 
 /** A suspect, with face, name and clue - tapped to be placed. */
+/**
+ * A clue's text with its key words in bold, as the printed pages set them.
+ *
+ * @param props - the case and the text
+ * @returns the text
+ */
+function Emphasised({
+  level,
+  text,
+}: {
+  readonly level: Level;
+  readonly text: string;
+}): ReactElement {
+  return (
+    <>
+      {emphasise(level, text).map((part, at) =>
+        part.strong ? (
+          <strong key={`${String(at)}-${part.text}`} className="font-bold">
+            {part.text}
+          </strong>
+        ) : (
+          <span key={`${String(at)}-${part.text}`}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function SuspectCard({
   level,
   suspect,
@@ -1280,7 +1439,7 @@ function SuspectCard({
         </span>
       )}
       <span className="text-xs leading-snug text-zinc-600 dark:text-zinc-300">
-        {clueText(level, suspect)}
+        <Emphasised level={level} text={clueText(level, suspect)} />
       </span>
     </button>
   );

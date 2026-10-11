@@ -708,11 +708,15 @@ export const THE_GOLF_COURSE: Level = {
   ],
   rules: [
     {
-      text: "Bahnen mit gerader Nummer hatten eine gerade Anzahl Personen (auch keine), Bahnen mit ungerader Nummer eine ungerade.",
+      text: "Bahnen mit gerader Nummer hatten eine gerade Anzahl Personen (auch keine).",
       // Search only: give up on placements that cannot be finished.
       prune: stillFinishable,
       check: (c) =>
-        EVEN_HOLES.every((hole) => c.peopleIn(hole).length % 2 === 0) &&
+        EVEN_HOLES.every((hole) => c.peopleIn(hole).length % 2 === 0),
+    },
+    {
+      text: "Bahnen mit ungerader Nummer hatten eine ungerade Anzahl Personen.",
+      check: (c) =>
         ODD_HOLES.every((hole) => c.peopleIn(hole).length % 2 === 1),
     },
   ],

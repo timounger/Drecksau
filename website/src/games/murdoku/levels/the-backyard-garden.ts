@@ -137,6 +137,22 @@ export const THE_BACKYARD_GARDEN: Level = {
     v: "tv",
     b: "bed",
   },
+  // The rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 5, col: 5 },
+      { row: 5, col: 6 },
+    ],
+    [
+      { row: 7, col: 2 },
+      { row: 8, col: 2 },
+    ],
+    [
+      { row: 7, col: 6 },
+      { row: 7, col: 7 },
+      { row: 8, col: 6 },
+    ],
+  ],
   extraThings: {
     lilyPad: {
       name: "Seerosenblatt",

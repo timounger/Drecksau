@@ -12,7 +12,7 @@
  *
  * Every car covers two fields and faces east: its west field is the back.
  * Cars, the chairs and the oil puddles can be stood on; pumps, shelves, boxes,
- * the till, the tool cabinet and the workbench cannot.
+ * the till, the table and the workbench cannot.
  */
 import { about, all, beside, inArea, not, on, victim } from "../engine/clues";
 import type { Level } from "../engine/types";
@@ -114,7 +114,7 @@ export const THE_PETROL_STATION: Level = {
     p: "pump",
     r: "cashRegister",
     s: "shelf",
-    t: "toolCabinet",
+    t: "table",
     w: "workbench",
   },
   extraThings: {
@@ -127,11 +127,6 @@ export const THE_PETROL_STATION: Level = {
     oilPuddle: { name: "Ölpfütze", emoji: "\u{26AB}", standable: true },
     pump: { name: "Zapfsäule", emoji: "\u{26FD}", standable: false },
     cashRegister: { name: "Kasse", emoji: "\u{1F4B5}", standable: false },
-    toolCabinet: {
-      name: "Werkzeugschrank",
-      emoji: "\u{1F9F0}",
-      standable: false,
-    },
     workbench: {
       name: "Werkbank",
       emoji: "\u{1F6E0}\u{FE0F}",
@@ -139,7 +134,15 @@ export const THE_PETROL_STATION: Level = {
       kinds: ["furniture"],
     },
   },
-  pieces: [{ at: { row: 5, col: 5 }, rows: 1, cols: 3 }],
+  pieces: [
+    { at: { row: 5, col: 5 }, rows: 1, cols: 3 },
+    { at: { row: 0, col: 8 }, rows: 1, cols: 2, thing: "car" },
+    { at: { row: 4, col: 4 }, rows: 1, cols: 2, thing: "car" },
+    { at: { row: 6, col: 5 }, rows: 1, cols: 2, thing: "car" },
+    { at: { row: 7, col: 7 }, rows: 1, cols: 2, thing: "car" },
+    { at: { row: 8, col: 2 }, rows: 1, cols: 2, thing: "car" },
+    { at: { row: 8, col: 6 }, rows: 1, cols: 2, thing: "car" },
+  ],
   suspects: [
     {
       id: "A",
@@ -242,7 +245,7 @@ export const THE_PETROL_STATION: Level = {
   ],
   rules: [
     {
-      text: "Genau eine Person stand in einer Ölpfütze.",
+      text: "Genau eine Person war in einer Ölpfütze.",
       check: (c) =>
         c.people().filter((id) => {
           const there = c.cellOf(id);
@@ -250,7 +253,8 @@ export const THE_PETROL_STATION: Level = {
         }).length === 1,
     },
     {
-      text: "Jedes Auto steht auf zwei Feldern. Hinten ist sein westliches Feld.",
+      note: true,
+      text: "Dieser Ort hat ein besonderes Merkmal (abgesehen davon, dass er seit Jahren nicht geputzt wurde): Er hat eine leere Spalte. - Chief Williams",
     },
   ],
   hints: [

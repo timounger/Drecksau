@@ -153,6 +153,16 @@ export const HOLIDAY_SHOPPING: Level = {
     y: "teddyBear",
     m: "bin",
   },
+  // The rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 4, col: 5 },
+      { row: 5, col: 5 },
+      { row: 6, col: 5 },
+      { row: 6, col: 4 },
+      { row: 6, col: 3 },
+    ],
+  ],
   extraThings: {
     cashRegister: { name: "Kasse", emoji: "\u{1F4B5}", standable: false },
     present: { name: "Geschenk", emoji: "\u{1F381}", standable: false },

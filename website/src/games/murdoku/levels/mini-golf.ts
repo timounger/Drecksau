@@ -176,6 +176,15 @@ export const MINI_GOLF: Level = {
     flag: { name: "Fahne", emoji: "\u{1F6A9}", standable: true },
   },
   pieces: [{ at: { row: 0, col: 7 }, rows: 1, cols: 2 }],
+  // The counter round the corner at the entrance.
+  shapes: [
+    [
+      { row: 6, col: 9 },
+      { row: 7, col: 9 },
+      { row: 7, col: 8 },
+      { row: 7, col: 7 },
+    ],
+  ],
   suspects: [
     {
       id: "A",

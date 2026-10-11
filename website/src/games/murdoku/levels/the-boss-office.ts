@@ -581,6 +581,46 @@ export const THE_BOSS_OFFICE: Level = {
       standable: false,
     },
   },
+  // The table round the corner in the kitchen and the corner desks in the
+  // offices, as the page draws them.
+  shapes: [
+    [
+      { row: 6, col: 7 },
+      { row: 6, col: 8 },
+      { row: 6, col: 9 },
+      { row: 7, col: 9 },
+    ],
+    [
+      { row: 0, col: 6 },
+      { row: 1, col: 6 },
+      { row: 1, col: 7 },
+      { row: 1, col: 8 },
+    ],
+    [
+      { row: 0, col: 15 },
+      { row: 1, col: 15 },
+      { row: 1, col: 14 },
+      { row: 1, col: 13 },
+    ],
+    [
+      { row: 10, col: 15 },
+      { row: 11, col: 15 },
+      { row: 11, col: 14 },
+      { row: 11, col: 13 },
+    ],
+    [
+      { row: 15, col: 3 },
+      { row: 14, col: 3 },
+      { row: 14, col: 4 },
+      { row: 14, col: 5 },
+    ],
+    [
+      { row: 15, col: 7 },
+      { row: 14, col: 7 },
+      { row: 14, col: 8 },
+      { row: 14, col: 9 },
+    ],
+  ],
   pieces: [
     { at: { row: 1, col: 1 }, rows: 1, cols: 4 },
     { at: { row: 6, col: 4 }, rows: 1, cols: 2 },
@@ -783,9 +823,12 @@ export const THE_BOSS_OFFICE: Level = {
   ],
   rules: [
     {
-      text: "Es gibt fünf Bürobesitzer. Alle Besitzer befinden sich in ihrem eigenen Büro, auch der Chef. Der Chef kann sowohl als „der Chef“ als auch als „Bürobesitzer“ bezeichnet werden.",
+      text: "Es gibt fünf Bürobesitzer. Alle Besitzer befinden sich in ihrem eigenen Büro, auch der Chef.",
       check: ownersAgree,
       prune: stillPossible,
+    },
+    {
+      text: "Der Chef kann sowohl als „der Chef“ als auch als „Bürobesitzer“ bezeichnet werden.",
     },
   ],
   hints: [

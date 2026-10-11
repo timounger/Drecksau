@@ -132,12 +132,19 @@ export const THE_CLOTHING_STORE: Level = {
     "..rrr..t.",
   ],
   things: { c: "chair", p: "plant", r: "rug", s: "shelf", t: "table" },
+  shapes: [
+    [
+      { row: 0, col: 6 },
+      { row: 0, col: 7 },
+      { row: 0, col: 8 },
+      { row: 1, col: 8 },
+    ],
+  ],
   pieces: [
     { at: { row: 1, col: 1 }, rows: 2, cols: 1 },
     { at: { row: 0, col: 2 }, rows: 1, cols: 2 },
     { at: { row: 1, col: 5 }, rows: 2, cols: 1 },
-    { at: { row: 0, col: 6 }, rows: 1, cols: 2 },
-    { at: { row: 0, col: 8 }, rows: 2, cols: 1 },
+    { at: { row: 4, col: 2 }, rows: 2, cols: 3 },
     { at: { row: 4, col: 8 }, rows: 2, cols: 1 },
     { at: { row: 8, col: 2 }, rows: 1, cols: 3 },
   ],

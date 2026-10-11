@@ -7,13 +7,19 @@
 "use client";
 
 import { useEffect, useState, type ReactElement } from "react";
-import { LEVELS } from "@/games/murdoku/engine/levels";
+import { inOrder, LEVELS, SERIES_ORDER } from "@/games/murdoku/engine/levels";
+import type { Level } from "@/games/murdoku/engine/types";
 import { clockText } from "@/games/murdoku/components/murdoku-game";
 import {
   loadMurdokuRecords,
   type CaseRecord,
 } from "@/games/murdoku/hooks/use-murdoku";
-import { categoryText, titleOf } from "@/games/murdoku/i18n/texts";
+import {
+  DIFFICULTY_NAMES,
+  MURDOKU_TEXTS,
+  SERIES_NAMES,
+  titleOf,
+} from "@/games/murdoku/i18n/texts";
 
 /** The words of the table. */
 const L = {
@@ -22,7 +28,9 @@ const L = {
     `${String(done)} von ${String(all)} gelöst`,
   total: (time: string) => `Lösezeit insgesamt: ${time}`,
   caseName: "Fall",
-  difficulty: "Kategorie",
+  difficulty: "Schwierigkeit",
+  group: (done: number, all: number) =>
+    `${String(done)} von ${String(all)} gelöst`,
   best: "Bestzeit",
   last: "Zuletzt",
   solves: "Gelöst",
@@ -30,6 +38,33 @@ const L = {
   notYet: "-",
   times: (count: number) => (count === 1 ? "1-mal" : `${String(count)}-mal`),
 } as const;
+
+/**
+ * The cases in groups as the list shows them: each book in its order, then
+ * the cases from no book.
+ *
+ * @returns the groups that have cases, each with its name
+ */
+function groups(): readonly {
+  readonly key: string;
+  readonly name: string;
+  readonly levels: readonly Level[];
+}[] {
+  return [
+    ...SERIES_ORDER.map((series) => ({
+      key: series,
+      name: SERIES_NAMES[series],
+      levels: LEVELS.filter((level) => level.series?.book === series),
+    })),
+    {
+      key: "none",
+      name: MURDOKU_TEXTS.noSeries,
+      levels: LEVELS.filter((level) => level.series === undefined),
+    },
+  ]
+    .filter((group) => group.levels.length > 0)
+    .map((group) => ({ ...group, levels: group.levels.toSorted(inOrder) }));
+}
 
 /**
  * The cases, each with its times.
@@ -77,39 +112,68 @@ export function MurdokuStats(): ReactElement {
               <th className="py-1 font-semibold">{L.sum}</th>
             </tr>
           </thead>
-          <tbody>
-            {LEVELS.map((level) => {
-              const record = read.records[level.id];
-              return (
-                <tr
-                  key={level.id}
-                  className="border-t border-zinc-100 dark:border-zinc-800"
-                  data-testid={`murdoku-stats-${level.id}`}
+          {groups().map((group) => (
+            <tbody
+              key={group.key}
+              data-testid={`murdoku-stats-group-${group.key}`}
+            >
+              <tr>
+                <th
+                  colSpan={6}
+                  className="pt-4 pb-1 text-sm font-bold text-zinc-800 dark:text-zinc-100"
                 >
-                  <td className="py-1.5 pr-3 font-medium">
-                    {read.solved.includes(level.id)
-                      ? `✓ ${titleOf(level)}`
-                      : titleOf(level)}
-                  </td>
-                  <td className="py-1.5 pr-3">{categoryText(level)}</td>
-                  <td className="py-1.5 pr-3">
-                    {record === undefined ? L.notYet : L.times(record.solves)}
-                  </td>
-                  <td className="py-1.5 pr-3 font-mono tabular-nums">
-                    {record === undefined ? L.notYet : clockText(record.bestMs)}
-                  </td>
-                  <td className="py-1.5 pr-3 font-mono tabular-nums">
-                    {record === undefined ? L.notYet : clockText(record.lastMs)}
-                  </td>
-                  <td className="py-1.5 font-mono tabular-nums">
-                    {record === undefined
-                      ? L.notYet
-                      : clockText(record.totalMs)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
+                  {group.name}{" "}
+                  <span className="font-normal text-zinc-500 dark:text-zinc-400">
+                    {`(${L.group(
+                      group.levels.filter((level) =>
+                        read.solved.includes(level.id),
+                      ).length,
+                      group.levels.length,
+                    )})`}
+                  </span>
+                </th>
+              </tr>
+              {group.levels.map((level) => {
+                const record = read.records[level.id];
+                return (
+                  <tr
+                    key={level.id}
+                    className="border-t border-zinc-100 dark:border-zinc-800"
+                    data-testid={`murdoku-stats-${level.id}`}
+                  >
+                    <td className="py-1.5 pr-3 font-medium">
+                      {read.solved.includes(level.id)
+                        ? `✓ ${titleOf(level)}`
+                        : titleOf(level)}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      {level.difficulty === undefined
+                        ? L.notYet
+                        : DIFFICULTY_NAMES[level.difficulty]}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      {record === undefined ? L.notYet : L.times(record.solves)}
+                    </td>
+                    <td className="py-1.5 pr-3 font-mono tabular-nums">
+                      {record === undefined
+                        ? L.notYet
+                        : clockText(record.bestMs)}
+                    </td>
+                    <td className="py-1.5 pr-3 font-mono tabular-nums">
+                      {record === undefined
+                        ? L.notYet
+                        : clockText(record.lastMs)}
+                    </td>
+                    <td className="py-1.5 font-mono tabular-nums">
+                      {record === undefined
+                        ? L.notYet
+                        : clockText(record.totalMs)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          ))}
         </table>
       </div>
     </section>

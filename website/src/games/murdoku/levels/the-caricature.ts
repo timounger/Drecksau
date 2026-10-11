@@ -73,19 +73,20 @@ export const THE_CARICATURE: Level = {
     ".d.d.d.",
     "wc.c.cs",
   ],
-  things: { s: "shelf", g: "garbageBin", d: "desk", c: "chair", w: "window" },
+  things: { s: "shelf", g: "garbageBin", d: "table", c: "chair", w: "window" },
   extraThings: {
     window: { name: "Fenster", emoji: "\u{1FA9F}", standable: true },
     garbageBin: { name: "Mülleimer", emoji: "\u{1F5D1}️", standable: false },
-    desk: {
-      name: "Pult",
-      emoji: "\u{1F7EB}",
-      standable: false,
-      kinds: ["furniture"],
-    },
   },
   pieces: [{ at: { row: 1, col: 2 }, rows: 1, cols: 3 }],
   windows: [
+    {
+      at: { row: 0, col: 1 },
+      side: "top",
+      board: true,
+      length: 5,
+      text: "NO HOMEWORK TODAY!",
+    },
     { at: { row: 1, col: 0 }, side: "left" },
     { at: { row: 3, col: 0 }, side: "left" },
     { at: { row: 6, col: 0 }, side: "left" },
@@ -159,8 +160,8 @@ export const THE_CARICATURE: Level = {
       name: "Gregory",
       pronoun: "er",
       clue: {
-        text: "Er war neben einem Pult. Er saß nicht auf einem Stuhl.",
-        ...all(beside("desk"), not(on("seat"))),
+        text: "Er war neben einem Tisch. Er saß nicht auf einem Stuhl.",
+        ...all(beside("table"), not(on("seat"))),
       },
       colour: "#ea580c",
       face: "\u{1F468}‍\u{1F9B0}",
@@ -184,7 +185,7 @@ export const THE_CARICATURE: Level = {
       place: { A: { row: 5, col: 2 } },
     },
     {
-      text: "Für Gregory bleibt Spalte 2: Neben einem Pult ist dort nur das Feld in Reihe 3. Elliot bleibt die oberste Reihe in Spalte 5 - Elliot hat die Karikatur gemalt!",
+      text: "Für Gregory bleibt Spalte 2: Neben einem Tisch ist dort nur das Feld in Reihe 3. Elliot bleibt die oberste Reihe in Spalte 5 - Elliot hat die Karikatur gemalt!",
       place: { G: { row: 2, col: 1 }, E: { row: 0, col: 4 } },
     },
   ],

@@ -89,6 +89,18 @@ export const THE_PIANO_LESSON: Level = {
     s: "shelf",
     x: "statue",
   },
+  // The rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 1, col: 1 },
+      { row: 1, col: 2 },
+      { row: 1, col: 3 },
+    ],
+    [
+      { row: 4, col: 3 },
+      { row: 4, col: 4 },
+    ],
+  ],
   extraThings: {
     piano: { name: "Klavier", emoji: "\u{1F3B9}", standable: false },
   },

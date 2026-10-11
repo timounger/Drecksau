@@ -15,7 +15,7 @@
  * Every seat in the coaches is a chair. A field is in a corner of its area
  * when the area's border runs along two of its sides that meet: one above or
  * below it, one to its left or right. Chairs and the horses can be stood on;
- * pots, crates, trees, bushes and boulders cannot.
+ * pots, tables, trees, bushes and boulders cannot.
  */
 import {
   about,
@@ -127,7 +127,7 @@ export const THE_BANDIT_RAID: Level = {
     b: "boulder",
     c: "chair",
     h: "horse",
-    k: "crate",
+    k: "table",
     p: "pot",
     t: "tree",
     u: "bush",

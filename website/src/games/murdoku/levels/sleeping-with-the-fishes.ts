@@ -127,10 +127,15 @@ export const SLEEPING_WITH_THE_FISHES: Level = {
   things: {
     b: "boat",
     c: "chair",
-    x: "crate",
+    x: "woodCrate",
     o: "box",
     s: "shelf",
     t: "table",
+  },
+  extraThings: {
+    // The page tells its wooden crates from its cardboard boxes, and the
+    // clues ask about the crates.
+    woodCrate: { name: "Kiste", emoji: "\u{1F4E6}", standable: false },
   },
   pieces: [
     { at: { row: 0, col: 2 }, rows: 1, cols: 2 },
@@ -161,7 +166,7 @@ export const SLEEPING_WITH_THE_FISHES: Level = {
                 id !== c.self &&
                 c.has(id, "woman") &&
                 c.areaOf(c.cellOf(id) as Cell) === c.areaOf(c.cell) &&
-                c.beside(c.cellOf(id) as Cell, "crate"),
+                c.beside(c.cellOf(id) as Cell, "woodCrate"),
             ),
         ),
       },
@@ -210,7 +215,7 @@ export const SLEEPING_WITH_THE_FISHES: Level = {
       id: "G",
       name: "Graham",
       pronoun: "er",
-      clue: { text: "Er war neben einer Kiste.", ...beside("crate") },
+      clue: { text: "Er war neben einer Kiste.", ...beside("woodCrate") },
       colour: "#ea580c",
       face: "\u{1F9D1}",
     },

@@ -201,6 +201,14 @@ export const THE_DONUT_HOUSE: Level = {
     u: "rug",
     v: "tv",
   },
+  // The L-shaped rugs, as the page draws them.
+  shapes: [
+    [
+      { row: 2, col: 2 },
+      { row: 2, col: 3 },
+      { row: 3, col: 2 },
+    ],
+  ],
   pieces: [
     { at: { row: 0, col: 2 }, rows: 1, cols: 2 },
     { at: { row: 2, col: 7 }, rows: 1, cols: 2 },

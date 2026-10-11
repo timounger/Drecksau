@@ -55,7 +55,7 @@ export const CAR_REPAIR: Level = {
     },
   ],
   areaMap: ["RRRWSS", "RRRWWS", "RRRWWW", "RGGGGG", "GGGGGG", "GGGGGG"],
-  thingMap: ["tct.ts", ".tt.p.", "..scc.", "...ss.", ".aao..", ".o.aa."],
+  thingMap: ["tctv.s", ".tt.p.", "..scc.", "...ss.", ".aao..", ".o.aa."],
   things: {
     t: "table",
     c: "chair",
@@ -63,7 +63,16 @@ export const CAR_REPAIR: Level = {
     p: "plant",
     a: "car",
     o: "oilSlick",
+    v: "tv",
   },
+  // The counter round the corner at the reception.
+  shapes: [
+    [
+      { row: 0, col: 2 },
+      { row: 1, col: 2 },
+      { row: 1, col: 1 },
+    ],
+  ],
   pieces: [
     { at: { row: 4, col: 1 }, rows: 1, cols: 2 },
     { at: { row: 5, col: 3 }, rows: 1, cols: 2 },

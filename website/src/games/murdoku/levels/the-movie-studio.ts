@@ -177,6 +177,14 @@ export const THE_MOVIE_STUDIO: Level = {
     s: "shelf",
     v: "tv",
   },
+  // The desk round the corner on the sci-fi set.
+  shapes: [
+    [
+      { row: 12, col: 6 },
+      { row: 12, col: 7 },
+      { row: 13, col: 7 },
+    ],
+  ],
   pieces: [
     { at: { row: 1, col: 0 }, rows: 2, cols: 1 },
     { at: { row: 1, col: 4 }, rows: 3, cols: 1 },

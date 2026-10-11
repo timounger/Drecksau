@@ -103,14 +103,13 @@ export const THE_CHESS_TOURNAMENT: Level = {
     "c.brbrbc",
     "..crcrc.",
     "t.......",
-    "p....dd.",
-    "c.rr.dc.",
+    "p....tt.",
+    "c.rr.tc.",
     ".p.t...p",
   ],
   things: {
     b: "chessTable",
     c: "chair",
-    d: "desk",
     p: "plant",
     r: "rug",
     t: "table",
@@ -122,13 +121,14 @@ export const THE_CHESS_TOURNAMENT: Level = {
       standable: false,
       kinds: ["furniture"],
     },
-    desk: {
-      name: "Schiedsrichtertisch",
-      emoji: "\u{1F5C2}\u{FE0F}",
-      standable: false,
-      kinds: ["furniture"],
-    },
   },
+  shapes: [
+    [
+      { row: 5, col: 5 },
+      { row: 5, col: 6 },
+      { row: 6, col: 5 },
+    ],
+  ],
   pieces: [
     { at: { row: 0, col: 2 }, rows: 1, cols: 4 },
     { at: { row: 2, col: 3 }, rows: 2, cols: 1 },
@@ -258,7 +258,7 @@ export const THE_CHESS_TOURNAMENT: Level = {
       place: { D: { row: 0, col: 0 } },
     },
     {
-      text: "Stünde Anatoly in R4 C4 und Boris in R2 C3, wäre Efim in R5 C8 auf keiner Diagonale mit ihnen, also wäre Omid dort. Fabiano bliebe nur R8 C7 neben der Pflanze, und für Efim und Gaja blieben C5 und C6 in R6 und R7 - in C6 steht dort der Schiedsrichtertisch. Also war Anatoly in R4 C6 und Boris in R2 C5.",
+      text: "Stünde Anatoly in R4 C4 und Boris in R2 C3, wäre Efim in R5 C8 auf keiner Diagonale mit ihnen, also wäre Omid dort. Fabiano bliebe nur R8 C7 neben der Pflanze, und für Efim und Gaja blieben C5 und C6 in R6 und R7 - in C6 steht dort der Tisch. Also war Anatoly in R4 C6 und Boris in R2 C5.",
       place: { A: { row: 3, col: 5 }, B: { row: 1, col: 4 } },
     },
     {

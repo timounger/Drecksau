@@ -134,6 +134,20 @@ export const AN_UNEXPECTED_VISIT: Level = {
     u: "rug",
     v: "tv",
   },
+  // The L-shaped rugs, as the page draws them.
+  shapes: [
+    [
+      { row: 1, col: 1 },
+      { row: 2, col: 1 },
+      { row: 3, col: 1 },
+      { row: 3, col: 0 },
+    ],
+    [
+      { row: 1, col: 6 },
+      { row: 2, col: 6 },
+      { row: 2, col: 7 },
+    ],
+  ],
   pieces: [
     { at: { row: 1, col: 0 }, rows: 2, cols: 1 },
     { at: { row: 0, col: 7 }, rows: 2, cols: 1 },

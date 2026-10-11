@@ -255,6 +255,7 @@ function isThing(level: Level, cell: Cell, what: string): boolean {
 export function nobility(text: string, crowned: readonly string[]): Rule {
   return {
     text,
+    crowned,
     unary: (suspect, c) =>
       !(suspect.traits ?? []).includes("noble") ||
       crowned.includes(c.areaOf(c.cell) ?? ""),

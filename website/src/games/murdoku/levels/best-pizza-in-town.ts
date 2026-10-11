@@ -147,9 +147,18 @@ export const BEST_PIZZA_IN_TOWN: Level = {
       kinds: ["car"],
     },
   },
+  shapes: [
+    [
+      { row: 6, col: 7 },
+      { row: 7, col: 7 },
+      { row: 7, col: 6 },
+    ],
+  ],
   pieces: [
     { at: { row: 0, col: 6 }, rows: 1, cols: 2 },
-    { at: { row: 6, col: 7 }, rows: 2, cols: 1 },
+    { at: { row: 3, col: 1 }, rows: 1, cols: 2, thing: "car" },
+    { at: { row: 3, col: 5 }, rows: 1, cols: 2, thing: "car" },
+    { at: { row: 4, col: 0 }, rows: 1, cols: 2, thing: "car" },
   ],
   windows: [
     { at: { row: 3, col: 3 }, side: "top" },

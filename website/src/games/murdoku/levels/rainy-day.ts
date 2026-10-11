@@ -137,8 +137,14 @@ export const RAINY_DAY: Level = {
     s: "shelf",
     t: "table",
   },
+  shapes: [
+    [
+      { row: 0, col: 0 },
+      { row: 0, col: 1 },
+      { row: 1, col: 1 },
+    ],
+  ],
   pieces: [
-    { at: { row: 0, col: 1 }, rows: 2, cols: 1 },
     { at: { row: 1, col: 2 }, rows: 1, cols: 2 },
     { at: { row: 3, col: 3 }, rows: 1, cols: 3 },
     { at: { row: 4, col: 8 }, rows: 2, cols: 1 },

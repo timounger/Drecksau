@@ -205,7 +205,7 @@ export const KNOCKOUT: Level = {
     punchingBag: { name: "Boxsack", emoji: "\u{1F94A}", standable: false },
   },
   pieces: [
-    { at: { row: 3, col: 3 }, rows: 3, cols: 3 },
+    { at: { row: 3, col: 3 }, rows: 3, cols: 3, plain: true },
     { at: { row: 4, col: 1 }, rows: 2, cols: 1 },
   ],
   suspects: [

@@ -168,9 +168,19 @@ export const THE_CINEMA: Level = {
   extraThings: {
     cashRegister: { name: "Kasse", emoji: "\u{1F4B5}", standable: false },
   },
+  shapes: [
+    [
+      { row: 7, col: 2 },
+      { row: 7, col: 3 },
+      { row: 7, col: 4 },
+      { row: 7, col: 5 },
+      { row: 8, col: 2 },
+    ],
+  ],
   pieces: [
+    { at: { row: 0, col: 4 }, rows: 3, cols: 2, thing: "rug" },
+    { at: { row: 4, col: 0 }, rows: 2, cols: 4 },
     { at: { row: 6, col: 3 }, rows: 1, cols: 2 },
-    { at: { row: 7, col: 2 }, rows: 1, cols: 4 },
   ],
   windows: [
     { at: { row: 0, col: 5 }, side: "top" },

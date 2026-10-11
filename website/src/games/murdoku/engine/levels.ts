@@ -114,6 +114,8 @@ import { THE_CABIN_IN_THE_WOODS } from "../levels/the-cabin-in-the-woods";
 import { DINNER_PARTY } from "../levels/dinner-party";
 import { THE_CINEMA } from "../levels/the-cinema";
 import { GLOOM_AND_DOOM } from "../levels/gloom-and-doom";
+import { OPEN_PLAN_OFFICE } from "../levels/open-plan-office";
+import { THE_CALL_CENTRE } from "../levels/the-call-centre";
 import { DELIVERY_24H } from "../levels/delivery-24h";
 import { THE_BOOK_CLUB } from "../levels/the-book-club";
 import { THE_TREASURE_HUNT } from "../levels/the-treasure-hunt";
@@ -199,6 +201,8 @@ export const LEVELS: readonly Level[] = [
   DINNER_PARTY,
   THE_CINEMA,
   GLOOM_AND_DOOM,
+  OPEN_PLAN_OFFICE,
+  THE_CALL_CENTRE,
   // Medium
   FISHING_AT_THE_LAKE,
   THE_FRENCH_RESTAURANT,
@@ -257,3 +261,40 @@ export const DIFFICULTY_ORDER: readonly Difficulty[] = [
   "hard",
   "expert",
 ];
+
+/** The article a name may start with, left out when sorting by name. */
+const ARTICLE = /^(der|die|das|ein|eine|the)\s+/iu;
+
+/**
+ * Two cases by their names, as a list sorts them: the article left out, so
+ * "Der Buchclub" stands under B.
+ *
+ * @param one - a case
+ * @param other - another case
+ * @returns which comes first
+ */
+export function byName(one: Level, other: Level): number {
+  return one.name
+    .replace(ARTICLE, "")
+    .localeCompare(other.name.replace(ARTICLE, ""), "de");
+}
+
+/**
+ * Two cases of one collection in its order: a book by its numbers, the
+ * others easiest first and by name within a difficulty.
+ *
+ * @param one - a case
+ * @param other - another case of the same collection
+ * @returns which comes first
+ */
+export function inOrder(one: Level, other: Level): number {
+  const numbered =
+    one.series?.number !== undefined && other.series?.number !== undefined;
+  const grade = (level: Level): number =>
+    level.difficulty === undefined
+      ? -1
+      : DIFFICULTY_ORDER.indexOf(level.difficulty);
+  return numbered
+    ? (one.series?.number ?? 0) - (other.series?.number ?? 0)
+    : grade(one) - grade(other) || byName(one, other);
+}

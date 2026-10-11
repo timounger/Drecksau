@@ -103,6 +103,14 @@ export const THE_HAIR_SALON: Level = {
     s: "shelf",
     t: "table",
   },
+  shapes: [
+    [
+      { row: 2, col: 2 },
+      { row: 2, col: 3 },
+      { row: 2, col: 4 },
+      { row: 3, col: 2 },
+    ],
+  ],
   pieces: [
     { at: { row: 0, col: 4 }, rows: 1, cols: 3 },
     { at: { row: 5, col: 0 }, rows: 2, cols: 1 },

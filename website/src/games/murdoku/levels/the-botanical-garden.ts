@@ -164,6 +164,14 @@ export const THE_BOTANICAL_GARDEN: Level = {
       kinds: ["plant"],
     },
   },
+  // The table round the corner in the bonsai exhibit.
+  shapes: [
+    [
+      { row: 0, col: 3 },
+      { row: 0, col: 4 },
+      { row: 1, col: 4 },
+    ],
+  ],
   suspects: [
     {
       id: "A",

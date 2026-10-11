@@ -64,6 +64,7 @@ export const THE_CONCERT: Level = {
       ground: "floor",
       tint: "#c4dcf0",
       label: { row: 8, col: 2 },
+      labelEnd: true,
     },
     {
       key: "A",
@@ -121,6 +122,23 @@ export const THE_CONCERT: Level = {
     "fffssffff",
   ],
   grounds: { c: "carpet", f: "floor", s: "stone" },
+  carpets: [
+    [
+      { row: 3, col: 3 },
+      { row: 3, col: 4 },
+      { row: 3, col: 5 },
+      { row: 4, col: 2 },
+      { row: 4, col: 3 },
+      { row: 4, col: 4 },
+      { row: 4, col: 5 },
+      { row: 4, col: 6 },
+      { row: 5, col: 2 },
+      { row: 5, col: 3 },
+      { row: 5, col: 4 },
+      { row: 5, col: 5 },
+      { row: 5, col: 6 },
+    ],
+  ],
   thingMap: [
     "..ttp....",
     "..cc.....",

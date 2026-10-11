@@ -82,6 +82,30 @@ export const THE_BOOK_CLUB: Level = {
     c: "chair",
     t: "table",
   },
+  // The rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 1, col: 1 },
+      { row: 1, col: 2 },
+      { row: 1, col: 3 },
+      { row: 1, col: 4 },
+      { row: 1, col: 5 },
+    ],
+    [
+      { row: 3, col: 2 },
+      { row: 4, col: 2 },
+      { row: 4, col: 1 },
+    ],
+    [{ row: 4, col: 4 }],
+  ],
+  // The counter round the corner in the refreshments corner.
+  shapes: [
+    [
+      { row: 4, col: 5 },
+      { row: 5, col: 5 },
+      { row: 5, col: 4 },
+    ],
+  ],
   suspects: [
     {
       id: "A",

@@ -7,7 +7,7 @@
  * After the free case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Easy/Lagerfeuer am Strand.png`, no solution
  * sheet; the solver proves the case has exactly one solution). Van is the
- * victim; whoever was alone with him killed him. The campfire, the pot in
+ * victim; whoever was alone with him killed him. The campfire, the bucket in
  * the tent, the palms, the shrub and the boulder cannot be stood on.
  */
 /* eslint-disable @typescript-eslint/no-magic-numbers -- the case is data: rows, columns and counts straight off the printed page. */
@@ -59,10 +59,10 @@ export const BEACH_BONFIRE: Level = {
   ],
   areaMap: ["WWWWW", "WWWWW", "WWSWZ", "WSSSZ", "SSSSS"],
   thingMap: ["..s..", ".p..p", ".....", "p.f.k", "....b"],
-  things: { s: "shrub", p: "palm", f: "campfire", k: "pot", b: "boulder" },
+  things: { s: "shrub", p: "palm", f: "campfire", k: "bucket", b: "boulder" },
   extraThings: {
     campfire: { name: "Lagerfeuer", emoji: "\u{1F525}", standable: false },
-    pot: { name: "Kochtopf", emoji: "\u{1FAA3}", standable: false },
+    bucket: { name: "Eimer", emoji: "\u{1FAA3}", standable: false },
   },
   suspects: [
     {

@@ -83,7 +83,7 @@ export const THE_GARAGE_BAND: Level = {
     ".k.ht..",
   ],
   things: {
-    r: "recordPlayer",
+    r: "tv",
     s: "shelf",
     b: "bed",
     c: "chair",
@@ -95,11 +95,6 @@ export const THE_GARAGE_BAND: Level = {
     t: "tree",
   },
   extraThings: {
-    recordPlayer: {
-      name: "Plattenspieler",
-      emoji: "\u{1F3B5}",
-      standable: false,
-    },
     speaker: { name: "Lautsprecher", emoji: "\u{1F50A}", standable: false },
     drums: { name: "Schlagzeug", emoji: "\u{1F941}", standable: false },
   },

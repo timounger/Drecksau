@@ -78,7 +78,9 @@ export const THE_CATHEDRAL: Level = {
       at: "im westlichen Seitenschiff",
       ground: "stone",
       tint: "#d8d0cc",
-      label: { row: 8, col: 1 },
+      label: { row: 8, col: 2 },
+      labelEnd: true,
+      labelOverhang: true,
     },
     {
       key: "R",
@@ -87,6 +89,7 @@ export const THE_CATHEDRAL: Level = {
       ground: "stone",
       tint: "#d8d0cc",
       label: { row: 8, col: 6 },
+      labelOverhang: true,
     },
   ],
   areaMap: [
@@ -99,6 +102,17 @@ export const THE_CATHEDRAL: Level = {
     "..LHHHR..",
     "..LHHHR..",
     ".LLHHHRR.",
+  ],
+  // The runner down the nave, as the page draws it - only the look.
+  carpets: [
+    [
+      { row: 4, col: 3 },
+      { row: 4, col: 4 },
+      { row: 4, col: 5 },
+      { row: 5, col: 4 },
+      { row: 6, col: 4 },
+      { row: 7, col: 4 },
+    ],
   ],
   thingMap: [
     "..s.s.s..",

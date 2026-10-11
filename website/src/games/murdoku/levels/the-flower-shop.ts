@@ -91,6 +91,18 @@ export const THE_FLOWER_SHOP: Level = {
     r: "cashRegister",
     b: "bonsai",
   },
+  // The rugs, as the page draws them.
+  carpets: [
+    [
+      { row: 1, col: 4 },
+      { row: 1, col: 5 },
+      { row: 2, col: 5 },
+    ],
+    [
+      { row: 4, col: 2 },
+      { row: 5, col: 2 },
+    ],
+  ],
   extraThings: {
     cashRegister: {
       name: "Kasse",
