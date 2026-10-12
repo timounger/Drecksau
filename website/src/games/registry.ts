@@ -41,7 +41,8 @@ export type GameId =
   | "dog"
   | "uboot"
   | "bloons-td"
-  | "murdoku";
+  | "murdoku"
+  | "scotland-yard";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -373,6 +374,16 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/murdoku",
     category: "gemeinsam",
     addedOn: "2026-10-10",
+  },
+  {
+    id: "scotland-yard",
+    name: "Scotland Yard",
+    tagline:
+      "Mister X flieht quer durch London - fangt ihn, bevor die Zeit abläuft.",
+    emoji: "\u{1F50D}",
+    href: "/scotland-yard",
+    category: "action",
+    addedOn: "2026-10-12",
   },
 ];
 

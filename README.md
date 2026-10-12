@@ -28,10 +28,12 @@ jedes Spiel hat seine eigene Seite.
 | [Krakel Orakel](website/src/games/krakel/README.md)                | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online           |
 | [Kuhle Kuehe](website/src/games/kuhle-kuehe/README.md)             | Baut aus Koepfen, Mittelteilen und Hinterteilen die laengsten Kuehe und die groesste Herde.              | Computer + Online    |
 | [Monopoly](website/src/games/monopoly/README.md)                   | Kaufen, bauen, kassieren - bis nur noch einer zahlen kann.                                               | Computer + Online    |
+| [Murdoku](website/src/games/murdoku/README.md)                     | Kriminalraetsel wie ein Sudoku - wer war mit dem Opfer allein?                                           | Allein + Online      |
 | [Panzerkiste](website/src/games/panzerkiste/README.md)             | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Allein + Koop-Online |
 | [Qwixx](website/src/games/qwixx/README.md)                         | Wuerfeln und ankreuzen - was du ueberspringst, ist weg.                                                  | Computer + Online    |
 | [Risiko](website/src/games/risiko/README.md)                       | Gebiet fuer Gebiet die Welt erobern.                                                                     | Computer + Online    |
 | [RV There Yet?](website/src/games/rv-there-yet/README.md)          | Seitenansicht: das Wohnmobil ueber den Berg bringen - notfalls mit der Seilwinde.                        | Allein + Koop-Online |
+| [Scotland Yard](website/src/games/scotland-yard/README.md)         | Mister X flieht quer durch London - die Detektive sehen nur seine Tickets.                               | Computer + Online    |
 | [Sky Team](website/src/games/sky-team/README.md)                   | Landet das Flugzeug zu zweit - und schweigt dabei.                                                       | Computer + Online    |
 | [Skyjo](website/src/games/skyjo/README.md)                         | Karten tauschen und Spalten abraeumen - die wenigsten Punkte gewinnen.                                   | Computer + Online    |
 | [The Game](website/src/games/the-game/README.md)                   | 98 Karten auf vier Reihen - und keiner darf Zahlen nennen.                                               | Computer + Online    |
@@ -104,6 +106,8 @@ website/src/
     monopoly/       Monopoly Klassik - deutscher Spielplan, Auktionen und Handel
     bohnanza/       Bohnanza - Bohnen anbauen, handeln und ernten
     catan/          CATAN - 19 Landschaftsfelder, variabler Aufbau, Haefen und Raeuber
+    murdoku/        Murdoku - Kriminalraetsel wie ein Sudoku, ueber hundert Faelle
+    scotland-yard/  Scotland Yard - Mister X gegen die Detektive, Computer oder online
                     (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)
