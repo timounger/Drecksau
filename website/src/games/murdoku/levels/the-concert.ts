@@ -5,9 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Das Murdoku-Orginal/39. Das Konzert.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Das Murdoku-Orginal/39. Das Konzert.png`,
+ * solution sheet `Lösungen 1-80/Lösung 37-40.JPG`).
  * Oren is the victim; whoever was alone with him killed him.
  *
  * The armchairs and the carpet on the stage can be stood on; tables, TVs and
@@ -252,31 +251,31 @@ export const THE_CONCERT: Level = {
   ],
   hints: [
     {
-      text: "Anton war neben einem Tisch: in R2 C3, R2 C4 oder R6 C1. Eduardo war westlich von ihm und Frances westlich von Eduardo - von C1 aus geht das nicht. Anton war in R2.",
+      text: "Weil Frances westlich von Eduardo ist, der westlich von Anton ist, kann Anton nicht in S1 sein. Er muss dann in Z2 sein, in S3 oder S4.",
       cross: [{ row: 5, col: 0 }],
     },
     {
-      text: "In C8 und C9 gibt es nur Stühle und freie Felder der Tribüne (Ost). Bea war in R9, Cedric in Toilette A, Hans auf dem Teppich, Anton in R2, Eduardo und Frances westlich von ihm, und Gabriella neben einem Fernseher steht in C2, C3, C6 oder C7. Also waren Doris und Oren in C8 und C9 - beide auf der Tribüne (Ost).",
+      text: "Wenn Gabriella und jemand anders beide neben dem Fernseher in der Tribüne (Ost) wären, könnte niemand in Z1 sein. Also ist Gabriella in der Tribüne (West) mit Anton, Eduardo und Frances.",
     },
     {
-      text: "Auch in C1 stand jemand. Eduardo nicht, sonst wäre Frances nicht westlich von ihm - also Frances. In C1 ist R3 C1 das einzige Feld ohne Stuhl und Tisch: Dort stand sie.",
-      place: { F: { row: 2, col: 0 } },
+      text: "Gabriella und Eduardo müssen neben dem Fernseher in S2 und S3 in irgendeiner Konfiguration sein. Das lokalisiert Anton in S4 und platziert Frances in S1, wo sie nur in Z3 sein kann.",
+      place: { A: { row: 1, col: 3 }, F: { row: 2, col: 0 } },
     },
     {
-      text: "Cedric war in Toilette A, und R2 und R3 sind belegt: Er war in R1 C6. Es gab keinen leeren Raum - in Toilette B kann aber nur Bea stehen, in R9 C5.",
-      place: { C: { row: 0, col: 5 }, B: { row: 8, col: 4 } },
-    },
-    {
-      text: "Oren war allein mit Doris auf der Tribüne (Ost). Gabriella war also nicht in R7 C7, sondern neben dem Fernseher in R7 C2. Neben ihm war noch jemand - das kann nur Eduardo auf dem Stuhl in R6 C2 sein. Gabriella war in R7 C3, denn R8 C2 liegt in C2.",
+      text: "Eduardo sitzt, also muss er in Z6 S2 sein, was Gabriella lokalisiert.",
       place: { E: { row: 5, col: 1 }, G: { row: 6, col: 2 } },
     },
     {
-      text: "Anton bleibt R2 C4. Hans war auf dem Teppich: C3 bis C6 sind belegt, also C7 - R4 C7 liegt nicht auf dem Teppich, R6 ist belegt. Hans war in R5 C7.",
-      place: { A: { row: 1, col: 3 }, H: { row: 4, col: 6 } },
+      text: "Das lokalisiert Cedric, dann Bea.",
+      place: { C: { row: 0, col: 5 }, B: { row: 8, col: 4 } },
     },
     {
-      text: "Doris und Oren bleiben R4 und R8 in C8 und C9. In R8 gibt es nur R8 C8, und dort steht kein Stuhl: Oren war in R8 C8, Doris saß in R4 C9. Auf der Tribüne (Ost) war Oren allein mit Doris - Doris ist die Mörderin!",
-      place: { O: { row: 7, col: 7 }, D: { row: 3, col: 8 } },
+      text: "Das lokalisiert Hans im letzten Teppichfeld.",
+      place: { H: { row: 4, col: 6 } },
+    },
+    {
+      text: "Das lokalisiert Doris und Oren. Doris ist die Mörderin!",
+      place: { D: { row: 3, col: 8 }, O: { row: 7, col: 7 } },
     },
   ],
   solution: {

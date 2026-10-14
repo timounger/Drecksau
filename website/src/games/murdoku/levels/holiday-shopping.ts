@@ -171,6 +171,15 @@ export const HOLIDAY_SHOPPING: Level = {
     bin: { name: "Mülleimer", emoji: "\u{1F5D1}️", standable: false },
   },
   pieces: [{ at: { row: 9, col: 8 }, rows: 1, cols: 2 }],
+  // The shop doors, drawn in the walls beside the walkway fields.
+  windows: [
+    { at: { row: 2, col: 8 }, side: "right", door: true },
+    { at: { row: 3, col: 8 }, side: "right", door: true },
+    { at: { row: 4, col: 2 }, side: "left", door: true },
+    { at: { row: 6, col: 2 }, side: "left", door: true },
+    { at: { row: 7, col: 2 }, side: "left", door: true },
+    { at: { row: 7, col: 7 }, side: "bottom", door: true },
+  ],
   suspects: [
     {
       id: "A",

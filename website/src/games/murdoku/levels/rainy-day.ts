@@ -5,8 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Regentag/Regentag.png`, no solution
- * sheet), with the culprit pencilled in on the photographed page.
+ * (`game_instructions/Murdoku/Leicht/Regentag/Regentag.png`,
+ * solution on `Das Murdoku-Orginal/Lösungen 1-80/Lösung 29-32.JPG`).
  * Othello is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they, the beds and the rugs can be stood on.
@@ -247,55 +247,41 @@ export const RAINY_DAY: Level = {
   ],
   hints: [
     {
-      text: "Albert war neben einem Fernseher: in R2 C6 oder in R6 C2. In R6 C2 bliebe Günther kein Bett - R8 C2 und R9 C2 lägen in seiner Spalte, R6 C6 und R6 C7 in seiner Reihe. Also stand Albert in R2 C6. Blockiere den Rest von R2 und C6.",
+      text: "Günther ist auf einem der Betten. Schließe das sich überschneidende Feld in Zeile 6, Spalte 2 aus.",
+      cross: [{ row: 5, col: 1 }],
+    },
+    {
+      text: "Das lokalisiert Albert neben dem Fernseher im Wohnzimmer.",
       place: { A: { row: 1, col: 5 } },
-      cross: [
-        { row: 1, col: 0 },
-        { row: 1, col: 1 },
-        { row: 1, col: 2 },
-        { row: 1, col: 3 },
-        { row: 1, col: 4 },
-        { row: 1, col: 6 },
-        { row: 1, col: 7 },
-        { row: 1, col: 8 },
-        { row: 0, col: 5 },
-        { row: 2, col: 5 },
-        { row: 3, col: 5 },
-        { row: 4, col: 5 },
-        { row: 5, col: 5 },
-        { row: 6, col: 5 },
-        { row: 7, col: 5 },
-        { row: 8, col: 5 },
-      ],
     },
     {
-      text: "Carlos war neben einem Tisch, aber nicht im Esszimmer, und in der Küche war Betty allein. Neben den Tischen in Wohnzimmer und Badezimmer sind R2 C8 und R8 C6 blockiert, und R3 C9 und R8 C8 sind Stühle, auf denen nur Dörte sitzen kann. Carlos war in R9 C7 oder R9 C9.",
-      cross: [
-        { row: 1, col: 7 },
-        { row: 7, col: 5 },
-        { row: 2, col: 8 },
-        { row: 7, col: 7 },
-      ],
+      text: "Esther ist auf einem der verbleibenden Teppiche. Schließe das sich überschneidende Feld in Zeile 9, Spalte 9 aus.",
+      cross: [{ row: 8, col: 8 }],
     },
     {
-      text: "Esther war auf einem Teppich. R2 und C6 sind blockiert, und R9 gehört Carlos - es bleiben R5 C9 und R6 C9. Esther ist also in C9, und Carlos stand in R9 C7. Blockiere den Rest von R9 und C7.",
+      text: "Das lokalisiert Carlos in Zeile 9, Spalte 7 (laut Carlos' Hinweis war er nicht im Esszimmer, nicht auf einem Stuhl laut Dörtes Hinweis und nicht in der Küche laut Bettys Hinweis).",
       place: { C: { row: 8, col: 6 } },
     },
     {
-      text: "Günther lag auf einem Bett. R6 C6 und R6 C7 sind blockiert, R9 C2 auch - Günther war in R8 C2. Blockiere den Rest von R8 und C2.",
+      text: "Das lokalisiert Günther und platziert Esther in Spalte 9 auf dem Teppich.",
       place: { G: { row: 7, col: 1 } },
     },
     {
-      text: "Dörte saß als Einzige auf einem Stuhl. Von allen Stühlen ist nur noch R4 C3 frei (C9 gehört Esther) - dort saß sie. Betty war allein in der Küche, und C2 ist blockiert, also in C1: R2 C1 und R4 C1 sind blockiert, R5 C1 ist ein Tisch. Betty war in R3 C1.",
+      text: "Schließe den Rest von Spalte 9 aus. Das lokalisiert Dörte auf dem letzten Stuhl. Das lokalisiert Betty.",
+      cross: [
+        { row: 0, col: 8 },
+        { row: 2, col: 8 },
+        { row: 3, col: 8 },
+      ],
       place: { D: { row: 3, col: 2 }, B: { row: 2, col: 0 } },
     },
     {
-      text: "Frei sind noch R1, R5, R6 und R7 in C4, C5, C8 und C9 - und C9 gehört Esther. Hannah war in einer Ecke: Das sind dort nur R6 C4 und R6 C5. Damit war Esther in R5 C9. Florian war neben einer Pflanze: nur R7 C8 neben der Pflanze in R7 C9.",
+      text: "Hannah muss in Zeile 6 sein, in Spalte 4 oder 5. Das lokalisiert Esther, dann Florian.",
       place: { E: { row: 4, col: 8 }, F: { row: 6, col: 7 } },
     },
     {
-      text: "Othello bleibt R1 - in C4 oder C5, und R1 C5 ist ein Regal. Othello war in R1 C4, Hannah in R6 C5. Im Wohnzimmer war er allein mit Albert - Albert ist der Mörder!",
-      place: { O: { row: 0, col: 3 }, H: { row: 5, col: 4 } },
+      text: "Das lokalisiert Hannah und Othello, der allein im Wohnzimmer mit Albert war. Albert ist der Mörder!",
+      place: { H: { row: 5, col: 4 }, O: { row: 0, col: 3 } },
     },
   ],
   solution: {

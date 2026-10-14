@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/33. Octavias neues Haus.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Lösungen 1-80/Lösung 33-36.JPG`).
  * Octavia is the victim; whoever was alone with her killed her.
  *
  * The armchairs and the beds can be stood on; the tables, the TVs and the
@@ -282,36 +281,70 @@ export const OCTAVIAS_NEW_HOUSE: Level = {
   ],
   hints: [
     {
-      text: "Alistair war im Gästezimmer und nicht neben einer Wand: Das sind nur die Bettfelder R5 C7 und R5 C8. Genau eine Person war auf einem Bett - das ist Alistair, und R5 gehört ihm. Blockiere die übrigen Bettfelder R8 C6 und R8 C7.",
+      text: "Alistair muss auf dem Bett im Gästezimmer sein. Schließe den Rest von Z5 aus.",
+      cross: [
+        { row: 4, col: 0 },
+        { row: 4, col: 1 },
+        { row: 4, col: 2 },
+        { row: 4, col: 3 },
+        { row: 4, col: 4 },
+        { row: 4, col: 5 },
+        { row: 4, col: 8 },
+      ],
+    },
+    {
+      text: "Laut dem allgemeinen Hinweis gibt es nur eine Person auf einem Bett. Schließe das Bett im Schlafzimmer aus.",
       cross: [
         { row: 7, col: 5 },
         { row: 7, col: 6 },
       ],
     },
     {
-      text: "George war im Aufenthaltsraum, und dort war noch jemand. Frei sind dort R4 C5, R6 C4 und R6 C5 (R5 ist Alistairs Zeile). Zwei Personen passen nur in R4 C5 und R6 C4. Blockiere den Rest von R4, R6, C4 und C5.",
+      text: "George ist mit jemand anderem im Aufenthaltsraum; sie müssen in den Ecken Nordost und Südwest sein. Schließe den Rest von Z4, Z6, S4 und S5 aus. Die Pflanze im Aufenthaltsraum ist jetzt die einzige, neben der Denis sein kann (da Cornelia allein im Esszimmer ist), das lokalisiert Denis und George.",
+      place: { D: { row: 3, col: 4 }, G: { row: 5, col: 3 } },
+      cross: [
+        { row: 3, col: 0 },
+        { row: 3, col: 1 },
+        { row: 3, col: 2 },
+        { row: 3, col: 6 },
+        { row: 3, col: 7 },
+        { row: 3, col: 8 },
+        { row: 5, col: 0 },
+        { row: 5, col: 1 },
+        { row: 5, col: 2 },
+        { row: 5, col: 4 },
+        { row: 5, col: 5 },
+        { row: 5, col: 6 },
+        { row: 5, col: 7 },
+        { row: 5, col: 8 },
+        { row: 0, col: 3 },
+        { row: 1, col: 3 },
+        { row: 2, col: 3 },
+        { row: 6, col: 3 },
+        { row: 8, col: 3 },
+        { row: 0, col: 4 },
+        { row: 1, col: 4 },
+        { row: 2, col: 4 },
+        { row: 6, col: 4 },
+        { row: 7, col: 4 },
+        { row: 8, col: 4 },
+      ],
     },
     {
-      text: "Francesca saß auf einem Stuhl. Die Stühle in R2 C4, R4 C2, R5 C5 und R8 C5 liegen in blockierten Zeilen und Spalten - Francesca saß in R9 C2. Elia war vor einem Fenster: Die Fenster in C4, C5, R5 und R9 fallen weg, es bleibt R1 C9.",
-      place: { F: { row: 8, col: 1 }, E: { row: 0, col: 8 } },
+      text: "Das lokalisiert Francesca auf dem letzten Stuhl.",
+      place: { F: { row: 8, col: 1 } },
     },
     {
-      text: "Brooke war in der Küche: R6 und R9 sind vergeben, in C2 und C3 steht der Tisch - Brooke war in C1, in R7 oder R8. Cornelia war allein im Esszimmer: R1, R4 und R5 sind vergeben, C1 gehört Brooke, R3 C3 ist eine Pflanze - Cornelia war in R2 C3.",
-      place: { C: { row: 1, col: 2 } },
+      text: "Das lokalisiert Elia vor dem verbleibenden Fenster.",
+      place: { E: { row: 0, col: 8 } },
     },
     {
-      text: "Hajo hatte einen Fernseher in seinem Raum und seiner Zeile: R2 im Wohnzimmer ist vergeben, also R8 im Schlafzimmer, wo nur R8 C8 frei ist. Damit war Brooke in R7 C1 und Alistair in R5 C7.",
+      text: "Das lokalisiert Cornelia im letzten Feld in S3, dann Hajo in Z8 S8, dann Alistair und Brooke, dann Octavia in Z3 S6. Elia ist der Mörder!",
       place: {
+        C: { row: 1, col: 2 },
         H: { row: 7, col: 7 },
-        B: { row: 6, col: 0 },
         A: { row: 4, col: 6 },
-      },
-    },
-    {
-      text: "Denis, George und Octavia bleiben R3, R4 und R6 in C4, C5 und C6. In R3 steht keine Pflanze neben einem freien Feld des Wohnzimmers, also war Denis im Aufenthaltsraum - neben der Pflanze nur in R4 C5. George war in R6 C4, Octavia in R3 C6. Im Wohnzimmer war sie allein mit Elia - Elia ist der Mörder!",
-      place: {
-        D: { row: 3, col: 4 },
-        G: { row: 5, col: 3 },
+        B: { row: 6, col: 0 },
         O: { row: 2, col: 5 },
       },
     },

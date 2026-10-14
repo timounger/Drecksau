@@ -6,7 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/36. Einkaufszentrum.png`,
- * no solution sheet), with the culprit pencilled in on the photographed page.
+ * solution sheet `Lösungen 1-80/Lösung 33-36.JPG`).
  * Otmar is the victim; whoever was alone with him killed him.
  *
  * The armchairs (the toilet among them) are the chairs; they, the beds and the
@@ -261,34 +261,50 @@ export const SHOPPING_MALL: Level = {
   ],
   hints: [
     {
-      text: "Betten gibt es nur im Bettengeschäft: Dort war Andreas, und alle dort lagen auf einem Bett. Emilia war in C2 - nicht im Büro, wo Chloe allein war, also im Bettengeschäft auf einem Bett. Franklin war südöstlich von Andreas im selben Raum, also auch auf einem Bett, östlich von ihm. C2 gehört Emilia, und östlich von C4 liegt kein Bett mehr - Andreas war in C1.",
+      text: "Das Bettengeschäft ist der einzige Raum mit Betten, also ist Andreas dort, und alle dort sind auf einem Bett. Schließe die Felder ohne Bett aus.",
+      cross: [
+        { row: 3, col: 2 },
+        { row: 4, col: 1 },
+        { row: 4, col: 2 },
+        { row: 5, col: 2 },
+        { row: 6, col: 2 },
+        { row: 7, col: 0 },
+        { row: 7, col: 1 },
+        { row: 7, col: 2 },
+        { row: 7, col: 3 },
+        { row: 8, col: 2 },
+      ],
     },
     {
-      text: "Emilia war nördlich von Andreas, Franklin südlich. In R4 C1 bliebe Emilia nur das Büro, in R7 C1 oder R9 C1 bliebe Franklin kein Bett (C2 gehört Emilia, C3 ist ein Teppich, R9 C4 liegt in der Gasse). Andreas lag in R6 C1. Südöstlich davon bleibt Franklin nur das Bett in R7 C4 (R7 C2 und R9 C2 liegen in Emilias Spalte), und Emilia lag nördlich in R4 C2.",
-      place: {
-        A: { row: 5, col: 0 },
-        F: { row: 6, col: 3 },
-        E: { row: 3, col: 1 },
-      },
-    },
-    {
-      text: "Chloe war allein im Büro. C1 und C2 sind besetzt, in C3 sind R1 C3 eine Kiste und R3 C3 eine Pflanze - Chloe war in R2 C3.",
+      text: "Das lokalisiert Chloe in Z2 S3, dem letzten Feld in S3. Chloe war allein, also schließe die anderen Felder im Büro aus.",
       place: { C: { row: 1, col: 2 } },
+      cross: [
+        { row: 0, col: 0 },
+        { row: 0, col: 1 },
+        { row: 1, col: 0 },
+        { row: 2, col: 0 },
+        { row: 2, col: 1 },
+      ],
     },
     {
-      text: "Bernardo war neben einer Pflanze. Bei der Pflanze in R1 C8 stehen Kisten, und R2 ist besetzt. Die im Büro gehört Chloe allein. Neben der in R5 C6 liegt nur R6 C6 im selben Raum, und R6 ist besetzt. Bei der in R8 C9 liegen ein Regal, ein Teppich (dort war nur Dahlia) und R9 C9. Bernardo war in R9 C9.",
+      text: "Das lokalisiert Bernardo, der laut Dahlias Hinweis nicht auf einem Teppich sein kann.",
       place: { B: { row: 8, col: 8 } },
     },
     {
-      text: "Gilbert war in R5: R5 C1 ist ein Tisch, C2 und C4 sind besetzt, R5 C3 ist kein Bett, R5 C6 eine Pflanze, R5 C7 und R5 C8 sind Regale, C9 gehört Bernardo. Gilbert war in R5 C5 in der Gasse. Dahlia war die Einzige auf einem Teppich: Im Bettengeschäft lagen alle auf Betten, R4 und R6 sind besetzt - es bleiben R8 C7 und R8 C8.",
-      place: { G: { row: 4, col: 4 } },
+      text: "Andreas, Emilia und Franklin müssen alle auf Betten sein, und nicht in Z5 (wo Gilbert ist). Emilia ist am weitesten nördlich, dann Andreas, dann Franklin. Das lokalisiert Emilia in Z4 S2, dann Andreas und Franklin.",
+      place: {
+        E: { row: 3, col: 1 },
+        A: { row: 5, col: 0 },
+        F: { row: 6, col: 3 },
+      },
     },
     {
-      text: "Frei sind noch R1 und R3 in C6 bis C8. In R1 ist nur R1 C6 frei, und dort liegen Kisten daneben - Howard war nicht neben einer Kiste, also stand Otmar in R1 C6. Howard war in R3, aber nicht in R3 C7 neben der Kiste in R2 C7: in R3 C8. Dahlia blieb R8 C7. Im Lager war Otmar allein mit Howard - Howard ist der Mörder!",
+      text: "Das lokalisiert Gilbert und setzt Dahlia auf den Teppich in Z8. Howard muss im Lager sein und kann nur in Z3 S8 sein. Das lokalisiert Dahlia und Otmar. Howard ist der Mörder!",
       place: {
-        O: { row: 0, col: 5 },
+        G: { row: 4, col: 4 },
         H: { row: 2, col: 7 },
         D: { row: 7, col: 6 },
+        O: { row: 0, col: 5 },
       },
     },
   ],

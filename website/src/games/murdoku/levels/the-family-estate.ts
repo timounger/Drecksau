@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Das Familienanwesen/Das Familienanwesen.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Das Murdoku-Orginal/Lösungen 1-80/Lösung 09-12.JPG`).
  * Osvaldo is the victim; whoever was alone with him killed him.
  *
  * The armchairs and the beds can be stood on; the plants, the dark tables, the
@@ -222,119 +221,29 @@ export const THE_FAMILY_ESTATE: Level = {
   rules: [],
   hints: [
     {
-      text: "Adam war im Lagerraum, aber nicht neben einem Regal. Die Regale stehen in R8 C9 und R9 C8; R7 C9, R8 C8 und R9 C9 liegen alle neben einem davon. Nur R7 C8 bleibt - dort war Adam. Blockiere den Rest von R7 und C8.",
+      text: "Es gibt nur ein Feld im Lagerraum, das nicht neben einem Regal ist, also muss Adam dort sein: Zeile 7, Spalte 8.",
       place: { A: { row: 6, col: 7 } },
-      cross: [
-        { row: 6, col: 0 },
-        { row: 6, col: 1 },
-        { row: 6, col: 2 },
-        { row: 6, col: 3 },
-        { row: 6, col: 4 },
-        { row: 6, col: 5 },
-        { row: 6, col: 6 },
-        { row: 6, col: 8 },
-        { row: 0, col: 7 },
-        { row: 1, col: 7 },
-        { row: 2, col: 7 },
-        { row: 3, col: 7 },
-        { row: 4, col: 7 },
-        { row: 5, col: 7 },
-        { row: 7, col: 7 },
-        { row: 8, col: 7 },
-      ],
     },
+    { text: "Das platziert Edwin auf dem Bett im Gästezimmer, in Spalte 4." },
     {
-      text: "Helena war in einer Ecke des Kellers. Die Ecken sind R7 C1, R7 C7, R9 C1 (ein Regal) und R9 C7. R7 ist gesperrt, also war Helena auf dem Sessel in R9 C7. Blockiere den Rest von R9 und C7.",
+      text: "Das lokalisiert auch Helena in der Südostecke des Kellers.",
       place: { H: { row: 8, col: 6 } },
-      cross: [
-        { row: 8, col: 0 },
-        { row: 8, col: 1 },
-        { row: 8, col: 2 },
-        { row: 8, col: 3 },
-        { row: 8, col: 4 },
-        { row: 8, col: 5 },
-        { row: 8, col: 8 },
-        { row: 0, col: 6 },
-        { row: 1, col: 6 },
-        { row: 2, col: 6 },
-        { row: 3, col: 6 },
-        { row: 4, col: 6 },
-        { row: 5, col: 6 },
-        { row: 7, col: 6 },
-      ],
     },
     {
-      text: "Edwin war auf einem Bett. Das Bett im Schlafzimmer liegt in der gesperrten C8, also lag Edwin auf dem Bett im Gästezimmer in C4 - in R1 oder R2. Blockiere den Rest von C4.",
-      cross: [
-        { row: 2, col: 3 },
-        { row: 3, col: 3 },
-        { row: 4, col: 3 },
-        { row: 5, col: 3 },
-        { row: 7, col: 3 },
-      ],
+      text: "Das lokalisiert Belinda auf dem letzten Stuhl im Keller und lokalisiert auch Clemens im Badezimmer, dann Edwin auf dem Bett.",
+      place: {
+        B: { row: 7, col: 1 },
+        C: { row: 1, col: 5 },
+        E: { row: 0, col: 3 },
+      },
     },
     {
-      text: "Belinda saß auf einem Stuhl im Keller. Der Sessel in R7 C5 liegt in der gesperrten R7, R8 C4 in Edwins C4 und R9 C7 ist Helenas Platz. Belinda saß in R8 C2. Blockiere den Rest von R8 und C2.",
-      place: { B: { row: 7, col: 1 } },
-      cross: [
-        { row: 7, col: 0 },
-        { row: 7, col: 2 },
-        { row: 7, col: 4 },
-        { row: 7, col: 5 },
-        { row: 7, col: 8 },
-        { row: 0, col: 1 },
-        { row: 1, col: 1 },
-        { row: 2, col: 1 },
-        { row: 3, col: 1 },
-        { row: 4, col: 1 },
-        { row: 5, col: 1 },
-      ],
+      text: "Das lokalisiert Dario im Schlafzimmer, dann Greg im letzten Feld neben einer Pflanze.",
+      place: { D: { row: 5, col: 8 }, G: { row: 3, col: 0 } },
     },
     {
-      text: "Clemens war im Badezimmer. Frei sind dort nur noch C6 und C9; in C9 steht der Schrank und in R1 C6 eine Pflanze. Clemens war in R2 C6. Blockiere den Rest von R2 und C6. Damit lag Edwin in R1 C4 - blockiere den Rest von R1.",
-      place: { C: { row: 1, col: 5 }, E: { row: 0, col: 3 } },
-      cross: [
-        { row: 1, col: 0 },
-        { row: 1, col: 2 },
-        { row: 1, col: 3 },
-        { row: 1, col: 4 },
-        { row: 1, col: 8 },
-        { row: 0, col: 5 },
-        { row: 2, col: 5 },
-        { row: 3, col: 5 },
-        { row: 4, col: 5 },
-        { row: 5, col: 5 },
-        { row: 0, col: 0 },
-        { row: 0, col: 2 },
-        { row: 0, col: 4 },
-        { row: 0, col: 8 },
-      ],
-    },
-    {
-      text: "Dario war im Schlafzimmer. C6, C7 und C8 sind gesperrt, in C9 stehen in R3 bis R5 eine Pflanze und zwei Regale. Dario war in R6 C9. Blockiere den Rest von R6 und C9.",
-      place: { D: { row: 5, col: 8 } },
-      cross: [
-        { row: 5, col: 0 },
-        { row: 5, col: 2 },
-        { row: 5, col: 4 },
-        { row: 2, col: 8 },
-        { row: 3, col: 8 },
-        { row: 4, col: 8 },
-      ],
-    },
-    {
-      text: "Farah war im Gästezimmer. R1, R2 und C4 sind gesperrt, also bleibt nur R3 C5. Blockiere den Rest von R3 und C5.",
-      place: { F: { row: 2, col: 4 } },
-      cross: [
-        { row: 2, col: 0 },
-        { row: 2, col: 2 },
-        { row: 3, col: 4 },
-        { row: 4, col: 4 },
-      ],
-    },
-    {
-      text: "Frei sind nur noch R4 C1, R4 C3 (Tisch), R5 C1 (Pflanze) und R5 C3. Greg war neben einer Pflanze: R4 C1 neben der Pflanze in R5 C1, R5 C3 liegt neben keiner. Osvaldo blieb R5 C3 - im Esszimmer allein mit Greg. Greg ist der Mörder!",
-      place: { G: { row: 3, col: 0 }, O: { row: 4, col: 2 } },
+      text: "Das lokalisiert Osvaldo im Esszimmer mit Greg. Greg ist der Mörder!",
+      place: { O: { row: 4, col: 2 } },
     },
   ],
   solution: {

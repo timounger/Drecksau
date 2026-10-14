@@ -5,9 +5,9 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Der erste Fall/Der erste Fall.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Leicht/Der erste Fall/Der erste Fall.png`,
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 01-04.JPG`).
  * Oliver is the victim; whoever was alone with him killed him.
  *
  * The two windows sit in the top wall; standing in front of one means being on
@@ -128,7 +128,7 @@ export const THE_FIRST_CASE: Level = {
   ],
   hints: [
     {
-      text: "Coraline war auf dem Teppich - es gibt nur einen, in R2 C3. Blockiere den Rest von R2 und C3.",
+      text: "Es gibt nur ein Teppich-Feld für Coraline. Schließe den Rest von Zeile 2 und Spalte 3 aus.",
       place: { C: { row: 1, col: 2 } },
       cross: [
         { row: 1, col: 0 },
@@ -144,7 +144,7 @@ export const THE_FIRST_CASE: Level = {
       ],
     },
     {
-      text: "Dominik war auf dem Bett. Es liegt auf R2 C5 und R3 C5, und R2 ist gesperrt: Dominik liegt in R3 C5. Blockiere den Rest von R3 und C5.",
+      text: "Das lokalisiert Dominik auf dem Bett in Zeile 3, Spalte 5. Schließe den Rest von Zeile 3 und Spalte 5 aus.",
       place: { D: { row: 2, col: 4 } },
       cross: [
         { row: 2, col: 0 },
@@ -158,19 +158,19 @@ export const THE_FIRST_CASE: Level = {
       ],
     },
     {
-      text: "Axel war vor einem Fenster: R1 C2 oder R1 C5. C5 ist gesperrt, also steht Axel in R1 C2.",
+      text: "Das lokalisiert Axel in Spalte 2, vor dem verbleibenden Fenster.",
       place: { A: { row: 0, col: 1 } },
     },
     {
-      text: "Bella war im Eingangsbereich. Dort ist nur noch C1 frei, und R4 C1 und R6 C1 sind Tische: Bella steht in R5 C1.",
+      text: "Das lokalisiert Bella in Spalte 1 im Eingangsbereich.",
       place: { B: { row: 4, col: 0 } },
     },
     {
-      text: "Elisa war neben einer Pflanze. Neben der Pflanze in R5 C3 ist kein Feld mehr frei. Neben der Pflanze in R5 C6 steht in R4 C6 ein Tisch und R5 ist besetzt - Elisa steht in R6 C6.",
+      text: "Elisa muss im letzten Feld neben einer Pflanze sein, in Spalte 6.",
       place: { E: { row: 5, col: 5 } },
     },
     {
-      text: "Für Oliver bleibt das letzte Feld, R4 C4 im Esszimmer - allein mit Elisa. Elisa ist die Mörderin!",
+      text: "Das lokalisiert Oliver im letzten verbleibenden Feld: Zeile 4, Spalte 4. Elisa war allein mit Oliver. Elisa ist die Mörderin!",
       place: { O: { row: 3, col: 3 } },
     },
   ],

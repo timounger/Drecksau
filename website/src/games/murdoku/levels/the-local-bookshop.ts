@@ -6,8 +6,8 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Der örtliche Buchladen/Der örtliche Buchladen.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 05-08.JPG`).
  * Olga is the victim; whoever was alone with her killed her.
  *
  * The shelves, the table and the till cannot be stood on. "South of" means
@@ -141,7 +141,7 @@ export const THE_LOCAL_BOOKSHOP: Level = {
   ],
   hints: [
     {
-      text: "Benno war neben dem Tisch in R1 C3. Daneben steht in R1 C2 ein Regal, und R1 C4 gehört schon zu den Liebesromanen - Benno war in R2 C3. Blockiere den Rest von R2 und C3.",
+      text: "Es gibt nur ein Feld neben einem Tisch für Benno: Zeile 2, Spalte 3.",
       place: { B: { row: 1, col: 2 } },
       cross: [
         { row: 1, col: 0 },
@@ -156,34 +156,31 @@ export const THE_LOCAL_BOOKSHOP: Level = {
       ],
     },
     {
-      text: "Aria war in der Bestseller-Abteilung. Dort sind nur R5 C1, R5 C3 und R6 C3 frei, und C3 ist gesperrt: Aria war in R5 C1. Blockiere den Rest von R5 und C1.",
-      place: { A: { row: 4, col: 0 } },
+      text: "Das lokalisiert Aria, dann Damian.",
+      place: { A: { row: 4, col: 0 }, D: { row: 5, col: 4 } },
       cross: [
         { row: 4, col: 4 },
         { row: 0, col: 0 },
         { row: 2, col: 0 },
-      ],
-    },
-    {
-      text: "Damian war südlich von Aria, also in R6. Dort sind nur R6 C3 und R6 C5 frei, und C3 ist gesperrt: Damian war in R6 C5. Blockiere den Rest von C5.",
-      place: { D: { row: 5, col: 4 } },
-      cross: [
         { row: 0, col: 4 },
         { row: 2, col: 4 },
         { row: 3, col: 4 },
       ],
     },
     {
-      text: "Ekaterina war bei den Liebesromanen. R2 und C5 sind gesperrt, in R3 C6 steht ein Regal - es bleibt nur R1 C6.",
+      text: "Das lokalisiert Ekaterina bei den Liebesromanen.",
       place: { E: { row: 0, col: 5 } },
     },
     {
-      text: "Frei sind nur noch R3 und R4 in C2 und C4. R3 C4 ist ein Regal, R4 C2 liegt neben dem Regal in R4 C1 und R4 C4 neben dem Regal in R3 C4. Calvin war nicht neben einem Regal, also in R3 C2.",
+      text: "Das lokalisiert Calvin im letzten Feld, das nicht neben einem Regal ist.",
       place: { C: { row: 2, col: 1 } },
     },
     {
-      text: "Olga blieb das letzte Feld, R4 C4. Bei den Sachbüchern war sie allein mit Calvin - Calvin ist der Mörder!",
+      text: "Das lokalisiert Olga.",
       place: { O: { row: 3, col: 3 } },
+    },
+    {
+      text: "Calvin war allein mit der ermordeten Person im Sachbuchbereich. Calvin ist der Mörder!",
     },
   ],
   solution: {

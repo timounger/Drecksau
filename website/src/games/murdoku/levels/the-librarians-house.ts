@@ -7,8 +7,8 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Das Haus der Bibliothekarin/Das Haus der Bibliothekarin.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 17-20.JPG`).
  * Oriana is the victim; whoever was alone with her killed her.
  *
  * Chairs and beds can be stood on; shelves, tables, plants and the TV cannot.
@@ -210,89 +210,32 @@ export const THE_LIBRARIANS_HOUSE: Level = {
   ],
   hints: [
     {
-      text: "Enya war neben dem Fernseher in R6 C4. In R5 C4 steht ein Tisch, in R6 C5 eine Pflanze - Enya war in R6 C3. Blockiere den Rest von R6 und C3.",
+      text: "Es gibt nur ein Feld, auf dem Enya sein kann, in Zeile 6, Spalte 3.",
       place: { E: { row: 5, col: 2 } },
-      cross: [
-        { row: 5, col: 0 },
-        { row: 5, col: 1 },
-        { row: 5, col: 3 },
-        { row: 5, col: 4 },
-        { row: 5, col: 5 },
-        { row: 5, col: 6 },
-        { row: 5, col: 7 },
-        { row: 5, col: 8 },
-        { row: 0, col: 2 },
-        { row: 1, col: 2 },
-        { row: 2, col: 2 },
-        { row: 3, col: 2 },
-        { row: 4, col: 2 },
-        { row: 6, col: 2 },
-        { row: 7, col: 2 },
-        { row: 8, col: 2 },
-      ],
     },
     {
-      text: "Daphne saß auf einem Stuhl im Esszimmer: R1 C4, R2 C3 oder R3 C3. C3 ist gesperrt, also saß sie in R1 C4. Blockiere den Rest von R1 und C4.",
+      text: "Das lokalisiert Daphne auf dem Stuhl im Esszimmer in Zeile 1.",
       place: { D: { row: 0, col: 3 } },
-      cross: [
-        { row: 0, col: 0 },
-        { row: 0, col: 1 },
-        { row: 0, col: 2 },
-        { row: 0, col: 4 },
-        { row: 0, col: 5 },
-        { row: 0, col: 6 },
-        { row: 0, col: 7 },
-        { row: 0, col: 8 },
-        { row: 1, col: 3 },
-        { row: 2, col: 3 },
-        { row: 3, col: 3 },
-        { row: 4, col: 3 },
-        { row: 5, col: 3 },
-        { row: 6, col: 3 },
-        { row: 7, col: 3 },
-        { row: 8, col: 3 },
-      ],
     },
     {
-      text: "Arwin war in der Küche. Frei sind dort nur R1 C1, R1 C2 und R2 C1, und R1 ist gesperrt - Arwin war in R2 C1. Blockiere den Rest von R2 und C1.",
+      text: "Das lokalisiert Arwin in der Küche.",
       place: { A: { row: 1, col: 0 } },
-      cross: [
-        { row: 1, col: 1 },
-        { row: 1, col: 2 },
-        { row: 1, col: 3 },
-        { row: 1, col: 4 },
-        { row: 1, col: 5 },
-        { row: 1, col: 6 },
-        { row: 1, col: 7 },
-        { row: 1, col: 8 },
-        { row: 0, col: 0 },
-        { row: 2, col: 0 },
-        { row: 3, col: 0 },
-        { row: 4, col: 0 },
-        { row: 5, col: 0 },
-        { row: 6, col: 0 },
-        { row: 7, col: 0 },
-        { row: 8, col: 0 },
-      ],
     },
+    { text: "Das setzt Bastian auf das Bett in Zeile 8." },
     {
-      text: "Callie war neben einem Regal im Arbeitszimmer - ohne R1 und R2 bleiben nur R3 C8 und R4 C9. Fritz war im Badezimmer, also in C8 oder C9: Callie und Fritz teilen sich C8 und C9. Bastian lag auf einem Bett; das Bett in C1 ist gesperrt, also lag er in R8. Hudson saß auf einem Stuhl: frei sind nur noch R3 C6, R8 C2 und R8 C9, und R8 gehört Bastian - Hudson saß in R3 C6.",
+      text: "Das lokalisiert Hudson auf dem letzten verfügbaren Stuhl.",
       place: { H: { row: 2, col: 5 } },
     },
     {
-      text: "R3 ist besetzt, also war Callie in R4 C9 und Fritz in C8: R7 C8 ist eine Pflanze und R8 gehört Bastian - Fritz war in R9 C8. Bastians Bett liegt in R8 C5 und R8 C6, C6 ist Hudsons Spalte - Bastian lag in R8 C5.",
-      place: {
-        C: { row: 3, col: 8 },
-        F: { row: 8, col: 7 },
-        B: { row: 7, col: 4 },
-      },
+      text: "Das lokalisiert Bastian und lokalisiert auch Callie im letzten Feld neben einem Regal im Arbeitszimmer.",
+      place: { B: { row: 7, col: 4 }, C: { row: 3, col: 8 } },
     },
     {
-      text: "Für Gero und Oriana bleiben R5 und R7 in C2 und C7. Gero war allein mit einer Frau: In R7 C2 wäre er allein im Gästezimmer, in R7 C7 mit Bastian im Schlafzimmer, in R5 C7 mit Callie und Hudson im Arbeitszimmer. Also war Gero in R5 C2, im Wohnzimmer mit Enya.",
-      place: { G: { row: 4, col: 1 } },
+      text: "Das lokalisiert Fritz im Badezimmer. Gero kann nur allein mit Enya sein, das lokalisiert ihn in Zeile 5, Spalte 2.",
+      place: { F: { row: 8, col: 7 }, G: { row: 4, col: 1 } },
     },
     {
-      text: "Oriana blieb R7 C7 im Schlafzimmer - allein mit Bastian. Bastian ist der Mörder!",
+      text: "Das lokalisiert Oriana, allein mit Bastian im Schlafzimmer. Bastian ist der Mörder!",
       place: { O: { row: 6, col: 6 } },
     },
   ],

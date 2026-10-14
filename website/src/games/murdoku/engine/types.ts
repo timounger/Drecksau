@@ -163,6 +163,8 @@ export type WallWindow = {
   readonly side: Side;
   /** A chalkboard on the wall instead of a window - only the look. */
   readonly board?: true;
+  /** A door in the wall instead of a window - only the look. */
+  readonly door?: true;
   /** How many fields along the wall it reaches, from `at` to the right or down; one if left out. */
   readonly length?: number;
   /** What is written in chalk on a board. */

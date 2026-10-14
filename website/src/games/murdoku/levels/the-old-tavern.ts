@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Die alte Taverne/Die alte Taverne.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Das Murdoku-Orginal/Lösungen 1-80/Lösung 13-16.JPG`).
  * Oleg is the victim; whoever was alone with him killed him.
  *
  * Chairs can be stood on; tables, shelves, plants and the TVs cannot.
@@ -154,29 +153,33 @@ export const THE_OLD_TAVERN: Level = {
     },
   ],
   hints: [
+    { text: "Eric war in der Toilette, auf einem der Stühle in Zeile 1." },
     {
-      text: "Eric saß auf einem Stuhl in der Toilette - beide Stühle dort stehen in R1. Amir steht in C1, wo nur R1 C1 und R5 C1 frei sind; R1 gehört Eric, also steht Amir in R5 C1.",
+      text: "Das lokalisiert Amir in Zeile 5.",
       place: { A: { row: 4, col: 0 } },
     },
     {
-      text: "Gerhard saß auf einem Stuhl. R1 und R5 sind vergeben, es bleibt nur der Stuhl in R3 C3.",
+      text: "Das lokalisiert Gerhard auf dem Stuhl in Spalte 3.",
       place: { G: { row: 2, col: 2 } },
     },
     {
-      text: "Damien war in der Toilette. R1 und R3 sind vergeben, in R2 sind C6 und C8 Tische: Damien steht in R2 C7. Damit sitzt Eric auf dem Stuhl in R1 C5.",
-      place: { D: { row: 1, col: 6 }, E: { row: 0, col: 4 } },
+      text: "Das lokalisiert Damien in der Toilette, dann Eric und Finn (im letzten Feld neben einer Pflanze).",
+      place: {
+        D: { row: 1, col: 6 },
+        E: { row: 0, col: 4 },
+        F: { row: 3, col: 5 },
+      },
     },
     {
-      text: "Finn war neben einer Pflanze. Neben der Pflanze in R2 C1 ist nichts mehr frei. Bei der Pflanze in R4 C7 liegt R3 C7 in der Toilette, R5 ist vergeben und R4 C8 ist ein Tisch: Finn steht in R4 C6.",
-      place: { F: { row: 3, col: 5 } },
+      text: "Das lokalisiert Baldur neben dem Fernseher in Zeile 7, dann Caleb (im letzten Feld neben einem Regal) und Oleg.",
+      place: {
+        B: { row: 6, col: 3 },
+        C: { row: 7, col: 7 },
+        O: { row: 5, col: 1 },
+      },
     },
     {
-      text: "Frei sind noch R6 bis R8 in C2, C4 und C8. Baldur war neben einem Fernseher - nur R7 C4 neben dem Fernseher in R7 C5 passt. Caleb war neben einem Regal: R8 C8 neben dem Regal in R8 C7.",
-      place: { B: { row: 6, col: 3 }, C: { row: 7, col: 7 } },
-    },
-    {
-      text: "Für Oleg bleibt R6 C2 an der Theke - allein mit Baldur. Baldur ist der Mörder!",
-      place: { O: { row: 5, col: 1 } },
+      text: "Oleg war allein mit der Person, die den Mord beging, hinter der Theke. Baldur ist der Mörder!",
     },
   ],
   solution: {

@@ -119,6 +119,33 @@ import { THE_CALL_CENTRE } from "../levels/the-call-centre";
 import { DELIVERY_24H } from "../levels/delivery-24h";
 import { THE_BOOK_CLUB } from "../levels/the-book-club";
 import { THE_TREASURE_HUNT } from "../levels/the-treasure-hunt";
+import { THE_GARDENERS_HOUSE } from "../levels/the-gardeners-house";
+import { THE_NIGHTCLUB } from "../levels/the-nightclub";
+import { THE_MUSEUM } from "../levels/the-museum";
+import { THE_BAKERY } from "../levels/the-bakery";
+import { SIBLING_RIVALRY } from "../levels/sibling-rivalry";
+import { A_NIGHT_AT_THE_OPERA } from "../levels/a-night-at-the-opera";
+import { SUMMER_HOLIDAY } from "../levels/summer-holiday";
+import { BEACH_APARTMENT } from "../levels/beach-apartment";
+import { THE_HOSPITAL } from "../levels/the-hospital";
+import { HOME_SWEET_HOME } from "../levels/home-sweet-home";
+import { SECURITY_CHECK } from "../levels/security-check";
+import { THE_HOTEL } from "../levels/the-hotel";
+import { THE_JUDGES_BIRTHDAY } from "../levels/the-judges-birthday";
+import { ALL_DAY_CONFERENCE } from "../levels/all-day-conference";
+import { THE_SUDOKU_MURDER } from "../levels/the-sudoku-murder";
+import { THE_BANK_VAULT } from "../levels/the-bank-vault";
+import { A_FULL_HOUSE } from "../levels/a-full-house";
+import { THE_EMPTY_ROOM } from "../levels/the-empty-room";
+import { THE_SECRET_MEETING } from "../levels/the-secret-meeting";
+import { AVALANCHE } from "../levels/avalanche";
+import { THE_YACHT } from "../levels/the-yacht";
+import { THE_CIRCUS } from "../levels/the-circus";
+import { THE_ESTATE } from "../levels/the-estate";
+import { HALLOWEEN_PARTY } from "../levels/halloween-party";
+import { MURDER_BURGER } from "../levels/murder-burger";
+import { THE_FARM } from "../levels/the-farm";
+import { THE_LAST_DUEL } from "../levels/the-last-duel";
 import type { Difficulty, Level, Series } from "./types";
 
 /** Every case, easiest first. */
@@ -203,6 +230,33 @@ export const LEVELS: readonly Level[] = [
   GLOOM_AND_DOOM,
   OPEN_PLAN_OFFICE,
   THE_CALL_CENTRE,
+  THE_GARDENERS_HOUSE,
+  THE_NIGHTCLUB,
+  THE_MUSEUM,
+  THE_BAKERY,
+  SIBLING_RIVALRY,
+  A_NIGHT_AT_THE_OPERA,
+  SUMMER_HOLIDAY,
+  BEACH_APARTMENT,
+  THE_HOSPITAL,
+  HOME_SWEET_HOME,
+  SECURITY_CHECK,
+  THE_HOTEL,
+  THE_JUDGES_BIRTHDAY,
+  ALL_DAY_CONFERENCE,
+  THE_SUDOKU_MURDER,
+  THE_BANK_VAULT,
+  A_FULL_HOUSE,
+  THE_EMPTY_ROOM,
+  THE_SECRET_MEETING,
+  AVALANCHE,
+  THE_YACHT,
+  THE_CIRCUS,
+  THE_ESTATE,
+  HALLOWEEN_PARTY,
+  MURDER_BURGER,
+  THE_FARM,
+  THE_LAST_DUEL,
   // Medium
   FISHING_AT_THE_LAKE,
   THE_FRENCH_RESTAURANT,

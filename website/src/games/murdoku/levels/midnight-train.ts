@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/42. Mitternachtszug.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Lösungen 1-80/Lösung 41-44.JPG`).
  * Olive is the victim; whoever was alone with her killed her.
  *
  * The map has six rows and ten columns, so four columns stay empty. The
@@ -248,23 +247,31 @@ export const MIDNIGHT_TRAIN: Level = {
   ],
   hints: [
     {
-      text: "Sechs Personen, sechs Reihen: In jeder Reihe stand genau eine Person. In R1 und R6 gibt es keinen Teppich, keinen Stuhl und kein Feld unter oder über einem Bett, und im Flur (R3 und R4) kein Bett und keinen Stuhl. Claire (R2 C9, R5 C7 oder R5 C8) und David (R2 C8 oder R5 C4) können also nur in R2 und R5 stehen - sie teilen sich diese beiden Reihen. Emil, der auf einem Teppich stand, bleibt nur der Flur.",
+      text: "David ist auf einem der beiden Stühle. Die beiden sich überschneidenden Felder können ausgeschlossen werden.",
+      cross: [
+        { row: 1, col: 3 },
+        { row: 4, col: 7 },
+      ],
     },
     {
-      text: "Boris war neben einer Pflanze, außerhalb von R2 und R5: in R3 C8, R4 C7 oder auf dem Bett in R6 C6 (der Teppich in R4 C9 gehört Emil allein). Stünde er im Flur, müsste Emil östlich von ihm auf einem Teppich in der anderen Flurreihe stehen - nur in C9. Dann bliebe Claire nur R5, David R2 C8, Boris wegen C8 nur R4 C7 - und Claire fände weder in C7 noch in C8 Platz. Boris lag also auf dem Bett in R6 C6.",
-      place: { B: { row: 5, col: 5 } },
+      text: "Z2 und Z5 sind von Claire und David in irgendeiner Reihenfolge besetzt. Boris ist entweder in S6, S7, S8 oder S9.",
     },
+    { text: "Emil ist östlich von Boris. Er kann nur in S9 sein." },
     {
-      text: "Genau eine Person war auf einem Bett - das ist Boris. Anastasia war in Schlafabteil A oder D; R2 und R5 gehören Claire und David, R6 Boris, also war sie in R1 - nicht auf einem Bett: R1 C4.",
-      place: { A: { row: 0, col: 3 } },
-    },
-    {
-      text: "Davids Stuhl in R5 C4 liegt in Anastasias Spalte - David saß in R2 C8. Claire blieb R5: R5 C8 liegt in Davids Spalte, also stand sie in R5 C7.",
+      text: "Das eliminiert das einzige Feld in Z2, das Claire hätte besetzen können (da nur Emil auf einem Teppich ist), was David in Z2 und Claire in Z5 lokalisiert.",
       place: { D: { row: 1, col: 7 }, C: { row: 4, col: 6 } },
     },
     {
-      text: "Emil und Olive teilen sich R3 und R4 im Flur. Emil stand östlich von Boris auf einem Teppich: nur in C9 frei, also R3 C9 oder R4 C9. Olive bleiben die freien Flurfelder ohne Teppich: R3 C7, R3 C8, R4 C4 und R4 C7 liegen in blockierten Spalten - Olive war in R4 C2, Emil in R3 C9. Im Flur war sie allein mit Emil - Emil ist der Mörder!",
-      place: { O: { row: 3, col: 1 }, E: { row: 2, col: 8 } },
+      text: "Das lokalisiert Boris in Z6 S6, auf einem Bett. Laut dem allgemeinen Hinweis können alle anderen Bettfelder ausgeschlossen werden.",
+      place: { B: { row: 5, col: 5 } },
+    },
+    {
+      text: "Das lokalisiert Anastasia in Z1 und lokalisiert auch Emil in Z3 (da alle verbleibenden Felder in Z3 Teppich haben, kann niemand sonst sie besetzen).",
+      place: { A: { row: 0, col: 3 }, E: { row: 2, col: 8 } },
+    },
+    {
+      text: "Das lokalisiert Olive. Emil ist der Mörder!",
+      place: { O: { row: 3, col: 1 } },
     },
   ],
   solution: {

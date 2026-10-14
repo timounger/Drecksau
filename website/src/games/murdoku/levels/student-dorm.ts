@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/46. Studentenwohnheim.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Lösungen 1-80/Lösung 45-48.JPG`).
  * Olivier is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they, the beds and the rugs can be stood on.
@@ -319,13 +318,10 @@ export const STUDENT_DORM: Level = {
   ],
   hints: [
     {
-      text: "Die Reihen R1 bis R4 liegen ganz in den drei Schlafzimmern - dort standen also genau vier Personen. Mit drei verschiedenen Anzahlen und Adrian allein in einem Schlafzimmer geht das nur als 3, 1 und 0. Olivier war in keinem Schlafzimmer, denn er war mit genau einer Person allein. Ben lag auf einem Bett, und alle Betten stehen in Schlafzimmern - er war im Dreierzimmer, denn bei Adrian war niemand.",
+      text: "Jedes Schlafzimmer hat eine unterschiedliche Anzahl an Personen. Da Adrian allein in einem ist, haben die anderen Schlafzimmer null und drei Personen.",
     },
     {
-      text: "Das Dreierzimmer belegt alle drei Spalten. Schlafzimmer 1 kann es nicht sein: Dann stünde jemand in C1, und alle Fenster liegen vor C1 (R6 C1, R7 C1, R9 C1) - Gaja hätte niemanden vor einem Fenster. Schlafzimmer 2 auch nicht: In C4 kann dort nur Eowyn stehen (kein Stuhl, kein Bett, kein Teppich, kein Tisch daneben, und jedes Feld liegt an einer Wand), mit Hope südlich von ihr - und Hope findet dort nur auf den Betten in C5 ein Feld ohne Wand. Bens Betten in Schlafzimmer 2 liegen aber ebenfalls in C5.",
-    },
-    {
-      text: "Also war Schlafzimmer 3 das Dreierzimmer. In C7 gibt es dort keinen Stuhl, keinen Teppich und keinen Tisch, und jedes Feld liegt an einer Wand - nur Eowyn kann dort stehen, und mit ihr Hope auf dem einzigen Feld ohne Wand, R3 C8. Ben lag in C9, nicht in Hopes R3: R2 C9. Eowyn war nördlich von Hope in C7: R1 C7.",
+      text: "Ben, auf einem Bett, ist einer der Dreiergruppe. Er ist nicht auf dem Bett in S1 in Schlafzimmer 1 (da jemand laut Gajas Hinweis am Fenster in S1 ist), also ist er nicht mit Carmen oder Damian, und kann nur mit Eowyn und Hope sein. Sie müssen in Schlafzimmer 3 sein (Hope wäre in Schlafzimmer 2 gezwungen, neben einer Wand zu sein). Das lokalisiert Hope, Ben und Eowyn.",
       place: {
         H: { row: 2, col: 7 },
         B: { row: 1, col: 8 },
@@ -333,20 +329,31 @@ export const STUDENT_DORM: Level = {
       },
     },
     {
-      text: "Adrian war allein in einem anderen Schlafzimmer, in der letzten freien Reihe R4. Damit bleiben Damian nur die Flurteppiche. Vor einem Fenster in Gajas Flur konnte nur Damian (Teppich R7 C1) oder Olivier (R6 C1 oder R9 C1) stehen - Adrian war im Schlafzimmer, Gaja meint jemand anderen, Carmen saß auf einem Stuhl, und Fletcher stand neben einem Tisch. Olivier wäre im Flur aber nicht allein mit einer Person, denn dort waren Gaja und Damian. Also stand Damian in R7 C1.",
-      place: { D: { row: 6, col: 0 } },
+      text: "Damian und Gaja sind im Flur, also muss Olivier in der Toilette mit Carmen oder Fletcher sein.",
     },
     {
-      text: "Olivier war also nicht im Flur, und die Küche liegt in den belegten Spalten C7 bis C9 - er war in der Toilette, in R8 oder R9. R5 liegt ganz im Flur: R5 C1 ist Damians Spalte, R5 C4 und R5 C5 sind Teppiche, R5 C2 ein Tisch, R5 C6 eine Pflanze. Bleibt nur der Stuhl R5 C3 - für Carmen.",
-      place: { C: { row: 4, col: 2 } },
+      text: "Nur Damian kann am Fenster sein, was ihn in Z7 S1 lokalisiert. Das Eliminieren aller anderen Teppichfelder lässt ein verfügbares Feld in Z5: den Stuhl, auf dem Carmen sein muss.",
+      place: { D: { row: 6, col: 0 }, C: { row: 4, col: 2 } },
+      cross: [
+        { row: 3, col: 1 },
+        { row: 3, col: 2 },
+        { row: 3, col: 7 },
+        { row: 3, col: 8 },
+        { row: 4, col: 3 },
+        { row: 4, col: 4 },
+        { row: 4, col: 7 },
+        { row: 4, col: 8 },
+        { row: 7, col: 0 },
+      ],
     },
     {
-      text: "R6 liegt ebenfalls ganz im Flur, frei ist nur noch R6 C2: für Gaja oder für Fletcher (neben dem Tisch R5 C2). Stünde Fletcher dort, bliebe Gaja im Flur nur C2 - seine Spalte. Also war Gaja in R6, und Fletcher stand neben dem Tisch in der Toilette: R8 C5. Olivier blieb in R9 nur R9 C4 - die Stühle sind Carmens.",
-      place: { F: { row: 7, col: 4 }, O: { row: 8, col: 3 } },
-    },
-    {
-      text: "Adrian in R4: C1, C4 und C5 sind belegt, R4 C2 und R4 C3 Teppiche - er war in R4 C6, Gaja in R6 C2. In der Toilette war Olivier allein mit Fletcher - Fletcher ist der Mörder!",
-      place: { A: { row: 3, col: 5 }, G: { row: 5, col: 1 } },
+      text: "Fletcher muss neben dem Tisch in der Toilette mit Olivier in Z9 S4 sein. Das lokalisiert Adrian in Schlafzimmer 2, dann Gaja. Fletcher ist der Mörder!",
+      place: {
+        F: { row: 7, col: 4 },
+        O: { row: 8, col: 3 },
+        A: { row: 3, col: 5 },
+        G: { row: 5, col: 1 },
+      },
     },
   ],
   solution: {

@@ -6,8 +6,8 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Doppelhaushälfte/Doppelhaushälfte.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 21-24.JPG`).
  * Oswald is the victim; whoever was alone with him killed him.
  *
  * Chairs and beds can be stood on; tables, the wardrobe-like table in Abel's
@@ -225,28 +225,35 @@ export const SEMI_DETACHED_HOUSE: Level = {
   ],
   hints: [
     {
-      text: "Felix war die einzige Person auf einem Bett: R1 C5/C6 in Beths Schlafzimmer oder R6 C8/R7 C8 in Abels Schlafzimmer. Dort war Ellie allein, also lag Felix in R1. Denise saß auf einem Stuhl in Beths Räumen: R1 C1, R1 C2 oder R4 C6 - R1 ist besetzt, also R4 C6. Damit ist C6 gesperrt, und Felix lag in R1 C5.",
-      place: { D: { row: 3, col: 5 }, F: { row: 0, col: 4 } },
-    },
-    {
-      text: "Gustavo war in R8. Ellie war allein in Abels Schlafzimmer und nicht auf einem Bett: R5 C8, R8 C7 oder R8 C8 - R8 gehört Gustavo, also R5 C8. Abel saß auf einem Stuhl in seinen Räumen: R8 und C5 sind gesperrt, es bleiben R6 C3 und R7 C4.",
+      text: "Weil Gustavo in Zeile 8 ist, muss Ellie in Spalte 8 sein. Laut Felix' Hinweis kann sie nicht auf einem Bett sein, das lokalisiert sie in Zeile 5.",
       place: { E: { row: 4, col: 7 } },
     },
     {
-      text: "R2 und R3 liegen ganz in Beths Räumen - dort können nur Beth, Carrie und Oswald stehen. In C7 sind nur R3 C7 und R8 C7 frei; in R8 C7 wäre Gustavo bei Ellie. Also steht in R3 C7 Beth oder Oswald. Wäre es Oswald, stünde Beth in R2 C3 in ihrem Esszimmer, Carrie allein in Abels Esszimmer in R6 C1 (Abel in R7 C4) - und Gustavo müsste in R8 C2 zu ihr. Also war Beth in R3 C7.",
-      place: { B: { row: 2, col: 6 } },
+      text: "Felix muss daher auf dem Bett in Zeile 1 sein. Die anderen Felder in Zeile 1 können ausgeschlossen werden.",
+      cross: [
+        { row: 0, col: 0 },
+        { row: 0, col: 1 },
+        { row: 0, col: 2 },
+        { row: 0, col: 3 },
+        { row: 0, col: 6 },
+      ],
     },
     {
-      text: "In R2 ist nur noch R2 C3 frei, für Carrie oder Oswald. Oswald wäre dort allein in Beths Esszimmer - ohne Mörder. Also war Carrie in R2 C3, allein in Beths Esszimmer.",
-      place: { C: { row: 1, col: 2 } },
+      text: "Das lokalisiert Denise auf dem verbleibenden Stuhl in Beths Wohnzimmer, was Felix in der fünften Spalte lokalisiert.",
+      place: { D: { row: 3, col: 5 }, F: { row: 0, col: 4 } },
     },
     {
-      text: "C3 ist gesperrt, also saß Abel in R7 C4. Oswald blieb R6 C1 und Gustavo R8 C2 - Oswald war allein mit Gustavo in Abels Esszimmer. Gustavo ist der Mörder!",
+      text: "Abel kann sich nicht im Esszimmer befinden, da Beth und Carrie dann nicht mehr lokalisiert werden können. Da Gustavo damit in Abels Esszimmer sein muss, muss Carrie in Beths Esszimmer alleine sein. Das lokalisiert Beth im einzig verbleibenden Feld in Beths Wohnzimmer: Zeile 3, Spalte 7. Das lokalisiert Carrie.",
       place: {
         A: { row: 6, col: 3 },
-        O: { row: 5, col: 0 },
         G: { row: 7, col: 1 },
+        B: { row: 2, col: 6 },
+        C: { row: 1, col: 2 },
       },
+    },
+    {
+      text: "Das lokalisiert Oswald, der allein mit Gustavo war. Gustavo ist der Mörder!",
+      place: { O: { row: 5, col: 0 } },
     },
   ],
   solution: {

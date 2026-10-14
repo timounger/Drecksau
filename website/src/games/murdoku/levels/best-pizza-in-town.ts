@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/32. Beste Pizza der Stadt.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution on `Lösungen 1-80/Lösung 29-32.JPG`).
  * Ottavio is the victim; whoever was alone with him killed him.
  *
  * Every car covers two fields and faces east: its west field is the back.
@@ -252,56 +251,32 @@ export const BEST_PIZZA_IN_TOWN: Level = {
   ],
   hints: [
     {
-      text: "Chiara war hinten in einem Auto: R4 C2, R4 C6 oder R5 C1. Bobby stand auf der Straße vor einem Fenster: R4 C4, R5 C7 oder R5 C8. Wäre Chiara in R4, stünde Giuseppe genau eine Zeile südlich in R5 - dann blieben Bobby weder R4 noch R5. Also war Chiara in R5 C1, Giuseppe in R6 und Bobby in R4 C4. Blockiere den Rest von R4, R5, C1 und C4.",
-      place: { C: { row: 4, col: 0 }, B: { row: 3, col: 3 } },
-      cross: [
-        { row: 4, col: 1 },
-        { row: 4, col: 2 },
-        { row: 4, col: 3 },
-        { row: 4, col: 4 },
-        { row: 4, col: 5 },
-        { row: 4, col: 6 },
-        { row: 4, col: 7 },
-        { row: 0, col: 0 },
-        { row: 1, col: 0 },
-        { row: 2, col: 0 },
-        { row: 3, col: 0 },
-        { row: 5, col: 0 },
-        { row: 6, col: 0 },
-        { row: 7, col: 0 },
-        { row: 3, col: 1 },
-        { row: 3, col: 2 },
-        { row: 3, col: 4 },
-        { row: 3, col: 5 },
-        { row: 3, col: 6 },
-        { row: 3, col: 7 },
-        { row: 0, col: 3 },
-        { row: 1, col: 3 },
-        { row: 2, col: 3 },
-        { row: 5, col: 3 },
-        { row: 6, col: 3 },
-        { row: 7, col: 3 },
-      ],
+      text: "Bobby und Chiara sind auf der Straße.",
     },
     {
-      text: "Aubrey hatte einen Fernseher in ihrer Zeile und in ihrem Raum: R1 in Ottavios Pizzeria oder R8 in Giuseppes Pizzeria. C1 und C4 sind blockiert, auf dem Stuhl R1 C6 saß nur Fitz - Aubrey war in R1 C3. Blockiere den Rest von R1 und C3.",
+      text: "Giuseppe muss in Z6 sein und Chiara in Z5.",
+    },
+    {
+      text: "Das lokalisiert Chiara in S1, dann Bobby in S4.",
+      place: { C: { row: 4, col: 0 }, B: { row: 3, col: 3 } },
+    },
+    {
+      text: "Das lokalisiert Aubrey (die laut Fitz' Hinweis nicht auf einem Stuhl war).",
       place: { A: { row: 0, col: 2 } },
     },
     {
-      text: "Elton war in Giuseppes Küche: R7 C7 oder R8 C6. Fitz saß in R3 C8 oder R7 C2 - die anderen Stühle sind blockiert. Wäre Elton in R7 C7, bliebe für R8 nur R8 C6, und Fitz müsste in R3 C8 sitzen - dann fände Dominic in C8 keinen Platz mehr. Also war Elton in R8 C6.",
-      place: { E: { row: 7, col: 5 } },
+      text: "Da Dominic in S8 war, gibt es nur einen verfügbaren Stuhl für Fitz, in Z7 S2. Wir können den anderen Stuhl ausschließen.",
+      place: { F: { row: 6, col: 1 } },
+      cross: [{ row: 2, col: 7 }],
     },
     {
-      text: "Säße Fitz in R3 C8, wäre C8 für Dominic verloren - Fitz saß in R7 C2. Dominic war in R2 C8 oder R6 C8, aber R6 gehört Giuseppe, also war Dominic in R2 C8 und Giuseppe in R6 C7.",
+      text: "Das lokalisiert Dominic und Elton, dann Giuseppe, dann das Opfer. Aubrey ist die Mörderin!",
       place: {
-        F: { row: 6, col: 1 },
         D: { row: 1, col: 7 },
+        E: { row: 7, col: 5 },
         G: { row: 5, col: 6 },
+        O: { row: 2, col: 4 },
       },
-    },
-    {
-      text: "Für Ottavio bleibt nur R3 C5 in Ottavios Pizzeria. Dort war er allein mit Aubrey - Aubrey ist die Mörderin!",
-      place: { O: { row: 2, col: 4 } },
     },
   ],
   solution: {

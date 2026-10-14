@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Der Friseursalon/Der Friseursalon.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution on `Das Murdoku-Orginal/Lösungen 1-80/Lösung 25-28.JPG`).
  * Olympia is the victim; whoever was alone with her killed her.
  *
  * Chairs and rugs can be stood on (the L-shaped one in the salon too); tables,
@@ -229,30 +228,33 @@ export const THE_HAIR_SALON: Level = {
   ],
   hints: [
     {
-      text: "Glinda war auf einem Teppich, und alle in ihrem Raum trugen eine Brille. Elisa trägt keine, also ist Glinda nicht im Wartebereich, sondern im Salon - und im Salon waren nur Brillenträgerinnen: Alice, Betty und Glinda. Charlina, Dorothy, Elisa, Francesca und Olympia waren nicht im Salon.",
+      text: "Elisa trägt keine Brille, also kann Glinda nicht mit Elisa im Wartebereich sein.",
     },
     {
-      text: "Elisa war im Wartebereich mit jemandem auf einem Stuhl: R8 C3 oder R8 C6. So oder so ist R8 besetzt. C4 und C5 haben außerhalb des Salons nur R8 C4 und R8 C5 - dort stehen also zwei Brillenträgerinnen im Salon. Elisa bleibt im Wartebereich nur C6 (R6 C6 oder R7 C6), also sitzt niemand in R8 C6: Auf R8 C3 sitzt jemand aus C3 - Francesca.",
+      text: "Damit muss Glinda in den Salon, also muss Francesca (die auch keine Brille trägt) im Wartebereich sein.",
+    },
+    {
+      text: "Wer auch immer auf dem Stuhl im Raum mit Elisa sitzt, ist in Zeile 8. Wenn jemand auf dem Stuhl in Spalte 6 ist, gibt es kein Feld mehr für Elisa, also ist der andere Stuhl in Spalte 3 besetzt, von Francesca.",
       place: { F: { row: 7, col: 2 } },
     },
     {
-      text: "Charlina saß auf einem Stuhl außerhalb des Salons: R3 C8 oder R6 C8 (R8 ist besetzt, C6 gehört Elisa). Genau eine Spalte östlich von Alice war jemand neben einer Pflanze: in R6 C6, R7 C8 oder R8 C7. R8 ist besetzt, und in C8 kann neben Charlina niemand stehen. Also stand Elisa in R6 C6 und Alice in C5 im Salon. Damit ist R6 voll, und Charlina saß in R3 C8.",
-      place: { E: { row: 5, col: 5 }, C: { row: 2, col: 7 } },
+      text: "Charlina, ohne Brille, kann nicht mit Glinda im Salon sein, also ist sie auf einem der Stühle in Spalte 8.",
     },
     {
-      text: "Genau eine Zeile südlich von Betty war jemand neben einem Regal: in R2 C2, R3 C1 oder R6 C3. R3 und C3 sind besetzt, also stand jemand in R2 C2 und Betty in R1. Dort sind R1 C2 (Spalte C2) und alle Tische gesperrt - Betty war in R1 C4.",
-      place: { B: { row: 0, col: 3 } },
+      text: "Die Person neben der Pflanze muss Elisa sein. Das lokalisiert Elisa, dann Charlina. Das lokalisiert Glinda und Betty.",
+      place: {
+        E: { row: 5, col: 5 },
+        C: { row: 2, col: 7 },
+        G: { row: 6, col: 0 },
+        B: { row: 0, col: 3 },
+      },
     },
     {
-      text: "Glinda war auf einem Teppich im Salon. C3, C4 und R6 sind besetzt, es bleibt R7 C1.",
-      place: { G: { row: 6, col: 0 } },
-    },
-    {
-      text: "Frei sind noch R2, R4 und R5 in C2, C5 und C7. In C7 bleibt nur R4 C7, und Alice in C5 bekommt R5 C5. Dorothy und Olympia teilen sich R2 C2 und R4 C7. In R2 C2 wäre Olympia allein im Lager - also war Dorothy dort, neben dem Tisch, und Olympia in R4 C7 im Hinterzimmer, allein mit Charlina. Charlina ist die Mörderin!",
+      text: "Das lokalisiert Alice, dann Olympia. Charlina ist die Mörderin!",
       place: {
         A: { row: 4, col: 4 },
-        D: { row: 1, col: 1 },
         O: { row: 3, col: 6 },
+        D: { row: 1, col: 1 },
       },
     },
   ],

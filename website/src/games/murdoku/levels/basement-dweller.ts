@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/44. Kellerbewohner.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Lösungen 1-80/Lösung 41-44.JPG`).
  * Oksana is the victim; whoever was alone with her killed her.
  *
  * The armchairs, the bed and the rugs can be stood on; the tables, the TVs
@@ -260,43 +259,59 @@ export const BASEMENT_DWELLER: Level = {
   ],
   hints: [
     {
-      text: "Neun Personen in sechs Räumen, keiner ist leer. Georges Raum hat mindestens drei Personen (er und zwei Männer), Oksanas Raum genau zwei: 3 + 2 + 4 = 9. Also waren in Georges Raum genau drei, in Oksanas genau zwei und in jedem anderen Raum genau eine Person.",
-    },
-    {
-      text: "Wäre Holger auf dem Teppich in der Küche, wären dort er und Damara zu zweit - ohne Oksana und ohne George. Also lag Holgers Teppich im Esszimmer, in R1. Damit saß Arne nicht in R1 C1, sondern auf einem Stuhl im Keller in R8, und Ethan war nicht am Fenster in R1.",
+      text: "Jemand ist auf dem Bett in Z2. Schließe den Rest der Zeile aus.",
       cross: [
-        { row: 0, col: 0 },
-        { row: 4, col: 5 },
-        { row: 5, col: 5 },
-        { row: 6, col: 5 },
+        { row: 1, col: 1 },
+        { row: 1, col: 2 },
+        { row: 1, col: 4 },
+        { row: 1, col: 5 },
       ],
     },
     {
-      text: "Auf dem Bett in R2 konnten nur Cosima, George oder Oksana sein. Wo war George mit zwei Männern? Im Wohnzimmer und in der Küche kann außer ihm höchstens ein Mann sein, im Badezimmer hat nur eine Person Platz (R4). Im Schlafzimmer kommen nur Brandon und Ethan in Frage, beide nur in C9. Im Esszimmer wären es Holger (R1) und Ethan (R3 C1) - dann bliebe George nur R2, die Reihe des Betts. George war also im Keller, mit Arne und genau einem von Brandon und Fabian.",
+      text: "Kein Raum ist leer, also ist jemand im Badezimmer; schließe den Rest von Z4 aus.",
+      cross: [
+        { row: 3, col: 2 },
+        { row: 3, col: 3 },
+        { row: 3, col: 4 },
+        { row: 3, col: 5 },
+        { row: 3, col: 6 },
+        { row: 3, col: 7 },
+        { row: 3, col: 8 },
+      ],
     },
     {
-      text: "Im Badezimmer war genau eine Person in R4: Cosima oder Ethan. Wäre es Cosima, müsste Oksana auf dem Bett liegen, mit Brandon oder Ethan im Schlafzimmer. Das Wohnzimmer bekäme nur noch Fabian, also wäre Brandon im Keller - und Ethan im Schlafzimmer in C9, derselben Spalte wie Brandon. Also war Ethan im Badezimmer, am Fenster in R4 C1.",
-      place: { E: { row: 3, col: 0 } },
+      text: "Damara ist in der Küche, aber laut Holgers Hinweis nicht auf dem Teppich, was sie in S7 setzt.",
     },
     {
-      text: "Damara war in der Küche, nicht auf einem Teppich (der gehört Holger) und nicht in R4: R6 C7 oder R7 C7. Arne saß damit weder in C1 noch in C7 - auf dem Stuhl in R8 C4. Fabian war neben einem Fernseher: R6 C4, R8 C8 und R9 C7 sind blockiert, es bleiben R5 C3 und R7 C3 im Wohnzimmer.",
-      place: { A: { row: 7, col: 3 } },
+      text: "Die Person auf dem Bett muss dann in S8 sein. Schließe den Rest der Spalte aus.",
+      cross: [
+        { row: 0, col: 7 },
+        { row: 2, col: 7 },
+        { row: 5, col: 7 },
+        { row: 6, col: 7 },
+        { row: 7, col: 7 },
+      ],
     },
     {
-      text: "Fabian war nicht im Keller, also war Brandon der zweite Mann bei George: in C9 im Keller, ohne R8 nur R6 C9. Damara bleibt R7 C7, Fabian R5 C3.",
+      text: "Ethan muss am Fenster in Z1 oder S1 sein (nicht S9, die von Brandon besetzt ist). So oder so ist der Stuhl in Z1 S1 leer, also muss Arne in Z8 sein.",
+      cross: [{ row: 0, col: 0 }],
+    },
+    {
+      text: "Ethan kann nicht in Z1 S6 sein, da er jedes Teppichfeld blockieren würde, auf dem Holger sein könnte. Es ist also unmöglich, dass drei Männer im Schlafzimmer sind, also kann der Raum mit George und zwei anderen Männern nur der Keller sein. Arne in Z8 ist einer der anderen Männer, und nur Brandon kann der andere sein, in Z6 S9. (Es kann nicht Fabian sein, da jedes Feld neben dem Keller-Fernseher blockiert ist.)",
+      place: { B: { row: 5, col: 8 } },
+    },
+    {
+      text: "Das lokalisiert Damara, dann Fabian, dann Holger. Das setzt Ethan in S1, was Arne lokalisiert, dann George. Cosima, neben einer Pflanze, ist nicht in S1, also muss sie auf dem Bett sein. Das lokalisiert Ethan und Oksana. Cosima ist die Mörderin!",
       place: {
-        B: { row: 5, col: 8 },
         D: { row: 6, col: 6 },
         F: { row: 4, col: 2 },
+        H: { row: 0, col: 1 },
+        E: { row: 3, col: 0 },
+        A: { row: 7, col: 3 },
+        G: { row: 8, col: 4 },
+        C: { row: 1, col: 7 },
+        O: { row: 2, col: 5 },
       },
-    },
-    {
-      text: "Holger lag auf dem Teppich in R1, C3 ist belegt: R1 C2. George war im Keller, R6 bis R8 sind belegt: in R9, und ohne C2 bleibt nur R9 C5.",
-      place: { H: { row: 0, col: 1 }, G: { row: 8, col: 4 } },
-    },
-    {
-      text: "Übrig sind R2 und R3 in C6 und C8. Auf dem Bett lag jemand, C7 ist belegt: R2 C8. Läge Oksana dort, wäre Cosima in R3 C6 - neben keiner Pflanze. Also lag Cosima auf dem Bett in R2 C8, Oksana war in R3 C6. Im Schlafzimmer war Oksana allein mit Cosima - Cosima ist die Mörderin!",
-      place: { C: { row: 1, col: 7 }, O: { row: 2, col: 5 } },
     },
   ],
   solution: {

@@ -7,8 +7,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/41. Der Schwarze Lotus.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Lösungen 1-80/Lösung 41-44.JPG`).
  * Osman is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they, the beds and the light framed rugs
@@ -294,11 +293,9 @@ export const THE_BLACK_LOTUS: Level = {
     },
   ],
   hints: [
+    { text: "Jemand muss im einzigen verfügbaren Feld in Z1 sein." },
     {
-      text: "Neun Personen auf neun Reihen und neun Spalten: In jeder Reihe und jeder Spalte stand genau eine Person. In R1 ist nur R1 C8 frei - dort stand jemand. In R9 ist nur die Küche frei (R9 C2 oder R9 C3), in C9 nur die beiden Teppiche im Badezimmer (R6 C9 oder R8 C9).",
-    },
-    {
-      text: "In R4 stehen nur Pflanzen und Stühle - frei ist sonst nur R4 C4. Benedikts übrige Stühle (R2 C4, R5 C4, R7 C4) liegen alle in C4. Säße er nicht in R4, bliebe für die Person in R4 nur R4 C4 - in seiner Spalte. Benedikt saß also in R4, auf R4 C2, R4 C3, R4 C6 oder R4 C7.",
+      text: "Alle Stühle schneiden sich bei Z4 S4, und jedes verbleibende Feld in Z4 außer Z4 S4 enthält einen Stuhl. Da Benedikt die einzige Person auf einem Stuhl ist, muss er in Z4 sein.",
       cross: [
         { row: 3, col: 3 },
         { row: 1, col: 3 },
@@ -307,34 +304,24 @@ export const THE_BLACK_LOTUS: Level = {
       ],
     },
     {
-      text: "Grey: In der Ecke seines Raumes war jemand mit Brille - Amir, Benedikt oder Danielle. Amir war allein, und kein Stuhl in R4 liegt in einer Ecke. Also stand Danielle in einer Ecke neben einem Bett, in Greys Raum: R2 C5 oder R2 C8 im Gästezimmer oder R6 C6 im Schlafzimmer.",
+      text: "Keine Stühle in Z4 sind in Ecken, und Amir ist allein, also kann Grey nur mit Danielle zusammen sein. Sie können nur im Gästezimmer sein, mit Grey und Danielle lokalisiert in Z1 und Z2.",
+      place: { G: { row: 0, col: 7 }, D: { row: 1, col: 4 } },
     },
     {
-      text: "Wäre Danielle in R6 C6, wäre Grey im Schlafzimmer (R6 bis R8). Elma braucht eine weitere Frau neben einem Tisch: Im Schlafzimmer könnte das nur Carla sein - dafür ist dort mit Danielle und Grey kein Platz. Carla und Elma wären also im Gästezimmer, in R1 und R2. Die Person in C9 müsste in R8 stehen, Grey in R7 C5. Die Reihen R6 bis R8 wären voll, Hedda bliebe nur R9 C2, und Amir wäre allein im Badezimmer. Die Person in R2 nähme C7, und Benedikt, Felipe und Osman blieben C1, C3 und C4 in R3 bis R5 - alle im Esszimmer, Osman mit zwei anderen. Das geht nicht.",
-      cross: [{ row: 5, col: 5 }],
-    },
-    {
-      text: "Danielle war also im Gästezimmer, mit Grey. Stünde sie in R2 C8, bliebe Grey nur R1 C8 - in derselben Spalte. Danielle stand in R2 C5, Grey in R1 C8.",
-      place: { D: { row: 1, col: 4 }, G: { row: 0, col: 7 } },
-    },
-    {
-      text: "Das Gästezimmer ist voll. Carla war also im Schlafzimmer, und Elma - die eine weitere Frau neben einem Tisch braucht - auch, mit Carla neben dem Tisch in R9: R8 C4 oder R8 C5. C5 ist blockiert, also stand Carla in R8 C4.",
+      text: "Das lokalisiert Carla im Schlafzimmer. Elma ist nicht bei Hedda (die nicht neben einem Tisch ist), also muss Elma im Schlafzimmer mit Carla sein. Das lokalisiert Carla in Z8 S4.",
       place: { C: { row: 7, col: 3 } },
     },
     {
-      text: "Die Person in C9 stand jetzt in R6 C9 (R8 gehört Carla). Elma bleibt im Schlafzimmer nur das Bett in R7 C6. Die Reihen R6 bis R8 sind voll, im Badezimmer war also nur die Person in R6 C9 - nicht Osman, der war mit jemandem zusammen. Felipe stand nicht auf einem Teppich, Hedda nicht neben der Pflanze, Benedikt saß in R4: Es war Amir.",
-      place: { E: { row: 6, col: 5 }, A: { row: 5, col: 8 } },
+      text: "Jemand muss in Z6 S9 sein. Das lokalisiert Amir, dann Benedikt im letzten Feld in S7.",
+      place: { A: { row: 5, col: 8 }, B: { row: 3, col: 6 } },
     },
     {
-      text: "Frei sind noch R3, R5 und R9. Hedda kann nur in der Küche oder im Badezimmer sein - es bleibt R9. R9 C3 liegt neben einem Tisch, also stand Hedda in R9 C2.",
-      place: { H: { row: 8, col: 1 } },
-    },
-    {
-      text: "Frei sind noch C1, C3 und C7. Säße Benedikt in R4 C3, blieben Felipe und Osman C1 und C7 - in C7 sind R3 und R5 Pflanze und Fernseher. Benedikt saß in R4 C7. In C3 ist nur noch R5 C3 frei, ein Teppich, auf dem Felipe nicht stand: Osman war in R5 C3, Felipe in R3 C1. Im Esszimmer war Osman allein mit Felipe - Felipe ist der Mörder!",
+      text: "Das lokalisiert Hedda in Z9 S2. Das lokalisiert Felipe und Osman. Felipe ist der Mörder!",
       place: {
-        B: { row: 3, col: 6 },
-        O: { row: 4, col: 2 },
+        H: { row: 8, col: 1 },
         F: { row: 2, col: 0 },
+        O: { row: 4, col: 2 },
+        E: { row: 6, col: 5 },
       },
     },
   ],

@@ -5,9 +5,9 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Vier Fenster/Vier Fenster.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Leicht/Vier Fenster/Vier Fenster.png`,
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 01-04.JPG`).
  * Olivia is the victim; whoever was alone with her killed her.
  *
  * The four windows sit in the side walls at the ends of the top and the bottom
@@ -143,7 +143,7 @@ export const FOUR_WINDOWS: Level = {
   rules: [],
   hints: [
     {
-      text: "Dahlia war nicht neben einer Wand. In jedem Zimmer liegt nur das mittlere Feld an keiner Wand: R2 C2 (Fernseher), R2 C5 (Bett), R5 C2 (Tisch) und R5 C5 (Pflanze). Nur auf das Bett kann man sich stellen - Dahlia war in R2 C5. Blockiere den Rest von R2 und C5.",
+      text: "Es gibt nur vier Felder, die nicht neben einer Wand sind, und drei davon können nicht besetzt sein. Daher muss Dahlia im verbleibenden sein: Zeile 2, Spalte 5.",
       place: { D: { row: 1, col: 4 } },
       cross: [
         { row: 1, col: 0 },
@@ -155,7 +155,7 @@ export const FOUR_WINDOWS: Level = {
       ],
     },
     {
-      text: "Ben saß auf einem Stuhl. Die Sessel in R2 C1 und R2 C6 liegen in der gesperrten R2, also saß Ben im Sessel in R5 C6. Blockiere den Rest von R5 und C6.",
+      text: "Das lokalisiert Ben auf dem letzten verbleibenden Stuhl.",
       place: { B: { row: 4, col: 5 } },
       cross: [
         { row: 4, col: 2 },
@@ -167,7 +167,7 @@ export const FOUR_WINDOWS: Level = {
       ],
     },
     {
-      text: "Emmy war neben einer Pflanze. Neben den Pflanzen in R4 C5 und R5 C5 sind nur noch R4 C4 und R4 C6 frei, und C6 ist gesperrt: Emmy war in R4 C4. Blockiere den Rest von R4 und C4.",
+      text: "Das lokalisiert Emmy im letzten Feld neben einer Pflanze.",
       place: { E: { row: 3, col: 3 } },
       cross: [
         { row: 3, col: 0 },
@@ -179,21 +179,18 @@ export const FOUR_WINDOWS: Level = {
       ],
     },
     {
-      text: "Cathrin war vor einem Fenster. Die Fenster rechts liegen in der gesperrten C6, also bleiben R1 C1 und R6 C1. Frei sind nur noch die Reihen 1, 3 und 6 in C1 bis C3. Stünde Cathrin in R1 C1, blieben für Antonio und Olivia nur R3 und R6 in C2 und C3 - dort stehen in C3 Tische, und beide passen nicht in C2. Also steht Cathrin in R6 C1.",
-      place: { C: { row: 5, col: 0 } },
-      cross: [
-        { row: 0, col: 0 },
-        { row: 2, col: 0 },
-        { row: 5, col: 1 },
-      ],
+      text: "Das platziert auch Cathrin in Spalte 1, vor einem der beiden Fenster.",
     },
     {
-      text: "Antonio war in einer Ecke. In R1 bleiben R1 C2 und R1 C3, und nur R1 C3 ist eine Ecke des Wohnzimmers - dort stand Antonio.",
+      text: "Das lokalisiert Antonio in der letzten verfügbaren Ecke.",
       place: { A: { row: 0, col: 2 } },
     },
     {
-      text: "Für Olivia bleibt das letzte Feld, R3 C2 im Wohnzimmer - allein mit Antonio. Antonio ist der Mörder!",
-      place: { O: { row: 2, col: 1 } },
+      text: "Das lokalisiert Cathrin in Zeile 6, was Olivia im Wohnzimmer lokalisiert.",
+      place: { C: { row: 5, col: 0 }, O: { row: 2, col: 1 } },
+    },
+    {
+      text: "Olivia war allein mit Antonio im Wohnzimmer. Antonio ist der Mörder!",
     },
   ],
   solution: {

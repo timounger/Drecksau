@@ -5,9 +5,9 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Elektroladen/Elektroladen.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Leicht/Elektroladen/Elektroladen.png`,
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 21-24.JPG`).
  * Odo is the victim; whoever was alone with him killed him.
  *
  * The only chair stands in the repair room and can be stood on; the TVs, the
@@ -220,74 +220,46 @@ export const THE_ELECTRONICS_STORE: Level = {
   rules: [],
   hints: [
     {
-      text: "Daniel war neben einem Tisch. Neben dem Tisch an der Kassentheke liegt kein freies Feld der Kassentheke; am langen Tisch in der Mediathek bleiben R6 C4, R8 C4 und R8 C5. Da Daniel nördlich von Bobby war, kann er nicht in R8 sein: Daniel war in R6 C4. Blockiere den Rest von R6 und C4.",
-      place: { D: { row: 5, col: 3 } },
-      cross: [
-        { row: 5, col: 0 },
-        { row: 5, col: 1 },
-        { row: 5, col: 2 },
-        { row: 5, col: 5 },
-        { row: 5, col: 6 },
-        { row: 5, col: 7 },
-        { row: 0, col: 3 },
-        { row: 1, col: 3 },
-        { row: 2, col: 3 },
-        { row: 3, col: 3 },
-        { row: 7, col: 3 },
-      ],
-    },
-    {
-      text: "Der einzige Stuhl steht im Reparaturraum, in R2 C7. Franco war also im Reparaturraum, und jemand anders saß auf dem Stuhl. Blockiere den Rest von R2 und C7 für diese Person.",
+      text: "Franco war im Reparaturraum mit dem Stuhl. Jemand sitzt auf dem Stuhl, also schließe den Rest von Zeile 2 und Spalte 7 aus.",
       cross: [
         { row: 1, col: 1 },
         { row: 1, col: 2 },
+        { row: 1, col: 3 },
         { row: 1, col: 4 },
         { row: 0, col: 6 },
         { row: 2, col: 6 },
         { row: 3, col: 6 },
         { row: 4, col: 6 },
+        { row: 5, col: 6 },
         { row: 6, col: 6 },
         { row: 7, col: 6 },
       ],
     },
     {
-      text: "Gideon war neben einer Kiste: R1 C4, R2 C3, R3 C2 oder R4 C7 - R2 und C7 sind gesperrt, also war er im Lager. Wäre Caroline in R3 C8, stünden Franco, die Person auf dem Stuhl und Caroline in R1 bis R3, und für Gideon bliebe kein Platz. Caroline war in R8 C8. Blockiere den Rest von R8 und C8.",
+      text: "Weil Daniel nördlich von Bobby ist, lokalisiert das Daniel in Zeile 6, Spalte 4. Das setzt Bobby in Zeile 7 oder 8.",
+      place: { D: { row: 5, col: 3 } },
+    },
+    {
+      text: "Das lokalisiert Gideon im letzten Feld neben einer Kiste.",
+      place: { G: { row: 2, col: 1 } },
+    },
+    {
+      text: "Das lokalisiert Caroline in Zeile 8 und setzt Franco in Zeile 1 des Reparaturraums.",
       place: { C: { row: 7, col: 7 } },
-      cross: [
-        { row: 7, col: 0 },
-        { row: 7, col: 1 },
-        { row: 7, col: 2 },
-        { row: 7, col: 4 },
-        { row: 7, col: 5 },
-        { row: 2, col: 7 },
-      ],
     },
     {
-      text: "Bobby war südlich von Daniel, also in R7, neben einem Fernseher: R7 C1 oder R7 C3 (R7 C7 ist gesperrt). R1 bis R3 gehören Franco, der Person auf dem Stuhl und Gideon, R6 bis R8 Daniel, Bobby und Caroline. Adam war also in R4 oder R5 - nicht neben einem Fernseher, Regal oder einer Kasse geht das nur in R4 C6. Blockiere den Rest von R4 und C6.",
-      place: { A: { row: 3, col: 5 } },
-      cross: [
-        { row: 3, col: 0 },
-        { row: 3, col: 4 },
-        { row: 0, col: 5 },
-        { row: 2, col: 5 },
-        { row: 4, col: 5 },
-      ],
+      text: "Das lokalisiert Adam im letzten verfügbaren Feld, das nicht neben einem Fernseher, Regal oder einer Kasse ist: Zeile 4, Spalte 6.",
+      place: { A: { row: 3, col: 5 }, F: { row: 0, col: 4 } },
     },
     {
-      text: "In R5 ist nur noch R5 C1 frei. Dort war Odo oder die Person auf dem Stuhl - Emir kann nicht in C1 sein, denn in C1 steht eine Kiste. Odo war in R5 C1, Emir saß auf dem Stuhl in R2 C7. Blockiere den Rest von R5 und C1.",
-      place: { O: { row: 4, col: 0 }, E: { row: 1, col: 6 } },
-      cross: [{ row: 6, col: 0 }],
+      text: "Spalte 1 und 3 enthalten Kisten, also muss Emir auf dem Stuhl in Spalte 7 sein.",
+      place: { E: { row: 1, col: 6 } },
     },
     {
-      text: "Bobby war damit in R7 C3, Gideon in R3 C2 (C4 ist gesperrt) und Franco in R1 C5. Bei den Computern war Odo allein mit Bobby - Bobby ist der Mörder!",
-      place: {
-        B: { row: 6, col: 2 },
-        G: { row: 2, col: 1 },
-        F: { row: 0, col: 4 },
-      },
+      text: "Bobby muss mit Odo bei den Computern sein, mit Odo in Spalte 1 und Bobby in Spalte 3. Bobby ist der Mörder!",
+      place: { O: { row: 4, col: 0 }, B: { row: 6, col: 2 } },
     },
   ],
-
   solution: {
     A: { row: 3, col: 5 },
     B: { row: 6, col: 2 },

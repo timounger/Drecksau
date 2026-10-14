@@ -5,8 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Das Murdoku-Orginal/35. Valentinstag.png`, no
- * solution sheet), with the culprit pencilled in on the photographed page.
+ * (`game_instructions/Murdoku/Das Murdoku-Orginal/35. Valentinstag.png`,
+ * solution sheet `Lösungen 1-80/Lösung 33-36.JPG`).
  * Osmond is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they and the beds can be stood on. Tables
@@ -304,28 +304,44 @@ export const VALENTINES_DAY: Level = {
   prune: stillPossible,
   hints: [
     {
-      text: "Harald war mit Bastian im Wohnzimmer, und eine Frau stand eine Spalte westlich und zwei Reihen nördlich von ihm. Stünde er in R3, läge dort in R1 eine Pflanze, ein Tisch oder der Fernseher (R3 C5 ist selbst eine Pflanze, R3 C9 ein Regal) - Harald war in R4 bis R6, in C8 oder C9. Die Frau stand also in R2 bis R4, in C7 oder C8. R4 gehört Dave, R2 und R3 liegen im Wohnzimmer, und dort war nur eine Frau. Carly war allein mit einem Mann, Gabriella ganz allein - beide nicht dort. Felicity war neben einer Pflanze - keines dieser Felder. Es bleibt Aaliyah, die neben einem Regal stand: nur R3 C8. Harald stand in R5 C9.",
-      place: { A: { row: 2, col: 7 }, H: { row: 4, col: 8 } },
+      text: "Harald ist im Wohnzimmer (laut Bastians Hinweis) und mit einer Frau genau zwei Zeilen über ihm und eine Spalte links von ihm. Das kann nur Aaliyah sein.",
     },
     {
-      text: "Im Wohnzimmer waren nur Bastian, Harald und Aaliyah. Wer stand in R1? R1 C1 liegt neben einem Regal - dort hätte nur Aaliyah sein dürfen. R1 C2 ist ein Regal, R1 C3 eine Pflanze, R1 C5 und R1 C6 sind Tische, R1 C7 ist der Fernseher, C8 und C9 sind besetzt. Bleibt der Stuhl in R1 C4 im Wohnzimmer: Dort saß Bastian.",
+      text: "Aaliyah könnte in Z3 S8 oder Z4 S7 sein, aber da Dave in Z4 ist, lokalisiert das Aaliyah und Harald. Schließe alle anderen Felder neben Regalen aus.",
+      place: { A: { row: 2, col: 7 }, H: { row: 4, col: 8 } },
+      cross: [
+        { row: 0, col: 0 },
+        { row: 1, col: 8 },
+        { row: 3, col: 8 },
+        { row: 3, col: 6 },
+        { row: 4, col: 5 },
+        { row: 5, col: 5 },
+        { row: 6, col: 6 },
+        { row: 7, col: 4 },
+        { row: 8, col: 3 },
+        { row: 7, col: 8 },
+      ],
+    },
+    {
+      text: "Jemand muss in Z1 S4 sein; das kann nur Bastian sein.",
       place: { B: { row: 0, col: 3 } },
     },
     {
-      text: "Carly saß auf einem Stuhl, allein mit einem sitzenden Mann, also nicht im Wohnzimmer. R3 und R5 sind besetzt, R4 gehört Dave, R8 C5 liegt neben einem Regal. Ihr bleiben R2 C1, R7 C5 und R9 C2. In R9 C2 gäbe es keinen freien zweiten Stuhl, in R7 C5 nur R4 C6 für Dave - dann bliebe R6 leer (Tische, ein Regal, ein Feld neben einem Regal, besetzte Spalten). Also saß Carly in R2 C1 und Dave in R4 C2.",
+      text: "Jemand muss in Z6 S5 sein (entweder Gabriella oder Osmond). Das lokalisiert Carly und Dave im Esszimmer.",
       place: { C: { row: 1, col: 0 }, D: { row: 3, col: 1 } },
     },
     {
-      text: "Felicity war neben einer Pflanze. Frei sind nur noch R6 bis R9 in C3, C5, C6 und C7 - neben einer Pflanze liegt davon nur R9 C7. Felicity war in R9 C7.",
+      text: "Das lokalisiert Felicity im letzten Feld neben einer Pflanze.",
       place: { F: { row: 8, col: 6 } },
     },
     {
-      text: "In R6 ist R6 C3 ein Tisch, R6 C6 liegt neben einem Regal und R6 C7 ist eines - frei ist nur R6 C5 im Arbeitszimmer. Eli war in C3, in R7 oder R8. Stünde er in R8, wären R6 C5 und R7 C6 beide im Arbeitszimmer besetzt - Gabriella wäre nicht allein. Also war Eli in R7 C3, und Gabriella und Osmond teilen R6 C5 und R8 C6. Im Schlafzimmer ist Felicity - Gabriella war allein in R6 C5, Osmond in R8 C6 allein mit Felicity. Felicity ist die Mörderin!",
-      place: {
-        E: { row: 6, col: 2 },
-        G: { row: 5, col: 4 },
-        O: { row: 7, col: 5 },
-      },
+      text: "Gabriella ist nicht im Gästezimmer (da Eli in S3 ist) und muss im Arbeitszimmer sein, in Z6 S5. Das blockiert Z7 S6, was Eli im letzten Feld in Z7 lokalisiert.",
+      place: { G: { row: 5, col: 4 }, E: { row: 6, col: 2 } },
+      cross: [{ row: 6, col: 5 }],
+    },
+    {
+      text: "Das lokalisiert Osmond. Felicity ist die Mörderin!",
+      place: { O: { row: 7, col: 5 } },
     },
   ],
   solution: {

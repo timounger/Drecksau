@@ -151,6 +151,11 @@ export const THINGS: Readonly<Record<string, ThingDef>> = {
   barrel: { name: "Fass", emoji: "\u{1F6E2}️", standable: false },
   camera: { name: "Kamera", emoji: "\u{1F3A5}", standable: false },
   catapult: { name: "Katapult", emoji: "\u{1F3F9}", standable: false },
+  weaponRack: {
+    name: "Waffenständer",
+    emoji: "\u{2694}\u{FE0F}",
+    standable: false,
+  },
   easel: { name: "Staffelei", emoji: "\u{1F3A8}", standable: false },
   statue: { name: "Statue", emoji: "\u{1F5FF}", standable: false },
 };

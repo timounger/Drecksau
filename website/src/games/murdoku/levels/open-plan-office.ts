@@ -5,9 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Das Murdoku-Orginal/48. Großraumbüro.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Das Murdoku-Orginal/48. Großraumbüro.png`,
+ * solution sheet `Lösungen 1-80/Lösung 45-48.JPG`).
  * Odelia is the victim; whoever was alone with her killed her.
  *
  * The armchairs are the chairs; they and the rugs can be stood on. Tables,
@@ -18,8 +17,8 @@
  *
  * The magnifier rule under the map is cut off in the photo; its printed
  * wording ("Genau eine Person saß auf einem Stuhl.") came from the book. Without
- * it the case has 60 solutions, with it exactly the pencilled one. The hints
- * are our own solution path.
+ * it the case has 60 solutions, with it exactly the book's one. The hints
+ * follow the solution sheet.
  */
 import {
   alone,
@@ -310,7 +309,7 @@ export const OPEN_PLAN_OFFICE: Level = {
   ],
   hints: [
     {
-      text: "Teppiche liegen nur in den Spalten 2, 3, 7 und 8. Insgesamt standen vier Personen auf einem Teppich - also stand in jeder dieser vier Spalten die Person auf einem Teppich, und Angelo war in keiner davon. Blockiere die Felder dieser Spalten ohne Teppich.",
+      text: "Vier Personen besetzen die Teppiche in S2, S3, S7 und S8. Schließe die anderen Felder in ihren Spalten aus. Fatima muss dann am Fenster in S1 sein; schließe die anderen Felder in dieser Spalte aus.",
       cross: [
         { row: 4, col: 1 },
         { row: 4, col: 2 },
@@ -323,10 +322,17 @@ export const OPEN_PLAN_OFFICE: Level = {
         { row: 4, col: 7 },
         { row: 5, col: 7 },
         { row: 8, col: 7 },
+        { row: 1, col: 0 },
+        { row: 3, col: 0 },
+        { row: 4, col: 0 },
+        { row: 5, col: 0 },
+        { row: 7, col: 0 },
+        { row: 8, col: 0 },
       ],
     },
     {
-      text: "Die Fenster R1 C7 und R1 C8 liegen in den Spalten 7 und 8, aber auf keinem Teppich: Fatima stand in Spalte 1 vor einem Fenster in Büro A (R1 C1) oder Büro B (R3 C1). Belah war allein in Büro A oder B, also im anderen der beiden Büros - sonst war dort niemand. In den Zeilen 1 bis 4 standen nur Fatima, Belah und die zwei Personen in Büro C; der Flur R1-R4 C5 blieb leer.",
+      text: "Vier Personen sind in den Zeilen 1 bis 4. Zwei von ihnen sind in Büro C (Georg und eine andere Person). Fatima ist entweder in Büro A oder B, ebenso Belah (in dem, wo Fatima nicht ist). Schließe den Flur zwischen diesen Büros aus. Alle verbleibenden Felder in Z4 sind in Büro B, was Belah in Z4 platziert und Fatima am Fenster in Büro A.",
+      place: { F: { row: 0, col: 0 } },
       cross: [
         { row: 0, col: 4 },
         { row: 1, col: 4 },
@@ -335,35 +341,26 @@ export const OPEN_PLAN_OFFICE: Level = {
       ],
     },
     {
-      text: "Genau eine Person saß auf einem Stuhl. Der Stuhl R6 C7 liegt in Spalte 7 ohne Teppich, R8 C1 in Fatimas Spalte. Säße jemand auf R1 C6, stünde Fatima in R3 C1 und Belah in Zeile 2 von Büro A - für die zweite Person in Büro C bliebe nur Zeile 4, wo R4 C7 und R4 C8 keine Teppiche sind. Also saß Belah auf dem Stuhl R4 C4, und Fatima stand in R1 C1.",
-      place: { B: { row: 3, col: 3 }, F: { row: 0, col: 0 } },
+      text: "Das lässt nur einen Stuhl, in Büro B, und da er laut dem allgemeinen Hinweis besetzt sein muss, sitzt Belah darauf.",
+      place: { B: { row: 3, col: 3 } },
     },
     {
-      text: "Büro C bekommt die Zeilen 2 und 3. In Zeile 2 ist dort nur R2 C7 frei, die zweite Person stand in R3 C8 oder R3 C9.",
-    },
-    {
-      text: "Dagmar war in der untersten Zeile ihres Raumes: Büro A und B sind voll, und in Zeile 4 von Büro C ist nichts frei - sie war in Zeile 9. Eli war in einer Ecke außerhalb des Flurs: R1 C6 und R1 C9 liegen in Fatimas Zeile, R6 C1 und R9 C1 in ihrer Spalte, R6 C4 und R9 C4 in Belahs Spalte, R9 C9 in Dagmars Zeile. Eli war in R6 C6 in Büro D.",
+      text: "Dagmar kann nur in Z9 sein. Das lokalisiert Eli.",
       place: { E: { row: 5, col: 5 } },
     },
     {
-      text: "Die Spalten 2 und 3 stehen auf einem Teppich im Pausenraum: Spalte 3 in R8 C3 (R6 gehört Eli), Spalte 2 in R7 C2 oder R9 C2 (R8 ist belegt). Im Pausenraum und in Büro C waren also je zwei Personen, in Büro D war Eli. Harriet war allein - das geht nur im Flur, und nur wenn Zeile 5 und Spalte 5 dieselbe Person haben: Harriet in R5 C5.",
+      text: "Der einzige Raum, wo Harriet allein sein kann, ist der Flur. Da Z5 und S5 besetzt sein müssen, lokalisiert das Harriet in der Mitte.",
       place: { H: { row: 4, col: 4 } },
     },
     {
-      text: "Übrig sind die Zeilen 7 und 9 für Spalte 2 und für Büro D. Stünde die zweite Person in Büro C in R3 C8, bliebe Büro D nur R9 C9 und Spalte 2 nur R7 C2. Angelo (kein Teppich) müsste nach R9 C9, und Dagmar hätte in Zeile 9 keinen Platz. Also stand in Büro C jemand in R3 C9, in Büro D jemand in R7 C8 und im Pausenraum jemand in R9 C2.",
-    },
-    {
-      text: "Dagmar war in R9 C2, Angelo ohne Teppich in R3 C9, Georg in Büro C in R2 C7. Calvin stand in R7 C8 - der Fernseher R7 C9 ist in seinem Raum und seiner Zeile.",
+      text: "Angelo ist im letzten verfügbaren Feld ohne Teppich, Z3 S9. Das lokalisiert Georg und Dagmar, dann Calvin und Odelia. Dagmar ist die Mörderin!",
       place: {
-        D: { row: 8, col: 1 },
         A: { row: 2, col: 8 },
         G: { row: 1, col: 6 },
+        D: { row: 8, col: 1 },
         C: { row: 6, col: 7 },
+        O: { row: 7, col: 2 },
       },
-    },
-    {
-      text: "Odelia war in R8 C3 im Pausenraum, allein mit Dagmar - Dagmar ist die Mörderin!",
-      place: { O: { row: 7, col: 2 } },
     },
   ],
   solution: {

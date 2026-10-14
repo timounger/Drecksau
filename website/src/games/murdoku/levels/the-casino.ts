@@ -5,9 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Das Murdoku-Orginal/45. Das Casino.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Das Murdoku-Orginal/45. Das Casino.png`,
+ * solution sheet `Lösungen 1-80/Lösung 45-48.JPG`).
  * Ozzy is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs and can be stood on; the gaming tables (each
@@ -285,37 +284,34 @@ export const THE_CASINO: Level = {
   ],
   hints: [
     {
-      text: "Eloise war in R1. R1 C2 ist ein Stuhl, und nur Diana saß; R1 C5 liegt vor einem Fenster, und davor stand nur Hein. Eloise war also in R1 C4 oder R1 C6. Hein kann damit nicht in R1 sein: Er stand vor einem Fenster der Lobby, in R4 C9 oder R6 C9.",
+      text: "Weil Eloise in der obersten Zeile ist, muss Hein an einem Lobby-Fenster sein, Z4 oder Z6. Eloise ist laut Dianas und Heins Hinweisen nicht auf einem Stuhl oder am Fenster, also ist sie in S4 oder S6.",
+      cross: [
+        { row: 0, col: 1 },
+        { row: 0, col: 4 },
+      ],
     },
     {
-      text: "Die Lounge darf nicht leer sein. In ihrer R1 stehen nur Stühle und eine Pflanze, und R1 gehört Eloise: Diana kann dort nicht sitzen, und Björn fände in R2 C8 niemanden an derselben Pflanze (R1 C8), denn daneben sind nur die Stühle in R1. Auch für Ozzy käme niemand in die Lounge mit. Also war Clara allein in der Lounge, in R2 oder R3 - in C7 oder C8, denn C9 gehört Hein.",
+      text: "Abdul ist in der Spielhalle, ebenso Björn (zwei Personen können nicht neben der Lounge-Pflanze sein, und der Sicherheitsraum ist zu weit südlich) und auch Guido, der neben einem Tisch ist.",
     },
     {
-      text: "Abdul war in der Spielhalle südlich von Björn - Björn war also nicht in R7 bis R9. In R7 bis R9 müssen drei Personen sein; außer Francis, Ozzy und Diana kommt dafür niemand in Frage. Diana saß bei den Spielautomaten in R8, auf R8 C6 oder R8 C7 (C9 gehört Hein).",
+      text: "Kein Raum ist leer, also sind Clara, Diana und Francis in der Lounge, im Sicherheitsraum und im Spielautomatenraum in irgendeiner Reihenfolge. Nur Clara kann in der Lounge sein. Das lässt Diana bei den Spielautomaten und Francis im Sicherheitsraum in S1 oder S2.",
     },
     {
-      text: "Die Sicherheit darf nicht leer sein, und Ozzy war nicht allein: Francis war in der Sicherheit, neben einem Fernseher - R7 C1 oder R9 C2, denn R8 gehört Diana.",
+      text: "Die beiden Personen neben einer Pflanze sind nicht in S1/S2 (Francis ist in S1 oder S2) oder S6/S7 (Diana ist auf einem Stuhl in S6 oder S7), also müssen sie S5 und S6 besetzen. Das lässt einen Stuhl für Diana, in Z8 S7.",
+      place: { D: { row: 7, col: 6 } },
     },
     {
-      text: "In der Spielhalle waren Abdul, Björn, Eloise und Guido. Wer stand mit Björn an derselben Pflanze? An der Pflanze in R1 C1 ist nur der Stuhl frei. An der Pflanze in R5 C1 kämen nur R5 C2 und R6 C1 in Frage - dort könnte nur Abdul stehen, aber er war östlich von Eloise. An der Pflanze in R2 C6 müsste Eloise in R1 C6 stehen - dann bliebe Abdul nur C7, ebenso wie Diana. Also an der Pflanze in R4 C6, mit Abdul südlich von Björn: Abdul in R5 C6, Björn in R4 C5 oder R4 C7.",
-      place: { A: { row: 4, col: 5 } },
-    },
-    {
-      text: "C6 ist belegt: Diana saß in R8 C7. Eloise war westlich von Abdul, also in R1 C4. Björn bleibt ohne C7 nur R4 C5, und Hein ohne R4 nur R6 C9.",
+      text: "Weil Abdul östlich von Eloise ist, muss Eloise in S4 sein. Das lokalisiert Björn und Abdul in Z4 und Z5, dann Hein und Guido, dann Clara und Francis. Ozzy muss im Sicherheitsraum mit Francis sein. Francis ist der Mörder!",
       place: {
-        D: { row: 7, col: 6 },
         E: { row: 0, col: 3 },
         B: { row: 3, col: 4 },
+        A: { row: 4, col: 5 },
         H: { row: 5, col: 8 },
+        G: { row: 2, col: 0 },
+        C: { row: 1, col: 7 },
+        F: { row: 8, col: 1 },
+        O: { row: 6, col: 2 },
       },
-    },
-    {
-      text: "Clara war in C8, C7 und C9 sind belegt. Guido war neben einem Tisch und einem Stuhl: nur R3 C1, R4 C3 und R5 C3 passen, R4 und R5 sind belegt - Guido war in R3 C1. Clara bleibt R2 C8.",
-      place: { G: { row: 2, col: 0 }, C: { row: 1, col: 7 } },
-    },
-    {
-      text: "C1 ist belegt: Francis war in R9 C2. Ozzy bleibt das letzte Feld, R7 C3 in der Sicherheit. Dort war er allein mit Francis - Francis ist der Mörder!",
-      place: { F: { row: 8, col: 1 }, O: { row: 6, col: 2 } },
     },
   ],
   solution: {

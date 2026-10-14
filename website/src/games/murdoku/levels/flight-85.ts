@@ -5,8 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Flug 85/Flug 85.png`, no solution sheet),
- * with the culprit pencilled in on the photographed page.
+ * (`game_instructions/Murdoku/Leicht/Flug 85/Flug 85.png`, solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 21-24.JPG`).
  * Omar is the victim; whoever was alone with him killed him. The map has ten
  * rows but only six people, so four rows stay empty.
  *
@@ -215,53 +215,38 @@ export const FLIGHT_85: Level = {
   ],
   hints: [
     {
-      text: "Alle außer Evangeline saßen, also saß Angela in einer Toilette: auf R1 C2 oder R1 C5. Bernardo war östlich von Angela und David östlich von Bernardo - von C5 aus bliebe für beide nur C6. Angela saß in R1 C2. Blockiere den Rest von R1 und C2.",
-      place: { A: { row: 0, col: 1 } },
+      text: "Jede einzelne Person saß auf einem Stuhl außer Evangeline. Das platziert Angela auf einen Stuhl in Zeile 1. Schließe den Rest beider Toiletten aus.",
       cross: [
         { row: 0, col: 0 },
-        { row: 0, col: 2 },
-        { row: 0, col: 3 },
-        { row: 0, col: 4 },
-        { row: 0, col: 5 },
+        { row: 1, col: 0 },
         { row: 1, col: 1 },
-        { row: 2, col: 1 },
-        { row: 3, col: 1 },
-        { row: 4, col: 1 },
-        { row: 5, col: 1 },
-        { row: 6, col: 1 },
-        { row: 7, col: 1 },
-        { row: 8, col: 1 },
-        { row: 9, col: 1 },
-      ],
-    },
-    {
-      text: "Bernardo saß in der First Class östlich von C2 - die einzigen Stühle dort liegen in R7. Cassius saß in einer Spalte mit einem Fernseher seines Raums: R7 C3, R7 C5 oder R4 C6. R7 gehört Bernardo, also saß Cassius in R4 C6. Blockiere den Rest von R4 und C6.",
-      place: { C: { row: 3, col: 5 } },
-      cross: [
-        { row: 3, col: 0 },
-        { row: 3, col: 2 },
-        { row: 3, col: 3 },
-        { row: 3, col: 4 },
+        { row: 0, col: 5 },
+        { row: 1, col: 4 },
         { row: 1, col: 5 },
-        { row: 2, col: 5 },
-        { row: 4, col: 5 },
-        { row: 5, col: 5 },
-        { row: 6, col: 5 },
-        { row: 7, col: 5 },
-        { row: 8, col: 5 },
       ],
     },
     {
-      text: "Für Bernardo bleiben R7 C3 und R7 C5. David war östlich von ihm, und C6 ist blockiert - also saß Bernardo in R7 C3.",
-      place: { B: { row: 6, col: 2 } },
+      text: "Bernardo war in der First Class und östlich von Angela. Das platziert ihn in Zeile 7, sitzend in Spalte 3, 5 oder 6.",
     },
     {
-      text: "David saß allein, östlich von C3, also in C4 oder C5. Dort sind noch die Stühle R3 C5, R5 C5 und R6 C5 in der Economy-Class frei - da wäre er mit Cassius - und R10 C4 im Cockpit. David saß in R10 C4.",
-      place: { D: { row: 9, col: 3 } },
+      text: "Cassius kann nicht in der First Class sein, sonst würde er in derselben Zeile wie Bernardo sitzen, also ist er in der Economy-Class, in Zeile 4, Spalte 6.",
+      place: { C: { row: 3, col: 5 } },
     },
     {
-      text: "Frei sind nur noch C1 und C5. Evangeline stand, und Angela war die einzige Person in den Toiletten, also nicht R2 C5. Evangeline stand in R8 C5. Omar saß in C1 - nur der Stuhl in R5 C1 ist frei. In der Economy-Class war er allein mit Cassius - Cassius ist der Mörder!",
-      place: { E: { row: 7, col: 4 }, O: { row: 4, col: 0 } },
+      text: "David kann nur allein im Cockpit sein, und er ist östlich von Bernardo, also muss er in Spalte 4 sitzen, was Bernardo in Spalte 3 und Angela in Spalte 2 lokalisiert.",
+      place: {
+        D: { row: 9, col: 3 },
+        B: { row: 6, col: 2 },
+        A: { row: 0, col: 1 },
+      },
+    },
+    {
+      text: "Es bleibt nur ein Feld ohne Stuhl übrig. Das lokalisiert Evangeline.",
+      place: { E: { row: 7, col: 4 } },
+    },
+    {
+      text: "Das lokalisiert Omar in der Economy-Class mit Cassius. Cassius ist der Mörder!",
+      place: { O: { row: 4, col: 0 } },
     },
   ],
   solution: {

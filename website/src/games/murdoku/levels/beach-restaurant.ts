@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Strandrestaurant/Strandrestaurant.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution on `Das Murdoku-Orginal/Lösungen 1-80/Lösung 25-28.JPG`).
  * Olena is the victim; whoever was alone with her killed her.
  *
  * The chairs, the rugs and the sea can be stood on; the plants, the shelves,
@@ -239,31 +238,31 @@ export const BEACH_RESTAURANT: Level = {
   ],
   hints: [
     {
-      text: "Eugen war in der Toilette. Dort sind nur der Stuhl in R1 C2 und der Teppich in R2 frei - und auf einem Teppich war nur Hope. Eugen war in R1 C2.",
+      text: "Briana ist in Zeile 1 oder 2 neben einem Regal. Eugen ist in der Toilette und kann laut Hopes Hinweis nicht auf einem Teppich sein. Das lokalisiert Eugen in der Toilette und platziert Briana in Zeile 2.",
       place: { E: { row: 0, col: 1 } },
     },
     {
-      text: "Alle Regale stehen in der Küche, und R1 ist besetzt: Briana war in R2 C6, R2 C7 oder R2 C8. Gabriel war mit ihr in der Küche - R1 und R2 sind vergeben, die Theke steht in R3 C9, R4 C8 und R4 C9. Gabriel war in R3 C8.",
+      text: "Das lokalisiert Gabriel in der Küche.",
       place: { G: { row: 2, col: 7 } },
     },
     {
-      text: "Cleo saß auf einem Stuhl im Speiseraum. R3 ist besetzt, R4 C2 liegt in C2 - Cleo saß in R4 C5.",
+      text: "Es gibt nur einen verbleibenden Stuhl für Cleo im Speiseraum, in Zeile 4, Spalte 5.",
       place: { C: { row: 3, col: 4 } },
     },
     {
-      text: "Hope war auf einem Teppich. R1, R2 und R4 sind besetzt, R6 C5 liegt in C5 - Hope war in R6 C6. Damit blieb für Briana nur R2 C7.",
+      text: "Das lokalisiert Hope im letzten verfügbaren Teppichfeld, was Briana lokalisiert.",
       place: { H: { row: 5, col: 5 }, B: { row: 1, col: 6 } },
     },
     {
-      text: "Arwin war auf der Terrasse und saß nicht. In R5 ist C8 besetzt und in C9 steht eine Pflanze, R6 ist besetzt, in R8 liegt die Terrasse in C5 bis C7, alle besetzt. In R7 sind nur C1, C3, C4 und C9 frei - Stuhl, Tisch, Stuhl: Arwin war in R7 C9.",
+      text: "Das lokalisiert Arwin, der nicht auf einem Stuhl sitzt, auf der Terrasse.",
       place: { A: { row: 6, col: 8 } },
     },
     {
-      text: "Deena, Fabrice und Olena bleiben R5, R8 und R9 in C1, C3 und C4. Fabrice war südlich von Deena, also war Deena nicht in R9; in R5 C3 und R5 C4 wäre sie neben dem Tisch. In R8 steht in C1 ein Tisch, R8 C3 liegt neben dem Tisch in R9 C3 - Deena war in R8 C4. Fabrice war in R9, also in R9 C1.",
+      text: "Das lokalisiert auch Deena im letzten Feld ohne Tisch, dann Fabrice.",
       place: { D: { row: 7, col: 3 }, F: { row: 8, col: 0 } },
     },
     {
-      text: "Olena blieb das letzte Feld, R5 C3. Im Speiseraum war sie allein mit Cleo - Cleo ist die Mörderin!",
+      text: "Das lokalisiert Olena, allein im Speiseraum mit Cleo. Cleo ist die Mörderin!",
       place: { O: { row: 4, col: 2 } },
     },
   ],

@@ -5,9 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Das Murdoku-Orginal/51. Kino.png`, no solution
- * sheet - the solver proves the one solution, with the culprit pencilled in
- * on the photographed page).
+ * (`game_instructions/Murdoku/Das Murdoku-Orginal/51. Kino.png`, solution
+ * sheet `Lösungen 1-80/Lösung 49-52.JPG`).
  * Obi is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they and the rugs can be stood on. The
@@ -288,41 +287,39 @@ export const THE_CINEMA: Level = {
   ],
   hints: [
     {
-      text: "Buff war neben einer Pflanze - die stehen nur im Flur und im Eingang. Dory war allein vor einem Fenster: in R1 C6 im Flur oder in R5 C1 im Eingang. In einem der beiden Räume war also Dory allein, im anderen Buff.",
+      text: "Buff und Dory müssen in separaten Räumen sein; einer ist im Eingang und der andere im Flur. Anna ist bei den Kassen, neben dem Tisch.",
     },
     {
-      text: "Angenommen, Dory stand in R1 C6. Dann war Buff im Eingang, und im Flur war nur Dory. In R2 und R3 könnten dann nur Effie und Obi stehen - Hans' Ecken liegen in R1, R4 und R7, und Carry fände dort keinen Teppich außerhalb des Flurs. Für R5 und R6 bliebe nur Buff: Fred, Anna und Galadriel haben dort keinen Platz, und Carry fände im Eingang keine weitere Frau. Das geht nicht.",
+      text: "Carry, auf einem Teppich, kann nicht mit Dory sein (die alleine ist) oder mit Buff (da Carry mit einer Frau ist und nur zwei Leute in Buffs Raum sein können). Sie muss bei den Kassen mit Anna sein oder im Vorführraum mit Galadriel.",
     },
     {
-      text: "Dory stand also in R5 C1, allein im Eingang, und Buff war im Flur. Carry war auf einem Teppich mit einer weiteren Frau: Im Flur wären das mit Buff drei Personen in nur zwei Spalten, und im Eingang war Dory allein. Carry war an der Kassentheke oder im Vorführraum.",
-      place: { D: { row: 4, col: 0 } },
+      text: "Zusammen besetzen Anna, Carry und Galadriel die letzten drei Zeilen, also können wir die unterste Zeile von Saal B ausschließen.",
+      cross: [
+        { row: 6, col: 6 },
+        { row: 6, col: 7 },
+        { row: 6, col: 8 },
+      ],
     },
     {
-      text: "In R7 bis R9 standen damit Anna, Galadriel und Carry - sonst niemand. Fred war in derselben Zeile wie ein Fernseher: in R4, und R4 C1 liegt in Dorys Spalte - Fred stand in R4 C4. Hans' Ecken in R4 und R7 fallen weg: Er war in R1.",
-      place: { F: { row: 3, col: 3 } },
+      text: "Fred muss in Saal A sein, in Z4. Das platziert Hans in Z1, was das Fenster in Z1 blockiert und Dory im Eingang lokalisiert und Buff im Flur. Das lokalisiert Fred.",
+      place: { D: { row: 4, col: 0 }, F: { row: 3, col: 3 } },
     },
     {
-      text: "Wer stand in C2? Dort sind in Saal A nur Stühle, im Eingang war Dory allein, R7 C2 passt weder zu Anna noch zu Carry, und darunter stehen Kassen. Effie saß nicht, Hans steht in einer Ecke - es bleibt nur Obi, in R2 C2 oder R3 C2. Obi war allein mit einer Person, und Fred ist schon in Saal A: Sonst war dort niemand.",
-    },
-    {
-      text: "Auch in C3 kommt Saal A nicht mehr in Frage, im Eingang war Dory allein, R8 C3 und R9 C3 gehören zur Theke. Bleibt R7 C3 neben dem Tisch: Anna. In R8 sind nur R8 C1 (Dorys Spalte) und R8 C7 frei - dort stand Galadriel. Carry bleibt nur der Teppich R9 C5.",
+      text: "Jemand muss in Z8 S7 sein; das kann nur Galadriel sein. Das lokalisiert Hans und blockiert auch den Teppich im Vorführraum, was Carry in S5 platziert, was Buff lokalisiert.",
       place: {
-        A: { row: 6, col: 2 },
         G: { row: 7, col: 6 },
-        C: { row: 8, col: 4 },
+        H: { row: 0, col: 8 },
+        B: { row: 5, col: 5 },
       },
     },
     {
-      text: "Buff neben der Pflanze: R2 C5 liegt in Carrys Spalte, also R6 C6. Hans' Ecke in R1: C1 und C7 sind belegt - R1 C9. Für Effie bleibt C8 in R2 oder R3, und R3 C8 ist ein Stuhl: R2 C8. Obi stand in R3 C2.",
+      text: "Das lokalisiert Anna, dann Carry, dann Effie im letzten Feld ohne Stuhl, dann Obi. Fred ist der Mörder!",
       place: {
-        B: { row: 5, col: 5 },
-        H: { row: 0, col: 8 },
+        A: { row: 6, col: 2 },
+        C: { row: 8, col: 4 },
         E: { row: 1, col: 7 },
         O: { row: 2, col: 1 },
       },
-    },
-    {
-      text: "Obi war in Saal A allein mit Fred - Fred ist der Mörder!",
     },
   ],
   solution: {

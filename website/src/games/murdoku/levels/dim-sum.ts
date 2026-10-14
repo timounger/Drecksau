@@ -5,9 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Das Murdoku-Orginal/40. Dim Sum.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Das Murdoku-Orginal/40. Dim Sum.png`,
+ * solution sheet `Lösungen 1-80/Lösung 37-40.JPG`).
  * Ochi is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they and the rugs can be stood on. Tables
@@ -274,42 +273,33 @@ export const DIM_SUM: Level = {
   ],
   hints: [
     {
-      text: "Elias war vor einem Fenster: Die Fenster liegen in der Ostwand bei R6 bis R9. R8 C9 ist ein Tisch, und auf den Stühlen in R7 C9 und R9 C9 saß nur Chenglei. Elias stand in R6 C9. Blockiere den Rest von R6 und C9.",
+      text: "Elias muss am Fenster in S9 sein, aber laut Chengleis Hinweis nicht auf einem Stuhl. Das lokalisiert Elias.",
       place: { E: { row: 5, col: 8 } },
-      cross: [
-        { row: 6, col: 8 },
-        { row: 8, col: 8 },
-      ],
     },
     {
-      text: "Dean war allein im Raum: In den Toiletten waren Feng und Gao, in der Lobby Alice, im Speiseraum Elias - Dean war im Flur. Neben einer Pflanze liegen dort nur R5 C6 und R4 C8. Gao war in der Damentoilette, und C9 ist blockiert, also gehört ihr C8. Dean stand in R5 C6.",
+      text: "Dean kann nur allein im Flur sein (da Alice, Feng und Gao in den anderen Räumen mit Pflanzen sind).",
+    },
+    {
+      text: "Gao ist in der Damentoilette in S8. Das lokalisiert Dean.",
       place: { D: { row: 4, col: 5 } },
-      cross: [{ row: 3, col: 7 }],
     },
     {
-      text: "Feng war in der Herrentoilette, und C6 ist blockiert: Er war in C7. R2 C7 ist ein Stuhl, R3 C7 eine Pflanze - Feng stand in R1 C7. R1 gehört damit Feng, und R3 C8 ist eine Pflanze - Gao stand in R2 C8.",
+      text: "Das lokalisiert Feng, der nicht auf einem Stuhl ist, dann Gao.",
       place: { F: { row: 0, col: 6 }, G: { row: 1, col: 7 } },
-      cross: [
-        { row: 1, col: 6 },
-        { row: 0, col: 7 },
-      ],
     },
     {
-      text: "Frei sind noch R3, R4, R7, R8 und R9 in C1 bis C5. R3 und R4 liegen dort in der Küche, R7 im Speiseraum. Alice nimmt R8 oder R9 in der Lobby, die anderen beiden der Reihen R7 bis R9 liegen im Speiseraum - mit Elias wären dort drei. Ochi war also in der Küche. Bowei war auf einem Teppich: Frei sind nur noch R3 C1 und R4 C4, beide in der Küche. In der Küche waren also Bowei und Ochi, Huifang und Chenglei im Speiseraum.",
+      text: "Huifang ist nicht in der Lobby (wo Alice allein ist), also kann sie nur in der Ecke des Speiseraums sein, in Z7 S1.",
+      place: { H: { row: 6, col: 0 } },
     },
     {
-      text: "Huifang war in einer Ecke ihres Raumes: Im freien Teil des Speiseraums ist das nur R7 C1. Chenglei saß auf einem Stuhl: R7 C4 und R7 C5 liegen in Huifangs Reihe, es bleibt R9 C5.",
-      place: { H: { row: 6, col: 0 }, C: { row: 8, col: 4 } },
-      cross: [
-        { row: 6, col: 3 },
-        { row: 6, col: 4 },
-      ],
+      text: "Das lokalisiert Bowei im letzten verfügbaren Teppichfeld.",
+      place: { B: { row: 3, col: 3 } },
     },
     {
-      text: "Alice war allein in der Lobby, in R8: R8 C2 ist eine Pflanze, also R8 C3. Bowei bleibt in der blockierten C1 nichts - er stand in R4 C4. Ochi bleibt R3 C2. In der Küche war er allein mit Bowei - Bowei ist der Mörder!",
+      text: "Das lokalisiert Chenglei auf dem letzten Stuhl, was Alice in der Lobby lokalisiert, dann das Opfer. Bowei ist der Mörder!",
       place: {
+        C: { row: 8, col: 4 },
         A: { row: 7, col: 2 },
-        B: { row: 3, col: 3 },
         O: { row: 2, col: 1 },
       },
     },

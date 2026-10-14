@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/53. Das Callcenter.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page). The two rules under the
+ * solution sheet `Lösungen 1-80/Lösung 53-56.JPG`). The two rules under the
  * magnifier are cut off in the photo; their wording is from the printed page.
  * Odessa is the victim; whoever was alone with her killed her.
  *
@@ -327,42 +326,29 @@ export const THE_CALL_CENTRE: Level = {
   ],
   hints: [
     {
-      text: "In R1 kann man nur auf dem Stuhl R1 C4 in Kabine 2 stehen - dort stand jemand, und sonst niemand in C4. Neben einem Fernseher ist R1 C4 nicht, also war es Aljosha oder Odessa: Fabian braucht Aljosha und Elizabeth westlich von sich. In C3 bleiben nur R2 C3, R3 C3 und R5 C3, und dort passen nur Elizabeth (R5 C3) oder Odessa. Steht Aljosha in R1 C4, ist Elizabeth westlich von ihm in C3; steht Odessa dort, bleibt C3 für Elizabeth. Elizabeth war in R5 C3.",
-      place: { E: { row: 4, col: 2 } },
-      cross: [
-        { row: 1, col: 3 },
-        { row: 2, col: 3 },
-        { row: 3, col: 3 },
-        { row: 4, col: 3 },
-        { row: 5, col: 3 },
-      ],
-    },
-    {
-      text: "Herbert war in der Toilette, und außerhalb von R5 sind dort nur Stühle frei (R3 C6, R4 C5, R4 C7) - er saß. Mit der Person in R1 C4, Elizabeth und Fabian sind das schon vier Sitzende: Sonst saß niemand. Briggs war nicht neben einer Wand: R2 C8 und R8 C2 sind Stühle, R2 C7 und R3 C8 Teppiche für Gregory allein, R6 C4 liegt in C4. Briggs stand in R2 C2.",
-      place: { B: { row: 1, col: 1 } },
-    },
-    {
-      text: "Wäre Odessa in R1 C4, wäre sie in Kabine 2 allein: R2 C4 und R3 C4 liegen in C4, R3 C3 in Elizabeths Spalte. Also stand Aljosha in R1 C4.",
+      text: "Es muss jemand in Z1 S4 sein. Das kann nur Aljosha sein. (Fabian ist östlich von Aljosha, der östlich von Elizabeth im Pausenraum ist, also ist Fabian nicht weiter westlich als S5; und kein Verdächtiger könnte in Kabine 2 mit Odessa in Z1 passen.)",
       place: { A: { row: 0, col: 3 } },
     },
     {
-      text: "Caitlin war allein neben einem Fernseher und saß nicht. R2 und R5 sind belegt, C1 gehört Denise, die übrigen Felder neben Fernsehern sind Stühle - es bleiben R8 C5 und R9 C9. In R9 C9 fände Fabian keinen Stuhl östlich von Aljosha mehr: R8 C8 wäre bei Caitlin in Kabine 6, R6 C9 in ihrer Spalte, R9 C6 in ihrer Zeile, die übrigen liegen in R2, R5 oder in der Toilette. Caitlin war in R8 C5.",
-      place: { C: { row: 7, col: 4 } },
+      text: "Das lokalisiert Elizabeth in S3. Alle verbleibenden Felder in der Toilette haben Stühle, und Fabian sitzt auf einem Stuhl, also machen Aljosha, Elizabeth, Fabian und Herbert die vier Personen auf Stühlen aus.",
+      place: { E: { row: 4, col: 2 } },
     },
     {
-      text: "Fabian: R8 C8 liegt in Caitlins Zeile, R9 C6 wäre bei ihr in Kabine 5 - er saß in R6 C9. In R4 bleibt nur R4 C7 in der Toilette (R4 C5 und R4 C9 sind in belegten Spalten): Herbert. In R3 bleibt dann nur der Teppich R3 C8 - Gregory.",
+      text: "Briggs, nicht neben einer Wand, kann nur in Z2 S2 sein. (Andere solche Felder enthalten einen Stuhl oder Teppich, und nur Gregory ist auf einem Teppich.) Denise ist in S1, in Kabine 3 oder 4; die andere ist leer. Caitlin ist allein neben einem Fernseher in Kabine 5 oder 6, die andere muss die zweite leere Kabine sein. Fabian ist daher nicht in diesen Kabinen (noch mit Herbert in der Toilette) und kann nur in Z6 S9 sitzen. Das lokalisiert Caitlin, dann Denise in Z9.",
       place: {
+        B: { row: 1, col: 1 },
         F: { row: 5, col: 8 },
-        H: { row: 3, col: 6 },
-        G: { row: 2, col: 7 },
+        C: { row: 7, col: 4 },
+        D: { row: 8, col: 0 },
       },
     },
     {
-      text: "Übrig sind R7 und R9, C1 und C6. Denise steht in C1, Odessa also in C6 - und R9 C6 ist ein Stuhl, auf dem niemand mehr saß. Odessa war in R7 C6, Denise in R9 C1.",
-      place: { O: { row: 6, col: 5 }, D: { row: 8, col: 0 } },
-    },
-    {
-      text: "Odessa war im Besprechungsraum allein mit Fabian - Fabian ist der Mörder!",
+      text: "Herbert muss im letzten verfügbaren Feld in Z4 sein. Das lokalisiert Gregory in Z3, dann Odessa. Fabian ist der Mörder!",
+      place: {
+        H: { row: 3, col: 6 },
+        G: { row: 2, col: 7 },
+        O: { row: 6, col: 5 },
+      },
     },
   ],
   solution: {

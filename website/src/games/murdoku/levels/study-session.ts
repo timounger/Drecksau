@@ -5,9 +5,9 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Lernsession/Lernsession.png`, no solution
- * sheet - the solver proves the one solution, with the culprit pencilled in on
- * the photographed page).
+ * (`game_instructions/Murdoku/Leicht/Lernsession/Lernsession.png`, solution
+ * sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 05-08.JPG`).
  * Olaf is the victim; whoever was alone with him killed him.
  *
  * Two windows sit in the top wall and one in the left wall; standing in front
@@ -163,7 +163,7 @@ export const STUDY_SESSION: Level = {
   ],
   hints: [
     {
-      text: "Aaron war auf dem Bett. Es liegt auf R4 C5 und R4 C6 - Aaron war also in R4. Blockiere den Rest von R4.",
+      text: "Aaron muss auf dem Bett in Zeile 4 sein. Schließe den Rest der Zeile aus.",
       cross: [
         { row: 3, col: 0 },
         { row: 3, col: 1 },
@@ -172,7 +172,10 @@ export const STUDY_SESSION: Level = {
       ],
     },
     {
-      text: "Donna war im Badezimmer. R4 ist gesperrt, in R5 C3 steht ein Tisch und in R6 C3 eine Pflanze. Auf den Sessel in R5 C4 kann sie nicht, denn nur Bruno saß auf einem Stuhl. Donna war in R6 C4 - blockiere den Rest von R6 und C4.",
+      text: "Das eliminiert das Fenster in Zeile 4, also muss Clara vor einem der anderen Fenster sein, in Zeile 1.",
+    },
+    {
+      text: "Donna ist nicht auf einem Stuhl (da Bruno die einzige Person auf einem Stuhl ist), also kann sie nur im Badezimmer in Zeile 6, Spalte 4 sein.",
       place: { D: { row: 5, col: 3 } },
       cross: [
         { row: 5, col: 0 },
@@ -185,7 +188,7 @@ export const STUDY_SESSION: Level = {
       ],
     },
     {
-      text: "Evelyn war neben dem Fernseher in R5 C1. R4 C1 und R6 C1 sind gesperrt, also war sie in R5 C2. Blockiere den Rest von R5 und C2.",
+      text: "Das lokalisiert Evelyn neben dem Fernseher.",
       place: { E: { row: 4, col: 1 } },
       cross: [
         { row: 4, col: 4 },
@@ -196,7 +199,7 @@ export const STUDY_SESSION: Level = {
       ],
     },
     {
-      text: "Clara war vor einem Fenster. R4 C1 und R1 C2 sind gesperrt, es bleibt R1 C5. Blockiere den Rest von R1 und C5 - damit war Aaron in R4 C6.",
+      text: "Das lokalisiert Clara, dann Aaron.",
       place: { C: { row: 0, col: 4 }, A: { row: 3, col: 5 } },
       cross: [
         { row: 0, col: 0 },
@@ -207,11 +210,11 @@ export const STUDY_SESSION: Level = {
       ],
     },
     {
-      text: "Bruno saß auf einem Stuhl. Die Sessel in R1 C1, R3 C2 und R5 C4 sind gesperrt, also saß er in R2 C3.",
+      text: "Bruno ist auf dem letzten Stuhl.",
       place: { B: { row: 1, col: 2 } },
     },
     {
-      text: "Olaf blieb das letzte Feld, R3 C1. Im Wohnzimmer war er allein mit Evelyn - Evelyn ist die Mörderin!",
+      text: "Das lokalisiert Olaf, im Wohnzimmer mit Evelyn. Evelyn ist die Mörderin!",
       place: { O: { row: 2, col: 0 } },
     },
   ],

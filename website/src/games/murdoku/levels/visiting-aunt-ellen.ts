@@ -7,8 +7,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Besuch bei Tante Ellen/Besuch bei Tante Ellen.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Das Murdoku-Orginal/Lösungen 1-80/Lösung 09-12.JPG`).
  * Oswin is the victim; whoever was alone with him killed him.
  *
  * The four windows sit in the left wall; standing in front of one means being
@@ -229,28 +228,33 @@ export const VISITING_AUNT_ELLEN: Level = {
   ],
   hints: [
     {
-      text: "Carolina war neben der Pflanze in R8 C3. R8 C2 ist ein Regal und R8 C4 gehört schon zur Küche - Carolina war in R7 C3. Blockiere den Rest von R7 und C3.",
+      text: "Wir können Carolina neben der einzigen Pflanze lokalisieren.",
       place: { C: { row: 6, col: 2 } },
     },
     {
-      text: "Farouk war vor einem Fenster: R2 C1, R3 C1, R6 C1 oder R7 C1. R7 ist gesperrt, und R2 C1 und R3 C1 liegen im Schlafzimmer, wo Desiree allein war. Farouk war in R6 C1.",
-      place: { F: { row: 5, col: 0 } },
-    },
-    {
-      text: "Albert war neben einem Regal. Neben den Regalen im Schlafzimmer darf er nicht sein (Desiree war dort allein), neben denen im Wohnzimmer sind R7 C1 und R7 C2 gesperrt. Bleibt das Regal in der Küche: Albert war in R8 C7.",
+      text: "Desiree ist allein im Schlafzimmer, also gibt es nur ein Regal für Albert. Das lokalisiert Albert.",
       place: { A: { row: 7, col: 6 } },
     },
     {
-      text: "Ellen saß auf einem Stuhl. R6 und R7 sind gesperrt, also R5 C2 oder R5 C5. Desiree war im Schlafzimmer, wo C1 und C3 gesperrt sind - sie war in C2. Also saß Ellen in R5 C5.",
+      text: "Es gibt auch nur ein Fenster, vor dem Farouk sein kann. Das lokalisiert Farouk.",
+      place: { F: { row: 5, col: 0 } },
+    },
+    { text: "Desiree muss in Spalte 2 sein." },
+    {
+      text: "Das lokalisiert Ellen auf dem letzten verfügbaren Stuhl.",
       place: { E: { row: 4, col: 4 } },
     },
     {
-      text: "Frei sind noch R1 bis R4 in C2, C4, C6 und C8, und Desiree hat C2. Berti war neben einem Bett - in C4 und C6 geht das nicht, er war in C8. Gustaf war in einer Ecke: In C4 und C6 ist das nur R4 C4, die Ecke des Badezimmers. Für Oswin bleibt in C6 nur R3 C6 im Gästezimmer.",
-      place: { G: { row: 3, col: 3 }, O: { row: 2, col: 5 } },
+      text: "Jemand ist auf einem Bett. Spalten 5 und 7 sind besetzt, also muss Desiree in Zeile 1 sein.",
+      place: { D: { row: 0, col: 1 } },
     },
     {
-      text: "Genau eine Person war auf einem Bett. Berti in R1 C8 oder R2 C8 lag nicht auf einem, also lag Desiree auf dem Bett in R1 C2, und Berti war in R2 C8. Oswin war im Gästezimmer allein mit Berti - Berti ist der Mörder!",
-      place: { D: { row: 0, col: 1 }, B: { row: 1, col: 7 } },
+      text: "Das lokalisiert Gustaf in der letzten verfügbaren Ecke, in der Toilette (dem Badezimmer).",
+      place: { G: { row: 3, col: 3 } },
+    },
+    {
+      text: "Das lokalisiert Berti neben einem Bett, dann Oswin. Berti ist der Mörder!",
+      place: { B: { row: 1, col: 7 }, O: { row: 2, col: 5 } },
     },
   ],
   solution: {

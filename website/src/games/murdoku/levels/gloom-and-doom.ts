@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/52. Trübsal und Tristesse.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Lösungen 1-80/Lösung 49-52.JPG`).
  * Oisín is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they, the beds and the light framed rugs
@@ -338,38 +337,27 @@ export const GLOOM_AND_DOOM: Level = {
   ],
   hints: [
     {
-      text: "Adrianna war in einem Raum mit einer weiteren Frau auf einem Teppich. Die Teppiche liegen in R1 C8 im Esszimmer und in R7 C9 und R9 C9 im Badezimmer - dort war Edgar allein. Also war Adrianna im Esszimmer, und eine andere Frau stand in R1 C8. Gionna war südlich von Conrad, der südlich von Bryan war - nicht in R1. Haven war in einem Raum mit jemandem neben einem Fernseher - im Esszimmer steht keiner. Es war Filia. Blockiere den Rest von R1 und C8.",
+      text: "Weil Edgar allein im Badezimmer ist, kann Adrianna nur im Esszimmer sein. Die Frau auf dem Esszimmerteppich kann nur Filia sein. (Gionna ist südlich von Conrad, also kann sie nicht in Z1 sein.)",
       place: { F: { row: 0, col: 7 } },
       cross: restOf(0, 7),
     },
     {
-      text: "Jemand anderes in Filias Raum war in einer Ecke. Die Ecken des Esszimmers sind R1 C5, R1 C9, R3 C5 und R3 C8 - R1 und C8 sind blockiert, es bleibt R3 C5. Adrianna war auch im Esszimmer: Stünde jemand anderes in R3 C5, blieben ihr nur R2 C5 oder Felder in R3 - dieselbe Spalte oder Reihe. Adrianna stand also selbst in R3 C5.",
-      place: { A: { row: 2, col: 4 } },
-      cross: restOf(2, 4),
+      text: "Das lokalisiert Adrianna in der Südwestecke des Raums. Bryan muss mit jemandem auf einem Stuhl in S1 im Wohnzimmer sein. Das lokalisiert Dylan.",
+      place: { A: { row: 2, col: 4 }, D: { row: 1, col: 1 } },
     },
     {
-      text: "Dylan war die einzige Person auf einem Bett. Die Betten in R3 und C5 sind blockiert - Dylan lag in R2 C1 oder R2 C2. Edgar war allein im Badezimmer. Die Spalten C6, C7 und C9 brauchen noch drei Personen: außer Edgar im Badezimmer geht das nur im Gästezimmer (R4 bis R6). Dort waren also zwei Personen. In R6 ist nur das Gästezimmer frei (im Wohnzimmer stehen dort Tisch und Regal): R6 C6 oder R6 C7.",
-      cross: [
-        { row: 3, col: 4 },
-        { row: 4, col: 4 },
-      ],
+      text: "Da nur das Wohnzimmer ein verfügbares Feld neben einem Fernseher hat, muss die Person auf einem Stuhl Haven sein, was Bryan und Haven lokalisiert.",
+      place: { B: { row: 4, col: 2 }, H: { row: 6, col: 0 } },
     },
     {
-      text: "Haven war in einem Raum mit jemandem neben einem Fernseher. Neben dem Fernseher im Schlafzimmer sind R1 C4 und R3 C4 blockiert, und R2 gehört Dylan. Also war Haven im Wohnzimmer, und jemand stand in R5 C1 oder R5 C3 - Haven selbst in R7 C1, R7 C2 oder R8 C1. Bryan war in einem Raum mit jemandem, der auf einem Stuhl saß: Die Stühle im Esszimmer liegen in R3, der im Gästezimmer in C5, und im Badezimmer war Edgar allein - es bleiben R5 C1 und R7 C1 im Wohnzimmer. Bryan war im Wohnzimmer.",
+      text: "Es gibt nur ein verfügbares Feld in Z8; Edgar muss es besetzen.",
+      place: { E: { row: 7, col: 5 } },
     },
     {
-      text: "Die beiden im Gästezimmer stehen in R4 und R6 (R5 gehört dem Wohnzimmer). In R7 bis R9 bleiben Edgar, Haven und eine weitere Person. Bryan war nördlich von Conrad, Conrad nördlich von Gionna: Stünde Bryan in R7 oder R8, wäre unter ihm kein Platz für beide. Bryan stand also in R5. Stünde Conrad in R7 bis R9, wäre südlich von ihm kein Platz für Gionna - Conrad stand in R6 im Gästezimmer, Gionna in R7 bis R9 und Oisín in R4 im Gästezimmer. Säße Bryan auf R5 C1, bliebe für einen anderen auf einem Stuhl nur R7 C1 in derselben Spalte - Bryan stand in R5 C3, und jemand saß in R7 C1.",
-      place: { B: { row: 4, col: 2 } },
-      cross: restOf(4, 2),
-    },
-    {
-      text: "R7 C1 nimmt C1 - Dylan lag in R2 C2. Haven bleibt nur C1, also saß sie selbst in R7 C1. Gionna bleibt in C1 bis C4 nur C4: R9 C4 in der Küche. Edgar stand in R8 C6, Conrad in R6 C7 und Oisín in R4 C9. Im Gästezimmer war Oisín allein mit Conrad - Conrad ist der Mörder!",
+      text: "Conrad, südlich von Bryan aber nördlich von Gionna, muss in Zeile 6 im letzten verfügbaren Feld sein. Das lokalisiert Gionna in Z9, dann Oisín in Z4. Conrad ist der Mörder!",
       place: {
-        D: { row: 1, col: 1 },
-        H: { row: 6, col: 0 },
-        G: { row: 8, col: 3 },
-        E: { row: 7, col: 5 },
         C: { row: 5, col: 6 },
+        G: { row: 8, col: 3 },
         O: { row: 3, col: 8 },
       },
     },

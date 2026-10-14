@@ -688,6 +688,13 @@ export const THE_TREASURE_HUNT: Level = {
     { at: { row: 19, col: 5 }, rows: 1, cols: 2 },
     { at: { row: 21, col: 13 }, rows: 2, cols: 1 },
   ],
+  // The doors, drawn in the walls between their two fields.
+  windows: [
+    { at: { row: 2, col: 4 }, side: "bottom", door: true },
+    { at: { row: 16, col: 12 }, side: "bottom", door: true },
+    { at: { row: 20, col: 11 }, side: "right", door: true },
+    { at: { row: 20, col: 21 }, side: "bottom", door: true },
+  ],
   suspects: [
     {
       id: "A",

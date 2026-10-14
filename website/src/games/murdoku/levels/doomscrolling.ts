@@ -6,9 +6,9 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Doomscrolling/Doomscrolling.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Leicht/Doomscrolling/Doomscrolling.png`,
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 17-20.JPG`).
  * Ortwin is the victim; whoever was alone with him killed him.
  *
  * The chairs and the beds can be stood on; the tables, shelves, TVs and plants
@@ -229,61 +229,26 @@ export const DOOMSCROLLING: Level = {
   ],
   hints: [
     {
-      text: "Helen und Balthasar waren allein im Esszimmer, und Balthasar war neben einem Fernseher. Der einzige Fernseher im Esszimmer steht in R1 C1, in R2 C1 steht ein Regal - Balthasar war in R1 C2. Blockiere den Rest von R1 und C2.",
-      place: { B: { row: 0, col: 1 } },
-      cross: [
-        { row: 0, col: 2 },
-        { row: 0, col: 7 },
-        { row: 0, col: 8 },
-        { row: 4, col: 1 },
-        { row: 5, col: 1 },
-        { row: 7, col: 1 },
-        { row: 8, col: 1 },
-      ],
-    },
-    {
-      text: "Arne war neben einem Fernseher und neben einem Regal. Ins Esszimmer darf niemand mehr; ein Feld neben beidem im selben Raum gibt es nur in der Speisekammer: R2 C4. Blockiere den Rest von R2 und C4.",
+      text: "Arne kann nur in der Speisekammer sein, in Zeile 2, Spalte 4.",
       place: { A: { row: 1, col: 3 } },
-      cross: [
-        { row: 1, col: 2 },
-        { row: 1, col: 5 },
-        { row: 1, col: 6 },
-        { row: 1, col: 7 },
-        { row: 1, col: 8 },
-        { row: 2, col: 3 },
-        { row: 3, col: 3 },
-        { row: 4, col: 3 },
-        { row: 5, col: 3 },
-        { row: 6, col: 3 },
-        { row: 7, col: 3 },
-      ],
     },
     {
-      text: "Eva saß als Einzige auf einem Stuhl. Die Stühle im Esszimmer sind tabu, R2 C3, R7 C4 und R9 C2 sind blockiert - Eva saß in R8 C7 im Badezimmer. Detlev war auf einem Bett: R1 C8, R2 C8 und R8 C9 sind blockiert, also R7 C9.",
-      place: { E: { row: 7, col: 6 }, D: { row: 6, col: 8 } },
-      cross: [
-        { row: 7, col: 0 },
-        { row: 7, col: 1 },
-        { row: 7, col: 2 },
-        { row: 7, col: 3 },
-        { row: 7, col: 4 },
-        { row: 7, col: 5 },
-        { row: 7, col: 8 },
-        { row: 1, col: 6 },
-        { row: 2, col: 6 },
-        { row: 3, col: 6 },
-        { row: 4, col: 6 },
-        { row: 6, col: 6 },
-        { row: 8, col: 6 },
-      ],
+      text: "Balthasar ist laut Helens Hinweis im Esszimmer. Das lokalisiert ihn in Zeile 1, Spalte 2.",
+      place: { B: { row: 0, col: 1 } },
+    },
+    { text: "Das setzt Detlev auf das verbleibende Bett in Spalte 9." },
+    {
+      text: "Das lokalisiert auch Eva (die laut Helens Hinweis nicht im Esszimmer ist) auf dem letzten verfügbaren Stuhl, in Zeile 8, Spalte 7.",
+      place: { E: { row: 7, col: 6 } },
     },
     {
-      text: "Chanel war neben einem Fernseher und neben einem Stuhl: R8 C2, R8 C4, R8 C6, R9 C3 oder R9 C7 - frei ist nur R9 C3. Fatih war neben einem Fernseher und neben einem Tisch: R5 C5 in der Küche oder R9 C8 im Gästezimmer. R9 ist vergeben, also R5 C5.",
-      place: { C: { row: 8, col: 2 }, F: { row: 4, col: 4 } },
+      text: "Das lokalisiert Detlev und lokalisiert auch Chanel im Wohnzimmer.",
+      place: { D: { row: 6, col: 8 }, C: { row: 8, col: 2 } },
     },
     {
-      text: "Frei sind nur noch R3, R4 und R6 in C1, C6 und C8. Helen war im Esszimmer, also in C1 - R3 C1 ist ein Stuhl, R6 C1 eine Pflanze: Helen war in R4 C1. Gerald war neben einem Fernseher: das geht nur in R6 C8 neben R6 C9. Ortwin bleibt R3 C6 - im Schlafzimmer allein mit Gerald. Gerald ist der Mörder!",
+      text: "Das lokalisiert Fatih in der Küche. Das lokalisiert Helen im letzten Feld im Esszimmer ohne Stuhl. Das lokalisiert Gerald im Schlafzimmer, dann Ortwin. Gerald ist der Mörder!",
       place: {
+        F: { row: 4, col: 4 },
         H: { row: 3, col: 0 },
         G: { row: 5, col: 7 },
         O: { row: 2, col: 5 },

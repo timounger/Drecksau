@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/50. Dinnerparty.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Lösungen 1-80/Lösung 49-52.JPG`).
  * Ovid is the victim; whoever was alone with him killed him.
  *
  * The map has nine rows and nine columns; the four fields at the top left and
@@ -265,62 +264,45 @@ export const DINNER_PARTY: Level = {
   ],
   hints: [
     {
-      text: "Deborah sah eine weitere Frau auf einem Teppich in ihrem Raum. Chrissi war allein, und Emma stand neben einem Fernseher - dort liegt kein Teppich. Also war es Helen: auf einem Teppich neben einem Tisch, und das ist nur R4 C8 neben dem Tisch R4 C9. Helen stand in R4 C8, und Deborah war im Esszimmer. Blockiere den Rest von R4 und C8.",
+      text: "Helen ist die einzige Frau, die mit Deborah auf einem Teppich sein kann. Das lokalisiert Helen im einzigen Teppichfeld neben einem Tisch. Deborah ist mit ihr, irgendwo anders im Esszimmer.",
       place: { H: { row: 3, col: 7 } },
+    },
+    {
+      text: "Jemand muss auf einem Stuhl in S6 sein. Schließe den Rest der Spalte aus.",
       cross: [
-        { row: 3, col: 0 },
-        { row: 3, col: 1 },
-        { row: 3, col: 2 },
-        { row: 3, col: 4 },
+        { row: 1, col: 5 },
+        { row: 2, col: 5 },
         { row: 3, col: 5 },
-        { row: 0, col: 7 },
-        { row: 1, col: 7 },
-        { row: 2, col: 7 },
-        { row: 4, col: 7 },
-        { row: 5, col: 7 },
-        { row: 6, col: 7 },
+        { row: 4, col: 5 },
+        { row: 5, col: 5 },
       ],
     },
     {
-      text: "Benjamin war auf einem Teppich und östlich von Farouk - also nicht in C1. R4 und C8 sind blockiert: Es bleiben R3 C3 und R3 C6. Benjamin stand in R3; blockiere den Rest von R3.",
-      cross: [
-        { row: 2, col: 0 },
-        { row: 2, col: 1 },
-        { row: 2, col: 3 },
-        { row: 2, col: 4 },
-        { row: 2, col: 6 },
-        { row: 2, col: 8 },
-      ],
-    },
-    {
-      text: "In C9 sind nur R3 C9 und R6 C9 frei, und R3 gehört Benjamin - jemand stand in R6 C9, im Esszimmer. Chrissi kann es nicht sein (Helen ist dort), Farouk, Gerrit und Emma finden dort weder Pflanze noch Ecke noch Fernseher. Deborah stand in R6 C9.",
-      place: { D: { row: 5, col: 8 } },
-    },
-    {
-      text: "In R1 und R2 sind nur noch Felder im Wohnzimmer frei. Farouk findet dort keine Pflanze, Gerrits Ecke R1 C5 läge nördlich von Amos, Emma hat dort keinen Fernseher, und Chrissi wäre nicht allein. Amos und Ovid standen in R1 und R2. Ovid war allein mit einer Person - außer Amos war niemand im Wohnzimmer. Also stand Benjamin nicht in R3 C6, sondern in R3 C3.",
+      text: "Benjamin ist auf einem der beiden verbleibenden Teppichfelder in Z3. Da Benjamin östlich von Farouk ist, kann er nicht in S1 sein, also ist er in Z3 S3.",
       place: { B: { row: 2, col: 2 } },
     },
     {
-      text: "Emma war neben einem Fernseher. Die Felder am Fernseher im Wohnzimmer sind blockiert, also war sie im Schlafzimmer. Chrissi war allein: nicht im Wohnzimmer, Esszimmer, Badezimmer (Benjamin) oder Schlafzimmer (Emma) - sie war in der Küche, in R7 C4 oder R7 C6. Sonst war niemand in der Küche.",
+      text: "Nur ein Feld bleibt in Z9, also muss es besetzt sein; schließe den Rest von S4 aus. Das lokalisiert Emma, dann Farouk (der westlich von Benjamin ist).",
+      place: { E: { row: 7, col: 1 }, F: { row: 4, col: 0 } },
+      cross: [
+        { row: 2, col: 3 },
+        { row: 4, col: 3 },
+        { row: 5, col: 3 },
+        { row: 6, col: 3 },
+        { row: 7, col: 3 },
+      ],
     },
     {
-      text: "Für Emma, Farouk und Gerrit bleiben R5, R8 und R9. In R9 ist nur R9 C4 frei (C3 gehört Benjamin) - eine Ecke, also Gerrit. Emma bleibt am Fernseher nur R8 C2, und Farouk neben der Pflanze nur R5 C1.",
+      text: "Jemand muss im Wohnzimmer in Z2 sein, also kann Chrissi nur allein in der Küche sein. Sie und Deborah im Esszimmer besetzen Z6 und Z7 in irgendeiner Reihenfolge. Nur ein Feld bleibt in S9, also muss Deborah darin sein, was Chrissi lokalisiert.",
+      place: { D: { row: 5, col: 8 }, C: { row: 6, col: 5 } },
+    },
+    {
+      text: "Gerrit ist in einer Ecke, aber nicht in Z1, da er südlich von Amos ist, also ist er in Z9. Amos ist östlich von Ovid, was beide lokalisiert. Amos ist der Mörder!",
       place: {
         G: { row: 8, col: 3 },
-        E: { row: 7, col: 1 },
-        F: { row: 4, col: 0 },
-      },
-    },
-    {
-      text: "Chrissi saß in R7 C6 auf dem Stuhl (C4 gehört Gerrit). Für Amos und Ovid bleiben C5 und C7, und Amos war östlich von Ovid: Ovid in R1 C5, Amos in R2 C7 (R1 C7 ist ein Tisch).",
-      place: {
-        C: { row: 6, col: 5 },
-        O: { row: 0, col: 4 },
         A: { row: 1, col: 6 },
+        O: { row: 0, col: 4 },
       },
-    },
-    {
-      text: "Ovid war im Wohnzimmer allein mit Amos - Amos ist der Mörder!",
     },
   ],
   solution: {

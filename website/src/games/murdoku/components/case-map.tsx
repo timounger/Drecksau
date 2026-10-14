@@ -93,6 +93,33 @@ const RUG = {
   centre: 0.5,
 } as const;
 
+/** The colours of a rug: its edge, the line in its border, its field and its fringe. */
+type RugColours = {
+  readonly edge: string;
+  readonly line: string;
+  readonly field: string;
+  readonly fringe: string;
+};
+
+/** The red rug of the books. */
+const RUG_COLOURS: RugColours = {
+  edge: "#1e3a5f",
+  line: "#d4a017",
+  field: "#a3242b",
+  fringe: "#e7d7b7",
+};
+
+/** A beach towel: drawn like a rug, in the lilac of the page. */
+const TOWEL_COLOURS: RugColours = {
+  edge: "#5b21b6",
+  line: "#ede9fe",
+  field: "#a78bfa",
+  fringe: "#ddd6fe",
+};
+
+/** A door in the wall: its length along the wall and its depth across it, as parts of a field; frame in picture units. */
+const DOOR = { long: 0.66, deep: 0.2, frame: 2.5 } as const;
+
 /** A window in the wall: its length along the wall and its depth across it, as parts of a field; frame in picture units. */
 const PANE = { long: 0.56, deep: 0.16, frame: 3 } as const;
 
@@ -160,16 +187,49 @@ function labelRoom(level: Level, area: Area): number {
   return Math.max(1, fields) * FIELD - SIGN.gap * 2;
 }
 
+/** How a step across each side of a field moves. */
+const ACROSS: Readonly<Record<WallWindow["side"], Cell>> = {
+  top: { row: -1, col: 0 },
+  bottom: { row: 1, col: 0 },
+  left: { row: 0, col: -1 },
+  right: { row: 0, col: 1 },
+};
+
 /**
- * Whether a field is part of a table of another shape.
+ * Whether a door is drawn in a wall of a field.
  *
  * @param level - the case
  * @param cell - the field
- * @returns whether a shape covers it
+ * @returns true when a door opens on the field, from it or into it
+ */
+function doorBeside(level: Level, cell: Cell): boolean {
+  return (level.windows ?? []).some((pane) => {
+    const step = ACROSS[pane.side];
+    return (
+      pane.door === true &&
+      ((pane.at.row === cell.row && pane.at.col === cell.col) ||
+        (pane.at.row + step.row === cell.row &&
+          pane.at.col + step.col === cell.col))
+    );
+  });
+}
+
+/**
+ * Whether a field's sign gives way to a table or rug of another shape.
+ *
+ * @param level - the case
+ * @param cell - the field
+ * @returns whether a shape covers it with the same thing
+ * @remarks
+ * A field with something else on it - a plant on the rug - keeps its sign,
+ * drawn on top of the shape.
  */
 function inShape(level: Level, cell: Cell): boolean {
-  return (level.shapes ?? []).some((shape) =>
-    shape.some((one) => one.row === cell.row && one.col === cell.col),
+  const thing = thingAt(level, cell);
+  return (level.shapes ?? []).some(
+    (shape) =>
+      thing === thingAt(level, shape[0] ?? cell) &&
+      shape.some((one) => one.row === cell.row && one.col === cell.col),
   );
 }
 
@@ -309,11 +369,14 @@ export function RugShape({
   y,
   width,
   height,
+  colours = RUG_COLOURS,
 }: {
   readonly x: number;
   readonly y: number;
   readonly width: number;
   readonly height: number;
+  /** Other colours than the red rug's - a beach towel's, say. */
+  readonly colours?: RugColours;
 }): ReactElement {
   // The gap to the edge stays as on one field, so a big rug fills its block
   // and what stands on it clearly stands on it. The fringe hangs off the
@@ -344,7 +407,7 @@ export function RugShape({
               y1={end}
               x2={left + along}
               y2={end + out}
-              stroke="#e7d7b7"
+              stroke={colours.fringe}
               strokeWidth={RUG.line}
               strokeLinecap="round"
             />
@@ -355,7 +418,7 @@ export function RugShape({
               y1={top + along}
               x2={end + out}
               y2={top + along}
-              stroke="#e7d7b7"
+              stroke={colours.fringe}
               strokeWidth={RUG.line}
               strokeLinecap="round"
             />
@@ -368,7 +431,7 @@ export function RugShape({
         width={right - left}
         height={bottom - top}
         rx={RUG.line}
-        fill="#1e3a5f"
+        fill={colours.edge}
       />
       <rect
         x={left + band / 2}
@@ -376,7 +439,7 @@ export function RugShape({
         width={right - left - band}
         height={bottom - top - band}
         fill="none"
-        stroke="#d4a017"
+        stroke={colours.line}
         strokeWidth={RUG.line}
       />
       <rect
@@ -384,7 +447,7 @@ export function RugShape({
         y={top + band}
         width={right - left - band * 2}
         height={bottom - top - band * 2}
-        fill="#a3242b"
+        fill={colours.field}
       />
     </g>
   );
@@ -3366,6 +3429,130 @@ export function BoatShape({
 }
 /* eslint-enable @typescript-eslint/no-magic-numbers */
 
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A wooden catapult from the side: a frame on two wheels, a crossbar on two
+ * posts, and the throwing arm leaning back with a stone in its cup.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+export function CatapultShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const left = x + (width - size) / 2;
+  const top = y + (height - size) / 2;
+  const px = (part: number): number => left + size * part;
+  const py = (part: number): number => top + size * part;
+  const ink = "#3b2412";
+  const wood = "#a8743f";
+  const dark = "#7c5228";
+  const line = size * 0.025;
+  const beam = (
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    w: number,
+    colour: string,
+  ) => (
+    <g>
+      <line
+        x1={px(x1)}
+        y1={py(y1)}
+        x2={px(x2)}
+        y2={py(y2)}
+        stroke={ink}
+        strokeWidth={size * (w + 0.03)}
+        strokeLinecap="round"
+      />
+      <line
+        x1={px(x1)}
+        y1={py(y1)}
+        x2={px(x2)}
+        y2={py(y2)}
+        stroke={colour}
+        strokeWidth={size * w}
+        strokeLinecap="round"
+      />
+    </g>
+  );
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={px(0.5)}
+        cy={py(0.84)}
+        rx={size * 0.38}
+        ry={size * 0.05}
+        fill="#000"
+        opacity={0.18}
+      />
+      {/* The throwing arm, leaning back, with its cup and stone. */}
+      {beam(0.62, 0.66, 0.22, 0.2, 0.05, wood)}
+      <path
+        d={`M ${String(px(0.11))} ${String(py(0.2))} Q ${String(px(0.2))} ${String(py(0.32))} ${String(px(0.31))} ${String(py(0.2))} Z`}
+        fill={dark}
+        stroke={ink}
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      <circle
+        cx={px(0.2)}
+        cy={py(0.17)}
+        r={size * 0.075}
+        fill="#9ca3af"
+        stroke="#374151"
+        strokeWidth={line}
+      />
+      {/* The posts and the crossbar the arm swings against. */}
+      {beam(0.42, 0.7, 0.46, 0.34, 0.045, dark)}
+      {beam(0.66, 0.7, 0.5, 0.34, 0.045, dark)}
+      {beam(0.38, 0.33, 0.56, 0.33, 0.05, wood)}
+      {/* The frame and the wheels. */}
+      {beam(0.14, 0.7, 0.86, 0.7, 0.07, wood)}
+      {[0.27, 0.73].map((part) => (
+        <g key={`wheel-${String(part)}`}>
+          <circle
+            cx={px(part)}
+            cy={py(0.74)}
+            r={size * 0.11}
+            fill={wood}
+            stroke={ink}
+            strokeWidth={line * 1.4}
+          />
+          <line
+            x1={px(part - 0.1)}
+            y1={py(0.74)}
+            x2={px(part + 0.1)}
+            y2={py(0.74)}
+            stroke={ink}
+            strokeWidth={line}
+          />
+          <line
+            x1={px(part)}
+            y1={py(0.64)}
+            x2={px(part)}
+            y2={py(0.84)}
+            stroke={ink}
+            strokeWidth={line}
+          />
+          <circle cx={px(part)} cy={py(0.74)} r={size * 0.025} fill={ink} />
+        </g>
+      ))}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
 /**
  * The things the map draws itself rather than showing an emoji for.
  *
@@ -3429,6 +3616,7 @@ export function DrawnThing({
       drawn = <WaterWheelShape x={x} y={y} width={width} height={height} />;
       break;
     case "shrub":
+    case "bush":
       drawn = <ShrubShape x={x} y={y} width={width} height={height} />;
       break;
     case "mud":
@@ -3473,6 +3661,23 @@ export function DrawnThing({
     case "boat":
       drawn = <BoatShape x={x} y={y} width={width} height={height} />;
       break;
+    case "catapult":
+      drawn = <CatapultShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "towel":
+      drawn = (
+        <RugShape
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          colours={TOWEL_COLOURS}
+        />
+      );
+      break;
+    case "door":
+      drawn = <DoorSignShape x={x} y={y} width={width} height={height} />;
+      break;
     case "crumbs":
       drawn = <CrumbsShape x={x} y={y} width={width} height={height} />;
       break;
@@ -3504,6 +3709,9 @@ export const DRAWN_THINGS: ReadonlySet<string> = new Set([
   "chessTable",
   "waterWheel",
   "crumbs",
+  "door",
+  "towel",
+  "catapult",
   "woodCrate",
   "boat",
   "safe",
@@ -3519,6 +3727,7 @@ export const DRAWN_THINGS: ReadonlySet<string> = new Set([
   "easel",
   "mud",
   "shrub",
+  "bush",
 ]);
 
 /**
@@ -3607,11 +3816,15 @@ function WindowShape({
 }: {
   readonly window: WallWindow;
 }): ReactElement {
-  return pane.board === true ? (
-    <BoardShape board={pane} />
-  ) : (
-    <PaneShape window={pane} />
-  );
+  let drawn: ReactElement;
+  if (pane.board === true) {
+    drawn = <BoardShape board={pane} />;
+  } else if (pane.door === true) {
+    drawn = <DoorShape door={pane} />;
+  } else {
+    drawn = <PaneShape window={pane} />;
+  }
+  return drawn;
 }
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
@@ -3720,6 +3933,132 @@ function BoardShape({ board }: { readonly board: WallWindow }): ReactElement {
   );
 }
 
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A door set into the wall between two fields, like a window but of wood:
+ * a brown panel with a darker frame and a brass handle.
+ *
+ * @param props - the door
+ * @returns the drawing
+ */
+function DoorShape({ door }: { readonly door: WallWindow }): ReactElement {
+  const along = FIELD * DOOR.long;
+  const deep = FIELD * DOOR.deep;
+  const sideways = door.side === "left" || door.side === "right";
+  const width = sideways ? deep : along;
+  const height = sideways ? along : deep;
+  const left = door.at.col * FIELD;
+  const top = door.at.row * FIELD;
+  let x: number;
+  let y: number;
+  switch (door.side) {
+    case "top":
+      x = left + (FIELD - along) / 2;
+      y = top - deep / 2;
+      break;
+    case "bottom":
+      x = left + (FIELD - along) / 2;
+      y = top + FIELD - deep / 2;
+      break;
+    case "left":
+      x = left - deep / 2;
+      y = top + (FIELD - along) / 2;
+      break;
+    default:
+      x = left + FIELD - deep / 2;
+      y = top + (FIELD - along) / 2;
+  }
+  return (
+    <g pointerEvents="none">
+      <DoorPanel x={x} y={y} width={width} height={height} />
+    </g>
+  );
+}
+
+/**
+ * The wooden panel of a door, in a box - on the wall, or on its own in the
+ * legend.
+ *
+ * @param props - where the panel lies and how big
+ * @returns the drawing
+ */
+function DoorPanel({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const sideways = height > width;
+  const thin = Math.min(width, height);
+  return (
+    <>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        rx={thin * 0.35}
+        fill="#c2410c"
+        stroke="#431407"
+        strokeWidth={DOOR.frame}
+      />
+      <rect
+        x={x + thin * 0.22}
+        y={y + thin * 0.22}
+        width={width - thin * 0.44}
+        height={height - thin * 0.44}
+        rx={thin * 0.2}
+        fill="#ea7c3c"
+      />
+      <circle
+        cx={sideways ? x + width / 2 : x + width - thin * 0.75}
+        cy={sideways ? y + height - thin * 0.75 : y + height / 2}
+        r={thin * 0.18}
+        fill="#fbbf24"
+        stroke="#431407"
+        strokeWidth={1}
+      />
+    </>
+  );
+}
+
+/**
+ * A door on its own, for the legend: the panel lying across the field.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+export function DoorSignShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const along = width * DOOR.long;
+  const deep = width * DOOR.deep;
+  return (
+    <g pointerEvents="none">
+      <DoorPanel
+        x={x + (width - along) / 2}
+        y={y + (height - deep) / 2}
+        width={along}
+        height={deep}
+      />
+    </g>
+  );
+}
 /* eslint-enable @typescript-eslint/no-magic-numbers */
 
 /**
@@ -4160,12 +4499,14 @@ export function CaseMap({
       })}
       {cells.map((cell) => {
         const thing = thingAt(level, cell);
-        // A window drawn in the wall needs no sign on its field.
+        // A window or door drawn in the wall needs no sign on its field -
+        // a door none on either side of it.
         const inWall =
-          thing === "window" &&
-          (level.windows ?? []).some(
-            (pane) => pane.at.row === cell.row && pane.at.col === cell.col,
-          );
+          (thing === "window" &&
+            (level.windows ?? []).some(
+              (pane) => pane.at.row === cell.row && pane.at.col === cell.col,
+            )) ||
+          (thing === "door" && doorBeside(level, cell));
         return thing === null ||
           inWall ||
           inPiece(level, cell) ||

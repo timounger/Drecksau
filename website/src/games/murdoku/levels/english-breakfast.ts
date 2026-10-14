@@ -6,8 +6,8 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/3. English Breakfast/3. English Breakfast.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 01-04.JPG`).
  * Orville is the victim; whoever was alone with him killed him.
  *
  * The armchairs, the beds and the rugs can be stood on; the plants, the TV,
@@ -150,7 +150,7 @@ export const ENGLISH_BREAKFAST: Level = {
   rules: [],
   hints: [
     {
-      text: "Es gibt nur ein Fenster, in der Ostwand bei R4 C6 - Elsa stand davor, in R4 C6. Blockiere den Rest von R4 und C6.",
+      text: "Elsa muss vor dem einzigen Fenster sein, in Zeile 4, Spalte 6.",
       place: { E: { row: 3, col: 5 } },
       cross: [
         { row: 3, col: 0 },
@@ -165,7 +165,7 @@ export const ENGLISH_BREAKFAST: Level = {
       ],
     },
     {
-      text: "Burkhard war in der Küche. C6 ist blockiert, in R1 C5 steht die Küchentheke und in R3 C5 eine Pflanze. Burkhard war in R2 C5 - blockiere den Rest von R2 und C5.",
+      text: "Das lokalisiert Burkhard im letzten verbleibenden Feld in der Küche.",
       place: { B: { row: 1, col: 4 } },
       cross: [
         { row: 1, col: 0 },
@@ -176,7 +176,7 @@ export const ENGLISH_BREAKFAST: Level = {
       ],
     },
     {
-      text: "Alexander war auf einem Bett. Das Bett im Schlafzimmer liegt in der blockierten R4, und vom Bett im Gästezimmer ist R2 C1 blockiert. Alexander war in R1 C1 - blockiere den Rest von R1 und C1.",
+      text: "Das lokalisiert Alexander im letzten verbleibenden Feld auf einem Bett.",
       place: { A: { row: 0, col: 0 } },
       cross: [
         { row: 0, col: 1 },
@@ -188,7 +188,7 @@ export const ENGLISH_BREAKFAST: Level = {
       ],
     },
     {
-      text: "Cleo war neben einem Tisch. An der Küchentheke liegen nur Felder der blockierten R2; neben dem Tisch in R3 C4 liegen im Schlafzimmer R3 C3 und R4 C4, und R4 ist blockiert. Cleo war in R3 C3 - blockiere den Rest von R3 und C3.",
+      text: "Das lokalisiert auch Cleo im letzten Feld neben einem Tisch.",
       place: { C: { row: 2, col: 2 } },
       cross: [
         { row: 2, col: 1 },
@@ -197,11 +197,11 @@ export const ENGLISH_BREAKFAST: Level = {
       ],
     },
     {
-      text: "Diane war neben dem Fernseher in R6 C3. Der Sessel in R5 C3 liegt in der blockierten C3, also war Diane in R6 C4.",
+      text: "Das lokalisiert Diane im letzten Feld neben dem Fernseher.",
       place: { D: { row: 5, col: 3 } },
     },
     {
-      text: "Orville blieb das letzte Feld, R5 C2. Im Gästezimmer war er allein mit Alexander - Alexander ist der Mörder!",
+      text: "Das lokalisiert Orville, allein im Gästezimmer mit Alexander. Alexander ist der Mörder!",
       place: { O: { row: 4, col: 1 } },
     },
   ],

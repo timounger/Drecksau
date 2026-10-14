@@ -5,8 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Das Murdoku-Orginal/34. Maskenball.png`, no
- * solution sheet), with the culprit pencilled in on the photographed page.
+ * (`game_instructions/Murdoku/Das Murdoku-Orginal/34. Maskenball.png`,
+ * solution sheet `Lösungen 1-80/Lösung 33-36.JPG`).
  * Orion is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they and the rugs can be stood on. Tables
@@ -312,47 +312,30 @@ export const MASKED_BALL: Level = {
   ],
   hints: [
     {
-      text: "Eric war allein und nicht neben einer Wand. Solche Felder gibt es nur mitten im Tanzsaal (R4 bis R6, C2 bis C5), in R5 C8 im Esszimmer und in R8 C7 - ein Stuhl, auf dem nur Caitlin sitzen kann. Wäre Eric allein im Tanzsaal, müssten die übrigen vier Reihen des Tanzsaals (R3 bis R7) außerhalb von ihm besetzt werden - dort gibt es nur C7 bis C9. Also war Eric in R5 C8. Blockiere den Rest des Esszimmers.",
+      text: "Angelo kann nur im Tanzsaal sein, und er muss mit Darla, Francine und Harriet dort sein, da Caitlin und Gemma jeweils in einem Raum mit Stuhl sind.",
+    },
+    {
+      text: "Eric, der laut Caitlins Hinweis nicht auf einem Stuhl ist, kann nur im Esszimmer sein, in Z5 S8.",
       place: { E: { row: 4, col: 7 } },
-      cross: [
-        { row: 2, col: 6 },
-        { row: 2, col: 7 },
-        { row: 2, col: 8 },
-        { row: 3, col: 8 },
-        { row: 4, col: 6 },
-        { row: 4, col: 8 },
-        { row: 5, col: 8 },
-      ],
     },
     {
-      text: "Angelo war mit drei Frauen in einem Raum - vier Personen. Flur und Küche haben nur zwei Reihen, die Lounge drei, und im Esszimmer war Eric allein. Also war Angelo im Tanzsaal, in dessen rechter Spalte C6. Im Tanzsaal steht kein Stuhl, also waren weder Caitlin noch Gemma dort: Die drei Frauen sind Darla, Francine und Harriet. Mit Eric in R5 gehören R3, R4, R6 und R7 diesen vier - blockiere R7 in der Lounge.",
-      cross: [
-        { row: 6, col: 6 },
-        { row: 6, col: 7 },
-        { row: 6, col: 8 },
-      ],
-    },
-    {
-      text: "Darla war im Tanzsaal neben einer Pflanze, aber nicht auf einem Teppich - dort war nur Harriet. Neben der Pflanze in R3 C6 ist nur R4 C6 frei, und C6 gehört Angelo. Neben der in R5 C3 liegen R4 C3 (Teppich) und Felder in R5. Neben der in R7 C3 ist R7 C2 ein Teppich und R7 C4 ein Tisch. Darla war in R6 C3.",
-      place: { D: { row: 5, col: 2 } },
-    },
-    {
-      text: "Francine war vor einem Fenster im Tanzsaal, also in C1: R5 gehört Eric, R6 Darla, und R7 C1 ist ein Teppich. Francine war in R4 C1. Angelo bleibt in C6 nur R7 C6, denn R3 C6 ist eine Pflanze. Harriet war auf einem Teppich in R3, aber nicht in C3 - in R3 C4.",
+      text: "Weil Harriet die einzige Person auf einem Teppich ist, kann Francine nur vor dem Fenster in Z4 sein. Das lokalisiert Darla im letzten Feld neben einer Pflanze (und nicht auf einem Teppich) im Tanzsaal, dann Angelo, dann Harriet.",
       place: {
         F: { row: 3, col: 0 },
+        D: { row: 5, col: 2 },
         A: { row: 6, col: 5 },
         H: { row: 2, col: 3 },
       },
     },
     {
-      text: "Bastian, Caitlin, Gemma und Orion bleiben R1, R2, R8 und R9 in C2, C5, C7 und C9. Caitlin saß auf einem Stuhl: R8 C7, R1 C9 oder R8 C9. Bastian war neben einem Tisch: R8 C5 oder R9 C2. Gemma braucht einen Stuhl in ihrer Reihe und ihrem Raum: R1 C2, R1 C7, R8 C2 oder R8 C5. Säße Caitlin in R8 C7, stünde Bastian in R9 C2, und Gemma bliebe kein Feld. Also war Caitlin in C9. In C7 ist dann nur noch R1 C7 frei, R1 ist besetzt - Caitlin saß in R8 C9.",
-      place: { C: { row: 7, col: 8 } },
+      text: "Gemma, die auch nicht auf einem Stuhl ist, kann nur in Z1 sein, was bedeutet, dass Caitlin in Z8 ist.",
     },
     {
-      text: "R8 ist besetzt, also stand Bastian in R9 C2. Gemma bleibt nur R1 C7, Orion R2 C5. Im Flur war Orion allein mit Gemma - Gemma ist die Mörderin!",
+      text: "Das lokalisiert Bastian in Z9 S2, was Gemma lokalisiert, dann Caitlin, dann Orion. Gemma ist die Mörderin!",
       place: {
         B: { row: 8, col: 1 },
         G: { row: 0, col: 6 },
+        C: { row: 7, col: 8 },
         O: { row: 1, col: 4 },
       },
     },

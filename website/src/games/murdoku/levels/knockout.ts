@@ -5,8 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/K.O.!/K.O.!.png`, no solution sheet),
- * with the culprit pencilled in on the photographed page.
+ * (`game_instructions/Murdoku/Leicht/K.O.!/K.O.!.png`,
+ * solution on `Das Murdoku-Orginal/Lösungen 1-80/Lösung 25-28.JPG`).
  * Orhan is the victim; whoever was alone with him killed him.
  *
  * The white armchairs are the chairs and the red mat of the ring is the rug;
@@ -326,75 +326,38 @@ export const KNOCKOUT: Level = {
   ],
   hints: [
     {
-      text: "Annie saß als Einzige auf einem Stuhl: R1 C1, R1 C9, R9 C3 oder R9 C5. Danika war östlich von ihr, also nicht C9; Christopher war südlich von ihr, also nicht R9. Annie saß in R1 C1. Blockiere den Rest von R1 und C1.",
+      text: "Annie war nördlich von Christopher und westlich von Danika, also kann sie nur in Zeile 1, Spalte 1 sitzen. Schließe die anderen Stühle aus.",
       place: { A: { row: 0, col: 0 } },
       cross: [
-        { row: 0, col: 1 },
-        { row: 0, col: 2 },
-        { row: 0, col: 3 },
-        { row: 0, col: 4 },
-        { row: 0, col: 5 },
-        { row: 0, col: 6 },
-        { row: 0, col: 7 },
         { row: 0, col: 8 },
-        { row: 1, col: 0 },
-        { row: 2, col: 0 },
-        { row: 3, col: 0 },
-        { row: 4, col: 0 },
-        { row: 5, col: 0 },
-        { row: 6, col: 0 },
-        { row: 7, col: 0 },
-        { row: 8, col: 0 },
-      ],
-    },
-    {
-      text: "Grace war allein in einem Raum mit Fernseher. Im Trainingsraum ist Annie, also war Grace im Eingang - ohne Stuhl und nicht in C1: R8 C2, R8 C3 oder R9 C2. Danika war westlich von Grace und östlich von Annie, also kann Grace nicht in C2 sein. Grace war in R8 C3, Danika in C2. Blockiere den Rest von R8 und C3.",
-      place: { G: { row: 7, col: 2 } },
-      cross: [
-        { row: 7, col: 0 },
-        { row: 7, col: 1 },
-        { row: 7, col: 3 },
-        { row: 7, col: 4 },
-        { row: 7, col: 5 },
-        { row: 7, col: 6 },
-        { row: 7, col: 7 },
-        { row: 7, col: 8 },
-        { row: 0, col: 2 },
-        { row: 1, col: 2 },
-        { row: 2, col: 2 },
-        { row: 3, col: 2 },
-        { row: 4, col: 2 },
-        { row: 5, col: 2 },
-        { row: 6, col: 2 },
         { row: 8, col: 2 },
+        { row: 8, col: 4 },
       ],
     },
     {
-      text: "Das Lager liegt nur in C1 und C2 - außer Danika war dort niemand. Hector war mit einer Frau in seinem Raum; Grace war allein, also war er bei Annie im Trainingsraum, in R2: R2 C5 oder R2 C6. Bradley brauchte jemanden neben einem Spind in seinem Raum - das geht nur noch in der Umkleide.",
+      text: "Grace war allein, also muss sie im Eingang sein. Danika ist westlich von ihr; das lokalisiert Grace in Spalte 3 und setzt Danika in Spalte 2.",
+      place: { G: { row: 7, col: 2 } },
     },
     {
-      text: "Christopher war südlich von Annie und nördlich von Danika. R2 gehört Hector, also war Christopher in R3 und Danika weiter südlich in C2 - R5 C2 und R6 C2 sind ein Tisch, R7 C2 ein Spind, R9 C2 wäre bei Grace. Danika war in R4 C2.",
+      text: "Danika muss im Lager sein, sonst wäre es unmöglich, dass Hector einen Raum mit einer Frau teilt. Hector muss mit Annie zusammen sein, irgendwo in Zeile 2 im Trainingsraum.",
+    },
+    {
+      text: "Christopher ist nördlich von Danika. Das setzt Christopher in Zeile 3 und lokalisiert Danika in Zeile 4.",
       place: { D: { row: 3, col: 1 } },
     },
     {
-      text: "In R9 ist nur noch in den Duschen Platz: R9 C6, R9 C8 oder R9 C9 - wer dort steht, ist allein. Erich, Bradley, Hector und Christopher haben ihre Räume, Orhan war nicht allein. Also stand Freddy dort, in einer Ecke: R9 C6 oder R9 C9.",
+      text: "Bradley ist in der Umkleide mit jemandem. Einer von ihnen muss in Zeile 6, Spalte 8 sein und der andere in Spalte 9. Das lässt nur ein Feld in Zeile 9, in den Duschen, wo nur Freddy sein kann, das lokalisiert ihn in Spalte 6.",
+      place: { F: { row: 8, col: 5 } },
     },
     {
-      text: "In der Umkleide stand neben Bradley noch jemand neben einem Spind: Christopher (R3 C9) oder Orhan. Wäre es Orhan, belegten er und Bradley C8 und C9; Freddy müsste nach R9 C6, Hector nach R2 C5 - und für Christopher (dann in R3 im Boxring) und Erich bliebe zusammen nur C4. Also stand Christopher in R3 C9.",
-      place: { C: { row: 2, col: 8 } },
-    },
-    {
-      text: "Bradley war in der Umkleide in C8: R2 und R4 sind besetzt, R5 C8 und R7 C8 sind Spinde - er stand in R6 C8. Damit bleibt für Freddy R9 C6, für Hector R2 C5 und für Erich auf dem Teppich R5 C4.",
+      text: "Das lokalisiert Hector, dann Erich, dann Christopher, Bradley und Orhan. Erich ist der Mörder!",
       place: {
-        B: { row: 5, col: 7 },
-        F: { row: 8, col: 5 },
         H: { row: 1, col: 4 },
         E: { row: 4, col: 3 },
+        C: { row: 2, col: 8 },
+        B: { row: 5, col: 7 },
+        O: { row: 6, col: 6 },
       },
-    },
-    {
-      text: "Orhan bleibt R7 C7 im Boxring. Dort war er allein mit Erich - Erich ist der Mörder!",
-      place: { O: { row: 6, col: 6 } },
     },
   ],
   prune: stillPossible,

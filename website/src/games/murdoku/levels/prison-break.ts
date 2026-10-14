@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/43. Gefängnisausbruch.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Lösungen 1-80/Lösung 41-44.JPG`).
  * Orestes is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they and the beds can be stood on. The
@@ -259,45 +258,53 @@ export const PRISON_BREAK: Level = {
   ],
   hints: [
     {
-      text: "Gustaf (in R7), Emilio (auf dem Teppich) und Benno waren im Gemeinschaftsraum. Er hat nur drei Reihen - sonst war niemand dort. Die anderen sechs verteilen sich auf die fünf Zellen, und keine ist leer: Genau eine Zelle hat zwei Personen - Orestes und den Mörder. In jeder anderen Zelle war genau eine Person.",
+      text: "Es sind drei Personen im Gemeinschaftsraum, und das müssen Benno, Emilio und Gustaf sein, mit Gustaf in Z7.",
     },
     {
-      text: "Hector saß als Einziger, also auf einem Stuhl in einer Zelle. In Zelle D gibt es weder Stuhl noch Bett: Dort kann nur Finnegan oder Orestes sein. In Zelle E nur Finnegan, Orestes oder Hector auf dem Stuhl in R1 C8. Wäre Hector nicht in Zelle E, müssten Finnegan und Orestes die Zellen D und E jeder für sich füllen - Orestes wäre ohne den Mörder. Also saß Hector in R1 C8.",
+      text: "Da jeder Raum besetzt ist, müssen die anderen fünf Verdächtigen jeweils in einem der verbleibenden fünf Räume sein.",
+    },
+    {
+      text: "Die einzigen Verdächtigen, die in Zelle D und Zelle E sein können, sind Finnegan und Hector. Da Hector sitzt, muss er auf dem Stuhl in Zelle E sein (und Finnegan ist in Zelle D, in S7). Schließe jeden anderen Stuhl und den Rest von S7 aus.",
       place: { H: { row: 0, col: 7 } },
-    },
-    {
-      text: "Der Teil von Zelle D in C8 ist durch Hector gesperrt, es bleibt C7 - dort hat nur eine Person Platz. Orestes kann also nicht mit dem Mörder in Zelle D sein: Finnegan war in Zelle D, in C7.",
       cross: [
-        { row: 3, col: 7 },
-        { row: 4, col: 7 },
-        { row: 5, col: 7 },
+        { row: 0, col: 0 },
+        { row: 1, col: 3 },
+        { row: 1, col: 5 },
+        { row: 5, col: 1 },
+        { row: 5, col: 5 },
+        { row: 6, col: 2 },
+        { row: 6, col: 3 },
+        { row: 6, col: 5 },
+        { row: 6, col: 6 },
+        { row: 7, col: 2 },
+        { row: 7, col: 3 },
+        { row: 7, col: 5 },
+        { row: 7, col: 6 },
+        { row: 8, col: 2 },
+        { row: 8, col: 4 },
+        { row: 8, col: 6 },
       ],
     },
     {
-      text: "Carsten (auf einem Bett) und Derek (links neben einem Bett) können nur in R3 oder R4 sein - sie teilen sich diese beiden Reihen. Ace in Zelle C war also nicht in R1, R3 oder R4 und weder auf einem Stuhl noch auf einem Tisch: R2 C5 oder R5 C6.",
+      text: "Das lässt nur ein verfügbares Feld in Z9, das nur Emilio besetzen kann, was ihn in S1 lokalisiert.",
+      place: { E: { row: 8, col: 0 } },
     },
     {
-      text: "Gustaf in R7 stand nicht auf einem Stuhl: R7 C1 oder R7 C9 (C8 ist gesperrt). Benno war nicht auf dem Teppich, nicht auf einem Stuhl und nicht in R7: Ohne C7 und C8 bleiben R8 C5 und R8 C9. Emilio auf dem Teppich: R7 C1, R8 C1, R8 C2 oder R9 C1 (in R7 C2 und R9 C2 stehen Pflanzen).",
-    },
-    {
-      text: "Stünde Benno in R8 C9, wäre Gustaf in R7 C1 - und Emilio fände kein Feld mehr: C1, R7 und R8 wären belegt. Also stand Benno in R8 C5, Gustaf in R7 C9 und Emilio in R9 C1. Damit kann auch Orestes nicht in Zelle E sein: C8 und C9 sind dort belegt.",
+      text: "Das lokalisiert Gustaf, was Benno lokalisiert, was Carsten lokalisiert.",
       place: {
-        B: { row: 7, col: 4 },
         G: { row: 6, col: 8 },
-        E: { row: 8, col: 0 },
+        B: { row: 7, col: 4 },
+        C: { row: 3, col: 1 },
       },
     },
     {
-      text: "C1 und C5 sind belegt: Derek bleibt nur R3 C3, links vom Bett in Zelle B, und Carsten lag in R4. Ace war nicht in C5, also in R5 C6. Finnegan in C7 bleibt nur R2 C7.",
+      text: "Carsten ist der einzige Verdächtige, der in Zelle A sein kann, in Z4 S2. Das lokalisiert Ace, dann Finnegan und Orestes. Derek ist der Mörder!",
       place: {
-        D: { row: 2, col: 2 },
         A: { row: 4, col: 5 },
         F: { row: 1, col: 6 },
+        O: { row: 5, col: 3 },
+        D: { row: 2, col: 2 },
       },
-    },
-    {
-      text: "Carsten lag in R4, C6 ist belegt: R4 C2 oder R4 C4. Orestes bleibt R6, in C2 oder C4 - auf dem Stuhl in R6 C2 saß er nicht, nur Hector saß. Orestes war in R6 C4, Carsten in R4 C2. In Zelle B war Orestes allein mit Derek - Derek ist der Mörder!",
-      place: { O: { row: 5, col: 3 }, C: { row: 3, col: 1 } },
     },
   ],
   solution: {

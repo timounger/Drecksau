@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Das Bekleidungsgeschäft/Das Bekleidungsgeschäft.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution on `Das Murdoku-Orginal/Lösungen 1-80/Lösung 25-28.JPG`).
  * Ornella is the victim; whoever was alone with her killed her.
  *
  * The big rug on the sales floor and the doormat at the entrance can be stood
@@ -274,98 +273,44 @@ export const THE_CLOTHING_STORE: Level = {
   ],
   hints: [
     {
-      text: "Felicitas war allein in Umkleide 4. Die einzigen Männer sind Dylan und Günther, und Regale stehen nur im Verkaufsraum: Hanna, Dylan und Günther waren also im Verkaufsraum. Carissa war in R5 - dort sind nur Stühle und Felder des Verkaufsraums frei, und auf einem Stuhl saß nur Brigitte. Auch Carissa war im Verkaufsraum.",
+      text: "Dylan, Günther und Hanna müssen im Verkaufsraum sein, da es der einzige Raum ist, der drei Personen aufnehmen kann. Laut Brigittes Hinweis kann Carissa nicht auf dem Stuhl in Zeile 5 sein, also muss sie auch im Verkaufsraum sein.",
     },
     {
-      text: "Genau zwei Umkleiden waren leer, also waren vier besetzt. Dafür bleiben nur Adeline, Brigitte, Eleanor, Felicitas und Ornella. Ornella war mit genau einer weiteren Person zusammen (nicht im vollen Verkaufsraum), Felicitas allein in Umkleide 4 - vier Umkleiden werden nur voll, wenn alle fünf in Umkleiden standen. Eleanor war also in einer Umkleide. Nicht neben einem Tisch oder Stuhl ist dort nur R3 C3 in Umkleide 2. Blockiere den Rest von R3 und C3.",
-      place: { E: { row: 2, col: 2 } },
+      text: "Die verbleibenden vier Verdächtigen müssen alle in verschiedenen Umkleidekabinen sein (da nur zwei leer sind), einer davon mit Ornella. Daher ist niemand im Eingang; schließe alle Felder im Eingang aus.",
       cross: [
-        { row: 2, col: 0 },
-        { row: 2, col: 3 },
-        { row: 2, col: 4 },
-        { row: 2, col: 6 },
-        { row: 2, col: 7 },
-        { row: 2, col: 8 },
-        { row: 1, col: 2 },
-        { row: 3, col: 2 },
-        { row: 4, col: 2 },
-        { row: 5, col: 2 },
-        { row: 6, col: 2 },
-        { row: 8, col: 2 },
-      ],
-    },
-    {
-      text: "Dylan war auf dem großen Teppich im Verkaufsraum, in R6 (R5 gehört Carissa), und neben einem Regal. Nur R6 C5 liegt neben dem Regal in R6 C6. Blockiere den Rest von R6 und C5.",
-      place: { D: { row: 5, col: 4 } },
-      cross: [
-        { row: 5, col: 0 },
-        { row: 5, col: 3 },
-        { row: 5, col: 6 },
-        { row: 5, col: 7 },
-        { row: 0, col: 4 },
-        { row: 1, col: 4 },
-        { row: 3, col: 4 },
-        { row: 4, col: 4 },
-        { row: 6, col: 4 },
+        { row: 7, col: 3 },
         { row: 7, col: 4 },
+        { row: 8, col: 2 },
+        { row: 8, col: 3 },
         { row: 8, col: 4 },
       ],
     },
     {
-      text: "In Umkleide 4 ist R3 gesperrt; frei bleibt für Felicitas nur R2 C7. Blockiere den Rest von R2 und C7.",
-      place: { F: { row: 1, col: 6 } },
-      cross: [
-        { row: 1, col: 0 },
-        { row: 1, col: 3 },
-        { row: 1, col: 7 },
-        { row: 4, col: 6 },
-        { row: 7, col: 6 },
-        { row: 8, col: 6 },
-      ],
+      text: "Dylan muss auf dem Teppich in Zeile 6 sein, in Spalte 5 neben dem Regal laut Hannas Hinweis.",
+      place: { D: { row: 5, col: 4 } },
     },
     {
-      text: "Günther stand in seinem Raum am weitesten östlich, also östlich von Dylan, und neben einem Regal: R7 C6 oder R8 C7. C7 ist gesperrt - Günther war in R7 C6. Blockiere den Rest von R7 und C6.",
-      place: { G: { row: 6, col: 5 } },
-      cross: [
-        { row: 6, col: 0 },
-        { row: 6, col: 1 },
-        { row: 6, col: 3 },
-        { row: 6, col: 7 },
-        { row: 0, col: 5 },
-        { row: 3, col: 5 },
-        { row: 7, col: 5 },
-        { row: 8, col: 5 },
-      ],
+      text: "Eleanor, die laut Felicitas' Hinweis in einer Umkleidekabine ist, aber nicht in Kabine 4, kann nur in Zeile 3, Spalte 3 sein.",
+      place: { E: { row: 2, col: 2 } },
     },
     {
-      text: "Brigitte saß auf einem Stuhl. Die Stühle in R2 und R7 sind gesperrt, die in R5 liegen in Carissas Reihe und der in R1 C6 in der gesperrten C6: Brigitte saß in R1 C2. Adeline war neben einem Stuhl in Umkleide 1 oder 6, also in R1 C1 oder R8 C8; R1 ist besetzt, darum R8 C8. Blockiere die Reihen und Spalten der beiden.",
-      place: { B: { row: 0, col: 1 }, A: { row: 7, col: 7 } },
-      cross: [
-        { row: 0, col: 0 },
-        { row: 3, col: 1 },
-        { row: 8, col: 1 },
-        { row: 7, col: 0 },
-        { row: 7, col: 3 },
-        { row: 7, col: 8 },
-        { row: 3, col: 7 },
-        { row: 4, col: 7 },
-      ],
+      text: "Das lokalisiert Felicitas, dann Günther und Carissa, dann Brigitte auf dem letzten Stuhl.",
+      place: {
+        F: { row: 1, col: 6 },
+        G: { row: 6, col: 5 },
+        C: { row: 4, col: 0 },
+        B: { row: 0, col: 1 },
+      },
     },
     {
-      text: "Carissa war in R5: frei ist dort nur noch R5 C1. Blockiere den Rest von R5 und C1.",
-      place: { C: { row: 4, col: 0 } },
-      cross: [
-        { row: 4, col: 3 },
-        { row: 3, col: 0 },
-        { row: 8, col: 0 },
-      ],
-    },
-    {
-      text: "Übrig sind R4 und R9 in C4 und C9. Hanna war im Verkaufsraum, also in R4 C4. Ornella blieb R9 C9 - in Umkleide 6 allein mit Adeline. Adeline ist die Mörderin!",
-      place: { H: { row: 3, col: 3 }, O: { row: 8, col: 8 } },
+      text: "Das lokalisiert Hanna und Adeline, dann Ornella. Adeline ist die Mörderin!",
+      place: {
+        H: { row: 3, col: 3 },
+        A: { row: 7, col: 7 },
+        O: { row: 8, col: 8 },
+      },
     },
   ],
-
   solution: {
     A: { row: 7, col: 7 },
     B: { row: 0, col: 1 },

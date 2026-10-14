@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Die Geburtstagsparty/Die Geburtstagsparty.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Das Murdoku-Orginal/Lösungen 1-80/Lösung 13-16.JPG`).
  * Odette is the victim; whoever was alone with her killed her.
  *
  * Chairs and beds can be stood on; tables, presents, plants and the TVs
@@ -219,33 +218,34 @@ export const THE_BIRTHDAY_PARTY: Level = {
     },
   ],
   hints: [
+    { text: "Björn, Ella und Hopsy sind im Esszimmer." },
     {
-      text: "Laut Björn waren Ella und Hopsy im Esszimmer. Hopsy war neben einem Geschenk - das einzige Geschenk dort steht in R7 C9; daneben sind eine Pflanze und ein Tisch, also steht Hopsy in R7 C8.",
+      text: "Das lokalisiert Hopsy neben dem Geschenk.",
       place: { H: { row: 6, col: 7 } },
     },
     {
-      text: "Ella saß im Esszimmer auf einem Stuhl: R7 C7, R8 C6 oder R9 C8. R7 und C8 sind vergeben, also sitzt sie in R8 C6.",
-      place: { E: { row: 7, col: 5 } },
+      text: "Das lokalisiert Ella auf dem letzten verfügbaren Stuhl im Esszimmer, dann Björn.",
+      place: { E: { row: 7, col: 5 }, B: { row: 8, col: 4 } },
     },
     {
-      text: "Abraham war in der Küche neben einem Tisch: R2 C8, R3 C8, R4 C9 oder R5 C8. C8 ist vergeben, also steht er in R4 C9.",
+      text: "Das lokalisiert auch Abraham im letzten Feld neben einem Tisch in der Küche.",
       place: { A: { row: 3, col: 8 } },
     },
     {
-      text: "Björn war im Esszimmer. In R6 ist C7 ein Tisch, C8 vergeben und C9 eine Pflanze; R7 und R8 sind vergeben, in R9 ist C7 eine Pflanze und C9 vergeben: Björn steht in R9 C5.",
-      place: { B: { row: 8, col: 4 } },
+      text: "Das lokalisiert Coralie neben dem Fernseher.",
+      place: { C: { row: 2, col: 3 } },
     },
     {
-      text: "Coralie war neben einem Fernseher: R3 C4, R4 C3, R8 C4 oder R9 C3. R4, R8 und R9 sind vergeben, also steht sie in R3 C4. Felix war auf einem Bett - R8 und C4 sind vergeben, also liegt er in R2 C3.",
-      place: { C: { row: 2, col: 3 }, F: { row: 1, col: 2 } },
+      text: "Das lokalisiert Felix auf dem Bett.",
+      place: { F: { row: 1, col: 2 } },
     },
     {
-      text: "Frei sind noch R1, R5 und R6 in C1, C2 und C7. Gerald war neben einem Geschenk - nur R1 C7 neben dem Geschenk in R1 C8 passt.",
-      place: { G: { row: 0, col: 6 } },
+      text: "Das lokalisiert Gerald in der Küche und Diane in Spalte 1.",
+      place: { G: { row: 0, col: 6 }, D: { row: 5, col: 0 } },
     },
     {
-      text: "Diane braucht ein Geschenk in ihrer Spalte im selben Raum: R6 C1 unter dem Geschenk in R4 C1 im Schlafzimmer. Für Odette bleibt R5 C2 im Schlafzimmer - allein mit Diane. Diane ist die Mörderin!",
-      place: { D: { row: 5, col: 0 }, O: { row: 4, col: 1 } },
+      text: "Das lokalisiert Odette, allein im Schlafzimmer mit Diane. Diane ist die Mörderin!",
+      place: { O: { row: 4, col: 1 } },
     },
   ],
   solution: {

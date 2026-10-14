@@ -5,9 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Das Cafe/Das Cafe.png`, no solution
- * sheet - the solver proves the one solution, with the culprit pencilled in on
- * the photographed page).
+ * (`game_instructions/Murdoku/Leicht/Das Cafe/Das Cafe.png`, solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 05-08.JPG`).
  * Ole is the victim; whoever was alone with him killed him.
  *
  * The armchairs can be stood on (sitting means being on one); the till, the
@@ -151,13 +150,22 @@ export const THE_CAFE: Level = {
   rules: [],
   hints: [
     {
-      text: "Eberhard saß auf einem Stuhl, aber nicht neben einem Tisch. Das trifft nur auf die Stühle in R1 C6 (Toilette) und R6 C1 zu.",
-    },
-    {
-      text: "Wäre Eberhard in R6 C1, müsste Astrid (neben einer Pflanze, nicht auf einem Stuhl) in R5 C6 sein, Chloe in R4 C2 und Dirk nördlich davon in R3 C5 - dann bliebe für Bea neben der Kasse kein Feld. Also saß Eberhard in R1 C6. Blockiere den Rest von R1 und C6.",
-      place: { E: { row: 0, col: 5 } },
+      text: "Weil Chloe in Spalte 2 ist, können wir Bea in Spalte 1 lokalisieren, neben der Kasse.",
+      place: { B: { row: 2, col: 0 } },
       cross: [
         { row: 0, col: 0 },
+        { row: 1, col: 0 },
+        { row: 3, col: 0 },
+        { row: 4, col: 0 },
+        { row: 5, col: 0 },
+        { row: 2, col: 4 },
+        { row: 2, col: 5 },
+      ],
+    },
+    {
+      text: "Es gibt nur einen Stuhl, auf dem Eberhard sein kann. Wir können Eberhard auf dem Stuhl in der Toilette lokalisieren.",
+      place: { E: { row: 0, col: 5 } },
+      cross: [
         { row: 0, col: 1 },
         { row: 0, col: 2 },
         { row: 0, col: 4 },
@@ -167,19 +175,18 @@ export const THE_CAFE: Level = {
       ],
     },
     {
-      text: "Dirk war im Hauptbereich nördlich von Chloe, also war Chloe in der zweiten Spalte frühestens in R4. Astrid kann nur noch in R6 C2 oder R6 C4 sein; R6 C2 würde Chloe die Spalte nehmen. Astrid war in R6 C4.",
+      text: "Astrid muss in Zeile 6 sein, neben einer Pflanze, in Spalte 4.",
       place: { A: { row: 5, col: 3 } },
     },
     {
-      text: "Neben der Kasse sind nur R2 C2 und R3 C1 frei. C2 gehört Chloe, also war Bea in R3 C1. Blockiere den Rest von R3 und C1.",
-      place: { B: { row: 2, col: 0 } },
+      text: "Dirk ist nördlich von Chloe und im Hauptbereich. Er muss irgendwo in Zeile 4 sein. Das bedeutet, dass Chloe in Zeile 5 ist.",
     },
     {
-      text: "Dirk muss nun in R4 oder R5 nördlich von Chloe sein: Dirk in R4, Chloe in R5 C2. In R4 ist nur C5 frei und begehbar - Dirk war in R4 C5.",
+      text: "Das lokalisiert Chloe, dann Dirk.",
       place: { C: { row: 4, col: 1 }, D: { row: 3, col: 4 } },
     },
     {
-      text: "Ole blieb das letzte Feld, R2 C3. An der Theke war er allein mit Bea - Bea ist die Mörderin!",
+      text: "Es gibt nur ein verbleibendes Feld für Ole, an der Theke. Bea ist die Mörderin!",
       place: { O: { row: 1, col: 2 } },
     },
   ],

@@ -5,9 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Das Murdoku-Orginal/37. Die Tankstelle.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Das Murdoku-Orginal/37. Die Tankstelle.png`,
+ * solution sheet `Lösungen 1-80/Lösung 37-40.JPG`).
  * Orianna is the victim; whoever was alone with her killed her.
  *
  * Every car covers two fields and faces east: its west field is the back.
@@ -259,30 +258,40 @@ export const THE_PETROL_STATION: Level = {
   ],
   hints: [
     {
-      text: "Gwen war in einem Auto im Tankbereich und nicht mit Axel zusammen - Axel war also nicht im Tankbereich. Hinten in einem Auto bleiben ihm R1 C9 auf dem Parkplatz und R5 C5 in der Werkstatt. In R1 C9 bliebe Enno im Keller nur R2 C4, und Claus fände keinen Stuhl mehr: R1 C7 läge in R1, R6 C4 in C4. Axel war in R5 C5.",
-      place: { A: { row: 4, col: 4 } },
-      cross: [{ row: 0, col: 8 }],
+      text: "Claus saß auf einem der beiden Stühle; schließe das sich überschneidende Feld in Z1 S4 aus.",
+      cross: [{ row: 0, col: 3 }],
     },
     {
-      text: "Enno war im Keller: In R1 C5 und R2 C5 geht es nicht (C5 ist blockiert, R2 C5 ist ein Karton), also war er in C4. Damit bleibt Claus nur der Stuhl in R1 C7, und Enno war in R2 C4.",
-      place: { C: { row: 0, col: 6 }, E: { row: 1, col: 3 } },
-      cross: [{ row: 5, col: 3 }],
+      text: "Axel (der laut Gwens Hinweis nicht im Tankbereich ist) ist entweder in der Werkstatt oder auf dem Parkplatz hinten in einem der beiden Autos in diesen Bereichen. Schließe die sich überschneidenden Felder bei Z1 S5 und Z5 S9 aus. Das lokalisiert Enno im Keller.",
+      place: { E: { row: 1, col: 3 } },
+      cross: [
+        { row: 0, col: 4 },
+        { row: 4, col: 8 },
+      ],
     },
     {
-      text: "Delia war in der Werkstatt. R5, C4, C5 und C7 sind blockiert - es bleibt nur R4 C6.",
-      place: { D: { row: 3, col: 5 } },
+      text: "Das lokalisiert Claus auf dem verbleibenden Stuhl, dann Axel, dann Delia in der Werkstatt.",
+      place: {
+        C: { row: 0, col: 6 },
+        A: { row: 4, col: 4 },
+        D: { row: 3, col: 5 },
+      },
     },
     {
-      text: "Genau eine Person stand in einer Ölpfütze. Alle Ölpfützen außer R9 C10 sind blockiert, also stand dort jemand. Harry bleibt auf dem Parkplatz nur R6 C9 (R3 C10 und R6 C10 liegen in C10), Gwen im Tankbereich nur das Auto in R8 C8.",
-      place: { H: { row: 5, col: 8 }, G: { row: 7, col: 7 } },
+      text: "Das lässt eine verfügbare Ölpfütze, die laut dem allgemeinen Hinweis besetzt sein muss. Das lokalisiert Harry auf dem Parkplatz.",
+      place: { H: { row: 5, col: 8 } },
     },
     {
-      text: "Wer stand in R9 C10? Sonst sind nur noch R3 und R7 in C1 bis C3 frei. Brent dort hätte im Tankbereich niemanden neben einem Regal bei sich. Orianna dort: Brent und Francine müssten beide in den Laden, und neben einem Regal ist im Laden nur R3 C1 - neben der Kasse, wo Francine nicht war. Also stand Francine in R9 C10.",
-      place: { F: { row: 8, col: 9 } },
+      text: "Das lokalisiert Gwen im letzten Auto.",
+      place: { G: { row: 7, col: 7 } },
     },
     {
-      text: "Brent und Orianna bleiben R3 und R7. Jemand anderes in Brents Raum war neben einem Regal: Das kann nur Orianna in R3 C1 sein, neben dem Regal in R4 C1. Brent war in R7 C2 bei ihr im Laden (R7 C3 liegt im Tankbereich). Im Laden war Orianna allein mit Brent - Brent ist der Mörder!",
-      place: { O: { row: 2, col: 0 }, B: { row: 6, col: 1 } },
+      text: "Das lässt ein verfügbares Feld neben einem Regal (Z3 S1). Das lokalisiert Brent im selben Raum, in Z7 S2.",
+      place: { B: { row: 6, col: 1 } },
+    },
+    {
+      text: "Francine ist nicht neben der Kasse im Laden, also muss sie in der Ölpfütze sein, und Orianna ist neben dem Regal. Brent ist der Mörder!",
+      place: { F: { row: 8, col: 9 }, O: { row: 2, col: 0 } },
     },
   ],
   solution: {

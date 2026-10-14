@@ -5,9 +5,9 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Spieleabend/Spieleabend.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Leicht/Spieleabend/Spieleabend.png`,
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 21-24.JPG`).
  * Ondine is the victim; whoever was alone with her killed her.
  *
  * The armchairs and the beds can be stood on; the plants and the tables (the
@@ -151,33 +151,27 @@ export const GAME_NIGHT: Level = {
   ],
   hints: [
     {
-      text: "Sechs Personen in fünf Räumen und kein Raum ist leer: Genau ein Raum hat zwei Personen - Ondine und den Mörder. Im Wohnzimmer sind nur die Sessel R3 C2, R4 C2 und R3 C5 frei, wer dort ist, sitzt. Nur Briana saß, also war sie allein im Wohnzimmer. Auf den Sessel R1 C5 setzt sich niemand.",
-      cross: [{ row: 0, col: 4 }],
+      text: "Da es fünf Räume und fünf Verdächtige gibt, und kein Raum leer ist, müssen alle Verdächtigen in verschiedenen Räumen sein. (Wenn zwei Verdächtige zusammen in einem Raum wären, müsste Ondine allein in einem Raum sein, was unmöglich ist.)",
     },
     {
-      text: "Ali war neben einem Tisch. Die Felder am Spieltisch sind Sessel, also stand er in der Küche neben einem Tisch, in R5 oder R6. Elias war neben einer Pflanze: Ohne die Sessel bleiben nur R2 C4 und R4 C1.",
+      text: "Da Briana die einzige Person auf einem Stuhl ist, kann nur Briana im Wohnzimmer sein.",
+    },
+    { text: "Ali, neben einem Tisch, ist in der Küche." },
+    {
+      text: "Dima kann nicht mit Cosima im Gästezimmer sein; er muss im Schlafzimmer sein. Elias kann nicht mit Dima zusammen sein und ist nicht auf einem Stuhl; das lokalisiert Elias im Badezimmer.",
+      place: { E: { row: 1, col: 3 } },
     },
     {
-      text: "Dima war die einzige Person auf einem Bett. Läge er in R1 im Gästezimmer, wäre Cosima dort bei ihm - zwei Personen ohne Ondine. Also lag Dima in R6 im Schlafzimmer, und Ali stand in R5. Cosima steht nicht auf dem Bett im Gästezimmer.",
-      cross: [
-        { row: 0, col: 0 },
-        { row: 0, col: 1 },
-      ],
-    },
-    {
-      text: "Stünde Elias in R4 C1, wären er und Dima zu zweit im Schlafzimmer, ohne Ondine. Also war Elias in R2 C4. Damit blieb für Cosima im Gästezimmer nur R1 C3.",
-      place: { E: { row: 1, col: 3 }, C: { row: 0, col: 2 } },
-    },
-    {
-      text: "C3 ist besetzt, also lag Dima in R6 C2. In C2 ist kein Sessel mehr frei: Briana saß in R3 C5. Ali stand in R5, C5 ist besetzt - R5 C6.",
+      text: "Das lokalisiert Cosima (die laut Dimas Hinweis nicht auf dem Bett ist), dann Dima, dann Briana, dann Ali.",
       place: {
+        C: { row: 0, col: 2 },
         D: { row: 5, col: 1 },
         B: { row: 2, col: 4 },
         A: { row: 4, col: 5 },
       },
     },
     {
-      text: "Ondine blieb das letzte Feld, R4 C1. Im Schlafzimmer war sie allein mit Dima - Dima ist der Mörder!",
+      text: "Das lokalisiert Ondine im Schlafzimmer. Dima ist der Mörder!",
       place: { O: { row: 3, col: 0 } },
     },
   ],

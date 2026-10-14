@@ -7,8 +7,8 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Die Polizeistation/Die Polizeistation.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 17-20.JPG`).
  * Odin is the victim; whoever was alone with him killed him.
  *
  * A field is in a corner of its room when the room's border runs along two of
@@ -246,59 +246,32 @@ export const THE_POLICE_STATION: Level = {
     },
   ],
   hints: [
+    { text: "Ernst muss in Zeile 2 sein, auf dem Bett." },
     {
-      text: "Ernst war auf dem Bett. Es liegt in der Gefängniszelle auf R2 C7 und R2 C8 - R2 gehört also Ernst. Annika war in der Asservatenkammer: R1 C1 bis C3 sind Regale und R2 ist vergeben, also steht Annika in R1 C4. Blockiere den Rest von R2 und C4.",
+      text: "Das lokalisiert Annika in der Asservatenkammer.",
       place: { A: { row: 0, col: 3 } },
-      cross: [
-        { row: 1, col: 0 },
-        { row: 1, col: 1 },
-        { row: 1, col: 2 },
-        { row: 1, col: 3 },
-        { row: 1, col: 5 },
-        { row: 1, col: 8 },
-        { row: 3, col: 3 },
-        { row: 4, col: 3 },
-        { row: 5, col: 3 },
-        { row: 6, col: 3 },
-        { row: 8, col: 3 },
-      ],
     },
     {
-      text: "Im Büro des Chiefs war Gregor allein. Donovan war neben einem Fernseher: R3 C5 (neben R3 C4) oder R4 C2 (neben R4 C1). Charlie war neben einer Pflanze: da C4 blockiert ist, bleiben nur R4 C5 und R8 C5, beide in C5. Stünde Donovan in R3 C5, bliebe für Charlie nichts - also steht Donovan in R4 C2 und Charlie in R8 C5.",
-      place: { D: { row: 3, col: 1 }, C: { row: 7, col: 4 } },
-      cross: [
-        { row: 3, col: 2 },
-        { row: 3, col: 4 },
-        { row: 3, col: 5 },
-        { row: 3, col: 7 },
-        { row: 3, col: 8 },
-        { row: 7, col: 0 },
-        { row: 7, col: 5 },
-        { row: 7, col: 6 },
-        { row: 7, col: 8 },
-        { row: 2, col: 1 },
-        { row: 5, col: 1 },
-        { row: 8, col: 1 },
-        { row: 2, col: 4 },
-        { row: 5, col: 4 },
-        { row: 6, col: 4 },
-        { row: 8, col: 4 },
-      ],
+      text: "Laut Gregors Hinweis kann Charlie nicht im Büro des Chiefs sein, also kann er nur in Spalte 5 sein (in Zeile 4 oder 8).",
     },
     {
-      text: "Filipa saß auf einem Stuhl. Die Stühle in R1 C6, R2 C3 und R4 C8 liegen in vergebenen Reihen, im Büro des Chiefs war Gregor allein, also saß Filipa in R7 C3.",
-      place: { F: { row: 6, col: 2 } },
+      text: "Donovan ist auch nicht im Büro des Chiefs, was nur ein Feld neben einem Fernseher für ihn lässt: Zeile 4, Spalte 2.",
+      place: { D: { row: 3, col: 1 } },
     },
     {
-      text: "Gregor war allein im Büro des Chiefs. R7 und R8 sind vergeben, und in R9 stehen eine Pflanze, der Schreibtisch und ein Fernseher - Gregor war in R9 C7. Damit bleibt Ernst nur R2 C8. Bertie war im Empfangsbereich: C2 bis C5 und R9 sind vergeben, also R6 C1.",
+      text: "Das lokalisiert Charlie, dann Filipa auf dem letzten verfügbaren Stuhl.",
+      place: { C: { row: 7, col: 4 }, F: { row: 6, col: 2 } },
+    },
+    {
+      text: "Das lokalisiert Gregor, dann Bertie und Ernst.",
       place: {
         G: { row: 8, col: 6 },
-        E: { row: 1, col: 7 },
         B: { row: 5, col: 0 },
+        E: { row: 1, col: 7 },
       },
     },
     {
-      text: "Für Harrison und Odin bleiben R3 und R5 in C6 und C9. R5 C6 ist ein Tisch, also sind es R3 C6 und R5 C9. Nur R3 C6 ist eine Ecke seines Raumes: Harrison steht dort, Odin in R5 C9. Im Verhörraum war Odin allein mit Harrison - Harrison ist der Mörder!",
+      text: "Harrison muss dann im Verhörraum mit Odin sein. Harrison ist in der Ecke, was Odin lokalisiert. Harrison ist der Mörder!",
       place: { H: { row: 2, col: 5 }, O: { row: 4, col: 8 } },
     },
   ],

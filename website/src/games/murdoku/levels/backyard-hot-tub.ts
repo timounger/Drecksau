@@ -6,8 +6,8 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Whirlpool im Hintergarten/Whirlpool im Hintergarten.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 05-08.JPG`).
  * Ophelia is the victim; whoever was alone with her killed her.
  *
  * The hot tub is its own area inside the terrace ring, and its water can be
@@ -174,7 +174,7 @@ export const BACKYARD_HOT_TUB: Level = {
   ],
   hints: [
     {
-      text: "Friedrich war im Garten, aber nicht neben einer Pflanze. Neben R2 C1, R2 C2, R3 C2 und R3 C3 steht jeweils eine Pflanze, R1 C2 und R1 C3 sind ein Tisch: Friedrich war in R1 C1. Blockiere den Rest von R1 und C1.",
+      text: "Es gibt nur ein Feld im Garten, das nicht neben einer Pflanze ist, also muss Friedrich dort sein: Zeile 1, Spalte 1.",
       place: { F: { row: 0, col: 0 } },
       cross: [
         { row: 0, col: 1 },
@@ -192,7 +192,7 @@ export const BACKYARD_HOT_TUB: Level = {
       ],
     },
     {
-      text: "Daphne war auf dem Bett in R7 C1 und R7 C2. C1 ist gesperrt, also lag sie in R7 C2. Blockiere den Rest von R7 und C2.",
+      text: "Das lokalisiert Daphne auf dem Bett im Schlafzimmer, in Spalte 2.",
       place: { D: { row: 6, col: 1 } },
       cross: [
         { row: 6, col: 2 },
@@ -208,26 +208,26 @@ export const BACKYARD_HOT_TUB: Level = {
       ],
     },
     {
-      text: "Ahmet war neben einem Tisch. Am Gartentisch und am Nachttisch ist nichts mehr frei, und neben dem Tisch in R7 C4 steht in R6 C4 eine Pflanze. Bleibt der Küchentisch: Ahmet war in R6 C6 oder R6 C7 - auf jeden Fall in R6.",
+      text: "Ahmet kann nur in Zeile 6 sein, in einem der Felder nördlich des Küchentischs.",
       cross: [
         { row: 5, col: 2 },
         { row: 5, col: 4 },
       ],
     },
     {
-      text: "Carly saß auf einem Stuhl. Der Sessel in R1 C6 liegt in R1, die Sessel in R6 C3 und R6 C5 in Ahmets R6. Carly saß im Sessel in R3 C7 - damit war Ahmet in R6 C6.",
-      place: { C: { row: 2, col: 6 }, A: { row: 5, col: 5 } },
+      text: "Das lokalisiert Carly auf dem letzten verbleibenden Stuhl.",
+      place: { C: { row: 2, col: 6 } },
     },
     {
-      text: "Bertie war in der fünften Spalte. R1, R3, R6 und R7 sind belegt, R4 C5 ist eine Pflanze und R5 C5 der Fernseher: Bertie war in R2 C5 im Whirlpool.",
-      place: { B: { row: 1, col: 4 } },
+      text: "Das lokalisiert Bertie im Whirlpool und lokalisiert auch Ahmet in Spalte 6.",
+      place: { B: { row: 1, col: 4 }, A: { row: 5, col: 5 } },
     },
     {
-      text: "Frei sind nur noch R4 C3, R4 C4, R5 C3 und R5 C4. Ellie war nicht neben einer Pflanze - nur R5 C3 hat keine Pflanze neben sich. Ellie war in R5 C3.",
+      text: "Von den vier verfügbaren Feldern sind drei neben einer Pflanze, also ist Ellie im verbleibenden: Zeile 5, Spalte 3.",
       place: { E: { row: 4, col: 2 } },
     },
     {
-      text: "Für Ophelia bleibt das letzte Feld, R4 C4 auf der Terrasse - allein mit Carly. Carly ist die Mörderin!",
+      text: "Das lokalisiert Ophelia auf der Terrasse. Carly ist die Mörderin!",
       place: { O: { row: 3, col: 3 } },
     },
   ],

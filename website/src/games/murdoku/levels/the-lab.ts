@@ -5,9 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Das Labor/Das Labor.png`, no solution
- * sheet - the solver proves the one solution, with the culprit pencilled in on
- * the photographed page).
+ * (`game_instructions/Murdoku/Leicht/Das Labor/Das Labor.png`, solution
+ * sheet `Das Murdoku-Orginal/Lösungen 1-80/Lösung 09-12.JPG`).
  * Oskar is the victim; whoever was alone with him killed him.
  *
  * The armchairs can be stood on (sitting means being on one); the tables, the
@@ -214,27 +213,31 @@ export const THE_LAB: Level = {
   rules: [],
   hints: [
     {
-      text: "Estella war in der ersten Spalte: Dort sind nur R3 C1 und R7 C1 frei. Armin saß im selben Raum auf einem Stuhl - im Büro wäre das nur R7 C3, in derselben Zeile. Also war Estella in R3 C1, und Armin war im Experimentierlabor.",
+      text: "Estella, in Spalte 1, kann nur mit Armin im Experimentierlabor sein. (Wenn sie im Büro wären, müssten beide in Zeile 7 sein.) Das lokalisiert Estella in Zeile 3.",
       place: { E: { row: 2, col: 0 } },
     },
     {
-      text: "Bernhard war im Lagerraum, also in R3 C4 oder R4 C3. R3 gehört Estella - Bernhard war in R4 C3. Damit bleibt Armin von den Stühlen im Experimentierlabor nur R2 C2.",
-      place: { B: { row: 3, col: 2 }, A: { row: 1, col: 1 } },
+      text: "Das lokalisiert Bernhard im Lagerraum.",
+      place: { B: { row: 3, col: 2 } },
     },
     {
-      text: "Doris war im Büro, in R7 oder R8. C1 bis C3 sind schon besetzt, in C4 steht der Schreibtisch und in R7 C5 ein Fernseher. Doris war in R8 C5.",
+      text: "Das lokalisiert Armin auf dem letzten verbleibenden Stuhl im Experimentierlabor.",
+      place: { A: { row: 1, col: 1 } },
+    },
+    {
+      text: "Es gibt nur ein verfügbares Feld für Doris im Büro: Zeile 8, Spalte 5.",
       place: { D: { row: 7, col: 4 } },
     },
     {
-      text: "Calypso war nördlich von Bernhard, also in R1 (R2 und R3 sind besetzt), und neben einem Tisch. Das sind R1 C5 und R1 C7 - C5 gehört Doris. Calypso war in R1 C7.",
+      text: "Das lokalisiert Calypso im letzten verbleibenden Feld neben einem Tisch und nördlich von Bernhard.",
       place: { C: { row: 0, col: 6 } },
     },
     {
-      text: "Frei sind noch R5 bis R7 in C4, C6 und C8. Gil war neben einem Regal: Das trifft nur auf R7 C6 neben dem Regal in der Gefrierkammer zu. Gil war in R7 C6.",
+      text: "Das lokalisiert Gil im letzten verbleibenden Feld neben einem Regal.",
       place: { G: { row: 6, col: 5 } },
     },
     {
-      text: "Übrig sind R5 und R6 in C4 und C8; in R6 C8 steht ein Regal. Frank neben dem Fernseher war in R6 C4, Oskar im letzten Feld R5 C8. In der Datenanalyse war er allein mit Frank - Frank ist der Mörder!",
+      text: "Das lokalisiert Frank neben dem Fernseher, dann Oskar. Frank ist der Mörder!",
       place: { F: { row: 5, col: 3 }, O: { row: 4, col: 7 } },
     },
   ],

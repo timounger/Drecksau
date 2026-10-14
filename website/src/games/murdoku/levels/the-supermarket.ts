@@ -5,9 +5,8 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Der Supermarkt/Der Supermarkt.png`, no
- * solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * (`game_instructions/Murdoku/Leicht/Der Supermarkt/Der Supermarkt.png`,
+ * solution sheet `Das Murdoku-Orginal/Lösungen 1-80/Lösung 13-16.JPG`).
  * Ottilie is the victim; whoever was alone with her killed her.
  *
  * The four windows sit in the left wall; standing in front of one means being
@@ -257,126 +256,50 @@ export const THE_SUPERMARKET: Level = {
   rules: [],
   hints: [
     {
-      text: "Hanno war neben der Kasse in R3 C4. Links und rechts davon stehen Tische, und R4 C4 gehört schon zu den Snacks. Hanno war in R2 C4. Blockiere den Rest von R2 und C4.",
+      text: "Es gibt nur ein Feld neben der Kasse; das lokalisiert Hanno.",
       place: { H: { row: 1, col: 3 } },
+    },
+    {
+      text: "Anton ist nicht mit Eileen bei den Getränken. Das lokalisiert Anton auf dem Teppich in Zeile 4, Spalte 3. Schließe alle anderen Teppichfelder aus.",
+      place: { A: { row: 3, col: 2 } },
       cross: [
-        { row: 1, col: 0 },
-        { row: 1, col: 1 },
-        { row: 1, col: 2 },
-        { row: 1, col: 4 },
-        { row: 1, col: 5 },
-        { row: 1, col: 6 },
-        { row: 1, col: 7 },
-        { row: 1, col: 8 },
-        { row: 0, col: 3 },
-        { row: 2, col: 3 },
         { row: 3, col: 3 },
         { row: 4, col: 3 },
         { row: 5, col: 3 },
         { row: 6, col: 3 },
         { row: 7, col: 3 },
-        { row: 8, col: 3 },
-      ],
-    },
-    {
-      text: "Gwen war vor einem Fenster. Alle vier Fenster liegen in der linken Wand, vor R5 C1, R6 C1, R8 C1 und R9 C1. C1 gehört also Gwen - blockiere die übrigen Felder von C1.",
-      cross: [
-        { row: 0, col: 0 },
-        { row: 2, col: 0 },
-        { row: 3, col: 0 },
-        { row: 6, col: 0 },
-      ],
-    },
-    {
-      text: "Anton war die einzige Person auf einem Teppich. Eileen war bei den Getränken, aber nicht mit Anton zusammen - Anton war also nicht auf dem Teppich bei den Getränken. Vom Teppich bei den Snacks ist nur R4 C3 nicht in der gesperrten C4: Dort war Anton. Blockiere den Rest von R4 und C3.",
-      place: { A: { row: 3, col: 2 } },
-      cross: [
-        { row: 3, col: 1 },
-        { row: 3, col: 4 },
-        { row: 3, col: 5 },
-        { row: 3, col: 6 },
-        { row: 3, col: 7 },
-        { row: 3, col: 8 },
-        { row: 0, col: 2 },
-        { row: 2, col: 2 },
-        { row: 4, col: 2 },
-        { row: 5, col: 2 },
-        { row: 6, col: 2 },
-        { row: 7, col: 2 },
-        { row: 8, col: 2 },
-      ],
-    },
-    {
-      text: "Fred war in der letzten Spalte. In C9 stehen Kisten und Regale; frei sind nur R2 C9, R4 C9 und R7 C9, und R2 und R4 sind gesperrt. Fred war in R7 C9. Blockiere den Rest von R7 und C9.",
-      place: { F: { row: 6, col: 8 } },
-      cross: [
-        { row: 6, col: 1 },
-        { row: 6, col: 4 },
+        { row: 5, col: 5 },
         { row: 6, col: 5 },
         { row: 6, col: 6 },
-        { row: 6, col: 7 },
-        { row: 0, col: 8 },
-        { row: 2, col: 8 },
-        { row: 4, col: 8 },
-        { row: 5, col: 8 },
-        { row: 7, col: 8 },
-        { row: 8, col: 8 },
-      ],
-    },
-    {
-      text: "Bärbel war bei den Snacks neben einem Tisch. Neben den Tischen in R7 C2, R7 C3 und R8 C2 sind R7 C1 und R8 C1 in Gwens C1, R7 C4 und R8 C3 gesperrt. Bärbel war in R9 C2. Blockiere den Rest von R9 und C2.",
-      place: { B: { row: 8, col: 1 } },
-      cross: [
-        { row: 8, col: 0 },
-        { row: 8, col: 4 },
-        { row: 8, col: 5 },
-        { row: 8, col: 6 },
-        { row: 8, col: 7 },
-        { row: 0, col: 1 },
-        { row: 2, col: 1 },
-        { row: 4, col: 1 },
-        { row: 5, col: 1 },
-        { row: 7, col: 1 },
-      ],
-    },
-    {
-      text: "Eileen war bei den Getränken. Auf einen Teppich darf sie nicht, das ist Antons Platz. Frei bleibt nur R5 C6 - dort war Eileen. Blockiere den Rest von R5 und C6.",
-      place: { E: { row: 4, col: 5 } },
-      cross: [
-        { row: 4, col: 0 },
-        { row: 4, col: 4 },
-        { row: 4, col: 6 },
-        { row: 4, col: 7 },
-        { row: 0, col: 5 },
-        { row: 2, col: 5 },
-        { row: 5, col: 5 },
         { row: 7, col: 5 },
       ],
     },
     {
-      text: "In R3 ist nur noch R3 C7 im Lagerraum frei, also stand dort jemand - blockiere den Rest von C7. Damit bleibt in R1 nur R1 C8, ebenfalls im Lagerraum; blockiere den Rest von C8.",
-      cross: [
-        { row: 2, col: 4 },
-        { row: 2, col: 7 },
-        { row: 0, col: 6 },
-        { row: 5, col: 6 },
-        { row: 7, col: 6 },
-        { row: 0, col: 4 },
-        { row: 5, col: 7 },
-        { row: 7, col: 7 },
-      ],
+      text: "Das lokalisiert Fred in Zeile 7, Spalte 9.",
+      place: { F: { row: 6, col: 8 } },
     },
     {
-      text: "Übrig sind R6 und R8 in C1 und C5. R6 C5 ist ein Radio, also stand jemand in R8 C5 und Gwen vor dem Fenster in R6 C1.",
-      place: { G: { row: 5, col: 0 } },
+      text: "Dies und die Tatsache, dass Gwen irgendwo in Spalte 1 sein muss, lokalisiert Bärbel unter dem Tisch in Spalte 2.",
+      place: { B: { row: 8, col: 1 } },
     },
     {
-      text: "Camilla war in einer Ecke: Von R1 C8, R3 C7 und R8 C5 ist nur R3 C7 eine Ecke. Dylan war neben keiner Kiste, also nicht in R1 C8 neben der Kiste in R1 C9 - er war in R8 C5. Ottilie blieb R1 C8 - im Lagerraum allein mit Camilla. Camilla ist die Mörderin!",
-      place: {
-        C: { row: 2, col: 6 },
-        D: { row: 7, col: 4 },
-        O: { row: 0, col: 7 },
-      },
+      text: "Das lokalisiert Eileen im letzten verfügbaren Feld im Getränkebereich.",
+      place: { E: { row: 4, col: 5 } },
+    },
+    {
+      text: "Das lokalisiert Camilla in der letzten Ecke, im Lagerraum.",
+      place: { C: { row: 2, col: 6 } },
+    },
+    {
+      text: "Es gibt nur ein Feld für Dylan: Zeile 8, Spalte 5.",
+      place: { D: { row: 7, col: 4 } },
+    },
+    {
+      text: "Das lokalisiert Gwen, dann Ottilie.",
+      place: { G: { row: 5, col: 0 }, O: { row: 0, col: 7 } },
+    },
+    {
+      text: "Camilla war allein mit Ottilie im Lagerraum. Camilla ist die Mörderin!",
     },
   ],
   solution: {

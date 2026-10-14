@@ -6,8 +6,7 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Das Murdoku-Orginal/47. Familientreffen.png`,
- * no solution sheet - the solver proves the one solution, with the culprit
- * pencilled in on the photographed page).
+ * solution sheet `Lösungen 1-80/Lösung 45-48.JPG`).
  * Otfried is the victim; whoever was alone with him killed him.
  *
  * The armchairs are the chairs; they and the beds can be stood on. Tables
@@ -253,7 +252,7 @@ export const FAMILY_REUNION: Level = {
   ],
   hints: [
     {
-      text: "Andrea war neben einem Regal. Neben dem Regal im Wohnzimmer liegt nur R4 C5, und R9 C5 neben dem rechten Regal im Arbeitszimmer - beide in Danilos Spalte C5. Andrea war also in R8 C4, R9 C2 oder R9 C3. Becky war in der Küche neben dem Tisch: R8 C7 oder R9 C8. R8 und R9 gehören den beiden.",
+      text: "Becky muss in Z8 oder Z9 sein, und ebenso Andrea, da Danilo in S5 ist. Schließe alle Felder in Z8 und Z9 aus, die nicht neben dem Küchentisch oder einem Regal sind (oder in S5 sind).",
       cross: [
         { row: 7, col: 0 },
         { row: 7, col: 1 },
@@ -266,27 +265,53 @@ export const FAMILY_REUNION: Level = {
       ],
     },
     {
-      text: "Danilo war in C5: R1 und R2 gehören zu Frankies Badezimmer, R3 C5 ist ein Tisch - also im Wohnzimmer. Gaspard saß auf einem Stuhl, nicht in R8, R9, C5 oder im Badezimmer: R4 C8, R5 C2, R6 C1, R6 C3 oder R6 C6. Claudias Betten (R2 C8, R3 C8, R4 C1, R4 C2) liegen alle in R4 oder C8 - auf R4 C8 saß also niemand.",
+      text: "Eines der Betten ist besetzt, also kann der Stuhl im Schlafzimmer ausgeschlossen werden.",
+      cross: [{ row: 3, col: 7 }],
     },
     {
-      text: "Die Frau auf einem Stuhl in einem anderen Raum als Gaspard: Andrea und Becky stehen auf keinem Stuhl, Claudia lag auf einem Bett. Heidis Stühle neben einer Pflanze stehen alle im Esszimmer, und Emma war allein - im Wohnzimmer ist schon Danilo. Säße Gaspard im Esszimmer, bliebe für die Frau nur R6 C6 im Wohnzimmer - dort ist keine Pflanze, und Emma wäre dort nicht allein. Also saß Gaspard in R6 C6.",
-      place: { G: { row: 5, col: 5 } },
+      text: "Die einzigen verbleibenden Stühle für Gaspard und die Frau auf einem Stuhl sind in Z5 und Z6, mit einem im Esszimmer, dem anderen im Wohnzimmer. Keiner kann in S5 sitzen (Danilos Spalte), was nur den Stuhl in Z6 S6 im Wohnzimmer lässt, was wiederum nur Z5 S2 im Esszimmer lässt. Schließe diese Zeilen und Spalten aus.",
+      cross: [
+        { row: 4, col: 0 },
+        { row: 4, col: 4 },
+        { row: 4, col: 7 },
+        { row: 4, col: 8 },
+        { row: 5, col: 0 },
+        { row: 5, col: 2 },
+        { row: 5, col: 3 },
+        { row: 5, col: 4 },
+        { row: 5, col: 6 },
+        { row: 5, col: 7 },
+        { row: 5, col: 8 },
+        { row: 0, col: 1 },
+        { row: 1, col: 1 },
+        { row: 2, col: 1 },
+        { row: 3, col: 1 },
+        { row: 7, col: 1 },
+        { row: 8, col: 1 },
+        { row: 0, col: 5 },
+        { row: 1, col: 5 },
+        { row: 6, col: 5 },
+        { row: 7, col: 5 },
+        { row: 8, col: 5 },
+      ],
     },
     {
-      text: "Damit saß die Frau im Esszimmer, außerhalb von R6: auf R5 C2. Frankie war allein im Badezimmer: C5 gehört Danilo, C6 Gaspard, R1 C4 ist eine Pflanze - Frankie war in R2 C4.",
-      place: { F: { row: 1, col: 3 } },
-    },
-    {
-      text: "Andrea: R9 C2 liegt in C2 der Frau auf R5 C2, R8 C4 in Frankies C4 - Andrea war in R9 C3, Becky in R8 C7.",
-      place: { A: { row: 8, col: 2 }, B: { row: 7, col: 6 } },
-    },
-    {
-      text: "Frei sind noch R1, R3, R4 und R7 in C1, C5, C8 und C9. In C1 ist davon nur das Bett R4 C1 betretbar - dort lag Claudia, die Einzige auf einem Bett. Danilo blieb in C5 nur R7 C5 - R1 C5 liegt in Frankies Badezimmer.",
-      place: { C: { row: 3, col: 0 }, D: { row: 6, col: 4 } },
-    },
-    {
-      text: "Übrig sind R1 und R3 in C8 und C9: R1 C9 ist eine Pflanze, R3 C8 ein Bett - also R1 C8 und R3 C9, beide im Schlafzimmer. Emma war allein, also saß sie auf R5 C2. Heidi war neben einer Pflanze: R1 C8, und Otfried in R3 C9. Im Schlafzimmer war er allein mit Heidi - Heidi ist die Mörderin!",
+      text: "Das lokalisiert Frankie (allein im Badezimmer) und Andrea, dann Becky.",
       place: {
+        F: { row: 1, col: 3 },
+        A: { row: 8, col: 2 },
+        B: { row: 7, col: 6 },
+      },
+    },
+    {
+      text: "Claudia muss im letzten Feld in S1 sein.",
+      place: { C: { row: 3, col: 0 } },
+    },
+    {
+      text: "Das lokalisiert Danilo, was bedeutet, dass Emma nicht auf dem Wohnzimmerstuhl ist, also ist das Gaspard. Die letzten beiden Felder sind Z1 S8 und Z3 S9, im Schlafzimmer. Emma, allein, muss auf dem Esszimmerstuhl sein. Heidi ist neben der Pflanze; Otfried ist im verbleibenden Feld. Heidi ist die Mörderin!",
+      place: {
+        D: { row: 6, col: 4 },
+        G: { row: 5, col: 5 },
         E: { row: 4, col: 1 },
         H: { row: 0, col: 7 },
         O: { row: 2, col: 8 },

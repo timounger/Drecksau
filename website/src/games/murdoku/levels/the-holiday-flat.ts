@@ -5,8 +5,9 @@
  * @module
  * @remarks
  * After the case of Murdoku by Manuel Garand
- * (`game_instructions/Murdoku/Leicht/Ferienwohnung/Ferienwohnung.png`, no
- * solution sheet), with the culprit pencilled in on the photographed page.
+ * (`game_instructions/Murdoku/Leicht/Ferienwohnung/Ferienwohnung.png`,
+ * solution sheet
+ * `game_instructions/Murdoku/Das Murdoku-Orginal/Lösungen 1-80/Lösung 01-04.JPG`).
  * Oscar is the victim; whoever was alone with him killed him.
  *
  * The armchair and the beds can be stood on; the plants, the TVs and the two
@@ -131,8 +132,8 @@ export const THE_HOLIDAY_FLAT: Level = {
   ],
   hints: [
     {
-      text: "Es gibt nur einen Stuhl, den Sessel in R2 C1 - dort saß Bernd. Blockiere den Rest von R2 und C1.",
-      place: { B: { row: 1, col: 0 } },
+      text: "Wir können Bernd auf dem Stuhl lokalisieren, und Dario in Zeile 3, Spalte 6.",
+      place: { B: { row: 1, col: 0 }, D: { row: 2, col: 5 } },
       cross: [
         { row: 1, col: 1 },
         { row: 1, col: 2 },
@@ -144,12 +145,6 @@ export const THE_HOLIDAY_FLAT: Level = {
         { row: 3, col: 0 },
         { row: 4, col: 0 },
         { row: 5, col: 0 },
-      ],
-    },
-    {
-      text: "Dario lag auf einem Bett neben einer Pflanze. Die Pflanze in R5 C1 steht im Wohnzimmer, nicht neben einem Bett; nur das Bettende in R3 C6 liegt neben der Pflanze in R2 C6. Dario war in R3 C6 - blockiere den Rest von R3 und C6.",
-      place: { D: { row: 2, col: 5 } },
-      cross: [
         { row: 2, col: 2 },
         { row: 2, col: 3 },
         { row: 2, col: 4 },
@@ -160,24 +155,22 @@ export const THE_HOLIDAY_FLAT: Level = {
       ],
     },
     {
-      text: "Arianna war neben einem Fernseher. Am Fernseher in R1 C5 sind R1 C6 und R2 C5 schon blockiert, am Fernseher in R6 C1 steht in R5 C1 eine Pflanze. Also war Arianna in R6 C2 - blockiere den Rest von R6 und C2.",
+      text: "Erik muss dann in Zeile 4 sein, entweder in Spalte 2 oder Spalte 5.",
+    },
+    {
+      text: "Colleen muss dann im Badezimmer sein, Spalte 4.",
+      place: { C: { row: 0, col: 3 } },
+    },
+    {
+      text: "Arianna kann nur im letzten Feld neben einem Fernseher sein, im Wohnzimmer, Spalte 2.",
       place: { A: { row: 5, col: 1 } },
-      cross: [
-        { row: 5, col: 2 },
-        { row: 5, col: 3 },
-        { row: 5, col: 4 },
-        { row: 0, col: 1 },
-        { row: 3, col: 1 },
-        { row: 4, col: 1 },
-      ],
     },
     {
-      text: "Frei sind nur noch R1, R4 und R5 in C3, C4 und C5. Erik war neben einem Bett: Davon liegt nur R4 C5 neben dem Bett im Gästezimmer. Erik war in R4 C5.",
-      place: { E: { row: 3, col: 4 } },
+      text: "So lassen sich Erik und Oscar lokalisieren.",
+      place: { E: { row: 3, col: 4 }, O: { row: 4, col: 2 } },
     },
     {
-      text: "Colleen war im Badezimmer, also in R1 - R1 C3 ist ein Tisch, darum R1 C4. Oscar blieb das letzte Feld, R5 C3. Im Wohnzimmer war er allein mit Arianna - Arianna ist die Mörderin!",
-      place: { C: { row: 0, col: 3 }, O: { row: 4, col: 2 } },
+      text: "Arianna war allein mit Oscar im Wohnzimmer. Arianna ist die Mörderin!",
     },
   ],
   solution: {
