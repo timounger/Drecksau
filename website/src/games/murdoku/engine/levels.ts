@@ -352,3 +352,20 @@ export function inOrder(one: Level, other: Level): number {
     ? (one.series?.number ?? 0) - (other.series?.number ?? 0)
     : grade(one) - grade(other) || byName(one, other);
 }
+
+/**
+ * The cases before and after this one in its own collection - a book in the
+ * book's order, the others as the list has them.
+ *
+ * @param level - the open case
+ * @returns the one before and the one after, where there is one
+ */
+export function neighboursOf(
+  level: Level,
+): readonly [Level | undefined, Level | undefined] {
+  const row = LEVELS.filter(
+    (one) => one.series?.book === level.series?.book,
+  ).toSorted(inOrder);
+  const at = row.findIndex((one) => one.id === level.id);
+  return [row[at - 1], row[at + 1]];
+}

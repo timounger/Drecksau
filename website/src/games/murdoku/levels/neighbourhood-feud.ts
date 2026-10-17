@@ -9,7 +9,7 @@
  * sheet; the solver proves the case has exactly one solution). Vivi is the
  * victim; whoever was alone with her killed her. Every area belongs to
  * Arnold or to Brie, which their own clues ask about. Beds, chairs and rugs
- * can be stood on; trees, the shrub, tables, the shelf, the wardrobe and the
+ * can be stood on; trees, the shrub, tables, the shelf and the
  * TVs cannot.
  */
 import {
@@ -147,8 +147,8 @@ export const NEIGHBOURHOOD_FEUD: Level = {
     "..c..uu.",
     ".kv.tp..",
     "......b.",
-    "..uw.sbk",
-    "bbuw..cv",
+    "..uk.sbk",
+    "bbuk..cv",
   ],
   things: {
     b: "bed",
@@ -159,15 +159,6 @@ export const NEIGHBOURHOOD_FEUD: Level = {
     t: "tree",
     u: "rug",
     v: "tv",
-    w: "wardrobe",
-  },
-  extraThings: {
-    wardrobe: {
-      name: "Schrank",
-      emoji: "\u{1F6AA}",
-      standable: false,
-      kinds: ["furniture"],
-    },
   },
   pieces: [
     { at: { row: 3, col: 5 }, rows: 1, cols: 2 },

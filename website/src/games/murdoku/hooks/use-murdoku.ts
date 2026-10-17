@@ -18,7 +18,7 @@ import {
   type Board,
 } from "@/games/murdoku/engine/board";
 import { settled, stepped } from "@/games/murdoku/engine/actions";
-import { LEVELS } from "@/games/murdoku/engine/levels";
+import { LEVELS, neighboursOf } from "@/games/murdoku/engine/levels";
 import {
   checked,
   culpritOf,
@@ -639,9 +639,9 @@ export function useMurdoku(): MurdokuApi {
   }, [board, elapsed, finish, level]);
 
   const solution = level === null ? null : solutionOf(level);
-  const at =
-    level === null ? -1 : LEVELS.findIndex((one) => one.id === level.id);
-  const following = at < 0 ? undefined : LEVELS[at + 1];
+  // The same next case as the arrow beside the way back: the next of its
+  // own collection, in the list's order.
+  const following = level === null ? undefined : neighboursOf(level)[1];
   return {
     level,
     solved: new Set(stored.solved),

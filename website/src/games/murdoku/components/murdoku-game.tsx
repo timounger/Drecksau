@@ -14,6 +14,7 @@ import {
   DIFFICULTY_ORDER,
   byName,
   inOrder,
+  neighboursOf,
   LEVELS,
   SERIES_ORDER,
 } from "@/games/murdoku/engine/levels";
@@ -277,23 +278,6 @@ function seriesLabel(choice: SeriesChoice): string {
 /** The arrows beside the way back to the list. */
 const STEP_BUTTON =
   "cursor-pointer rounded-full border border-rose-300 bg-white/80 px-2.5 py-1 text-sm font-bold text-rose-900 hover:bg-white disabled:cursor-default disabled:opacity-40 dark:border-rose-800 dark:bg-zinc-900/60 dark:text-rose-100 dark:hover:bg-zinc-900";
-
-/**
- * The cases before and after this one in its own collection - a book in the
- * book's order, the others as the list has them.
- *
- * @param level - the open case
- * @returns the one before and the one after, where there is one
- */
-function neighboursOf(
-  level: Level,
-): readonly [Level | undefined, Level | undefined] {
-  const row = LEVELS.filter(
-    (one) => one.series?.book === level.series?.book,
-  ).toSorted(inOrder);
-  const at = row.findIndex((one) => one.id === level.id);
-  return [row[at - 1], row[at + 1]];
-}
 
 /**
  * The filters over the cases - search, series and, for a series that has

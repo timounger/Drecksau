@@ -42,7 +42,8 @@ export type GameId =
   | "uboot"
   | "bloons-td"
   | "murdoku"
-  | "scotland-yard";
+  | "scotland-yard"
+  | "hitster";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -384,6 +385,16 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/scotland-yard",
     category: "action",
     addedOn: "2026-10-12",
+  },
+  {
+    id: "hitster",
+    name: "Hitster",
+    tagline:
+      "Hör den Song, schätz das Jahr - wer baut zuerst seine Zeitleiste?",
+    emoji: "\u{1F3B5}",
+    href: "/hitster",
+    category: "wort",
+    addedOn: "2026-10-17",
   },
 ];
 

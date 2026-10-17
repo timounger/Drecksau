@@ -23,6 +23,7 @@ jedes Spiel hat seine eigene Seite.
 | [Flip 7](website/src/games/flip-7/README.md)                       | Sieben verschiedene Zahlen - oder eine zu viel.                                                          | Computer + Online    |
 | [GTA](website/src/games/gta/README.md)                             | Los Santos von oben - fahren, liefern, Bank und Druckerei ausraeumen, abhauen.                           | Einzelspieler        |
 | [Heckmeck am Bratwurmeck](website/src/games/heckmeck/README.md)    | Acht Wuerfel, sechzehn Chips - ohne Wurm zaehlt nichts.                                                  | Computer + Online    |
+| [Hitster](website/src/games/hitster/README.md)                     | Song hoeren, Jahr schaetzen - wer baut zuerst seine Zeitleiste?                                          | Computer + Online    |
 | [Jammerlappen](website/src/games/jammerlappen/README.md)           | Werd alle Karten los - wer als Letzter drauf sitzt, ist der Jammerlappen.                                | Computer + Online    |
 | [Kniffel](website/src/games/kniffel/README.md)                     | Fuenf Wuerfel, drei Wuerfe, dreizehn Felder - jedes nur einmal.                                          | Computer + Online    |
 | [Krakel Orakel](website/src/games/krakel/README.md)                | Kooperativ: alle malen gleichzeitig, dann streicht ihr gemeinsam die Woerter weg, die keiner gemalt hat. | Nur Online           |
@@ -108,6 +109,7 @@ website/src/
     catan/          CATAN - 19 Landschaftsfelder, variabler Aufbau, Haefen und Raeuber
     murdoku/        Murdoku - Kriminalraetsel wie ein Sudoku, ueber hundert Faelle
     scotland-yard/  Scotland Yard - Mister X gegen die Detektive, Computer oder online
+    hitster/        Hitster - Musik-Zeitleiste mit YouTube-Songs, Computer oder online
                     (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)

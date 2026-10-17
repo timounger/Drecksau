@@ -42,6 +42,7 @@ import uboot from "./uboot/assets/logo.webp";
 import bloonsTd from "./bloons-td/assets/logo.webp";
 import murdoku from "./murdoku/assets/logo.webp";
 import scotlandYard from "./scotland-yard/assets/logo.webp";
+import hitster from "./hitster/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -76,4 +77,5 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   "bloons-td": bloonsTd,
   murdoku,
   "scotland-yard": scotlandYard,
+  hitster,
 };

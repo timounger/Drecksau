@@ -9,8 +9,8 @@
  * solution sheet `Das Murdoku-Orginal/Lösungen 1-80/Lösung 09-12.JPG`).
  * Osvaldo is the victim; whoever was alone with him killed him.
  *
- * The armchairs and the beds can be stood on; the plants, the dark tables, the
- * wardrobe, the shelves and the radio cannot. Sitting on a chair means being
+ * The armchairs and the beds can be stood on; the plants, the dark tables (the one over two fields in the top right among them), the
+ * shelves and the radio cannot. Sitting on a chair means being
  * on an armchair. A field is "in a corner of the room" when walls - a room
  * border or the edge of the map - run along two adjacent sides of it.
  */
@@ -95,8 +95,8 @@ export const THE_FAMILY_ESTATE: Level = {
     "KKKKKKKLL",
   ],
   thingMap: [
-    "..tbtp.cw",
-    "...b....w",
+    "..tbtp.ct",
+    "...b....t",
     "c.c.....p",
     ".tt....bs",
     "pc.ct..bs",
@@ -112,16 +112,9 @@ export const THE_FAMILY_ESTATE: Level = {
     r: "radio",
     s: "shelf",
     t: "table",
-    w: "wardrobe",
   },
   extraThings: {
     radio: { name: "Radio", emoji: "\u{1F4FB}", standable: false },
-    wardrobe: {
-      name: "Schrank",
-      emoji: "\u{1F6AA}",
-      standable: false,
-      kinds: ["furniture"],
-    },
   },
   pieces: [
     { at: { row: 0, col: 3 }, rows: 2, cols: 1 },
