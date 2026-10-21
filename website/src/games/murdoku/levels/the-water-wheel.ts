@@ -6,9 +6,10 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Das Wasserrad/Das Wasserrad.png`, no
- * solution sheet). The book's rule for crowned areas (nobles - the purple
- * cards - only there) makes it unique, with the culprit
- * pencilled in on the photographed page.
+ * solution sheet). The book's estates - nobles (purple cards) only in the
+ * crowned areas, villagers (wooden cards) only outside them, knights (grey
+ * shields) anywhere - make it unique, with the culprit pencilled in on the
+ * photographed page.
  * Osmar is the victim; whoever was alone with him killed him.
  *
  * Chairs, beds and the horses can be stood on; barrels, tables, bushes, the
@@ -20,7 +21,7 @@ import {
   beside,
   counting,
   inArea,
-  nobility,
+  ranks,
   on,
   own,
   victim,
@@ -185,6 +186,7 @@ export const THE_WATER_WHEEL: Level = {
       id: "D",
       name: "Dennis",
       pronoun: "er",
+      traits: ["villager"],
       clue: { text: "Er war neben einem Fass.", ...beside("barrel") },
       colour: "#b91c1c",
       face: "\u{1F9D4}",
@@ -193,6 +195,7 @@ export const THE_WATER_WHEEL: Level = {
       id: "E",
       name: "Elliot",
       pronoun: "er",
+      traits: ["villager"],
       clue: { text: "Er saß auf einem Stuhl.", ...on("chair") },
       colour: "#15803d",
       face: "\u{1F9D1}",
@@ -201,6 +204,7 @@ export const THE_WATER_WHEEL: Level = {
       id: "F",
       name: "Freya",
       pronoun: "sie",
+      traits: ["villager"],
       clue: {
         text: "Sie war neben einem Pferd oder einem Wildschwein.",
         ...own((c) => c.beside(c.cell, "horse") || c.beside(c.cell, "boar")),
@@ -212,6 +216,7 @@ export const THE_WATER_WHEEL: Level = {
       id: "G",
       name: "Gideon",
       pronoun: "er",
+      traits: ["villager"],
       clue: { text: "Er war im Fluss.", ...inArea("W") },
       colour: "#4338ca",
       face: "\u{1F474}",
@@ -220,6 +225,7 @@ export const THE_WATER_WHEEL: Level = {
       id: "O",
       name: "Osmar",
       pronoun: "er",
+      traits: ["knight"],
       clue: {
         text: "Er war allein mit der Person, die den Mord beging.",
         ...victim(),
@@ -229,44 +235,36 @@ export const THE_WATER_WHEEL: Level = {
     },
   ],
   rules: [
-    nobility(
-      "Adlige (\u{1F451}) waren nur im Herrenhaus oder im Herrenstall.",
+    ranks(
+      "Adlige (\u{1F451}) waren nur im Herrenhaus oder im Herrenstall, Dorfbewohner nur in den anderen Bereichen, Ritter überall.",
       ["H", "S"],
     ),
   ],
   hints: [
     {
-      text: "Anna, Betsy und Charles sind adlig, also nur im Herrenhaus oder Herrenstall. Genau einer von Betsy und Charles liegt auf einem Bett - für sie kommt nur das Bett im Herrenhaus in C6 in Frage.",
+      text: "Anna, Betsy und Charles sind adlig, also nur im Herrenhaus oder Herrenstall; Dennis, Elliot, Freya und Gideon sind Dorfbewohner, also nie dort. Elliot sitzt auf einem Stuhl - außerhalb von Herrenhaus und Herrenstall stehen Stühle nur im Haus, in R3 C1 und R3 C2. Elliot ist in R3; blockiere den Rest von R3.",
     },
     {
-      text: "Elliot sitzt auf einem Stuhl, aber nicht in C6. Säße er in R2 C5, läge der Bettende in R3 C6, Anna auf dem Pferd in R1 C8 und der dritte Adlige in R4 C7. Dennis müsste in R7 C2 neben das Fass, Gideon in R8 - und für Freya bliebe kein Feld neben einem Pferd oder Wildschwein. Also sitzt Elliot in R3 C1 oder R3 C2. Blockiere den Rest von R3.",
-      cross: [
-        { row: 2, col: 2 },
-        { row: 2, col: 3 },
-        { row: 2, col: 4 },
-        { row: 2, col: 5 },
-        { row: 2, col: 6 },
-        { row: 2, col: 7 },
-      ],
+      text: "Betsy oder Charles liegt auf einem Bett, also im Herrenhaus (das Bett im Haus ist für Adlige tabu). Das Bett im Herrenhaus reicht über R2 C6 und R3 C6 - R3 ist Elliots Zeile, also liegt der Bettende in R2 C6.",
     },
     {
-      text: "Da R3 gesperrt ist, liegt der Bettende in R2 C6. Damit bleibt für Anna nur das Pferd in R1 C8.",
+      text: "Anna sitzt auf einem Stuhl oder Pferd im Herrenhaus oder Herrenstall. Der Stuhl in R1 C6 liegt in der Spalte des Bettenden, der in R2 C5 in seiner Zeile; vom Pferd in R2 C7 und R3 C8 sind R2 und R3 besetzt. Anna sitzt auf dem Pferd in R1 C8.",
       place: { A: { row: 0, col: 7 } },
     },
     {
-      text: "Der andere der beiden muss in R4 stehen - im Herrenstall bleibt nur R4 C7. Betsy war nicht allein, allein im Herrenhaus wäre sie es (R1 bis R3 sind voll). Also steht Betsy in R4 C7 bei Anna, und Charles liegt in R2 C6.",
+      text: "R1 bis R3 sind besetzt, also steht der zweite von Betsy und Charles im Herrenstall in R4 - in C8 steht Anna, also R4 C7. Betsy war nicht allein: Im Herrenhaus wäre sie allein, im Herrenstall ist sie bei Anna. Also steht Betsy in R4 C7, und Charles liegt in R2 C6.",
       place: { B: { row: 3, col: 6 }, C: { row: 1, col: 5 } },
     },
     {
-      text: "Dennis steht neben einem Fass. R1 C8 und R2 C7 sind vergeben bzw. gesperrt, in der Wassermühle ist nur R7 C2 frei. Damit sitzt Elliot auf dem Stuhl in R3 C1.",
+      text: "Dennis steht neben einem Fass, aber nicht im Herrenstall. In der Wassermühle ist neben einem Fass nur R7 C2 frei (R6 C2 ist ein Tisch). Damit bleibt Elliot nur der Stuhl in R3 C1.",
       place: { D: { row: 6, col: 1 }, E: { row: 2, col: 0 } },
     },
     {
-      text: "Freya steht neben einem Pferd oder Wildschwein. Übrig ist nur R5 C5 neben dem Wildschwein - die Felder neben dem Pferd in R7 C8 liegen in C7 und C8.",
+      text: "Freya steht neben einem Pferd oder Wildschwein. Frei sind nur noch R5 und R8 sowie C3, C4 und C5: Das einzige passende Feld ist R5 C5 neben dem Wildschwein im Feld.",
       place: { F: { row: 4, col: 4 } },
     },
     {
-      text: "Gideon steht im Fluss in R8, frei ist nur R8 C3. Für Osmar bleibt R6 C4 in der Wassermühle - allein mit Dennis. Dennis ist der Mörder!",
+      text: "Gideon ist im Fluss in R8: C4 und C5 sind das Wasserrad, also R8 C3. Osmar steht auf dem letzten Feld, R6 C4 in der Wassermühle - allein mit Dennis. Dennis ist der Mörder!",
       place: { G: { row: 7, col: 2 }, O: { row: 5, col: 3 } },
     },
   ],

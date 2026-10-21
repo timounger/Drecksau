@@ -6,8 +6,9 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Der Banditenüberfall/Der Banditenüberfall.png`,
- * no solution sheet). The book's rule for crowned areas (nobles - the purple
- * cards - only there) makes it unique, with the culprit
+ * no solution sheet). The book's estates - nobles (purple cards) only in the
+ * crowned areas, villagers (wooden cards) only outside them, knights (grey
+ * shields) anywhere - make it unique, with the culprit
  * pencilled in on the photographed page.
  * Ortimer is the victim; whoever was alone with him killed him. The map has
  * nine rows but only seven people, so two rows stay empty.
@@ -23,7 +24,7 @@ import {
   beside,
   cellsWhere,
   counting,
-  nobility,
+  ranks,
   on,
   own,
   victim,
@@ -152,6 +153,7 @@ export const THE_BANDIT_RAID: Level = {
       id: "A",
       name: "Arthur",
       pronoun: "er",
+      traits: ["knight"],
       clue: { text: "Er war auf einem Pferd.", ...on("horse") },
       colour: "#b91c1c",
       face: "\u{1F471}‍♂️",
@@ -160,6 +162,7 @@ export const THE_BANDIT_RAID: Level = {
       id: "B",
       name: "Baldwin",
       pronoun: "er",
+      traits: ["villager"],
       clue: { text: "Er war neben einem Baum.", ...beside("tree") },
       colour: "#15803d",
       face: "\u{1F9D4}",
@@ -168,6 +171,7 @@ export const THE_BANDIT_RAID: Level = {
       id: "C",
       name: "Cyril",
       pronoun: "er",
+      traits: ["villager"],
       clue: { text: "Er war neben einem Busch.", ...beside("bush") },
       colour: "#0e7490",
       face: "\u{1F474}",
@@ -176,6 +180,7 @@ export const THE_BANDIT_RAID: Level = {
       id: "D",
       name: "Dorothea",
       pronoun: "sie",
+      traits: ["knight"],
       clue: {
         text: "Sie war nördlich von Cyril.",
         ...about(["C"], (c) => {
@@ -218,6 +223,7 @@ export const THE_BANDIT_RAID: Level = {
       id: "O",
       name: "Ortimer",
       pronoun: "er",
+      traits: ["knight"],
       clue: {
         text: "Er war allein mit der Person, die den Mord beging.",
         ...victim(),
@@ -227,7 +233,10 @@ export const THE_BANDIT_RAID: Level = {
     },
   ],
   rules: [
-    nobility("Adlige (\u{1F451}) waren nur in den Kutschen.", ["N", "S"]),
+    ranks(
+      "Adlige (\u{1F451}) waren nur in den Kutschen, Dorfbewohner nur in den anderen Bereichen, Ritter überall.",
+      ["N", "S"],
+    ),
     {
       note: true,
       text: "Dieser Tatort ist wirklich weitläufig. Das liegt daran, dass es zwei leere Reihen gibt.",
@@ -239,7 +248,7 @@ export const THE_BANDIT_RAID: Level = {
       place: { F: { row: 6, col: 4 } },
     },
     {
-      text: "In C7 können nur Cyril, Dorothea oder Ortimer stehen, in C2 und C6 nur sie oder Fulbert - und Fulbert ist in C5. Also füllen Cyril, Dorothea und Ortimer C2, C6 und C7. Für Baldwin bleibt nur C1: R5 C1 neben dem Baum.",
+      text: "In C2, C6 und C7 können nur Cyril, Dorothea oder Ortimer stehen: Die Adligen sind in den Kutschen (C3 bis C5), Arthur auf einem Pferd (C1, C3, C4, C5) und Baldwin neben einem Baum (C1 oder C5). Also füllen Cyril, Dorothea und Ortimer C2, C6 und C7. Baldwin steht in C1 oder C5 - C5 ist Fulberts Spalte. Neben dem Baum in C1 liegt R7 in Fulberts Zeile, also steht Baldwin in R5 C1.",
       place: { B: { row: 4, col: 0 } },
     },
     {

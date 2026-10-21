@@ -11,7 +11,7 @@
  *
  * The four windows sit in the left wall; standing in front of one means being
  * on the field right beside it. The two green rugs can be stood on; the
- * shelves, the tables, the crates, the radios and the cash register cannot. A
+ * shelves, the tables, the crates, the TVs and the cash register cannot. A
  * field is "in a corner" when walls - an area border or the edge of the map -
  * run along two adjacent sides of it.
  */
@@ -103,7 +103,7 @@ export const THE_SUPERMARKET: Level = {
   things: {
     f: "window",
     k: "cashRegister",
-    m: "radio",
+    m: "tv",
     r: "rug",
     s: "shelf",
     t: "table",
@@ -112,7 +112,6 @@ export const THE_SUPERMARKET: Level = {
   extraThings: {
     window: { name: "Fenster", emoji: "\u{1FA9F}", standable: true },
     cashRegister: { name: "Kasse", emoji: "\u{1F4B5}", standable: false },
-    radio: { name: "Radio", emoji: "\u{1F4FB}", standable: false },
   },
   shapes: [
     [

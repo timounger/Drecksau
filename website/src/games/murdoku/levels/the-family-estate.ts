@@ -10,7 +10,7 @@
  * Osvaldo is the victim; whoever was alone with him killed him.
  *
  * The armchairs and the beds can be stood on; the plants, the dark tables (the one over two fields in the top right among them), the
- * shelves and the radio cannot. Sitting on a chair means being
+ * shelves and the TV cannot. Sitting on a chair means being
  * on an armchair. A field is "in a corner of the room" when walls - a room
  * border or the edge of the map - run along two adjacent sides of it.
  */
@@ -109,12 +109,9 @@ export const THE_FAMILY_ESTATE: Level = {
     b: "bed",
     c: "chair",
     p: "plant",
-    r: "radio",
+    r: "tv",
     s: "shelf",
     t: "table",
-  },
-  extraThings: {
-    radio: { name: "Radio", emoji: "\u{1F4FB}", standable: false },
   },
   pieces: [
     { at: { row: 0, col: 3 }, rows: 2, cols: 1 },

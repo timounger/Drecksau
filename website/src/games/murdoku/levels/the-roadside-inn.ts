@@ -6,23 +6,16 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Das Gasthaus am Wegesrand/Das Gasthaus am Wegesrand.png`,
- * no solution sheet). The book's rule for crowned areas (nobles - the purple
- * cards - only there) makes it unique, with the culprit
+ * no solution sheet). The book's estates - nobles (purple cards) only in the
+ * crowned areas, villagers (wooden cards) only outside them, knights (grey
+ * shields) anywhere - make it unique, with the culprit
  * pencilled in on the photographed page.
  * Odo is the victim; whoever was alone with him killed him.
  *
  * Chairs, the bed and the horses can be stood on; barrels and tables cannot.
  * Sitting means being on a chair or on a horse.
  */
-import {
-  about,
-  column,
-  inArea,
-  nobility,
-  on,
-  own,
-  victim,
-} from "../engine/clues";
+import { about, column, inArea, ranks, on, own, victim } from "../engine/clues";
 import type { Level } from "../engine/types";
 
 /** The case. */
@@ -102,6 +95,7 @@ export const THE_ROADSIDE_INN: Level = {
       id: "B",
       name: "Bart",
       pronoun: "er",
+      traits: ["villager"],
       clue: {
         text: "Er war südlich von Clementia und östlich von Odo.",
         ...about(["C", "O"], (c) => {
@@ -122,6 +116,7 @@ export const THE_ROADSIDE_INN: Level = {
       id: "C",
       name: "Clementia",
       pronoun: "sie",
+      traits: ["villager"],
       clue: { text: "Sie war in der ersten Spalte.", ...column(1) },
       colour: "#0e7490",
       face: "\u{1F469}‍\u{1F9B0}",
@@ -130,6 +125,7 @@ export const THE_ROADSIDE_INN: Level = {
       id: "D",
       name: "Duncan",
       pronoun: "er",
+      traits: ["knight"],
       clue: {
         text: "Er saß entweder auf einem Stuhl oder auf einem Pferd.",
         ...own((c) => c.is(c.cell, "chair") || c.is(c.cell, "horse")),
@@ -141,6 +137,7 @@ export const THE_ROADSIDE_INN: Level = {
       id: "E",
       name: "Elija",
       pronoun: "er",
+      traits: ["villager"],
       clue: { text: "Er war in der Küche.", ...inArea("K") },
       colour: "#b91c1c",
       face: "\u{1F471}‍♂️",
@@ -149,6 +146,7 @@ export const THE_ROADSIDE_INN: Level = {
       id: "O",
       name: "Odo",
       pronoun: "er",
+      traits: ["villager"],
       clue: {
         text: "Er war allein mit der Person, die den Mord beging.",
         ...victim(),
@@ -157,7 +155,12 @@ export const THE_ROADSIDE_INN: Level = {
       face: "\u{1F474}",
     },
   ],
-  rules: [nobility("Adlige (\u{1F451}) waren nur im Gästezimmer.", ["G"])],
+  rules: [
+    ranks(
+      "Adlige (\u{1F451}) waren nur im Gästezimmer, Dorfbewohner nur in den anderen Bereichen, Ritter überall.",
+      ["G"],
+    ),
+  ],
   hints: [
     {
       text: "Alice ist adlig, also im Gästezimmer. Dort sitzt sie auf dem einzigen Stuhl, R2 C5. Blockiere den Rest von R2 und C5.",

@@ -252,6 +252,36 @@ function isThing(level: Level, cell: Cell, what: string): boolean {
  * @param crowned - the keys of the areas with a crown
  * @returns the rule
  */
+/**
+ * The three estates of the time-travel book: nobles only in the crowned
+ * areas, villagers only outside them, knights anywhere.
+ *
+ * @param text - the rule as the case shows it
+ * @param crowned - the crowned areas
+ * @returns the rule
+ */
+export function ranks(text: string, crowned: readonly string[]): Rule {
+  return {
+    text,
+    crowned,
+    unary: (suspect, c) => {
+      const traits = suspect.traits ?? [];
+      const royal = crowned.includes(c.areaOf(c.cell) ?? "");
+      return traits.includes("noble")
+        ? royal
+        : !traits.includes("villager") || !royal;
+    },
+  };
+}
+
+/**
+ * The rule of the crowned areas, one way: nobles only there, everybody else
+ * anywhere.
+ *
+ * @param text - the rule as printed
+ * @param crowned - the crowned areas
+ * @returns the rule
+ */
 export function nobility(text: string, crowned: readonly string[]): Rule {
   return {
     text,

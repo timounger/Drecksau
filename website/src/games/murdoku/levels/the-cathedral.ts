@@ -6,18 +6,18 @@
  * @remarks
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Leicht/Die Kathedrale/Die Kathedrale.png`,
- * no solution sheet). The book's rule for crowned areas (nobles - the purple
- * cards - only there) makes it unique, with the culprit pencilled in on the
- * photographed page. Unlike the other book cases the usual second half
- * ("everybody else never") cannot hold here: the victim, a guard, lies at the
- * crowned altar, so the rule is one-way.
+ * no solution sheet). The book's estates - nobles (purple cards) only in the
+ * crowned areas, villagers (wooden cards) only outside them, knights (grey
+ * shields) anywhere - make it unique, with the culprit pencilled in on the
+ * photographed page. The victim, a guard, lies at the crowned altar:
+ * he is a knight, and knights may be anywhere.
  * Oswin is the victim; whoever was alone with him killed him.
  *
  * Chairs can be stood on; statues, tables and jugs cannot. The carpet runner
  * down the nave is only decoration.
  */
 /* eslint-disable @typescript-eslint/no-magic-numbers -- the case is data: rows, columns and counts straight off the printed page. */
-import { about, beside, column, nobility, on, victim } from "../engine/clues";
+import { about, beside, column, on, ranks, victim } from "../engine/clues";
 import type { Level } from "../engine/types";
 
 /** The crowned areas: the altar and both transepts. */
@@ -181,6 +181,7 @@ export const THE_CATHEDRAL: Level = {
       id: "E",
       name: "Egon",
       pronoun: "er",
+      traits: ["villager"],
       clue: {
         text: "Er war im selben Bereich wie Fidelina.",
         ...about(["F"], (c) => {
@@ -197,6 +198,7 @@ export const THE_CATHEDRAL: Level = {
       id: "F",
       name: "Fidelina",
       pronoun: "sie",
+      traits: ["villager"],
       clue: {
         text: "Sie war genau eine Spalte östlich von Cecil.",
         ...about(["C"], (c) => {
@@ -211,6 +213,7 @@ export const THE_CATHEDRAL: Level = {
       id: "G",
       name: "Genoveva",
       pronoun: "sie",
+      traits: ["villager"],
       clue: { text: "Sie saß auf einem Stuhl.", ...on("chair") },
       colour: "#4338ca",
       face: "\u{1F469}‍\u{1F9B1}",
@@ -219,6 +222,7 @@ export const THE_CATHEDRAL: Level = {
       id: "H",
       name: "Harry",
       pronoun: "er",
+      traits: ["villager"],
       clue: { text: "Er war neben einer Statue.", ...beside("statue") },
       colour: "#334155",
       face: "\u{1F468}‍\u{1F9B2}",
@@ -227,6 +231,7 @@ export const THE_CATHEDRAL: Level = {
       id: "O",
       name: "Oswin",
       pronoun: "er",
+      traits: ["knight"],
       clue: {
         text: "Er war allein mit der Person, die den Mord beging.",
         ...victim(),
@@ -236,39 +241,39 @@ export const THE_CATHEDRAL: Level = {
     },
   ],
   rules: [
-    nobility(
-      "Adlige (\u{1F451}) waren nur am Altar oder in den Querschiffen.",
+    ranks(
+      "Adlige (\u{1F451}) waren nur am Altar oder in den Querschiffen, Dorfbewohner nur in den anderen Bereichen, Ritter überall.",
       CROWNED,
     ),
   ],
   hints: [
     {
-      text: "Adlige sind nur am Altar oder in den Querschiffen. Anselm steht in C9, also in R4 C9 oder R5 C9. Cecil ist adlig und neben einem Krug: R5 C1, R4 C7 oder R5 C8 (R4 C9 ist Anselms Spalte). In R5 C8 müsste Fidelina in C9 stehen - Anselms Spalte. In R4 C7 stünde sie in C8: im östlichen Querschiff wären mit Egon vier Personen in drei Reihen, und in R9 C8 müsste Egon im östlichen Seitenschiff in C7 stehen - Cecils Spalte. Also steht Cecil in R5 C1.",
-      place: { C: { row: 4, col: 0 } },
+      text: "Anselm, Ben, Cecil und Darius sind adlig, also nur am Altar oder in den Querschiffen; Egon, Fidelina, Genoveva und Harry sind Dorfbewohner, also nie dort. Cecil steht neben einem Krug: R5 C1, R4 C7 oder R5 C8 (R4 C9 liegt in Anselms Spalte). Fidelina steht genau eine Spalte östlich - nie in einem Querschiff: Zu R5 C8 gibt es in C9 nur Querschiff-Felder, zu R4 C7 bleibt R9 C8 und zu R5 C1 bleibt R9 C2. Fidelina steht also in R9.",
     },
     {
-      text: "Fidelina steht genau eine Spalte östlich von Cecil, in C2. R5 ist besetzt, also R9 C2. Egon ist im selben Bereich, dem westlichen Seitenschiff: R8 C3 ist eine Statue und R9 besetzt, also R7 C3. Anselm kann nicht mehr in R5 stehen - er steht in R4 C9.",
+      text: "Egon ist im selben Bereich wie Fidelina. Mit Cecil in R4 C7 stünde Fidelina im östlichen Seitenschiff, und Egon müsste dort in C7 stehen - Cecils Spalte. Also steht Cecil in R5 C1 und Fidelina in R9 C2. Egon steht im westlichen Seitenschiff: R8 C3 ist eine Statue, also R7 C3. Anselm steht adlig in C9, also im östlichen Querschiff: R5 ist Cecils Zeile, R6 C9 eine Statue - er steht in R4 C9.",
       place: {
+        C: { row: 4, col: 0 },
         F: { row: 8, col: 1 },
         E: { row: 6, col: 2 },
         A: { row: 3, col: 8 },
       },
     },
     {
-      text: "Genoveva saß auf einem Stuhl. Die Stühle in C3, R5, R7 und R9 sind gesperrt, es bleibt nur R8 C6.",
+      text: "Genoveva sitzt auf einem Stuhl. Der Stuhl im Chor liegt in C3 (Egons Spalte), die im Hauptschiff in R5, R7 und R9 - es bleibt nur R8 C6.",
       place: { G: { row: 7, col: 5 } },
     },
     {
-      text: "Ben ist neben einem Tisch. Am Tisch im westlichen Querschiff ist alles gesperrt, am Altar bleiben R2 C4 und R3 C5. Frei sind noch R1, R2, R3 und R6 und C4, C5, C7 und C8 - C8 gibt es dort nur in R6 C8. Darius ist adlig und östlich von Ben: am Altar ginge nur R3 C5 (mit Ben in R2 C4), dann bliebe für R1 nur die Statue in C7. Also steht Darius in R6 C8.",
-      place: { D: { row: 5, col: 7 } },
+      text: "Harry steht neben einer Statue, aber nie am Altar oder in einem Querschiff. Das geht nur im Chor (R2 C3 oder R2 C7) oder im westlichen Seitenschiff (R7 C3, R9 C3). C3, R7 und R9 sind besetzt - Harry steht in R2 C7.",
+      place: { H: { row: 1, col: 6 } },
     },
     {
-      text: "In C5 bleibt nur R3 C5. Stünde Oswin dort, müsste Ben in R2 C4 und Harry in C7 stehen - frei wäre nur die Statue in R1 C7. Also steht Ben in R3 C5. Harry steht neben einer Statue: R1 C4 oder R2 C7. In R1 C4 wäre Oswin allein im Chor - das Opfer war aber mit dem Mörder zusammen. Also steht Harry in R2 C7 und Oswin in R1 C4, allein mit Ben - Ben ist der Mörder!",
-      place: {
-        B: { row: 2, col: 4 },
-        H: { row: 1, col: 6 },
-        O: { row: 0, col: 3 },
-      },
+      text: "Ben steht neben einem Tisch. Am Tisch im westlichen Querschiff ist alles besetzt, am Altar bleiben R2 C4, R3 C5 und R2 C6 - R2 ist Harrys Zeile, C6 Genovevas Spalte. Ben steht in R3 C5.",
+      place: { B: { row: 2, col: 4 } },
+    },
+    {
+      text: "Darius ist adlig und steht östlich von Ben. Frei sind nur noch R1 und R6 sowie C4 und C8: östlich von Ben und am Altar oder in einem Querschiff bleibt R6 C8. Oswin steht auf dem letzten Feld, R1 C4 am Altar - allein mit Ben. Ben ist der Mörder!",
+      place: { D: { row: 5, col: 7 }, O: { row: 0, col: 3 } },
     },
   ],
   solution: {

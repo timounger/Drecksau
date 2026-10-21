@@ -64,6 +64,7 @@ import { THE_ROADSIDE_INN } from "../levels/the-roadside-inn";
 import { THE_WATER_WHEEL } from "../levels/the-water-wheel";
 import { THE_FIRST_CASE } from "../levels/the-first-case";
 import { THE_CATHEDRAL } from "../levels/the-cathedral";
+import { THE_DUNGEON } from "../levels/the-dungeon";
 import { THE_HOLIDAY_FLAT } from "../levels/the-holiday-flat";
 import { ENGLISH_BREAKFAST } from "../levels/english-breakfast";
 import { THE_CAFE } from "../levels/the-cafe";
@@ -178,6 +179,7 @@ export const LEVELS: readonly Level[] = [
   THE_WATER_WHEEL,
   THE_FIRST_CASE,
   THE_CATHEDRAL,
+  THE_DUNGEON,
   THE_HOLIDAY_FLAT,
   ENGLISH_BREAKFAST,
   THE_CAFE,
