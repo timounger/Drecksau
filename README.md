@@ -107,7 +107,7 @@ website/src/
     monopoly/       Monopoly Klassik - deutscher Spielplan, Auktionen und Handel
     bohnanza/       Bohnanza - Bohnen anbauen, handeln und ernten
     catan/          CATAN - 19 Landschaftsfelder, variabler Aufbau, Haefen und Raeuber
-    murdoku/        Murdoku - Kriminalraetsel wie ein Sudoku, ueber hundert Faelle
+    murdoku/        Murdoku - Kriminalraetsel wie ein Sudoku, ueber zweihundert Faelle
     scotland-yard/  Scotland Yard - Mister X gegen die Detektive, Computer oder online
     hitster/        Hitster - Musik-Zeitleiste mit YouTube-Songs, Computer oder online
                     (jedes Spiel mit eigener README im Ordner)

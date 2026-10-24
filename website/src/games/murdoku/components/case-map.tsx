@@ -46,6 +46,9 @@ const FIELD = 100;
 /** Room around the map for the row and column numbers. */
 const MARGIN = 40;
 
+/** A thing on a corner: its disc's radius and emoji size, as parts of a field, and the disc's outline. */
+const CORNER = { round: 0.28, size: 0.36, line: 3 } as const;
+
 /** How thick a border between two areas is. */
 const BORDER = 6;
 
@@ -868,8 +871,11 @@ export function RubbleShape({
  */
 function ShapedRug({
   cells,
+  colours = RUG_COLOURS,
 }: {
   readonly cells: readonly Cell[];
+  /** Other colours than the red rug's - lava's, say. */
+  readonly colours?: RugColours;
 }): ReactElement {
   const has = (row: number, col: number): boolean =>
     cells.some((one) => one.row === row && one.col === col);
@@ -924,9 +930,9 @@ function ShapedRug({
   // The same layers as a straight rug: blue border, the golden line in it,
   // and the red field - each as one piece round the corners.
   const layers: readonly (readonly [number, string])[] = [
-    [side, "#1e3a5f"],
-    [side + band / 2 - RUG.line / 2, "#d4a017"],
-    [side + band / 2 + RUG.line / 2, "#1e3a5f"],
+    [side, colours.edge],
+    [side + band / 2 - RUG.line / 2, colours.line],
+    [side + band / 2 + RUG.line / 2, colours.edge],
   ];
   // The fringe hangs off the ends: a field with only one neighbour in the rug
   // ends on the side facing away from it.
@@ -981,7 +987,7 @@ function ShapedRug({
               y1={line[1]}
               x2={line[2]}
               y2={line[3]}
-              stroke="#e7d7b7"
+              stroke={colours.fringe}
               strokeWidth={RUG.line}
               strokeLinecap="round"
             />
@@ -1008,7 +1014,37 @@ function ShapedRug({
           y={one.y}
           width={one.w}
           height={one.h}
-          fill="#a3242b"
+          fill={colours.field}
+          shapeRendering="crispEdges"
+        />
+      ))}
+    </g>
+  );
+}
+
+/**
+ * Lava over one field or a flow of them: the glowing two-coloured surface of
+ * the books - orange with yellow patches - with no rim, the fields running
+ * into one another.
+ *
+ * @param props - the fields of the flow
+ * @returns the drawing
+ */
+function LavaShape({
+  cells,
+}: {
+  readonly cells: readonly Cell[];
+}): ReactElement {
+  return (
+    <g pointerEvents="none">
+      {cells.map((cell) => (
+        <rect
+          key={`lava-${cellKey(cell)}`}
+          x={cell.col * FIELD - SEAM}
+          y={cell.row * FIELD - SEAM}
+          width={FIELD + SEAM * 2}
+          height={FIELD + SEAM * 2}
+          fill="url(#murdoku-lava)"
           shapeRendering="crispEdges"
         />
       ))}
@@ -3684,6 +3720,112 @@ export function DrawnThing({
     case "rubble":
       drawn = <RubbleShape x={x} y={y} width={width} height={height} />;
       break;
+    case "lava":
+      drawn = (
+        <rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill="url(#murdoku-lava)"
+          pointerEvents="none"
+        />
+      );
+      break;
+    case "loom":
+      drawn = <LoomShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "berries":
+      drawn = <BerriesShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "spear":
+      drawn = <SpearShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "wolf":
+      drawn = <WolfShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "stoneAxe":
+      drawn = <StoneAxeShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "fishingSpot":
+      drawn = <FishingSpotShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "well":
+      drawn = <WellShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "coal":
+      drawn = <CoalShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "campfire":
+      drawn = <CampfireShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "dynamite":
+      drawn = <DynamiteShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "hay":
+      drawn = <HayShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "rails":
+      drawn = <RailsShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "coffin":
+      drawn = <CoffinShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "grain":
+      drawn = <GrainShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "pillar":
+      drawn = <PillarShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "obelisk":
+      drawn = <ObeliskShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "sarcophagus":
+      drawn = <SarcophagusShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "papyrusRolls":
+      drawn = <PapyrusShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "papyrus":
+    case "papyrusStack":
+      drawn = <PapyrusSheetsShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "chest":
+      drawn = <ChestShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "hammock":
+      drawn = <HammockShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "rope":
+      drawn = <RopeShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "blood":
+      drawn = <BloodShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "cannon":
+      drawn = <CannonShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "raft":
+      drawn = <RaftShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "sack":
+      drawn = <SackShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "timeMachine":
+      drawn = <TimeMachineShape x={x} y={y} width={width} height={height} />;
+      break;
+    case "anubis":
+    case "ra":
+      drawn = (
+        <HieroglyphShape
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          sign={thing === "anubis" ? "\u{1F43A}" : "\u{1F985}"}
+        />
+      );
+      break;
     default:
       drawn = null;
   }
@@ -3728,7 +3870,2483 @@ export const DRAWN_THINGS: ReadonlySet<string> = new Set([
   "mud",
   "shrub",
   "bush",
+  "anubis",
+  "ra",
+  "lava",
+  "loom",
+  "berries",
+  "spear",
+  "wolf",
+  "stoneAxe",
+  "fishingSpot",
+  "well",
+  "timeMachine",
+  "coal",
+  "sack",
+  "campfire",
+  "dynamite",
+  "hay",
+  "rails",
+  "coffin",
+  "papyrus",
+  "papyrusStack",
+  "papyrusRolls",
+  "sarcophagus",
+  "obelisk",
+  "pillar",
+  "grain",
+  "chest",
+  "hammock",
+  "rope",
+  "blood",
+  "cannon",
+  "raft",
 ]);
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A pool of blood as the book draws it: a flat dark red splash with a few
+ * drops round it.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function BloodShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const s = (part: number) => String(part * size);
+  return (
+    <g pointerEvents="none">
+      <path
+        d={`M ${String(cx - size * 0.24)} ${String(cy - size * 0.02)} c ${s(0)} ${s(-0.12)} ${s(0.12)} ${s(-0.16)} ${s(0.2)} ${s(-0.12)} c ${s(0.06)} ${s(-0.06)} ${s(0.18)} ${s(-0.06)} ${s(0.22)} ${s(0.02)} c ${s(0.1)} ${s(0.02)} ${s(0.12)} ${s(0.14)} ${s(0.04)} ${s(0.18)} c ${s(-0.04)} ${s(0.08)} ${s(-0.16)} ${s(0.1)} ${s(-0.22)} ${s(0.06)} c ${s(-0.08)} ${s(0.04)} ${s(-0.24)} ${s(0.02)} ${s(-0.24)} ${s(-0.14)} Z`}
+        fill="#7f1d1d"
+        stroke="#450a0a"
+        strokeWidth={size * 0.015}
+      />
+      <ellipse
+        cx={cx - size * 0.06}
+        cy={cy - size * 0.06}
+        rx={size * 0.1}
+        ry={size * 0.04}
+        fill="#b91c1c"
+        opacity={0.7}
+      />
+      {(
+        [
+          [0.3, -0.16, 0.035],
+          [-0.3, 0.14, 0.03],
+          [0.18, 0.22, 0.025],
+        ] as const
+      ).map(([dx, dy, r]) => (
+        <circle
+          key={`drop-${String(dx)}`}
+          cx={cx + dx * size}
+          cy={cy + dy * size}
+          r={r * size}
+          fill="#7f1d1d"
+        />
+      ))}
+    </g>
+  );
+}
+
+/**
+ * A ship's cannon as the book draws it from above: a grey iron barrel with
+ * rings round it and a ball at the back, on a wooden carriage with its
+ * wheels at the sides.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function CannonShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2;
+  const top = y + height / 2 - size * 0.4;
+  const ink = "#1e293b";
+  const line = size * 0.018;
+  return (
+    <g pointerEvents="none">
+      {/* The carriage and its wheels. */}
+      <rect
+        x={cx - size * 0.17}
+        y={top + size * 0.36}
+        width={size * 0.34}
+        height={size * 0.38}
+        rx={size * 0.03}
+        fill="#8a5a2e"
+        stroke="#3b2412"
+        strokeWidth={line}
+      />
+      {[-1, 1].map((side) =>
+        [0.44, 0.66].map((at) => (
+          <rect
+            key={`wheel-${String(side)}-${String(at)}`}
+            x={cx + side * size * 0.2 - size * 0.045}
+            y={top + size * at - size * 0.05}
+            width={size * 0.09}
+            height={size * 0.1}
+            rx={size * 0.02}
+            fill="#57534e"
+            stroke={ink}
+            strokeWidth={line * 0.8}
+          />
+        )),
+      )}
+      {/* The barrel, muzzle up. */}
+      <path
+        d={`M ${String(cx - size * 0.07)} ${String(top)} H ${String(cx + size * 0.07)} L ${String(cx + size * 0.11)} ${String(top + size * 0.62)} H ${String(cx - size * 0.11)} Z`}
+        fill="#64748b"
+        stroke={ink}
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      <ellipse
+        cx={cx}
+        cy={top}
+        rx={size * 0.08}
+        ry={size * 0.03}
+        fill="#1e293b"
+      />
+      {[0.12, 0.38, 0.58].map((at) => (
+        <line
+          key={`ring-${String(at)}`}
+          x1={cx - size * (0.08 + at * 0.05)}
+          y1={top + size * at}
+          x2={cx + size * (0.08 + at * 0.05)}
+          y2={top + size * at}
+          stroke={ink}
+          strokeWidth={line * 1.4}
+        />
+      ))}
+      <circle
+        cx={cx}
+        cy={top + size * 0.7}
+        r={size * 0.07}
+        fill="#475569"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      <line
+        x1={cx - size * 0.04}
+        y1={top + size * 0.04}
+        x2={cx - size * 0.06}
+        y2={top + size * 0.55}
+        stroke="#cbd5e1"
+        strokeWidth={line}
+        opacity={0.8}
+      />
+    </g>
+  );
+}
+
+/**
+ * A raft as the book draws it: logs lashed side by side, with two planks
+ * across them and the rope ends of the lashing.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function RaftShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const side = size * 0.7;
+  const left = x + (width - side) / 2;
+  const top = y + (height - side) / 2;
+  const logs = 5;
+  const log = side / logs;
+  const ink = "#3b2412";
+  const line = size * 0.016;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={left + side / 2}
+        cy={top + side + size * 0.02}
+        rx={side * 0.55}
+        ry={size * 0.05}
+        fill="#0c4a6e"
+        opacity={0.2}
+      />
+      {Array.from({ length: logs }, (_, index) => (
+        <rect
+          key={`log-${String(index)}`}
+          x={left + index * log}
+          y={top + (index % 2 === 0 ? 0 : size * 0.02)}
+          width={log}
+          height={side - size * 0.02}
+          rx={log / 2}
+          fill={index % 2 === 0 ? "#b07a45" : "#a16207"}
+          stroke={ink}
+          strokeWidth={line}
+        />
+      ))}
+      {[0.2, 0.74].map((at) => (
+        <rect
+          key={`plank-${String(at)}`}
+          x={left - size * 0.02}
+          y={top + side * at - size * 0.035}
+          width={side + size * 0.04}
+          height={size * 0.07}
+          rx={size * 0.01}
+          fill="#d6b48a"
+          stroke={ink}
+          strokeWidth={line}
+        />
+      ))}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A hammock as the book draws it, over one field or two: a pale canvas
+ * sagging between its two ends, which are gathered into rolled-up knots with
+ * the cords running off to the posts.
+ *
+ * @param props - where the field or block is and how big
+ * @returns the drawing
+ */
+function HammockShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const along = width >= height;
+  const length = along ? width : height;
+  const across = along ? height : width;
+  const ink = "#475569";
+  const line = across * 0.02;
+  // A point along the hammock (0 to 1) and across it from its middle (-1 to 1).
+  const at = (forward: number, side: number) => {
+    const a = forward * length;
+    const s = across / 2 + side * across * 0.32;
+    return along
+      ? `${String(x + a)} ${String(y + s)}`
+      : `${String(x + s)} ${String(y + a)}`;
+  };
+  const end = 0.09;
+  const knot = 0.14;
+  return (
+    <g pointerEvents="none">
+      {/* The cords to the posts. */}
+      <path
+        d={`M ${at(0.02, 0)} L ${at(end, 0)} M ${at(1 - end, 0)} L ${at(0.98, 0)}`}
+        stroke="#a16207"
+        strokeWidth={line * 1.4}
+        strokeLinecap="round"
+      />
+      {/* The canvas, bulging out between the knots. */}
+      <path
+        d={`M ${at(knot, -0.55)} Q ${at(0.5, -1.15)} ${at(1 - knot, -0.55)} L ${at(1 - knot, 0.55)} Q ${at(0.5, 1.15)} ${at(knot, 0.55)} Z`}
+        fill="#f1f5f9"
+        stroke={ink}
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      {/* Folds down the canvas. */}
+      {[-0.45, 0, 0.45].map((side) => (
+        <path
+          key={`fold-${String(side)}`}
+          d={`M ${at(knot + 0.03, side * 0.8)} Q ${at(0.5, side * 1.25)} ${at(1 - knot - 0.03, side * 0.8)}`}
+          fill="none"
+          stroke="#cbd5e1"
+          strokeWidth={line * 0.8}
+        />
+      ))}
+      {/* The rolled-up ends. */}
+      {[end, 1 - knot].map((start) => (
+        <path
+          key={`knot-${String(start)}`}
+          d={`M ${at(start, -0.6)} L ${at(start + knot - end, -0.6)} L ${at(start + knot - end, 0.6)} L ${at(start, 0.6)} Z`}
+          fill="#e2e8f0"
+          stroke={ink}
+          strokeWidth={line}
+          strokeLinejoin="round"
+        />
+      ))}
+    </g>
+  );
+}
+
+/**
+ * A rope as the book draws it: coiled up in a heap of tan rings, with the
+ * loose end lying beside it.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function RopeShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const ink = "#57534e";
+  const thick = size * 0.065;
+  const rings = [0.3, 0.22, 0.14];
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={cx}
+        cy={cy + size * 0.24}
+        rx={size * 0.34}
+        ry={size * 0.07}
+        fill="#000"
+        opacity={0.15}
+      />
+      {/* The loose end. */}
+      <path
+        d={`M ${String(cx + size * 0.22)} ${String(cy + size * 0.12)} q ${String(size * 0.12)} ${String(size * 0.06)} ${String(size * 0.16)} ${String(size * 0.18)}`}
+        fill="none"
+        stroke={ink}
+        strokeWidth={thick + size * 0.02}
+        strokeLinecap="round"
+      />
+      <path
+        d={`M ${String(cx + size * 0.22)} ${String(cy + size * 0.12)} q ${String(size * 0.12)} ${String(size * 0.06)} ${String(size * 0.16)} ${String(size * 0.18)}`}
+        fill="none"
+        stroke="#d6b48a"
+        strokeWidth={thick}
+        strokeLinecap="round"
+      />
+      {/* The coils, outside in. */}
+      {rings.map((ring) => (
+        <g key={`ring-${String(ring)}`}>
+          <ellipse
+            cx={cx}
+            cy={cy}
+            rx={size * ring}
+            ry={size * ring * 0.72}
+            fill="none"
+            stroke={ink}
+            strokeWidth={thick + size * 0.02}
+          />
+          <ellipse
+            cx={cx}
+            cy={cy}
+            rx={size * ring}
+            ry={size * ring * 0.72}
+            fill="none"
+            stroke="#d6b48a"
+            strokeWidth={thick}
+          />
+          <ellipse
+            cx={cx}
+            cy={cy}
+            rx={size * ring}
+            ry={size * ring * 0.72}
+            fill="none"
+            stroke="#a8875e"
+            strokeWidth={thick * 0.25}
+            strokeDasharray={`${String(size * 0.03)} ${String(size * 0.04)}`}
+          />
+        </g>
+      ))}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A treasure chest as the book draws it, a little from the front: a wooden
+ * box with a rounded lid, dark iron bands round it and a golden lock in the
+ * middle.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function ChestShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const wide = size * 0.66;
+  const left = x + (width - wide) / 2;
+  const lidTop = y + height / 2 - size * 0.28;
+  const seam = y + height / 2 - size * 0.06;
+  const bottom = y + height / 2 + size * 0.26;
+  const ink = "#3b2412";
+  const line = size * 0.02;
+  const band = size * 0.07;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={left + wide / 2}
+        cy={bottom + size * 0.03}
+        rx={wide * 0.58}
+        ry={size * 0.05}
+        fill="#000"
+        opacity={0.18}
+      />
+      {/* The box. */}
+      <rect
+        x={left}
+        y={seam}
+        width={wide}
+        height={bottom - seam}
+        rx={size * 0.02}
+        fill="#a16207"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {[0.33, 0.66].map((at) => (
+        <line
+          key={`board-${String(at)}`}
+          x1={left}
+          y1={seam + (bottom - seam) * at}
+          x2={left + wide}
+          y2={seam + (bottom - seam) * at}
+          stroke={ink}
+          strokeWidth={line * 0.5}
+          opacity={0.5}
+        />
+      ))}
+      {/* The rounded lid. */}
+      <path
+        d={`M ${String(left)} ${String(seam)} V ${String(lidTop + size * 0.08)} Q ${String(left + wide / 2)} ${String(lidTop - size * 0.06)} ${String(left + wide)} ${String(lidTop + size * 0.08)} V ${String(seam)} Z`}
+        fill="#ca8a04"
+        stroke={ink}
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      {/* The iron bands. */}
+      {[0.12, 0.88].map((at) => (
+        <rect
+          key={`band-${String(at)}`}
+          x={left + wide * at - band / 2}
+          y={lidTop + size * 0.02}
+          width={band}
+          height={bottom - lidTop - size * 0.02}
+          fill="#57534e"
+          stroke={ink}
+          strokeWidth={line * 0.6}
+        />
+      ))}
+      <rect
+        x={left}
+        y={seam - size * 0.02}
+        width={wide}
+        height={size * 0.04}
+        fill="#57534e"
+        stroke={ink}
+        strokeWidth={line * 0.6}
+      />
+      {/* The lock. */}
+      <rect
+        x={left + wide / 2 - size * 0.06}
+        y={seam - size * 0.05}
+        width={size * 0.12}
+        height={size * 0.12}
+        rx={size * 0.02}
+        fill="#facc15"
+        stroke={ink}
+        strokeWidth={line * 0.8}
+      />
+      <circle
+        cx={left + wide / 2}
+        cy={seam + size * 0.005}
+        r={size * 0.018}
+        fill={ink}
+      />
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A heap of grain as the book draws it: a round golden mound, lighter on
+ * top, with a few grains marked on it.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function GrainShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2;
+  const base = y + height / 2 + size * 0.18;
+  const wide = size * 0.36;
+  const high = size * 0.36;
+  const ink = "#92400e";
+  const line = size * 0.018;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={cx}
+        cy={base}
+        rx={wide * 1.08}
+        ry={size * 0.08}
+        fill="#000"
+        opacity={0.15}
+      />
+      <path
+        d={`M ${String(cx - wide)} ${String(base)} Q ${String(cx - wide * 0.7)} ${String(base - high * 0.9)} ${String(cx)} ${String(base - high)} Q ${String(cx + wide * 0.7)} ${String(base - high * 0.9)} ${String(cx + wide)} ${String(base)} Q ${String(cx)} ${String(base + size * 0.08)} ${String(cx - wide)} ${String(base)} Z`}
+        fill="#facc15"
+        stroke={ink}
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      <path
+        d={`M ${String(cx - wide * 0.45)} ${String(base - high * 0.62)} Q ${String(cx)} ${String(base - high * 1.02)} ${String(cx + wide * 0.45)} ${String(base - high * 0.62)} Q ${String(cx)} ${String(base - high * 0.5)} ${String(cx - wide * 0.45)} ${String(base - high * 0.62)} Z`}
+        fill="#fef08a"
+      />
+      {(
+        [
+          [-0.5, -0.25],
+          [-0.15, -0.4],
+          [0.25, -0.3],
+          [0.55, -0.15],
+          [-0.3, -0.1],
+          [0.1, -0.12],
+        ] as const
+      ).map(([dx, dy]) => (
+        <ellipse
+          key={`grain-${String(dx)}-${String(dy)}`}
+          cx={cx + dx * wide}
+          cy={base + dy * high}
+          rx={size * 0.018}
+          ry={size * 0.01}
+          fill="#ca8a04"
+        />
+      ))}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A round stone pillar as the book draws it, a little from the front: the
+ * shaft shaded down one side, a wider capital ring at the top and the round
+ * top face.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function PillarShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2;
+  const half = size * 0.2;
+  const rim = size * 0.25;
+  const topY = y + height / 2 - size * 0.24;
+  const footY = y + height / 2 + size * 0.3;
+  const ink = "#475569";
+  const line = size * 0.016;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={cx}
+        cy={footY}
+        rx={rim * 1.05}
+        ry={size * 0.07}
+        fill="#000"
+        opacity={0.18}
+      />
+      {/* The shaft. */}
+      <path
+        d={`M ${String(cx - half)} ${String(topY)} V ${String(footY)} A ${String(half)} ${String(size * 0.06)} 0 0 0 ${String(cx + half)} ${String(footY)} V ${String(topY)} Z`}
+        fill="#cbd5e1"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      <path
+        d={`M ${String(cx + half * 0.35)} ${String(topY)} V ${String(footY + size * 0.05)} A ${String(half)} ${String(size * 0.06)} 0 0 0 ${String(cx + half)} ${String(footY)} V ${String(topY)} Z`}
+        fill="#94a3b8"
+      />
+      {[-0.45, 0, 0.45].map((at) => (
+        <line
+          key={`flute-${String(at)}`}
+          x1={cx + half * at}
+          y1={topY + size * 0.06}
+          x2={cx + half * at}
+          y2={footY}
+          stroke={ink}
+          strokeWidth={line * 0.5}
+          opacity={0.5}
+        />
+      ))}
+      {/* The capital and the top face. */}
+      <rect
+        x={cx - rim}
+        y={topY - size * 0.02}
+        width={rim * 2}
+        height={size * 0.07}
+        rx={size * 0.02}
+        fill="#94a3b8"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      <ellipse
+        cx={cx}
+        cy={topY - size * 0.02}
+        rx={rim}
+        ry={size * 0.07}
+        fill="#e2e8f0"
+        stroke={ink}
+        strokeWidth={line}
+      />
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * An obelisk as the book draws it, standing up a little from the front: a
+ * tall tapering stone shaft with a pointed top and a few carved signs, on a
+ * low square base.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function ObeliskShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2;
+  const foot = y + height / 2 + size * 0.36;
+  const tip = y + height / 2 - size * 0.44;
+  const shoulder = tip + size * 0.12;
+  const half = size * 0.1;
+  const top = size * 0.065;
+  const ink = "#334155";
+  const line = size * 0.016;
+  const shaftFoot = foot - size * 0.08;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={cx}
+        cy={foot + size * 0.02}
+        rx={size * 0.24}
+        ry={size * 0.05}
+        fill="#000"
+        opacity={0.18}
+      />
+      {/* The base. */}
+      <rect
+        x={cx - size * 0.2}
+        y={shaftFoot}
+        width={size * 0.4}
+        height={size * 0.08}
+        rx={size * 0.01}
+        fill="#94a3b8"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {/* The shaft: a lit side and a shaded side. */}
+      <path
+        d={`M ${String(cx - half)} ${String(shaftFoot)} L ${String(cx - top)} ${String(shoulder)} L ${String(cx)} ${String(shoulder)} L ${String(cx)} ${String(shaftFoot)} Z`}
+        fill="#cbd5e1"
+      />
+      <path
+        d={`M ${String(cx)} ${String(shaftFoot)} L ${String(cx)} ${String(shoulder)} L ${String(cx + top)} ${String(shoulder)} L ${String(cx + half)} ${String(shaftFoot)} Z`}
+        fill="#94a3b8"
+      />
+      {/* The pointed top. */}
+      <path
+        d={`M ${String(cx - top)} ${String(shoulder)} L ${String(cx)} ${String(tip)} L ${String(cx)} ${String(shoulder)} Z`}
+        fill="#e2e8f0"
+      />
+      <path
+        d={`M ${String(cx)} ${String(tip)} L ${String(cx + top)} ${String(shoulder)} L ${String(cx)} ${String(shoulder)} Z`}
+        fill="#cbd5e1"
+      />
+      <path
+        d={`M ${String(cx - half)} ${String(shaftFoot)} L ${String(cx - top)} ${String(shoulder)} L ${String(cx)} ${String(tip)} L ${String(cx + top)} ${String(shoulder)} L ${String(cx + half)} ${String(shaftFoot)} Z`}
+        fill="none"
+        stroke={ink}
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      {/* Carved signs down the lit side. */}
+      {[0.25, 0.45, 0.65].map((at) => (
+        <rect
+          key={`sign-${String(at)}`}
+          x={cx - half * 0.62}
+          y={shoulder + (shaftFoot - shoulder) * at}
+          width={half * 0.42}
+          height={size * 0.04}
+          rx={size * 0.008}
+          fill="#64748b"
+        />
+      ))}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A sarcophagus as the book draws it, over one field or two: an open golden
+ * coffin with the mummy inside - a striped blue and gold headdress at the
+ * head end and the white wrapped body with bands across it.
+ *
+ * @param props - where the field or block is and how big
+ * @returns the drawing
+ */
+function SarcophagusShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const upright = height > width;
+  const length = upright ? height : width;
+  const across = upright ? width : height;
+  const ink = "#78350f";
+  const line = across * 0.018;
+  // A rectangle given along the coffin (from the head) and across it (from
+  // the middle), as parts of its length and width.
+  const box = (from: number, to: number, side: number) => {
+    const a = from * length;
+    const b = to * length;
+    const s = (side * across) / 2;
+    return upright
+      ? { x: x + across / 2 - s, y: y + a, width: s * 2, height: b - a }
+      : { x: x + a, y: y + across / 2 - s, width: b - a, height: s * 2 };
+  };
+  const shell = box(0.04, 0.96, 0.9);
+  const inner = box(0.08, 0.92, 0.72);
+  const head = box(0.1, 0.34, 0.64);
+  const face = box(0.15, 0.29, 0.32);
+  const body = box(0.34, 0.88, 0.54);
+  return (
+    <g pointerEvents="none">
+      <rect
+        {...shell}
+        rx={across * 0.1}
+        fill="#eab308"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      <rect {...inner} rx={across * 0.07} fill="#a16207" opacity={0.6} />
+      <rect
+        {...body}
+        rx={across * 0.08}
+        fill="#f5f5f4"
+        stroke="#a8a29e"
+        strokeWidth={line}
+      />
+      {[0.44, 0.54, 0.64, 0.74].map((at) => {
+        const band = box(at, at + 0.02, 0.54);
+        return <rect key={`band-${String(at)}`} {...band} fill="#d6d3d1" />;
+      })}
+      {/* The headdress, striped blue and gold, round the face. */}
+      <rect
+        {...head}
+        rx={across * 0.08}
+        fill="#1d4ed8"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {[0.16, 0.22, 0.28].map((at) => {
+        const stripe = box(at, at + 0.025, 0.64);
+        return <rect key={`stripe-${String(at)}`} {...stripe} fill="#facc15" />;
+      })}
+      <rect
+        {...face}
+        rx={across * 0.05}
+        fill="#fbbf24"
+        stroke={ink}
+        strokeWidth={line * 0.7}
+      />
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A stack of papyrus sheets as the book draws it: flat pale sheets piled up,
+ * the top one lighter, their edges showing down the front.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function PapyrusSheetsShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const wide = size * 0.6;
+  const deep = size * 0.34;
+  const front = size * 0.16;
+  const left = x + (width - wide) / 2;
+  const top = y + (height - deep - front) / 2;
+  const ink = "#57534e";
+  const line = size * 0.016;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={left + wide / 2}
+        cy={top + deep + front + size * 0.03}
+        rx={wide * 0.58}
+        ry={size * 0.05}
+        fill="#000"
+        opacity={0.16}
+      />
+      {/* The edges of the sheets down the front. */}
+      <rect
+        x={left}
+        y={top + deep - size * 0.02}
+        width={wide}
+        height={front + size * 0.02}
+        rx={size * 0.02}
+        fill="#d6c7a1"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {[0.25, 0.5, 0.75].map((at) => (
+        <line
+          key={`edge-${String(at)}`}
+          x1={left + size * 0.01}
+          y1={top + deep + front * at}
+          x2={left + wide - size * 0.01}
+          y2={top + deep + front * at}
+          stroke={ink}
+          strokeWidth={line * 0.6}
+          opacity={0.6}
+        />
+      ))}
+      {/* The top sheet. */}
+      <rect
+        x={left}
+        y={top}
+        width={wide}
+        height={deep}
+        rx={size * 0.02}
+        fill="#f5f0e1"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {[0.3, 0.5, 0.7].map((at) => (
+        <line
+          key={`fibre-${String(at)}`}
+          x1={left + wide * 0.1}
+          y1={top + deep * at}
+          x2={left + wide * 0.9}
+          y2={top + deep * at}
+          stroke="#e7d7b7"
+          strokeWidth={line}
+        />
+      ))}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A pile of papyrus rolls as the book draws it: pale scrolls rolled up and
+ * stacked lying down, each a little offset from the one below, with the
+ * spiral of its rolled end showing.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function PapyrusShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const long = size * 0.52;
+  const thick = size * 0.13;
+  const left = x + (width - long) / 2;
+  const base = y + height / 2 + size * 0.2;
+  const ink = "#57534e";
+  const line = size * 0.014;
+  // The rolls from the bottom up: shift to the right and row, in rolls.
+  const rolls: readonly (readonly [number, number])[] = [
+    [0, 0],
+    [0.12, 1],
+    [0.04, 2],
+    [0.18, 3],
+  ];
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={left + long / 2}
+        cy={base + thick * 0.6}
+        rx={long * 0.62}
+        ry={size * 0.05}
+        fill="#000"
+        opacity={0.16}
+      />
+      {rolls.map(([shift, row]) => {
+        const top = base - thick * (row + 1) + thick * 0.15 * row;
+        const start = left + shift * long;
+        return (
+          <g key={`roll-${String(row)}`}>
+            <rect
+              x={start}
+              y={top}
+              width={long}
+              height={thick}
+              rx={thick / 2}
+              fill="#e7d7b7"
+              stroke={ink}
+              strokeWidth={line}
+            />
+            <line
+              x1={start + thick * 0.6}
+              y1={top + thick * 0.3}
+              x2={start + long - thick * 0.4}
+              y2={top + thick * 0.3}
+              stroke="#f5f0e1"
+              strokeWidth={line}
+            />
+            {/* The rolled end. */}
+            <ellipse
+              cx={start + long - thick * 0.45}
+              cy={top + thick / 2}
+              rx={thick * 0.42}
+              ry={thick * 0.48}
+              fill="#d6b48a"
+              stroke={ink}
+              strokeWidth={line}
+            />
+            <path
+              d={`M ${String(start + long - thick * 0.45)} ${String(top + thick / 2)} m ${String(-thick * 0.1)} 0 a ${String(thick * 0.1)} ${String(thick * 0.1)} 0 1 1 ${String(thick * 0.2)} 0 a ${String(thick * 0.2)} ${String(thick * 0.2)} 0 1 1 ${String(-thick * 0.36)} 0`}
+              fill="none"
+              stroke={ink}
+              strokeWidth={line * 0.7}
+            />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A coffin as the book draws it, over one field or two: the long six-sided
+ * box in dark grey, wide at the shoulders, a lighter lid inside its rim and
+ * the undertaker's shovel lying on it.
+ *
+ * @param props - where the field or block is and how big
+ * @returns the drawing
+ */
+function CoffinShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const upright = height >= width;
+  const long = (upright ? height : width) * 0.86;
+  const wide = (upright ? width : height) * 0.56;
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const ink = "#1e293b";
+  const line = wide * 0.035;
+  // A point given along the coffin from its head (0 to 1) and across it
+  // from its middle (-1 to 1).
+  const at = (along: number, across: number) => {
+    const forward = (along - 0.5) * long;
+    const side = (across * wide) / 2;
+    return upright
+      ? `${String(cx + side)} ${String(cy + forward)}`
+      : `${String(cx + forward)} ${String(cy + side)}`;
+  };
+  const outline = (scale: number) =>
+    `M ${at(0.5 - 0.5 * scale, -0.62 * scale)} L ${at(0.5 - 0.5 * scale, 0.62 * scale)} L ${at(0.5 - 0.28 * scale, scale)} L ${at(0.5 + 0.5 * scale, 0.58 * scale)} L ${at(0.5 + 0.5 * scale, -0.58 * scale)} L ${at(0.5 - 0.28 * scale, -scale)} Z`;
+  return (
+    <g pointerEvents="none">
+      <path
+        d={outline(1)}
+        fill="#475569"
+        stroke={ink}
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      <path
+        d={outline(0.8)}
+        fill="#64748b"
+        stroke={ink}
+        strokeWidth={line * 0.6}
+        strokeLinejoin="round"
+      />
+      {/* The shovel on the lid: handle, shaft and blade. */}
+      <path
+        d={`M ${at(0.16, -0.12)} L ${at(0.16, 0.12)}`}
+        stroke="#8a5a2e"
+        strokeWidth={line * 2.2}
+        strokeLinecap="round"
+      />
+      <path
+        d={`M ${at(0.16, 0)} L ${at(0.66, 0)}`}
+        stroke="#8a5a2e"
+        strokeWidth={line * 1.6}
+        strokeLinecap="round"
+      />
+      <path
+        d={`M ${at(0.64, -0.2)} L ${at(0.64, 0.2)} L ${at(0.8, 0.16)} L ${at(0.86, 0)} L ${at(0.8, -0.16)} Z`}
+        fill="#cbd5e1"
+        stroke={ink}
+        strokeWidth={line * 0.8}
+        strokeLinejoin="round"
+      />
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A railway track over one field or a whole row of them: wooden sleepers
+ * across and two steel rails running along, the long way of the block.
+ *
+ * @param props - where the field or block is and how big
+ * @returns the drawing
+ */
+function RailsShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const along = width >= height;
+  const length = along ? width : height;
+  const across = along ? height : width;
+  const sleepers = Math.max(2, Math.round((length / across) * 3));
+  const step = length / sleepers;
+  const sleeper = across * 0.12;
+  const rail = across * 0.07;
+  const ink = "#3b2412";
+  // Where along and across lie on the map.
+  const at = (forward: number, side: number) =>
+    along ? { x: x + forward, y: y + side } : { x: x + side, y: y + forward };
+  return (
+    <g pointerEvents="none">
+      {Array.from({ length: sleepers }, (_, index) => {
+        const start = at(step * index + (step - sleeper) / 2, across * 0.14);
+        return (
+          <rect
+            key={`sleeper-${String(index)}`}
+            x={start.x}
+            y={start.y}
+            width={along ? sleeper : across * 0.72}
+            height={along ? across * 0.72 : sleeper}
+            rx={across * 0.015}
+            fill="#8a5a2e"
+            stroke={ink}
+            strokeWidth={across * 0.012}
+          />
+        );
+      })}
+      {[0.3, 0.7].map((side) => {
+        const start = at(0, across * side - rail / 2);
+        return (
+          <g key={`rail-${String(side)}`}>
+            <rect
+              x={start.x}
+              y={start.y}
+              width={along ? length : rail}
+              height={along ? rail : length}
+              fill="#94a3b8"
+              stroke="#334155"
+              strokeWidth={across * 0.012}
+            />
+            <rect
+              x={start.x + (along ? 0 : rail * 0.25)}
+              y={start.y + (along ? rail * 0.25 : 0)}
+              width={along ? length : rail * 0.3}
+              height={along ? rail * 0.3 : length}
+              fill="#e2e8f0"
+            />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A bale of hay as the book draws it, a little from the front: a block of
+ * straw, its top lighter than its front, with straw lines and two strings
+ * round it.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function HayShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const wide = size * 0.66;
+  const deep = size * 0.4;
+  const front = size * 0.2;
+  const left = x + (width - wide) / 2;
+  const top = y + (height - deep - front) / 2;
+  const ink = "#78350f";
+  const line = size * 0.018;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={left + wide / 2}
+        cy={top + deep + front + size * 0.03}
+        rx={wide * 0.58}
+        ry={size * 0.05}
+        fill="#000"
+        opacity={0.18}
+      />
+      {/* The front. */}
+      <rect
+        x={left}
+        y={top + deep - size * 0.02}
+        width={wide}
+        height={front + size * 0.02}
+        rx={size * 0.03}
+        fill="#ca8a04"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {/* The top. */}
+      <rect
+        x={left}
+        y={top}
+        width={wide}
+        height={deep}
+        rx={size * 0.03}
+        fill="#fde68a"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {/* Straw. */}
+      {[0.2, 0.4, 0.6, 0.8].map((at) => (
+        <line
+          key={`straw-${String(at)}`}
+          x1={left + wide * 0.06}
+          y1={top + deep * at}
+          x2={left + wide * 0.94}
+          y2={top + deep * at + size * (at > 0.5 ? -0.015 : 0.015)}
+          stroke="#d97706"
+          strokeWidth={line * 0.6}
+          opacity={0.7}
+        />
+      ))}
+      {[0.12, 0.45, 0.85].map((at) => (
+        <line
+          key={`front-${String(at)}`}
+          x1={left + wide * at}
+          y1={top + deep + size * 0.02}
+          x2={left + wide * at + size * 0.03}
+          y2={top + deep + front - size * 0.03}
+          stroke="#92400e"
+          strokeWidth={line * 0.6}
+          opacity={0.6}
+        />
+      ))}
+      {/* The two strings. */}
+      {[0.3, 0.7].map((at) => (
+        <path
+          key={`string-${String(at)}`}
+          d={`M ${String(left + wide * at)} ${String(top)} V ${String(top + deep + front)}`}
+          stroke="#7f1d1d"
+          strokeWidth={line * 1.2}
+        />
+      ))}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * Dynamite as the book draws it: an open wooden crate with red sticks lying
+ * across it in a heap, some sticking out over the edge.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function DynamiteShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const wide = size * 0.66;
+  const high = size * 0.44;
+  const left = x + (width - wide) / 2;
+  const top = y + (height - high) / 2 + size * 0.06;
+  const ink = "#3b2412";
+  const line = size * 0.018;
+  const stick = size * 0.085;
+  // The sticks from the bottom of the heap up: offset from the left and
+  // from the top of the crate, and length, as parts of a field.
+  const sticks: readonly (readonly [number, number, number])[] = [
+    [0.04, 0.3, 0.34],
+    [0.32, 0.3, 0.34],
+    [-0.02, 0.19, 0.36],
+    [0.3, 0.19, 0.36],
+    [0.1, 0.08, 0.34],
+    [0.2, -0.03, 0.36],
+  ];
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={left + wide / 2}
+        cy={top + high + size * 0.04}
+        rx={wide * 0.58}
+        ry={size * 0.05}
+        fill="#000"
+        opacity={0.18}
+      />
+      {/* The crate. */}
+      <rect
+        x={left}
+        y={top}
+        width={wide}
+        height={high}
+        rx={size * 0.015}
+        fill="#a16207"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {[1, 2].map((slat) => (
+        <line
+          key={`slat-${String(slat)}`}
+          x1={left}
+          y1={top + (high * slat) / 3}
+          x2={left + wide}
+          y2={top + (high * slat) / 3}
+          stroke={ink}
+          strokeWidth={line * 0.7}
+          opacity={0.6}
+        />
+      ))}
+      {/* The sticks. */}
+      {sticks.map(([dx, dy, length]) => (
+        <g key={`stick-${String(dx)}-${String(dy)}`}>
+          <rect
+            x={left + dx * size}
+            y={top + dy * size}
+            width={length * size}
+            height={stick}
+            rx={stick / 2}
+            fill="#f87171"
+            stroke="#991b1b"
+            strokeWidth={line}
+          />
+          <line
+            x1={left + dx * size + stick * 0.5}
+            y1={top + dy * size + stick * 0.32}
+            x2={left + (dx + length) * size - stick * 0.5}
+            y2={top + dy * size + stick * 0.32}
+            stroke="#fecaca"
+            strokeWidth={line}
+            strokeLinecap="round"
+          />
+        </g>
+      ))}
+      {/* A fuse from the top stick. */}
+      <path
+        d={`M ${String(left + 0.2 * size)} ${String(top - 0.03 * size + stick / 2)} q ${String(-0.08 * size)} ${String(-0.02 * size)} ${String(-0.1 * size)} ${String(-0.1 * size)}`}
+        fill="none"
+        stroke="#57534e"
+        strokeWidth={line * 1.2}
+        strokeLinecap="round"
+      />
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A campfire as the book draws it: a ring of grey stones, crossed logs in
+ * the middle and a flame of orange and yellow rising from them.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function CampfireShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2;
+  const cy = y + height / 2 + size * 0.1;
+  const rx = size * 0.32;
+  const ry = size * 0.2;
+  const ink = "#334155";
+  const line = size * 0.014;
+  const stones = 12;
+  const s = (part: number) => String(part * size);
+  return (
+    <g pointerEvents="none">
+      {/* The ring of stones, the back half first. */}
+      {Array.from({ length: stones }, (_, stone) => {
+        const angle = (stone / stones) * Math.PI * 2;
+        return (
+          <ellipse
+            key={`stone-${String(stone)}`}
+            cx={cx + Math.cos(angle) * rx}
+            cy={cy + Math.sin(angle) * ry}
+            rx={size * 0.075}
+            ry={size * 0.055}
+            fill={Math.sin(angle) > 0 ? "#cbd5e1" : "#94a3b8"}
+            stroke={ink}
+            strokeWidth={line}
+          />
+        );
+      })}
+      <ellipse cx={cx} cy={cy} rx={rx * 0.7} ry={ry * 0.62} fill="#57534e" />
+      {/* The logs, crossed. */}
+      {[-1, 1].map((side) => (
+        <line
+          key={`log-${String(side)}`}
+          x1={cx - side * rx * 0.62}
+          y1={cy + ry * 0.35}
+          x2={cx + side * rx * 0.62}
+          y2={cy - ry * 0.35}
+          stroke="#7c4a24"
+          strokeWidth={size * 0.07}
+          strokeLinecap="round"
+        />
+      ))}
+      {/* The flame. */}
+      <path
+        d={`M ${String(cx)} ${String(cy - size * 0.5)} c ${s(0.05)} ${s(0.12)} ${s(0.2)} ${s(0.18)} ${s(0.17)} ${s(0.34)} c ${s(-0.02)} ${s(0.1)} ${s(-0.09)} ${s(0.15)} ${s(-0.17)} ${s(0.15)} c ${s(-0.09)} 0 ${s(-0.16)} ${s(-0.06)} ${s(-0.17)} ${s(-0.15)} c ${s(-0.02)} ${s(-0.1)} ${s(0.06)} ${s(-0.16)} ${s(0.08)} ${s(-0.24)} c ${s(0.03)} ${s(0.06)} ${s(0.04)} ${s(0.1)} ${s(0.03)} ${s(0.14)} c ${s(0.05)} ${s(-0.07)} ${s(0.07)} ${s(-0.15)} ${s(0.06)} ${s(-0.24)} Z`}
+        fill="#f97316"
+        stroke="#c2410c"
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      <path
+        d={`M ${String(cx + size * 0.01)} ${String(cy - size * 0.3)} c ${s(0.04)} ${s(0.07)} ${s(0.1)} ${s(0.1)} ${s(0.08)} ${s(0.19)} c ${s(-0.01)} ${s(0.05)} ${s(-0.05)} ${s(0.08)} ${s(-0.09)} ${s(0.08)} c ${s(-0.05)} 0 ${s(-0.09)} ${s(-0.04)} ${s(-0.08)} ${s(-0.09)} c ${s(0.01)} ${s(-0.07)} ${s(0.08)} ${s(-0.1)} ${s(0.09)} ${s(-0.18)} Z`}
+        fill="#fde047"
+      />
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A pile of coal as the book draws it: dark blue-grey lumps heaped up, the
+ * front ones a little lighter, with a few bright edges.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function CoalShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2;
+  const base = y + height / 2 + size * 0.2;
+  const ink = "#1e293b";
+  const line = size * 0.014;
+  // The lumps from the back to the front: centre and radius, as parts of a field.
+  const lumps: readonly (readonly [number, number, number, string])[] = [
+    [-0.12, -0.3, 0.13, "#475569"],
+    [0.1, -0.29, 0.12, "#475569"],
+    [0, -0.4, 0.11, "#64748b"],
+    [-0.25, -0.12, 0.12, "#475569"],
+    [0.24, -0.12, 0.12, "#475569"],
+    [-0.04, -0.18, 0.14, "#64748b"],
+    [-0.16, -0.03, 0.12, "#64748b"],
+    [0.14, -0.03, 0.13, "#64748b"],
+    [-0.31, 0.02, 0.09, "#64748b"],
+    [0.31, 0.02, 0.09, "#64748b"],
+    [0, 0.02, 0.1, "#94a3b8"],
+  ];
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={cx}
+        cy={base + size * 0.04}
+        rx={size * 0.4}
+        ry={size * 0.07}
+        fill="#000"
+        opacity={0.2}
+      />
+      {lumps.map(([dx, dy, r, fill]) => (
+        <g key={`lump-${String(dx)}-${String(dy)}`}>
+          <path
+            d={`M ${String(cx + (dx - r) * size)} ${String(base + dy * size)} l ${String(r * 0.5 * size)} ${String(-r * 0.9 * size)} l ${String(r * 1.1 * size)} ${String(r * 0.1 * size)} l ${String(r * 0.4 * size)} ${String(r * 0.85 * size)} l ${String(-r * 0.6 * size)} ${String(r * 0.6 * size)} l ${String(-r * 1.0 * size)} ${String(-r * 0.1 * size)} Z`}
+            fill={fill}
+            stroke={ink}
+            strokeWidth={line}
+            strokeLinejoin="round"
+          />
+          <line
+            x1={cx + (dx - r * 0.45) * size}
+            y1={base + (dy - r * 0.75) * size}
+            x2={cx + (dx + r * 0.5) * size}
+            y2={base + (dy - r * 0.7) * size}
+            stroke="#cbd5e1"
+            strokeWidth={line}
+            strokeLinecap="round"
+            opacity={0.8}
+          />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+/**
+ * A sack as the book draws it: a fat pale cloth bag tied up at the top, the
+ * cloth gathered above the cord and a few folds down its sides.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function SackShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const s = (part: number) => String(part * size);
+  const ink = "#334155";
+  const line = size * 0.02;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={cx}
+        cy={cy + size * 0.33}
+        rx={size * 0.3}
+        ry={size * 0.06}
+        fill="#000"
+        opacity={0.18}
+      />
+      {/* The bag. */}
+      <path
+        d={`M ${String(cx - size * 0.08)} ${String(cy - size * 0.14)} c ${s(-0.2)} ${s(0.06)} ${s(-0.28)} ${s(0.22)} ${s(-0.24)} ${s(0.34)} c ${s(0.03)} ${s(0.1)} ${s(0.14)} ${s(0.14)} ${s(0.32)} ${s(0.14)} c ${s(0.18)} 0 ${s(0.29)} ${s(-0.04)} ${s(0.32)} ${s(-0.14)} c ${s(0.04)} ${s(-0.12)} ${s(-0.04)} ${s(-0.28)} ${s(-0.24)} ${s(-0.34)} Z`}
+        fill="#e2e8f0"
+        stroke={ink}
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      {/* Folds. */}
+      <path
+        d={`M ${String(cx - size * 0.12)} ${String(cy - size * 0.06)} q ${s(-0.06)} ${s(0.14)} ${s(-0.02)} ${s(0.3)} M ${String(cx + size * 0.12)} ${String(cy - size * 0.06)} q ${s(0.07)} ${s(0.12)} ${s(0.04)} ${s(0.26)}`}
+        fill="none"
+        stroke="#94a3b8"
+        strokeWidth={line * 0.8}
+        strokeLinecap="round"
+      />
+      {/* The gathered cloth above the cord. */}
+      <path
+        d={`M ${String(cx - size * 0.08)} ${String(cy - size * 0.14)} l ${s(-0.1)} ${s(-0.14)} q ${s(0.06)} ${s(-0.06)} ${s(0.1)} ${s(0.02)} q ${s(0.04)} ${s(-0.1)} ${s(0.1)} ${s(-0.02)} q ${s(0.06)} ${s(-0.08)} ${s(0.1)} ${s(0.02)} l ${s(-0.04)} ${s(0.12)} Z`}
+        fill="#e2e8f0"
+        stroke={ink}
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      {/* The cord. */}
+      <path
+        d={`M ${String(cx - size * 0.1)} ${String(cy - size * 0.14)} q ${s(0.1)} ${s(0.04)} ${s(0.2)} 0`}
+        fill="none"
+        stroke="#57534e"
+        strokeWidth={line * 1.6}
+        strokeLinecap="round"
+      />
+      <circle
+        cx={cx + size * 0.11}
+        cy={cy - size * 0.13}
+        r={size * 0.025}
+        fill="#57534e"
+      />
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * The time machine as the book draws it: a glass capsule with a rounded top
+ * and a seat inside, standing on a dark round base with dials round its
+ * front and a little screen at the front left.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function TimeMachineShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2;
+  const half = size * 0.28;
+  const top = y + height / 2 - size * 0.36;
+  const waist = y + height / 2 + size * 0.06;
+  const bottom = y + height / 2 + size * 0.34;
+  const ink = "#1f2937";
+  const line = size * 0.022;
+  const dials = 7;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={cx}
+        cy={bottom + size * 0.03}
+        rx={half * 1.2}
+        ry={size * 0.05}
+        fill="#000"
+        opacity={0.2}
+      />
+      {/* The glass capsule. */}
+      <path
+        d={`M ${String(cx - half)} ${String(waist)} V ${String(top + half)} A ${String(half)} ${String(half)} 0 0 1 ${String(cx + half)} ${String(top + half)} V ${String(waist)} Z`}
+        fill="#e0f2fe"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      <path
+        d={`M ${String(cx - half * 0.55)} ${String(waist - size * 0.04)} V ${String(top + half * 0.9)} A ${String(half * 0.55)} ${String(half * 0.55)} 0 0 1 ${String(cx - half * 0.05)} ${String(top + half * 0.4)}`}
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth={line * 1.4}
+        strokeLinecap="round"
+        opacity={0.9}
+      />
+      {/* The seat inside. */}
+      <rect
+        x={cx - half * 0.2}
+        y={waist - size * 0.13}
+        width={half * 0.95}
+        height={size * 0.14}
+        rx={size * 0.03}
+        fill="#f5f0e1"
+        stroke="#64748b"
+        strokeWidth={line * 0.6}
+      />
+      {/* The dark base with its dials. */}
+      <path
+        d={`M ${String(cx - half * 1.15)} ${String(waist)} H ${String(cx + half * 1.15)} A ${String(half * 1.15)} ${String(bottom - waist)} 0 0 1 ${String(cx - half * 1.15)} ${String(waist)} Z`}
+        fill="#334155"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {Array.from({ length: dials }, (_, dial) => {
+        const angle = Math.PI * ((dial + 0.5) / dials);
+        const reach = 0.72;
+        return (
+          <line
+            key={`dial-${String(dial)}`}
+            x1={cx - Math.cos(angle) * half * 1.15 * reach}
+            y1={waist + Math.sin(angle) * (bottom - waist) * reach}
+            x2={cx - Math.cos(angle) * half * 1.15 * (reach - 0.2)}
+            y2={waist + Math.sin(angle) * (bottom - waist) * (reach - 0.2)}
+            stroke="#cbd5e1"
+            strokeWidth={line * 1.2}
+            strokeLinecap="round"
+          />
+        );
+      })}
+      {/* The screen at the front left. */}
+      <rect
+        x={cx - half * 1.05}
+        y={waist - size * 0.1}
+        width={half * 0.85}
+        height={size * 0.17}
+        rx={size * 0.015}
+        fill="#d1d5db"
+        stroke={ink}
+        strokeWidth={line}
+        transform={`rotate(-8 ${String(cx - half * 0.6)} ${String(waist)})`}
+      />
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A village well as the book draws it, a little from the front: a round wall
+ * of pale blue-grey stones with its front side showing, dark water inside, a
+ * wooden beam across with the rope wound round it and hanging into the water,
+ * and a post with a crank at the right.
+ *
+ * @param props - where the field or block is and how big
+ * @returns the drawing
+ */
+function WellShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const cx = x + width / 2 - size * 0.03;
+  const rx = size * 0.33;
+  const ry = rx * 0.72;
+  const cy = y + height / 2 - size * 0.02;
+  const deep = size * 0.14;
+  const rim = size * 0.055;
+  const ink = "#334155";
+  const wood = "#b08968";
+  const dark = "#5b3a1e";
+  const line = size * 0.01;
+  const stones = 18;
+  const front = 7;
+  const postX = cx + rx * 1.02;
+  const beamStart = { x: cx - rx * 0.95, y: cy - ry * 1.25 };
+  const beamEnd = { x: postX, y: cy - ry * 0.35 };
+  const along = (part: number) => ({
+    x: beamStart.x + (beamEnd.x - beamStart.x) * part,
+    y: beamStart.y + (beamEnd.y - beamStart.y) * part,
+  });
+  const coil = along(0.5);
+  const hang = along(0.55);
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={cx + size * 0.03}
+        cy={cy + deep + ry * 0.9}
+        rx={rx * 1.15}
+        ry={ry * 0.55}
+        fill="#000"
+        opacity={0.18}
+      />
+      {/* The left post, behind the wall. */}
+      <rect
+        x={beamStart.x - size * 0.025}
+        y={beamStart.y - size * 0.02}
+        width={size * 0.05}
+        height={cy - beamStart.y}
+        rx={size * 0.01}
+        fill={wood}
+        stroke={dark}
+        strokeWidth={line}
+      />
+      {/* The front of the wall: the side of the cylinder. */}
+      <path
+        d={`M ${String(cx - rx)} ${String(cy)} A ${String(rx)} ${String(ry)} 0 0 0 ${String(cx + rx)} ${String(cy)} L ${String(cx + rx)} ${String(cy + deep)} A ${String(rx)} ${String(ry)} 0 0 1 ${String(cx - rx)} ${String(cy + deep)} Z`}
+        fill="#94a3b8"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {Array.from({ length: front }, (_, stone) => {
+        const angle = Math.PI * ((stone + 0.5) / front);
+        return (
+          <ellipse
+            key={`front-${String(stone)}`}
+            cx={cx - Math.cos(angle) * rx * 0.92}
+            cy={cy + Math.sin(angle) * ry + deep * 0.55}
+            rx={rx * 0.16}
+            ry={deep * 0.3}
+            fill="#cbd5e1"
+            stroke={ink}
+            strokeWidth={line * 0.6}
+          />
+        );
+      })}
+      {/* The top of the wall, a ring of stones. */}
+      <ellipse
+        cx={cx}
+        cy={cy}
+        rx={rx}
+        ry={ry}
+        fill="#cbd5e1"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {Array.from({ length: stones }, (_, stone) => {
+        const angle = (stone / stones) * Math.PI * 2;
+        return (
+          <circle
+            key={`rim-${String(stone)}`}
+            cx={cx + Math.cos(angle) * (rx - rim * 0.6)}
+            cy={cy + Math.sin(angle) * (ry - rim * 0.45)}
+            r={rim * 0.62}
+            fill="#e2e8f0"
+            stroke={ink}
+            strokeWidth={line * 0.5}
+          />
+        );
+      })}
+      {/* The water. */}
+      <ellipse
+        cx={cx}
+        cy={cy + ry * 0.04}
+        rx={rx - rim * 1.3}
+        ry={ry - rim * 1.1}
+        fill="#475569"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      <ellipse
+        cx={cx - rx * 0.2}
+        cy={cy + ry * 0.2}
+        rx={rx * 0.35}
+        ry={ry * 0.22}
+        fill="#64748b"
+        opacity={0.7}
+      />
+      {/* The rope down into the water. */}
+      <line
+        x1={hang.x}
+        y1={hang.y}
+        x2={hang.x}
+        y2={cy + ry * 0.45}
+        stroke="#f5f5f4"
+        strokeWidth={line * 1.6}
+      />
+      <line
+        x1={hang.x}
+        y1={hang.y}
+        x2={hang.x}
+        y2={cy + ry * 0.45}
+        stroke={ink}
+        strokeWidth={line * 0.4}
+        opacity={0.5}
+      />
+      {/* The right post, down to the ground, with the crank. */}
+      <rect
+        x={postX - size * 0.03}
+        y={beamEnd.y - size * 0.03}
+        width={size * 0.06}
+        height={cy + deep + ry * 0.75 - beamEnd.y}
+        rx={size * 0.012}
+        fill={wood}
+        stroke={dark}
+        strokeWidth={line}
+      />
+      <path
+        d={`M ${String(postX + size * 0.03)} ${String(cy + ry * 0.2)} h ${String(size * 0.04)} v ${String(size * 0.06)}`}
+        fill="none"
+        stroke={dark}
+        strokeWidth={line * 2.2}
+        strokeLinecap="round"
+      />
+      {/* The beam across, with the rope wound round it. */}
+      <line
+        x1={beamStart.x}
+        y1={beamStart.y}
+        x2={beamEnd.x}
+        y2={beamEnd.y}
+        stroke={dark}
+        strokeWidth={size * 0.065}
+        strokeLinecap="round"
+      />
+      <line
+        x1={beamStart.x}
+        y1={beamStart.y}
+        x2={beamEnd.x}
+        y2={beamEnd.y}
+        stroke={wood}
+        strokeWidth={size * 0.045}
+        strokeLinecap="round"
+      />
+      {[-0.06, -0.02, 0.02, 0.06].map((shift) => (
+        <ellipse
+          key={`coil-${String(shift)}`}
+          cx={coil.x + shift * size}
+          cy={
+            coil.y +
+            shift *
+              size *
+              ((beamEnd.y - beamStart.y) / (beamEnd.x - beamStart.x))
+          }
+          rx={size * 0.016}
+          ry={size * 0.042}
+          fill="#f5f5f4"
+          stroke={ink}
+          strokeWidth={line * 0.6}
+        />
+      ))}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * The gatherer's field as the stone-age cases print it: a purple frame round
+ * the field and a bowl heaped with dark berries in its top left corner.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function BerriesShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const inset = size * 0.08;
+  const bowl = size * 0.2;
+  const cx = x + inset + bowl * 0.9;
+  const cy = y + inset + bowl * 0.95;
+  const ink = "#3b0764";
+  const line = size * 0.014;
+  // The berries in the heap, from the back: offset and radius, as parts of the bowl.
+  const berries: readonly (readonly [number, number, number])[] = [
+    [-0.45, -0.35, 0.28],
+    [0.05, -0.55, 0.3],
+    [0.5, -0.3, 0.28],
+    [-0.2, -0.1, 0.3],
+    [0.3, -0.05, 0.3],
+    [-0.65, 0.05, 0.25],
+    [0.7, 0.08, 0.25],
+  ];
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x + inset}
+        y={y + inset}
+        width={width - inset * 2}
+        height={height - inset * 2}
+        rx={4}
+        fill="none"
+        stroke="#7e22ce"
+        strokeWidth={size * 0.07}
+      />
+      {/* The berries above the rim. */}
+      {berries.map(([dx, dy, r]) => (
+        <circle
+          key={`berry-${String(dx)}-${String(dy)}`}
+          cx={cx + dx * bowl}
+          cy={cy + dy * bowl}
+          r={r * bowl}
+          fill="#4c1d95"
+          stroke={ink}
+          strokeWidth={line * 0.6}
+        />
+      ))}
+      {berries.slice(0, 4).map(([dx, dy, r]) => (
+        <circle
+          key={`shine-${String(dx)}-${String(dy)}`}
+          cx={cx + (dx - r * 0.3) * bowl}
+          cy={cy + (dy - r * 0.3) * bowl}
+          r={r * bowl * 0.25}
+          fill="#c4b5fd"
+        />
+      ))}
+      {/* The bowl. */}
+      <path
+        d={`M ${String(cx - bowl * 1.05)} ${String(cy + bowl * 0.15)} H ${String(cx + bowl * 1.05)} Q ${String(cx + bowl * 0.95)} ${String(cy + bowl * 1.05)} ${String(cx)} ${String(cy + bowl * 1.05)} Q ${String(cx - bowl * 0.95)} ${String(cy + bowl * 1.05)} ${String(cx - bowl * 1.05)} ${String(cy + bowl * 0.15)} Z`}
+        fill="#f5f0e1"
+        stroke={ink}
+        strokeWidth={line}
+        strokeLinejoin="round"
+      />
+      <path
+        d={`M ${String(cx - bowl * 0.85)} ${String(cy + bowl * 0.45)} H ${String(cx + bowl * 0.85)}`}
+        stroke="#d6b48a"
+        strokeWidth={line}
+      />
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * The hunter's field as the stone-age cases print it: an orange frame round
+ * the field and two spears crossed over its top left corner, their stone
+ * points up.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function SpearShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const inset = size * 0.08;
+  const cx = x + inset + size * 0.14;
+  const cy = y + inset + size * 0.12;
+  const ink = "#292524";
+  const line = size * 0.016;
+  const shaft = size * 0.52;
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x + inset}
+        y={y + inset}
+        width={width - inset * 2}
+        height={height - inset * 2}
+        rx={4}
+        fill="none"
+        stroke="#f97316"
+        strokeWidth={size * 0.07}
+        strokeOpacity={0.8}
+      />
+      {[-22, 22].map((angle) => (
+        <g
+          key={`spear-${String(angle)}`}
+          transform={`rotate(${String(angle)} ${String(cx)} ${String(cy + shaft * 0.35)})`}
+        >
+          <rect
+            x={cx - size * 0.024}
+            y={cy - shaft * 0.15}
+            width={size * 0.048}
+            height={shaft}
+            rx={size * 0.015}
+            fill="#e7d7b7"
+            stroke={ink}
+            strokeWidth={line}
+          />
+          <path
+            d={`M ${String(cx)} ${String(cy - shaft * 0.45)} L ${String(cx + size * 0.065)} ${String(cy - shaft * 0.12)} L ${String(cx)} ${String(cy - shaft * 0.05)} L ${String(cx - size * 0.065)} ${String(cy - shaft * 0.12)} Z`}
+            fill="#a8a29e"
+            stroke={ink}
+            strokeWidth={line}
+            strokeLinejoin="round"
+          />
+          <path
+            d={`M ${String(cx - size * 0.025)} ${String(cy - shaft * 0.08)} l ${String(size * 0.05)} ${String(size * 0.03)}`}
+            stroke="#78350f"
+            strokeWidth={line * 1.2}
+            strokeLinecap="round"
+          />
+        </g>
+      ))}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * The wolf tamer's field as the stone-age cases print it: a pale grey frame
+ * round the field and a grey wolf sitting on its top left corner, head up.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function WolfShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const inset = size * 0.08;
+  // The wolf's feet sit on the top edge of the frame, near the left.
+  const fx = x + inset + size * 0.2;
+  const fy = y + inset + size * 0.34;
+  const u = size * 0.021;
+  const ink = "#1f2937";
+  // Points of the sitting wolf in units of a hundredth of the field, from
+  // its feet: tail, back, head with two ears, snout, chest, front legs.
+  const body = [
+    [-14, 0],
+    [-16, -6],
+    [-11, -4],
+    [-9, -14],
+    [-4, -22],
+    [-3, -30],
+    [0, -26],
+    [2, -31],
+    [4, -25],
+    [9, -22],
+    [4, -19],
+    [3, -12],
+    [4, 0],
+  ] as const;
+  const d = `M ${body.map(([px, py]) => `${String(fx + px * u)} ${String(fy + py * u)}`).join(" L ")} Z`;
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x + inset}
+        y={y + inset}
+        width={width - inset * 2}
+        height={height - inset * 2}
+        rx={4}
+        fill="none"
+        stroke="#94a3b8"
+        strokeWidth={size * 0.07}
+        strokeOpacity={0.8}
+      />
+      <path
+        d={d}
+        fill="#6b7280"
+        stroke={ink}
+        strokeWidth={size * 0.014}
+        strokeLinejoin="round"
+      />
+      {/* The pale chest and the eye. */}
+      <path
+        d={`M ${String(fx + 3 * u)} ${String(fy - 18 * u)} L ${String(fx + 1 * u)} ${String(fy - 4 * u)} L ${String(fx + 4 * u)} ${String(fy)} L ${String(fx + 3 * u)} ${String(fy - 12 * u)} Z`}
+        fill="#e5e7eb"
+      />
+      <circle cx={fx + 2 * u} cy={fy - 25 * u} r={size * 0.01} fill={ink} />
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * The toolmaker's field as the stone-age cases print it: a pale yellow frame
+ * round the field and a stone axe lying over its top left corner - a grey
+ * stone head bound to a wooden handle.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function StoneAxeShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const inset = size * 0.08;
+  const cx = x + inset + size * 0.12;
+  const cy = y + inset + size * 0.08;
+  const ink = "#292524";
+  const line = size * 0.016;
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x + inset}
+        y={y + inset}
+        width={width - inset * 2}
+        height={height - inset * 2}
+        rx={4}
+        fill="none"
+        stroke="#eab308"
+        strokeWidth={size * 0.07}
+        strokeOpacity={0.75}
+      />
+      <g
+        transform={`translate(${String(cx)} ${String(cy)}) scale(1.5) rotate(-40) translate(${String(-cx)} ${String(-cy)})`}
+      >
+        {/* The handle. */}
+        <rect
+          x={cx - size * 0.025}
+          y={cy - size * 0.08}
+          width={size * 0.05}
+          height={size * 0.36}
+          rx={size * 0.02}
+          fill="#e7d7b7"
+          stroke={ink}
+          strokeWidth={line}
+        />
+        {/* The stone head and its binding. */}
+        <path
+          d={`M ${String(cx - size * 0.13)} ${String(cy - size * 0.02)} q ${String(size * 0.02)} ${String(-size * 0.1)} ${String(size * 0.13)} ${String(-size * 0.1)} q ${String(size * 0.11)} 0 ${String(size * 0.13)} ${String(size * 0.1)} q ${String(-size * 0.13)} ${String(size * 0.06)} ${String(-size * 0.26)} 0 Z`}
+          fill="#a8a29e"
+          stroke={ink}
+          strokeWidth={line}
+          strokeLinejoin="round"
+        />
+        <path
+          d={`M ${String(cx - size * 0.035)} ${String(cy - size * 0.1)} l ${String(size * 0.07)} ${String(size * 0.08)} M ${String(cx + size * 0.035)} ${String(cy - size * 0.1)} l ${String(-size * 0.07)} ${String(size * 0.08)}`}
+          stroke="#78350f"
+          strokeWidth={line * 1.2}
+          strokeLinecap="round"
+        />
+      </g>
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * The fisher's field as the stone-age cases print it: a blue frame round the
+ * field and a pale blue fish leaping over its top left corner.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function FishingSpotShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const inset = size * 0.08;
+  const cx = x + inset + size * 0.16;
+  const cy = y + inset + size * 0.1;
+  const s = (part: number) => String(part * size);
+  const ink = "#1e3a8a";
+  const line = size * 0.016;
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x + inset}
+        y={y + inset}
+        width={width - inset * 2}
+        height={height - inset * 2}
+        rx={4}
+        fill="none"
+        stroke="#2563eb"
+        strokeWidth={size * 0.07}
+      />
+      {/* The fish, nose up to the right, tail down to the left. */}
+      <g
+        transform={`rotate(-35 ${String(cx)} ${String(cy)}) translate(${String(cx)} ${String(cy)}) scale(1.4) translate(${String(-cx)} ${String(-cy)})`}
+      >
+        <path
+          d={`M ${String(cx - size * 0.16)} ${String(cy)} q ${s(0.08)} ${s(-0.1)} ${s(0.2)} ${s(-0.08)} q ${s(0.1)} ${s(0.02)} ${s(0.13)} ${s(0.08)} q ${s(-0.03)} ${s(0.06)} ${s(-0.13)} ${s(0.08)} q ${s(-0.12)} ${s(0.02)} ${s(-0.2)} ${s(-0.08)} Z`}
+          fill="#bfdbfe"
+          stroke={ink}
+          strokeWidth={line}
+          strokeLinejoin="round"
+        />
+        <path
+          d={`M ${String(cx - size * 0.15)} ${String(cy)} l ${s(-0.08)} ${s(-0.06)} l ${s(0.01)} ${s(0.12)} Z`}
+          fill="#93c5fd"
+          stroke={ink}
+          strokeWidth={line}
+          strokeLinejoin="round"
+        />
+        <path
+          d={`M ${String(cx)} ${String(cy - size * 0.07)} l ${s(0.04)} ${s(-0.05)} l ${s(0.04)} ${s(0.05)}`}
+          fill="#93c5fd"
+          stroke={ink}
+          strokeWidth={line * 0.8}
+        />
+        <circle
+          cx={cx + size * 0.12}
+          cy={cy - size * 0.01}
+          r={size * 0.012}
+          fill={ink}
+        />
+      </g>
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A loom as the book draws it from above: two dark posts, a beam at the top
+ * and the bottom, light slats across and the warp threads running down.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function LoomShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const wide = size * 0.7;
+  const high = size * 0.74;
+  const left = x + (width - wide) / 2;
+  const top = y + (height - high) / 2;
+  const post = wide * 0.13;
+  const beam = high * 0.11;
+  const ink = "#3b2412";
+  const line = size * 0.022;
+  const inner = wide - post * 2;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={left + wide / 2}
+        cy={top + high + size * 0.03}
+        rx={wide * 0.55}
+        ry={size * 0.045}
+        fill="#000"
+        opacity={0.18}
+      />
+      {/* The warp threads, behind the slats. */}
+      {[1, 2, 3, 4, 5, 6].map((thread) => (
+        <line
+          key={`thread-${String(thread)}`}
+          x1={left + post + (inner * thread) / 7}
+          y1={top + beam}
+          x2={left + post + (inner * thread) / 7}
+          y2={top + high - beam}
+          stroke="#e7e5e4"
+          strokeWidth={line * 0.5}
+        />
+      ))}
+      {/* The slats across. */}
+      {[1, 2, 3].map((slat) => (
+        <rect
+          key={`slat-${String(slat)}`}
+          x={left + post}
+          y={top + beam + ((high - beam * 2) * slat) / 4 - beam * 0.35}
+          width={inner}
+          height={beam * 0.7}
+          fill="#d6b48a"
+          stroke={ink}
+          strokeWidth={line * 0.6}
+        />
+      ))}
+      {/* The beams at the top and the bottom. */}
+      {[top, top + high - beam].map((at) => (
+        <rect
+          key={`beam-${String(at)}`}
+          x={left}
+          y={at}
+          width={wide}
+          height={beam}
+          rx={size * 0.01}
+          fill="#8a5a2e"
+          stroke={ink}
+          strokeWidth={line}
+        />
+      ))}
+      {/* The two posts. */}
+      {[left, left + wide - post].map((at) => (
+        <rect
+          key={`post-${String(at)}`}
+          x={at}
+          y={top}
+          width={post}
+          height={high}
+          rx={size * 0.015}
+          fill="#6b4423"
+          stroke={ink}
+          strokeWidth={line}
+        />
+      ))}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A hieroglyph field as the Egyptian cases print it: a dark blue frame round
+ * the field and the god's sign in its top left corner.
+ *
+ * @param props - where the field is, how big, and the sign
+ * @returns the drawing
+ */
+function HieroglyphShape({
+  x,
+  y,
+  width,
+  height,
+  sign,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly sign: string;
+}): ReactElement {
+  const inset = width * 0.08;
+  const badge = width * 0.2;
+  const centre = inset + badge * 0.6;
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x + inset}
+        y={y + inset}
+        width={width - inset * 2}
+        height={height - inset * 2}
+        rx={4}
+        fill="none"
+        stroke="#1e3a8a"
+        strokeWidth={width * 0.07}
+      />
+      <circle cx={x + centre} cy={y + centre} r={badge} fill="#1e3a8a" />
+      <text
+        x={x + centre}
+        y={y + centre}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={badge * 1.3}
+      >
+        {sign}
+      </text>
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
 
 /**
  * A table seen a little from above: its top with a darker front edge, two legs
@@ -4368,6 +6986,23 @@ export function CaseMap({
           />
         </pattern>
         <pattern
+          id="murdoku-lava"
+          width="64"
+          height="64"
+          patternUnits="userSpaceOnUse"
+          patternTransform="scale(1.8) rotate(12)"
+        >
+          <rect width="64" height="64" fill="#f97316" />
+          <path
+            d="M4 6 q10 -6 18 2 q4 10 -6 14 q-12 2 -12 -16 Z M36 2 q14 2 16 12 q-2 10 -14 6 q-8 -6 -2 -18 Z M24 30 q12 -4 16 6 q2 12 -10 12 q-12 -2 -6 -18 Z M50 34 q12 0 12 12 q-4 10 -14 4 q-6 -8 2 -16 Z M2 42 q10 0 12 10 q-2 10 -12 8 Z M30 54 q8 -2 10 6 l-12 4 Z"
+            fill="#facc15"
+          />
+          <path
+            d="M10 12 q4 -2 6 2 q-2 4 -6 -2 Z M42 10 q4 -2 6 2 q-2 4 -6 -2 Z M30 38 q4 -2 6 2 q-2 4 -6 -2 Z M54 42 q4 -2 6 2 q-2 4 -6 -2 Z"
+            fill="#fef08a"
+          />
+        </pattern>
+        <pattern
           id="murdoku-grass"
           width="40"
           height="40"
@@ -4471,6 +7106,26 @@ export function CaseMap({
         />
       ))}
 
+      {/* Rugs lie on the floor, under whatever stands on them - a table
+          over a runner. */}
+      {(level.carpets ?? []).map((carpet) => (
+        <ShapedRug
+          key={`carpet-${cellKey(carpet[0] ?? { row: 0, col: 0 })}`}
+          cells={carpet}
+        />
+      ))}
+      {(level.shapes ?? []).map((shape) => {
+        const first = shape[0] ?? { row: 0, col: 0 };
+        const thing = thingAt(level, first);
+        let drawn: ReactElement | null = null;
+        if (thing === "rug") {
+          drawn = <ShapedRug key={`shape-${cellKey(first)}`} cells={shape} />;
+        } else if (thing === "lava") {
+          drawn = <LavaShape key={`shape-${cellKey(first)}`} cells={shape} />;
+        }
+        return drawn;
+      })}
+
       {/* What stands on the fields - a thing over several of them once. */}
       {(level.pieces ?? []).map((piece) => (
         <PieceShape
@@ -4483,17 +7138,10 @@ export function CaseMap({
           })()}
         />
       ))}
-      {(level.carpets ?? []).map((carpet) => (
-        <ShapedRug
-          key={`carpet-${cellKey(carpet[0] ?? { row: 0, col: 0 })}`}
-          cells={carpet}
-        />
-      ))}
       {(level.shapes ?? []).map((shape) => {
         const first = shape[0] ?? { row: 0, col: 0 };
-        return thingAt(level, first) === "rug" ? (
-          <ShapedRug key={`shape-${cellKey(first)}`} cells={shape} />
-        ) : (
+        const thing = thingAt(level, first);
+        return thing === "rug" || thing === "lava" ? null : (
           <ShapedTable key={`shape-${cellKey(first)}`} cells={shape} />
         );
       })}
@@ -4539,6 +7187,29 @@ export function CaseMap({
           key={`window-${cellKey(pane.at)}-${pane.side}`}
           window={pane}
         />
+      ))}
+
+      {/* Things on the corners between fields, a cat between four. */}
+      {(level.corners ?? []).map((corner) => (
+        <g key={`corner-${cellKey(corner.at)}`} pointerEvents="none">
+          <circle
+            cx={(corner.at.col + 1) * FIELD}
+            cy={(corner.at.row + 1) * FIELD}
+            r={FIELD * CORNER.round}
+            fill="#ffffff"
+            stroke="#78716c"
+            strokeWidth={CORNER.line}
+          />
+          <text
+            x={(corner.at.col + 1) * FIELD}
+            y={(corner.at.row + 1) * FIELD}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={FIELD * CORNER.size}
+          >
+            {thingDef(level, corner.thing).emoji}
+          </text>
+        </g>
       ))}
 
       {/* The names of the areas. */}

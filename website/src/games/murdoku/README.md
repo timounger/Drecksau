@@ -7,7 +7,8 @@ mit dem Opfer allein war - das ist der Täter.
 
 Nach den Rätseln von **Murdoku** von Manuel Garand ([murdoku.com](https://murdoku.com)).
 Die Vorlagen liegen nach Reihe in `game_instructions/Murdoku/`:
-`Das Murdoku-Orginal/<Nr>. <Fall>/` und `Murdoku 2 - Auf Zeitreise/<Nr>. <Fall>/`
+`Das Murdoku-Orginal/<Nr>. <Fall>/`, `Murdoku 2 - Auf Zeitreise/<Nr>. <Fall>/` und
+`Murdoku 3 - Auf Weltreise/<Nr>. <Fall>.png`
 (Seiten der Bücher), `Online Rätsel/<Schwierigkeit>/<Fall>/` (`Sehr Leicht`,
 `Leicht`, `Mittel`, `Schwer`, `Experte`, `Blitz`), `Familie/` und `Wettbewerb/`;
 manche mit Lösungsblatt daneben (`<Name>_Solution.png`), die anderen mit den
@@ -136,6 +137,10 @@ Die Karte soll aussehen wie die gedruckte Seite. Was nur zum Aussehen gehört,
 - **Fenster und Tafeln in der Wand** (`windows`: Feld und Seite): Ein Fenster
   sitzt auf der Wandlinie, nicht im Feld. `board` macht daraus eine Tafel über
   `length` Felder, mit Kreideschrift `text`.
+- **Dinge auf einer Ecke** (`corners`: das Feld, an dessen rechter unterer
+  Ecke es sitzt, und das Ding): Die Katzen der Ägypten-Fälle sitzen zwischen
+  vier Feldern; gezeichnet als runde Plakette auf der Ecke. Wer "neben der
+  Katze" ist, sagt der Hinweis selbst - die vier Felder um die Ecke.
 - **Schilder der Bereiche**: `labelEnd` endet das Schild an seinem Feld statt
   dort zu beginnen; zu lange Namen werden kleiner, damit sie im Bereich
   bleiben - außer mit `labelOverhang`, dann ragen sie wie im Buch hinaus.
@@ -146,7 +151,8 @@ Die Karte soll aussehen wie die gedruckte Seite. Was nur zum Aussehen gehört,
   Boxsack, Auto, Bus, Kutsche, Boot, Ölfleck, Schlamm- und Wasserpfütze,
   Schachtisch, Wasserrad, Krümel, Strauch, Staffelei, gerahmtes Bild (an der
   Wand oben im Feld), Seerosenblatt, Klavier, Lautsprecher, Schlagzeug, Tresor
-  und Laterne. Dieselbe Zeichnung steht in der Legende unter der Karte.
+  Laterne und die Hieroglyphenfelder (Anubis, Ra: blauer Rahmen, Zeichen in
+  der Ecke). Dieselbe Zeichnung steht in der Legende unter der Karte.
 - **Post-its** (`note: true` an einer Regel) stehen als gelber Zettel unter
   den Verdächtigen statt als Lupen-Hinweis und werden nie geprüft.
 

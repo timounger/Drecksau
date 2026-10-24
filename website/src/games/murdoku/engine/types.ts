@@ -171,6 +171,16 @@ export type WallWindow = {
   readonly text?: string;
 };
 
+/**
+ * A thing sitting on the corner where four fields meet - a cat between them -
+ * rather than on a field: the field whose bottom right corner it is.
+ */
+export type CornerThing = {
+  readonly at: Cell;
+  /** The thing's id, from the catalog or the case's own things. */
+  readonly thing: string;
+};
+
 /** One thing over a block of fields, from its top left field. */
 export type Piece = {
   readonly at: Cell;
@@ -279,6 +289,11 @@ export type Level = {
    * sign on it. The field keeps its window in the thing map for the clues.
    */
   readonly windows?: readonly WallWindow[];
+  /**
+   * Things on the corners between fields, only drawn: the clues about them
+   * name the fields round the corner themselves.
+   */
+  readonly corners?: readonly CornerThing[];
   readonly suspects: readonly Suspect[];
   /** Rules of the whole case, printed under the suspects. */
   readonly rules?: readonly Rule[];

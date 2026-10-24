@@ -65,6 +65,71 @@ import { THE_WATER_WHEEL } from "../levels/the-water-wheel";
 import { THE_FIRST_CASE } from "../levels/the-first-case";
 import { THE_CATHEDRAL } from "../levels/the-cathedral";
 import { THE_DUNGEON } from "../levels/the-dungeon";
+import { THE_BEACH_RESORT } from "../levels/the-beach-resort";
+import { THE_FORTRESS } from "../levels/the-fortress";
+import { THE_CROSSROADS } from "../levels/the-crossroads";
+import { THE_ROYAL_HUNT } from "../levels/the-royal-hunt";
+import { THE_CRAFTSMENS_ALLEY } from "../levels/the-craftsmens-alley";
+import { THE_TAVERN } from "../levels/the-tavern";
+import { THE_MONASTERY } from "../levels/the-monastery";
+import { THE_JOUST } from "../levels/the-joust";
+import { THE_MARKET } from "../levels/the-market";
+import { THE_VILLAGE_SQUARE } from "../levels/the-village-square";
+import { THE_CASTLE_SIEGE } from "../levels/the-castle-siege";
+import { THE_CASTLE_IN_THE_STORM } from "../levels/the-castle-in-the-storm";
+import { THE_GENERAL_STORE } from "../levels/the-general-store";
+import { THE_POST_OFFICE } from "../levels/the-post-office";
+import { THE_PROSPECTORS_SHOP } from "../levels/the-prospectors-shop";
+import { THE_GAMBLING_DEN } from "../levels/the-gambling-den";
+import { THE_HIDEOUT } from "../levels/the-hideout";
+import { THE_SHERIFFS_OFFICE } from "../levels/the-sheriffs-office";
+import { THE_RANCH } from "../levels/the-ranch";
+import { THE_BANK_ROBBERY } from "../levels/the-bank-robbery";
+import { THE_TRAIN_STATION } from "../levels/the-train-station";
+import { THE_GRAVE_ROBBERS } from "../levels/the-grave-robbers";
+import { THE_OREGON_TRAIL } from "../levels/the-oregon-trail";
+import { THE_DUEL } from "../levels/the-duel";
+import { THE_SALOON } from "../levels/the-saloon";
+import { THE_TRAIN_ROBBERY } from "../levels/the-train-robbery";
+import { THE_GOLD_MINE } from "../levels/the-gold-mine";
+import { THE_GREAT_PLAINS } from "../levels/the-great-plains";
+import { TREASURE_ISLAND } from "../levels/treasure-island";
+import { THE_SHIPWRECK } from "../levels/the-shipwreck";
+import { THE_PRISON_SHIP } from "../levels/the-prison-ship";
+import { THE_SKIRMISH } from "../levels/the-skirmish";
+import { PARROT_ISLAND } from "../levels/parrot-island";
+import { THE_GHOST_FRIGATE } from "../levels/the-ghost-frigate";
+import { ISLANDS_OFF_THE_MAP } from "../levels/islands-off-the-map";
+import { THE_GARRISON } from "../levels/the-garrison";
+import { THE_SMUGGLERS_CAVE } from "../levels/the-smugglers-cave";
+import { THE_HURRICANE } from "../levels/the-hurricane";
+import { THE_SIEGE } from "../levels/the-siege";
+import { THE_HARBOUR_TOWN } from "../levels/the-harbour-town";
+import { TWIN_ISLANDS } from "../levels/twin-islands";
+import { CAPUCHIN_ISLAND } from "../levels/capuchin-island";
+import { MORNING_SNACK } from "../levels/morning-snack";
+import { COSY_CAVE } from "../levels/cosy-cave";
+import { THE_HUNT } from "../levels/the-hunt";
+import { THE_BEACH_TT } from "../levels/the-beach-tt";
+import { UNDERGROUND_CAVES } from "../levels/underground-caves";
+import { MAMMOTH_LAKE } from "../levels/mammoth-lake";
+import { VOLCANO } from "../levels/volcano";
+import { THE_NIGHT_FIRE } from "../levels/the-night-fire";
+import { FISH_AND_BEARS } from "../levels/fish-and-bears";
+import { SABRE_TOOTH_MOUNTAIN } from "../levels/sabre-tooth-mountain";
+import { A_PEACEFUL_VILLAGE } from "../levels/a-peaceful-village";
+import { RIVER_CROCODILES } from "../levels/river-crocodiles";
+import { BONE_CANYON } from "../levels/bone-canyon";
+import { DEEP_IN_THE_FOREST } from "../levels/deep-in-the-forest";
+import { THE_ICE_AGE } from "../levels/the-ice-age";
+import { RIVAL_VILLAGES } from "../levels/rival-villages";
+import { THE_SCRIBES_WORKSHOP } from "../levels/the-scribes-workshop";
+import { PAPYRUS_HARVESTERS } from "../levels/papyrus-harvesters";
+import { THE_QUEENS_GARDENS } from "../levels/the-queens-gardens";
+import { THE_EMBALMING_HOUSE } from "../levels/the-embalming-house";
+import { RIVERSIDE_MERCHANTS } from "../levels/riverside-merchants";
+import { THE_TEMPLE_OF_ANUBIS } from "../levels/the-temple-of-anubis";
+import { THE_GRANARIES } from "../levels/the-granaries";
 import { THE_HOLIDAY_FLAT } from "../levels/the-holiday-flat";
 import { ENGLISH_BREAKFAST } from "../levels/english-breakfast";
 import { THE_CAFE } from "../levels/the-cafe";
@@ -180,6 +245,71 @@ export const LEVELS: readonly Level[] = [
   THE_FIRST_CASE,
   THE_CATHEDRAL,
   THE_DUNGEON,
+  THE_BEACH_RESORT,
+  THE_FORTRESS,
+  THE_CROSSROADS,
+  THE_ROYAL_HUNT,
+  THE_CRAFTSMENS_ALLEY,
+  THE_TAVERN,
+  THE_MONASTERY,
+  THE_JOUST,
+  THE_MARKET,
+  THE_VILLAGE_SQUARE,
+  THE_CASTLE_SIEGE,
+  THE_CASTLE_IN_THE_STORM,
+  THE_GENERAL_STORE,
+  THE_POST_OFFICE,
+  THE_PROSPECTORS_SHOP,
+  THE_GAMBLING_DEN,
+  THE_HIDEOUT,
+  THE_SHERIFFS_OFFICE,
+  THE_RANCH,
+  THE_BANK_ROBBERY,
+  THE_TRAIN_STATION,
+  THE_GRAVE_ROBBERS,
+  THE_OREGON_TRAIL,
+  THE_DUEL,
+  THE_SALOON,
+  THE_TRAIN_ROBBERY,
+  THE_GOLD_MINE,
+  THE_GREAT_PLAINS,
+  TREASURE_ISLAND,
+  THE_SHIPWRECK,
+  THE_PRISON_SHIP,
+  THE_SKIRMISH,
+  PARROT_ISLAND,
+  THE_GHOST_FRIGATE,
+  ISLANDS_OFF_THE_MAP,
+  THE_GARRISON,
+  THE_SMUGGLERS_CAVE,
+  THE_HURRICANE,
+  THE_SIEGE,
+  THE_HARBOUR_TOWN,
+  TWIN_ISLANDS,
+  CAPUCHIN_ISLAND,
+  MORNING_SNACK,
+  COSY_CAVE,
+  THE_HUNT,
+  THE_BEACH_TT,
+  UNDERGROUND_CAVES,
+  MAMMOTH_LAKE,
+  VOLCANO,
+  THE_NIGHT_FIRE,
+  FISH_AND_BEARS,
+  SABRE_TOOTH_MOUNTAIN,
+  A_PEACEFUL_VILLAGE,
+  RIVER_CROCODILES,
+  BONE_CANYON,
+  DEEP_IN_THE_FOREST,
+  THE_ICE_AGE,
+  RIVAL_VILLAGES,
+  THE_SCRIBES_WORKSHOP,
+  PAPYRUS_HARVESTERS,
+  THE_QUEENS_GARDENS,
+  THE_EMBALMING_HOUSE,
+  RIVERSIDE_MERCHANTS,
+  THE_TEMPLE_OF_ANUBIS,
+  THE_GRANARIES,
   THE_HOLIDAY_FLAT,
   ENGLISH_BREAKFAST,
   THE_CAFE,
