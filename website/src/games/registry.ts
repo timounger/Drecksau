@@ -44,7 +44,8 @@ export type GameId =
   | "murdoku"
   | "scotland-yard"
   | "hitster"
-  | "murdle";
+  | "murdle"
+  | "sherlock";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -403,6 +404,16 @@ const ENTRIES: readonly GameDefinition[] = [
     tagline: "Wer war es, womit, wo und warum? Kriminalfälle zum Selberlösen.",
     emoji: "\u{1F50E}",
     href: "/murdle",
+    category: "gemeinsam",
+    addedOn: "2026-10-25",
+  },
+  {
+    id: "sherlock",
+    name: "Sherlock Holmes - Rätselsammlung",
+    tagline:
+      "Rätsel aus der Baker Street - Logik, Zahlen und Wörter, mit Lösung.",
+    emoji: "\u{1F50D}",
+    href: "/sherlock",
     category: "gemeinsam",
     addedOn: "2026-10-25",
   },
