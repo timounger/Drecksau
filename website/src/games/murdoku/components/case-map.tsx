@@ -7411,6 +7411,18 @@ export function CaseMap({
   );
 }
 
+/**
+ * How wide the drawn map is against how tall, its margin included - so a
+ * page can size it to fit both ways.
+ *
+ * @param level - the case
+ * @returns width divided by height of the map's picture
+ */
+export function mapAspect(level: Level): number {
+  const { rows, cols } = sizeOf(level);
+  return (cols * FIELD + MARGIN * 2) / (rows * FIELD + MARGIN * 2);
+}
+
 /** A field back from its key. */
 function cellOf(key: string): Cell {
   const [row = 0, col = 0] = key.split(":").map(Number);

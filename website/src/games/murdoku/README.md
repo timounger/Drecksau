@@ -181,12 +181,13 @@ Prüfskript stellt sicher, dass sie die einzige ist.
   Farbe, jede Person an einem festen Platz im Feld (`noted` in
   [engine/board.ts](engine/board.ts)). Die Person bleibt dabei gewählt, so lassen
   sich mehrere Felder hintereinander vormerken.
-- **Was der Hinweis meint, leuchtet auf**, solange die Person gewählt ist
-  (`cluePoints` in [engine/rules.ts](engine/rules.ts)): bei "in einem Haus"
-  alle Häuser, bei "neben einem Strauch" alle Sträucher - die Dinge selbst, auch
-  wenn man nur daneben stehen kann -, bei einem Bereich, einer Reihe oder Spalte
-  deren Felder, und bei "neben derselben Art wie Harmony" das, neben dem
-  Harmony steht, sobald sie fest gesetzt ist.
+- **Wo die Person nach ihrem Hinweis stehen kann, leuchtet auf**, solange sie
+  gewählt ist (`cluePoints` in [engine/rules.ts](engine/rules.ts)): die Felder,
+  auf denen ihr eigener Hinweis und die Regeln des Falls stimmen - bei "am
+  Strand, neben dem Felsbrocken" nur das eine Strandfeld daneben, bei "neben
+  einem Strauch" die Felder neben den Sträuchern. Ein Hinweis, der nur von
+  anderen spricht ("neben derselben Art wie Harmony"), zeigt, was er nennt -
+  das, neben dem Harmony steht, sobald sie fest gesetzt ist.
 - Die Verdächtigen stehen links immer zu zweit nebeneinander; Reihen und
   Spalten heißen wie auf dem Lösungsblatt R1 bis R9 und C1 bis C9.
 - **Ein Feld gedrückt halten** - nur mit gewählter Person: Nach 0,2 Sekunden
@@ -224,7 +225,7 @@ Prüfskript stellt sicher, dass sie die einzige ist.
   den nächsten Schritt als Text unter der Karte. Die Tipps sind zu Beginn
   ausgeblendet - auch beim Weiterspielen eines Falls -, jeder Druck zeigt den
   nächsten, und "Tipps ausblenden" klappt sie wieder weg. Gezählt wird nur ein
-  Schritt, der noch nie gezeigt wurde. **"Tipp" eine Sekunde gedrückt halten** zeigt alle Tipps auf einmal und führt sie alle aus - in einem Zug, den "Rückgängig" wieder zurücknimmt; online für alle (`allHints`). **Ein Tipp lässt sich ausführen**: Sagt ein Schritt, wer wo stehen muss
+  Schritt, der noch nie gezeigt wurde. **"Tipp" eine Sekunde gedrückt halten** zeigt alle Tipps auf einmal und führt sie alle aus - in einem Zug, den "Rückgängig" wieder zurücknimmt; online für alle (`allHints`). Solange er gehalten wird, läuft im Knopf ein Balken voll. **Ein Tipp lässt sich ausführen**: Sagt ein Schritt, wer wo stehen muss
   oder was auszustreichen ist, steht "▶ Ausführen" daneben, und ein Klick auf
   den Tipp setzt die Personen fest bzw. kreuzt die Felder aus (`place` und
   `cross` am Schritt, `applyHint` im Hook) - in einem Zug, den "Rückgängig"
@@ -242,6 +243,19 @@ Prüfskript stellt sicher, dass sie die einzige ist.
   bleiben, bis man etwas ändert).
 - Auf dem Handy stehen die Figuren noch einmal klein über der Karte, damit man
   nicht zwischen Karten und Plan scrollen muss.
+- **Drucken / PDF**: Der Knopf unter der Karte öffnet den Fall in einem neuen
+  Tab als Druckseite (`/murdoku/drucken/<id>/`,
+  [components/case-print.tsx](components/case-print.tsx)) - Titel mit Reihe,
+  Geschichte, die leere Karte (dieselbe `CaseMap` ohne Notizen, Leuchten und
+  Ring), die Legende, Lupen-Regeln und Post-its, alle Verdächtigen mit Hinweis
+  und eine Zeile für die Antwort ("Der Mörder ist: ___", bei der Schatzsuche
+  Reihe und Spalte) mit Platz für Notizen. Die Seite öffnet sofort den
+  Druckdialog; "Als PDF speichern" liefert die PDF-Datei, ohne eigene
+  Bibliothek. Sie ist immer hell, egal welches Farbschema gewählt ist, und
+  füllt eine A4-Seite; ab 12 Reihen oder Spalten oder mehr als neun
+  Verdächtigen stehen die Verdächtigen auf Seite 2. Die Seiten werden beim
+  Export für jeden Fall erzeugt (`generateStaticParams`). Den Rahmen (A4, Druckknopf, helles Farbschema, Druckdialog) teilt sie mit Murdle ([components/print-sheet.tsx](../../components/print-sheet.tsx)). Online gibt es den
+  Knopf genauso, weil dort dieselbe `CaseView` zeichnet.
 
 ## Zeit und Statistik
 

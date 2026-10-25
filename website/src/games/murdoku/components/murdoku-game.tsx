@@ -744,6 +744,19 @@ export function CaseView({
               game={game}
               disabled={game.outcome?.kind === "right"}
             />
+            {/* The case as a printed page, in a tab of its own - printed or
+                saved as a PDF from there. */}
+            <Link
+              href={`/murdoku/drucken/${level.id}/`}
+              target="_blank"
+              rel="noopener"
+              prefetch={false}
+              data-testid="murdoku-print"
+              title={T.printTitle}
+              className={BUTTON}
+            >
+              {T.print}
+            </Link>
           </div>
           {game.shownHints > 0 && (
             <div className="flex flex-col gap-1 rounded-2xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
@@ -1031,8 +1044,18 @@ export function clockText(ms: number): string {
 /**
  * What may be stood on and what may not - as the printed case shows it next
  * to the map, and only with what this map actually has.
+ *
+ * @param props - the case, and whether the two boxes stand one above the
+ *   other whatever the screen's width - for a narrow column
+ * @returns the legend
  */
-function Legend({ level }: { readonly level: Level }): ReactElement {
+export function Legend({
+  level,
+  stacked = false,
+}: {
+  readonly level: Level;
+  readonly stacked?: boolean;
+}): ReactElement {
   const { rows, cols } = sizeOf(level);
   const things = new Set<string>();
   const grounds = new Set<string>();
@@ -1052,7 +1075,7 @@ function Legend({ level }: { readonly level: Level }): ReactElement {
   const blocked = [...things].filter((id) => !thingDef(level, id).standable);
   return (
     <div
-      className="grid gap-2 text-xs sm:grid-cols-2"
+      className={`grid gap-2 text-xs ${stacked ? "" : "sm:grid-cols-2"}`}
       data-testid="murdoku-legend"
     >
       <div className="flex flex-col gap-1 rounded-xl bg-emerald-50 px-3 py-2 dark:bg-emerald-950/40">
@@ -1134,8 +1157,8 @@ const ALL_HINTS_MS = 1000;
 
 /**
  * "Tipp": a click shows the next step of the way, holding it for a second
- * shows every step and carries them all out. The release after the hold is
- * not a click as well.
+ * shows every step and carries them all out. A bar fills up while it is held;
+ * the release after the hold is not a click as well.
  */
 function HintButton({
   game,
@@ -1148,11 +1171,13 @@ function HintButton({
 }): ReactElement {
   const timer = useRef<number | null>(null);
   const held = useRef(false);
+  const [holding, setHolding] = useState(false);
   const stop = () => {
     if (timer.current !== null) {
       window.clearTimeout(timer.current);
       timer.current = null;
     }
+    setHolding(false);
   };
   return (
     <button
@@ -1163,9 +1188,11 @@ function HintButton({
       onPointerDown={() => {
         held.current = false;
         stop();
+        setHolding(true);
         timer.current = window.setTimeout(() => {
           timer.current = null;
           held.current = true;
+          setHolding(false);
           game.allHints();
         }, ALL_HINTS_MS);
       }}
@@ -1179,11 +1206,24 @@ function HintButton({
         }
         held.current = false;
       }}
-      className={`${BUTTON} select-none`}
+      className={`${BUTTON} relative overflow-hidden select-none`}
     >
-      {game.shownHints === 0
-        ? T.hint
-        : `${T.hint} (${String(game.shownHints)}/${String(total)})`}
+      {/* The bar that fills while the button is held. */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-0 left-0 bg-sky-200/70 dark:bg-sky-800/60"
+        style={{
+          width: holding ? "100%" : "0%",
+          transition: holding
+            ? `width ${String(ALL_HINTS_MS)}ms linear`
+            : "none",
+        }}
+      />
+      <span className="relative">
+        {game.shownHints === 0
+          ? T.hint
+          : `${T.hint} (${String(game.shownHints)}/${String(total)})`}
+      </span>
     </button>
   );
 }
@@ -1311,14 +1351,13 @@ function PawnButton({
   );
 }
 
-/** A suspect, with face, name and clue - tapped to be placed. */
 /**
  * A clue's text with its key words in bold, as the printed pages set them.
  *
  * @param props - the case and the text
  * @returns the text
  */
-function Emphasised({
+export function Emphasised({
   level,
   text,
 }: {
@@ -1340,6 +1379,7 @@ function Emphasised({
   );
 }
 
+/** A suspect, with face, name and clue - tapped to be placed. */
 function SuspectCard({
   level,
   suspect,

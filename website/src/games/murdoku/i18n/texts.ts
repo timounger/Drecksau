@@ -148,6 +148,15 @@ export const MURDOKU_TEXTS = {
     `${minutes}:${String(seconds).padStart(2, "0")}`,
   boardLabel: (name: string) => `Karte des Falls ${name}`,
   noSolution: "Dieser Fall hat keine eindeutige Lösung.",
+  print: "Drucken / PDF",
+  printTitle:
+    "Den Fall als Druckseite in einem neuen Tab öffnen - zum Ausdrucken oder als PDF speichern",
+  printMetaTitle: (name: string) => `Murdoku - ${name}`,
+  printMetaDescription: "Ein Murdoku-Fall als Druckseite, zum Lösen mit Stift.",
+  printAnswer: (culprit: string) =>
+    `${culprit.charAt(0).toUpperCase()}${culprit.slice(1)} ist:`,
+  printTreasure: "Der Schatz liegt in Reihe ____ , Spalte ____ .",
+  printNotes: "Notizen",
 } as const;
 
 /**

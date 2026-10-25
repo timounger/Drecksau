@@ -212,7 +212,7 @@ export const THE_CROSSROADS: Level = {
       name: "Balthasar",
       pronoun: "er",
       clue: {
-        text: "Er war am Rand des Gitters.",
+        text: "Er war am Rand der Karte.",
         ...own(onEdge),
       },
       colour: "#4338ca",

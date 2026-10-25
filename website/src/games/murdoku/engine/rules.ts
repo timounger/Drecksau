@@ -19,6 +19,7 @@ import type {
   Context,
   GroundDef,
   Level,
+  Piece,
   Placement,
   Suspect,
   ThingDef,
@@ -198,8 +199,18 @@ export function contextOf(
       row: cell.row + step.row,
       col: cell.col + step.col,
     })).filter((next) => inside(next) && areaOf(next) === areaOf(cell));
+  // A field of the same piece or shape is the same thing, not one beside
+  // it: half a bed is not beside a bed.
+  const oneThing = (cell: Cell, other: Cell) =>
+    (level.pieces ?? []).some(
+      (piece) => inBlock(piece, cell) && inBlock(piece, other),
+    ) ||
+    (level.shapes ?? []).some(
+      (shape) => inList(shape, cell) && inList(shape, other),
+    );
   const besideCount = (cell: Cell, what: string) =>
-    neighbours(cell).filter((next) => is(next, what)).length;
+    neighbours(cell).filter((next) => is(next, what) && !oneThing(cell, next))
+      .length;
   const personAt = (cell: Cell) =>
     Object.entries(placement).find(
       ([, there]) => there.row === cell.row && there.col === cell.col,
@@ -250,6 +261,21 @@ export function contextOf(
       return found;
     },
   };
+}
+
+/** Whether a field lies in a piece's block. */
+function inBlock(piece: Piece, cell: Cell): boolean {
+  return (
+    cell.row >= piece.at.row &&
+    cell.row < piece.at.row + piece.rows &&
+    cell.col >= piece.at.col &&
+    cell.col < piece.at.col + piece.cols
+  );
+}
+
+/** Whether a field is one of a list. */
+function inList(cells: readonly Cell[], cell: Cell): boolean {
+  return cells.some((one) => one.row === cell.row && one.col === cell.col);
 }
 
 /**
@@ -422,14 +448,37 @@ export function checked(
 }
 
 /**
- * The fields a clue points at - what lights up while its suspect is chosen.
+ * The fields a clue points at - what lights up while its suspect is chosen:
+ * the fields the suspect could stand on by their own clue and the case's
+ * rules ("on the beach, beside the boulder" is the one beach field beside
+ * it). A clue that only speaks of others lights up what it names instead.
  *
  * @param level - the case
  * @param suspect - whose clue
  * @returns the fields its clue names
  */
 export function cluePoints(level: Level, suspect: Suspect): readonly Cell[] {
-  return suspect.clue.glow?.(level) ?? [];
+  const unary = suspect.clue.unary;
+  const { rows, cols } = sizeOf(level);
+  const fits: Cell[] = [];
+  if (unary !== undefined) {
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const cell = { row, col };
+        const alone = contextOf(level, { [suspect.id]: cell }, suspect.id);
+        if (
+          isStandableFor(level, suspect.id, cell) &&
+          unary(alone) &&
+          (level.rules ?? []).every(
+            (rule) => rule.unary === undefined || rule.unary(suspect, alone),
+          )
+        ) {
+          fits.push(cell);
+        }
+      }
+    }
+  }
+  return unary === undefined ? (suspect.clue.glow?.(level) ?? []) : fits;
 }
 
 /**

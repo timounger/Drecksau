@@ -43,7 +43,8 @@ export type GameId =
   | "bloons-td"
   | "murdoku"
   | "scotland-yard"
-  | "hitster";
+  | "hitster"
+  | "murdle";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -395,6 +396,15 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/hitster",
     category: "wort",
     addedOn: "2026-10-17",
+  },
+  {
+    id: "murdle",
+    name: "Murdle",
+    tagline: "Wer war es, womit, wo und warum? Kriminalfälle zum Selberlösen.",
+    emoji: "\u{1F50E}",
+    href: "/murdle",
+    category: "gemeinsam",
+    addedOn: "2026-10-25",
   },
 ];
 

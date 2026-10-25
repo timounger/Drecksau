@@ -66,6 +66,7 @@ import { THE_FIRST_CASE } from "../levels/the-first-case";
 import { THE_CATHEDRAL } from "../levels/the-cathedral";
 import { THE_DUNGEON } from "../levels/the-dungeon";
 import { THE_BEACH_RESORT } from "../levels/the-beach-resort";
+import { THE_DIVE } from "../levels/the-dive";
 import { THE_FORTRESS } from "../levels/the-fortress";
 import { THE_CROSSROADS } from "../levels/the-crossroads";
 import { THE_ROYAL_HUNT } from "../levels/the-royal-hunt";
@@ -246,6 +247,7 @@ export const LEVELS: readonly Level[] = [
   THE_CATHEDRAL,
   THE_DUNGEON,
   THE_BEACH_RESORT,
+  THE_DIVE,
   THE_FORTRESS,
   THE_CROSSROADS,
   THE_ROYAL_HUNT,

@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "murdoku": "npx --yes tsx --tsconfig tsconfig.json scripts/murdoku-check.ts",
+    "murdle": "npx --yes tsx --tsconfig tsconfig.json scripts/murdle-check.ts",
     "test:watch": "vitest",
     "typecheck": "next typegen && tsc --noEmit",
     "docs": "typedoc",

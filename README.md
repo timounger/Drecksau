@@ -30,6 +30,7 @@ jedes Spiel hat seine eigene Seite.
 | [Kuhle Kuehe](website/src/games/kuhle-kuehe/README.md)             | Baut aus Koepfen, Mittelteilen und Hinterteilen die laengsten Kuehe und die groesste Herde.              | Computer + Online    |
 | [Monopoly](website/src/games/monopoly/README.md)                   | Kaufen, bauen, kassieren - bis nur noch einer zahlen kann.                                               | Computer + Online    |
 | [Murdoku](website/src/games/murdoku/README.md)                     | Kriminalraetsel wie ein Sudoku - wer war mit dem Opfer allein?                                           | Allein + Online      |
+| [Murdle](website/src/games/murdle/README.md)                       | Wer war es, womit, wo und warum? Kriminalfaelle mit Deduktionsraster wie im Buch.                        | Allein + Online      |
 | [Panzerkiste](website/src/games/panzerkiste/README.md)             | Top-Down-Panzergefecht - alle feindlichen Panzer zerstoeren (WASD, Maus, Minen).                         | Allein + Koop-Online |
 | [Qwixx](website/src/games/qwixx/README.md)                         | Wuerfeln und ankreuzen - was du ueberspringst, ist weg.                                                  | Computer + Online    |
 | [Risiko](website/src/games/risiko/README.md)                       | Gebiet fuer Gebiet die Welt erobern.                                                                     | Computer + Online    |
@@ -110,6 +111,7 @@ website/src/
     murdoku/        Murdoku - Kriminalraetsel wie ein Sudoku, ueber zweihundert Faelle
     scotland-yard/  Scotland Yard - Mister X gegen die Detektive, Computer oder online
     hitster/        Hitster - Musik-Zeitleiste mit YouTube-Songs, Computer oder online
+    murdle/         Murdle - Logikkrimis aus Murdle Vol. 1, allein oder gemeinsam online
                     (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)
