@@ -25,6 +25,7 @@ export const ELEMENTARY: readonly Puzzle[] = [
     ],
     solution: [
       "Die Lehrerin und die Schneiderin waren beide Frauen - und dass eine von ihnen Hugo hieß, war denkbar unwahrscheinlich. Also konnte nur der Anwalt der Schütze sein.",
+      "Watson stand ja selbst im Zimmer und sah die drei vor sich: Nur einer von ihnen war ein Mann. Die Frau hatte „Hugo“ gerufen - so etwas Offensichtliches erkennt sogar Watson ohne Holmes' Hilfe.",
     ],
   },
   {

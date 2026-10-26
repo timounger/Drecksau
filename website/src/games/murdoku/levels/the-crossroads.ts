@@ -7,7 +7,7 @@
  * After the case of Murdoku by Manuel Garand
  * (`game_instructions/Murdoku/Murdoku 2 - Auf Zeitreise/7.png`, no solution
  * sheet - the culprit is pencilled in on the photographed page, and the
- * solver proves it is the only solution). Valerian is the victim; whoever
+ * solver proves it is the only solution). Ortlieb is the victim; whoever
  * was alone with him killed him.
  *
  * The map is nine by nine with fields missing at three corners. Beds,
@@ -16,10 +16,10 @@
  * of its sides borders a field that is not part of the map ({@link onEdge}),
  * as the book's legend shows.
  *
- * The book's estates: nobles (purple cards: Alfred, Balthasar, Cecilia)
+ * The book's estates: nobles (purple cards: Alfred, Balthasar, Cäcilia)
  * only in the crowned mansion, estate and pond, villagers (wooden cards:
- * Diana, Emma) only in the other areas, knights (grey shields: Frederick,
- * Godfrey, Hugh, Valerian) anywhere.
+ * Diana, Emma) only in the other areas, knights (grey shields: Friedrich,
+ * Gottfried, Hugo, Ortlieb) anywhere.
  */
 /* eslint-disable @typescript-eslint/no-magic-numbers -- the case is data: rows, columns and counts straight off the printed page. */
 import {
@@ -35,14 +35,14 @@ import {
 } from "../engine/clues";
 import type { Cell, Context, Level } from "../engine/types";
 
-/** The nobles, whom Frederick was north of. */
+/** The nobles, whom Friedrich was north of. */
 const NOBLES: readonly string[] = ["A", "B", "C"];
 
 /** The women, for Emma's clue. */
 const WOMEN: readonly string[] = ["C", "D", "E"];
 
-/** The knights, for Godfrey's clue. */
-const KNIGHTS: readonly string[] = ["F", "G", "H", "V"];
+/** The knights, for Gottfried's clue. */
+const KNIGHTS: readonly string[] = ["F", "G", "H", "O"];
 
 /** The four sides of a field. */
 const STEPS: readonly Cell[] = [
@@ -98,7 +98,7 @@ export const THE_CROSSROADS: Level = {
   name: "Die Wegkreuzung",
   series: { book: "timeTravel", number: 7 },
   story:
-    "Der Weg ins Grab ist mit wirklich hübschen Pflastersteinen gepflastert.",
+    "Der Weg ins Grab ist mit wirklich hübschem Kopfsteinpflaster gepflastert.",
   culprit: { name: "der Mörder", dative: "dem Mörder" },
   areas: [
     {
@@ -111,8 +111,8 @@ export const THE_CROSSROADS: Level = {
     },
     {
       key: "P",
-      name: "Weg",
-      at: "auf dem Weg",
+      name: "Straße",
+      at: "auf der Straße",
       ground: "path",
       tint: "#efe0b0",
       label: { row: 4, col: 1 },
@@ -127,16 +127,16 @@ export const THE_CROSSROADS: Level = {
     },
     {
       key: "K",
-      name: "Hütte",
-      at: "in der Hütte",
+      name: "Haus",
+      at: "im Haus",
       ground: "floor",
       tint: "#e2ddd6",
       label: { row: 8, col: 3 },
     },
     {
       key: "H",
-      name: "Gut des Herrn",
-      at: "auf dem Gut des Herrn",
+      name: "Herrengut",
+      at: "im Herrengut",
       ground: "stone",
       tint: "#a99ad8",
       label: { row: 5, col: 6 },
@@ -151,8 +151,8 @@ export const THE_CROSSROADS: Level = {
     },
     {
       key: "E",
-      name: "Teich des Herrn",
-      at: "im Teich des Herrn",
+      name: "Herrenteich",
+      at: "im Herrenteich",
       ground: "water",
       tint: "#b5d8f2",
       label: { row: 8, col: 7 },
@@ -212,7 +212,7 @@ export const THE_CROSSROADS: Level = {
       name: "Balthasar",
       pronoun: "er",
       clue: {
-        text: "Er war am Rand der Karte.",
+        text: "Er war am Rand des Rasters.",
         ...own(onEdge),
       },
       colour: "#4338ca",
@@ -221,10 +221,10 @@ export const THE_CROSSROADS: Level = {
     {
       id: "C",
       traits: ["noble"],
-      name: "Cecilia",
+      name: "Cäcilia",
       pronoun: "sie",
       clue: {
-        text: "Ihr Feld lag neben dem Weg, in einem anderen Bereich.",
+        text: "Ihr Feld lag direkt neben der Straße, in einem anderen Bereich.",
         ...own(besideThePath),
       },
       colour: "#be185d",
@@ -256,7 +256,7 @@ export const THE_CROSSROADS: Level = {
       name: "Emma",
       pronoun: "sie",
       clue: {
-        text: "Eine Frau war eine Zeile nördlich von ihr und eine andere eine Zeile südlich.",
+        text: "Eine Zeile nördlich und eine Zeile südlich von ihr war jeweils eine Frau.",
         ...counting((c) => womanRowsAway(c, -1) && womanRowsAway(c, 1)),
       },
       colour: "#a16207",
@@ -265,10 +265,10 @@ export const THE_CROSSROADS: Level = {
     {
       id: "F",
       traits: ["knight"],
-      name: "Frederick",
+      name: "Friedrich",
       pronoun: "er",
       clue: {
-        text: "Er war nördlich aller Adligen.",
+        text: "Er war nördlich von jedem Adligen.",
         ...about(NOBLES, (c) =>
           NOBLES.every((id) => {
             const there = c.cellOf(id);
@@ -282,7 +282,7 @@ export const THE_CROSSROADS: Level = {
     {
       id: "G",
       traits: ["knight"],
-      name: "Godfrey",
+      name: "Gottfried",
       pronoun: "er",
       clue: {
         text: "Er war allein mit einem anderen Ritter.",
@@ -294,16 +294,16 @@ export const THE_CROSSROADS: Level = {
     {
       id: "H",
       traits: ["knight"],
-      name: "Hugh",
+      name: "Hugo",
       pronoun: "er",
       clue: { text: "Er war in der fünften Zeile.", ...row(5) },
       colour: "#57534e",
       face: "\u{1F468}‍\u{1F9B2}",
     },
     {
-      id: "V",
+      id: "O",
       traits: ["knight"],
-      name: "Valerian",
+      name: "Ortlieb",
       pronoun: "er",
       clue: {
         text: "Das Opfer. Er war allein mit der Person, die den Mord beging.",
@@ -315,7 +315,7 @@ export const THE_CROSSROADS: Level = {
   ],
   rules: [
     ranks(
-      "Adlige (\u{1F451}) waren nur im Herrenhaus, auf dem Gut oder im Teich des Herrn, Dorfbewohner nur in den anderen Bereichen, Ritter überall.",
+      "Adlige (\u{1F451}) waren nur im Herrenhaus, im Herrengut oder im Herrenteich, Dorfbewohner nur in den anderen Bereichen, Ritter überall.",
       ["M", "H", "E"],
     ),
     {
@@ -324,7 +324,7 @@ export const THE_CROSSROADS: Level = {
         c.level.areas.every((area) => c.peopleIn(area.key).length > 0),
     },
     {
-      text: "Genau eine Person saß auf einem Stuhl.",
+      text: "Es gab genau eine Person auf einem Stuhl.",
       check: (c) =>
         c.people().filter((id) => {
           const there = c.cellOf(id);
@@ -334,13 +334,13 @@ export const THE_CROSSROADS: Level = {
   ],
   hints: [
     {
-      text: "Balthasar ist adlig und steht am Rand: auf dem Gut nur R1 C6 oder R1 C7, im Teich R7 C9, R8 C9 oder R9 C8. Frederick steht nördlich aller Adligen, also ist Balthasar nicht in R1 - er ist im Teich, in R7 bis R9. Alfred ist allein im Herrenhaus (R2 bis R4), Frederick also in R1 bis R3.",
+      text: "Balthasar ist adlig und steht am Rand: im Herrengut nur R1 C6 oder R1 C7, im Herrenteich R7 C9, R8 C9 oder R9 C8. Friedrich steht nördlich aller Adligen, also ist Balthasar nicht in R1 - er ist im Herrenteich, in R7 bis R9. Alfred ist allein im Herrenhaus (R2 bis R4), Friedrich also in R1 bis R3.",
     },
     {
-      text: "Emma hat eine Frau eine Zeile über und eine unter sich. In R2 oder R3 stünden Cecilia, Diana und Emma in R1 bis R4 - mit Alfred und Frederick fünf Personen in vier Zeilen. In R4 oder R6 bräuchte sie eine Frau in R5, Hughs Zeile. In R8 stünden die Frauen in R7 und R9, und für Balthasar bliebe keine Zeile. Emma steht in R7.",
+      text: "Emma hat eine Frau eine Zeile über und eine unter sich. In R2 oder R3 stünden Cäcilia, Diana und Emma in R1 bis R4 - mit Alfred und Friedrich fünf Personen in vier Zeilen. In R4 oder R6 bräuchte sie eine Frau in R5, Hugos Zeile. In R8 stünden die Frauen in R7 und R9, und für Balthasar bliebe keine Zeile. Emma steht in R7.",
     },
     {
-      text: "Cecilia und Diana stehen also in R6 und R8. Cecilia ist adlig und neben dem Weg: In R8 geht das nicht (R8 C7 ist ein Strauch), in R6 nur R6 C6. Diana steht in R8, Balthasar damit in R9 C8.",
+      text: "Cäcilia und Diana stehen also in R6 und R8. Cäcilia ist adlig und neben der Straße: In R8 geht das nicht (R8 C7 ist ein Strauch), in R6 nur R6 C6. Diana steht in R8, Balthasar damit in R9 C8.",
       place: { C: { row: 5, col: 5 }, B: { row: 8, col: 7 } },
     },
     {
@@ -352,15 +352,15 @@ export const THE_CROSSROADS: Level = {
       place: { E: { row: 6, col: 1 } },
     },
     {
-      text: "Frei sind R1, R2, R4, R5 und C1, C3, C5, C7. In R2 ist nur R2 C1 betretbar - das letzte Feld auf dem Hügel, der nicht leer sein darf. Wer dort steht, ist allein: nicht Godfrey, nicht Valerian und nicht Hugh (R5). Frederick steht in R2 C1.",
+      text: "Frei sind R1, R2, R4, R5 und C1, C3, C5, C7. In R2 ist nur R2 C1 betretbar - das letzte Feld auf dem Hügel, der nicht leer sein darf. Wer dort steht, ist allein: nicht Gottfried, nicht Ortlieb und nicht Hugo (R5). Friedrich steht in R2 C1.",
       place: { F: { row: 1, col: 0 } },
     },
     {
-      text: "Auf dem Gut steht Cecilia, also kann Godfrey dort nicht allein mit einem Ritter sein. In R4 gibt es nur Felder des Guts - Godfrey steht in R1 C5 auf dem Weg, und Hugh ist der zweite Ritter dort: R5 C3. Valerian steht in R4 C7, allein mit Cecilia auf dem Gut. Cecilia ist die Mörderin!",
+      text: "Im Herrengut steht Cäcilia, also kann Gottfried dort nicht allein mit einem Ritter sein. In R4 gibt es nur Felder des Herrenguts - Gottfried steht in R1 C5 auf der Straße, und Hugo ist der zweite Ritter dort: R5 C3. Ortlieb steht in R4 C7, allein mit Cäcilia im Herrengut. Cäcilia ist die Mörderin!",
       place: {
         G: { row: 0, col: 4 },
         H: { row: 4, col: 2 },
-        V: { row: 3, col: 6 },
+        O: { row: 3, col: 6 },
       },
     },
   ],
@@ -373,6 +373,6 @@ export const THE_CROSSROADS: Level = {
     F: { row: 1, col: 0 },
     G: { row: 0, col: 4 },
     H: { row: 4, col: 2 },
-    V: { row: 3, col: 6 },
+    O: { row: 3, col: 6 },
   },
 };
