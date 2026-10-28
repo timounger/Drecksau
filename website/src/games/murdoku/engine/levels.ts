@@ -67,6 +67,13 @@ import { THE_CATHEDRAL } from "../levels/the-cathedral";
 import { THE_DUNGEON } from "../levels/the-dungeon";
 import { THE_BEACH_RESORT } from "../levels/the-beach-resort";
 import { THE_DIVE } from "../levels/the-dive";
+import { THE_ROADHOUSE } from "../levels/the-roadhouse";
+import { THE_OASIS } from "../levels/the-oasis";
+import { THE_VILLAGE } from "../levels/the-village";
+import { MACHU_PICCHU } from "../levels/machu-picchu";
+import { THE_CROSSING } from "../levels/the-crossing";
+import { THE_PC_BANG } from "../levels/the-pc-bang";
+import { TWIN_HOUSES } from "../levels/twin-houses";
 import { THE_FORTRESS } from "../levels/the-fortress";
 import { THE_CROSSROADS } from "../levels/the-crossroads";
 import { THE_ROYAL_HUNT } from "../levels/the-royal-hunt";
@@ -248,6 +255,13 @@ export const LEVELS: readonly Level[] = [
   THE_DUNGEON,
   THE_BEACH_RESORT,
   THE_DIVE,
+  THE_ROADHOUSE,
+  THE_OASIS,
+  THE_VILLAGE,
+  MACHU_PICCHU,
+  THE_CROSSING,
+  THE_PC_BANG,
+  TWIN_HOUSES,
   THE_FORTRESS,
   THE_CROSSROADS,
   THE_ROYAL_HUNT,

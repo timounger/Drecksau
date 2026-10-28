@@ -42,6 +42,8 @@ jedes Spiel hat seine eigene Seite.
 | [The Game](website/src/games/the-game/README.md)                          | 98 Karten auf vier Reihen - und keiner darf Zahlen nennen.                                               | Computer + Online    |
 | [The Mind](website/src/games/the-mind/README.md)                          | Kooperativ: gemeinsam aufsteigend ablegen - ohne ein Wort.                                               | Nur Online           |
 | [U-Boot](website/src/games/uboot/README.md)                               | Seitenansicht: zehn Gewaesser durchtauchen - dazu ein Endlosmodus, allein oder zu zweit.                 | Allein + Koop-Online |
+| [Weihnachtsmann & Co. KG](website/src/games/weihnachtsmann/README.md)     | Am Nordpol unterwegs - acht Figuren, jederzeit wechseln, Trixi und Rudolf fliegen, Jordi wird zum Tier.  | Einzelspieler        |
+| [Zelda](website/src/games/zelda/README.md)                                | Top-Down-Abenteuer im GBA-Stil - Schwert, Bogen, Bomben, Bumerang gegen sechs Monsterarten.              | Einzelspieler        |
 
 Weitere Spiele docken ueber die Registry an (siehe
 [Ein weiteres Spiel hinzufuegen](#ein-weiteres-spiel-hinzufuegen)).
@@ -114,6 +116,8 @@ website/src/
     hitster/        Hitster - Musik-Zeitleiste mit YouTube-Songs, Computer oder online
     murdle/         Murdle - Logikkrimis aus Murdle Vol. 1, allein oder gemeinsam online
     sherlock/       Sherlock Holmes - Raetselsammlung, 118 Raetsel mit Loesung und Druckseite
+    zelda/          Zelda - Top-Down-Abenteuer im Stil des Game Boy Advance, eigene Pixelgrafik
+    weihnachtsmann/ Weihnachtsmann & Co. KG - acht Figuren im Schnee, Fliegen und Tierverwandlung, eigene Pixelgrafik
                     (jedes Spiel mit eigener README im Ordner)
   online/         geteilte Online-Schicht (host-autoritativ, Firebase) fuer alle Spiele
   components/     geteilte UI (Uebersicht, Statistik)
@@ -811,4 +815,6 @@ $env:NEXT_PUBLIC_BASE_PATH="/Drecksau"; npm run build
   [GTA](docs/games/gta/game-rules.md) ·
   [Dog](docs/games/dog/game-rules.md) ·
   [U-Boot](docs/games/uboot/levels.md) ·
-  [Bloons TD](docs/games/bloons-td/game-rules.md)
+  [Bloons TD](docs/games/bloons-td/game-rules.md) ·
+  [Zelda](docs/games/zelda/game-rules.md) ·
+  [Weihnachtsmann & Co. KG](docs/games/weihnachtsmann/game-rules.md)

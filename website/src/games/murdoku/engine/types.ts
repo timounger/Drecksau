@@ -294,6 +294,11 @@ export type Level = {
    * name the fields round the corner themselves.
    */
   readonly corners?: readonly CornerThing[];
+  /**
+   * Fields whose sign is drawn turned a quarter, facing south - a scooter on
+   * a street that runs north and south. Only the look.
+   */
+  readonly turned?: readonly Cell[];
   readonly suspects: readonly Suspect[];
   /** Rules of the whole case, printed under the suspects. */
   readonly rules?: readonly Rule[];

@@ -45,6 +45,8 @@ import scotlandYard from "./scotland-yard/assets/logo.webp";
 import hitster from "./hitster/assets/logo.webp";
 import murdle from "./murdle/assets/logo.webp";
 import sherlock from "./sherlock/assets/logo.webp";
+import zelda from "./zelda/assets/logo.webp";
+import weihnachtsmann from "./weihnachtsmann/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -82,4 +84,6 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   hitster,
   murdle,
   sherlock,
+  zelda,
+  weihnachtsmann,
 };

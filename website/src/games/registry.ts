@@ -45,7 +45,9 @@ export type GameId =
   | "scotland-yard"
   | "hitster"
   | "murdle"
-  | "sherlock";
+  | "sherlock"
+  | "zelda"
+  | "weihnachtsmann";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -416,6 +418,26 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/sherlock",
     category: "gemeinsam",
     addedOn: "2026-10-25",
+  },
+  {
+    id: "zelda",
+    name: "Zelda",
+    tagline:
+      "Schwert, Bogen, Bomben - zieh mit Link durch Wald, Hügel und Ruinen.",
+    emoji: "\u{1F5E1}\u{FE0F}",
+    href: "/zelda",
+    category: "action",
+    addedOn: "2026-10-28",
+  },
+  {
+    id: "weihnachtsmann",
+    name: "Weihnachtsmann & Co. KG",
+    tagline:
+      "Weihnachtsmann, Elfen, Balbo und Rudolf - lauf durch den Schnee, flieg und verwandle dich.",
+    emoji: "\u{1F385}",
+    href: "/weihnachtsmann",
+    category: "action",
+    addedOn: "2026-10-29",
   },
 ];
 

@@ -1052,6 +1052,37 @@ function LavaShape({
   );
 }
 
+/** Signs drawn facing west that the map turns round to face east - a scooter. */
+const FACING_WEST: ReadonlySet<string> = new Set(["\u{1F6F5}"]);
+
+/**
+ * How a thing's sign is turned on the map: a scooter faces east (it is drawn
+ * facing west), and on a field the case lists as turned it faces south.
+ *
+ * @param level - the case
+ * @param cell - the field
+ * @param emoji - the sign
+ * @returns the SVG transform, or nothing when it stands as it is
+ */
+function signTransform(
+  level: Level,
+  cell: Cell,
+  emoji: string,
+): string | undefined {
+  const cx = String(cell.col * FIELD + FIELD / 2);
+  const cy = String(cell.row * FIELD + FIELD / 2);
+  const turned = (level.turned ?? []).some(
+    (one) => one.row === cell.row && one.col === cell.col,
+  );
+  const parts = [
+    turned ? `rotate(90 ${cx} ${cy})` : "",
+    FACING_WEST.has(emoji)
+      ? `translate(${cx} ${cy}) scale(-1 1) translate(-${cx} -${cy})`
+      : "",
+  ].filter((part) => part !== "");
+  return parts.length === 0 ? undefined : parts.join(" ");
+}
+
 /** A rectangle in picture units, for the parts of a shaped thing. */
 type Rect = {
   readonly x: number;
@@ -3639,7 +3670,21 @@ export function DrawnThing({
       drawn = <PunchingBagShape x={x} y={y} width={width} height={height} />;
       break;
     case "car":
-      drawn = <CarShape x={x} y={y} width={width} height={height} />;
+      drawn =
+        height > width ? (
+          <g
+            transform={`rotate(90 ${String(x + width / 2)} ${String(y + height / 2)})`}
+          >
+            <CarShape
+              x={x + width / 2 - height / 2}
+              y={y + height / 2 - width / 2}
+              width={height}
+              height={width}
+            />
+          </g>
+        ) : (
+          <CarShape x={x} y={y} width={width} height={height} />
+        );
       break;
     case "oilSlick":
     case "oilPuddle":
@@ -7175,6 +7220,7 @@ export function CaseMap({
             textAnchor="middle"
             dominantBaseline="central"
             fontSize={FIELD * LOOK.thing}
+            transform={signTransform(level, cell, thingDef(level, thing).emoji)}
           >
             {thingDef(level, thing).emoji}
           </text>

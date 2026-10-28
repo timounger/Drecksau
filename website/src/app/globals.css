@@ -303,6 +303,25 @@ body {
   }
 }
 
+/* Weihnachtsmann played by finger: the frame fills the screen and its
+   buttons reach into the corners, where the floating theme switch would lie
+   on top of them. The game's frame is dark either way. */
+body:has([data-wm-layout="portrait"], [data-wm-layout="landscape"])
+  [data-testid="theme-toggle"] {
+  display: none;
+}
+
+/* Weihnachtsmann by finger in fullscreen: picture, controls and bar fill the
+   screen from the top; the calendar below stays a swipe away instead of
+   pushing the picture up out of sight. */
+.game-fullscreen:fullscreen:is(
+    [data-wm-layout="portrait"],
+    [data-wm-layout="landscape"]
+  ) {
+  justify-content: flex-start;
+  overflow-y: auto;
+}
+
 /* Any game: the wrapper fills the screen and centres the canvas when it goes
    fullscreen, so the picture is as large as the display allows. The width is
    whichever is smaller: the whole screen, or as wide as the picture may be at
