@@ -187,6 +187,12 @@ export const MAP_STARTS: Readonly<
   gugor: ["grantelHouse", 5, 9.5],
   rudolf: ["outdoors", 32.5, 26.5],
 };
+
+/**
+ * The cell where something golden lies buried, east of the crooked sign:
+ * only Jordi as a fox smells it and can dig it up.
+ */
+export const SECRET_SPOT: readonly [number, number] = [56, 16];
 /* eslint-enable @typescript-eslint/no-magic-numbers */
 
 /** Who the player steers on a new game. */

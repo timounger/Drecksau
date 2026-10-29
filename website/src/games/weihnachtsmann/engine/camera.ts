@@ -7,6 +7,7 @@
 import { CAST } from "./cast";
 import { mapSize } from "./map";
 import { isRiding } from "./sleigh";
+import { spyFocus } from "./spyglass";
 import type { GameState } from "./types";
 
 /** How quickly the camera follows: while gliding, and otherwise; per second. */
@@ -15,6 +16,9 @@ const FOLLOW_RATE = 9;
 
 /** Height of the sleigh the camera centres on, map px. */
 const SLEIGH_MIDDLE = 12;
+
+/** How far above his feet the camera centres on the Weihnachtsmann watched, map px. */
+const SPY_MIDDLE = 14;
 
 /**
  * Puts the camera straight onto the character the player steers.
@@ -48,7 +52,7 @@ export function followCamera(state: GameState, dt: number): void {
 
 /**
  * Where the camera wants to be: the active character - or the sleigh it rides
- * in - in the middle, inside the map.
+ * in, or the Weihnachtsmann Gugor watches - in the middle, inside the map.
  */
 function cameraGoal(state: GameState): { x: number; y: number } {
   const char = state.chars[state.active];
@@ -61,17 +65,26 @@ function cameraGoal(state: GameState): { x: number; y: number } {
     focusX = ride.x;
     focusY = ride.y - ride.altitude - SLEIGH_MIDDLE;
   }
+  const watched = spyFocus(state);
+  if (watched !== null) {
+    focusX = watched.x;
+    focusY = watched.y - SPY_MIDDLE;
+  }
   const x = focusX - view.w / 2;
   const y = focusY - view.h / 2;
-  // A view wider than the map keeps the map in its middle.
-  return {
-    x:
-      size.w <= view.w
-        ? (size.w - view.w) / 2
-        : Math.max(0, Math.min(size.w - view.w, x)),
-    y:
-      size.h <= view.h
-        ? (size.h - view.h) / 2
-        : Math.max(0, Math.min(size.h - view.h, y)),
-  };
+  // A view wider than the map keeps the map in its middle. Through the
+  // telescope the Weihnachtsmann stays in the lens even at the map's edge:
+  // the dark round the lens hides what lies beyond.
+  return watched !== null
+    ? { x, y }
+    : {
+        x:
+          size.w <= view.w
+            ? (size.w - view.w) / 2
+            : Math.max(0, Math.min(size.w - view.w, x)),
+        y:
+          size.h <= view.h
+            ? (size.h - view.h) / 2
+            : Math.max(0, Math.min(size.h - view.h, y)),
+      };
 }

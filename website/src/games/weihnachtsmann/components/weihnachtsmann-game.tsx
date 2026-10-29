@@ -1,7 +1,7 @@
 /**
  * Weihnachtsmann & Co. KG - the screen around the canvas: header, the animal
- * choice, the Advent calendar, the selection bar, the touch controls and the
- * help line.
+ * choice, the Advent calendar, the achievements, the selection bar, the touch
+ * controls and the help line.
  *
  * @module
  * @remarks
@@ -13,7 +13,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, type ReactElement } from "react";
 import { GameHeader } from "@/components/game-header";
 import { useFullscreen } from "@/lib/screen/use-fullscreen";
 import {
@@ -22,6 +22,7 @@ import {
 } from "@/games/weihnachtsmann/hooks/use-weihnachtsmann-game";
 import { WM_RULES } from "@/games/weihnachtsmann/i18n/rules";
 import { WM_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
+import { AchievementsButton, AchievementsDialog } from "./achievements-panel";
 import { AdventProgress } from "./advent-progress";
 import { AnimalPicker } from "./animal-picker";
 import { CharacterBar } from "./character-bar";
@@ -45,6 +46,18 @@ export function WeihnachtsmannGameScreen(): ReactElement {
   const touch = layout !== "desktop";
   const landscape = layout === "landscape";
   const scrolledRef = useRef(false);
+  const achievementsRef = useRef<HTMLDialogElement>(null);
+  const openAchievements = useCallback(() => {
+    achievementsRef.current?.showModal();
+  }, []);
+  const achievementsChip = (
+    <AchievementsButton
+      hud={hud}
+      onOpen={openAchievements}
+      compact
+      short={touch}
+    />
+  );
 
   useEffect(() => {
     // Played by finger, the game should fill the screen from the start; the
@@ -70,6 +83,7 @@ export function WeihnachtsmannGameScreen(): ReactElement {
           subtitle={WM_TEXTS.subtitle}
           rules={WM_RULES}
         >
+          <AchievementsButton hud={hud} onOpen={openAchievements} />
           <button
             type="button"
             data-testid="wm-reset"
@@ -168,7 +182,9 @@ export function WeihnachtsmannGameScreen(): ReactElement {
               </p>
             )}
             <CharacterBar hud={hud} dispatch={dispatch} compact />
-            <AdventProgress hud={hud} compact below={!landscape} />
+            <AdventProgress hud={hud} compact below={!landscape}>
+              {achievementsChip}
+            </AdventProgress>
           </>
         ) : (
           <>
@@ -191,11 +207,13 @@ export function WeihnachtsmannGameScreen(): ReactElement {
                 </span>
               </div>
             )}
-            <AdventProgress hud={hud} />
+            <AdventProgress hud={hud}>{achievementsChip}</AdventProgress>
             <CharacterBar hud={hud} dispatch={dispatch} />
           </>
         )}
       </div>
+
+      <AchievementsDialog hud={hud} dialogRef={achievementsRef} />
 
       <div
         className={`game-hint flex flex-wrap gap-x-6 gap-y-1 rounded-2xl border border-zinc-200 bg-white/60 px-4 py-3 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400 ${touch ? "mx-3" : ""}`}

@@ -1,12 +1,13 @@
 /**
  * The Advent calendar under the picture: how many gates are done, which one
- * is next, and a little door for each of the 26.
+ * is next, and a little door for each of the 26 - with room beside the count
+ * for the achievements button.
  *
  * @module
  */
 "use client";
 
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { GATE_COUNT } from "@/games/weihnachtsmann/engine/gates";
 import type { Hud } from "@/games/weihnachtsmann/hooks/use-weihnachtsmann-game";
 import { WM_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
@@ -22,12 +23,15 @@ export function AdventProgress({
   hud,
   compact = false,
   below = false,
+  children,
 }: {
   readonly hud: Hud;
   /** One thin row of 26 doors for a phone. */
   readonly compact?: boolean;
   /** Whether its height counts against the picture's (see the hook). */
   readonly below?: boolean;
+  /** Shown after the count, such as the achievements button. */
+  readonly children?: ReactNode;
 }): ReactElement {
   const done = new Set(hud.gatesDone);
   const shut = new Set(hud.locked);
@@ -58,6 +62,7 @@ export function AdventProgress({
               : WM_TEXTS.progressAll
             : `${WM_TEXTS.progressNext} ${String(hud.nextGate)}`}
         </span>
+        {children}
       </div>
       <ol
         className={

@@ -10,6 +10,7 @@
  * sleigh.
  */
 import { BUBBLE_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
+import { unlock } from "./achievements";
 import { CAST } from "./cast";
 import { say, snowPuff, spawn, SPARKLE_TINTS } from "./effects";
 import { TILE, fits, footprint } from "./map";
@@ -110,6 +111,9 @@ export function boardSleigh(state: GameState, char: Character): void {
         ? pick(state, BUBBLE_TEXTS.sleighGo)
         : BUBBLE_TEXTS.sleighAlone,
     );
+    if (riders.length > 1 && state.chars[state.active] === char) {
+      unlock(state, "sleighRide");
+    }
     snowPuff(state, "outdoors", home.x, home.y);
     state.sounds.push("sleighStart");
   }

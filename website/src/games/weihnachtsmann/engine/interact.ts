@@ -1,18 +1,23 @@
 /**
- * The talk key in front of something: the toy machine makes a toy, the
- * sleigh takes off, guitars, amplifiers, drums and the organ play, and a few
- * things just get a remark. Anywhere else it is plain talking.
+ * The talk key in front of something: the toy machine makes a toy (or breaks,
+ * or is repaired), the sleigh takes off, guitars, amplifiers, drums and the
+ * organ play, lamps go off and on, snowmen fall over and stand up again, and
+ * a few things just get a remark. Anywhere else it is plain talking.
  *
  * @module
  * @remarks
  * One handler per {@link SpotKind}; the spots themselves are data in the map
  * files. A new thing to use is a new kind, a spot on a map and a handler here.
+ * Lamps and snowmen are small objects of the map and need no spot: whatever
+ * of them stands in reach is used; the fox also finds its secret this way.
  */
 import { BUBBLE_TEXTS, TOY_NAMES } from "@/games/weihnachtsmann/i18n/texts";
 import { talk } from "./abilities";
+import { collect } from "./achievements";
 import { notes, poof, say, spawn, SPARKLE_TINTS } from "./effects";
 import { MACHINE_PARTS } from "./interior-data";
-import { TILE, areaMap, footprint, inBox } from "./map";
+import { TILE, areaMap, inBox } from "./map";
+import { SECRET_SPOT } from "./map-data";
 import { pick, randomIn } from "./random";
 import { isRiding, boardSleigh } from "./sleigh";
 import {
@@ -22,10 +27,20 @@ import {
   type FlyingToy,
   type GameMap,
   type GameState,
+  type SmallObjectKind,
   type SoundId,
   type Spot,
   type SpotKind,
 } from "./types";
+import {
+  DIG_SLACK,
+  countToy,
+  digSecret,
+  machineCorner,
+  tinkerMachine,
+  toggleLamp,
+  toggleSnowman,
+} from "./world";
 
 /** How far ahead of the feet the talk key reaches, map px. */
 const REACH = 9;
@@ -63,11 +78,21 @@ const AHEAD: Readonly<Record<Dir, readonly [number, number]>> = {
   right: [1, 0],
 };
 
+/** The small objects of the map the talk key works on, and as what. */
+const USABLE_SMALL: Readonly<Partial<Record<SmallObjectKind, SpotKind>>> = {
+  lamp: "lamp",
+  snowman: "snowman",
+};
+
 /** What each kind of spot does. */
 const HANDLERS: Readonly<
   Record<SpotKind, (state: GameState, char: Character, spot: Spot) => void>
 > = {
-  machine: makeToy,
+  machine: (state, char) => {
+    if (!tinkerMachine(state, char)) {
+      makeToy(state, char);
+    }
+  },
   sleigh: (state, char) => {
     boardSleigh(state, char);
   },
@@ -97,6 +122,13 @@ const HANDLERS: Readonly<
   portrait: (state, char) => {
     say(char, BUBBLE_TEXTS.portrait);
   },
+  lamp: (state, char, spot) => {
+    toggleLamp(state, char, spot.ty * state.maps.outdoors.cols + spot.tx);
+  },
+  snowman: (state, char, spot) => {
+    toggleSnowman(state, char, spot.ty * state.maps.outdoors.cols + spot.tx);
+  },
+  dig: digSecret,
 };
 
 /**
@@ -112,9 +144,11 @@ export function spotInReach(state: GameState): Spot | null {
     const [ax, ay] = AHEAD[char.dir];
     const x = char.x + ax * REACH;
     const y = char.y - 2 + ay * REACH;
+    const map = areaMap(state, char);
     found =
-      areaMap(state, char).spots.find((spot) => inBox(spot, x, y, SLACK)) ??
-      null;
+      map.spots.find((spot) => inBox(spot, x, y, SLACK)) ??
+      smallSpot(map, x, y) ??
+      secretSpot(char, x, y);
   }
   return found;
 }
@@ -167,6 +201,7 @@ export function updateMachine(state: GameState, dt: number): void {
   const ticks = Math.floor(state.time / STEAM_EVERY);
   if (
     corner !== null &&
+    !state.world.machine.broken &&
     ticks !== Math.floor((state.time - dt) / STEAM_EVERY)
   ) {
     spawn(
@@ -178,27 +213,6 @@ export function updateMachine(state: GameState, dt: number): void {
       randomIn(state, -STEAM_DRIFT, STEAM_DRIFT),
     );
   }
-}
-
-/**
- * Where the toy machine's picture has its bottom left corner.
- *
- * @param map - the workshop
- * @returns map px, or null when the place has no machine
- * @remarks
- * The picture is exactly as wide as the footprint, so its left edge is the
- * footprint's.
- */
-export function machineCorner(map: GameMap): { x: number; y: number } | null {
-  const machine = map.objects.find((object) => object.kind === "toyMachine");
-  let corner: { x: number; y: number } | null = null;
-  if (machine !== undefined) {
-    corner = {
-      x: machine.tx * TILE,
-      y: (machine.ty + footprint("toyMachine").rows) * TILE,
-    };
-  }
-  return corner;
 }
 
 /**
@@ -238,6 +252,7 @@ function makeToy(state: GameState, char: Character): void {
     );
     say(char, TOY_NAMES[kind]);
     state.sounds.push("toy");
+    countToy(state, char);
   }
 }
 
@@ -249,6 +264,9 @@ function play(
   sound: SoundId,
 ): void {
   state.sounds.push(sound);
+  if (char.area === "grantelHouse") {
+    collect(state, "instruments", spot.kind);
+  }
   notes(
     state,
     char.area,
@@ -264,4 +282,36 @@ function play(
         : BUBBLE_TEXTS.musicOthers,
     ),
   );
+}
+
+/** A lamp or snowman of the map at a point outside, as a spot to use. */
+function smallSpot(map: GameMap, x: number, y: number): Spot | null {
+  const tx = Math.floor(x / TILE);
+  const ty = Math.floor(y / TILE);
+  const inside =
+    map.area === "outdoors" &&
+    tx >= 0 &&
+    ty >= 0 &&
+    tx < map.cols &&
+    ty < map.rows;
+  const small = inside ? map.small[ty * map.cols + tx] : null;
+  const kind = small === null ? undefined : USABLE_SMALL[small];
+  return kind === undefined ? null : { kind, tx, ty, w: 1, h: 1 };
+}
+
+/** The fox's secret, if the fox stands at it outside. */
+function secretSpot(char: Character, x: number, y: number): Spot | null {
+  const secret: Spot = {
+    kind: "dig",
+    tx: SECRET_SPOT[0],
+    ty: SECRET_SPOT[1],
+    w: 1,
+    h: 1,
+  };
+  const found =
+    char.form === "fuchs" &&
+    char.area === "outdoors" &&
+    (inBox(secret, x, y, DIG_SLACK) ||
+      inBox(secret, char.x, char.y, DIG_SLACK));
+  return found ? secret : null;
 }

@@ -6,6 +6,12 @@
  * @module
  */
 import { ANY_DAY } from "./calendar";
+import {
+  achievementSave,
+  applyAchievementSave,
+  checkAchievements,
+  updateToasts,
+} from "./achievements";
 import { applyAbility, chooseAnimal, moveMenu } from "./abilities";
 import { followCamera, snapCamera } from "./camera";
 import { CAST } from "./cast";
@@ -17,7 +23,9 @@ import { CHIMNEYS, TILE, areaMap, buildMaps, fits } from "./map";
 import { FIRST_CHARACTER, MAP_STARTS } from "./map-data";
 import { currentProfile, moveCharacter } from "./movement";
 import { nextRandom, randomIn } from "./random";
+import { heldByShow, holdStill, updateShows } from "./shows";
 import { isRiding, updateSleigh } from "./sleigh";
+import { updateSpy } from "./spyglass";
 import {
   ANIMAL_IDS,
   CHARACTER_IDS,
@@ -30,6 +38,7 @@ import {
   type SaveData,
 } from "./types";
 import { rest, wander } from "./wander";
+import { createWorld, updateWorld } from "./world";
 
 /** The visible part of the map before the screen sets its own, map px. */
 export const VIEW_W = 320;
@@ -88,8 +97,9 @@ const CLICK_SLACK = 8;
  */
 export function createGame(save: SaveData | null): GameState {
   const chars = CHARACTER_IDS.map((id) => startCharacter(id));
+  const maps = buildMaps();
   const state: GameState = {
-    maps: buildMaps(),
+    maps,
     viewArea: "outdoors",
     chars,
     active: CHARACTER_IDS.indexOf(FIRST_CHARACTER),
@@ -105,11 +115,19 @@ export function createGame(save: SaveData | null): GameState {
     fade: null,
     sleigh: null,
     toys: [],
+    spy: null,
+    floats: [],
     sounds: [],
     gatesDone: new Set(),
     gateOpen: null,
     gateLatch: false,
     today: ANY_DAY,
+    now: 0,
+    world: createWorld(maps),
+    achieved: new Map(),
+    progress: { wishes: new Set(), instruments: new Set() },
+    counts: { falls: 0, toys: 0 },
+    toasts: [],
   };
   if (save !== null) {
     applySave(state, save);
@@ -132,8 +150,9 @@ export function createGame(save: SaveData | null): GameState {
 export function step(state: GameState, input: Input, dt: number): void {
   state.time += dt;
   for (const action of state.actions.splice(0)) {
-    // Nothing is done while the picture fades; the command is dropped.
-    if (state.fade === null) {
+    // Nothing is done while the picture fades or Gugor looks through his
+    // telescope; the command is dropped.
+    if (state.fade === null && state.spy === null) {
       perform(state, action);
     }
   }
@@ -141,8 +160,11 @@ export function step(state: GameState, input: Input, dt: number): void {
   state.chars.forEach((char, index) => {
     if (isRiding(state, char)) {
       // Off the map in the sleigh.
+    } else if (heldByShow(char)) {
+      holdStill(state, char, dt);
     } else if (index === state.active) {
-      const steer = state.menu === null && state.fade === null;
+      const steer =
+        state.menu === null && state.fade === null && state.spy === null;
       const move = steer ? input : NO_INPUT;
       moveCharacter(
         areaMap(state, char),
@@ -162,8 +184,13 @@ export function step(state: GameState, input: Input, dt: number): void {
     }
   });
   keepApart(state);
+  updateShows(state, dt);
+  updateSpy(state, dt);
   updateSleigh(state, dt);
   updateMachine(state, dt);
+  updateWorld(state, dt);
+  checkAchievements(state);
+  updateToasts(state, dt);
   puffChimneys(state, dt);
   updateEffects(state, dt);
   followCamera(state, dt);
@@ -188,6 +215,7 @@ export function toSave(state: GameState): SaveData {
       flying: char.flying,
     })),
     gates: [...state.gatesDone].sort((a, b) => a - b),
+    ...achievementSave(state),
   };
 }
 
@@ -407,12 +435,15 @@ function startCharacter(id: CharacterId): Character {
     brain: { mode: "rest", timer: 0, targetX: x, targetY: y, stuck: 0 },
     bubble: null,
     sparkleIn: 0,
+    show: null,
+    cooldown: 0,
+    hop: 0,
   };
 }
 
 /**
  * Puts everybody back where the save has them, if they still fit there, and
- * marks the gates already won.
+ * marks the gates won and the achievements unlocked.
  * Saves from before the houses could be entered know nothing of places and
  * were made on another map: they keep who is steered, the facing and Jordi's
  * animal, and everybody starts at their start place.
@@ -456,4 +487,5 @@ function applySave(state: GameState, save: SaveData): void {
   for (const number of cleanGates(save.gates ?? [])) {
     state.gatesDone.add(number);
   }
+  applyAchievementSave(state, save);
 }

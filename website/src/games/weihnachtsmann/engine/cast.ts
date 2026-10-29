@@ -7,11 +7,36 @@
  * Abilities are data: a character names its {@link AbilityKind} and the
  * engine looks the handler up (`abilities.ts`). Giving somebody a new trick
  * later means adding a kind and its handler, not touching the characters.
+ * The tricks that play out over a few seconds (shows) also say here how long
+ * they last, how soon they can come again and when somebody nobody steers
+ * does them by itself (`shows.ts`).
  */
-import type { AnimalId, CharacterId, Terrain } from "./types";
+import type { AnimalId, AreaId, CharacterId, ShowKind, Terrain } from "./types";
 
-/** What the ability key does for somebody. */
-export type AbilityKind = "fly" | "transform" | "none";
+/** What the ability key does for somebody: fly, turn into an animal, or a show. */
+export type AbilityKind = "fly" | "transform" | ShowKind;
+
+/** When a character nobody steers puts on its show by itself. */
+export type NpcHabit = {
+  /** Chance per second. */
+  readonly rate: number;
+  /** While strolling or while standing about. */
+  readonly when: "walk" | "rest";
+  /** Only in this place, or anywhere for null. */
+  readonly area: AreaId | null;
+};
+
+/** How one show runs. */
+export type ShowDef = {
+  /** How long it plays, seconds. */
+  readonly seconds: number;
+  /** Seconds from its start until it can be used again; longer than the show. */
+  readonly cooldown: number;
+  /** Whether the character stands still meanwhile. */
+  readonly still: boolean;
+  /** When it happens by itself, or null for never. */
+  readonly npc: NpcHabit | null;
+};
 
 /** How a figure gets about. */
 export type MoveProfile = {
@@ -50,24 +75,53 @@ export const FLY_HEIGHT = 18;
 export const BIRD_HEIGHT = 10;
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- speeds, boxes and
-   heights of the figures, tuned by eye to the art */
+   heights of the figures, lengths and habits of the shows, tuned by eye */
+/** Every show: how long, how often, and whether it happens by itself. */
+export const SHOWS: Readonly<Record<ShowKind, ShowDef>> = {
+  // Santa reads everybody's wishes; he may walk about meanwhile.
+  wishes: { seconds: 5, cooldown: 6.5, still: false, npc: null },
+  // Grantelbart strums now and then when he is at home.
+  guitar: {
+    seconds: 2.2,
+    cooldown: 3.5,
+    still: true,
+    npc: { rate: 0.05, when: "rest", area: "grantelHouse" },
+  },
+  // Takes over the view, so only when the player asks for it.
+  telescope: { seconds: 5.6, cooldown: 7, still: true, npc: null },
+  // Gilfi can rarely be bothered.
+  levitate: {
+    seconds: 5,
+    cooldown: 7,
+    still: true,
+    npc: { rate: 0.012, when: "rest", area: null },
+  },
+  // Balbo trips over his own paws every now and then.
+  fall: {
+    seconds: 2,
+    cooldown: 2.6,
+    still: true,
+    npc: { rate: 0.04, when: "walk", area: null },
+  },
+};
+
 /** Nothing but the plain ground. */
 const NO_EXTRA: readonly Terrain[] = [];
 
 /** Every character by id. */
 export const CAST: Readonly<Record<CharacterId, CharacterDef>> = {
-  santa: { ability: "none", walk: walker(52, 14, 29), air: null },
+  santa: { ability: "wishes", walk: walker(52, 14, 29), air: null },
   balbo: {
-    ability: "none",
+    ability: "fall",
     // A polar bear is at home on ice.
     walk: { ...walker(50, 14, 28), grip: 0.6 },
     air: null,
   },
   jordi: { ability: "transform", walk: walker(60, 8, 24), air: null },
   trixi: { ability: "fly", walk: walker(62, 8, 22), air: flyer(88, 8, 22) },
-  gilfi: { ability: "none", walk: walker(46, 8, 26), air: null },
-  grantelbart: { ability: "none", walk: walker(46, 16, 31), air: null },
-  gugor: { ability: "none", walk: walker(50, 9, 30), air: null },
+  gilfi: { ability: "levitate", walk: walker(46, 8, 26), air: null },
+  grantelbart: { ability: "guitar", walk: walker(46, 16, 31), air: null },
+  gugor: { ability: "telescope", walk: walker(50, 9, 30), air: null },
   rudolf: {
     ability: "fly",
     walk: { ...walker(66, 16, 32), grip: 0.3 },

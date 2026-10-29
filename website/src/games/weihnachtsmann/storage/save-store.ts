@@ -1,6 +1,6 @@
 /**
- * Where the positions, the chosen character and the won Advent gates are kept
- * between visits.
+ * Where the positions, the chosen character, the won Advent gates and the
+ * unlocked achievements are kept between visits.
  *
  * @module
  */
@@ -13,8 +13,11 @@ import {
   writeStored,
 } from "@/lib/storage/local-store";
 
-/** Schema version of the save: 3 knows which Advent gates are won. */
-const SAVE_VERSION = 3;
+/** Schema version of the save: 4 knows the achievements. */
+const SAVE_VERSION = 4;
+
+/** The version from before the achievements; still read, none unlocked yet. */
+const GATES_SAVE_VERSION = 3;
 
 /** The version from before the gates; still read, no gate is won yet. */
 const PLACES_SAVE_VERSION = 2;
@@ -30,7 +33,8 @@ const SAVE_KEY = storageKey("weihnachtsmann", "save");
  *
  * @returns the save, or null when there is none or it is unusable
  * @remarks
- * A save of version 2 has no gates: everybody keeps their place on the map,
+ * A save of version 3 has no achievements: everything else is kept, and none
+ * is unlocked yet. A save of version 2 has no gates: everybody keeps their place on the map,
  * which only grew, and no gate is won. A save of version 1 has no places
  * either; the game then keeps who is steered and starts everybody at their
  * start place (see `applySave` in the engine).
@@ -38,6 +42,7 @@ const SAVE_KEY = storageKey("weihnachtsmann", "save");
 export function loadSave(): SaveData | null {
   return (
     readStored(SAVE_KEY, SAVE_VERSION, isSaveData) ??
+    readStored(SAVE_KEY, GATES_SAVE_VERSION, isGatesSave) ??
     readStored(SAVE_KEY, PLACES_SAVE_VERSION, isPlacesSave) ??
     readStored(SAVE_KEY, OLD_SAVE_VERSION, isOldSave)
   );
@@ -50,6 +55,11 @@ export function loadSave(): SaveData | null {
  */
 export function writeSave(save: SaveData): void {
   writeStored(SAVE_KEY, SAVE_VERSION, save);
+}
+
+/** Whether a version 3 save looks right; it knows no achievements. */
+function isGatesSave(value: unknown): value is SaveData {
+  return isSaveData(value) && value.achievements === undefined;
 }
 
 /** Whether a version 2 save looks right; it knows no gates. */

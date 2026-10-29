@@ -1,10 +1,13 @@
 /**
- * What the ability and talk keys do: fly, turn into an animal, or sigh.
+ * What the ability and talk keys do: fly, turn into an animal, or put on a
+ * show (read wishes, play guitar, look through the telescope, make things
+ * float, fall over).
  *
  * @module
  * @remarks
  * One handler per {@link AbilityKind}, looked up from the character's data.
- * A new ability is a new kind in `cast.ts` and one more entry here.
+ * A new ability is a new kind in `cast.ts` and one more entry here; a show
+ * also gets its handlers in `shows.ts`.
  */
 import {
   ANIMAL_TEXTS,
@@ -15,6 +18,7 @@ import { ANIMALS, CAST, type AbilityKind } from "./cast";
 import { poof, say, snowPuff } from "./effects";
 import { areaMap, fits } from "./map";
 import { pick } from "./random";
+import { startShow } from "./shows";
 import {
   ANIMAL_IDS,
   type AnimalId,
@@ -31,7 +35,21 @@ const HANDLERS: Readonly<
 > = {
   fly: toggleFlight,
   transform: transform,
-  none: sigh,
+  wishes: (state, char) => {
+    startShow(state, char, "wishes");
+  },
+  guitar: (state, char) => {
+    startShow(state, char, "guitar");
+  },
+  telescope: (state, char) => {
+    startShow(state, char, "telescope");
+  },
+  levitate: (state, char) => {
+    startShow(state, char, "levitate");
+  },
+  fall: (state, char) => {
+    startShow(state, char, "fall");
+  },
 };
 
 /**
@@ -130,9 +148,4 @@ function transform(state: GameState, char: Character): void {
   } else {
     say(char, BUBBLE_TEXTS.cannotChange);
   }
-}
-
-/** Everybody else: a sigh, a grumble or a ho ho ho. */
-function sigh(state: GameState, char: Character): void {
-  say(char, pick(state, CHARACTER_TEXTS[char.id].noAbility));
 }

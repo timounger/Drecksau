@@ -5,6 +5,7 @@
  * @module
  */
 import type {
+  AchievementId,
   AnimalId,
   AreaId,
   CharacterId,
@@ -67,7 +68,179 @@ export const WM_TEXTS = {
   progressCount: "Türchen",
   progressNext: "Als Nächstes: Türchen",
   progressAll: "Alle Türchen geschafft - frohe Weihnachten!",
+  achievements: "Erfolge",
+  achievementsTitle: "Erfolge",
+  achievementsOpen: "Erfolge anzeigen",
+  achievementsIntro:
+    "Jede Figur kann mit ihrer Fähigkeit etwas Besonderes schaffen - und es gibt noch mehr. Alles, was du in der Welt veränderst, stellt sich nach einer Weile von selbst wieder her.",
+  achievementsClose: "Schließen",
+  achievementUnlocked: "Erfolg freigeschaltet!",
+  achievementOn: "freigeschaltet am",
+  achievementFor: "Figur:",
+  achievementAnybody: "jede Figur",
+  achievementSecret: "???",
+  achievementSecretHint: "Ein geheimer Erfolg - probier einfach Dinge aus.",
 } as const;
+
+/** Title, what was done, and the hint while locked, for one achievement. */
+export type AchievementTexts = {
+  readonly title: string;
+  /** What was achieved, shown once unlocked. */
+  readonly done: string;
+  /** How to get there, shown while locked (not for secret ones). */
+  readonly hint: string;
+};
+
+/** The texts of every achievement. */
+export const ACHIEVEMENT_TEXTS: Readonly<
+  Record<AchievementId, AchievementTexts>
+> = {
+  fish: {
+    title: "Petri Heil",
+    done: "Als Pinguin im Teich einen Fisch gefangen.",
+    hint: "Jordi als Pinguin: Schwimm im offenen Wasser des Teichs zu dem Fisch, der dort ab und zu springt.",
+  },
+  roofGift: {
+    title: "Paket von oben",
+    done: "Mit Trixi das verlorene Geschenk von der Glaskuppel geholt.",
+    hint: "Oben auf der Werkstattkuppel liegt ein Geschenk. Nur Trixi kommt fliegend hin.",
+  },
+  rudolfLap: {
+    title: "Ehrenrunde",
+    done: "Mit Rudolf in einem Flug alle vier Ecken der Karte besucht.",
+    hint: "Flieg mit Rudolf ohne zu landen in alle vier Ecken der Karte.",
+  },
+  wishesAll: {
+    title: "Wunschzettel komplett",
+    done: "Die Wünsche aller sieben anderen Figuren gelesen.",
+    hint: "Weihnachtsmann: Lies nach und nach die Wünsche aller anderen - wer dabei im Bild ist, zählt.",
+  },
+  machineBroken: {
+    title: "Sabotage!",
+    done: "Mit Grantelbart die Spielzeugmaschine kaputt gemacht.",
+    hint: "Grantelbart in der Werkstatt: Benutze die Spielzeugmaschine oder spiel direkt daneben E-Gitarre.",
+  },
+  machineFixed: {
+    title: "Meisterhaft repariert",
+    done: "Als Elfe die kaputte Spielzeugmaschine repariert.",
+    hint: "Ist die Maschine kaputt, kann eine Elfe (Jordi, Trixi, Gilfi) sie benutzen und reparieren - bevor sie es selbst tut.",
+  },
+  grantelConcert: {
+    title: "Ohrenbetäubend",
+    done: "Mit einem Gitarrenriff drei Zuhörer auf einmal erschreckt.",
+    hint: "Grantelbart: Spiel E-Gitarre, wenn mindestens drei andere ganz nah dabeistehen.",
+  },
+  spyWorkshop: {
+    title: "Werkstattspion",
+    done: "Mit Gugor den Weihnachtsmann in der Werkstatt beobachtet.",
+    hint: "Gugor: Schau durchs Fernrohr, während der Weihnachtsmann in der Werkstatt ist.",
+  },
+  spySleigh: {
+    title: "Erwischt, Angeber!",
+    done: "Mit Gugor den Weihnachtsmann beim Schlittenflug beobachtet.",
+    hint: "Gugor: Schau durchs Fernrohr, während der Weihnachtsmann Schlitten fliegt.",
+  },
+  levitateSnowman: {
+    title: "Schwebender Schneemann",
+    done: "Mit Gilfi einen Schneemann schweben lassen.",
+    hint: "Gilfi: Zaubere draußen neben einem Schneemann.",
+  },
+  balboIce: {
+    title: "Bauchklatscher",
+    done: "Mit Balbo auf dem Eis hingefallen - und gerutscht.",
+    hint: "Balbo: Fall auf dem gefrorenen Teich hin.",
+  },
+  balboTen: {
+    title: "Stehaufmännchen",
+    done: "Mit Balbo zehnmal hingefallen.",
+    hint: "Lass Balbo zehnmal hinfallen.",
+  },
+  balboSnowman: {
+    title: "Volltreffer",
+    done: "Balbo ist kopfüber in einen Schneemann gefallen.",
+    hint: "Balbo: Fall direkt vor einem Schneemann hin.",
+  },
+  mouseFence: {
+    title: "Durchgeschlüpft",
+    done: "Als Maus durch einen Zaun geschlüpft.",
+    hint: "Jordi als Maus: Lauf mitten durch einen Zaun.",
+  },
+  bearDrift: {
+    title: "Schneepflug",
+    done: "Als Bär eine Schneewehe plattgewalzt.",
+    hint: "Jordi als Bär: Lauf durch eine Schneewehe.",
+  },
+  birdChimney: {
+    title: "Warme Füße",
+    done: "Als Vogel auf Grantelbarts Schornstein gelandet.",
+    hint: "Jordi als Vogel: Flieg zu Grantelbarts rauchendem Schornstein.",
+  },
+  hareRace: {
+    title: "Turbohase",
+    done: "Als Hase in unter 8 Sekunden von der Werkstatt zu Grantelbarts Tür gerannt.",
+    hint: "Jordi als Hase: Lauf von der Werkstatttür zu Grantelbarts Haustür - in unter 8 Sekunden.",
+  },
+  foxDig: {
+    title: "Spürnase",
+    done: "Als Fuchs ein goldenes Glöckchen beim schiefen Schild ausgebuddelt.",
+    hint: "Jordi als Fuchs: Beim schiefen Schild riecht es komisch ...",
+  },
+  sleighRide: {
+    title: "Hü, Rudolf!",
+    done: "Mit dem Weihnachtsmann und Rudolf eine Schlittenrunde geflogen.",
+    hint: "Weihnachtsmann: Benutze den Schlitten am Tannenbaum, während Rudolf draußen ist.",
+  },
+  lampFirst: {
+    title: "Licht aus",
+    done: "Eine Laterne ausgeknipst.",
+    hint: "Stell dich vor eine Laterne und benutze sie.",
+  },
+  lampsAll: {
+    title: "Stromausfall",
+    done: "Alle 35 Laternen der Karte gleichzeitig ausgemacht.",
+    hint: "Mach alle Laternen aus. Eine Minute nach der letzten gehen sie nacheinander wieder an.",
+  },
+  snowmanDown: {
+    title: "Umgeschubst",
+    done: "Einen Schneemann umgeschubst.",
+    hint: "Stell dich vor einen Schneemann und benutze ihn.",
+  },
+  snowmanBuilt: {
+    title: "Schneemann-Baumeister",
+    done: "Einen umgefallenen Schneemann wieder aufgebaut.",
+    hint: "Bau einen umgefallenen Schneemann wieder auf, bevor er es selbst tut.",
+  },
+  instruments: {
+    title: "Ein-Troll-Band",
+    done: "Orgel, Gitarre, Verstärker und Schlagzeug bei Grantelbart gespielt.",
+    hint: "Spiel in Grantelbarts Haus jedes Instrument einmal.",
+  },
+  toys10: {
+    title: "Fließbandarbeit",
+    done: "Zehn Spielzeuge mit der Maschine gebaut.",
+    hint: "Bau mit der Spielzeugmaschine in der Werkstatt zehn Spielzeuge.",
+  },
+  grantelVisit: {
+    title: "Hausbesuch",
+    done: "Mit dem Weihnachtsmann Grantelbarts Haus betreten.",
+    hint: "Geh mit dem Weihnachtsmann zu Grantelbart ins Haus.",
+  },
+  allInWorkshop: {
+    title: "Betriebsversammlung",
+    done: "Alle acht Figuren auf einmal in der Werkstatt versammelt.",
+    hint: "Bring alle acht Figuren gleichzeitig in die Werkstatt.",
+  },
+  firstGate: {
+    title: "Das erste Türchen",
+    done: "Das erste Minispiel im Adventskalender gewonnen.",
+    hint: "Gewinne ein Minispiel hinter einem Türchen.",
+  },
+  allGates: {
+    title: "Frohe Weihnachten!",
+    done: "Alle 26 Türchen des Adventskalenders geschafft.",
+    hint: "Schaffe alle 26 Türchen des Adventskalenders.",
+  },
+};
 
 /** A character's name and what it can do, for the selection bar. */
 export type CharacterTexts = {
@@ -75,36 +248,28 @@ export type CharacterTexts = {
   readonly ability: string;
   /** What it says on the talk key. */
   readonly lines: readonly string[];
-  /** What it says on the ability key when it has none. */
-  readonly noAbility: readonly string[];
 };
 
 /** Names, abilities and lines of the eight characters. */
 export const CHARACTER_TEXTS: Readonly<Record<CharacterId, CharacterTexts>> = {
   santa: {
     name: "Weihnachtsmann",
-    ability: "fliegt den Schlitten",
+    ability: "erkennt Wünsche",
     lines: [
       "Ho ho ho!",
       "Nur noch ein paar Tage bis Weihnachten!",
       "Wo ist nur meine Brille?",
       "Hat jemand Rudolf gesehen?",
     ],
-    noAbility: [
-      "Ho ho ho!",
-      "Erst mal einen Kakao.",
-      "Die Wunschzettel warten!",
-    ],
   },
   balbo: {
     name: "Balbo",
-    ability: "noch keine Fähigkeit",
+    ability: "fällt tollpatschig hin",
     lines: [
       "Brrr - herrlich kalt heute!",
       "Hat jemand Fisch?",
       "Mein Schal sitzt!",
     ],
-    noAbility: ["Ich bin ein Eisbär - reicht das nicht?", "*brumm*"],
   },
   jordi: {
     name: "Jordi",
@@ -114,7 +279,6 @@ export const CHARACTER_TEXTS: Readonly<Record<CharacterId, CharacterTexts>> = {
       "Ich hab da eine Erfindung ...",
       "Wollen wir was ausprobieren?",
     ],
-    noAbility: [],
   },
   trixi: {
     name: "Trixi",
@@ -124,42 +288,52 @@ export const CHARACTER_TEXTS: Readonly<Record<CharacterId, CharacterTexts>> = {
       "Juhu, Schnee!",
       "Ich bin schneller als Rudolf!",
     ],
-    noAbility: [],
   },
   gilfi: {
     name: "Gilfi",
-    ability: "keine Fähigkeit",
+    ability: "lässt Dinge schweben",
     lines: ["*gähn*", "Ist schon Feierabend?", "Ich ruh mich nur kurz aus ..."],
-    noAbility: [
-      "Fähigkeit? Hab ich keine ... *seufz*",
-      "Zu anstrengend.",
-      "Morgen vielleicht.",
-    ],
   },
   grantelbart: {
     name: "Grantelbart",
-    ability: "noch keine Fähigkeit",
+    ability: "spielt E-Gitarre",
     lines: [
       "Grmpf!",
       "Weihnachten - pah!",
       "Aus dem Weg!",
       "Wer war an meiner Gitarre?",
     ],
-    noAbility: ["Grrr!", "Ich brauche keine Fähigkeit!"],
   },
   gugor: {
     name: "Gugor",
-    ability: "kann nichts",
+    ability: "schaut durchs Fernrohr",
     lines: ["Alles doof.", "Ich will nicht.", "Lasst mich in Ruhe."],
-    noAbility: ["Ich kann nichts. Wie immer.", "*seufz*", "Na toll."],
   },
   rudolf: {
     name: "Rudolf",
     ability: "kann fliegen",
     lines: ["Meine Nase leuchtet!", "Bereit für den Schlitten!", "Hü!"],
-    noAbility: [],
   },
 };
+
+/**
+ * What everybody secretly wishes for, as Santa sees it in a thought bubble;
+ * he himself only reads the wishes.
+ */
+export const WISH_TEXTS: Readonly<
+  Record<Exclude<CharacterId, "santa">, string>
+> = {
+  balbo: "Ein dicker Fisch",
+  jordi: "Eine Eisenbahn",
+  trixi: "Ein Kuschelteddy",
+  gilfi: "Ein Kissen - zum Ausschlafen",
+  grantelbart: "Eine neue E-Gitarre",
+  gugor: "Psst ... ein Ball",
+  rudolf: "Eine Möhre",
+};
+
+/** The caption while Gugor looks through his telescope. */
+export const SPY_CAPTION = "Gugor beobachtet den Weihnachtsmann ...";
 
 /** An animal's name and what makes it special. */
 export type AnimalTexts = {
@@ -215,6 +389,54 @@ export const BUBBLE_TEXTS = {
   musicGrantelbart: ["Rock'n'Roll! Grrr!", "Endlich Musik!", "LAUTER!"],
   musicOthers: ["Huch, ist das laut!", "Ganz schön schaurig ...", "Rock!"],
   portrait: "Die Augen ... sie folgen mir!",
+  wishesStart: [
+    "Ho ho ho - was wünscht ihr euch denn?",
+    "Mal sehen, was ihr euch wünscht ...",
+    "Ich sehe Wünsche!",
+  ],
+  wishesEnd: ["Alles notiert!", "Ho ho ho - wird gemacht!", "Interessant ..."],
+  guitarStart: ["Rock'n'Roll!", "Jetzt wird's laut!", "Grrr - YEAH!"],
+  guitarTooLoud: ["Zu laut!", "Meine Ohren!", "Aufhören!", "Huch!"],
+  guitarFan: "Endlich mal gute Musik.",
+  levitateStart: ["Schwebe!", "Hokuspokus - äh, Elfenzauber!", "Auf mit euch!"],
+  levitateEnd: ["Puh ... genug gezaubert.", "Anstrengend!", "*gähn*"],
+  fallOuch: ["Uff!", "Autsch!", "Plumps!"],
+  fallUp: ["Nichts passiert!", "Wer hat da Eis hingelegt?", "War Absicht!"],
+  spyIdle: [
+    "Er steht nur rum. Langweilig.",
+    "Er hat schon wieder seine Brille verlegt.",
+  ],
+  spyWalking: ["Er läuft herum. Spannend ...", "Wo will der denn hin?"],
+  spyWorkshop: [
+    "Er isst in der Werkstatt Plätzchen. Ohne mich.",
+    "Er baut Spielzeug. Pah.",
+  ],
+  spyGrantel: ["Er ist bei uns im Haus?!", "Was will der bei Grantelbart?"],
+  spySleigh: ["Er fliegt Schlitten. Angeber.", "Da oben! Der Angeber!"],
+  spyWishes: ["Er liest Wünsche. Meinen auch?!", "Er guckt so komisch."],
+  lampOff: ["Licht aus!", "Klick - dunkel.", "Gute Nacht, Laterne!"],
+  lampOn: "Und wieder an!",
+  snowmanDown: ["Hoppla - umgefallen!", "Plumps, Schneemann!", "Huch!"],
+  snowmanBuilt: ["Steht wieder!", "Schön gebaut!", "Schneemann, auf!"],
+  fallSnowman: "Uff - mitten in den Schneemann!",
+  fishCaught: ["Hab ihn!", "Ein Fisch! Lecker!", "Fang!"],
+  giftTaken: [
+    "Ein Geschenk auf dem Dach!",
+    "Hab es!",
+    "Wer verliert denn so was?",
+  ],
+  bearPlough: "Brumm - platt!",
+  foxDig: "Schnüffel ... ein goldenes Glöckchen!",
+  machineCrash: ["Hehehe - kaputt!", "Ups. Grmpf!", "Das war die Maschine!"],
+  machineBroken: "Kaputt! Das kann nur eine Elfe reparieren.",
+  machineGloat: "Hehe - die bleibt kaputt!",
+  machineBusy: "Moment, hier wird repariert!",
+  machineRepairing: [
+    "Hämmern, schrauben ...",
+    "Das haben wir gleich!",
+    "Einmal ölen ...",
+  ],
+  machineFixed: ["Repariert!", "Läuft wieder!", "Wie neu!"],
   animalLines: {
     hase: ["Hopp hopp!"],
     vogel: ["Piep!"],

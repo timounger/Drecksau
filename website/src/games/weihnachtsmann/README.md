@@ -5,7 +5,10 @@ am Nordpol laufen alle acht Figuren herum - **Weihnachtsmann**, der Eisbär
 **Balbo**, die Elfen **Jordi**, **Trixi** und **Gilfi**, die Trolle
 **Grantelbart** und **Gugor** und das Rentier **Rudolf**. Der Spieler wählt,
 wen er steuert, und wechselt jederzeit; alle anderen spazieren von selbst
-umher. Trixi und Rudolf fliegen, Jordi verwandelt sich in sechs Tiere.
+umher. Trixi und Rudolf fliegen, Jordi verwandelt sich in sechs Tiere, der
+Weihnachtsmann erkennt Wünsche, Grantelbart spielt E-Gitarre, Gugor
+beobachtet den Weihnachtsmann durchs Fernrohr, Gilfi lässt Dinge schweben und
+Balbo fällt hin.
 
 Stufe 1: Figuren und Fähigkeiten. Stufe 2: die **echte Karte** (60 x 40
 Felder) mit der **Weihnachtswerkstatt** - einer verschneiten Glaskuppel, in
@@ -74,7 +77,30 @@ Klingeln), Wunschzettel-Tafel, Sessel, Gitarren und Verstärker (Riff mit
 Noten), Schlagzeug, Orgel, das Porträt, und am Tannenbaum der Schlitten - nur
 der Weihnachtsmann fliegt ihn, Rudolf zieht, wenn er draußen ist: eine Runde
 von 11 Sekunden über die Karte, die Kamera fliegt mit, danach stehen beide
-wieder am Baum.
+wieder am Baum. Laternen gehen mit R aus (und wieder an), Schneemänner kippen
+um (und stehen wieder auf); Grantelbart macht die Spielzeugmaschine kaputt,
+eine Elfe repariert sie.
+
+## Erfolge
+
+29 Erfolge (drei geheim), mindestens einer je Figur und Fähigkeit - Liste und
+Bedingungen in
+[`docs/games/weihnachtsmann/game-rules.md`](../../../../docs/games/weihnachtsmann/game-rules.md#erfolge),
+für Spieler im Regeln-Dialog. Daten: `engine/achievements.ts`
+(`ACHIEVEMENTS`), Texte: `ACHIEVEMENT_TEXTS` in `i18n/texts.ts`. Ein neuer
+Erfolg ist eine id in `ACHIEVEMENT_IDS` (`types.ts`), ein Eintrag in
+`ACHIEVEMENTS`, Texte, ein Abzeichen im Generator (`achieve.py`, Name
+`badge` + Id) und ein `unlock(state, id)` dort, wo es passiert - oder eine
+Bedingung in `checkAchievements`. Nur die gesteuerte Figur zählt
+(`steered`).
+
+Was die Figuren in der Welt verändern (Laternen, Schneemänner, Schneewehen,
+Fisch, Geschenk auf der Kuppel, kaputte Maschine), steht in
+`GameState.world` (`engine/world.ts`) statt in der Karte, stellt sich nach
+einer Weile selbst wieder her und wird nicht gespeichert; gezeichnet wird je
+nach Zustand ein anderes Bild (`lampOff`, `snowmanHeap`, `driftFlat`,
+`machineBroken` als Auflage). Das Banner zeichnet `render-world.ts` scharf
+auf die Leinwand, den Dialog `achievements-panel.tsx`.
 
 ## Aufbau
 
@@ -84,10 +110,12 @@ weihnachtsmann/
                  (Boden, Bäume, Zäune, Häuser, Möbel, Raumbilder, Zahnräder,
                  Spielzeug), portraits-2x.png (Leiste), logo.webp
   audio/sounds.ts  kurze WebAudio-Töne: Tür, Spielzeug, Riff, Trommeln, Orgel,
-                 Schlittenglocken
+                 Schlittenglocken, Wunsch-Glöckchen, Zauber, Fernrohr, Plumps,
+                 Erfolgs-Jingle, Krach, Hämmern, Lichtschalter, Platsch, Fund
   engine/        die Simulation, ohne DOM
     types.ts       Figuren, Orte, Karte, Türen, Befehle, Spielzustand, Speicherstand
-    cast.ts        Bewegungsprofile und Fähigkeit je Figur und Tier (Daten)
+    cast.ts        Bewegungsprofile und Fähigkeit je Figur und Tier, Länge,
+                   Abklingzeit und Gewohnheit jeder Vorführung (Daten)
     map-data.ts    die Karte draußen: Buchstabenzeilen, Häuser, Türen, Startplätze
     interior-data.ts  Werkstatt und Grantelbarts Haus (Zeilen, Möbel, Türen,
                    Benutzbares) und wo die Teile der Spielzeugmaschine sitzen
@@ -97,10 +125,17 @@ weihnachtsmann/
     sleigh.ts      der Schlittenflug: Start, Schleife, Landung
     camera.ts      Kamera folgt der Figur (oder dem Schlitten)
     movement.ts    Laufen, Rutschen auf Eis, Schwimmen, Fliegen, Ecken-Rutschen
-    abilities.ts   Fliegen, Verwandeln, Seufzen, Sprechen (je Fähigkeit ein Handler)
+    abilities.ts   Fliegen, Verwandeln, Vorführungen starten, Sprechen (je
+                   Fähigkeit ein Handler)
+    shows.ts       die Vorführungen: Wünsche, E-Gitarre, Fernrohr, Schweben,
+                   Hinfallen (Start, Lauf, Ende je Art; schwebende Dinge)
+    spyglass.ts    Gugors Blick durchs Fernrohr: Linse, Kamera, Ortswechsel
     wander.ts      die Figuren ohne Spieler: ausruhen, spazieren, plaudern, landen
     effects.ts     Sprechblasen, Glitzer, Rauch, Puff, Schneestaub
     gates.ts       die 26 Tore: hineingehen, gewonnen markieren, welches als Nächstes
+    achievements.ts  die Erfolge: Liste, freischalten, Fortschritt, Banner, Speichern
+    world.ts       was sich verändern lässt und von selbst heilt: Laternen,
+                   Schneemänner, Schneewehen, Fisch, Geschenk, Maschine
     engine.ts      neues Spiel, ein Schritt, Wechsel, Kamera, Abstand halten
     random.ts      Zufallszahlen mit Startwert im Zustand
     save.ts        Prüfung eines gelesenen Speicherstands
@@ -112,7 +147,12 @@ weihnachtsmann/
                      Sprechblasen und R-Hinweis in scharfer Schrift
     render-gates.ts  die Tore mit Nummer, Stern, Leuchten, Name und Wegweiser-Pfeil
     render-minigame.ts  ein Minispiel-Feld groß auf die Leinwand, Texte scharf darauf
+    render-world.ts  Geschenk auf der Kuppel, springender Fisch, Schraubenschlüssel
+                     beim Reparieren, Erfolgs-Banner mit Konfetti
+    achievements-panel.tsx  Knopf „Erfolge x/29“ und der Dialog mit allen Karten
     advent-progress.tsx der Adventskalender unter dem Bild
+    render-shows.ts  Fähigkeits-Posen, Gedankenblasen mit Wünschen, Wackeln,
+                     Fernrohr-Linse mit Zeile, Schwebendes, Sterne über Balbo
     render-props.ts  was sich bewegt und leuchtet: Zahnräder, Lämpchen, Band und
                      Spielzeug der Maschine, Flammen, Verstärker, Porträt-Augen,
                      fliegender Schlitten mit Rudolf
@@ -155,9 +195,12 @@ weihnachtsmann/
   (Überblendung 0,6 s, Steuerung währenddessen gesperrt). Drinnen wird nicht
   geflogen.
 - **Speichern:** gewählte Figur, Ort, Positionen, Blickrichtung, Jordis Tier,
-  wer fliegt und die gewonnenen Tore, alle fünf Sekunden, bei jedem Wechsel,
-  nach jedem Sieg und beim Verlassen der Seite (`weihnachtsmann/save`,
-  Version 3). Speicherstände der Stufe 2 (Version 2) werden gelesen: alle
+  wer fliegt, die gewonnenen Tore und die Erfolge (mit Datum, dazu gesammelte
+  Wünsche und Instrumente, gezählte Stürze und Spielzeuge), alle fünf
+  Sekunden, bei jedem Wechsel, nach jedem Sieg, bei jedem neuen Erfolg und beim
+  Verlassen der Seite (`weihnachtsmann/save`, Version 4). Speicherstände der
+  Version 3 werden gelesen (noch kein Erfolg). Speicherstände der Stufe 2
+  (Version 2) werden gelesen: alle
   stehen, wo sie standen (die alte Karte liegt unverändert in der neuen), kein
   Tor ist gewonnen. „Neu aufstellen“ behält den Adventskalender.
 - **Minispiele:** Läuft die Figur in ein Tor, setzt die Simulation am
@@ -182,7 +225,10 @@ erzeugen.
 
 Figuren: 40 x 40 logische Pixel je Bild (Tiere 24 x 24), drei Blickrichtungen
 (links ist rechts gespiegelt), je zwei Bilder Stehen und vier Bilder Laufen,
-dazu Fliegen (Trixi, Rudolf, Vogel) und Rutschen (Pinguin).
+dazu Fliegen (Trixi, Rudolf, Vogel), Rutschen (Pinguin) und je zwei Bilder
+Fähigkeit (`act`): Grantelbart mit E-Gitarre, Gilfi mit Zauberhänden, Gugor
+mit Fernrohr, Balbo umkippend und flach liegend. Auf dem Figurenbogen liegen
+außerdem die Gedankenblase und die Wunschbilder.
 
 Tore: vier Stile (`gates.py` im Generator), je geschlossen und offen, 56 x 68
 logische Pixel auf drei Feldern Grundfläche, das Nummernschild bei allen an
@@ -213,6 +259,29 @@ Generator. Die Zeilen eines Hauses müssen zu seinem Raumbild passen.
 `AbilityKind` in `engine/cast.ts` erweitern, die Figur darauf zeigen lassen
 und in `engine/abilities.ts` einen Handler eintragen (`HANDLERS`). Texte für
 Leiste und Sprechblasen stehen in `i18n/texts.ts`.
+
+Eine Fähigkeit, die ein paar Sekunden lang abläuft (Vorführung, `ShowKind`
+in `engine/types.ts`), bekommt in `SHOWS` (`cast.ts`) Länge, Abklingzeit
+(länger als die Vorführung - Dauerdrücken schadet nicht), ob die Figur
+dabei stillsteht, und optional eine Gewohnheit für Figuren ohne Spieler
+(`npc`: Wahrscheinlichkeit pro Sekunde, beim Spazieren oder Ausruhen, nur in
+einem Ort). In `engine/shows.ts` stehen Start, Lauf und Ende je Art; die
+Pose ist das Bild `act` der Figur (Generator), gezeichnet wird in
+`components/render-shows.ts`. Vorführungen werden nicht gespeichert.
+
+| Figur          | Vorführung       | Dauer | von selbst                   |
+| -------------- | ---------------- | ----- | ---------------------------- |
+| Weihnachtsmann | Wünsche erkennen | 5 s   | nein                         |
+| Grantelbart    | E-Gitarre        | 2,2 s | beim Ausruhen in seinem Haus |
+| Gugor          | Fernrohr         | 5,6 s | nein (übernimmt das Bild)    |
+| Gilfi          | Schweben lassen  | 5 s   | selten, beim Ausruhen        |
+| Balbo          | Hinfallen        | 2 s   | beim Spazieren, ab und zu    |
+
+Gugors Fernrohr verschiebt nur das Bild (`GameState.spy`, `viewArea`):
+Steht der Weihnachtsmann im selben Ort, gleitet die Kamera hin; sonst
+schließt sich die Linse, das Bild wechselt in seinen Ort und zurück.
+Währenddessen steht Gugor still und Befehle (Wechsel, Fähigkeit, Sprechen)
+werden verworfen, wie während einer Überblendung.
 
 ## Datumssperre
 

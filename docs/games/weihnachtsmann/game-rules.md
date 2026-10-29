@@ -156,19 +156,31 @@ Minispiel, das man absolvieren muss.
 
 ## Fähigkeiten
 
-Datengetrieben: jede Figur nennt ihre Fähigkeit (`fly`, `transform`, `none`),
-`engine/abilities.ts` hält je Art einen Handler.
+Datengetrieben: jede Figur nennt ihre Fähigkeit (`fly`, `transform` oder
+eine Vorführung: `wishes`, `guitar`, `telescope`, `levitate`, `fall`),
+`engine/abilities.ts` hält je Art einen Handler, `engine/shows.ts` lässt die
+Vorführungen ablaufen (Länge, Abklingzeit und Gewohnheiten in `cast.ts`).
+Erneutes Drücken während der Vorführung oder der Abklingzeit tut nichts.
 
-| Figur          | Fähigkeit                       | Leertaste                                               |
-| -------------- | ------------------------------- | ------------------------------------------------------- |
-| Weihnachtsmann | fliegt den Schlitten (R)        | Sprechblase (Ho ho ho ...)                              |
-| Balbo          | keine (noch); viel Halt auf Eis | Sprechblase                                             |
-| Jordi          | verwandelt sich in ein Tier     | öffnet die Tierwahl / verwandelt zurück                 |
-| Trixi          | fliegt                          | Abheben / Landen; bunte Glitzerspur mit gelbem Schimmer |
-| Gilfi          | keine Fähigkeit                 | Seufzer ("Fähigkeit? Hab ich keine ... _seufz_")        |
-| Grantelbart    | keine (noch)                    | Grummeln                                                |
-| Gugor          | kann nichts                     | "Ich kann nichts. Wie immer."                           |
-| Rudolf         | fliegt                          | Abheben / Landen; die rote Nase leuchtet und pulsiert   |
+| Figur          | Fähigkeit                      | Leertaste                                                                                                                                                                                              |
+| -------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Weihnachtsmann | erkennt Wünsche; Schlitten (R) | 5 s Gedankenblasen mit Wunschbild und -text über jeder Figur im Bild, goldener Schimmer, Glöckchen                                                                                                     |
+| Balbo          | fällt hin; viel Halt auf Eis   | kippt um, Schneestaub, Plumps, Sterne über dem Kopf, "Uff!", steht nach gut 1 s wieder auf; auf Eis rutscht er weiter                                                                                  |
+| Jordi          | verwandelt sich in ein Tier    | öffnet die Tierwahl / verwandelt zurück                                                                                                                                                                |
+| Trixi          | fliegt                         | Abheben / Landen; bunte Glitzerspur mit gelbem Schimmer                                                                                                                                                |
+| Gilfi          | lässt Dinge schweben           | Zauberhände; Geschenke, Steine, Schneemänner, Schilder und Büsche im Umkreis von 4 Feldern und herbeigezauberte Spielzeuge (in der Werkstatt aus Regalen, Werkbank, Maschine) schweben 5 s mit Glitzer |
+| Grantelbart    | spielt E-Gitarre               | Gitarren-Pose, Riff, Noten, das Bild wackelt; wer in der Nähe steht, springt und ruft "Zu laut!" (Gugor gefällt's)                                                                                     |
+| Gugor          | schaut durchs Fernrohr         | runde Linse, das Bild sucht den Weihnachtsmann (auch in einem anderen Haus oder im Schlitten), Zeile "Gugor beobachtet den Weihnachtsmann ...", danach ein Kommentar                                   |
+| Rudolf         | fliegt                         | Abheben / Landen; die rote Nase leuchtet und pulsiert                                                                                                                                                  |
+
+**Wünsche:** Balbo ein Fisch, Jordi eine Eisenbahn, Trixi ein Teddy, Gilfi
+ein Kissen, Grantelbart eine E-Gitarre, Gugor (psst) ein Ball, Rudolf eine
+Möhre.
+
+**Von selbst:** Balbo stolpert beim Spazieren ab und zu, Grantelbart greift
+beim Ausruhen in seinem Haus in die Saiten, Gilfi zaubert selten. Der
+Weihnachtsmann und Gugor nur, wenn man sie steuert (das Fernrohr übernimmt
+das Bild; Wechsel und Tasten warten so lange).
 
 **Fliegen:** in 18 Pixel Höhe, Schatten bleibt am Boden, über alles hinweg
 (nur der Kartenrand begrenzt; der Kopf bleibt immer im Bild). Landen nur, wo
@@ -190,14 +202,81 @@ Sternchen; zurück mit T, wenn Platz für Jordi ist):
 
 R lässt die gesteuerte Figur (oder das Tier) etwas sagen.
 
+## Erfolge
+
+29 Erfolge, mindestens einer je Figur und Fähigkeit, dazu Erfolge für alle.
+Daten in `engine/achievements.ts` (`ACHIEVEMENTS`: id, geheim, für wen, Ziel),
+Texte in `i18n/texts.ts` (`ACHIEVEMENT_TEXTS`: Titel, geschafft, Tipp),
+Abzeichen auf dem Figurenbogen (`badge...`, Generator `achieve.py`).
+Freigeschaltet wird im Moment des Geschehens (`unlock`); was nur vom
+Dastehen abhängt (Maus im Zaun, Vogel am Schornstein, Rudolfs Ecken,
+Hasenrennen, Werkstatt voll, Türchen), prüft `checkAchievements` jeden
+Schritt. Es zählt nur, was die gesteuerte Figur tut.
+
+- **Banner:** oben im Bild, 4,5 s, mit Abzeichen, Jingle und Konfetti; mehrere
+  warten nacheinander. Das Spiel läuft weiter.
+- **Erfolge-Knopf:** im Kopf und neben dem Adventskalender (Handy: Stern mit
+  Zahl). Der Dialog zeigt Karten: geschafft mit Datum, offen grau mit Tipp und
+  Fortschrittsbalken, geheime als „???“.
+- **Speichern:** im Spielstand (Version 4) die Erfolge mit Datum, die
+  gesammelten Wünsche und Instrumente und die gezählten Stürze und Spielzeuge.
+  Spielstände der Version 3 werden gelesen (noch kein Erfolg); wer schon
+  Türchen hat, bekommt die Türchen-Erfolge beim ersten Schritt. „Neu
+  aufstellen“ behält die Erfolge.
+
+| Erfolg                 | Für                    | Bedingung                                                                                  |
+| ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------ |
+| Petri Heil             | Jordi                  | als Pinguin im offenen Wasser des Teichs auf den Fisch schwimmen                           |
+| Paket von oben         | Trixi                  | fliegend das Geschenk oben auf der Glaskuppel holen                                        |
+| Ehrenrunde             | Rudolf                 | in einem Flug (ohne Landen) alle vier Kartenecken (je 12 Felder) besuchen                  |
+| Wunschzettel komplett  | Weihnachtsmann         | nach und nach die Wünsche aller 7 anderen lesen (wer beim Wünscheerkennen im Bild ist)     |
+| Sabotage!              | Grantelbart            | in der Werkstatt R an der Spielzeugmaschine oder E-Gitarre direkt daneben: sie geht kaputt |
+| Meisterhaft repariert  | Jordi, Trixi, Gilfi    | R als Elfe (Jordi nicht als Tier) an der kaputten Maschine: 1,6 s Reparatur                |
+| Ohrenbetäubend         | Grantelbart            | ein Riff erschreckt mindestens 3 andere auf einmal                                         |
+| Werkstattspion         | Gugor                  | Fernrohr, während der Weihnachtsmann in der Werkstatt ist                                  |
+| Erwischt, Angeber!     | Gugor                  | **geheim:** Fernrohr, während der Weihnachtsmann Schlitten fliegt                          |
+| Schwebender Schneemann | Gilfi                  | draußen zaubern, ein stehender Schneemann im Umkreis schwebt mit                           |
+| Bauchklatscher         | Balbo                  | auf dem Eis hinfallen                                                                      |
+| Stehaufmännchen        | Balbo                  | 10-mal hinfallen (gezählt und gespeichert)                                                 |
+| Volltreffer            | Balbo                  | **geheim:** kopfüber in einen Schneemann fallen (er kippt um)                              |
+| Durchgeschlüpft        | Jordi                  | als Maus mitten durch einen Zaun                                                           |
+| Schneepflug            | Jordi                  | als Bär durch eine Schneewehe: sie wird platt                                              |
+| Warme Füße             | Jordi                  | als Vogel auf Grantelbarts rauchendem Schornstein                                          |
+| Turbohase              | Jordi                  | als Hase in unter 8 s von der Werkstatttür zu Grantelbarts Haustür                         |
+| Spürnase               | Jordi                  | **geheim:** als Fuchs östlich vom schiefen Schild graben (R): ein goldenes Glöckchen       |
+| Hü, Rudolf!            | Weihnachtsmann, Rudolf | Schlittenrunde, während Rudolf draußen ist (er zieht)                                      |
+| Licht aus              | alle                   | R an einer Laterne                                                                         |
+| Stromausfall           | alle                   | alle 35 Laternen gleichzeitig aus                                                          |
+| Umgeschubst            | alle                   | R an einem Schneemann                                                                      |
+| Schneemann-Baumeister  | alle                   | R an einem umgeschubsten Schneemann                                                        |
+| Ein-Troll-Band         | alle                   | in Grantelbarts Haus Orgel, Gitarre, Verstärker und Schlagzeug spielen (gespeichert)       |
+| Fließbandarbeit        | alle                   | 10 Spielzeuge mit der Maschine bauen (gezählt und gespeichert)                             |
+| Hausbesuch             | Weihnachtsmann         | Grantelbarts Haus betreten                                                                 |
+| Betriebsversammlung    | alle                   | alle 8 Figuren gleichzeitig in der Werkstatt                                               |
+| Das erste Türchen      | alle                   | ein Minispiel gewinnen                                                                     |
+| Frohe Weihnachten!     | alle                   | alle 26 Türchen schaffen                                                                   |
+
+### Was man verändert, stellt sich wieder her
+
+Die Veränderungen stehen in `GameState.world` (`engine/world.ts`), nicht in
+der Karte, und werden nicht gespeichert - nach dem Neuladen ist alles heil.
+
+| Veränderung              | Wie                                  | Zurück                                                                                                                    |
+| ------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Laterne aus              | R an der Laterne (nochmal R: an)     | 60 s nach der zuletzt ausgeknipsten gehen sie nacheinander alle 3 s wieder an, mit Flackern                               |
+| Schneemann umgeschubst   | R am Schneemann, Balbo fällt hinein  | nach 90 s steht er wieder (Schneestaub, Glitzer); R baut ihn sofort auf                                                   |
+| Schneewehe platt         | der Bär läuft hindurch               | nach 45 s wieder da                                                                                                       |
+| Fisch gefangen           | Pinguin schwimmt auf ihn             | nach 25 s schwimmt einer an einer anderen Stelle des Lochs                                                                |
+| Geschenk von der Kuppel  | Trixi fliegt hin                     | nach 60 s liegt ein neues dort (Glitzer)                                                                                  |
+| Spielzeugmaschine kaputt | Grantelbart (R oder Gitarre daneben) | steht still, Ruß, Funken, Riss, eine Lampe blinkt rot; nach 120 s läuft sie von selbst wieder, eine Elfe repariert sofort |
+
 ## Bewusst (noch) nicht umgesetzt
 
-- Geschichte, Gegenstände zum Aufheben, Musik im Hintergrund, ein Knopf zum
+- Geschichte, Gegenstände zum Aufheben (außer Fisch und Geschenk für die Erfolge), Musik im Hintergrund, ein Knopf zum
   Stummschalten. Die Minispiele 7-26 (Platzhalter).
 - Bestenlisten oder Zeiten der Minispiele; gespeichert wird nur geschafft
   oder nicht.
 - Nicht gesteuerte Figuren gehen nicht von selbst durch Türen.
-- Fähigkeiten für Balbo und Grantelbart.
 - Eigenes Verhalten für Jordi als Tier ohne Steuerung: wer ihn als Tier
   verlässt, findet ihn als dasselbe Tier spazierend wieder (der Vogel fliegt
   dabei).

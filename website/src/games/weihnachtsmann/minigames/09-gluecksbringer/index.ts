@@ -53,6 +53,10 @@ const SWAP_TIME: readonly number[] = [0.6, 0.5, 0.42, 0.36, 0.3];
 const SLOTS: readonly number[] = [92, 160, 228];
 const CAP_FEET = 150;
 
+/** No cap chosen yet, and the middle cap the first arrow press goes to. */
+const NO_CAP = -1;
+const MIDDLE = 1;
+
 /** Seconds the clover shows, the caps take to come down, and a lift. */
 const SHOW_TIME = 1.5;
 const DROP_TIME = 0.45;
@@ -124,8 +128,10 @@ function createRun(seed: number, sound: MiniEnv["sound"]): MiniGameInstance {
   let phaseTime = 0;
   let swaps: Swap[] = [];
   let swapIndex = 0;
-  let cursor = 1;
+  /** The cap the arrow is under, or -1: none until the player picks one. */
+  let cursor = NO_CAP;
   let chosen = -1;
+  let lastPointer: { readonly x: number; readonly y: number } | null = null;
   let right = 0;
   let wrong = 0;
   let status: MiniStatus = "running";
@@ -174,12 +180,13 @@ function createRun(seed: number, sound: MiniEnv["sound"]): MiniGameInstance {
   };
 
   const choose = (input: MiniInput) => {
+    // The first arrow press shows the arrow under the middle cap.
+    const fresh = cursor === NO_CAP;
     if (input.pressed.has("left")) {
-      cursor = Math.max(0, cursor - 1);
+      cursor = fresh ? MIDDLE : Math.max(0, cursor - 1);
       sound("click");
-    }
-    if (input.pressed.has("right")) {
-      cursor = Math.min(SLOTS.length - 1, cursor + 1);
+    } else if (input.pressed.has("right")) {
+      cursor = fresh ? MIDDLE : Math.min(SLOTS.length - 1, cursor + 1);
       sound("click");
     }
     const box = (place: number) => ({
@@ -188,8 +195,14 @@ function createRun(seed: number, sound: MiniEnv["sound"]): MiniGameInstance {
       w: CAP_HALF * 2,
       h: CAP_TALL,
     });
+    // Only a mouse that moves points: one resting where the last pick was
+    // must not mark a cap before the player looks.
     const p = input.pointer;
-    if (p !== null) {
+    const moved =
+      p !== null &&
+      (lastPointer === null || p.x !== lastPointer.x || p.y !== lastPointer.y);
+    lastPointer = p;
+    if (p !== null && moved) {
       const over = SLOTS.findIndex((_, place) => inside(box(place), p.x, p.y));
       if (over >= 0) {
         cursor = over;
@@ -200,7 +213,7 @@ function createRun(seed: number, sound: MiniEnv["sound"]): MiniGameInstance {
     );
     if (tap !== undefined) {
       guess(SLOTS.findIndex((_, place) => inside(box(place), tap.x, tap.y)));
-    } else if (input.pressed.has("action")) {
+    } else if (input.pressed.has("action") && cursor !== NO_CAP) {
       guess(cursor);
     }
   };
@@ -228,6 +241,8 @@ function createRun(seed: number, sound: MiniEnv["sound"]): MiniGameInstance {
           swapIndex += 1;
           phaseTime -= SWAP_TIME[round];
           if (swapIndex >= swaps.length) {
+            // No cap is marked when the guessing starts.
+            cursor = NO_CAP;
             begin("choose");
             sound("tick");
           } else {
@@ -398,7 +413,8 @@ function drawScene(g: MiniDraw, sheet: HTMLImageElement, s: SceneState): void {
     // Below the cap, pointing up, so it never hides Gugor's face.
     const bob = Math.abs(Math.sin(g.time * 5)) * 2;
     const place = s.places[s.cursor];
-    drawGlow(ctx, place.x, CAP_FEET - 14, 24, "255, 230, 120", 0.22);
+    // Cool white, so it is never taken for the clover's golden glow.
+    drawGlow(ctx, place.x, CAP_FEET - 14, 24, "210, 225, 255", 0.18);
     drawSpriteCentred(
       ctx,
       sheet,

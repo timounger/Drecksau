@@ -1,6 +1,6 @@
 /**
  * Speech bubbles, Trixi's sparkles, puffs of smoke, the transformation poof,
- * steam and floating music notes.
+ * steam, soot from the broken machine and floating music notes.
  *
  * @module
  */
@@ -18,6 +18,7 @@ const LIFE: Readonly<Record<ParticleKind, number>> = {
   snowPuff: 0.5,
   note: 2,
   steam: 1.4,
+  soot: 1.8,
 };
 
 /** Number of note pictures on the sheet. */
@@ -234,6 +235,7 @@ export function updateEffects(state: GameState, dt: number): void {
         particle.vx *= 1 - Math.min(1, dt);
         break;
       case "steam":
+      case "soot":
         particle.vy = -STEAM_RISE;
         break;
       case "poof":

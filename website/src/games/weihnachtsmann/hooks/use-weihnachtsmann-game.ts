@@ -58,8 +58,14 @@ import {
   gateLocked,
 } from "@/games/weihnachtsmann/engine/calendar";
 import { spotInReach } from "@/games/weihnachtsmann/engine/interact";
+import {
+  ACHIEVEMENTS,
+  progressOf,
+} from "@/games/weihnachtsmann/engine/achievements";
 import { mapSize } from "@/games/weihnachtsmann/engine/map";
+import { FIRST_CHARACTER } from "@/games/weihnachtsmann/engine/map-data";
 import type {
+  AchievementId,
   CalendarDay,
   Action,
   AnimalId,
@@ -67,6 +73,7 @@ import type {
   Dir,
   GameMap,
   GameState,
+  SaveData,
 } from "@/games/weihnachtsmann/engine/types";
 import {
   clearSave,
@@ -179,6 +186,10 @@ export type Hud = {
   readonly canUse: boolean;
   /** Which way leads through the doorway it stands in, or null. */
   readonly entry: Dir | null;
+  /** The achievements unlocked, with when (epoch ms). */
+  readonly achieved: readonly (readonly [AchievementId, number])[];
+  /** How far each achievement has come, in the order of the list. */
+  readonly progress: readonly number[];
 };
 
 /** What the hook hands the component. */
@@ -212,6 +223,8 @@ const FIRST_HUD: Hud = {
   inGate: null,
   canUse: false,
   entry: null,
+  achieved: [],
+  progress: [],
 };
 
 /**
@@ -300,14 +313,12 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
   }, []);
 
   const reset = useCallback(() => {
-    // Everybody goes back to the start; the Advent calendar keeps its gates.
-    const done = stateRef.current?.gatesDone ?? new Set<number>();
+    // Everybody goes back to the start; the Advent calendar keeps its gates
+    // and the achievements stay unlocked.
+    const old = stateRef.current;
     clearSave();
     visitRef.current = null;
-    const fresh = createGame(null);
-    for (const number of done) {
-      fresh.gatesDone.add(number);
-    }
+    const fresh = createGame(old === null ? null : keptOf(toSave(old)));
     stateRef.current = fresh;
     writeSave(toSave(fresh));
   }, []);
@@ -451,6 +462,7 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
       let sinceFlush = 0;
       let playMs = 0;
       let lastActive = -1;
+      let lastAchieved = -1;
 
       const flush = () => {
         if (playMs > 0) {
@@ -466,6 +478,7 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
         last = now;
         if (state !== null) {
           state.today = todayRef.current();
+          state.now = Date.now();
           if (!document.hidden) {
             acc += elapsed;
             let steps = 0;
@@ -496,6 +509,11 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
           } else {
             acc = 0;
           }
+          if (lastAchieved >= 0 && state.achieved.size !== lastAchieved) {
+            // A new achievement is kept at once.
+            writeSave(toSave(state));
+          }
+          lastAchieved = state.achieved.size;
           if (sinceSave > SAVE_EVERY || state.active !== lastActive) {
             sinceSave = 0;
             if (lastActive >= 0) {
@@ -542,7 +560,7 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
             // that rather than drop every other art pixel.
             ctx.imageSmoothingEnabled = scale < SHEET_DENSITY;
             ctx.drawImage(buffer, 0, 0, viewW * scale, viewH * scale);
-            drawBubbles(ctx, state, scale);
+            drawBubbles(ctx, state, scale, art);
           }
           publish(state);
         }
@@ -600,6 +618,8 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
           inGate: visitRef.current?.number ?? null,
           canUse: spotInReach(state) !== null,
           entry: entryAt(state),
+          achieved: [...state.achieved],
+          progress: ACHIEVEMENTS.map((def) => progressOf(state, def.id)),
         };
         const key = JSON.stringify(next);
         if (key !== hudKeyRef.current) {
@@ -832,4 +852,22 @@ function lockedGates(state: GameState): number[] {
   return Array.from({ length: GATE_COUNT }, (_, i) => i + 1).filter((number) =>
     gateLocked(state, number),
   );
+}
+
+/**
+ * What survives "Neu aufstellen": the gates won and the achievements, with
+ * everybody back at their start places.
+ *
+ * @param save - the game as it stands
+ * @returns a save holding only what is kept
+ */
+function keptOf(save: SaveData): SaveData {
+  return {
+    active: FIRST_CHARACTER,
+    chars: [],
+    gates: save.gates,
+    achievements: save.achievements,
+    progress: save.progress,
+    counts: save.counts,
+  };
 }

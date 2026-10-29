@@ -1,8 +1,9 @@
 /**
  * Drawing one picture of the place on screen: ground or room, everything
  * standing on it sorted by depth (the Advent gates among it), the characters,
- * lights, sparkles, smoke and falling snow, the fade between places - and the
- * speech bubbles and gate hints on top in sharp text.
+ * lights, sparkles, smoke and falling snow, the shows of the abilities, the
+ * fade between places - and the speech bubbles and gate hints on top in sharp
+ * text.
  *
  * @module
  */
@@ -17,7 +18,9 @@ import {
   currentProfile,
   WALK_FRAMES,
 } from "@/games/weihnachtsmann/engine/movement";
+import { hopLift } from "@/games/weihnachtsmann/engine/shows";
 import { isRiding } from "@/games/weihnachtsmann/engine/sleigh";
+import { lampLit, smallLook } from "@/games/weihnachtsmann/engine/world";
 import type {
   AreaId,
   BigObjectKind,
@@ -39,6 +42,19 @@ import {
   type GlowFn,
 } from "./render-props";
 import { collectGates, drawGateHints } from "./render-gates";
+import { collectWorld, drawRepair, drawToast } from "./render-world";
+import {
+  collectFloaters,
+  drawDizzy,
+  drawFloatShadows,
+  drawLens,
+  drawSpyCaption,
+  drawWishLabels,
+  drawWishes,
+  floatLifts,
+  shakeOffset,
+  showFrame,
+} from "./render-shows";
 import {
   EFFECTS,
   FENCE_TILES,
@@ -75,6 +91,13 @@ const SMALL_ART: Readonly<
   gifts: { sprite: "gifts", dy: 0 },
   deadBush: { sprite: "deadBush", dy: 1 },
   crookedSign: { sprite: "crookedSign", dy: 0 },
+};
+
+/** What a small object looks like once changed: a dark lamp, a heap, a flat drift. */
+const CHANGED_ART: Readonly<Partial<Record<SmallObjectKind, ObjectName>>> = {
+  lamp: "lampOff",
+  snowman: "snowmanHeap",
+  drift: "driftFlat",
 };
 
 /** The picture of each big object; the sleigh stands a little low. */
@@ -211,8 +234,7 @@ export function drawFrame(
   state: GameState,
   art: Art,
 ): void {
-  const cx = snap(state.camera.x);
-  const cy = snap(state.camera.y);
+  const { cx, cy } = viewCorner(state);
   ctx.save();
   ctx.translate(-cx, -cy);
   const view = state.view;
@@ -232,6 +254,7 @@ export function drawFrame(
   for (const char of shown) {
     drawShadow(ctx, char, state.chars[state.active] === char);
   }
+  drawFloatShadows(ctx, state);
   const ride = state.sleigh;
   if (ride !== null && map.area === "outdoors") {
     drawSleighShadow(ctx, ride.x, ride.y);
@@ -239,6 +262,8 @@ export function drawFrame(
   const items: Drawable[] = [];
   collectMap(ctx, state, map, art, cx, cy, view, items);
   collectGates(ctx, state, map, art, items);
+  collectWorld(ctx, state, map, art, items);
+  collectFloaters(ctx, state, art, items);
   const sky = map.rows * TILE;
   for (const char of shown) {
     items.push({
@@ -261,6 +286,7 @@ export function drawFrame(
     item.draw();
   }
   drawFlyingToys(ctx, art, state);
+  drawRepair(ctx, state, art);
   if (map.shade !== null) {
     ctx.fillStyle = map.shade;
     ctx.fillRect(cx, cy, view.w, view.h);
@@ -271,11 +297,14 @@ export function drawFrame(
       drawParticle(ctx, particle, art);
     }
   }
+  drawWishes(ctx, state, art, glow);
+  drawDizzy(ctx, state, art);
   drawMarker(ctx, state, art);
   ctx.restore();
   if (map.area === "outdoors") {
     drawSnowfall(ctx, state.time, cx, cy, view);
   }
+  drawLens(ctx, state, view);
   const dark = fadeDarkness(state);
   if (dark > 0) {
     ctx.fillStyle = `rgba(6, 4, 12, ${String(dark)})`;
@@ -284,20 +313,22 @@ export function drawFrame(
 }
 
 /**
- * Draws the speech bubbles and the gate hints onto the visible canvas, at its
- * full resolution so the letters are sharp.
+ * Draws the speech bubbles, the gate hints and the banner of an achievement
+ * onto the visible canvas, at its full resolution so the letters are sharp.
  *
  * @param ctx - the visible canvas
  * @param state - the game
  * @param scale - canvas pixels per logical pixel
+ * @param art - the sheets, for the achievement's badge
  */
 export function drawBubbles(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   scale: number,
+  art: Art,
 ): void {
-  const cx = snap(state.camera.x);
-  const cy = snap(state.camera.y);
+  const { cx, cy } = viewCorner(state);
+  drawWishLabels(ctx, state, scale, cx, cy);
   ctx.save();
   ctx.font = `bold ${String(Math.round(BUBBLE_FONT * scale))}px system-ui, sans-serif`;
   ctx.textBaseline = "top";
@@ -319,9 +350,22 @@ export function drawBubbles(
       bubble(ctx, char.bubble.text, x, y, scale);
     }
   }
-  drawKeyHint(ctx, state, scale, cx, cy);
+  if (state.spy === null) {
+    drawKeyHint(ctx, state, scale, cx, cy);
+  }
   drawGateHints(ctx, state, scale, cx, cy);
   ctx.restore();
+  drawSpyCaption(ctx, state, scale);
+  drawToast(ctx, state, art, scale);
+}
+
+/** The top left of the view, map px: the camera, shaken by a loud guitar. */
+function viewCorner(state: GameState): { cx: number; cy: number } {
+  const shake = shakeOffset(state);
+  return {
+    cx: snap(state.camera.x) + shake.x,
+    cy: snap(state.camera.y) + shake.y,
+  };
 }
 
 /**
@@ -457,6 +501,7 @@ function collectMap(
     map.rows - 1,
     Math.ceil((cy + view.h) / TILE) + TALL_ROWS,
   );
+  const lifts = floatLifts(state);
   for (let ty = ty0; ty <= ty1; ty += 1) {
     for (let tx = tx0; tx <= tx1; tx += 1) {
       const index = ty * map.cols + tx;
@@ -464,8 +509,13 @@ function collectMap(
       const bits = map.fence[index];
       if (small !== null) {
         const place = SMALL_ART[small];
-        const rect = OBJECTS[place.sprite];
+        const changed =
+          smallLook(state, map.area, index, small) === "changed"
+            ? CHANGED_ART[small]
+            : undefined;
+        const rect = OBJECTS[changed ?? place.sprite];
         const bottom = (ty + 1) * TILE;
+        const lift = lifts.get(index) ?? 0;
         items.push({
           depth: bottom,
           draw: () => {
@@ -474,7 +524,7 @@ function collectMap(
               art.world,
               rect,
               tx * TILE + HALF - rect[2] / 2,
-              bottom - rect[3] + place.dy,
+              bottom - rect[3] + place.dy - lift,
             );
           },
         });
@@ -612,7 +662,7 @@ function drawCharacter(
     frames = poses.walk;
     index = Math.floor(char.stride) % WALK_FRAMES;
   }
-  const rect = frames[index % frames.length];
+  const rect = showFrame(char, poses, time) ?? frames[index % frames.length];
   const nose = noseOf(char);
   if (nose !== null) {
     // The red light falls round him, under the sprite ...
@@ -631,7 +681,7 @@ function drawCharacter(
     art.figures,
     rect,
     char.x - figure.anchor[0],
-    char.y - figure.anchor[1] - char.altitude,
+    char.y - figure.anchor[1] - char.altitude - hopLift(char),
     char.dir === "left",
   );
   if (nose !== null) {
@@ -689,7 +739,11 @@ function drawGlows(
   const flicker = 1 + Math.sin(state.time * LAMP_FLICKER) * LAMP_FLICKER_SIZE;
   for (let ty = 0; ty < map.rows; ty += 1) {
     for (let tx = 0; tx < map.cols; tx += 1) {
-      if (map.small[ty * map.cols + tx] === "lamp") {
+      const cell = ty * map.cols + tx;
+      if (
+        map.small[cell] === "lamp" &&
+        (map.area !== "outdoors" || lampLit(state, cell))
+      ) {
         const x = tx * TILE + HALF;
         const y = (ty + 1) * TILE - lamp[3] + LAMP_LIGHT;
         if (
@@ -794,6 +848,20 @@ function drawParticle(
         particle.y - rect[3] / 2,
       );
       ctx.globalAlpha = 1;
+      break;
+    }
+    case "soot": {
+      const radius = 1.5 + t * 5;
+      ctx.fillStyle = `rgba(60, 52, 60, ${String(0.7 * (1 - t))})`;
+      ctx.beginPath();
+      ctx.arc(
+        particle.x + Math.sin(particle.age * 3) * 1.5,
+        particle.y,
+        radius,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
       break;
     }
     case "steam": {

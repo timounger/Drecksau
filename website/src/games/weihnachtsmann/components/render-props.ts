@@ -1,6 +1,6 @@
 /**
  * The moving and glowing bits of the places: the toy machine's gears, lamps,
- * belt and toys, the flames in the fireplace and on the candles, the blinking
+ * belt and toys (all standing still, sooty and cracked while it is broken), the flames in the fireplace and on the candles, the blinking
  * amplifiers, the portrait's eyes, the lights in and around the houses and
  * the flying sleigh.
  *
@@ -10,10 +10,8 @@
  * upwards as negative - the same corner the picture stands on.
  */
 import { MACHINE_PARTS } from "@/games/weihnachtsmann/engine/interior-data";
-import {
-  machineCorner,
-  toyPosition,
-} from "@/games/weihnachtsmann/engine/interact";
+import { toyPosition } from "@/games/weihnachtsmann/engine/interact";
+import { machineCorner } from "@/games/weihnachtsmann/engine/world";
 import type {
   BigObjectKind,
   GameState,
@@ -124,6 +122,9 @@ const CANDLES: Readonly<
 
 /** The amplifier lamp is lit while a sine wave stays above this. */
 const AMP_DUTY = -0.4;
+
+/** While broken, the one lamp still alive blinks red this fast, per second. */
+const ALARM_FPS = 3;
 
 /** One art pixel: half a map px. */
 const HALF_PX = 0.5;
@@ -283,7 +284,11 @@ export function drawProp(
   const time = state.time;
   switch (kind) {
     case "toyMachine":
-      drawMachine(ctx, art, time, left, bottom);
+      if (state.world.machine.broken) {
+        drawBrokenMachine(ctx, art, time, left, bottom);
+      } else {
+        drawMachine(ctx, art, time, left, bottom);
+      }
       break;
     case "fireplace": {
       const frame = FLAMES[Math.floor(time * FLAME_FPS) % FLAMES.length];
@@ -551,6 +556,32 @@ function drawMachine(
       );
     }
   }
+}
+
+/**
+ * The broken machine: everything stands still where it stopped, the lamps are
+ * dark but one blinking red, and soot and cracks lie over the picture.
+ */
+function drawBrokenMachine(
+  ctx: CanvasRenderingContext2D,
+  art: Art,
+  time: number,
+  left: number,
+  bottom: number,
+): void {
+  drawMachine(ctx, art, 0, left, bottom);
+  const alarm = Math.floor(time * ALARM_FPS) % 2 === 0;
+  for (let k = 0; k < MACHINE.lamps; k += 1) {
+    ctx.fillStyle = k === 0 && alarm ? "#ff2a2a" : "#2a2a36";
+    ctx.fillRect(
+      snap(left + MACHINE.lampsX + k * MACHINE.lampGap),
+      snap(bottom + MACHINE.lampsY),
+      2,
+      2,
+    );
+  }
+  const overlay = OBJECTS.machineBroken;
+  blit(ctx, art.world, overlay, left, bottom - overlay[3]);
 }
 
 /** A small flickering candle flame. */

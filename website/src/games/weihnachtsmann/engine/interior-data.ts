@@ -134,5 +134,7 @@ export const MACHINE_PARTS = {
   beltTo: 112,
   /** Mouth of the steam pipe. */
   steam: [79, -89],
+  /** Middle of the lamp panel on the boiler. */
+  panel: [35, -34],
 } as const;
 /* eslint-enable @typescript-eslint/no-magic-numbers */

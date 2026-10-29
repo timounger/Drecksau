@@ -8,6 +8,7 @@ import {
   AREA_IDS,
   CHARACTER_IDS,
   type SaveData,
+  type SavedAchievement,
   type SavedCharacter,
 } from "./types";
 
@@ -31,7 +32,12 @@ export function isSaveData(value: unknown): value is SaveData {
       data.chars.every(isSavedCharacter) &&
       (data.gates === undefined ||
         (Array.isArray(data.gates) &&
-          data.gates.every((number) => typeof number === "number")));
+          data.gates.every((number) => typeof number === "number"))) &&
+      (data.achievements === undefined ||
+        (Array.isArray(data.achievements) &&
+          data.achievements.every(isSavedAchievement))) &&
+      (data.progress === undefined || isRecordOf(data.progress, isTextList)) &&
+      (data.counts === undefined || isRecordOf(data.counts, isCount));
   }
   return ok;
 }
@@ -59,4 +65,42 @@ function isSavedCharacter(value: unknown): value is SavedCharacter {
       typeof data.flying === "boolean";
   }
   return ok;
+}
+
+/** Whether one entry is a saved achievement. */
+function isSavedAchievement(value: unknown): value is SavedAchievement {
+  let ok = false;
+  if (typeof value === "object" && value !== null) {
+    const data = value as Partial<SavedAchievement>;
+    ok =
+      typeof data.id === "string" &&
+      typeof data.at === "number" &&
+      Number.isFinite(data.at);
+  }
+  return ok;
+}
+
+/** Whether a value is a plain object whose every value passes a test. */
+function isRecordOf(
+  value: unknown,
+  test: (entry: unknown) => boolean,
+): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every(test)
+  );
+}
+
+/** Whether a value is a list of texts. */
+function isTextList(value: unknown): boolean {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
+
+/** Whether a value is a count: a finite number. */
+function isCount(value: unknown): boolean {
+  return typeof value === "number" && Number.isFinite(value);
 }

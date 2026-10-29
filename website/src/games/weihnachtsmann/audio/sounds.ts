@@ -1,7 +1,8 @@
 /**
  * Short synthesised sounds: the door, an Advent gate, the toy machine, a
- * growling guitar riff, a drum fill, a spooky organ chord and the sleigh bells
- * - oscillators and filtered noise only, every tune made up for this game,
+ * growling guitar riff, a drum fill, a spooky organ chord, the sleigh bells,
+ * and for the abilities a wish chime, a magic shimmer, the telescope's
+ * zoom and a thud - oscillators and filtered noise only, every tune made up for this game,
  * all of it quiet. Minigames bring their own recipes.
  *
  * @module
@@ -152,6 +153,101 @@ const RECIPES: Readonly<Record<SoundId, Recipe>> = {
   sleighLand: {
     noise: [...bells(6, 0), [0.25, 0, 300, 0.6]],
     tones: [["triangle", 160, 90, 0.18, 0, 0.6]],
+  },
+  wish: {
+    noise: bells(3, 0.05),
+    tones: [
+      ["sine", 1047, 1047, 0.35, 0, 0.5],
+      ["sine", 1319, 1319, 0.35, 0.12, 0.5],
+      ["sine", 1568, 1568, 0.35, 0.24, 0.5],
+      ["sine", 2093, 2093, 0.7, 0.36, 0.45],
+      ["triangle", 523, 523, 0.9, 0, 0.25],
+    ],
+  },
+  magic: {
+    noise: [[0.5, 0, 5200, 0.25]],
+    tones: [
+      ["sine", 500, 1600, 0.6, 0, 0.45],
+      ["triangle", 1175, 1175, 0.12, 0.3, 0.35],
+      ["triangle", 1480, 1480, 0.12, 0.4, 0.35],
+      ["triangle", 1760, 1760, 0.3, 0.5, 0.35],
+    ],
+  },
+  spyglass: {
+    noise: [[0.05, 0, 2400, 0.5]],
+    tones: [
+      ["triangle", 380, 760, 0.3, 0.02, 0.5],
+      ["triangle", 760, 380, 0.25, 4.9, 0.4],
+    ],
+  },
+  thud: {
+    noise: [[0.22, 0, 260, 1]],
+    tones: [
+      ["sine", 130, 38, 0.3, 0, 1],
+      ["triangle", 90, 50, 0.2, 0.02, 0.6],
+    ],
+  },
+  // A bright little fanfare with bells: an achievement unlocked.
+  achievement: {
+    noise: bells(4, 0.36),
+    tones: [
+      ["square", 659, 659, 0.1, 0, 0.35],
+      ["square", 784, 784, 0.1, 0.1, 0.35],
+      ["square", 988, 988, 0.1, 0.2, 0.35],
+      ["triangle", 1319, 1319, 0.45, 0.3, 0.5],
+      ["triangle", 659, 659, 0.45, 0.3, 0.3],
+      ["sine", 1976, 1976, 0.3, 0.42, 0.25],
+    ],
+  },
+  // Metal giving way: a bang, a falling whine and a boing.
+  crash: {
+    noise: [
+      [0.35, 0, 900, 1],
+      [0.2, 0.25, 3200, 0.5],
+    ],
+    tones: [
+      ["sawtooth", 220, 55, 0.5, 0, 0.5],
+      ["square", 140, 70, 0.2, 0.05, 0.4],
+      ["sine", 300, 900, 0.18, 0.5, 0.35],
+      ["sine", 900, 400, 0.25, 0.68, 0.3],
+    ],
+  },
+  // A few hammer clinks.
+  repair: {
+    noise: [
+      [0.04, 0, 5000, 0.6],
+      [0.04, 0.3, 5000, 0.6],
+      [0.04, 0.6, 5000, 0.6],
+      [0.04, 0.9, 5000, 0.6],
+    ],
+    tones: [
+      ["triangle", 1800, 1700, 0.08, 0, 0.4],
+      ["triangle", 2000, 1900, 0.08, 0.3, 0.4],
+      ["triangle", 1800, 1700, 0.08, 0.6, 0.4],
+      ["triangle", 2200, 2100, 0.1, 0.9, 0.4],
+    ],
+  },
+  // The click of a lamp switch.
+  lamp: {
+    noise: [[0.03, 0, 3000, 0.7]],
+    tones: [["square", 900, 600, 0.04, 0, 0.3]],
+  },
+  // A splash and a happy blip.
+  splash: {
+    noise: [[0.3, 0, 1400, 0.8]],
+    tones: [
+      ["sine", 400, 1200, 0.12, 0.02, 0.4],
+      ["triangle", 988, 988, 0.1, 0.2, 0.4],
+      ["triangle", 1319, 1319, 0.2, 0.3, 0.4],
+    ],
+  },
+  // A bright chime: something picked up.
+  collect: {
+    tones: [
+      ["sine", 1175, 1175, 0.12, 0, 0.5],
+      ["sine", 1568, 1568, 0.12, 0.08, 0.5],
+      ["sine", 2349, 2349, 0.3, 0.16, 0.45],
+    ],
   },
 };
 /* eslint-enable @typescript-eslint/no-magic-numbers */

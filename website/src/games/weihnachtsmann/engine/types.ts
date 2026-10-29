@@ -70,6 +70,27 @@ export type Brain = {
   stuck: number;
 };
 
+/** The abilities that play out over a few seconds once started. */
+export const SHOW_KINDS = [
+  "wishes",
+  "guitar",
+  "telescope",
+  "levitate",
+  "fall",
+] as const;
+
+/** One of the abilities that play out over a few seconds. */
+export type ShowKind = (typeof SHOW_KINDS)[number];
+
+/** An ability playing out on somebody right now. */
+export type Show = {
+  readonly kind: ShowKind;
+  /** Seconds since it began. */
+  elapsed: number;
+  /** Seconds until its next sparkle, note or bump. */
+  tickIn: number;
+};
+
 /** A speech bubble over somebody's head. */
 export type Bubble = {
   readonly text: string;
@@ -105,11 +126,17 @@ export type Character = {
   bubble: Bubble | null;
   /** Seconds until the next sparkle leaves a flying Trixi. */
   sparkleIn: number;
+  /** The ability playing out on it, or null. */
+  show: Show | null;
+  /** Seconds until the ability can be used again. */
+  cooldown: number;
+  /** Seconds left of a startled little jump. */
+  hop: number;
 };
 
 /** What a particle looks like. */
 export type ParticleKind =
-  "sparkle" | "poof" | "smoke" | "snowPuff" | "note" | "steam";
+  "sparkle" | "poof" | "smoke" | "snowPuff" | "note" | "steam" | "soot";
 
 /** A short-lived bit of decoration. */
 export type Particle = {
@@ -124,6 +151,40 @@ export type Particle = {
   readonly life: number;
   /** Which colour of sparkle, 0 to 3, or which note. */
   readonly tint: number;
+};
+
+/**
+ * Something Gilfi makes float: a small object of the map lifted from its cell,
+ * or a conjured toy.
+ */
+export type Floater = {
+  /** The place it floats in. */
+  readonly area: AreaId;
+  /** Where it rests, map px: the middle of its foot line. */
+  readonly x: number;
+  readonly y: number;
+  /** The map cell whose small object is lifted, or -1 for a conjured toy. */
+  readonly cell: number;
+  /** The toy conjured, or null for a lifted map object. */
+  readonly toy: ToyKind | null;
+  /** Where in its bobbing it starts, radians. */
+  readonly phase: number;
+  /** Seconds since it began to rise; below zero it still waits its turn. */
+  age: number;
+  /** Seconds from rising to resting again. */
+  readonly life: number;
+};
+
+/** Gugor looking through his telescope at the Weihnachtsmann. */
+export type Spyglass = {
+  /** Seconds since he raised it. */
+  elapsed: number;
+  /** Index of Gugor. */
+  readonly watcher: number;
+  /** Whether the Weihnachtsmann is in another place: the view crosses over. */
+  readonly far: boolean;
+  /** Whether the view is on the Weihnachtsmann right now. */
+  watching: boolean;
 };
 
 /** A placed map object bigger than a cell, such as a house. */
@@ -215,7 +276,10 @@ export type SpotKind =
   | "amp"
   | "drums"
   | "organ"
-  | "portrait";
+  | "portrait"
+  | "lamp"
+  | "snowman"
+  | "dig";
 
 /** Something to use with the talk key. */
 export type Spot = CellBox & { readonly kind: SpotKind };
@@ -318,7 +382,127 @@ export type SoundId =
   | "drums"
   | "organ"
   | "sleighStart"
-  | "sleighLand";
+  | "sleighLand"
+  | "wish"
+  | "magic"
+  | "spyglass"
+  | "thud"
+  | "achievement"
+  | "crash"
+  | "repair"
+  | "lamp"
+  | "splash"
+  | "collect";
+
+/** The achievements one can unlock, in the order of the achievements panel. */
+export const ACHIEVEMENT_IDS = [
+  "fish",
+  "roofGift",
+  "rudolfLap",
+  "wishesAll",
+  "machineBroken",
+  "machineFixed",
+  "grantelConcert",
+  "spyWorkshop",
+  "spySleigh",
+  "levitateSnowman",
+  "balboIce",
+  "balboTen",
+  "balboSnowman",
+  "mouseFence",
+  "bearDrift",
+  "birdChimney",
+  "hareRace",
+  "foxDig",
+  "sleighRide",
+  "lampFirst",
+  "lampsAll",
+  "snowmanDown",
+  "snowmanBuilt",
+  "instruments",
+  "toys10",
+  "grantelVisit",
+  "allInWorkshop",
+  "firstGate",
+  "allGates",
+] as const;
+
+/** One of the achievements. */
+export type AchievementId = (typeof ACHIEVEMENT_IDS)[number];
+
+/** What is collected bit by bit for an achievement and kept between visits. */
+export const PROGRESS_IDS = ["wishes", "instruments"] as const;
+
+/** One kind of collected progress. */
+export type ProgressId = (typeof PROGRESS_IDS)[number];
+
+/** What is counted for an achievement and kept between visits. */
+export const COUNT_IDS = ["falls", "toys"] as const;
+
+/** One kind of counted progress. */
+export type CountId = (typeof COUNT_IDS)[number];
+
+/** The banner of an achievement just unlocked, on its way across the picture. */
+export type Toast = {
+  readonly id: AchievementId;
+  /** Seconds on screen; it waits at 0 while an earlier banner shows. */
+  age: number;
+};
+
+/** The fish in the pond's open water. */
+export type FishSpot = {
+  /** The water cell it swims in. */
+  cell: number;
+  /** Seconds until it is back after being caught; 0 while it is there. */
+  away: number;
+  /** Seconds until its next jump. */
+  jumpIn: number;
+  /** Seconds into the jump it is making, or -1 between jumps. */
+  jump: number;
+};
+
+/** The toy machine: working, or broken and waiting for an elf. */
+export type MachineState = {
+  broken: boolean;
+  /** Seconds until it mends itself while broken. */
+  mendIn: number;
+  /** Seconds left of an elf's repair, or 0 when nobody repairs it. */
+  repair: number;
+  /** Index of the elf repairing it. */
+  repairer: number;
+  /** Seconds until the next spark or puff of soot while broken. */
+  sparkIn: number;
+};
+
+/**
+ * What the characters changed in the world - lamps switched off, snowmen
+ * knocked over, drifts ploughed flat, the fish caught, the present taken, the
+ * machine broken. Every change mends itself after a while; none is saved.
+ */
+export type World = {
+  /** Lamps switched off, by cell, in the order they went dark. */
+  readonly lampsOff: number[];
+  /** Seconds since the last lamp was switched off. */
+  lampQuiet: number;
+  /** Seconds until the next dark lamp lights up again, once it is quiet. */
+  relightIn: number;
+  /** Lamps flickering back on: cell to seconds left of the flicker. */
+  readonly flicker: Map<number, number>;
+  /** Snowmen knocked over: cell to seconds until they stand again. */
+  readonly snowmenDown: Map<number, number>;
+  /** Drifts ploughed flat: cell to seconds until they are back. */
+  readonly driftsFlat: Map<number, number>;
+  readonly fish: FishSpot;
+  /** Seconds until a new present lies on the dome; 0 while it is there. */
+  giftAway: number;
+  readonly machine: MachineState;
+  /** The corners of the map Rudolf has passed in this flight, 0 to 3. */
+  readonly lap: Set<number>;
+  /** When the hare last stood at the workshop door, game seconds, or null. */
+  hareFrom: number | null;
+  /** Seconds until the snow twitches again over the fox's secret. */
+  sniffIn: number;
+};
 
 /** The open animal choice. */
 export type AnimalMenu = {
@@ -379,6 +563,10 @@ export type GameState = {
   sleigh: SleighRide | null;
   /** Toys on their way into the sack. */
   readonly toys: FlyingToy[];
+  /** Gugor's look through the telescope, or null. */
+  spy: Spyglass | null;
+  /** What Gilfi makes float. */
+  readonly floats: Floater[];
   /** Sounds to play, taken by the screen each frame. */
   readonly sounds: SoundId[];
   /** Numbers of the Advent gates whose minigame has been won. */
@@ -392,6 +580,18 @@ export type GameState = {
   gateLatch: boolean;
   /** Today, set by the screen: in December the gates open one per day. */
   today: CalendarDay;
+  /** The time of day, epoch ms, set by the screen: when an achievement came. */
+  now: number;
+  /** What the characters changed in the world, mending itself. */
+  readonly world: World;
+  /** Achievements unlocked, with when, epoch ms. */
+  readonly achieved: Map<AchievementId, number>;
+  /** What has been collected towards an achievement. */
+  readonly progress: Readonly<Record<ProgressId, Set<string>>>;
+  /** What has been counted towards an achievement. */
+  readonly counts: Record<CountId, number>;
+  /** Banners of achievements just unlocked, the first on screen. */
+  readonly toasts: Toast[];
 };
 
 /** What is kept between visits. */
@@ -400,6 +600,20 @@ export type SaveData = {
   readonly chars: readonly SavedCharacter[];
   /** Numbers of the Advent gates won; missing in saves from before the gates. */
   readonly gates?: readonly number[];
+  /** Achievements unlocked; missing in saves from before the achievements. */
+  readonly achievements?: readonly SavedAchievement[];
+  /** What has been collected towards achievements, by kind. */
+  readonly progress?: Readonly<Partial<Record<ProgressId, readonly string[]>>>;
+  /** What has been counted towards achievements, by kind. */
+  readonly counts?: Readonly<Partial<Record<CountId, number>>>;
+};
+
+/** One achievement as saved. */
+export type SavedAchievement = {
+  /** Which; unknown ids from other versions are dropped on loading. */
+  readonly id: string;
+  /** When it was unlocked, epoch ms. */
+  readonly at: number;
 };
 
 /** One character as saved. */

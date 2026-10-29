@@ -1,6 +1,7 @@
 /**
  * What the characters do when nobody steers them: stand about, stroll to a
- * free spot nearby, chat now and then, and land when they were left flying.
+ * free spot nearby, chat now and then, land when they were left flying, and
+ * now and then show off their ability (Balbo trips, Grantelbart strums).
  *
  * @module
  */
@@ -10,6 +11,7 @@ import { say, snowPuff } from "./effects";
 import { areaMap, fits } from "./map";
 import { currentProfile, moveCharacter } from "./movement";
 import { nextRandom, pick, randomIn } from "./random";
+import { showOffMaybe } from "./shows";
 import type { Character, GameState } from "./types";
 
 /** Strolling speed, as a share of full speed. */
@@ -64,6 +66,7 @@ export function wander(state: GameState, char: Character, dt: number): void {
       snowPuff(state, char.area, char.x, char.y);
     }
   }
+  showOffMaybe(state, char, dt);
   if (brain.mode === "rest") {
     moveCharacter(map, char, 0, 0, dt);
     brain.timer -= dt;
