@@ -66,6 +66,7 @@ export const TRAIT_NAMES: Readonly<Record<string, string>> = {
   hat: "\u{1F3A9} Hut",
   noble: "\u{1F451} Adlig",
   knight: "\u{1F6E1}\uFE0F Ritter",
+  roman: "\u{1F3DB}\uFE0F R\u00F6misch",
   villager: "\u{1F33E} Dorfbewohner",
   visitor: "Besucher",
   zookeeper: "Tierpfleger",

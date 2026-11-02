@@ -70,28 +70,118 @@ import {
   type ObjectName,
   type SpriteRect,
 } from "./sprite-atlas";
+import { BUILDINGS, type BuildingName } from "./building-atlas";
+import { OUTDOOR, type OutdoorName } from "./outdoor-atlas";
+import {
+  collectEast,
+  drawEastProp,
+  drawEastTexts,
+  drawErrandArrow,
+  drawLightStrings,
+  eastLights,
+  eastPicture,
+  riderLift,
+} from "./render-east";
+import {
+  collectJetskis,
+  drawJetskiSigns,
+  jetskiLift,
+  jetskiLights,
+} from "./render-jetski";
+import { drawNight, drawSky, lightBoost } from "./render-sky";
+import {
+  collectTown,
+  drawReading,
+  drawTownLabels,
+  drawTownProp,
+  pileLook,
+  townLights,
+} from "./render-town";
+import { drawOverview, drawOverviewLabels } from "./render-overview";
 import { blit, snap, type Art } from "./sprites";
 
 /** Half a cell, map px. */
 const HALF = TILE / 2;
 
+/** A carousel rider is drawn just in front of its horse, map px deeper. */
+const RIDER_DEPTH = 0.2;
+
 /** Extra rows below the view whose tall trees still reach into it. */
 const TALL_ROWS = 4;
 
-/** How each small object is placed in its cell: sprite and nudge down. */
-const SMALL_ART: Readonly<
-  Record<SmallObjectKind, { readonly sprite: ObjectName; readonly dy: number }>
-> = {
-  tree: { sprite: "tree", dy: 1 },
-  smallTree: { sprite: "smallTree", dy: 1 },
-  rock: { sprite: "rock", dy: 1 },
-  drift: { sprite: "drift", dy: 1 },
-  snowman: { sprite: "snowman", dy: 0 },
-  lamp: { sprite: "lamp", dy: 0 },
-  gifts: { sprite: "gifts", dy: 0 },
-  deadBush: { sprite: "deadBush", dy: 1 },
-  crookedSign: { sprite: "crookedSign", dy: 0 },
+/** Which sheet a picture is on. */
+type SheetName = "world" | "buildings" | "outdoor";
+
+/** A picture of the map: its sheet, where it sits there, and a nudge down. */
+type Picture = {
+  readonly sheet: SheetName;
+  readonly rect: SpriteRect;
+  readonly dy: number;
 };
+
+/**
+ * A picture on the world sheet.
+ *
+ * @param name - its name in the atlas
+ * @param dy - how far it stands lower than its foot line, map px
+ * @returns the picture
+ */
+function world(name: ObjectName, dy = 0): Picture {
+  return { sheet: "world", rect: OBJECTS[name], dy };
+}
+
+/**
+ * A picture on the buildings sheet.
+ *
+ * @param name - its name in the atlas
+ * @param dy - how far it stands lower than its foot line, map px
+ * @returns the picture
+ */
+function town(name: BuildingName, dy = 0): Picture {
+  return { sheet: "buildings", rect: BUILDINGS[name], dy };
+}
+
+/**
+ * A picture on the outdoor sheet.
+ *
+ * @param name - its name in the atlas
+ * @param dy - how far it stands lower than its foot line, map px
+ * @returns the picture
+ */
+function outdoor(name: OutdoorName, dy = 0): Picture {
+  return { sheet: "outdoor", rect: OUTDOOR[name], dy };
+}
+
+/** How each small object is placed in its cell: picture and nudge down. */
+const SMALL_ART: Readonly<Record<SmallObjectKind, Picture>> = {
+  tree: world("tree", 1),
+  smallTree: world("smallTree", 1),
+  rock: world("rock", 1),
+  drift: world("drift", 1),
+  snowman: world("snowman"),
+  lamp: world("lamp"),
+  gifts: world("gifts"),
+  deadBush: world("deadBush", 1),
+  crookedSign: world("crookedSign"),
+  parcels: town("parcels0"),
+  parcelGap: town("parcelGap"),
+  flag: outdoor("flagRed"),
+  lightPole: outdoor("lightPole"),
+};
+
+/** The slalom flags on the slope, one picked per cell. */
+const FLAG_ART: readonly Picture[] = [outdoor("flagRed"), outdoor("flagBlue")];
+
+/** A felled young fir: its stump. */
+const STUMP = outdoor("stump", 1);
+
+/** The parcel stacks of the gift store, one picked per cell. */
+const PARCEL_ART: readonly Picture[] = [
+  town("parcels0"),
+  town("parcels1"),
+  town("parcels2"),
+  town("parcels3"),
+];
 
 /** What a small object looks like once changed: a dark lamp, a heap, a flat drift. */
 const CHANGED_ART: Readonly<Partial<Record<SmallObjectKind, ObjectName>>> = {
@@ -101,33 +191,82 @@ const CHANGED_ART: Readonly<Partial<Record<SmallObjectKind, ObjectName>>> = {
 };
 
 /** The picture of each big object; the sleigh stands a little low. */
-const BIG_ART: Readonly<
-  Record<BigObjectKind, { readonly sprite: ObjectName; readonly dy: number }>
-> = {
-  dome: { sprite: "dome", dy: 0 },
-  paintedTree: { sprite: "paintedTree", dy: 0 },
-  sleigh: { sprite: "sleigh", dy: 2 },
-  grantelMain: { sprite: "grantelMain", dy: 0 },
-  grantelWing: { sprite: "grantelWing", dy: 0 },
-  toyMachine: { sprite: "toyMachine", dy: 0 },
-  workbench: { sprite: "workbench", dy: 0 },
-  toyShelf: { sprite: "toyShelf", dy: 0 },
-  toyShelfLadder: { sprite: "toyShelfLadder", dy: 0 },
-  armchair: { sprite: "armchair", dy: 0 },
-  fireplace: { sprite: "fireplace", dy: 0 },
-  wishBoard: { sprite: "wishBoard", dy: 0 },
-  ampStack: { sprite: "ampStack", dy: 0 },
-  drumKit: { sprite: "drumKit", dy: 0 },
-  guitarStand: { sprite: "guitarStand", dy: 0 },
-  organ: { sprite: "organ", dy: 0 },
-  candelabra: { sprite: "candelabra", dy: 0 },
-  creepyChair: { sprite: "creepyChair", dy: 0 },
+const BIG_ART: Readonly<Record<BigObjectKind, Picture>> = {
+  dome: world("dome"),
+  paintedTree: world("paintedTree"),
+  sleigh: world("sleigh", 2),
+  grantelMain: world("grantelMain"),
+  grantelWing: world("grantelWing"),
+  toyMachine: world("toyMachine"),
+  workbench: world("workbench"),
+  toyShelf: world("toyShelf"),
+  toyShelfLadder: world("toyShelfLadder"),
+  armchair: world("armchair"),
+  fireplace: world("fireplace"),
+  wishBoard: world("wishBoard"),
+  ampStack: world("ampStack"),
+  drumKit: world("drumKit"),
+  guitarStand: world("guitarStand"),
+  organ: world("organ"),
+  candelabra: world("candelabra"),
+  creepyChair: world("creepyChair"),
+  cinema: world("cinema"),
+  stableHouse: town("stableHouse"),
+  postHouse: town("postHouse"),
+  bakeryHouse: town("bakeryHouse"),
+  observatory: town("observatory"),
+  storeHouse: town("storeHouse"),
+  stableGate: town("stableGate"),
+  carrotTrough: town("carrotTrough"),
+  strawBed: town("strawBed"),
+  hayBales: town("hayBales"),
+  sortShelf: town("sortShelf"),
+  letterPile: town("letterPile3"),
+  postDesk: town("postDesk"),
+  mailSacks: town("mailSacks"),
+  oven: town("oven"),
+  doughTable: town("doughTable"),
+  trayTable: town("trayTable"),
+  coolRack: town("coolRack"),
+  flourSacks: town("flourSacks"),
+  bigTelescope: town("bigTelescope"),
+  starDesk: town("starDesk"),
+  globe: town("globe"),
+  bookshelf: town("bookshelf"),
+  stallPunch: outdoor("stallPunch"),
+  stallGinger: outdoor("stallGinger"),
+  stallChestnut: outdoor("stallChestnut"),
+  carousel: outdoor("carouselBase"),
+  waterfall: outdoor("waterfall"),
+  sledStack: outdoor("sledStack"),
+  startBanner: outdoor("startBanner"),
+  finishBanner: outdoor("finishBanner"),
+  target: outdoor("target"),
+  mailbox: outdoor("mailbox"),
+  treeStand: outdoor("treeStand"),
+  crystalBig: outdoor("crystalBig"),
+  crystalSmall: outdoor("crystalSmall"),
+  crystalViolet: outdoor("crystalViolet"),
 };
 
+/** The heap of letters by how many are left: empty basket up to a mountain. */
+const PILE_ART: readonly Picture[] = [
+  town("letterPile0"),
+  town("letterPile1"),
+  town("letterPile2"),
+  town("letterPile3"),
+];
+
 /** The room picture of each place indoors; outside is drawn from tiles. */
-const ROOMS: Readonly<Partial<Record<AreaId, ObjectName>>> = {
-  workshop: "workshopRoom",
-  grantelHouse: "grantelRoom",
+const ROOMS: Readonly<Partial<Record<AreaId, Picture>>> = {
+  workshop: world("workshopRoom"),
+  grantelHouse: world("grantelRoom"),
+  stable: town("stableRoom"),
+  postOffice: town("postRoom"),
+  bakery: town("bakeryRoom"),
+  observatory: town("observatoryRoom"),
+  giftStore: town("storeRoom"),
+  iceCave: outdoor("iceCaveRoom"),
 };
 
 /** What shows round a room that is smaller than the view. */
@@ -176,6 +315,20 @@ const SPARKLES: readonly (readonly [EffectName, EffectName])[] = [
 
 /** Radius of the shimmer round a sparkle, map px. */
 const SPARKLE_HALO = 3;
+
+/** Sprinkle colours on flung cookies. */
+const SPRINKLES: readonly string[] = [
+  "#ff6a8a",
+  "#6ad0ff",
+  "#fff2a0",
+  "#ffffff",
+];
+
+/**
+ * Spray colours behind a jetski: snow (shaded, to show on the white), ice
+ * dust, water.
+ */
+const SPRAY_COLORS: readonly string[] = ["#bccce6", "#ffffff", "#e8f8ff"];
 
 /** Poof frames. */
 const POOF: readonly EffectName[] = ["poof0", "poof1", "poof2"];
@@ -245,6 +398,7 @@ export function drawFrame(
   const shown = state.chars.filter(
     (char) => char.area === state.viewArea && !isRiding(state, char),
   );
+  const outside = map.area === "outdoors";
   drawGround(ctx, map, art, cx, cy, view);
   for (const object of map.objects) {
     if (FLAT_OBJECTS.has(object.kind)) {
@@ -263,13 +417,20 @@ export function drawFrame(
   collectMap(ctx, state, map, art, cx, cy, view, items);
   collectGates(ctx, state, map, art, items);
   collectWorld(ctx, state, map, art, items);
+  collectTown(ctx, state, map, art, items);
+  collectEast(ctx, state, map, art, items);
+  collectJetskis(ctx, state, map, art, items);
   collectFloaters(ctx, state, art, items);
   const sky = map.rows * TILE;
   for (const char of shown) {
+    const lift = riderLift(state, char) + jetskiLift(state, char);
     items.push({
-      depth: char.altitude > 1 ? char.y + sky : char.y,
+      depth:
+        char.altitude > 1
+          ? char.y + sky
+          : char.y + (lift > 0 ? RIDER_DEPTH : 0),
       draw: () => {
-        drawCharacter(ctx, char, art, state.time);
+        drawCharacter(ctx, char, art, state.time, lift);
       },
     });
   }
@@ -285,12 +446,14 @@ export function drawFrame(
   for (const item of items) {
     item.draw();
   }
+  drawLightStrings(ctx, state);
   drawFlyingToys(ctx, art, state);
   drawRepair(ctx, state, art);
   if (map.shade !== null) {
     ctx.fillStyle = map.shade;
     ctx.fillRect(cx, cy, view.w, view.h);
   }
+  drawNight(ctx, state, cx, cy);
   drawGlows(ctx, state, map, cx, cy, view);
   for (const particle of state.particles) {
     if (particle.area === state.viewArea) {
@@ -298,13 +461,17 @@ export function drawFrame(
     }
   }
   drawWishes(ctx, state, art, glow);
+  drawReading(ctx, state, art);
   drawDizzy(ctx, state, art);
   drawMarker(ctx, state, art);
   ctx.restore();
-  if (map.area === "outdoors") {
+  if (outside) {
     drawSnowfall(ctx, state.time, cx, cy, view);
+    drawSky(ctx, state, cx, cy);
   }
+  drawErrandArrow(ctx, state, cx, cy);
   drawLens(ctx, state, view);
+  drawOverview(ctx, state, art);
   const dark = fadeDarkness(state);
   if (dark > 0) {
     ctx.fillStyle = `rgba(6, 4, 12, ${String(dark)})`;
@@ -337,11 +504,14 @@ export function drawBubbles(
     if (
       char.bubble !== null &&
       state.fade === null &&
+      state.overview === null &&
       char.area === state.viewArea
     ) {
       const height = currentProfile(char).height;
       let x = (char.x - cx) * scale;
-      let y = (char.y - char.altitude - height - HEAD_GAP * 2 - cy) * scale;
+      const seat = jetskiLift(state, char);
+      let y =
+        (char.y - char.altitude - seat - height - HEAD_GAP * 2 - cy) * scale;
       if (ride !== null && isRiding(state, char)) {
         // In the sleigh: the words come from the sleigh.
         x = (ride.x - cx) * scale;
@@ -350,11 +520,20 @@ export function drawBubbles(
       bubble(ctx, char.bubble.text, x, y, scale);
     }
   }
-  if (state.spy === null) {
+  if (state.spy === null && state.overview === null) {
     drawKeyHint(ctx, state, scale, cx, cy);
   }
   drawGateHints(ctx, state, scale, cx, cy);
+  drawTownLabels(ctx, state, scale, cx, cy);
+  drawJetskiSigns(ctx, state, scale, cx, cy);
+  drawEastTexts(ctx, state, scale, cx, cy, (text, x, y) => {
+    ctx.font = `bold ${String(Math.round(BUBBLE_FONT * scale))}px system-ui, sans-serif`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    bubble(ctx, text, x, y, scale);
+  });
   ctx.restore();
+  drawOverviewLabels(ctx, state, scale);
   drawSpyCaption(ctx, state, scale);
   drawToast(ctx, state, art, scale);
 }
@@ -416,7 +595,7 @@ function drawGround(
   if (room !== undefined) {
     ctx.fillStyle = ROOM_SURROUND;
     ctx.fillRect(cx, cy, view.w, view.h);
-    blit(ctx, art.world, OBJECTS[room], 0, 0);
+    blit(ctx, art[room.sheet], room.rect, 0, 0);
   } else {
     drawSnow(ctx, map, art, cx, cy, view);
   }
@@ -508,12 +687,12 @@ function collectMap(
       const small = map.small[index];
       const bits = map.fence[index];
       if (small !== null) {
-        const place = SMALL_ART[small];
-        const changed =
-          smallLook(state, map.area, index, small) === "changed"
-            ? CHANGED_ART[small]
-            : undefined;
-        const rect = OBJECTS[changed ?? place.sprite];
+        const look = smallLook(state, map.area, index, small);
+        const changed = look === "changed" ? CHANGED_ART[small] : undefined;
+        const felled = look === "changed" && small === "smallTree";
+        const place = smallPicture(small, changed, felled, tx, ty);
+        const rect = place.rect;
+        const sheet = art[place.sheet];
         const bottom = (ty + 1) * TILE;
         const lift = lifts.get(index) ?? 0;
         items.push({
@@ -521,7 +700,7 @@ function collectMap(
           draw: () => {
             blit(
               ctx,
-              art.world,
+              sheet,
               rect,
               tx * TILE + HALF - rect[2] / 2,
               bottom - rect[3] + place.dy - lift,
@@ -559,6 +738,30 @@ function collectMap(
   }
 }
 
+/**
+ * The picture of a small object in a cell: as built, changed, a stack, a
+ * flag of either colour, or the stump of a felled fir.
+ */
+function smallPicture(
+  small: SmallObjectKind,
+  changed: ObjectName | undefined,
+  felled: boolean,
+  tx: number,
+  ty: number,
+): Picture {
+  let picture = SMALL_ART[small];
+  if (felled) {
+    picture = STUMP;
+  } else if (changed !== undefined) {
+    picture = world(changed, picture.dy);
+  } else if (small === "parcels") {
+    picture = PARCEL_ART[hash(tx, ty) % PARCEL_ART.length];
+  } else if (small === "flag") {
+    picture = FLAG_ART[hash(tx, ty) % FLAG_ART.length];
+  }
+  return picture;
+}
+
 /** One big object: its picture centred on its footprint, and what moves on it. */
 function drawBig(
   ctx: CanvasRenderingContext2D,
@@ -567,19 +770,36 @@ function drawBig(
   object: PlacedObject,
 ): void {
   const size = footprint(object.kind);
-  const place = BIG_ART[object.kind];
-  const rect = OBJECTS[place.sprite];
+  const place = bigPicture(state, object);
+  const rect = place.rect;
   const left = object.tx * TILE + (size.cols * TILE - rect[2]) / 2;
   const bottom = (object.ty + size.rows) * TILE + place.dy;
-  blit(ctx, art.world, rect, left, bottom - rect[3]);
+  blit(ctx, art[place.sheet], rect, left, bottom - rect[3]);
   drawProp(ctx, art, state, object.kind, left, bottom);
+  drawTownProp(ctx, art, state, object.kind, left, bottom);
+  drawEastProp(ctx, art, state, object.kind, left, bottom);
+}
+
+/**
+ * The picture of a big object right now: the heap of letters shrinks, the
+ * mailbox raises its flag, a target wobbles, the tree stand holds a tree.
+ */
+function bigPicture(state: GameState, object: PlacedObject): Picture {
+  let picture = BIG_ART[object.kind];
+  const east = eastPicture(state, object);
+  if (object.kind === "letterPile") {
+    picture = PILE_ART[pileLook(state)];
+  } else if (east !== null) {
+    picture = { ...picture, rect: east };
+  }
+  return picture;
 }
 
 /** Where a big object's picture has its bottom left corner. */
 function bigCorner(object: PlacedObject): { x: number; y: number } {
   const size = footprint(object.kind);
   const place = BIG_ART[object.kind];
-  const rect = OBJECTS[place.sprite];
+  const rect = place.rect;
   return {
     x: object.tx * TILE + (size.cols * TILE - rect[2]) / 2,
     y: (object.ty + size.rows) * TILE + place.dy,
@@ -640,6 +860,7 @@ function drawCharacter(
   char: Character,
   art: Art,
   time: number,
+  lift: number,
 ): void {
   const figure = FIGURES[char.form ?? char.id];
   const side = char.dir === "left" || char.dir === "right";
@@ -658,11 +879,31 @@ function drawCharacter(
     index = Math.floor((time + phase) * FLY_FPS);
   } else if (slide !== undefined && char.onIce && char.moving) {
     frames = slide;
-  } else if (char.moving) {
+  } else if (char.moving && lift <= 0) {
+    // Seated on a horse or a jetski the legs keep still.
     frames = poses.walk;
     index = Math.floor(char.stride) % WALK_FRAMES;
   }
   const rect = showFrame(char, poses, time) ?? frames[index % frames.length];
+  if (char.show?.kind === "nap") {
+    // Curled up in the straw instead of standing.
+    const sleep = BUILDINGS.rudolfSleep;
+    blit(ctx, art.buildings, sleep, char.x - sleep[2] / 2, char.y - sleep[3]);
+  } else {
+    drawStanding(ctx, char, art, time, figure.anchor, rect, lift);
+  }
+}
+
+/** One character standing, walking or flying, Rudolf's nose aglow. */
+function drawStanding(
+  ctx: CanvasRenderingContext2D,
+  char: Character,
+  art: Art,
+  time: number,
+  anchor: readonly [number, number],
+  rect: SpriteRect,
+  lift: number,
+): void {
   const nose = noseOf(char);
   if (nose !== null) {
     // The red light falls round him, under the sprite ...
@@ -680,8 +921,8 @@ function drawCharacter(
     ctx,
     art.figures,
     rect,
-    char.x - figure.anchor[0],
-    char.y - figure.anchor[1] - char.altitude - hopLift(char),
+    char.x - anchor[0],
+    char.y - anchor[1] - char.altitude - hopLift(char) - lift,
     char.dir === "left",
   );
   if (nose !== null) {
@@ -720,14 +961,17 @@ function drawGlows(
 ): void {
   // Plain blending, not additive: added light vanishes on white snow, a
   // warm or red tint shows.
-  const glow: GlowFn = (x, y, radius, rgb, strength) => {
+  // Outside the lights are faint by day and bright at night.
+  const boost = lightBoost(state);
+  const glow: GlowFn = (x, y, size, rgb, power) => {
+    const radius = size * boost.reach;
     if (
       x > cx - radius &&
       x < cx + view.w + radius &&
       y > cy - radius &&
       y < cy + view.h + radius
     ) {
-      glowAt(ctx, x, y, radius, rgb, strength);
+      glowAt(ctx, x, y, radius, rgb, Math.min(1, power * boost.strength));
     }
   };
   for (const object of map.objects) {
@@ -735,6 +979,9 @@ function drawGlows(
     propLights(glow, state.time, object.kind, corner.x, corner.y);
   }
   drawPortraitEyes(ctx, state);
+  townLights(glow, state);
+  eastLights(glow, state);
+  jetskiLights(glow, state);
   const lamp = OBJECTS.lamp;
   const flicker = 1 + Math.sin(state.time * LAMP_FLICKER) * LAMP_FLICKER_SIZE;
   for (let ty = 0; ty < map.rows; ty += 1) {
@@ -752,7 +999,7 @@ function drawGlows(
           y > cy - LAMP_GLOW &&
           y < cy + view.h + LAMP_GLOW
         ) {
-          glowAt(ctx, x, y, LAMP_GLOW * flicker, "255, 190, 80", LAMP_STRENGTH);
+          glow(x, y, LAMP_GLOW * flicker, "255, 190, 80", LAMP_STRENGTH);
         }
       }
     }
@@ -864,6 +1111,46 @@ function drawParticle(
       ctx.fill();
       break;
     }
+    case "cookie": {
+      ctx.fillStyle = "#6a3e1e";
+      ctx.fillRect(snap(particle.x - 1.5), snap(particle.y - 1.5), 3, 3);
+      ctx.fillStyle = "#d8964a";
+      ctx.fillRect(snap(particle.x - 1), snap(particle.y - 1), 2, 2);
+      ctx.fillStyle = SPRINKLES[particle.tint % SPRINKLES.length];
+      ctx.fillRect(snap(particle.x - 0.5), snap(particle.y - 1), 0.5, 0.5);
+      break;
+    }
+    case "flour": {
+      const radius = 2 + t * 6;
+      ctx.fillStyle = `rgba(252, 248, 240, ${String(0.75 * (1 - t))})`;
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case "zzz": {
+      // A little "z" that grows as it rises.
+      const size = 2 + t * 2;
+      const x = snap(particle.x + Math.sin(particle.age * 3) * 2);
+      const y = snap(particle.y);
+      ctx.globalAlpha = Math.min(1, (1 - t) * 2);
+      ctx.fillStyle = "#f4f0ff";
+      ctx.fillRect(x, y, size, 0.5);
+      ctx.fillRect(x, y + size, size, 0.5);
+      for (let k = 0; k < size * 2; k += 1) {
+        ctx.fillRect(snap(x + size - (k + 1) / 2), snap(y + k / 2), 0.5, 0.5);
+      }
+      ctx.globalAlpha = 1;
+      break;
+    }
+    case "spray": {
+      // Snow, ice dust or water thrown up behind a jetski.
+      ctx.fillStyle = SPRAY_COLORS[particle.tint % SPRAY_COLORS.length];
+      ctx.globalAlpha = Math.min(1, (1 - t) * 2);
+      ctx.fillRect(snap(particle.x - 0.5), snap(particle.y - 0.5), 1.5, 1.5);
+      ctx.globalAlpha = 1;
+      break;
+    }
     case "steam": {
       const radius = 1.5 + t * 4;
       ctx.fillStyle = `rgba(250, 250, 255, ${String(0.6 * (1 - t))})`;
@@ -890,7 +1177,7 @@ function drawMarker(
 ): void {
   const char = state.chars[state.active];
   let x = char.x;
-  let y = char.y - char.altitude;
+  let y = char.y - char.altitude - jetskiLift(state, char);
   const ride = state.sleigh;
   if (ride !== null && isRiding(state, char)) {
     x = ride.x;

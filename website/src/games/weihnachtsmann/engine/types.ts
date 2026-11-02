@@ -33,8 +33,23 @@ export const ANIMAL_IDS = [
 /** One of Jordi's animals. */
 export type AnimalId = (typeof ANIMAL_IDS)[number];
 
-/** The places of the game: the snowy map outside and the two houses one can enter. */
-export const AREA_IDS = ["outdoors", "workshop", "grantelHouse"] as const;
+/**
+ * The places of the game: the snowy map outside, the two houses one could
+ * always enter, and the five buildings of the village - the reindeer stable,
+ * the post office, the elves' bakery, Gugor's observatory and the gift store -
+ * and the ice cave behind the frozen waterfall.
+ */
+export const AREA_IDS = [
+  "outdoors",
+  "workshop",
+  "grantelHouse",
+  "stable",
+  "postOffice",
+  "bakery",
+  "observatory",
+  "giftStore",
+  "iceCave",
+] as const;
 
 /** One of the places. */
 export type AreaId = (typeof AREA_IDS)[number];
@@ -55,7 +70,8 @@ export type Terrain =
   | "thing"
   | "building"
   | "floor"
-  | "wall";
+  | "wall"
+  | "gap";
 
 /** What a character does when nobody controls it. */
 export type Brain = {
@@ -77,6 +93,7 @@ export const SHOW_KINDS = [
   "telescope",
   "levitate",
   "fall",
+  "nap",
 ] as const;
 
 /** One of the abilities that play out over a few seconds. */
@@ -132,11 +149,46 @@ export type Character = {
   cooldown: number;
   /** Seconds left of a startled little jump. */
   hop: number;
+  /** What it carries about, or null. */
+  carry: Carried | null;
+};
+
+/** The things one can pick up and carry somewhere. */
+export type CarryKind =
+  | "carrot"
+  | "letter"
+  | "dough"
+  | "trayRaw"
+  | "trayBaked"
+  | "trayBurnt"
+  | "present"
+  | "fir"
+  | "found"
+  | "treat";
+
+/**
+ * Something carried: what it is, and for a letter, where it comes from; for a
+ * lost thing or a treat from the market, which one.
+ */
+export type Carried = {
+  readonly kind: CarryKind;
+  /** A letter's continent, a lost thing or a market stall; 0 otherwise. */
+  readonly tint: number;
 };
 
 /** What a particle looks like. */
 export type ParticleKind =
-  "sparkle" | "poof" | "smoke" | "snowPuff" | "note" | "steam" | "soot";
+  | "sparkle"
+  | "poof"
+  | "smoke"
+  | "snowPuff"
+  | "note"
+  | "steam"
+  | "soot"
+  | "cookie"
+  | "flour"
+  | "zzz"
+  | "spray";
 
 /** A short-lived bit of decoration. */
 export type Particle = {
@@ -165,8 +217,8 @@ export type Floater = {
   readonly y: number;
   /** The map cell whose small object is lifted, or -1 for a conjured toy. */
   readonly cell: number;
-  /** The toy conjured, or null for a lifted map object. */
-  readonly toy: ToyKind | null;
+  /** The toy (or baking tray) conjured, or null for a lifted map object. */
+  readonly toy: FloatKind | null;
   /** Where in its bobbing it starts, radians. */
   readonly phase: number;
   /** Seconds since it began to rise; below zero it still waits its turn. */
@@ -214,7 +266,44 @@ export type BigObjectKind =
   | "guitarStand"
   | "organ"
   | "candelabra"
-  | "creepyChair";
+  | "creepyChair"
+  | "cinema"
+  | "stableHouse"
+  | "postHouse"
+  | "bakeryHouse"
+  | "observatory"
+  | "storeHouse"
+  | "stableGate"
+  | "carrotTrough"
+  | "strawBed"
+  | "hayBales"
+  | "sortShelf"
+  | "letterPile"
+  | "postDesk"
+  | "mailSacks"
+  | "oven"
+  | "doughTable"
+  | "trayTable"
+  | "coolRack"
+  | "flourSacks"
+  | "bigTelescope"
+  | "starDesk"
+  | "globe"
+  | "bookshelf"
+  | "stallPunch"
+  | "stallGinger"
+  | "stallChestnut"
+  | "carousel"
+  | "waterfall"
+  | "sledStack"
+  | "startBanner"
+  | "finishBanner"
+  | "target"
+  | "mailbox"
+  | "treeStand"
+  | "crystalBig"
+  | "crystalSmall"
+  | "crystalViolet";
 
 /** The small things that fill one cell each. */
 export type SmallObjectKind =
@@ -226,7 +315,11 @@ export type SmallObjectKind =
   | "lamp"
   | "gifts"
   | "deadBush"
-  | "crookedSign";
+  | "crookedSign"
+  | "parcels"
+  | "parcelGap"
+  | "flag"
+  | "lightPole";
 
 /** How an Advent gate looks; every style has the number plate in one place. */
 export type GateStyle = "arch" | "hut" | "snowWall" | "giftBox";
@@ -279,7 +372,30 @@ export type SpotKind =
   | "portrait"
   | "lamp"
   | "snowman"
-  | "dig";
+  | "dig"
+  | "cinema"
+  | "reindeer"
+  | "carrots"
+  | "straw"
+  | "letters"
+  | "slot"
+  | "dough"
+  | "trays"
+  | "oven"
+  | "rack"
+  | "telescope"
+  | "lostGift"
+  | "stall"
+  | "carousel"
+  | "toboggan"
+  | "snowball"
+  | "curtain"
+  | "foxHole"
+  | "fellFir"
+  | "treeStand"
+  | "mailbox"
+  | "critter"
+  | "jetski";
 
 /** Something to use with the talk key. */
 export type Spot = CellBox & { readonly kind: SpotKind };
@@ -332,6 +448,8 @@ export type Fade = {
   readonly who: number;
   /** The Advent gate whose minigame opens at the darkest moment, or null. */
   readonly gate: number | null;
+  /** Whether the cinema opens at the darkest moment. */
+  readonly cinema: boolean;
   /** Whether the change at the darkest moment has happened. */
   switched: boolean;
 };
@@ -357,6 +475,9 @@ export const TOY_KINDS = ["teddy", "train", "doll", "ball", "present"] as const;
 
 /** One of the toys. */
 export type ToyKind = (typeof TOY_KINDS)[number];
+
+/** What Gilfi can make float out of thin air: a toy, or in the bakery a tray. */
+export type FloatKind = ToyKind | "tray";
 
 /** A toy the machine just made, on its way from the funnel into the sack. */
 export type FlyingToy = {
@@ -392,7 +513,21 @@ export type SoundId =
   | "repair"
   | "lamp"
   | "splash"
-  | "collect";
+  | "collect"
+  | "munch"
+  | "paper"
+  | "ding"
+  | "snore"
+  | "carousel"
+  | "throw"
+  | "hit"
+  | "chop"
+  | "bell"
+  | "iceBreak"
+  | "owl"
+  | "whoosh"
+  | "jetskiStart"
+  | "horn";
 
 /** The achievements one can unlock, in the order of the achievements panel. */
 export const ACHIEVEMENT_IDS = [
@@ -425,19 +560,57 @@ export const ACHIEVEMENT_IDS = [
   "allInWorkshop",
   "firstGate",
   "allGates",
+  "movieNight",
+  "stableFed",
+  "rudolfNap",
+  "letters10",
+  "santaLetter",
+  "firstTray",
+  "balboFlour",
+  "gilfiTrays",
+  "overview",
+  "gugorEagle",
+  "giftFound",
+  "mouseGap",
+  "marketStalls",
+  "carousel",
+  "iceCave",
+  "aurora",
+  "sledFast",
+  "snowballs",
+  "skater",
+  "firTree",
+  "bellsAll",
+  "animalTalk",
+  "errands5",
+  "stormWalk",
+  "fullThrottle",
 ] as const;
 
 /** One of the achievements. */
 export type AchievementId = (typeof ACHIEVEMENT_IDS)[number];
 
 /** What is collected bit by bit for an achievement and kept between visits. */
-export const PROGRESS_IDS = ["wishes", "instruments"] as const;
+export const PROGRESS_IDS = [
+  "wishes",
+  "instruments",
+  "stalls",
+  "bells",
+  "critters",
+] as const;
 
 /** One kind of collected progress. */
 export type ProgressId = (typeof PROGRESS_IDS)[number];
 
 /** What is counted for an achievement and kept between visits. */
-export const COUNT_IDS = ["falls", "toys"] as const;
+export const COUNT_IDS = [
+  "falls",
+  "toys",
+  "letters",
+  "hits",
+  "errands",
+  "sledBest",
+] as const;
 
 /** One kind of counted progress. */
 export type CountId = (typeof COUNT_IDS)[number];
@@ -502,6 +675,221 @@ export type World = {
   hareFrom: number | null;
   /** Seconds until the snow twitches again over the fox's secret. */
   sniffIn: number;
+  readonly stable: StableState;
+  readonly post: PostState;
+  readonly bakery: BakeryState;
+  readonly store: StoreState;
+  /** The east land: market, cave, slope, meadow, lake, firs, bells, animals. */
+  readonly east: EastState;
+  /** Time of day and weather. */
+  readonly sky: SkyState;
+  /** The snow jetskis standing about the map, or ridden. */
+  readonly jetskis: Jetski[];
+};
+
+/**
+ * A snow jetski: a hull on two ski runners, so it races over snow and ice
+ * and floats on open water. Its rider sits on it at its place.
+ */
+export type Jetski = {
+  /** Which one: its home place and its colour. */
+  readonly home: number;
+  /** Where it stands, the middle of its runners, map px. */
+  x: number;
+  y: number;
+  /** Speed, map px per second. */
+  vx: number;
+  vy: number;
+  /** Which way the nose points, radians; 0 is right, a quarter turn down. */
+  heading: number;
+  /** Index of who sits on it, or -1. */
+  rider: number;
+  /** Seconds it has stood unridden away from its home. */
+  idle: number;
+  /** Seconds until it throws up the next spray of snow or water. */
+  sprayIn: number;
+  /** Seconds left of the wobble after bouncing off something. */
+  bump: number;
+  /** Whether this ride has reached the far west and the far east of the map. */
+  west: boolean;
+  east: boolean;
+  /** Whether the rider was told to get off at the doorway they stand in. */
+  doorSaid: boolean;
+};
+
+/** The clock, the snowstorms and the northern lights. */
+export type SkyState = {
+  /** Time of day, 0 (midnight) to 1. */
+  clock: number;
+  /** Seconds until the next snowstorm, or of it left while it blows. */
+  stormIn: number;
+  /** Seconds the storm still blows; 0 when calm. */
+  storm: number;
+  /** Seconds the northern lights still shine; 0 when none. */
+  aurora: number;
+  /** Whether tonight's chance of northern lights has been drawn. */
+  auroraDrawn: boolean;
+  /** Seconds the player has walked through the current storm. */
+  stormWalked: number;
+};
+
+/** A carousel rider: who, on which horse, and seconds left of the ride. */
+export type CarouselRider = {
+  readonly who: number;
+  readonly seat: number;
+  left: number;
+  /** Seconds until the music plays again. */
+  tuneIn: number;
+};
+
+/** A run down the sledding slope. */
+export type SledRun = {
+  /** Index of who sits on the sled. */
+  readonly who: number;
+  /** Seconds since the start. */
+  time: number;
+  /** Speed down the slope, map px per second. */
+  speed: number;
+  /** Whether the finish line has been crossed. */
+  done: boolean;
+};
+
+/** A snowball on its way. */
+export type Snowball = {
+  x: number;
+  y: number;
+  readonly vx: number;
+  readonly vy: number;
+  /** Seconds since it left the hand. */
+  age: number;
+  /** Index of who threw it. */
+  readonly thrower: number;
+};
+
+/** One of the wild animals: snow hare, penguin or owl. */
+export type Critter = {
+  readonly kind: CritterKind;
+  x: number;
+  y: number;
+  /** Where it goes, map px. */
+  targetX: number;
+  targetY: number;
+  /** Seconds until it picks a new target. */
+  timer: number;
+  /** Looking right, else left. */
+  right: boolean;
+  moving: boolean;
+  /** How high an owl flies, map px. */
+  altitude: number;
+  bubble: Bubble | null;
+};
+
+/** The kinds of wild animals. */
+export type CritterKind = "hare" | "penguin" | "owl";
+
+/** An errand from the mailbox. */
+export type Errand =
+  | {
+      readonly kind: "deliver";
+      /** The lost thing, index of its kind. */
+      readonly item: number;
+      /** Where it lies, map px outside. */
+      readonly x: number;
+      readonly y: number;
+      /** Whether somebody has picked it up. */
+      picked: boolean;
+      readonly to: CharacterId;
+    }
+  | { readonly kind: "visit"; readonly to: CharacterId }
+  | { readonly kind: "fetch"; readonly stall: number };
+
+/** What changed in the east land, mending itself; nothing of it is saved. */
+export type EastState = {
+  readonly riders: CarouselRider[];
+  /** Seconds until the market music plays again for whoever strolls there. */
+  tuneIn: number;
+  sled: SledRun | null;
+  readonly snowballs: Snowball[];
+  /** Targets just hit: cell to seconds left of the wobble. */
+  readonly targetsHit: Map<number, number>;
+  /** Seconds the ice curtain stays broken; 0 while it is whole. */
+  curtain: number;
+  /** Seconds the fox's hole stays open; 0 while snow covers it. */
+  hole: number;
+  /** Seconds until the snow twitches over the hole again. */
+  sniffIn: number;
+  /** Felled firs: cell to seconds until a young one has grown. */
+  readonly felled: Map<number, number>;
+  /** Seconds the decorated tree stays in the workshop; 0 when there is none. */
+  xmasTree: number;
+  /** Seconds the bell knocked from the fir top lies in the snow. */
+  bellDown: number;
+  /** Laps round the island: radians turned so far, and the last angle. */
+  lapTurn: number;
+  lapAngle: number | null;
+  readonly critters: Critter[];
+  /** The errand from the mailbox, or null. */
+  errand: Errand | null;
+  /** Seconds until a new letter lies in the mailbox; 0 while one waits. */
+  letterIn: number;
+};
+
+/** The reindeer in their boxes. */
+export type StableState = {
+  /** Per reindeer: seconds until it is hungry again; 0 while hungry. */
+  readonly full: number[];
+  /** Per reindeer: seconds left of munching a carrot just given. */
+  readonly munch: number[];
+};
+
+/** The heap of letters in the post office. */
+export type PostState = {
+  /** Letters on the heap. */
+  pile: number;
+  /** Seconds until the heap grows by a letter again. */
+  growIn: number;
+  /** Santa reading a letter: seconds left, and which wish, or null. */
+  reading: {
+    left: number;
+    readonly wish: number;
+    readonly from: number;
+  } | null;
+};
+
+/** The oven and the cooling rack in the bakery. */
+export type BakeryState = {
+  /** What is in the oven. */
+  oven: "empty" | "baking" | "done" | "burnt";
+  /** Seconds since the tray went in. */
+  ovenTime: number;
+  /** Trays of cookies on the rack. */
+  rack: number;
+  /** Seconds until the elves have eaten a tray from the rack. */
+  nibbleIn: number;
+  /** Seconds until the next waft of smell from the oven. */
+  waftIn: number;
+};
+
+/** The lost present in the gift store's maze of parcel stacks. */
+export type StoreState = {
+  /** Where the present is: hidden in the maze, carried, or not lost yet. */
+  present: "hidden" | "carried" | "away";
+  /** The map cell of the store it lies in while hidden. */
+  cell: number;
+  /** Seconds until the elves stack the parcels anew. */
+  shuffleIn: number;
+  /** Seconds until a present is lost again after one was brought home. */
+  lostIn: number;
+  /** Seconds until the present glints again. */
+  glintIn: number;
+};
+
+/** The view over the whole map from the big telescope, while it is open. */
+export type Overview = {
+  /** Seconds since it opened. */
+  elapsed: number;
+  /** Whether Gugor looks: he sees hidden things as well. */
+  readonly eagle: boolean;
 };
 
 /** The open animal choice. */
@@ -533,8 +921,11 @@ export const NO_INPUT: Input = { moveX: 0, moveY: 0 };
 
 /** The whole running game. */
 export type GameState = {
-  /** Every place, ready to walk on. */
-  readonly maps: Readonly<Record<AreaId, GameMap>>;
+  /**
+   * Every place, ready to walk on; the gift store's map is rebuilt when the
+   * elves stack the parcels anew.
+   */
+  readonly maps: Record<AreaId, GameMap>;
   /** The place on screen: where the character steered is, once a fade is done. */
   viewArea: AreaId;
   readonly chars: Character[];
@@ -565,6 +956,8 @@ export type GameState = {
   readonly toys: FlyingToy[];
   /** Gugor's look through the telescope, or null. */
   spy: Spyglass | null;
+  /** The view over the whole map from the observatory, or null. */
+  overview: Overview | null;
   /** What Gilfi makes float. */
   readonly floats: Floater[];
   /** Sounds to play, taken by the screen each frame. */
@@ -576,8 +969,16 @@ export type GameState = {
    * fade into a gate, taken by the screen, which pauses the map meanwhile.
    */
   gateOpen: number | null;
-  /** Just back from a gate: no gate opens until the push towards it is let go. */
+  /**
+   * Just back from a gate or the cinema: neither opens until the push towards
+   * it is let go.
+   */
   gateLatch: boolean;
+  /**
+   * Whether the cinema is open; set at the darkest moment of the fade into it,
+   * cleared by the screen when it closes. The map waits meanwhile.
+   */
+  cinemaOpen: boolean;
   /** Today, set by the screen: in December the gates open one per day. */
   today: CalendarDay;
   /** The time of day, epoch ms, set by the screen: when an achievement came. */

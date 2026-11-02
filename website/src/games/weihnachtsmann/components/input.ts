@@ -150,6 +150,9 @@ export function keyAction(
     action = { kind: "ability" };
   } else if (code === "KeyR") {
     action = { kind: "talk" };
+  } else if (code === "Escape") {
+    // Closes the view from the observatory's telescope.
+    action = { kind: "menuClose" };
   }
   return action;
 }

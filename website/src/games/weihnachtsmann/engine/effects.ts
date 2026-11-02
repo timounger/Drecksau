@@ -1,6 +1,7 @@
 /**
  * Speech bubbles, Trixi's sparkles, puffs of smoke, the transformation poof,
- * steam, soot from the broken machine and floating music notes.
+ * steam, soot from the broken machine, floating music notes, flung cookies,
+ * clouds of flour, a sleeper's snores and the spray behind a jetski.
  *
  * @module
  */
@@ -19,7 +20,20 @@ const LIFE: Readonly<Record<ParticleKind, number>> = {
   note: 2,
   steam: 1.4,
   soot: 1.8,
+  cookie: 1.1,
+  flour: 1.6,
+  zzz: 2.2,
+  spray: 0.45,
 };
+
+/** Cookies fall this fast once flung, map px per second squared. */
+const COOKIE_FALL = 160;
+
+/** Spray from a jetski falls back this fast, map px per second squared. */
+const SPRAY_FALL = 170;
+
+/** A snore's letter drifts up this fast, and sways, map px per second. */
+const ZZZ_RISE = 9;
 
 /** Number of note pictures on the sheet. */
 export const NOTE_KINDS = 2;
@@ -239,6 +253,20 @@ export function updateEffects(state: GameState, dt: number): void {
         particle.vy = -STEAM_RISE;
         break;
       case "poof":
+        break;
+      case "cookie":
+        particle.vy += COOKIE_FALL * dt;
+        break;
+      case "flour":
+        particle.vx *= 1 - Math.min(1, dt * PUFF_DRAG);
+        particle.vy = Math.min(particle.vy * (1 - Math.min(1, dt * 2)), 0);
+        break;
+      case "zzz":
+        particle.vy = -ZZZ_RISE;
+        break;
+      case "spray":
+        particle.vy += SPRAY_FALL * dt;
+        particle.vx *= 1 - Math.min(1, dt * PUFF_DRAG);
         break;
     }
   }

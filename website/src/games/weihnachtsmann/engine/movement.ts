@@ -6,6 +6,7 @@
  */
 import { BIRD_HEIGHT, FLY_HEIGHT, profileOf, type MoveProfile } from "./cast";
 import { fits, terrainUnder } from "./map";
+import { RINK_GRIP, RINK_SPEED, onRink } from "./rink";
 import type { Character, Dir, GameMap } from "./types";
 
 /** How quickly a figure with full grip reaches the speed it wants, per second. */
@@ -61,7 +62,11 @@ export function moveCharacter(
   const ground = profile.flies ? "snow" : terrainUnder(map, char.x, char.y - 1);
   let factor = 1;
   let grip = 1;
-  if (ground === "ice") {
+  if (ground === "ice" && onRink(map, char.x, char.y)) {
+    // The lake's smooth ice: everybody glides further.
+    factor = profile.iceSpeed * RINK_SPEED;
+    grip = Math.min(1, profile.grip * RINK_GRIP);
+  } else if (ground === "ice") {
     factor = profile.iceSpeed;
     grip = profile.grip;
   } else if (ground === "water") {

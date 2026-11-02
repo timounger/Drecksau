@@ -1,7 +1,7 @@
 /**
  * Weihnachtsmann & Co. KG - the screen around the canvas: header, the animal
- * choice, the Advent calendar, the achievements, the selection bar, the touch
- * controls and the help line.
+ * choice, the Advent calendar, the achievements, the cinema, the selection
+ * bar, the touch controls and the help line.
  *
  * @module
  * @remarks
@@ -26,6 +26,7 @@ import { AchievementsButton, AchievementsDialog } from "./achievements-panel";
 import { AdventProgress } from "./advent-progress";
 import { AnimalPicker } from "./animal-picker";
 import { CharacterBar } from "./character-bar";
+import { CinemaDialog } from "./cinema-panel";
 import { VIEW_H, VIEW_W } from "@/games/weihnachtsmann/engine/engine";
 import { EnterButton, TouchButtons, TouchStick } from "./touch-pad";
 
@@ -214,6 +215,11 @@ export function WeihnachtsmannGameScreen(): ReactElement {
       </div>
 
       <AchievementsDialog hud={hud} dialogRef={achievementsRef} />
+      <CinemaDialog
+        hud={hud}
+        onLeave={game.leaveCinema}
+        onWatch={game.watchEpisode}
+      />
 
       <div
         className={`game-hint flex flex-wrap gap-x-6 gap-y-1 rounded-2xl border border-zinc-200 bg-white/60 px-4 py-3 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400 ${touch ? "mx-3" : ""}`}
@@ -228,10 +234,10 @@ export function WeihnachtsmannGameScreen(): ReactElement {
             <span>{WM_TEXTS.controlsMove}</span>
             <span>{WM_TEXTS.controlsSwitch}</span>
             <span>{WM_TEXTS.controlsAbility}</span>
-            <span>{WM_TEXTS.controlsTransform}</span>
             <span>{WM_TEXTS.controlsTalk}</span>
             <span>{WM_TEXTS.controlsDoor}</span>
             <span>{WM_TEXTS.controlsGate}</span>
+            <span>{WM_TEXTS.controlsCinema}</span>
             <span>{WM_TEXTS.controlsTouch}</span>
           </>
         )}

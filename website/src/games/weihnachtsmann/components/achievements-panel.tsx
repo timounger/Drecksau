@@ -1,8 +1,7 @@
 /**
  * The achievements on screen: a small button with the count, and the panel it
  * opens with a card for every achievement - unlocked ones with badge, what
- * was done and when, locked ones greyed with a hint (secret ones as "???")
- * and how far they have come.
+ * was done and when, locked ones greyed with a hint and how far they have come.
  *
  * @module
  * @remarks
@@ -19,11 +18,14 @@ import {
 } from "react";
 import figuresImage from "@/games/weihnachtsmann/assets/figures-2x.png";
 import { ACHIEVEMENTS } from "@/games/weihnachtsmann/engine/achievements";
+import { BELLS } from "@/games/weihnachtsmann/engine/east-data";
+import { sledTime } from "@/games/weihnachtsmann/engine/sled";
 import type { AchievementId } from "@/games/weihnachtsmann/engine/types";
 import type { Hud } from "@/games/weihnachtsmann/hooks/use-weihnachtsmann-game";
 import {
   ACHIEVEMENT_TEXTS,
   CHARACTER_TEXTS,
+  EAST_TEXTS,
   WM_TEXTS,
 } from "@/games/weihnachtsmann/i18n/texts";
 import { BADGES } from "./render-world";
@@ -122,6 +124,31 @@ export function AchievementsDialog({
             <p className="mt-1 text-xs text-zinc-400">
               {WM_TEXTS.achievementsIntro}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-300">
+              <span
+                data-testid="wm-bells"
+                className="flex min-w-48 flex-1 items-center gap-2"
+              >
+                <span className="shrink-0 font-semibold text-amber-200">
+                  {EAST_TEXTS.bellsHeader}
+                </span>
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800">
+                  <span
+                    className="block h-full rounded-full bg-amber-400"
+                    style={{
+                      width: `${String((hud.bells / BELLS.length) * FULL)}%`,
+                    }}
+                  />
+                </span>
+                {hud.bells}/{BELLS.length}
+              </span>
+              <span data-testid="wm-sled-best">
+                <span className="font-semibold text-amber-200">
+                  {EAST_TEXTS.sledHeader}:
+                </span>{" "}
+                {hud.sledBest > 0 ? sledTime(hud.sledBest) : EAST_TEXTS.noTime}
+              </span>
+            </div>
           </div>
           <button
             type="button"
@@ -137,7 +164,6 @@ export function AchievementsDialog({
             <AchievementCard
               key={def.id}
               id={def.id}
-              hidden={def.hidden}
               who={def.who.map((id) => CHARACTER_TEXTS[id].name)}
               goal={def.goal}
               done={hud.progress[index] ?? 0}
@@ -153,14 +179,12 @@ export function AchievementsDialog({
 /** One card: unlocked with date, or locked with hint and progress. */
 function AchievementCard({
   id,
-  hidden,
   who,
   goal,
   done,
   at,
 }: {
   readonly id: AchievementId;
-  readonly hidden: boolean;
   readonly who: readonly string[];
   readonly goal: number;
   readonly done: number;
@@ -169,13 +193,7 @@ function AchievementCard({
 }): ReactElement {
   const texts = ACHIEVEMENT_TEXTS[id];
   const open = at !== null;
-  const secret = hidden && !open;
-  let line = texts.hint;
-  if (open) {
-    line = texts.done;
-  } else if (secret) {
-    line = WM_TEXTS.achievementSecretHint;
-  }
+  const line = open ? texts.done : texts.hint;
   return (
     <li
       data-testid={`wm-achievement-${id}`}
@@ -186,30 +204,28 @@ function AchievementCard({
           : "border-zinc-800 bg-zinc-950/60"
       }`}
     >
-      <Badge id={id} locked={!open} secret={secret} />
+      <Badge id={id} locked={!open} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span
           className={`text-sm leading-tight font-bold ${open ? "text-amber-200" : "text-zinc-300"}`}
         >
-          {secret ? WM_TEXTS.achievementSecret : texts.title}
+          {texts.title}
         </span>
         <span
           className={`text-xs leading-snug ${open ? "text-zinc-200" : "text-zinc-500"}`}
         >
           {line}
         </span>
-        {!secret && (
-          <span className="text-[10px] text-zinc-500">
-            {WM_TEXTS.achievementFor}{" "}
-            {who.length > 0 ? who.join(", ") : WM_TEXTS.achievementAnybody}
-          </span>
-        )}
+        <span className="text-[10px] text-zinc-500">
+          {WM_TEXTS.achievementFor}{" "}
+          {who.length > 0 ? who.join(", ") : WM_TEXTS.achievementAnybody}
+        </span>
         {open && (
           <span className="text-[10px] font-semibold text-amber-300/80">
             {WM_TEXTS.achievementOn} {new Date(at).toLocaleDateString("de-DE")}
           </span>
         )}
-        {!open && !secret && goal > 1 && (
+        {!open && goal > 1 && (
           <span className="mt-0.5 flex items-center gap-2 text-[10px] text-zinc-400">
             <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800">
               <span
@@ -229,11 +245,9 @@ function AchievementCard({
 function Badge({
   id,
   locked,
-  secret,
 }: {
   readonly id: AchievementId;
   readonly locked: boolean;
-  readonly secret: boolean;
 }): ReactElement {
   const [x, y, w, h] = EFFECTS[BADGES[id]];
   const k = SHEET_DENSITY * BADGE_ZOOM;
@@ -245,19 +259,16 @@ function Badge({
     imageRendering: "pixelated",
     filter: locked ? "grayscale(1) brightness(0.55)" : undefined,
   };
-  // A secret one shows no picture at all, only a question mark.
   const style: CSSProperties = {
     width: w * k,
     height: h * k,
-    ...(secret ? {} : picture),
+    ...picture,
   };
   return (
     <span
       aria-hidden="true"
-      className={`relative flex shrink-0 items-center justify-center self-start ${secret ? "rounded-full border-2 border-zinc-700 bg-zinc-800" : ""}`}
+      className="relative flex shrink-0 items-center justify-center self-start"
       style={style}
-    >
-      {secret && <span className="text-sm font-black text-zinc-400">?</span>}
-    </span>
+    />
   );
 }

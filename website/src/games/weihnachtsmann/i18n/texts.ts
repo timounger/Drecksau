@@ -4,11 +4,13 @@
  *
  * @module
  */
+import type { PlaceName } from "@/games/weihnachtsmann/engine/east-data";
 import type {
   AchievementId,
   AnimalId,
   AreaId,
   CharacterId,
+  CritterKind,
   ToyKind,
 } from "@/games/weihnachtsmann/engine/types";
 
@@ -37,13 +39,12 @@ export const WM_TEXTS = {
   controlsMove: "Laufen: Pfeiltasten / W A S D",
   controlsSwitch: "Figur: 1-8, Tab, Q / E oder Klick",
   controlsAbility: "Fähigkeit: Leertaste / F",
-  controlsTransform: "Jordi verwandeln: T",
   controlsTalk: "Sprechen / Benutzen: R",
   controlsDoor: "Tür: hineinlaufen",
   useKey: "R",
   controlsTouch: "Handy: Stick und Knöpfe, Figur antippen",
   touchHelp:
-    "Links ziehen: laufen - Fähigkeit, Benutzen/Sprechen, Nächste: Knöpfe - Figur unten oder im Bild antippen - Hinein: an Tür und Türchen",
+    "Links ziehen: laufen - Fähigkeit, Benutzen/Sprechen, Nächste: Knöpfe - Figur unten oder im Bild antippen - Hinein: an Tür, Türchen und Kino",
   touchStick: "Laufen",
   touchEnter: "Hinein",
   touchUse: "Benutzen",
@@ -78,8 +79,40 @@ export const WM_TEXTS = {
   achievementOn: "freigeschaltet am",
   achievementFor: "Figur:",
   achievementAnybody: "jede Figur",
-  achievementSecret: "???",
-  achievementSecretHint: "Ein geheimer Erfolg - probier einfach Dinge aus.",
+  controlsCinema: "Kino: hineinlaufen oder R an der Tür",
+  cinemaLabel: "Kino",
+  cinemaEnter: "Pfeil hoch: hinein",
+  cinemaTitle: "Kino",
+  cinemaSubtitle: "Alle 26 Folgen von Weihnachtsmann & Co. KG",
+  cinemaLeave: "Kino verlassen",
+  cinemaLeaveHint: "Leertaste: Pause - Pfeile: 10 s spulen - Esc: raus",
+  cinemaPrivacy:
+    "Beim Abspielen werden die Folgen vom offiziellen TOGGO-Kanal geladen.",
+  cinemaPick:
+    "Such dir eine Folge aus - der Film startet, sobald du sie antippst.",
+  cinemaEpisode: "Folge",
+  cinemaSeen: "gesehen",
+  cinemaResume: "Weiterschauen",
+  cinemaFrom: "ab",
+  cinemaComing: "Gleich geht's weiter:",
+  cinemaPlayNow: "Jetzt abspielen",
+  cinemaCancel: "Abbrechen",
+  cinemaBroken: "Diese Folge ist gerade nicht verfügbar.",
+  cinemaLoading: "Der Vorhang geht gleich auf ...",
+  cinemaPaused: "Pause - antippen oder Leertaste, dann geht es weiter",
+  cinemaEnd: "Ende",
+  cinemaNext: "Nächste Folge",
+  cinemaAgain: "Nochmal ansehen",
+  cinemaPlay: "Abspielen",
+  cinemaPause: "Pause",
+  cinemaMute: "Ton aus",
+  cinemaUnmute: "Ton an",
+  cinemaVolume: "Lautstärke",
+  cinemaSeek: "Zeitleiste",
+  cinemaFull: "Vollbild",
+  cinemaFullExit: "Vollbild beenden",
+  cinemaList: "Folgen",
+  cinemaPlayer: "Folge abspielen",
 } as const;
 
 /** Title, what was done, and the hint while locked, for one achievement. */
@@ -87,7 +120,7 @@ export type AchievementTexts = {
   readonly title: string;
   /** What was achieved, shown once unlocked. */
   readonly done: string;
-  /** How to get there, shown while locked (not for secret ones). */
+  /** How to get there, shown while locked. */
   readonly hint: string;
 };
 
@@ -177,13 +210,13 @@ export const ACHIEVEMENT_TEXTS: Readonly<
   },
   hareRace: {
     title: "Turbohase",
-    done: "Als Hase in unter 8 Sekunden von der Werkstatt zu Grantelbarts Tür gerannt.",
-    hint: "Jordi als Hase: Lauf von der Werkstatttür zu Grantelbarts Haustür - in unter 8 Sekunden.",
+    done: "Als Hase in unter 7 Sekunden von der Werkstatt zu Grantelbarts Tür gerannt.",
+    hint: "Jordi als Hase: Lauf von der Werkstatttür zu Grantelbarts Haustür - in unter 7 Sekunden.",
   },
   foxDig: {
     title: "Spürnase",
     done: "Als Fuchs ein goldenes Glöckchen beim schiefen Schild ausgebuddelt.",
-    hint: "Jordi als Fuchs: Beim schiefen Schild riecht es komisch ...",
+    hint: "Jordi als Fuchs: Grab mit R gleich östlich vom schiefen Schild.",
   },
   sleighRide: {
     title: "Hü, Rudolf!",
@@ -198,7 +231,7 @@ export const ACHIEVEMENT_TEXTS: Readonly<
   lampsAll: {
     title: "Stromausfall",
     done: "Alle 35 Laternen der Karte gleichzeitig ausgemacht.",
-    hint: "Mach alle Laternen aus. Eine Minute nach der letzten gehen sie nacheinander wieder an.",
+    hint: "Mach alle 35 Laternen aus. Du musst nicht alle in einer Minute schaffen: Jede ausgemachte Laterne startet die Minute neu - erst wenn du eine Minute lang keine ausmachst, gehen sie nacheinander wieder an.",
   },
   snowmanDown: {
     title: "Umgeschubst",
@@ -240,7 +273,165 @@ export const ACHIEVEMENT_TEXTS: Readonly<
     done: "Alle 26 Türchen des Adventskalenders geschafft.",
     hint: "Schaffe alle 26 Türchen des Adventskalenders.",
   },
+  movieNight: {
+    title: "Filmabend",
+    done: "Im Kino eine Folge von Weihnachtsmann & Co. KG gestartet.",
+    hint: "Geh ins Kino nördlich der Hauptstraße und starte eine Folge.",
+  },
+  stableFed: {
+    title: "Satte Rentiere",
+    done: "Alle vier Rentiere im Stall gleichzeitig satt gefüttert.",
+    hint: "Hol im Rentierstall (unter dem Gehege) Möhren aus der Kiste und füttere Komet, Donner, Blitz und Tänzer - alle vier, bevor der erste wieder Hunger hat.",
+  },
+  rudolfNap: {
+    title: "Rudolfs Nickerchen",
+    done: "Mit Rudolf im Stroh des Rentierstalls geschlafen.",
+    hint: "Rudolf: Leg dich im Rentierstall mit R ins Stroh.",
+  },
+  letters10: {
+    title: "Postmeister",
+    done: "Zehn Wunschzettel ins richtige Fach sortiert.",
+    hint: "Nimm in der Poststube einen Brief vom Berg und bring ihn ins Fach mit seiner Farbe - zehnmal.",
+  },
+  santaLetter: {
+    title: "Lieber Weihnachtsmann ...",
+    done: "Mit dem Weihnachtsmann einen Wunschzettel gelesen.",
+    hint: "Weihnachtsmann: Nimm in der Poststube einen Brief vom Berg - er liest ihn sofort.",
+  },
+  firstTray: {
+    title: "Erstes Blech",
+    done: "Ein Blech goldbrauner Plätzchen aus dem Ofen geholt.",
+    hint: "Backstube: Teig aus der Schüssel, am Blechtisch ausstechen, in den Ofen, warten - und rechtzeitig wieder herausholen.",
+  },
+  balboFlour: {
+    title: "Mehlstaub",
+    done: "Mit Balbo in der Backstube hingefallen - die Plätzchen flogen.",
+    hint: "Balbo: Fall in der Elfen-Backstube hin.",
+  },
+  gilfiTrays: {
+    title: "Fliegende Bleche",
+    done: "Mit Gilfi in der Backstube die Bleche schweben lassen.",
+    hint: "Gilfi: Zaubere in der Elfen-Backstube.",
+  },
+  overview: {
+    title: "Überblick",
+    done: "Durch das große Fernrohr der Sternwarte über die ganze Karte geschaut.",
+    hint: "Geh in Gugors Sternwarte (nördlich von Grantelbarts Haus) und benutze das große Fernrohr.",
+  },
+  gugorEagle: {
+    title: "Adlerauge",
+    done: "Mit Gugor von der Sternwarte aus das verlorene Geschenk entdeckt.",
+    hint: "Gugor: Schau in seiner Sternwarte durchs Fernrohr, während das Geschenk im Lager versteckt ist.",
+  },
+  giftFound: {
+    title: "Geschenk gerettet",
+    done: "Das verlorene Geschenk im Lager gefunden und in die Werkstatt gebracht.",
+    hint: "Im Geschenkelager im Osten liegt ein Geschenk versteckt. Such es im Labyrinth der Pakete (R) und trag es in die Werkstatt.",
+  },
+  marketStalls: {
+    title: "Bummel über den Markt",
+    done: "An allen drei Buden des Weihnachtsmarkts gewesen.",
+    hint: "Weihnachtsmarkt im Nordosten: Drück R an der Punsch-, der Lebkuchen- und der Maronenbude.",
+  },
+  carousel: {
+    title: "Rundherum",
+    done: "Eine Runde Karussell gefahren.",
+    hint: "Stell dich vor das Karussell auf dem Weihnachtsmarkt und drück R - dann fährst du mit.",
+  },
+  iceCave: {
+    title: "Hinter dem Eis",
+    done: "Die Eishöhle hinter dem gefrorenen Wasserfall betreten.",
+    hint: "Der Eisvorhang am Wasserfall (östlich der Schneeballwiese) ist zu dick. Jordi als Bär bricht ihn mit R auf - oder der Fuchs wittert links daneben ein Schlupfloch.",
+  },
+  aurora: {
+    title: "Himmelsleuchten",
+    done: "Mit Gugors Fernrohr die Polarlichter angeschaut.",
+    hint: "Nachts leuchten manchmal Polarlichter am Himmel. Dann draußen als Gugor das Fernrohr nehmen (Leertaste).",
+  },
+  sledFast: {
+    title: "Rodelblitz",
+    done: "Den Rodelhang in unter 7 Sekunden hinuntergesaust.",
+    hint: "Am Rodelhang (unter dem Markt) R an den Schlitten oben: lenk mit links/rechts um Fahnen und Steine und komm in unter 7 Sekunden ins Ziel.",
+  },
+  snowballs: {
+    title: "Treffsicher",
+    done: "15 Treffer auf der Schneeballwiese.",
+    hint: "Auf der Schneeballwiese wirft R einen Schneeball in Blickrichtung. Triff Zielscheiben und Schneemänner - 15 Mal.",
+  },
+  skater: {
+    title: "Eiskunstläufer",
+    done: "Drei Runden um die Insel im zugefrorenen See gedreht.",
+    hint: "Lauf auf dem Eis des Sees im Südosten dreimal um die kleine Insel, ohne das Eis zu verlassen.",
+  },
+  firTree: {
+    title: "O Tannenbaum",
+    done: "Eine Tanne gefällt und in der Werkstatt aufgestellt.",
+    hint: "Weihnachtsmann oder eine Elfe: In der Tannenschonung mit R eine kleine Tanne fällen, in die Werkstatt tragen und dort mit R in den Ständer stellen.",
+  },
+  bellsAll: {
+    title: "Alle Glöckchen",
+    done: "Alle 12 goldenen Glöckchen gefunden.",
+    hint: "Auf der ganzen Karte sind 12 goldene Glöckchen versteckt - manche nur fliegend, als Maus, Bär, Pinguin oder Fuchs, mit Gilfis Zauber, nachts, im Karussell oder in einem Schneemann zu finden.",
+  },
+  animalTalk: {
+    title: "Tiergespräche",
+    done: "Mit Schneehase, Pinguin und Eule geplaudert.",
+    hint: "Jordi verwandelt sich: als Hase zu einem Schneehasen, als Pinguin zu einem Pinguin, als Vogel zu einer Eule - jeweils R drücken, wenn das Tier nah ist.",
+  },
+  errands5: {
+    title: "Fleißiger Bote",
+    done: "Fünf Aufträge aus dem Briefkasten erledigt.",
+    hint: "Ist die Fahne am Briefkasten neben der Werkstatt oben, liegt ein Brief darin: R lesen, Auftrag erledigen (der Pfeil zeigt den Weg) - fünf Mal.",
+  },
+  stormWalk: {
+    title: "Sturmerprobt",
+    done: "20 Sekunden durch einen Schneesturm gestapft.",
+    hint: "Ab und zu zieht ein Schneesturm auf. Dann draußen 20 Sekunden lang unterwegs sein.",
+  },
+  fullThrottle: {
+    title: "Vollgas",
+    done: "Mit dem Jetski in einem Rutsch quer über die ganze Karte gebraust.",
+    hint: "Steig auf einen Jetski und fahr ohne abzusteigen vom Westrand der Karte (beim Teich) bis ganz in den Osten (Markt oder See) - oder andersherum.",
+  },
+  mouseGap: {
+    title: "Mäuseweg",
+    done: "Als Maus durch ein Mauseloch im Geschenkelager geschlüpft.",
+    hint: "Jordi als Maus: Schlüpf im Geschenkelager durch ein Loch unten in einem Paketstapel.",
+  },
 };
+
+/**
+ * The German titles of the 26 episodes, episode 1 first, as on the official
+ * TOGGO channel.
+ */
+export const EPISODE_TITLES: readonly string[] = [
+  "Die magische Perle",
+  "Die Weihnachtsmann-Prüfung",
+  "Zwei kleine Genies",
+  "Rudolph ist verschwunden",
+  "Mission im Weltraum",
+  "Leons Weihnachten",
+  "Ein Geschenk für zwei",
+  "Das Super-Kaninchen",
+  "Der Glücksbringer",
+  "Der fliegende Teppich",
+  "Das Zauberschwert",
+  "Strafe muss sein",
+  "Ein gefährlicher Wunsch",
+  "Ein neues Kostüm für den Weihnachtsmann",
+  "Fliegen müsste man können",
+  "Trolle in 3D",
+  "Gugors Doppelgänger",
+  "Zurück aus der Zukunft",
+  "Der Wachstumstrank",
+  "Ein Bär für Julio",
+  "Weihnachtspost auf Abwegen",
+  "Knecht Ruprechts Zauberpuder",
+  "Die Flaschenpost",
+  "Sebastian weiß nicht, was er will",
+  "Der längste Tag",
+  "Der Weihnachtsmann und sein Geheimnis",
+];
 
 /** A character's name and what it can do, for the selection bar. */
 export type CharacterTexts = {
@@ -356,7 +547,109 @@ export const PLACE_TEXTS: Readonly<Record<AreaId, string | null>> = {
   outdoors: null,
   workshop: "in der Werkstatt",
   grantelHouse: "bei Grantelbart",
+  stable: "im Rentierstall",
+  postOffice: "in der Poststube",
+  bakery: "in der Backstube",
+  observatory: "in der Sternwarte",
+  giftStore: "im Geschenkelager",
+  iceCave: "in der Eishöhle",
 };
+
+/** The name of every building one can enter, for the sign at its door. */
+export const BUILDING_NAMES: Readonly<
+  Record<Exclude<AreaId, "outdoors">, string>
+> = {
+  workshop: "Weihnachtswerkstatt",
+  grantelHouse: "Grantelbarts Haus",
+  stable: "Rentierstall",
+  postOffice: "Poststube",
+  bakery: "Elfen-Backstube",
+  observatory: "Gugors Sternwarte",
+  giftStore: "Geschenkelager",
+  iceCave: "Eishöhle",
+};
+
+/** The short names of the buildings on the view from the observatory. */
+export const MAP_NAMES: Readonly<Record<Exclude<AreaId, "outdoors">, string>> =
+  {
+    workshop: "Werkstatt",
+    grantelHouse: "Grantelbart",
+    stable: "Stall",
+    postOffice: "Post",
+    bakery: "Backstube",
+    observatory: "Sternwarte",
+    giftStore: "Lager",
+    iceCave: "Eishöhle",
+  };
+
+/** What is said and shown in the five buildings of the village. */
+export const TOWN_TEXTS = {
+  enter: "Pfeil hoch: hinein",
+  handsFull: "Die Hände sind voll!",
+  carrotTaken: ["Eine Möhre!", "Knackig!", "Für die Rentiere!"],
+  carrotHave: "Ich hab doch schon eine Möhre.",
+  reindeerNames: ["Komet", "Donner", "Blitz", "Tänzer"],
+  reindeerFed: ["mampft zufrieden.", "kaut glücklich.", "sagt danke!"],
+  reindeerFull: "ist noch satt.",
+  reindeerHungry: "hat Hunger - hol eine Möhre aus der Kiste!",
+  strawRudolf: ["Gähn ... nur ein Nickerchen.", "Ab ins Stroh!"],
+  strawOthers: "Das ist Rudolfs Schlafplatz im Stroh.",
+  napEnd: ["Ausgeschlafen!", "Wo war ich?", "Hü - wieder fit!"],
+  pileEmpty: "Alle Briefe sortiert - der Berg wächst gleich wieder.",
+  letterFrom: "Ein Brief aus",
+  continents: ["Europa", "Amerika", "Afrika", "Asien", "Australien"],
+  letterRight: ["Richtig einsortiert!", "Passt!", "Ab ins Fach!"],
+  letterWrong: "Falsches Fach - der kommt aus",
+  letterNone: "Erst einen Brief vom Berg nehmen!",
+  letterRead: ["Ho ho ho - wird gemacht!", "Wird notiert!"],
+  letterSenders: [
+    "Mia",
+    "Ben",
+    "Lea",
+    "Noah",
+    "Emma",
+    "Paul",
+    "Sofia",
+    "Jonas",
+  ],
+  letterWishes: [
+    "einen Teddy",
+    "eine Eisenbahn",
+    "einen Ball",
+    "einen Goldfisch",
+    "ein Kuschelkissen",
+    "eine Gitarre",
+    "Möhren fürs Pony",
+  ],
+  letterWish: "wünscht sich",
+  doughTaken: "Ein Klumpen Teig!",
+  doughNeed: "Erst Teig aus der Schüssel holen!",
+  traysCut: ["Sterne und Herzen ausstechen!", "Aufs Blech damit!"],
+  ovenIn: "Ab in den Ofen!",
+  ovenBusy: "Noch ein bisschen Geduld ...",
+  ovenEmpty: "Der Ofen ist leer - erst ein Blech mit Teig.",
+  ovenDone: ["Duftet herrlich!", "Goldbraun!", "Fertig!"],
+  ovenBurnt: "Oje - verbrannt!",
+  rackPut: "Zum Abkühlen aufs Gitter.",
+  rackFull: "Das Gitter ist voll.",
+  rackBurnt: "Die verbrannten wirft man lieber weg ...",
+  rackNibble: ["Mmh, ein Plätzchen!", "Lecker!"],
+  rackEmpty: "Noch keine Plätzchen zum Abkühlen.",
+  balboFlour: "Uff - alles voller Mehl!",
+  gugorLook: [
+    "Ich seh alles. Alles doof.",
+    "Pah - ich weiß, wo das Geschenk ist.",
+  ],
+  overviewTitle: "Rundblick von der Sternwarte",
+  overviewHint: "R, Leertaste oder Esc: zurück",
+  overviewEagle: "Gugor sieht auch, was versteckt ist",
+  overviewStore: "Lager von innen",
+  overviewPresent: "Geschenk",
+  overviewSecret: "?",
+  overviewYou: "du",
+  presentFound: "Gefunden! Schnell in die Werkstatt damit!",
+  presentHome: "Abgeliefert - ho ho ho!",
+} as const;
 
 /** What the toy machine says it made. */
 export const TOY_NAMES: Readonly<Record<ToyKind, string>> = {
@@ -445,4 +738,106 @@ export const BUBBLE_TEXTS = {
     maus: ["Piiiep!"],
     baer: ["Brummm!"],
   } satisfies Readonly<Record<AnimalId, readonly string[]>>,
+} as const;
+
+/** The names of the places of the east land on the view from the observatory. */
+export const PLACE_NAMES: Readonly<Record<PlaceName, string>> = {
+  market: "Weihnachtsmarkt",
+  slope: "Rodelhang",
+  meadow: "Schneeballwiese",
+  lake: "See",
+  plantation: "Tannenschonung",
+  mailbox: "Briefkasten",
+};
+
+/** What is said and shown in the east land, at the mailbox and in the sky. */
+export const EAST_TEXTS = {
+  stallLines: [
+    ["Mmh, heißer Kinderpunsch!", "Der wärmt die Pfoten!"],
+    ["Ein Lebkuchenherz - lecker!", "Da steht drauf: Ich mag dich!"],
+    ["Heiße Maronen!", "Uff, heiß - aber gut!"],
+  ],
+  stallNames: ["Punschbude", "Lebkuchenbude", "Maronenbude"],
+  carouselOn: ["Juhuu - rundherum!", "Festhalten!", "Hü, Holzpferdchen!"],
+  carouselOff: ["Mir ist schwindelig ...", "Nochmal!", "Das war schön!"],
+  carouselFull: "Alle Pferdchen sind besetzt.",
+  carouselNo: "Fliegend aufs Karussell? Lieber nicht.",
+  sledGo: ["Achtung, fertig, los!", "Huiii!", "Platz da!"],
+  sledCrash: [
+    "Autsch!",
+    "Plumps - weiter geht's!",
+    "Wer stellt hier Fahnen hin?",
+  ],
+  sledFinish: "Ziel! Zeit:",
+  sledBest: "Neue Bestzeit!",
+  sledNo: "Damit kann ich nicht rodeln.",
+  sledTime: "Rodeln",
+  sledRecord: "Bestzeit",
+  seconds: "s",
+  throwLines: ["Hepp!", "Und ... Wurf!", "Schneeball!"],
+  hitLines: ["Treffer!", "Volltreffer!", "Bumm!"],
+  hitMe: ["Hey!", "Na warte!", "Kalt!"],
+  curtainThick: "Ein dicker Eisvorhang - dahinter klingt es hohl.",
+  curtainBreak: "BRUMM! Krach - der Vorhang ist offen!",
+  curtainOpen: "Der Vorhang ist offen - hinein!",
+  holeSniff: "Schnüffel ... hier zieht kalte Luft heraus!",
+  holeDug: "Ein Schlupfloch - in die Höhle!",
+  fellOk: ["Tock, tock - Baum fällt!", "Die nehm ich mit!"],
+  fellNo: "Fällen können nur der Weihnachtsmann und die Elfen.",
+  standEmpty:
+    "Der Christbaumständer ist leer - hol eine Tanne aus der Schonung!",
+  standBusy: "Hier steht schon ein Baum.",
+  standDone: ["Und jetzt schmücken - fertig!", "O Tannenbaum!"],
+  bellFound: "Ein goldenes Glöckchen!",
+  mailboxEmpty: "Der Briefkasten ist leer - bald kommt neue Post.",
+  mailboxBusy: "Erst den Auftrag erledigen!",
+  errand: "Auftrag",
+  errandDone: ["Erledigt - danke!", "Ho ho ho - gut gemacht!"],
+  errandThanks: ["Oh, danke!", "Wie lieb!", "Da ist es ja!"],
+  errandVisit: ["Schön, dass du vorbeikommst!", "Hallo! Was gibt's?"],
+  itemNames: ["den Fäustling", "den Schal", "die Brille"],
+  itemFound: "Gefunden!",
+  errandDeliver: "Bring {item} zu {who}",
+  errandVisitText: "Besuch {who}",
+  errandFetch: "Hol etwas von der {stall} und bring es zum Briefkasten",
+  treatTaken: "Eingepackt - ab zum Briefkasten!",
+  stormStart: "Brr - ein Schneesturm!",
+  critterLines: {
+    hare: [
+      "Hast du eine Möhre? Nein? Schade.",
+      "Wer zuerst am Baum ist!",
+      "Psst - ich bin weiß, mich sieht keiner.",
+    ],
+    penguin: [
+      "Bauchrutschen ist das Größte!",
+      "Fisch? Hast du Fisch?",
+      "Wir sind eigentlich vom Südpol. Pssst.",
+    ],
+    owl: [
+      "Huhu! Ich seh alles. Auch nachts.",
+      "Gugor ist ein komischer Kauz. Huhu.",
+      "Wer? Wer? Ach, du.",
+    ],
+  } satisfies Readonly<Record<CritterKind, readonly string[]>>,
+  bellsHeader: "Goldene Glöckchen",
+  sledHeader: "Rodel-Bestzeit",
+  noTime: "noch keine",
+} as const;
+
+/** What is said and shown at the snow jetskis. */
+export const JETSKI_TEXTS = {
+  name: "Jetski",
+  board: "R: einsteigen",
+  go: ["Brumm brumm - los geht's!", "Festhalten!", "Vollgas!"],
+  off: ["Schöne Fahrt!", "Puh, das war schnell!", "Hier bleib ich stehen."],
+  animal: "Als Tier komm ich nicht an den Lenker.",
+  flying: "Erst landen, dann einsteigen!",
+  taken: "Da sitzt schon jemand drauf.",
+  water: "Mitten im Wasser? Erst ans Ufer fahren!",
+  noRoom: "Hier ist kein Platz zum Absteigen.",
+  door: "Mit dem Jetski geht's nicht hinein - erst aussteigen (R).",
+  horn: ["Tuut tuut!", "Platz da!", "Määp määp!"],
+  hornGrantel: ["Rock 'n' Roll!", "Jetzt wird's laut!"],
+  crash: ["Uff!", "Hoppla!", "Bremsen, bremsen!"],
+  snowman: "Ups - der Schneemann!",
 } as const;

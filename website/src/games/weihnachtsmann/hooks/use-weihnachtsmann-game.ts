@@ -1,7 +1,8 @@
 /**
  * Runs the game: the fixed-rate loop, the canvas, the controls, the sounds,
  * saving and the play time - and the minigame behind an Advent gate, which
- * takes over the canvas while the map waits.
+ * takes over the canvas while the map waits, and the cinema, which the screen
+ * shows over it while the map waits too.
  *
  * @module
  * @remarks
@@ -58,10 +59,14 @@ import {
   gateLocked,
 } from "@/games/weihnachtsmann/engine/calendar";
 import { spotInReach } from "@/games/weihnachtsmann/engine/interact";
+import { motorLevel, ridingJetski } from "@/games/weihnachtsmann/engine/jetski";
 import {
   ACHIEVEMENTS,
   progressOf,
+  unlock,
 } from "@/games/weihnachtsmann/engine/achievements";
+import { leaveCinema } from "@/games/weihnachtsmann/engine/cinema";
+import { trySky } from "@/games/weihnachtsmann/engine/sky";
 import { mapSize } from "@/games/weihnachtsmann/engine/map";
 import { FIRST_CHARACTER } from "@/games/weihnachtsmann/engine/map-data";
 import type {
@@ -182,6 +187,8 @@ export type Hud = {
   readonly locked: readonly number[];
   /** The gate whose minigame is open, or null on the map. */
   readonly inGate: number | null;
+  /** Whether the cinema is open; the map waits meanwhile. */
+  readonly inCinema: boolean;
   /** Whether the character steered stands in front of something to use. */
   readonly canUse: boolean;
   /** Which way leads through the doorway it stands in, or null. */
@@ -190,6 +197,10 @@ export type Hud = {
   readonly achieved: readonly (readonly [AchievementId, number])[];
   /** How far each achievement has come, in the order of the list. */
   readonly progress: readonly number[];
+  /** Golden bells found so far. */
+  readonly bells: number;
+  /** The best run down the sledding slope, tenths of a second, 0 for none. */
+  readonly sledBest: number;
 };
 
 /** What the hook hands the component. */
@@ -204,6 +215,10 @@ export type WeihnachtsmannGame = {
   readonly enter: () => void;
   /** Leaves the open minigame at once, back to its gate. */
   readonly quitGate: () => void;
+  /** Leaves the cinema, back to its door; the map goes on. */
+  readonly leaveCinema: () => void;
+  /** Tells the game an episode was started in the cinema. */
+  readonly watchEpisode: () => void;
   /** How the screen is laid out, for a finger or not. */
   readonly layout: Layout;
   /** Puts everybody back at the start. */
@@ -221,10 +236,13 @@ const FIRST_HUD: Hud = {
   locked: [],
   nextGate: 1,
   inGate: null,
+  inCinema: false,
   canUse: false,
   entry: null,
   achieved: [],
   progress: [],
+  bells: 0,
+  sledBest: 0,
 };
 
 /**
@@ -269,6 +287,14 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
   // Read what this browser remembers once, after hydration.
   useEffect(() => {
     stateRef.current = createGame(loadSave());
+    const query = new URLSearchParams(window.location.search);
+    // "?uhr=22" or "?wetter=sturm" / "?wetter=polarlicht" to try the sky.
+    const hour = Number.parseInt(query.get("uhr") ?? "", 10);
+    trySky(
+      stateRef.current,
+      Number.isFinite(hour) ? hour : null,
+      query.get("wetter"),
+    );
     const tried = triedDay(window.location.search);
     if (tried !== null) {
       todayRef.current = () => tried;
@@ -310,6 +336,26 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
 
   const quitGate = useCallback(() => {
     visitRef.current?.session.quit();
+  }, []);
+
+  const leaveTheCinema = useCallback(() => {
+    const state = stateRef.current;
+    if (state?.cinemaOpen === true) {
+      leaveCinema(state);
+      // Whatever was held when the cinema opened is long let go.
+      controls.held.clear();
+      controls.tapped.clear();
+      Object.assign(controls.touch, { moveX: 0, moveY: 0 });
+      writeSave(toSave(state));
+    }
+  }, [controls]);
+
+  const watchEpisode = useCallback(() => {
+    const state = stateRef.current;
+    if (state !== null) {
+      state.now = Date.now();
+      unlock(state, "movieNight");
+    }
   }, []);
 
   const reset = useCallback(() => {
@@ -489,12 +535,18 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
                 if (visit.session.closed()) {
                   closeGate(state, visit);
                 }
+              } else if (state.cinemaOpen) {
+                // The map waits while the cinema is open.
               } else {
                 const read = readControls(controls, state.menu !== null);
                 state.actions.push(...read.actions);
                 step(state, read.input, STEP);
                 if (state.gateOpen !== null) {
                   openGate(state, state.gateOpen);
+                }
+                if (state.cinemaOpen) {
+                  controls.held.clear();
+                  controls.tapped.clear();
                 }
               }
               acc -= STEP;
@@ -503,11 +555,17 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
             for (const id of state.sounds.splice(0)) {
               sound.play(id);
             }
+            sound.motor(
+              visitRef.current === null && !state.cinemaOpen
+                ? motorLevel(state)
+                : 0,
+            );
             playMs += elapsed * MS;
             sinceSave += elapsed;
             sinceFlush += elapsed;
           } else {
             acc = 0;
+            sound.motor(0);
           }
           if (lastAchieved >= 0 && state.achieved.size !== lastAchieved) {
             // A new achievement is kept at once.
@@ -616,10 +674,18 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
           nextGate: nextGate(state.gatesDone, state.today),
           locked: lockedGates(state),
           inGate: visitRef.current?.number ?? null,
-          canUse: spotInReach(state) !== null,
-          entry: entryAt(state),
+          inCinema: state.cinemaOpen,
+          canUse:
+            spotInReach(state) !== null ||
+            ridingJetski(state, state.chars[state.active]),
+          // On a jetski one gets off before going in anywhere.
+          entry: ridingJetski(state, state.chars[state.active])
+            ? null
+            : entryAt(state),
           achieved: [...state.achieved],
           progress: ACHIEVEMENTS.map((def) => progressOf(state, def.id)),
+          bells: state.progress.bells.size,
+          sledBest: state.counts.sledBest,
         };
         const key = JSON.stringify(next);
         if (key !== hudKeyRef.current) {
@@ -639,6 +705,7 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
       return () => {
         window.cancelAnimationFrame(raf);
         window.removeEventListener("pagehide", leave);
+        sound.motor(0);
         leave();
       };
     }
@@ -651,6 +718,8 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
     setTouch,
     enter,
     quitGate,
+    leaveCinema: leaveTheCinema,
+    watchEpisode,
     layout,
     reset,
   };

@@ -154,6 +154,97 @@ Minispiel, das man absolvieren muss.
 - Die Tore 7-26 zeigen bis zu ihrem Bau eine Titelkarte „Kommt bald“ und
   zählen nicht als geschafft.
 
+## Stufe 4: das Dorf (umgesetzt)
+
+- **Karte** jetzt 128 x 64 Felder: 40 Spalten neues Land im Osten, durch einen
+  Waldgürtel (Spalten 85-87) getrennt, die Hauptstraße führt hindurch bis zum
+  Geschenkelager. Freie Flächen für die nächste Stufe: README, Abschnitt
+  „Freie Flächen für Teil 2“.
+- **Fünf Gebäude** mit Tür, Innenraum, Licht und Schild: Elfen-Backstube
+  (neben der Werkstatt), Poststube (neben dem Kino), Gugors Sternwarte
+  (nördlich von Grantelbart, Weg zur Nordstraße), Rentierstall (unter dem
+  Gehege, Weg zur Mittelstraße) und Geschenkelager (Osten). Für die Wege
+  wurden ein Baum (38,9), zwei Bäume (57,10 / 58,10) entfernt, die Schneewehe
+  38,4 nach 42,4 und der tote Busch 54,10 nach 57,12 versetzt.
+- **Aufgaben:** Rentiere mit Möhren füttern (nach 90 s wieder hungrig),
+  Rudolfs Nickerchen im Stroh, Briefe nach Farbe/Kontinent sortieren (Berg
+  wächst nach), der Weihnachtsmann liest Briefe, Plätzchen backen (Teig -
+  Blech - Ofen 8 s - herausholen, sonst nach 20 s verbrannt - Kühlgitter),
+  Gilfis schwebende Bleche, Balbos Mehlsturz, Rundblick vom großen Fernrohr
+  (Gugor sieht dort Verstecktes), das verlorene Geschenk im Paket-Labyrinth
+  suchen und in die Werkstatt bringen, Mauselöcher für Jordi als Maus.
+- **Speichern:** weiter Version 4, neu ist nur `counts.letters`.
+
+## Teil 2: draußen (umgesetzt)
+
+Der Osten der Karte (88-123) ist bebaut; Daten in `engine/east-data.ts`
+(Kästen, Buden, Lichterketten, Glöckchen, Fundorte, Tierreviere, Namen für
+den Rundblick), je Attraktion ein Modul, zusammen gestartet von
+`engine/east.ts` (`World.east`), Tageszeit und Wetter in `engine/sky.ts`
+(`World.sky`). Gezeichnet in `components/render-east.ts` und
+`components/render-sky.ts`, Bilder auf dem eigenen Bogen
+`assets/outdoor-2x.png` (`components/outdoor-atlas.ts`).
+
+| Attraktion      | Wo (Zellen)                                              | Modul         | Was                                                                                                                     |
+| --------------- | -------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Weihnachtsmarkt | 102-122 x 4-16                                           | `market.ts`   | 3 Buden (R: Leckerei, Dampf), Karussell mit 4 Pferden (R: 10 s mitfahren, Spieluhr), Lichterketten, Musik alle 9 s      |
+| Rodelhang       | Bahn 103-107 x 24-56                                     | `sled.ts`     | R am Schlittenstapel (109,22): Start bei 105,5/25,6; wird schneller (bis 150 px/s), Lenken, Bremsen, Fahne/Stein bremst |
+| Schneeballwiese | 110-122 x 20-28                                          | `snowball.ts` | R wirft in Blickrichtung (170 px/s, 0,6 s); 3 Zielscheiben, 2 Schneemänner                                              |
+| Eishöhle        | Wasserfall 114-121 x 32-35                               | `cave.ts`     | Tür 117-118/36 nur bei gebrochenem Vorhang, Schlupfloch 113/35 nur für den Fuchs; Raum `iceCave` (20 x 13)              |
+| See             | 109-123 x 38-57, Insel 115-117                           | `rink.ts`     | weniger Halt (Griff x0,7), schneller (x1,25), Runden um die Insel, Balbo rutscht aus (0,35 je s)                        |
+| Tannenschonung  | 89-99 x 41-55                                            | `firs.ts`     | junge Tannen fällen (Weihnachtsmann, Elfen), Tragen `fir` geht durch Türen, Ständer in der Werkstatt (7,12)             |
+| Glöckchen       | ganze Karte                                              | `bells.ts`    | 12 Stück, Bedingung je Glöckchen (`BellNeed`), gespeichert in `progress.bells`, nicht im Rundblick                      |
+| Tiere           | Hasen 88-100 x 21-40, Pinguine See, Eulen 100-121 x 2-14 | `critters.ts` | scheu (fliehen unter 38 px), neugierig auf Jordi in ihrer Gestalt; R: Sprechblase                                       |
+| Briefkasten     | 16,13                                                    | `errands.ts`  | Auftrag: Fundsache bringen, besuchen, vom Markt holen; Pfeil zum Ziel; Ziel-Figur wartet, wenn man nah ist              |
+| Tag und Nacht   | draußen                                                  | `sky.ts`      | 360 s je Tag, Start morgens; Nachttönung, Licht draußen nachts heller; 60 % der Nächte 75 s Polarlicht                  |
+| Schneesturm     | draußen                                                  | `sky.ts`      | nach 150 s, dann alle 160-320 s für 40 s: Schneetreiben, weißer Rand                                                    |
+
+Ausprobieren: `?uhr=22` (Startstunde), `?wetter=sturm`, `?wetter=polarlicht`.
+
+### Jetskis
+
+Vier Schnee-Jetskis (Rumpf auf zwei Kufen, je eine Farbe) in
+`engine/jetski.ts`, Standorte `JETSKI_HOMES` in `engine/east-data.ts`:
+Teich-Südufer 11/33,7 (rot), Hauptstraße 53/20,8 (gelb), westlich vom Markt
+96,5/11 (türkis), See-Westufer 110,5/40,8 (lila). Zustand in `World.jetskis`
+(nicht gespeichert; nach dem Neuladen steht der Fahrer daneben bzw. am
+Startplatz, falls er im Wasser war).
+
+- **Einsteigen:** R daneben (Spot `jetski`, Schild „Jetski - R: einsteigen“).
+  Nicht fliegend („Erst landen“), nicht als Tier, nicht wenn schon jemand
+  drauf sitzt.
+- **Fahren:** Bug dreht zum Stick (6 rad/s), Schub 320 px/s², Spitze 240 px/s
+  auf Schnee/Weg (zu Fuß gesteuert ca. 94 px/s), Eis x1,12, Wasser x1,06.
+  Querfahrt verfällt je nach Boden (Schnee 7/s, Wasser 2,6/s, Eis 1,6/s) -
+  daher Drift. Zurückziehen bremst. Kollision mit eigenem Rumpf-Kasten
+  (18 x 6, darf ins Wasser); an Ecken rutscht er bis 6 px vorbei, sonst prallt
+  er ab (40 % zurück, ab 120 px/s mit Plumps und Spruch). Schneemänner im Weg
+  fallen um (zählt für „Umgeschubst“). Gischt aus Schnee, Eis oder Wasser
+  (Partikel `spray`).
+- **Türen, Türchen, Kino:** keine Durchfahrt; wer hineindrückt, bekommt einmal
+  je Tür „erst aussteigen“. „Hinein“ erscheint auf dem Jetski nicht.
+- **Aussteigen:** R, neben (sonst hinter/vor) dem Jetski auf begehbarem Boden,
+  nicht im Wasser. Der Jetski bleibt stehen; nach 180 s unbenutzt woanders
+  steht er wieder an seinem Platz (wenn dort keiner steht).
+- **Fähigkeit:** Hupe (Grantelbart: Riff mit Noten), 0,7 s Pause.
+- **Figurwechsel:** die Figur bleibt sitzen, der Jetski rollt aus;
+  zurückgewechselt fährt man weiter. Nicht gesteuerte Figuren steigen nie auf.
+  Wer in den Schlitten oder nach drinnen kommt, ist vom Jetski herunter.
+- **Kamera** schaut bei Tempo bis 64 px voraus; **Motor** als leises
+  Dauerbrummen (`SoundPlayer.motor`, Tonhöhe nach Tempo, still bei
+  verborgener Seite, im Minispiel und im Kino), dazu `jetskiStart` und `horn`.
+- **Nachts** Scheinwerfer (drei Lichtflecke vor dem Bug).
+- **Wechselwirkungen:** Runden um die Insel zählen auf dem Jetski nicht
+  („Eisläufer“), das Hasenrennen gilt nur als Hase; das Glöckchen im offenen
+  Wasser des Teichs ist mit dem Jetski erreichbar.
+- **Rundblick:** jeder Jetski als Strich in seiner Farbe mit Namen.
+- **Grafik:** eigener Bogen `assets/jetski-2x.png` mit Atlas
+  `components/jetski-atlas.ts` (je Farbe Seite, vorne, hinten, jeweils ganz
+  und nur der Teil vor dem Fahrer), Zeichnen in `components/render-jetski.ts`.
+  Beides schreibt das Skript `jetski_art.py` (Scratchpad der Sitzung unter
+  `jetski/`, nutzt `pix.py`), dazu das Abzeichen „Vollgas“ auf dem
+  Figurenbogen bei 74,714.
+
 ## Fähigkeiten
 
 Datengetrieben: jede Figur nennt ihre Fähigkeit (`fly`, `transform` oder
@@ -188,8 +279,8 @@ die Figur zu Fuß stehen könnte - sonst "Hier kann ich nicht landen!". Allein
 gelassen landet eine Fliegende, sobald unter ihr Platz ist. Trixi 88, Rudolf
 100 Pixel pro Sekunde (zu Fuß 62 und 66).
 
-**Jordis Tiere** (Taste T, Wahl mit 1-6, Pfeilen oder Klick; Puff-Wolke mit
-Sternchen; zurück mit T, wenn Platz für Jordi ist):
+**Jordis Tiere** (Taste F oder Leertaste, Wahl mit 1-6, Pfeilen oder Klick; Puff-Wolke mit
+Sternchen; zurück mit F, wenn Platz für Jordi ist):
 
 | Tier    | Tempo (px/s) | Besonderheit                                         |
 | ------- | ------------ | ---------------------------------------------------- |
@@ -204,8 +295,8 @@ R lässt die gesteuerte Figur (oder das Tier) etwas sagen.
 
 ## Erfolge
 
-29 Erfolge, mindestens einer je Figur und Fähigkeit, dazu Erfolge für alle.
-Daten in `engine/achievements.ts` (`ACHIEVEMENTS`: id, geheim, für wen, Ziel),
+54 Erfolge, mindestens einer je Figur und Fähigkeit, dazu Erfolge für alle.
+Daten in `engine/achievements.ts` (`ACHIEVEMENTS`: id, für wen, Ziel),
 Texte in `i18n/texts.ts` (`ACHIEVEMENT_TEXTS`: Titel, geschafft, Tipp),
 Abzeichen auf dem Figurenbogen (`badge...`, Generator `achieve.py`).
 Freigeschaltet wird im Moment des Geschehens (`unlock`); was nur vom
@@ -217,9 +308,11 @@ Schritt. Es zählt nur, was die gesteuerte Figur tut.
   warten nacheinander. Das Spiel läuft weiter.
 - **Erfolge-Knopf:** im Kopf und neben dem Adventskalender (Handy: Stern mit
   Zahl). Der Dialog zeigt Karten: geschafft mit Datum, offen grau mit Tipp und
-  Fortschrittsbalken, geheime als „???“.
+  Fortschrittsbalken.
 - **Speichern:** im Spielstand (Version 4) die Erfolge mit Datum, die
-  gesammelten Wünsche und Instrumente und die gezählten Stürze und Spielzeuge.
+  gesammelten Wünsche, Instrumente, Buden, Glöckchen und Tierarten, die
+  gezählten Stürze, Spielzeuge, Briefe, Treffer und Aufträge und die beste
+  Rodelzeit (alles optional - ältere Stände lesen sich mit 0).
   Spielstände der Version 3 werden gelesen (noch kein Erfolg); wer schon
   Türchen hat, bekommt die Türchen-Erfolge beim ersten Schritt. „Neu
   aufstellen“ behält die Erfolge.
@@ -234,16 +327,16 @@ Schritt. Es zählt nur, was die gesteuerte Figur tut.
 | Meisterhaft repariert  | Jordi, Trixi, Gilfi    | R als Elfe (Jordi nicht als Tier) an der kaputten Maschine: 1,6 s Reparatur                |
 | Ohrenbetäubend         | Grantelbart            | ein Riff erschreckt mindestens 3 andere auf einmal                                         |
 | Werkstattspion         | Gugor                  | Fernrohr, während der Weihnachtsmann in der Werkstatt ist                                  |
-| Erwischt, Angeber!     | Gugor                  | **geheim:** Fernrohr, während der Weihnachtsmann Schlitten fliegt                          |
+| Erwischt, Angeber!     | Gugor                  | Fernrohr, während der Weihnachtsmann Schlitten fliegt                                      |
 | Schwebender Schneemann | Gilfi                  | draußen zaubern, ein stehender Schneemann im Umkreis schwebt mit                           |
 | Bauchklatscher         | Balbo                  | auf dem Eis hinfallen                                                                      |
 | Stehaufmännchen        | Balbo                  | 10-mal hinfallen (gezählt und gespeichert)                                                 |
-| Volltreffer            | Balbo                  | **geheim:** kopfüber in einen Schneemann fallen (er kippt um)                              |
+| Volltreffer            | Balbo                  | kopfüber in einen Schneemann fallen (er kippt um)                                          |
 | Durchgeschlüpft        | Jordi                  | als Maus mitten durch einen Zaun                                                           |
 | Schneepflug            | Jordi                  | als Bär durch eine Schneewehe: sie wird platt                                              |
 | Warme Füße             | Jordi                  | als Vogel auf Grantelbarts rauchendem Schornstein                                          |
 | Turbohase              | Jordi                  | als Hase in unter 8 s von der Werkstatttür zu Grantelbarts Haustür                         |
-| Spürnase               | Jordi                  | **geheim:** als Fuchs östlich vom schiefen Schild graben (R): ein goldenes Glöckchen       |
+| Spürnase               | Jordi                  | als Fuchs östlich vom schiefen Schild graben (R): ein goldenes Glöckchen                   |
 | Hü, Rudolf!            | Weihnachtsmann, Rudolf | Schlittenrunde, während Rudolf draußen ist (er zieht)                                      |
 | Licht aus              | alle                   | R an einer Laterne                                                                         |
 | Stromausfall           | alle                   | alle 35 Laternen gleichzeitig aus                                                          |
@@ -255,20 +348,56 @@ Schritt. Es zählt nur, was die gesteuerte Figur tut.
 | Betriebsversammlung    | alle                   | alle 8 Figuren gleichzeitig in der Werkstatt                                               |
 | Das erste Türchen      | alle                   | ein Minispiel gewinnen                                                                     |
 | Frohe Weihnachten!     | alle                   | alle 26 Türchen schaffen                                                                   |
+| Filmabend              | alle                   | im Kino eine Folge starten                                                                 |
+| Satte Rentiere         | alle                   | alle 4 Rentiere im Stall gleichzeitig satt (Möhre aus der Kiste, R an der Box)             |
+| Rudolfs Nickerchen     | Rudolf                 | R am Stroh im Rentierstall                                                                 |
+| Postmeister            | alle                   | 10 Briefe ins richtige Fach (gezählt und gespeichert)                                      |
+| Lieber Weihnachtsmann  | Weihnachtsmann         | in der Poststube einen Brief nehmen (er liest ihn)                                         |
+| Erstes Blech           | alle                   | ein fertiges Blech aus dem Ofen holen                                                      |
+| Mehlstaub              | Balbo                  | in der Backstube hinfallen                                                                 |
+| Fliegende Bleche       | Gilfi                  | in der Backstube zaubern                                                                   |
+| Überblick              | alle                   | Rundblick am großen Fernrohr der Sternwarte                                                |
+| Adlerauge              | Gugor                  | Rundblick in der Sternwarte, während das Geschenk im Lager versteckt ist                   |
+| Geschenk gerettet      | alle                   | das verlorene Geschenk aus dem Lager in die Werkstatt tragen                               |
+| Mäuseweg               | Jordi                  | als Maus durch ein Mauseloch im Geschenkelager                                             |
+| Bummel über den Markt  | alle                   | R an allen 3 Buden des Weihnachtsmarkts (gespeichert)                                      |
+| Rundherum              | alle                   | eine Karussellfahrt (R vor dem Karussell)                                                  |
+| Hinter dem Eis         | alle                   | die Eishöhle betreten (Vorhang: Bär mit R; Schlupfloch: Fuchs gräbt mit R)                 |
+| Himmelsleuchten        | Gugor                  | draußen Fernrohr, während Polarlichter leuchten (Stärke mindestens 0,3)                    |
+| Rodelblitz             | alle                   | Rodelhang in unter 7 s (Bestzeit in Zehntelsekunden als `counts.sledBest`)                 |
+| Treffsicher            | alle                   | 15 Treffer auf Zielscheiben und Schneemänner (gezählt und gespeichert)                     |
+| Eiskunstläufer         | alle                   | 3 Runden um die Insel des Sees, ohne das Eis zu verlassen (Winkel um die Insel)            |
+| O Tannenbaum           | Weihnachtsmann, Elfen  | junge Tanne fällen, in die Werkstatt tragen, R am Ständer                                  |
+| Alle Glöckchen         | alle                   | alle 12 goldenen Glöckchen (gespeichert, `progress.bells`)                                 |
+| Tiergespräche          | Jordi                  | als Hase/Pinguin/Vogel mit Schneehase/Pinguin/Eule plaudern (gespeichert)                  |
+| Fleißiger Bote         | alle                   | 5 Aufträge aus dem Briefkasten (gezählt und gespeichert)                                   |
+| Sturmerprobt           | alle                   | 20 s im selben Schneesturm draußen unterwegs                                               |
+| Vollgas                | alle                   | in einer Jetski-Fahrt den Westrand (x < 16 Zellen) und den Ostrand (x > 112) erreichen     |
 
 ### Was man verändert, stellt sich wieder her
 
 Die Veränderungen stehen in `GameState.world` (`engine/world.ts`), nicht in
 der Karte, und werden nicht gespeichert - nach dem Neuladen ist alles heil.
 
-| Veränderung              | Wie                                  | Zurück                                                                                                                    |
-| ------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Laterne aus              | R an der Laterne (nochmal R: an)     | 60 s nach der zuletzt ausgeknipsten gehen sie nacheinander alle 3 s wieder an, mit Flackern                               |
-| Schneemann umgeschubst   | R am Schneemann, Balbo fällt hinein  | nach 90 s steht er wieder (Schneestaub, Glitzer); R baut ihn sofort auf                                                   |
-| Schneewehe platt         | der Bär läuft hindurch               | nach 45 s wieder da                                                                                                       |
-| Fisch gefangen           | Pinguin schwimmt auf ihn             | nach 25 s schwimmt einer an einer anderen Stelle des Lochs                                                                |
-| Geschenk von der Kuppel  | Trixi fliegt hin                     | nach 60 s liegt ein neues dort (Glitzer)                                                                                  |
-| Spielzeugmaschine kaputt | Grantelbart (R oder Gitarre daneben) | steht still, Ruß, Funken, Riss, eine Lampe blinkt rot; nach 120 s läuft sie von selbst wieder, eine Elfe repariert sofort |
+| Veränderung                 | Wie                                  | Zurück                                                                                                                    |
+| --------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Laterne aus                 | R an der Laterne (nochmal R: an)     | 60 s nach der zuletzt ausgeknipsten gehen sie nacheinander alle 3 s wieder an, mit Flackern                               |
+| Schneemann umgeschubst      | R am Schneemann, Balbo fällt hinein  | nach 90 s steht er wieder (Schneestaub, Glitzer); R baut ihn sofort auf                                                   |
+| Schneewehe platt            | der Bär läuft hindurch               | nach 45 s wieder da                                                                                                       |
+| Fisch gefangen              | Pinguin schwimmt auf ihn             | nach 25 s schwimmt einer an einer anderen Stelle des Lochs                                                                |
+| Geschenk von der Kuppel     | Trixi fliegt hin                     | nach 60 s liegt ein neues dort (Glitzer)                                                                                  |
+| Spielzeugmaschine kaputt    | Grantelbart (R oder Gitarre daneben) | steht still, Ruß, Funken, Riss, eine Lampe blinkt rot; nach 120 s läuft sie von selbst wieder, eine Elfe repariert sofort |
+| Rentier satt                | Möhre an der Box                     | nach 90 s wieder hungrig (Gedankenblase mit Möhre)                                                                        |
+| Briefberg kleiner           | Brief nehmen                         | alle 6 s ein Brief mehr, bis 12                                                                                           |
+| Ofen / Kühlgitter           | backen, abstellen                    | fertige Plätzchen verbrennen nach 20 s; jedes Blech auf dem Gitter ist nach 50 s weggenascht                              |
+| Geschenk geholt             | gefunden und abgeliefert             | nach 45 s geht ein neues verloren; alle 150 s wird das Labyrinth neu gestapelt (nicht, solange man drin ist)              |
+| Eisvorhang offen            | Bär R am Vorhang                     | 120 s offen, in den letzten 20 s wächst dünnes Eis nach; dann zu                                                          |
+| Schlupfloch frei            | Fuchs R am Loch neben der Klippe     | nach 120 s wieder zugeschneit                                                                                             |
+| Tanne gefällt               | R an junger Tanne der Schonung       | Baumstumpf; nach 150 s steht wieder eine junge Tanne                                                                      |
+| Christbaum in der Werkstatt | R am Ständer mit Tanne               | nach 240 s verschwindet er (Puff)                                                                                         |
+| Glöckchen aus der Tanne     | Gilfi zaubert daneben                | liegt 90 s im Schnee, dann hängt es wieder oben                                                                           |
+| Zielscheibe getroffen       | Schneeball                           | wackelt 0,8 s                                                                                                             |
+| Brief im Briefkasten        | R liest den Auftrag                  | 20-45 s nach dem erledigten Auftrag liegt ein neuer darin                                                                 |
 
 ## Bewusst (noch) nicht umgesetzt
 
@@ -280,6 +409,59 @@ der Karte, und werden nicht gespeichert - nach dem Neuladen ist alles heil.
 - Eigenes Verhalten für Jordi als Tier ohne Steuerung: wer ihn als Tier
   verlässt, findet ihn als dasselbe Tier spazierend wieder (der Vogel fliegt
   dabei).
+
+## Kino
+
+- **Ort:** Gebäude 6 x 3 Felder bei Zelle 30,5 (Grundriss sperrt wie ein
+  Haus), Tür unten in der Mitte (Felder 32-33, Zeile 8), ein Weg (Spalten
+  32-33) führt von der Hauptstraße hinauf. Für den Platz wurden eine
+  Schneewehe (31,4 nach 38,4) und ein Stein (33,16 nach 35,16) versetzt.
+  Leuchtendes „KINO“-Schild mit Lauflichtern, Lichterkette unter dem Sims,
+  warmes Licht aus Tür und Rundfenstern.
+- **Hinein:** in der Tür Pfeil hoch (wie bei den Türchen), R vor der
+  Fassade, auf dem Handy Hinein oder Benutzen. Überblendung; am dunkelsten
+  Punkt setzt die Simulation `cinemaOpen`, der Bildschirm zeigt das Kino als
+  `<dialog>` über allem, die Karte steht still. Zurück: Esc oder „Kino
+  verlassen“; danach wartet die Tür, bis der Druck nach oben losgelassen ist
+  (wie bei den Türchen).
+- **Kino:** Vorhang-Optik, Liste der 26 Folgen (Nummer, Titel), 4:3-Leinwand.
+  Der Player (youtube-nocookie.com) wird erst nach dem Klick auf eine Folge
+  geladen, vorher nur ein Platzhalter; Hinweiszeile „Beim Abspielen werden
+  die Folgen vom offiziellen TOGGO-Kanal geladen.“ Fehler: „Diese Folge ist
+  gerade nicht verfügbar.“
+- **Ausschnitt:** jede Folge nur von 1:04 bis 23:04; Uhr und Zeitleiste
+  zeigen 0:00 bis 22:00, Spulen bleibt im Raster. Bei 23:04 hält der Film an,
+  der Vorhang schließt sich mit „Ende“, „Nächste Folge“ und „Nochmal
+  ansehen“.
+- **Steuerung:** eigene Knöpfe in Gold/Samt: Abspielen/Pause, Zeitleiste
+  (Klick, Ziehen, Touch), Ton an/aus und Lautstärke, Vollbild für die
+  Leinwand. Klick aufs Bild = Pause/Weiter. Tastatur: Leertaste Pause,
+  Pfeile ±10 s, Esc verlässt das Kino.
+- **Vorhang:** geht auf, sobald der Teil ab 1:04 läuft (2,3 s, sanft
+  auslaufend), schließt bei Pause halb und am Ende ganz (0,8 s); darunter
+  liegt sofort ein dunkler Schirm. Vorher läuft der Film 4 s stumm hinter dem
+  geschlossenen Vorhang an, damit die Titelleiste des Players vorbei ist.
+  Nach Weiterspielen, Springen, Puffern und Vollbild decken für 4,5 s dunkle
+  Streifen oben/unten und ein goldenes Zeichen in der Mitte die Knöpfe des
+  Players ab.
+- **Weiterschauen:** gespeichert unter `weihnachtsmann/cinema` (Version 2,
+  getrennt vom Spielstand; Version 1 mit nur der letzten Folge wird
+  übernommen): die zuletzt gestartete Folge, die Stelle je Folge (Sekunden
+  im Raster 1:04-23:04) und die zu Ende geschauten. Gespeichert wird alle
+  5 s während der Wiedergabe, bei Pause, beim Folgenwechsel, beim Schließen
+  des Kinos und bei pagehide/visibilitychange. Beim Öffnen ist die letzte
+  Folge markiert, ein Knopf „Weiterschauen - Folge N, ab M:SS“ setzt dort
+  fort (war sie zu Ende geschaut: die nächste Folge); ohne Klick startet
+  nichts. Eine Folge aus der Liste setzt an ihrer Stelle fort. In der Liste
+  zeigt ein dünner Balken den Stand, „gesehen“ die fertigen; eine fertige
+  Folge beginnt beim nächsten Mal wieder bei 1:04. Auch beim Fortsetzen
+  läuft der Film 4 s stumm hinter dem Vorhang an.
+- **Nächste Folge von selbst:** Bei 23:04 erscheint auf dem Vorhang „Gleich
+  geht's weiter: Folge N+1 - Titel“ mit 5-s-Countdown, „Jetzt abspielen“ und
+  „Abbrechen“ (zeigt den Ende-Bildschirm). Die nächste Folge lädt per
+  `loadVideoById` in denselben Player und startet bei 1:04 mit Ton. Nach
+  Folge 26 kommt nur der Ende-Bildschirm.
+- **Erfolg:** „Filmabend“ beim ersten Start einer Folge.
 
 ## Datumssperre der Türchen
 

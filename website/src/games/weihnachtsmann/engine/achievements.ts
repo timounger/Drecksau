@@ -10,9 +10,11 @@
  * and {@link checkAchievements} looks every step at what is reached by
  * standing, flying or swimming somewhere. Only what the player does counts:
  * a character nobody steers unlocks nothing ({@link steered}). Unlocked
- * achievements, collected wishes and instruments and counted falls and toys
- * are saved; the world changes behind them are not.
+ * achievements, collected wishes, instruments, booths, bells and animals and
+ * counted falls, toys, letters, hits, errands and the best sled time are
+ * saved; the world changes behind them are not.
  */
+import { BELLS, STALLS } from "./east-data";
 import { GATE_COUNT } from "./gates";
 import { CHIMNEYS, TILE, terrainUnder } from "./map";
 import { currentProfile } from "./movement";
@@ -32,11 +34,9 @@ import {
   type SavedAchievement,
 } from "./types";
 
-/** One achievement: whether it is secret, for whom, and how much it takes. */
+/** One achievement: for whom, and how much it takes. */
 export type AchievementDef = {
   readonly id: AchievementId;
-  /** Secret: title and hint stay hidden until it is unlocked. */
-  readonly hidden: boolean;
   /** The characters it is meant for; empty for anybody. */
   readonly who: readonly CharacterId[];
   /** How many steps it takes; 1 for a single moment. */
@@ -55,9 +55,22 @@ const INSTRUMENT_COUNT = 4;
 /** The others whose wishes Santa can read. */
 const WISHERS = CHARACTER_IDS.length - 1;
 
-/** Falls and toys it takes. */
+/** Falls, toys, sorted letters, snowball hits and errands it takes. */
 const FALL_GOAL = 10;
 const TOY_GOAL = 10;
+const LETTER_GOAL = 10;
+const HIT_GOAL = 15;
+const ERRAND_GOAL = 5;
+
+/** The kinds of wild animals to talk to. */
+const CRITTER_KINDS = 3;
+
+/** Laps round the lake's island, and seconds through a storm. */
+const LAP_GOAL = 3;
+const STORM_GOAL = 20;
+
+/** The reindeer in the stable, all to be fed at once. */
+const REINDEER = 4;
 
 /** Corners of the map Rudolf has to fly through. */
 const CORNERS = 4;
@@ -85,47 +98,74 @@ const GRANTEL_DOOR = { x: 46.5 * TILE, y: 13.4 * TILE } as const;
 
 /** Every achievement, in the order of the panel. */
 export const ACHIEVEMENTS: readonly AchievementDef[] = [
-  { id: "fish", hidden: false, who: ["jordi"], goal: 1 },
-  { id: "roofGift", hidden: false, who: ["trixi"], goal: 1 },
-  { id: "rudolfLap", hidden: false, who: ["rudolf"], goal: CORNERS },
-  { id: "wishesAll", hidden: false, who: ["santa"], goal: WISHERS },
-  { id: "machineBroken", hidden: false, who: ["grantelbart"], goal: 1 },
-  { id: "machineFixed", hidden: false, who: ELVES, goal: 1 },
-  { id: "grantelConcert", hidden: false, who: ["grantelbart"], goal: 1 },
-  { id: "spyWorkshop", hidden: false, who: ["gugor"], goal: 1 },
-  { id: "spySleigh", hidden: true, who: ["gugor"], goal: 1 },
-  { id: "levitateSnowman", hidden: false, who: ["gilfi"], goal: 1 },
-  { id: "balboIce", hidden: false, who: ["balbo"], goal: 1 },
-  { id: "balboTen", hidden: false, who: ["balbo"], goal: FALL_GOAL },
-  { id: "balboSnowman", hidden: true, who: ["balbo"], goal: 1 },
-  { id: "mouseFence", hidden: false, who: ["jordi"], goal: 1 },
-  { id: "bearDrift", hidden: false, who: ["jordi"], goal: 1 },
-  { id: "birdChimney", hidden: false, who: ["jordi"], goal: 1 },
-  { id: "hareRace", hidden: false, who: ["jordi"], goal: 1 },
-  { id: "foxDig", hidden: true, who: ["jordi"], goal: 1 },
-  { id: "sleighRide", hidden: false, who: ["santa", "rudolf"], goal: 1 },
-  { id: "lampFirst", hidden: false, who: [], goal: 1 },
-  { id: "lampsAll", hidden: false, who: [], goal: 35 },
-  { id: "snowmanDown", hidden: false, who: [], goal: 1 },
-  { id: "snowmanBuilt", hidden: false, who: [], goal: 1 },
-  { id: "instruments", hidden: false, who: [], goal: INSTRUMENT_COUNT },
-  { id: "toys10", hidden: false, who: [], goal: TOY_GOAL },
-  { id: "grantelVisit", hidden: false, who: ["santa"], goal: 1 },
+  { id: "fish", who: ["jordi"], goal: 1 },
+  { id: "roofGift", who: ["trixi"], goal: 1 },
+  { id: "rudolfLap", who: ["rudolf"], goal: CORNERS },
+  { id: "wishesAll", who: ["santa"], goal: WISHERS },
+  { id: "machineBroken", who: ["grantelbart"], goal: 1 },
+  { id: "machineFixed", who: ELVES, goal: 1 },
+  { id: "grantelConcert", who: ["grantelbart"], goal: 1 },
+  { id: "spyWorkshop", who: ["gugor"], goal: 1 },
+  { id: "spySleigh", who: ["gugor"], goal: 1 },
+  { id: "levitateSnowman", who: ["gilfi"], goal: 1 },
+  { id: "balboIce", who: ["balbo"], goal: 1 },
+  { id: "balboTen", who: ["balbo"], goal: FALL_GOAL },
+  { id: "balboSnowman", who: ["balbo"], goal: 1 },
+  { id: "mouseFence", who: ["jordi"], goal: 1 },
+  { id: "bearDrift", who: ["jordi"], goal: 1 },
+  { id: "birdChimney", who: ["jordi"], goal: 1 },
+  { id: "hareRace", who: ["jordi"], goal: 1 },
+  { id: "foxDig", who: ["jordi"], goal: 1 },
+  { id: "sleighRide", who: ["santa", "rudolf"], goal: 1 },
+  { id: "lampFirst", who: [], goal: 1 },
+  { id: "lampsAll", who: [], goal: 35 },
+  { id: "snowmanDown", who: [], goal: 1 },
+  { id: "snowmanBuilt", who: [], goal: 1 },
+  { id: "instruments", who: [], goal: INSTRUMENT_COUNT },
+  { id: "toys10", who: [], goal: TOY_GOAL },
+  { id: "grantelVisit", who: ["santa"], goal: 1 },
   {
     id: "allInWorkshop",
-    hidden: false,
     who: [],
     goal: CHARACTER_IDS.length,
   },
-  { id: "firstGate", hidden: false, who: [], goal: 1 },
-  { id: "allGates", hidden: false, who: [], goal: GATE_COUNT },
+  { id: "firstGate", who: [], goal: 1 },
+  { id: "allGates", who: [], goal: GATE_COUNT },
+  { id: "movieNight", who: [], goal: 1 },
+  { id: "stableFed", who: [], goal: REINDEER },
+  { id: "rudolfNap", who: ["rudolf"], goal: 1 },
+  { id: "letters10", who: [], goal: LETTER_GOAL },
+  { id: "santaLetter", who: ["santa"], goal: 1 },
+  { id: "firstTray", who: [], goal: 1 },
+  { id: "balboFlour", who: ["balbo"], goal: 1 },
+  { id: "gilfiTrays", who: ["gilfi"], goal: 1 },
+  { id: "overview", who: [], goal: 1 },
+  { id: "gugorEagle", who: ["gugor"], goal: 1 },
+  { id: "giftFound", who: [], goal: 1 },
+  { id: "mouseGap", who: ["jordi"], goal: 1 },
+  { id: "marketStalls", who: [], goal: STALLS.length },
+  { id: "carousel", who: [], goal: 1 },
+  { id: "iceCave", who: [], goal: 1 },
+  { id: "aurora", who: ["gugor"], goal: 1 },
+  { id: "sledFast", who: [], goal: 1 },
+  { id: "snowballs", who: [], goal: HIT_GOAL },
+  { id: "skater", who: [], goal: LAP_GOAL },
+  { id: "firTree", who: ["santa", ...ELVES], goal: 1 },
+  { id: "bellsAll", who: [], goal: BELLS.length },
+  { id: "animalTalk", who: ["jordi"], goal: CRITTER_KINDS },
+  { id: "errands5", who: [], goal: ERRAND_GOAL },
+  { id: "stormWalk", who: [], goal: STORM_GOAL },
+  { id: "fullThrottle", who: [], goal: 1 },
 ];
 /* eslint-enable @typescript-eslint/no-magic-numbers */
 
-/** Which count each counting achievement needs. */
-const COUNT_GOALS: Readonly<Record<CountId, number>> = {
+/** Which count each counting achievement needs; the best sled time is none. */
+const COUNT_GOALS: Readonly<Partial<Record<CountId, number>>> = {
   falls: FALL_GOAL,
   toys: TOY_GOAL,
+  letters: LETTER_GOAL,
+  hits: HIT_GOAL,
+  errands: ERRAND_GOAL,
 };
 
 /** Which collection each collecting achievement needs. */
@@ -134,6 +174,9 @@ const PROGRESS_GOALS: Readonly<
 > = {
   wishes: { id: "wishesAll", goal: WISHERS },
   instruments: { id: "instruments", goal: INSTRUMENT_COUNT },
+  stalls: { id: "marketStalls", goal: STALLS.length },
+  bells: { id: "bellsAll", goal: BELLS.length },
+  critters: { id: "animalTalk", goal: CRITTER_KINDS },
 };
 
 /**
@@ -195,7 +238,7 @@ export function addCount(
   id: AchievementId,
 ): void {
   state.counts[kind] += 1;
-  if (state.counts[kind] >= COUNT_GOALS[kind]) {
+  if (state.counts[kind] >= (COUNT_GOALS[kind] ?? Infinity)) {
     unlock(state, id);
   }
 }
@@ -224,6 +267,9 @@ export function checkAchievements(state: GameState): void {
   checkHare(state, char);
   if (char.id === "santa" && char.area === "grantelHouse") {
     unlock(state, "grantelVisit");
+  }
+  if (char.area === "iceCave") {
+    unlock(state, "iceCave");
   }
   if (inWorkshop(state) >= CHARACTER_IDS.length) {
     unlock(state, "allInWorkshop");
@@ -276,6 +322,12 @@ export function progressOf(state: GameState, id: AchievementId): number {
     case "toys10":
       done = state.counts.toys;
       break;
+    case "letters10":
+      done = state.counts.letters;
+      break;
+    case "stableFed":
+      done = state.world.stable.full.filter((left) => left > 0).length;
+      break;
     case "lampsAll":
       done = state.world.lampsOff.length;
       break;
@@ -287,6 +339,27 @@ export function progressOf(state: GameState, id: AchievementId): number {
       break;
     case "allGates":
       done = state.gatesDone.size;
+      break;
+    case "marketStalls":
+      done = state.progress.stalls.size;
+      break;
+    case "bellsAll":
+      done = state.progress.bells.size;
+      break;
+    case "animalTalk":
+      done = state.progress.critters.size;
+      break;
+    case "snowballs":
+      done = state.counts.hits;
+      break;
+    case "errands5":
+      done = state.counts.errands;
+      break;
+    case "skater":
+      done = Math.floor(Math.abs(state.world.east.lapTurn) / (Math.PI * 2));
+      break;
+    case "stormWalk":
+      done = Math.floor(state.world.sky.stormWalked);
       break;
     default:
       done = 0;
@@ -323,10 +396,9 @@ export function achievementSave(
 ): Pick<SaveData, "achievements" | "progress" | "counts"> {
   return {
     achievements: [...state.achieved].map(([id, at]) => ({ id, at })),
-    progress: {
-      wishes: [...state.progress.wishes].sort(),
-      instruments: [...state.progress.instruments].sort(),
-    },
+    progress: Object.fromEntries(
+      PROGRESS_IDS.map((kind) => [kind, [...state.progress[kind]].sort()]),
+    ),
     counts: { ...state.counts },
   };
 }
@@ -366,11 +438,12 @@ function inWorkshop(state: GameState): number {
   ).length;
 }
 
-/** Whether the bird sits on Grantelbart's chimney. */
+/** Whether the bird sits on Grantelbart's chimney (not the village's). */
 function nearChimney(state: GameState, char: Character): boolean {
   return state.maps.outdoors.objects.some((object) => {
     const mouth = CHIMNEYS[object.kind];
     return (
+      object.kind === "grantelMain" &&
       mouth !== undefined &&
       Math.abs(char.x - (object.tx * TILE + mouth[0])) < CHIMNEY_NEAR &&
       Math.abs(

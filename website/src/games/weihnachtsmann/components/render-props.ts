@@ -1,8 +1,8 @@
 /**
  * The moving and glowing bits of the places: the toy machine's gears, lamps,
  * belt and toys (all standing still, sooty and cracked while it is broken), the flames in the fireplace and on the candles, the blinking
- * amplifiers, the portrait's eyes, the lights in and around the houses and
- * the flying sleigh.
+ * amplifiers, the cinema's chasing sign bulbs and fairy lights, the
+ * portrait's eyes, the lights in and around the houses and the flying sleigh.
  *
  * @module
  * @remarks
@@ -135,6 +135,31 @@ const NOSE_CORE = 3;
 /** The red lamp on each amplifier head. */
 const AMP_LED = [27, -55] as const;
 
+/** The bulbs round the cinema's sign: the frame's corners and their spacing. */
+const SIGN_BULBS = { left: 27.5, right: 68, top: -76.5, bottom: -63, gap: 3 };
+
+/** The sign's bulbs chase round this fast, steps per second, every third dark. */
+const CHASE_FPS = 8;
+const CHASE_EVERY = 3;
+
+/** The fairy lights under the cinema's cornice: hooks, sag and bulb spacing. */
+const STRING_HOOKS: readonly number[] = [4, 26, 48, 70, 92];
+const STRING_Y = -57;
+const STRING_SAG = 3;
+const STRING_GAP = 3.5;
+
+/** Colours of the fairy lights, and how fast each twinkles, per second. */
+const STRING_COLORS: readonly string[] = [
+  "#ff4a4a",
+  "#5ce07a",
+  "#ffe060",
+  "#60b8ff",
+];
+const STRING_TWINKLE = 1.7;
+
+/** A fairy light is lit while its sine wave stays above this. */
+const STRING_DUTY = -0.6;
+
 /** Lights belonging to each kind of picture. */
 const LIGHTS: Readonly<Partial<Record<BigObjectKind, readonly PropLight[]>>> = {
   dome: [
@@ -233,6 +258,40 @@ const LIGHTS: Readonly<Partial<Record<BigObjectKind, readonly PropLight[]>>> = {
       flicker: 0.2,
     },
   ],
+  cinema: [
+    {
+      x: 48,
+      y: -12,
+      radius: 34,
+      rgb: "255, 200, 110",
+      strength: 0.35,
+      flicker: 0.04,
+    },
+    {
+      x: 48,
+      y: -70,
+      radius: 46,
+      rgb: "255, 214, 90",
+      strength: 0.2,
+      flicker: 0.05,
+    },
+    {
+      x: 15,
+      y: -47,
+      radius: 12,
+      rgb: "255, 190, 90",
+      strength: 0.25,
+      flicker: 0.06,
+    },
+    {
+      x: 81,
+      y: -47,
+      radius: 12,
+      rgb: "255, 190, 90",
+      strength: 0.25,
+      flicker: 0.06,
+    },
+  ],
 };
 
 /** The portrait's eyes on Grantelbart's wall, map px in the room. */
@@ -306,6 +365,10 @@ export function drawProp(
         ctx.fillStyle = "#ff3030";
         ctx.fillRect(snap(left + AMP_LED[0]), snap(bottom + AMP_LED[1]), 1, 1);
       }
+      break;
+    case "cinema":
+      drawSignBulbs(ctx, time, left, bottom);
+      drawFairyLights(ctx, time, left, bottom);
       break;
     default:
       break;
@@ -597,4 +660,81 @@ function candleFlame(
   ctx.fillRect(snap(x - HALF_PX), snap(y - tall), 1, tall);
   ctx.fillStyle = "#fff2a0";
   ctx.fillRect(snap(x - HALF_PX), snap(y - 1), 1, 1);
+}
+
+/**
+ * The bulbs round the cinema's sign, chasing each other round the frame:
+ * every third one dark, the gap running on.
+ */
+function drawSignBulbs(
+  ctx: CanvasRenderingContext2D,
+  time: number,
+  left: number,
+  bottom: number,
+): void {
+  const { left: x0, right: x1, top: y0, bottom: y1, gap } = SIGN_BULBS;
+  const points: (readonly [number, number])[] = [];
+  for (let x = x0; x < x1; x += gap) {
+    points.push([x, y0]);
+  }
+  for (let y = y0; y < y1; y += gap) {
+    points.push([x1, y]);
+  }
+  for (let x = x1; x > x0; x -= gap) {
+    points.push([x, y1]);
+  }
+  for (let y = y1; y > y0; y -= gap) {
+    points.push([x0, y]);
+  }
+  const step = Math.floor(time * CHASE_FPS);
+  points.forEach(([x, y], index) => {
+    const lit = (index + step) % CHASE_EVERY !== 0;
+    ctx.fillStyle = lit ? "#fff4c0" : "#a87a20";
+    ctx.fillRect(snap(left + x), snap(bottom + y), 1, 1);
+  });
+}
+
+/**
+ * The fairy lights hanging in loops under the cinema's cornice: a dark wire
+ * and coloured bulbs that twinkle one after another.
+ */
+function drawFairyLights(
+  ctx: CanvasRenderingContext2D,
+  time: number,
+  left: number,
+  bottom: number,
+): void {
+  let bulb = 0;
+  for (let hook = 1; hook < STRING_HOOKS.length; hook += 1) {
+    const from = STRING_HOOKS[hook - 1];
+    const span = STRING_HOOKS[hook] - from;
+    for (let t = 0; t <= span; t += HALF_PX) {
+      const along = (t / span) * 2 - 1;
+      const sag = STRING_SAG * (1 - along * along);
+      ctx.fillStyle = "#2a1a24";
+      ctx.fillRect(
+        snap(left + from + t),
+        snap(bottom + STRING_Y + sag),
+        HALF_PX,
+        HALF_PX,
+      );
+    }
+    for (let t = STRING_GAP / 2; t < span; t += STRING_GAP) {
+      const along = (t / span) * 2 - 1;
+      const sag = STRING_SAG * (1 - along * along);
+      const color = STRING_COLORS[bulb % STRING_COLORS.length];
+      const lit =
+        Math.sin(time * STRING_TWINKLE * Math.PI + bulb * 2) > STRING_DUTY;
+      ctx.globalAlpha = lit ? 1 : HALF_PX;
+      ctx.fillStyle = color;
+      ctx.fillRect(
+        snap(left + from + t - HALF_PX),
+        snap(bottom + STRING_Y + sag + HALF_PX),
+        1,
+        1,
+      );
+      ctx.globalAlpha = 1;
+      bulb += 1;
+    }
+  }
 }

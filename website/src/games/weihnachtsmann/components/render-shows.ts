@@ -33,6 +33,7 @@ import {
   type PoseFrames,
   type SpriteRect,
 } from "./sprite-atlas";
+import { BUILDINGS } from "./building-atlas";
 import { blit, snap, type Art } from "./sprites";
 
 /** Something to draw, at the depth of its foot line. */
@@ -481,11 +482,12 @@ export function collectFloaters(
         depth: floater.y,
         draw: () => {
           const lift = floatLift(floater);
-          const rect = OBJECTS[TOY_ART[toy]];
+          const tray = toy === "tray";
+          const rect = tray ? BUILDINGS.trayBaked : OBJECTS[TOY_ART[toy]];
           ctx.globalAlpha = Math.min(1, lift / CONJURE_SOLID);
           blit(
             ctx,
-            art.world,
+            tray ? art.buildings : art.world,
             rect,
             floater.x - rect[2] / 2,
             floater.y - rect[3] - lift,

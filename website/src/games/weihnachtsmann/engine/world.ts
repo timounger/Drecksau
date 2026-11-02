@@ -1,7 +1,9 @@
 /**
  * What the characters can change in the world, and how it mends itself:
  * lamps switched off, snowmen knocked over, drifts ploughed flat, the fish in
- * the pond caught, the present on the dome taken and the toy machine broken.
+ * the pond caught, the present on the dome taken and the toy machine broken -
+ * and in the village the fed reindeer, the heap of letters, the oven and the
+ * lost present (their own modules).
  *
  * @module
  * @remarks
@@ -13,6 +15,14 @@
  */
 import { BUBBLE_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { addCount, steered, unlock } from "./achievements";
+import { createBakery, updateBakery } from "./bakery";
+import { collectBell } from "./bells";
+import { createEast, updateEast } from "./east";
+import { createJetskis, updateJetskis } from "./jetski";
+import { createSky, updateSky } from "./sky";
+import { createPost, updatePost } from "./post";
+import { createStable, updateStable } from "./stable";
+import { createStore, updateStore } from "./store";
 import { poof, say, snowPuff, spawn, SPARKLE_TINTS } from "./effects";
 import { MACHINE_PARTS } from "./interior-data";
 import { TILE, footprint, terrainUnder } from "./map";
@@ -134,6 +144,13 @@ export function createWorld(maps: Readonly<Record<AreaId, GameMap>>): World {
     lap: new Set(),
     hareFrom: null,
     sniffIn: 0,
+    stable: createStable(),
+    post: createPost(),
+    bakery: createBakery(),
+    store: createStore(),
+    east: createEast(),
+    sky: createSky(),
+    jetskis: createJetskis(),
   };
 }
 
@@ -157,6 +174,13 @@ export function updateWorld(state: GameState, dt: number): void {
     }
   }
   sniff(state, dt);
+  updateStable(state, dt);
+  updatePost(state, dt);
+  updateBakery(state, dt);
+  updateStore(state, dt);
+  updateEast(state, dt);
+  updateSky(state, dt);
+  updateJetskis(state, dt);
 }
 
 /**
@@ -186,6 +210,9 @@ export function smallLook(
         break;
       case "drift":
         changed = world.driftsFlat.has(cell);
+        break;
+      case "smallTree":
+        changed = world.east.felled.has(cell);
         break;
       default:
         changed = false;
@@ -476,6 +503,7 @@ export function digSecret(state: GameState, char: Character): void {
   if (steered(state, char)) {
     unlock(state, "foxDig");
   }
+  collectBell(state, "fox", char);
 }
 
 /**

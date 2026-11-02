@@ -6,6 +6,7 @@
  */
 import { CAST } from "./cast";
 import { mapSize } from "./map";
+import { jetskiOf } from "./jetski";
 import { isRiding } from "./sleigh";
 import { spyFocus } from "./spyglass";
 import type { GameState } from "./types";
@@ -16,6 +17,13 @@ const FOLLOW_RATE = 9;
 
 /** Height of the sleigh the camera centres on, map px. */
 const SLEIGH_MIDDLE = 12;
+
+/**
+ * How far ahead the camera looks on a jetski: seconds of its speed, and at
+ * most this far, map px.
+ */
+const LOOK_AHEAD = 0.3;
+const LOOK_MAX = 64;
 
 /** How far above his feet the camera centres on the Weihnachtsmann watched, map px. */
 const SPY_MIDDLE = 14;
@@ -60,6 +68,14 @@ function cameraGoal(state: GameState): { x: number; y: number } {
   const view = state.view;
   let focusX = char.x;
   let focusY = char.y - char.altitude - CAST[char.id].walk.height / 2;
+  const jet = jetskiOf(state, char);
+  if (jet !== null) {
+    // Racing along: show more of what comes.
+    const ahead = Math.hypot(jet.vx, jet.vy) * LOOK_AHEAD;
+    const share = Math.min(ahead, LOOK_MAX) / Math.max(ahead, 1);
+    focusX += jet.vx * LOOK_AHEAD * share;
+    focusY += jet.vy * LOOK_AHEAD * share;
+  }
   const ride = state.sleigh;
   if (ride !== null && isRiding(state, char)) {
     focusX = ride.x;

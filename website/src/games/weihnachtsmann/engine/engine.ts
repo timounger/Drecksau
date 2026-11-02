@@ -1,7 +1,7 @@
 /**
  * Runs the game: a new or loaded game, one step of the simulation, switching
  * characters between the snowy map and the houses, walking into the Advent
- * gates.
+ * gates and the cinema.
  *
  * @module
  */
@@ -14,18 +14,24 @@ import {
 } from "./achievements";
 import { applyAbility, chooseAnimal, moveMenu } from "./abilities";
 import { followCamera, snapCamera } from "./camera";
+import { checkCinema } from "./cinema";
 import { CAST } from "./cast";
 import { checkDoors, startFade, updateFade } from "./doors";
 import { SPARKLE_TINTS, spawn, updateEffects } from "./effects";
 import { checkGates, cleanGates } from "./gates";
 import { updateMachine, interact } from "./interact";
+import { honk, leaveJetski, ridingJetski, updateJetski } from "./jetski";
 import { CHIMNEYS, TILE, areaMap, buildMaps, fits } from "./map";
 import { FIRST_CHARACTER, MAP_STARTS } from "./map-data";
 import { currentProfile, moveCharacter } from "./movement";
+import { closeOverview, updateOverview } from "./overview";
 import { nextRandom, randomIn } from "./random";
 import { heldByShow, holdStill, updateShows } from "./shows";
 import { isRiding, updateSleigh } from "./sleigh";
 import { updateSpy } from "./spyglass";
+import { onCarousel } from "./market";
+import { dropSled, sledding, updateSled } from "./sled";
+import { layStore } from "./store";
 import {
   ANIMAL_IDS,
   CHARACTER_IDS,
@@ -116,19 +122,28 @@ export function createGame(save: SaveData | null): GameState {
     sleigh: null,
     toys: [],
     spy: null,
+    overview: null,
     floats: [],
     sounds: [],
     gatesDone: new Set(),
     gateOpen: null,
     gateLatch: false,
+    cinemaOpen: false,
     today: ANY_DAY,
     now: 0,
     world: createWorld(maps),
     achieved: new Map(),
-    progress: { wishes: new Set(), instruments: new Set() },
-    counts: { falls: 0, toys: 0 },
+    progress: {
+      wishes: new Set(),
+      instruments: new Set(),
+      stalls: new Set(),
+      bells: new Set(),
+      critters: new Set(),
+    },
+    counts: { falls: 0, toys: 0, letters: 0, hits: 0, errands: 0, sledBest: 0 },
     toasts: [],
   };
+  layStore(state);
   if (save !== null) {
     applySave(state, save);
   }
@@ -153,18 +168,43 @@ export function step(state: GameState, input: Input, dt: number): void {
     // Nothing is done while the picture fades or Gugor looks through his
     // telescope; the command is dropped.
     if (state.fade === null && state.spy === null) {
-      perform(state, action);
+      // An open overview takes the first command that comes, to close it;
+      // a switch to another character closes it and goes ahead.
+      const used =
+        state.overview !== null &&
+        action.kind !== "select" &&
+        action.kind !== "cycle";
+      closeOverview(state);
+      if (!used) {
+        perform(state, action);
+      }
     }
   }
   updateFade(state, dt);
+  dropSled(state);
   state.chars.forEach((char, index) => {
-    if (isRiding(state, char)) {
-      // Off the map in the sleigh.
+    if (isRiding(state, char) || onCarousel(state, char)) {
+      // Off the map in the sleigh, or going round on the carousel.
+    } else if (sledding(state, char)) {
+      const steer = state.fade === null && state.overview === null;
+      updateSled(state, char, steer ? input : NO_INPUT, dt);
+    } else if (ridingJetski(state, char)) {
+      // A rider the player left sits on, the jetski coasting to a stop.
+      const steer =
+        index === state.active &&
+        state.menu === null &&
+        state.fade === null &&
+        state.spy === null &&
+        state.overview === null;
+      updateJetski(state, char, steer ? input : NO_INPUT, dt);
     } else if (heldByShow(char)) {
       holdStill(state, char, dt);
     } else if (index === state.active) {
       const steer =
-        state.menu === null && state.fade === null && state.spy === null;
+        state.menu === null &&
+        state.fade === null &&
+        state.spy === null &&
+        state.overview === null;
       const move = steer ? input : NO_INPUT;
       moveCharacter(
         areaMap(state, char),
@@ -176,6 +216,7 @@ export function step(state: GameState, input: Input, dt: number): void {
       );
       checkDoors(state, char, move);
       checkGates(state, char, move);
+      checkCinema(state, char, move);
     } else {
       wander(state, char, dt);
     }
@@ -184,6 +225,7 @@ export function step(state: GameState, input: Input, dt: number): void {
     }
   });
   keepApart(state);
+  updateOverview(state, input, dt);
   updateShows(state, dt);
   updateSpy(state, dt);
   updateSleigh(state, dt);
@@ -232,8 +274,10 @@ function perform(state: GameState, action: Action): void {
       );
       break;
     case "ability":
-      if (isRiding(state, state.chars[state.active])) {
+      if (seated(state)) {
         // Sitting in the sleigh: nothing to do but enjoy the ride.
+      } else if (ridingJetski(state, state.chars[state.active])) {
+        honk(state, state.chars[state.active]);
       } else if (state.menu === null) {
         applyAbility(state);
       } else {
@@ -241,7 +285,11 @@ function perform(state: GameState, action: Action): void {
       }
       break;
     case "talk":
-      interact(state);
+      if (ridingJetski(state, state.chars[state.active])) {
+        leaveJetski(state, state.chars[state.active]);
+      } else if (!seated(state)) {
+        interact(state);
+      }
       break;
     case "menuMove":
       moveMenu(state, action.delta);
@@ -259,6 +307,17 @@ function perform(state: GameState, action: Action): void {
       clickAt(state, action.x, action.y);
       break;
   }
+}
+
+/**
+ * Whether the character steered sits in the sleigh, on the carousel or on a
+ * sled - then the ability and talk keys do nothing.
+ */
+function seated(state: GameState): boolean {
+  const char = state.chars[state.active];
+  return (
+    isRiding(state, char) || onCarousel(state, char) || sledding(state, char)
+  );
 }
 
 /**
@@ -321,7 +380,9 @@ function keepApart(state: GameState): void {
         b.altitude < 1 &&
         a.area === b.area &&
         !isRiding(state, a) &&
-        !isRiding(state, b)
+        !isRiding(state, b) &&
+        !onCarousel(state, a) &&
+        !onCarousel(state, b)
       ) {
         const room =
           (currentProfile(a).footW + currentProfile(b).footW) / 2 +
@@ -351,7 +412,11 @@ function weight(state: GameState, index: number, other: Character): number {
   if (char.form === "baer") {
     result = GIVE_WAY_BEAR;
   }
-  if (other.form === "baer") {
+  if (ridingJetski(state, char)) {
+    // A jetski hardly gives way, and everybody makes room for it.
+    result = GIVE_WAY_BEAR;
+  }
+  if (other.form === "baer" || ridingJetski(state, other)) {
     result *= BEAR_SHOVE;
   }
   return result;
@@ -438,6 +503,7 @@ function startCharacter(id: CharacterId): Character {
     show: null,
     cooldown: 0,
     hop: 0,
+    carry: null,
   };
 }
 

@@ -3810,6 +3810,9 @@ export function DrawnThing({
     case "hay":
       drawn = <HayShape x={x} y={y} width={width} height={height} />;
       break;
+    case "stoneBlock":
+      drawn = <StoneBlockShape x={x} y={y} width={width} height={height} />;
+      break;
     case "rails":
       drawn = <RailsShape x={x} y={y} width={width} height={height} />;
       break;
@@ -3931,6 +3934,7 @@ export const DRAWN_THINGS: ReadonlySet<string> = new Set([
   "campfire",
   "dynamite",
   "hay",
+  "stoneBlock",
   "rails",
   "coffin",
   "papyrus",
@@ -5113,6 +5117,78 @@ function RailsShape({
           </g>
         );
       })}
+    </g>
+  );
+}
+/* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- proportions of a drawing, read off the picture */
+/**
+ * A hewn stone block as the book draws it, a little from the front: a pale
+ * sandstone top over a grey front, with a few cracks in the stone.
+ *
+ * @param props - where the field is and how big
+ * @returns the drawing
+ */
+function StoneBlockShape({
+  x,
+  y,
+  width,
+  height,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}): ReactElement {
+  const size = Math.min(width, height);
+  const wide = size * 0.78;
+  const deep = size * 0.44;
+  const front = size * 0.3;
+  const left = x + (width - wide) / 2;
+  const top = y + (height - deep - front) / 2;
+  const ink = "#44403c";
+  const line = size * 0.022;
+  return (
+    <g pointerEvents="none">
+      <ellipse
+        cx={left + wide / 2}
+        cy={top + deep + front + size * 0.03}
+        rx={wide * 0.56}
+        ry={size * 0.05}
+        fill="#000"
+        opacity={0.18}
+      />
+      {/* The front. */}
+      <rect
+        x={left}
+        y={top + deep - size * 0.02}
+        width={wide}
+        height={front + size * 0.02}
+        rx={size * 0.04}
+        fill="#a8a29e"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {/* The top. */}
+      <rect
+        x={left}
+        y={top}
+        width={wide}
+        height={deep}
+        rx={size * 0.05}
+        fill="#f5f0dc"
+        stroke={ink}
+        strokeWidth={line}
+      />
+      {/* Cracks in the front. */}
+      <path
+        d={`M ${String(left + wide * 0.18)} ${String(top + deep + front * 0.3)} l ${String(wide * 0.12)} ${String(front * 0.2)} l ${String(wide * 0.1)} ${String(-front * 0.1)} M ${String(left + wide * 0.6)} ${String(top + deep + front * 0.55)} l ${String(wide * 0.16)} ${String(front * 0.15)}`}
+        fill="none"
+        stroke="#78716c"
+        strokeWidth={line * 0.7}
+        strokeLinecap="round"
+      />
     </g>
   );
 }

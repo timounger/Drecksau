@@ -138,6 +138,9 @@ import { THE_EMBALMING_HOUSE } from "../levels/the-embalming-house";
 import { RIVERSIDE_MERCHANTS } from "../levels/riverside-merchants";
 import { THE_TEMPLE_OF_ANUBIS } from "../levels/the-temple-of-anubis";
 import { THE_GRANARIES } from "../levels/the-granaries";
+import { THE_QUARRY } from "../levels/the-quarry";
+import { THE_ROMAN_ENVOY } from "../levels/the-roman-envoy";
+import { THE_NILE } from "../levels/the-nile";
 import { THE_HOLIDAY_FLAT } from "../levels/the-holiday-flat";
 import { ENGLISH_BREAKFAST } from "../levels/english-breakfast";
 import { THE_CAFE } from "../levels/the-cafe";
@@ -326,6 +329,9 @@ export const LEVELS: readonly Level[] = [
   RIVERSIDE_MERCHANTS,
   THE_TEMPLE_OF_ANUBIS,
   THE_GRANARIES,
+  THE_QUARRY,
+  THE_ROMAN_ENVOY,
+  THE_NILE,
   THE_HOLIDAY_FLAT,
   ENGLISH_BREAKFAST,
   THE_CAFE,

@@ -1,12 +1,14 @@
 /**
  * Going in and out of the houses: the doorways, the fade to black and back
- * (also into an Advent gate), and taking the view to a character in another
+ * (also into an Advent gate or the cinema), and taking the view to a character in another
  * place.
  *
  * @module
  */
 import { ANIMALS } from "./cast";
 import { snapCamera } from "./camera";
+import { leaveAtDoor } from "./carry";
+import { doorUsable } from "./cave";
 import { poof } from "./effects";
 import { TILE, areaMap, inBox } from "./map";
 import type { Character, Dir, Door, GameState, Input } from "./types";
@@ -45,6 +47,7 @@ export function checkDoors(
     const door = areaMap(state, char).doors.find(
       (candidate) =>
         inBox(candidate, char.x, char.y - 1) &&
+        doorUsable(state, candidate) &&
         input.moveX * AXES[candidate.dir][0] +
           input.moveY * AXES[candidate.dir][1] >
           PUSH,
@@ -58,20 +61,23 @@ export function checkDoors(
 
 /**
  * Starts a fade; at its darkest moment somebody goes through the door, a
- * gate's minigame opens, or only the view moves to the character now steered.
+ * gate's minigame or the cinema opens, or only the view moves to the
+ * character now steered.
  *
  * @param state - the game
  * @param door - the door, or null
  * @param who - index of who goes through
  * @param gate - the Advent gate entered, or null
+ * @param cinema - whether the cinema is entered
  */
 export function startFade(
   state: GameState,
   door: Door | null,
   who: number,
   gate: number | null = null,
+  cinema = false,
 ): void {
-  state.fade = { elapsed: 0, door, who, gate, switched: false };
+  state.fade = { elapsed: 0, door, who, gate, cinema, switched: false };
 }
 
 /**
@@ -91,6 +97,9 @@ export function updateFade(state: GameState, dt: number): void {
       }
       if (fade.gate !== null) {
         state.gateOpen = fade.gate;
+      }
+      if (fade.cinema) {
+        state.cinemaOpen = true;
       }
       state.viewArea = state.chars[state.active].area;
       snapCamera(state);
@@ -122,6 +131,7 @@ export function fadeDarkness(state: GameState): number {
  * land and the bird turns back into Jordi.
  */
 function passThrough(state: GameState, char: Character, door: Door): void {
+  leaveAtDoor(state, char);
   char.area = door.to;
   char.x = door.toX * TILE;
   char.y = door.toY * TILE;

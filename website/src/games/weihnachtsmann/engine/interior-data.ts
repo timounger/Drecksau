@@ -42,6 +42,8 @@ export const WORKSHOP: AreaData = {
     { kind: "workbench", tx: 16, ty: 9 },
     { kind: "workbench", tx: 17, ty: 11 },
     { kind: "wishBoard", tx: 20, ty: 8 },
+    // Where a felled fir is set up and decorated.
+    { kind: "treeStand", tx: 7, ty: 12 },
   ],
   doors: [
     {
@@ -60,6 +62,7 @@ export const WORKSHOP: AreaData = {
     { kind: "machine", tx: 8, ty: 5, w: 8, h: 2 },
     { kind: "wishes", tx: 20, ty: 8, w: 2, h: 1 },
     { kind: "armchair", tx: 5, ty: 9, w: 2, h: 1 },
+    { kind: "treeStand", tx: 7, ty: 12, w: 1, h: 1 },
   ],
   gates: [],
   shade: null,

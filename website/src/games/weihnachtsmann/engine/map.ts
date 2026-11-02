@@ -4,6 +4,14 @@
  * @module
  */
 import { FLY_HEIGHT, type MoveProfile } from "./cast";
+import {
+  BAKERY,
+  GIFT_STORE,
+  ICE_CAVE,
+  OBSERVATORY,
+  POST_OFFICE,
+  STABLE,
+} from "./building-data";
 import { GRANTEL_HOUSE, WORKSHOP } from "./interior-data";
 import { OUTDOORS } from "./map-data";
 import type {
@@ -31,6 +39,12 @@ const AREAS: Readonly<Record<AreaId, AreaData>> = {
   outdoors: OUTDOORS,
   workshop: WORKSHOP,
   grantelHouse: GRANTEL_HOUSE,
+  stable: STABLE,
+  postOffice: POST_OFFICE,
+  bakery: BAKERY,
+  observatory: OBSERVATORY,
+  giftStore: GIFT_STORE,
+  iceCave: ICE_CAVE,
 };
 
 /**
@@ -56,11 +70,50 @@ export const BIG_SHAPES: Readonly<Record<BigObjectKind, readonly string[]>> = {
   organ: ["XXXX"],
   candelabra: ["X"],
   creepyChair: ["XX"],
+  cinema: ["XXXXXX", "XXXXXX", "XXXXXX"],
+  stableHouse: ["XXXXXX", "XXXXXX", "XXXXXX"],
+  postHouse: ["XXXXX", "XXXXX", "XXXXX"],
+  bakeryHouse: ["XXXXXX", "XXXXXX", "XXXXXX"],
+  observatory: [".XX.", "XXXX", "XXXX", "XXXX"],
+  storeHouse: ["XXXXXXXX", "XXXXXXXX", "XXXXXXXX", "XXXXXXXX"],
+  stableGate: ["XXX"],
+  carrotTrough: ["XX"],
+  strawBed: ["....", "...."],
+  hayBales: ["XXX"],
+  sortShelf: ["XXXXXXXXXX"],
+  letterPile: ["XXX", "XXX"],
+  postDesk: ["XXX"],
+  mailSacks: ["XX"],
+  oven: ["XXXX"],
+  doughTable: ["XXX"],
+  trayTable: ["XXX"],
+  coolRack: ["XXX"],
+  flourSacks: ["XX"],
+  bigTelescope: ["XXXX", "XXXX"],
+  starDesk: ["XXX"],
+  globe: ["X"],
+  bookshelf: ["XX"],
+  stallPunch: ["XXX", "XXX"],
+  stallGinger: ["XXX", "XXX"],
+  stallChestnut: ["XXX", "XXX"],
+  carousel: ["XXXXX", "XXXXX"],
+  waterfall: ["XXXXXXXX", "XXXXXXXX", "XXXXXXXX", "XXXXXXXX"],
+  sledStack: ["XX"],
+  startBanner: ["X.....X"],
+  finishBanner: ["X.....X"],
+  target: ["X"],
+  mailbox: ["X"],
+  treeStand: ["X"],
+  crystalBig: ["XX"],
+  crystalSmall: ["X"],
+  crystalViolet: ["X"],
 };
 
 /** Big objects lying flat on the ground: drawn under everybody. */
 export const FLAT_OBJECTS: ReadonlySet<BigObjectKind> = new Set([
   "paintedTree",
+  "strawBed",
+  "carousel",
 ]);
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- places matching the
@@ -73,6 +126,8 @@ export const CHIMNEYS: Readonly<
   Partial<Record<BigObjectKind, readonly [number, number]>>
 > = {
   grantelMain: [64, -50],
+  postHouse: [58, -32],
+  bakeryHouse: [70, -38],
 };
 /* eslint-enable @typescript-eslint/no-magic-numbers */
 
@@ -103,6 +158,10 @@ const LETTERS: Readonly<
   s: { terrain: "thing", ground: "snow", small: "snowman" },
   l: { terrain: "thing", ground: "snow", small: "lamp" },
   g: { terrain: "thing", ground: "snow", small: "gifts" },
+  P: { terrain: "thing", ground: "floor", small: "parcels" },
+  m: { terrain: "gap", ground: "floor", small: "parcelGap" },
+  f: { terrain: "thing", ground: "snow", small: "flag" },
+  p: { terrain: "thing", ground: "path", small: "lightPole" },
 };
 
 /** Ground everybody can walk on. */
@@ -129,6 +188,12 @@ export function buildMaps(): Record<AreaId, GameMap> {
     outdoors: buildMap("outdoors"),
     workshop: buildMap("workshop"),
     grantelHouse: buildMap("grantelHouse"),
+    stable: buildMap("stable"),
+    postOffice: buildMap("postOffice"),
+    bakery: buildMap("bakery"),
+    observatory: buildMap("observatory"),
+    giftStore: buildMap("giftStore"),
+    iceCave: buildMap("iceCave"),
   };
 }
 

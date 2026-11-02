@@ -1,8 +1,14 @@
 /**
  * The talk key in front of something: the toy machine makes a toy (or breaks,
  * or is repaired), the sleigh takes off, guitars, amplifiers, drums and the
- * organ play, lamps go off and on, snowmen fall over and stand up again, and
- * a few things just get a remark. Anywhere else it is plain talking.
+ * organ play, lamps go off and on, snowmen fall over and stand up again, the
+ * cinema lets one in, and a few things just get a remark; in the village the
+ * reindeer are fed, letters sorted, cookies baked, the big telescope looked
+ * through and the lost present picked up; out east the booths, the carousel,
+ * the sleds, snowballs on the meadow, the ice curtain and the fox's hole, the
+ * young firs, the tree stand in the workshop, the mailbox and the animals -
+ * and the snow jetskis to get on.
+ * Anywhere else it is plain talking.
  *
  * @module
  * @remarks
@@ -14,12 +20,26 @@
 import { BUBBLE_TEXTS, TOY_NAMES } from "@/games/weihnachtsmann/i18n/texts";
 import { talk } from "./abilities";
 import { collect } from "./achievements";
+import { digHole, holeSpot, useCurtain } from "./cave";
+import { enterCinema } from "./cinema";
+import { critterSpot, talkToCritter } from "./critters";
+import { useMailbox } from "./errands";
+import { boardJetski, jetskiSpot, ridingJetski } from "./jetski";
+import { fellFir, firSpot, useStand } from "./firs";
+import { rideCarousel, useStall } from "./market";
+import { startSled } from "./sled";
+import { meadowSpot, throwSnowball } from "./snowball";
 import { notes, poof, say, spawn, SPARKLE_TINTS } from "./effects";
 import { MACHINE_PARTS } from "./interior-data";
 import { TILE, areaMap, inBox } from "./map";
 import { SECRET_SPOT } from "./map-data";
 import { pick, randomIn } from "./random";
+import { cutCookies, takeDough, useOven, useRack } from "./bakery";
+import { openOverview } from "./overview";
+import { sortLetter, takeLetter } from "./post";
 import { isRiding, boardSleigh } from "./sleigh";
+import { feedReindeer, takeCarrot, useStraw } from "./stable";
+import { presentSpot, takePresent } from "./store";
 import {
   TOY_KINDS,
   type Character,
@@ -129,6 +149,31 @@ const HANDLERS: Readonly<
     toggleSnowman(state, char, spot.ty * state.maps.outdoors.cols + spot.tx);
   },
   dig: digSecret,
+  cinema: (state) => {
+    enterCinema(state);
+  },
+  reindeer: feedReindeer,
+  carrots: takeCarrot,
+  straw: useStraw,
+  letters: takeLetter,
+  slot: sortLetter,
+  dough: takeDough,
+  trays: cutCookies,
+  oven: useOven,
+  rack: useRack,
+  telescope: openOverview,
+  lostGift: takePresent,
+  stall: useStall,
+  carousel: rideCarousel,
+  toboggan: startSled,
+  snowball: throwSnowball,
+  curtain: useCurtain,
+  foxHole: digHole,
+  fellFir: fellFir,
+  treeStand: useStand,
+  mailbox: useMailbox,
+  critter: talkToCritter,
+  jetski: boardJetski,
 };
 
 /**
@@ -140,7 +185,13 @@ const HANDLERS: Readonly<
 export function spotInReach(state: GameState): Spot | null {
   const char = state.chars[state.active];
   let found: Spot | null = null;
-  if (state.fade === null && !isRiding(state, char) && char.altitude < 1) {
+  if (state.fade === null && ridingJetski(state, char)) {
+    // On a jetski the talk key only gets off.
+  } else if (
+    state.fade === null &&
+    !isRiding(state, char) &&
+    char.altitude < 1
+  ) {
     const [ax, ay] = AHEAD[char.dir];
     const x = char.x + ax * REACH;
     const y = char.y - 2 + ay * REACH;
@@ -148,7 +199,17 @@ export function spotInReach(state: GameState): Spot | null {
     found =
       map.spots.find((spot) => inBox(spot, x, y, SLACK)) ??
       smallSpot(map, x, y) ??
-      secretSpot(char, x, y);
+      secretSpot(char, x, y) ??
+      presentSpot(state, char, x, y) ??
+      firSpot(state, map, x, y) ??
+      holeSpot(state, char, x, y) ??
+      critterSpot(state, char) ??
+      meadowSpot(state, char) ??
+      jetskiSpot(state, char, x, y);
+  } else if (state.fade === null && !isRiding(state, char)) {
+    // Up in the air only the owls can be talked to, by Jordi as a bird -
+    // and a jetski below says to land first.
+    found = critterSpot(state, char) ?? jetskiSpot(state, char, char.x, char.y);
   }
   return found;
 }

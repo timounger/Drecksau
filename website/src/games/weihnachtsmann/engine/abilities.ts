@@ -50,6 +50,9 @@ const HANDLERS: Readonly<
   fall: (state, char) => {
     startShow(state, char, "fall");
   },
+  nap: (state, char) => {
+    startShow(state, char, "nap");
+  },
 };
 
 /**

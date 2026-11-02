@@ -10,6 +10,8 @@
  * stays shut until the push towards it is let go.
  */
 import { gateLocked, gateUnlocked } from "./calendar";
+import { doorUsable } from "./cave";
+import { atCinemaDoor } from "./cinema";
 import { startFade } from "./doors";
 import { say } from "./effects";
 import { TILE, areaMap, inBox } from "./map";
@@ -74,7 +76,7 @@ export function checkGates(
 
 /**
  * Which way the character steered would have to push to go through the door
- * or into the gate it stands in - for the touch button "Hinein".
+ * or into the gate or cinema it stands in - for the touch button "Hinein".
  *
  * @param state - the game
  * @returns the direction, or null when it stands in no doorway or cannot go
@@ -84,8 +86,9 @@ export function entryAt(state: GameState): Dir | null {
   const map = areaMap(state, char);
   let dir: Dir | null = null;
   if (state.fade === null && state.menu === null && state.sleigh === null) {
-    const door = map.doors.find((candidate) =>
-      inBox(candidate, char.x, char.y - 1),
+    const door = map.doors.find(
+      (candidate) =>
+        inBox(candidate, char.x, char.y - 1) && doorUsable(state, candidate),
     );
     const gate = map.gates.find(
       (candidate) =>
@@ -94,7 +97,10 @@ export function entryAt(state: GameState): Dir | null {
     );
     if (door !== undefined) {
       dir = door.dir;
-    } else if (gate !== undefined) {
+    } else if (
+      gate !== undefined ||
+      (atCinemaDoor(char) && !state.cinemaOpen)
+    ) {
       dir = "up";
     }
   }

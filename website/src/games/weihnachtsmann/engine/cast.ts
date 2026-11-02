@@ -103,6 +103,7 @@ export const SHOWS: Readonly<Record<ShowKind, ShowDef>> = {
     still: true,
     npc: { rate: 0.04, when: "walk", area: null },
   },
+  nap: { seconds: 7, cooldown: 7.5, still: true, npc: null },
 };
 
 /** Nothing but the plain ground. */
@@ -150,7 +151,7 @@ export const ANIMALS: Readonly<Record<AnimalId, MoveProfile>> = {
     ...walker(104, 4, 6),
     footH: 3,
     grip: 0.3,
-    passes: ["fence"],
+    passes: ["fence", "gap"],
   },
   // Slow but strong: ploughs through snow drifts.
   baer: { ...walker(38, 18, 16), grip: 0.5, passes: ["drift"] },

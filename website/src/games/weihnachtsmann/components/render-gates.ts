@@ -1,7 +1,7 @@
 /**
  * Drawing the Advent gates: the gate pictures with their number plates, the
  * gold star of a finished gate, the glow and arrow over the next one, the
- * name of a gate one stands at, and an arrow at the edge of the picture that
+ * name of a gate (or of the cinema) one stands at, and an arrow at the edge of the picture that
  * points the way to the next gate.
  *
  * @module
@@ -9,6 +9,7 @@
 import { gateLocked } from "@/games/weihnachtsmann/engine/calendar";
 import { gateFront, nextGate } from "@/games/weihnachtsmann/engine/gates";
 import { GATE_WIDTH, TILE } from "@/games/weihnachtsmann/engine/map";
+import { CINEMA_DOOR } from "@/games/weihnachtsmann/engine/map-data";
 import type {
   Gate,
   GateStyle,
@@ -152,6 +153,7 @@ export function drawGateHints(
   const map = state.maps[state.viewArea];
   if (state.fade === null && map.gates.length > 0) {
     drawGateLabel(ctx, state, map, scale, cx, cy);
+    drawCinemaLabel(ctx, state, scale, cx, cy);
     drawGuide(ctx, state, map, scale, cx, cy);
   }
 }
@@ -276,34 +278,87 @@ function drawGateLabel(
     if (locked) {
       hint = `${WM_TEXTS.gateLockedHint} ${String(gate.number)}. ${WM_TEXTS.december}`;
     }
-    const font = LABEL_FONT * scale;
-    const pad = LABEL_PAD * scale;
-    ctx.font = `bold ${String(Math.round(font))}px system-ui, sans-serif`;
-    const w =
-      Math.max(ctx.measureText(text).width, ctx.measureText(hint).width) +
-      pad * 2;
-    const h = font * 2 + pad * 2 + scale;
     // Under the doorway, so it never hides the number plate.
     const front = gateFront(gate);
-    const x = (front.x - cx) * scale;
-    const below = ((gate.ty + 2) * TILE + LABEL_GAP - cy) * scale;
-    const left = Math.max(2, Math.min(ctx.canvas.width - w - 2, x - w / 2));
-    const y = Math.min(ctx.canvas.height - h - 2, below);
-    ctx.fillStyle = "rgba(30, 14, 30, 0.86)";
-    ctx.strokeStyle = "#e8b830";
-    ctx.lineWidth = Math.max(1, scale / 2);
-    ctx.beginPath();
-    ctx.roundRect(left, y, w, h, scale * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    ctx.fillStyle = "#ffe9a8";
-    ctx.fillText(text, left + w / 2, y + pad);
-    ctx.font = `${String(Math.round(font))}px system-ui, sans-serif`;
-    ctx.fillStyle = locked ? "#ff9a8a" : done ? "#9be39b" : "#f4f0ff";
-    ctx.fillText(hint, left + w / 2, y + pad + font + scale);
+    drawLabel(
+      ctx,
+      text,
+      hint,
+      locked ? "#ff9a8a" : done ? "#9be39b" : "#f4f0ff",
+      (front.x - cx) * scale,
+      ((gate.ty + 2) * TILE + LABEL_GAP - cy) * scale,
+      scale,
+    );
   }
+}
+
+/** The cinema's name under its door while the character steered stands at it. */
+function drawCinemaLabel(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  scale: number,
+  cx: number,
+  cy: number,
+): void {
+  const char = state.chars[state.active];
+  const x = (CINEMA_DOOR.tx + CINEMA_DOOR.w / 2) * TILE;
+  const y = (CINEMA_DOOR.ty + 1 / 2) * TILE;
+  if (
+    char.area === "outdoors" &&
+    state.viewArea === "outdoors" &&
+    !state.cinemaOpen &&
+    char.bubble === null &&
+    Math.abs(x - char.x) < LABEL_NEAR &&
+    Math.abs(y - char.y) < LABEL_NEAR
+  ) {
+    drawLabel(
+      ctx,
+      WM_TEXTS.cinemaLabel,
+      WM_TEXTS.cinemaEnter,
+      "#f4f0ff",
+      (x - cx) * scale,
+      ((CINEMA_DOOR.ty + 1) * TILE + LABEL_GAP - cy) * scale,
+      scale,
+    );
+  }
+}
+
+/**
+ * A dark box with a gold edge holding a name and a hint, centred under a
+ * point and kept on the canvas.
+ */
+function drawLabel(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  hint: string,
+  hintColor: string,
+  x: number,
+  below: number,
+  scale: number,
+): void {
+  const font = LABEL_FONT * scale;
+  const pad = LABEL_PAD * scale;
+  ctx.font = `bold ${String(Math.round(font))}px system-ui, sans-serif`;
+  const w =
+    Math.max(ctx.measureText(text).width, ctx.measureText(hint).width) +
+    pad * 2;
+  const h = font * 2 + pad * 2 + scale;
+  const left = Math.max(2, Math.min(ctx.canvas.width - w - 2, x - w / 2));
+  const y = Math.min(ctx.canvas.height - h - 2, below);
+  ctx.fillStyle = "rgba(30, 14, 30, 0.86)";
+  ctx.strokeStyle = "#e8b830";
+  ctx.lineWidth = Math.max(1, scale / 2);
+  ctx.beginPath();
+  ctx.roundRect(left, y, w, h, scale * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#ffe9a8";
+  ctx.fillText(text, left + w / 2, y + pad);
+  ctx.font = `${String(Math.round(font))}px system-ui, sans-serif`;
+  ctx.fillStyle = hintColor;
+  ctx.fillText(hint, left + w / 2, y + pad + font + scale);
 }
 
 /** An arrow at the edge of the picture pointing to the next gate. */

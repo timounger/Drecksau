@@ -1,7 +1,7 @@
 /**
  * The abilities that play out over a few seconds: Santa reading wishes,
- * Grantelbart's electric guitar, Gugor's telescope, Gilfi making things float
- * and Balbo falling flat on his face.
+ * Grantelbart's electric guitar, Gugor's telescope, Gilfi making things float,
+ * Balbo falling flat on his face - and Rudolf's nap in the stable's straw.
  *
  * @module
  * @remarks
@@ -12,12 +12,16 @@
  * while it runs and when it ends is one handler per kind here; what it looks
  * like is drawn by `components/render-shows.ts`.
  */
-import { BUBBLE_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
+import { BUBBLE_TEXTS, TOWN_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { addCount, collect, inView, steered, unlock } from "./achievements";
+import { bakeryTumble } from "./bakery";
+import { shakeFirTop } from "./bells";
+import { AURORA_SEEN, auroraStrength } from "./sky";
 import { CAST, SHOWS, type NpcHabit } from "./cast";
 import { SPARKLE_TINTS, NOTE_KINDS, say, snowPuff, spawn } from "./effects";
 import { TILE, areaMap, fits, footprint, terrainUnder } from "./map";
 import { moveCharacter } from "./movement";
+import { openOverview } from "./overview";
 import { nextRandom, pick, randomIn } from "./random";
 import { isRiding } from "./sleigh";
 import { spyRemark, startSpy } from "./spyglass";
@@ -30,6 +34,7 @@ import {
 import {
   TOY_KINDS,
   type BigObjectKind,
+  type FloatKind,
   type Character,
   type Dir,
   type Floater,
@@ -120,6 +125,20 @@ const TOY_PLACES: ReadonlySet<BigObjectKind> = new Set<BigObjectKind>([
   "toyMachine",
 ]);
 
+/** The bakery furniture trays rise from when Gilfi does his magic there. */
+const TRAY_PLACES: ReadonlySet<BigObjectKind> = new Set<BigObjectKind>([
+  "trayTable",
+  "coolRack",
+  "doughTable",
+  "oven",
+]);
+
+/** Seconds between two snores of Rudolf asleep in the straw. */
+const SNORE_EVERY = 0.8;
+
+/** Where his snores rise from, above and ahead of his feet, map px. */
+const SNORE_AT = { x: 18, y: 22 } as const;
+
 /** How far ahead of Balbo's feet his head lands in the snow, map px. */
 const HEAD_AHEAD = 8;
 
@@ -156,6 +175,7 @@ const HANDLERS: Readonly<Record<ShowKind, ShowHandlers>> = {
   telescope: { start: startTelescope, tick: IDLE, end: endTelescope },
   levitate: { start: startLevitate, tick: magicDust, end: endLevitate },
   fall: { start: startFall, tick: hitGround, end: getUp },
+  nap: { start: startNap, tick: snore, end: wakeUp },
 };
 
 /**
@@ -426,15 +446,61 @@ function moreNotes(state: GameState, char: Character): void {
   }
 }
 
-/** Gugor raises his telescope; the view goes looking for Santa. */
+/**
+ * Gugor raises his telescope; the view goes looking for Santa - or, up in
+ * his observatory, over the whole map, hidden things and all.
+ */
 function startTelescope(state: GameState, char: Character): void {
-  startSpy(state, state.chars.indexOf(char));
-  heard(state, char, "spyglass");
+  if (char.area === "observatory") {
+    openOverview(state, char);
+  } else {
+    if (
+      char.area === "outdoors" &&
+      steered(state, char) &&
+      auroraStrength(state) >= AURORA_SEEN
+    ) {
+      unlock(state, "aurora");
+    }
+    startSpy(state, state.chars.indexOf(char));
+    heard(state, char, "spyglass");
+  }
 }
 
 /** Gugor lowers the telescope and has something to say about it. */
 function endTelescope(state: GameState, char: Character): void {
-  say(char, spyRemark(state));
+  say(
+    char,
+    char.area === "observatory"
+      ? pick(state, TOWN_TEXTS.gugorLook)
+      : spyRemark(state),
+  );
+}
+
+/** Rudolf curls up in the straw. */
+function startNap(state: GameState, char: Character): void {
+  say(char, pick(state, TOWN_TEXTS.strawRudolf));
+  heard(state, char, "snore");
+}
+
+/** Snores rise from the straw. */
+function snore(state: GameState, char: Character): void {
+  const show = char.show;
+  if (show !== null && show.tickIn <= 0) {
+    show.tickIn = SNORE_EVERY;
+    spawn(
+      state,
+      "zzz",
+      char.area,
+      char.x + SNORE_AT.x,
+      char.y - SNORE_AT.y,
+      randomIn(state, 1, MAGIC_SPREAD),
+    );
+  }
+}
+
+/** Rudolf gets up again, fresh. */
+function wakeUp(state: GameState, char: Character): void {
+  say(char, pick(state, TOWN_TEXTS.napEnd));
 }
 
 /** Gilfi: nearby loose things and a few conjured toys rise into the air. */
@@ -450,7 +516,14 @@ function startLevitate(state: GameState, char: Character): void {
   ) {
     unlock(state, "levitateSnowman");
   }
-  const places = toyPlaces(state, char);
+  if (char.area === "outdoors") {
+    shakeFirTop(state, char);
+  }
+  const baking = char.area === "bakery";
+  if (baking && steered(state, char)) {
+    unlock(state, "gilfiTrays");
+  }
+  const places = toyPlaces(state, char, baking ? TRAY_PLACES : TOY_PLACES);
   const conjured = Math.max(MIN_CONJURED, MAX_FLOATERS - lifted.length);
   const floaters: Floater[] = lifted.map((spot) => ({
     area: char.area,
@@ -472,7 +545,7 @@ function startLevitate(state: GameState, char: Character): void {
       x: at.x + randomIn(state, -at.w, at.w),
       y: at.y,
       cell: -1,
-      toy: pick(state, TOY_KINDS),
+      toy: baking ? "tray" : pick<FloatKind>(state, TOY_KINDS),
       phase: randomIn(state, 0, Math.PI * 2),
       age: 0,
       life,
@@ -550,6 +623,7 @@ function hitGround(state: GameState, char: Character): void {
     say(char, pick(state, BUBBLE_TEXTS.fallOuch));
     heard(state, char, "thud");
     fallOnSnowman(state, char);
+    bakeryTumble(state, char);
   }
 }
 
@@ -613,10 +687,11 @@ function liftable(
 function toyPlaces(
   state: GameState,
   char: Character,
+  kinds: ReadonlySet<BigObjectKind>,
 ): { x: number; y: number; w: number }[] {
   const places: { x: number; y: number; w: number }[] = [];
   for (const object of areaMap(state, char).objects) {
-    if (TOY_PLACES.has(object.kind)) {
+    if (kinds.has(object.kind)) {
       const size = footprint(object.kind);
       const x = (object.tx + size.cols / 2) * TILE;
       const y = (object.ty + size.rows) * TILE;

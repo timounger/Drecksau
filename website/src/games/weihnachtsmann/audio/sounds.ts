@@ -2,7 +2,8 @@
  * Short synthesised sounds: the door, an Advent gate, the toy machine, a
  * growling guitar riff, a drum fill, a spooky organ chord, the sleigh bells,
  * and for the abilities a wish chime, a magic shimmer, the telescope's
- * zoom and a thud - oscillators and filtered noise only, every tune made up for this game,
+ * zoom and a thud; a jetski starting, its horn and the hum of its motor -
+ * oscillators and filtered noise only, every tune made up for this game,
  * all of it quiet. Minigames bring their own recipes.
  *
  * @module
@@ -17,6 +18,12 @@ export type SoundPlayer = {
   playRecipe(recipe: Recipe): void;
   /** Unlocks audio - must be called from a click, key press or touch. */
   resume(): void;
+  /**
+   * Sets the hum of a jetski's motor: 0 is silent, 1 full speed - pitch and
+   * loudness follow. Call it every frame; 0 when nobody rides or the page
+   * hides.
+   */
+  motor(level: number): void;
 };
 
 /**
@@ -249,7 +256,125 @@ const RECIPES: Readonly<Record<SoundId, Recipe>> = {
       ["sine", 2349, 2349, 0.3, 0.16, 0.45],
     ],
   },
+  // Three crunchy bites.
+  munch: {
+    noise: [
+      [0.06, 0, 900, 0.7],
+      [0.06, 0.14, 1000, 0.6],
+      [0.06, 0.28, 850, 0.6],
+    ],
+  },
+  // Paper rustling.
+  paper: {
+    noise: [
+      [0.05, 0, 5200, 0.5],
+      [0.08, 0.06, 4200, 0.4],
+    ],
+  },
+  // The oven's bell: done!
+  ding: {
+    tones: [
+      ["sine", 1760, 1760, 0.5, 0, 0.5],
+      ["sine", 2637, 2637, 0.4, 0, 0.2],
+    ],
+  },
+  // A sleepy yawn sliding down.
+  carousel: {
+    // A little music box waltz, made up for the market.
+    tones: [
+      ["sine", 1047, 1047, 0.22, 0, 0.5],
+      ["sine", 1319, 1319, 0.22, 0.25, 0.4],
+      ["sine", 1568, 1568, 0.22, 0.5, 0.4],
+      ["sine", 1397, 1397, 0.22, 0.75, 0.45],
+      ["sine", 1175, 1175, 0.22, 1, 0.4],
+      ["sine", 1319, 1319, 0.35, 1.25, 0.45],
+      ["triangle", 262, 262, 0.2, 0, 0.3],
+      ["triangle", 392, 392, 0.2, 0.5, 0.25],
+      ["triangle", 349, 349, 0.2, 0.75, 0.25],
+      ["triangle", 262, 262, 0.3, 1.25, 0.3],
+    ],
+  },
+  throw: {
+    noise: [[0.12, 0, 2400, 0.5]],
+  },
+  hit: {
+    noise: [[0.1, 0, 900, 0.8]],
+    tones: [["triangle", 220, 120, 0.1, 0, 0.5]],
+  },
+  chop: {
+    noise: [
+      [0.05, 0, 1800, 0.8],
+      [0.05, 0.22, 1800, 0.8],
+      [0.2, 0.44, 600, 0.6],
+    ],
+    tones: [
+      ["square", 180, 140, 0.05, 0, 0.3],
+      ["square", 180, 140, 0.05, 0.22, 0.3],
+    ],
+  },
+  bell: {
+    tones: [
+      ["sine", 1760, 1760, 0.5, 0, 0.6],
+      ["sine", 2637, 2637, 0.4, 0, 0.3],
+      ["sine", 2093, 2093, 0.6, 0.12, 0.5],
+      ["sine", 3136, 3136, 0.5, 0.12, 0.25],
+    ],
+  },
+  iceBreak: {
+    noise: [
+      [0.3, 0, 5000, 0.9],
+      [0.2, 0.08, 3000, 0.6],
+    ],
+    tones: [
+      ["sine", 2400, 1200, 0.2, 0, 0.3],
+      ["sine", 3200, 1800, 0.25, 0.1, 0.25],
+    ],
+  },
+  owl: {
+    tones: [
+      ["sine", 392, 370, 0.25, 0, 0.6],
+      ["sine", 392, 349, 0.4, 0.35, 0.6],
+    ],
+  },
+  whoosh: {
+    noise: [[0.5, 0, 1400, 0.6]],
+    tones: [["sine", 300, 600, 0.4, 0, 0.2]],
+  },
+  snore: {
+    tones: [["triangle", 330, 160, 0.6, 0, 0.4]],
+    noise: [[0.4, 0.1, 500, 0.3]],
+  },
+  jetskiStart: {
+    noise: [[0.35, 0, 300, 0.5]],
+    tones: [
+      ["sawtooth", 55, 90, 0.18, 0, 0.35],
+      ["sawtooth", 70, 150, 0.35, 0.16, 0.35],
+      ["square", 35, 60, 0.4, 0.1, 0.2],
+    ],
+  },
+  horn: {
+    tones: [
+      ["square", 415, 415, 0.14, 0, 0.35],
+      ["square", 523, 523, 0.14, 0, 0.25],
+      ["square", 415, 415, 0.22, 0.2, 0.35],
+      ["square", 523, 523, 0.22, 0.2, 0.25],
+    ],
+  },
 };
+
+/** The motor's hum: lowest and highest pitch, Hz, and loudness at full speed. */
+const MOTOR_LOW = 48;
+const MOTOR_HIGH = 120;
+const MOTOR_GAIN = 0.35;
+
+/** Top of the low-pass that keeps the motor soft, Hz. */
+const MOTOR_TONE = 700;
+
+/** How quickly the motor's pitch and loudness follow, seconds. */
+const MOTOR_EASE = 0.08;
+
+/** A second voice a little off the first, for a rough motor. */
+const MOTOR_DETUNE = 1.5;
 /* eslint-enable @typescript-eslint/no-magic-numbers */
 
 /**
@@ -305,7 +430,57 @@ export function createSoundPlayer(): SoundPlayer {
     playRecipe(RECIPES[sound]);
   };
 
-  return { play, playRecipe, resume };
+  let hum: Motor | null = null;
+  const motor = (level: number): void => {
+    if (ctx !== null && ctx.state === "running") {
+      if (hum === null && level > 0) {
+        hum = startMotor(ctx);
+      }
+      if (hum !== null) {
+        const now = ctx.currentTime;
+        const pitch = MOTOR_LOW + (MOTOR_HIGH - MOTOR_LOW) * level;
+        hum.low.frequency.setTargetAtTime(pitch, now, MOTOR_EASE);
+        hum.rough.frequency.setTargetAtTime(
+          pitch * MOTOR_DETUNE,
+          now,
+          MOTOR_EASE,
+        );
+        hum.gain.gain.setTargetAtTime(
+          MASTER_GAIN * MOTOR_GAIN * level,
+          now,
+          MOTOR_EASE,
+        );
+      }
+    }
+  };
+
+  return { play, playRecipe, resume, motor };
+}
+
+/** The motor's running oscillators and its volume. */
+type Motor = {
+  readonly low: OscillatorNode;
+  readonly rough: OscillatorNode;
+  readonly gain: GainNode;
+};
+
+/** Starts the motor's hum, silent until {@link SoundPlayer.motor} turns it up. */
+function startMotor(ctx: AudioContext): Motor {
+  const low = ctx.createOscillator();
+  const rough = ctx.createOscillator();
+  low.type = "sawtooth";
+  rough.type = "square";
+  const tone = ctx.createBiquadFilter();
+  tone.type = "lowpass";
+  tone.frequency.value = MOTOR_TONE;
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  low.connect(tone);
+  rough.connect(tone);
+  tone.connect(gain).connect(ctx.destination);
+  low.start();
+  rough.start();
+  return { low, rough, gain };
 }
 
 /** A soft-clipping curve: loud parts flatten out into a growl. */
