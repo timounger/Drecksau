@@ -13,6 +13,17 @@
  */
 import { isHole } from "@/games/weihnachtsmann/engine/cave";
 import { PLACE_LABELS } from "@/games/weihnachtsmann/engine/east-data";
+import { drawOverviewExtras, extraLabels } from "./render-extras";
+import {
+  gondolaPoint,
+  gondolaShare,
+} from "@/games/weihnachtsmann/engine/cablecar";
+import {
+  CABLE_TOP_CELL,
+  STATIONS,
+  TRACK_CORNERS,
+} from "@/games/weihnachtsmann/engine/places-data";
+import { trainCars } from "@/games/weihnachtsmann/engine/railway";
 import { TILE } from "@/games/weihnachtsmann/engine/map";
 import { SECRET_SPOT } from "@/games/weihnachtsmann/engine/map-data";
 import { presentPoint } from "@/games/weihnachtsmann/engine/store";
@@ -145,6 +156,8 @@ export function drawOverview(
     drawGates(ctx, state, layout);
     drawDoors(ctx, state, layout);
     drawJetskis(ctx, state, layout);
+    drawRailway(ctx, state, layout);
+    drawOverviewExtras(ctx, state, layout.x, layout.y, layout.cell);
     if (overview.eagle) {
       drawHidden(ctx, state, layout, blink);
     }
@@ -173,7 +186,9 @@ export function drawOverviewLabels(
     ctx.font = `bold ${String(Math.round(TITLE_FONT * scale))}px system-ui, sans-serif`;
     ctx.fillStyle = "#ffe9a8";
     ctx.fillText(
-      TOWN_TEXTS.overviewTitle,
+      state.chars[state.active].area === "summit"
+        ? TOWN_TEXTS.overviewSummit
+        : TOWN_TEXTS.overviewTitle,
       MARGIN * scale,
       (MARGIN / 2) * scale,
     );
@@ -205,6 +220,12 @@ export function drawOverviewLabels(
       const y = layout.y + (place.ty + 1 / 2) * layout.cell;
       ctx.strokeText(PLACE_NAMES[place.name], x * scale, y * scale);
       ctx.fillText(PLACE_NAMES[place.name], x * scale, y * scale);
+    }
+    for (const place of extraLabels()) {
+      const x = layout.x + (place.x + 1 / 2) * layout.cell;
+      const y = layout.y + (place.y + 1 / 2) * layout.cell;
+      ctx.strokeText(place.name, x * scale, y * scale);
+      ctx.fillText(place.name, x * scale, y * scale);
     }
     ctx.fillStyle = "#ffffff";
     for (const jet of state.world.jetskis) {
@@ -330,6 +351,68 @@ function drawJetskis(
     ctx.fillStyle = JETSKI_COLORS[jet.home % JETSKI_COLORS.length];
     ctx.fillRect(snap(x - JETSKI_MARK), snap(y - 1), JETSKI_MARK * 2, 1.5);
   }
+}
+
+/**
+ * The railway's loop as a thin line with its stations, the train as a red
+ * bar, the balloon and the gondola as little marks.
+ */
+function drawRailway(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  layout: Layout,
+): void {
+  const at = (x: number, y: number) => ({
+    x: layout.x + x * layout.cell,
+    y: layout.y + y * layout.cell,
+  });
+  ctx.strokeStyle = "#5a4a5a";
+  ctx.lineWidth = Math.max(0.5, layout.cell * 0.5);
+  ctx.beginPath();
+  TRACK_CORNERS.forEach(([cx, cy], index) => {
+    const point = at(cx + 1 / 2, cy + 1 / 2);
+    if (index === 0) {
+      ctx.moveTo(point.x, point.y);
+    } else {
+      ctx.lineTo(point.x, point.y);
+    }
+  });
+  ctx.closePath();
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  for (const station of STATIONS) {
+    const point = at(station.x + 1 / 2, station.y + 1 / 2);
+    ctx.fillRect(snap(point.x - 1), snap(point.y - 1), 2, 2);
+  }
+  ctx.fillStyle = "#e8343a";
+  for (const car of trainCars(state)) {
+    const point = at(car.x / TILE, car.y / TILE);
+    ctx.fillRect(snap(point.x - 1), snap(point.y - 1), 2, 2);
+  }
+  const balloon = state.world.places.balloon;
+  const high = at(balloon.x / TILE, balloon.y / TILE);
+  ctx.fillStyle = "#ffc21e";
+  ctx.beginPath();
+  ctx.arc(high.x, high.y - 1.5, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+  const cable = gondolaPoint(gondolaShare(state));
+  const low = gondolaPoint(0);
+  const top = gondolaPoint(1);
+  ctx.strokeStyle = "#3a3442";
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(
+    at(low.x / TILE, low.y / TILE).x,
+    at(low.x / TILE, low.y / TILE).y,
+  );
+  ctx.lineTo(
+    at(top.x / TILE, top.y / TILE).x,
+    at(top.x / TILE, top.y / TILE).y,
+  );
+  ctx.stroke();
+  const gondola = at(cable.x / TILE, cable.y / TILE);
+  ctx.fillStyle = "#d8343a";
+  ctx.fillRect(snap(gondola.x - 1), snap(gondola.y - 1), 2, 2);
 }
 
 /** A warm dot at every door one can go in by. */
@@ -466,7 +549,11 @@ function markOf(
 ): { x: number; y: number } {
   let tx = x / TILE;
   let ty = y / TILE;
-  if (area !== "outdoors") {
+  if (area === "summit") {
+    // Up on the summit: at the top of the mountain.
+    tx = CABLE_TOP_CELL.x;
+    ty = CABLE_TOP_CELL.y;
+  } else if (area !== "outdoors") {
     const door = state.maps.outdoors.doors.find(
       (candidate) => candidate.to === area,
     );

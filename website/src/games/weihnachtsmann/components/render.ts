@@ -20,6 +20,8 @@ import {
 } from "@/games/weihnachtsmann/engine/movement";
 import { hopLift } from "@/games/weihnachtsmann/engine/shows";
 import { isRiding } from "@/games/weihnachtsmann/engine/sleigh";
+import { inBalloon } from "@/games/weihnachtsmann/engine/aboard";
+import { openAir } from "@/games/weihnachtsmann/engine/sky";
 import { lampLit, smallLook } from "@/games/weihnachtsmann/engine/world";
 import type {
   AreaId,
@@ -98,6 +100,31 @@ import {
   townLights,
 } from "./render-town";
 import { drawOverview, drawOverviewLabels } from "./render-overview";
+import { PLACE_ART, type PlaceArtName } from "./places-atlas";
+import { EXTRA_ART, type ExtraArtName } from "./extras-atlas";
+import {
+  collectExtras,
+  drawExtraProp,
+  drawExtrasAbove,
+  drawExtrasGround,
+  drawExtrasNight,
+  drawExtrasSky,
+  drawExtrasTexts,
+  extrasLights,
+} from "./render-extras";
+import {
+  collectPlaces,
+  drawAerial,
+  drawBeam,
+  drawPlaceProp,
+  drawPlaceShadows,
+  drawPlaceSigns,
+  drawTrack,
+  hiddenAboard,
+  placeLift,
+  placeLights,
+  riderDepth,
+} from "./render-places";
 import { blit, snap, type Art } from "./sprites";
 
 /** Half a cell, map px. */
@@ -110,7 +137,7 @@ const RIDER_DEPTH = 0.2;
 const TALL_ROWS = 4;
 
 /** Which sheet a picture is on. */
-type SheetName = "world" | "buildings" | "outdoor";
+type SheetName = "world" | "buildings" | "outdoor" | "places" | "extras";
 
 /** A picture of the map: its sheet, where it sits there, and a nudge down. */
 type Picture = {
@@ -150,6 +177,28 @@ function town(name: BuildingName, dy = 0): Picture {
  */
 function outdoor(name: OutdoorName, dy = 0): Picture {
   return { sheet: "outdoor", rect: OUTDOOR[name], dy };
+}
+
+/**
+ * A picture on the places sheet.
+ *
+ * @param name - its name in the atlas
+ * @param dy - how far it stands lower than its foot line, map px
+ * @returns the picture
+ */
+function place(name: PlaceArtName, dy = 0): Picture {
+  return { sheet: "places", rect: PLACE_ART[name], dy };
+}
+
+/**
+ * A picture on the extras sheet of part B.
+ *
+ * @param name - its name in the atlas
+ * @param dy - how far it stands lower than its foot line, map px
+ * @returns the picture
+ */
+function extra(name: ExtraArtName, dy = 0): Picture {
+  return { sheet: "extras", rect: EXTRA_ART[name], dy };
 }
 
 /** How each small object is placed in its cell: picture and nudge down. */
@@ -247,6 +296,37 @@ const BIG_ART: Readonly<Record<BigObjectKind, Picture>> = {
   crystalBig: outdoor("crystalBig"),
   crystalSmall: outdoor("crystalSmall"),
   crystalViolet: outdoor("crystalViolet"),
+  hockeyGoalLeft: place("goalLeft", 2),
+  hockeyGoalRight: place("goalRight", 2),
+  hockeyBench: place("bench", 2),
+  blockHeap: place("blockHeap", 2),
+  // eslint-disable-next-line @typescript-eslint/no-magic-numbers -- the marks lie a little low
+  castleSite: place("castleSite", 4),
+  balloonPad: place("balloonPad", 2),
+  valleyStation: place("valleyStation", 2),
+  // eslint-disable-next-line @typescript-eslint/no-magic-numbers -- its foot sinks into the snow
+  mountain: place("mountain", 8),
+  summitStation: place("summitStation", 2),
+  panoramaScope: place("panoramaScope", 1),
+  skiRack: place("skiRack", 1),
+  lighthouse: place("lighthouse", 2),
+  stationHouse: place("stationHouse", 2),
+  stage: extra("stage"),
+  magicBasket: extra("magicBasket", 2),
+  schoolSign: extra("schoolSign", 2),
+  postBoard: extra("postBoard", 2),
+  angelSign: extra("angelSign", 2),
+  contestSign: extra("contestSign", 2),
+  photoPost: extra("photoPost", 2),
+  ballPile: extra("ballPile", 2),
+  carrotBox: extra("carrotBox", 2),
+  hatStand: extra("hatStand", 2),
+  scarfRack: extra("scarfRack", 2),
+  snowmanPlot: extra("plot", 2),
+  jury: extra("jury", 2),
+  packTable: extra("packTable", 2),
+  // eslint-disable-next-line @typescript-eslint/no-magic-numbers -- its foot sinks into the snow
+  giftTree: extra("giftTree", 4),
 };
 
 /** The heap of letters by how many are left: empty basket up to a mountain. */
@@ -396,17 +476,25 @@ export function drawFrame(
     glowAt(ctx, x, y, radius, rgb, strength);
   };
   const shown = state.chars.filter(
-    (char) => char.area === state.viewArea && !isRiding(state, char),
+    (char) =>
+      char.area === state.viewArea &&
+      !isRiding(state, char) &&
+      !hiddenAboard(state, char),
   );
-  const outside = map.area === "outdoors";
+  const outside = openAir(map.area);
   drawGround(ctx, map, art, cx, cy, view);
   for (const object of map.objects) {
     if (FLAT_OBJECTS.has(object.kind)) {
       drawBig(ctx, art, state, object);
     }
   }
+  drawTrack(ctx, state, map, cx, cy, view);
+  drawExtrasGround(ctx, state, map, art);
+  drawPlaceShadows(ctx, state, map);
   for (const char of shown) {
-    drawShadow(ctx, char, state.chars[state.active] === char);
+    if (!inBalloon(state, char)) {
+      drawShadow(ctx, char, state.chars[state.active] === char);
+    }
   }
   drawFloatShadows(ctx, state);
   const ride = state.sleigh;
@@ -420,15 +508,20 @@ export function drawFrame(
   collectTown(ctx, state, map, art, items);
   collectEast(ctx, state, map, art, items);
   collectJetskis(ctx, state, map, art, items);
+  collectPlaces(ctx, state, map, art, items);
+  collectExtras(ctx, state, map, art, items);
   collectFloaters(ctx, state, art, items);
   const sky = map.rows * TILE;
   for (const char of shown) {
-    const lift = riderLift(state, char) + jetskiLift(state, char);
+    const lift =
+      riderLift(state, char) + jetskiLift(state, char) + placeLift(state, char);
+    const seated = riderDepth(state, char);
     items.push({
       depth:
-        char.altitude > 1
+        seated ??
+        (char.altitude > 1
           ? char.y + sky
-          : char.y + (lift > 0 ? RIDER_DEPTH : 0),
+          : char.y + (lift > 0 ? RIDER_DEPTH : 0)),
       draw: () => {
         drawCharacter(ctx, char, art, state.time, lift);
       },
@@ -447,6 +540,8 @@ export function drawFrame(
     item.draw();
   }
   drawLightStrings(ctx, state);
+  drawAerial(ctx, state, art);
+  drawExtrasAbove(ctx, state, art);
   drawFlyingToys(ctx, art, state);
   drawRepair(ctx, state, art);
   if (map.shade !== null) {
@@ -455,6 +550,8 @@ export function drawFrame(
   }
   drawNight(ctx, state, cx, cy);
   drawGlows(ctx, state, map, cx, cy, view);
+  drawBeam(ctx, state);
+  drawExtrasNight(ctx, state);
   for (const particle of state.particles) {
     if (particle.area === state.viewArea) {
       drawParticle(ctx, particle, art);
@@ -469,6 +566,7 @@ export function drawFrame(
     drawSnowfall(ctx, state.time, cx, cy, view);
     drawSky(ctx, state, cx, cy);
   }
+  drawExtrasSky(ctx, state);
   drawErrandArrow(ctx, state, cx, cy);
   drawLens(ctx, state, view);
   drawOverview(ctx, state, art);
@@ -509,7 +607,7 @@ export function drawBubbles(
     ) {
       const height = currentProfile(char).height;
       let x = (char.x - cx) * scale;
-      const seat = jetskiLift(state, char);
+      const seat = jetskiLift(state, char) + placeLift(state, char);
       let y =
         (char.y - char.altitude - seat - height - HEAD_GAP * 2 - cy) * scale;
       if (ride !== null && isRiding(state, char)) {
@@ -526,12 +624,15 @@ export function drawBubbles(
   drawGateHints(ctx, state, scale, cx, cy);
   drawTownLabels(ctx, state, scale, cx, cy);
   drawJetskiSigns(ctx, state, scale, cx, cy);
-  drawEastTexts(ctx, state, scale, cx, cy, (text, x, y) => {
+  drawPlaceSigns(ctx, state, scale, cx, cy);
+  const speak = (text: string, x: number, y: number): void => {
     ctx.font = `bold ${String(Math.round(BUBBLE_FONT * scale))}px system-ui, sans-serif`;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     bubble(ctx, text, x, y, scale);
-  });
+  };
+  drawExtrasTexts(ctx, state, scale, cx, cy, speak);
+  drawEastTexts(ctx, state, scale, cx, cy, speak);
   ctx.restore();
   drawOverviewLabels(ctx, state, scale);
   drawSpyCaption(ctx, state, scale);
@@ -778,6 +879,8 @@ function drawBig(
   drawProp(ctx, art, state, object.kind, left, bottom);
   drawTownProp(ctx, art, state, object.kind, left, bottom);
   drawEastProp(ctx, art, state, object.kind, left, bottom);
+  drawPlaceProp(ctx, art, state, object.kind, left, bottom);
+  drawExtraProp(ctx, art, state, object.kind, left, bottom);
 }
 
 /**
@@ -982,6 +1085,8 @@ function drawGlows(
   townLights(glow, state);
   eastLights(glow, state);
   jetskiLights(glow, state);
+  placeLights(glow, state);
+  extrasLights(glow, state);
   const lamp = OBJECTS.lamp;
   const flicker = 1 + Math.sin(state.time * LAMP_FLICKER) * LAMP_FLICKER_SIZE;
   for (let ty = 0; ty < map.rows; ty += 1) {
@@ -1165,6 +1270,26 @@ function drawParticle(
       ctx.fill();
       break;
     }
+    case "heart": {
+      // A small pixel heart of joy, fading as it rises.
+      const x = snap(particle.x - 2.5);
+      const y = snap(particle.y - 2);
+      ctx.globalAlpha = Math.min(1, (1 - t) * 2);
+      ctx.fillStyle = "#8a1a3a";
+      ctx.fillRect(x, y, 2, 1.5);
+      ctx.fillRect(x + 3, y, 2, 1.5);
+      ctx.fillRect(x - 0.5, y + 0.5, 6, 2);
+      ctx.fillRect(x + 0.5, y + 2.5, 4, 1);
+      ctx.fillRect(x + 1.5, y + 3.5, 2, 1);
+      ctx.fillStyle = "#ff5a7a";
+      ctx.fillRect(x + 0.5, y + 0.5, 1, 1);
+      ctx.fillRect(x + 3.5, y + 0.5, 1, 1);
+      ctx.fillRect(x, y + 1, 5, 1.5);
+      ctx.fillRect(x + 1, y + 2.5, 3, 1);
+      ctx.fillRect(x + 2, y + 3.5, 1, 0.5);
+      ctx.globalAlpha = 1;
+      break;
+    }
   }
 }
 /* eslint-enable @typescript-eslint/no-magic-numbers */
@@ -1177,7 +1302,8 @@ function drawMarker(
 ): void {
   const char = state.chars[state.active];
   let x = char.x;
-  let y = char.y - char.altitude - jetskiLift(state, char);
+  let y =
+    char.y - char.altitude - jetskiLift(state, char) - placeLift(state, char);
   const ride = state.sleigh;
   if (ride !== null && isRiding(state, char)) {
     x = ride.x;

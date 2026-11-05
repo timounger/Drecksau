@@ -7,6 +7,18 @@
  */
 import { ANY_DAY } from "./calendar";
 import {
+  carried,
+  hockeyHelper,
+  inBalloon,
+  inGondola,
+  skiing,
+  vehicleOf,
+} from "./aboard";
+import { updateBalloonRider } from "./balloon";
+import { dropSki, updateSki } from "./cablecar";
+import { updateHockeyHelper } from "./hockey";
+import { placeAbility, placeTalk } from "./places";
+import {
   achievementSave,
   applyAchievementSave,
   checkAchievements,
@@ -17,6 +29,13 @@ import { followCamera, snapCamera } from "./camera";
 import { checkCinema } from "./cinema";
 import { CAST } from "./cast";
 import { checkDoors, startFade, updateFade } from "./doors";
+import {
+  applyExtrasSave,
+  createKeep,
+  extrasDrive,
+  extrasKey,
+  extrasSave,
+} from "./extras";
 import { SPARKLE_TINTS, spawn, updateEffects } from "./effects";
 import { checkGates, cleanGates } from "./gates";
 import { updateMachine, interact } from "./interact";
@@ -139,9 +158,29 @@ export function createGame(save: SaveData | null): GameState {
       stalls: new Set(),
       bells: new Set(),
       critters: new Set(),
+      stops: new Set(),
+      nightStars: new Set(),
+      photos: new Set(),
     },
-    counts: { falls: 0, toys: 0, letters: 0, hits: 0, errands: 0, sledBest: 0 },
+    counts: {
+      falls: 0,
+      toys: 0,
+      letters: 0,
+      hits: 0,
+      errands: 0,
+      sledBest: 0,
+      skiBest: 0,
+      kids: 0,
+      wrapped: 0,
+      postBest: 0,
+      schoolBest: 0,
+      snowmanBest: 0,
+      starWishes: 0,
+      dailyDays: 0,
+    },
     toasts: [],
+    zoom: 0,
+    keep: createKeep(),
   };
   layStore(state);
   if (save !== null) {
@@ -182,29 +221,39 @@ export function step(state: GameState, input: Input, dt: number): void {
   }
   updateFade(state, dt);
   dropSled(state);
+  dropSki(state);
   state.chars.forEach((char, index) => {
-    if (isRiding(state, char) || onCarousel(state, char)) {
-      // Off the map in the sleigh, or going round on the carousel.
+    const steer =
+      index === state.active &&
+      state.menu === null &&
+      state.fade === null &&
+      state.spy === null &&
+      state.overview === null;
+    if (
+      isRiding(state, char) ||
+      onCarousel(state, char) ||
+      carried(state, char)
+    ) {
+      // Off the map in the sleigh, round on the carousel, up the cable or
+      // on the train: the ride moves it.
     } else if (sledding(state, char)) {
-      const steer = state.fade === null && state.overview === null;
-      updateSled(state, char, steer ? input : NO_INPUT, dt);
+      const steerSled = state.fade === null && state.overview === null;
+      updateSled(state, char, steerSled ? input : NO_INPUT, dt);
+    } else if (skiing(state, char)) {
+      updateSki(state, char, steer ? input : NO_INPUT, dt);
+    } else if (inBalloon(state, char)) {
+      updateBalloonRider(state, char, steer ? input : NO_INPUT, dt);
+    } else if (hockeyHelper(state, char)) {
+      updateHockeyHelper(state, char, dt);
     } else if (ridingJetski(state, char)) {
       // A rider the player left sits on, the jetski coasting to a stop.
-      const steer =
-        index === state.active &&
-        state.menu === null &&
-        state.fade === null &&
-        state.spy === null &&
-        state.overview === null;
       updateJetski(state, char, steer ? input : NO_INPUT, dt);
+    } else if (extrasDrive(state, char, index, steer ? input : NO_INPUT, dt)) {
+      // Rocking the stage, steering a magic throw, wrapping a present, or
+      // called to the crowd: part B moves it.
     } else if (heldByShow(char)) {
       holdStill(state, char, dt);
     } else if (index === state.active) {
-      const steer =
-        state.menu === null &&
-        state.fade === null &&
-        state.spy === null &&
-        state.overview === null;
       const move = steer ? input : NO_INPUT;
       moveCharacter(
         areaMap(state, char),
@@ -258,6 +307,7 @@ export function toSave(state: GameState): SaveData {
     })),
     gates: [...state.gatesDone].sort((a, b) => a - b),
     ...achievementSave(state),
+    extras: extrasSave(state),
   };
 }
 
@@ -274,7 +324,11 @@ function perform(state: GameState, action: Action): void {
       );
       break;
     case "ability":
-      if (seated(state)) {
+      if (extrasKey(state, "ability")) {
+        // A wish on a shooting star, a throw at the magic school.
+      } else if (placeAbility(state)) {
+        // The balloon's burner, the engine's whistle, a shot at the puck.
+      } else if (seated(state)) {
         // Sitting in the sleigh: nothing to do but enjoy the ride.
       } else if (ridingJetski(state, state.chars[state.active])) {
         honk(state, state.chars[state.active]);
@@ -285,8 +339,12 @@ function perform(state: GameState, action: Action): void {
       }
       break;
     case "talk":
-      if (ridingJetski(state, state.chars[state.active])) {
+      if (extrasKey(state, "talk")) {
+        // A wish on a shooting star.
+      } else if (ridingJetski(state, state.chars[state.active])) {
         leaveJetski(state, state.chars[state.active]);
+      } else if (placeTalk(state)) {
+        // Landing, getting off the train, shooting the puck.
       } else if (!seated(state)) {
         interact(state);
       }
@@ -310,14 +368,14 @@ function perform(state: GameState, action: Action): void {
 }
 
 /**
- * Whether the character steered sits in the sleigh, on the carousel or on a
- * sled - then the ability and talk keys do nothing.
+ * Whether the character steered sits in the sleigh, on the carousel, on a
+ * sled or in any other ride but a jetski - then the ability and talk keys do
+ * nothing beyond what the ride itself takes.
  */
 function seated(state: GameState): boolean {
   const char = state.chars[state.active];
-  return (
-    isRiding(state, char) || onCarousel(state, char) || sledding(state, char)
-  );
+  const kind = vehicleOf(state, char);
+  return kind !== null && kind !== "jetski";
 }
 
 /**
@@ -350,6 +408,7 @@ function clickAt(state: GameState, x: number, y: number): void {
     const hit =
       char.area === state.viewArea &&
       !isRiding(state, char) &&
+      !inGondola(state, char) &&
       Math.abs(x - char.x) < CLICK_SLACK + 2 &&
       y > top - CLICK_SLACK / 2 &&
       y < char.y - char.altitude + 2;
@@ -382,7 +441,9 @@ function keepApart(state: GameState): void {
         !isRiding(state, a) &&
         !isRiding(state, b) &&
         !onCarousel(state, a) &&
-        !onCarousel(state, b)
+        !onCarousel(state, b) &&
+        !carried(state, a) &&
+        !carried(state, b)
       ) {
         const room =
           (currentProfile(a).footW + currentProfile(b).footW) / 2 +
@@ -554,4 +615,5 @@ function applySave(state: GameState, save: SaveData): void {
     state.gatesDone.add(number);
   }
   applyAchievementSave(state, save);
+  applyExtrasSave(state, save);
 }

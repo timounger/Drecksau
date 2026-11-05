@@ -27,6 +27,7 @@ import { AdventProgress } from "./advent-progress";
 import { AnimalPicker } from "./animal-picker";
 import { CharacterBar } from "./character-bar";
 import { CinemaDialog } from "./cinema-panel";
+import { NotebookButton, NotebookDialog } from "./notebook-panel";
 import { VIEW_H, VIEW_W } from "@/games/weihnachtsmann/engine/engine";
 import { EnterButton, TouchButtons, TouchStick } from "./touch-pad";
 
@@ -51,13 +52,20 @@ export function WeihnachtsmannGameScreen(): ReactElement {
   const openAchievements = useCallback(() => {
     achievementsRef.current?.showModal();
   }, []);
+  const notebookRef = useRef<HTMLDialogElement>(null);
+  const openNotebook = useCallback(() => {
+    notebookRef.current?.showModal();
+  }, []);
   const achievementsChip = (
-    <AchievementsButton
-      hud={hud}
-      onOpen={openAchievements}
-      compact
-      short={touch}
-    />
+    <>
+      <AchievementsButton
+        hud={hud}
+        onOpen={openAchievements}
+        compact
+        short={touch}
+      />
+      <NotebookButton hud={hud} onOpen={openNotebook} compact />
+    </>
   );
 
   useEffect(() => {
@@ -85,6 +93,7 @@ export function WeihnachtsmannGameScreen(): ReactElement {
           rules={WM_RULES}
         >
           <AchievementsButton hud={hud} onOpen={openAchievements} />
+          <NotebookButton hud={hud} onOpen={openNotebook} />
           <button
             type="button"
             data-testid="wm-reset"
@@ -215,6 +224,7 @@ export function WeihnachtsmannGameScreen(): ReactElement {
       </div>
 
       <AchievementsDialog hud={hud} dialogRef={achievementsRef} />
+      <NotebookDialog hud={hud} dialogRef={notebookRef} />
       <CinemaDialog
         hud={hud}
         onLeave={game.leaveCinema}

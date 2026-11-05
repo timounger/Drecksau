@@ -4,6 +4,7 @@
  *
  * @module
  */
+import type { ExtrasKeep, ExtrasState, SavedExtras } from "./extras-types";
 
 /** The eight characters, in the order of the selection bar. */
 export const CHARACTER_IDS = [
@@ -37,7 +38,8 @@ export type AnimalId = (typeof ANIMAL_IDS)[number];
  * The places of the game: the snowy map outside, the two houses one could
  * always enter, and the five buildings of the village - the reindeer stable,
  * the post office, the elves' bakery, Gugor's observatory and the gift store -
- * and the ice cave behind the frozen waterfall.
+ * the ice cave behind the frozen waterfall - and the summit the cable car
+ * climbs to.
  */
 export const AREA_IDS = [
   "outdoors",
@@ -49,6 +51,7 @@ export const AREA_IDS = [
   "observatory",
   "giftStore",
   "iceCave",
+  "summit",
 ] as const;
 
 /** One of the places. */
@@ -164,7 +167,12 @@ export type CarryKind =
   | "present"
   | "fir"
   | "found"
-  | "treat";
+  | "treat"
+  | "snowBlock"
+  | "toy"
+  | "wrapped"
+  | "parcel"
+  | "snowPart";
 
 /**
  * Something carried: what it is, and for a letter, where it comes from; for a
@@ -188,7 +196,8 @@ export type ParticleKind =
   | "cookie"
   | "flour"
   | "zzz"
-  | "spray";
+  | "spray"
+  | "heart";
 
 /** A short-lived bit of decoration. */
 export type Particle = {
@@ -303,7 +312,35 @@ export type BigObjectKind =
   | "treeStand"
   | "crystalBig"
   | "crystalSmall"
-  | "crystalViolet";
+  | "crystalViolet"
+  | "hockeyGoalLeft"
+  | "hockeyGoalRight"
+  | "hockeyBench"
+  | "blockHeap"
+  | "castleSite"
+  | "balloonPad"
+  | "valleyStation"
+  | "mountain"
+  | "summitStation"
+  | "panoramaScope"
+  | "skiRack"
+  | "lighthouse"
+  | "stationHouse"
+  | "stage"
+  | "magicBasket"
+  | "schoolSign"
+  | "postBoard"
+  | "angelSign"
+  | "contestSign"
+  | "photoPost"
+  | "ballPile"
+  | "carrotBox"
+  | "hatStand"
+  | "scarfRack"
+  | "snowmanPlot"
+  | "jury"
+  | "packTable"
+  | "giftTree";
 
 /** The small things that fill one cell each. */
 export type SmallObjectKind =
@@ -395,7 +432,30 @@ export type SpotKind =
   | "treeStand"
   | "mailbox"
   | "critter"
-  | "jetski";
+  | "jetski"
+  | "hockey"
+  | "blocks"
+  | "castle"
+  | "balloon"
+  | "cableCar"
+  | "summitStation"
+  | "panorama"
+  | "skis"
+  | "lighthouse"
+  | "platform"
+  | "school"
+  | "airMail"
+  | "photo"
+  | "kid"
+  | "partBalls"
+  | "partCarrots"
+  | "partHats"
+  | "partScarves"
+  | "snowmanPlot"
+  | "jury"
+  | "packTable"
+  | "giftTree"
+  | "angels";
 
 /** Something to use with the talk key. */
 export type Spot = CellBox & { readonly kind: SpotKind };
@@ -527,7 +587,21 @@ export type SoundId =
   | "owl"
   | "whoosh"
   | "jetskiStart"
-  | "horn";
+  | "horn"
+  | "whistle"
+  | "chuff"
+  | "puck"
+  | "goalHorn"
+  | "burner"
+  | "gondola"
+  | "blockSet"
+  | "crossing"
+  | "shutter"
+  | "rocket"
+  | "bang"
+  | "cheer"
+  | "wrap"
+  | "shootingStar";
 
 /** The achievements one can unlock, in the order of the achievements panel. */
 export const ACHIEVEMENT_IDS = [
@@ -585,6 +659,29 @@ export const ACHIEVEMENT_IDS = [
   "errands5",
   "stormWalk",
   "fullThrottle",
+  "hockeyWin",
+  "snowCastle",
+  "balloonRide",
+  "roofSecret",
+  "summit",
+  "skiRun",
+  "lighthouse",
+  "trainStops",
+  "trainLoop",
+  "stageRock",
+  "magicSchool",
+  "airMail",
+  "angelStar",
+  "nightStars",
+  "happyKids",
+  "snowmanJury",
+  "photoAlbum",
+  "shootingStar",
+  "fireworks",
+  "dailyTasks",
+  "bestFriends",
+  "giftPile",
+  "christmasEve",
 ] as const;
 
 /** One of the achievements. */
@@ -597,6 +694,9 @@ export const PROGRESS_IDS = [
   "stalls",
   "bells",
   "critters",
+  "stops",
+  "nightStars",
+  "photos",
 ] as const;
 
 /** One kind of collected progress. */
@@ -610,6 +710,14 @@ export const COUNT_IDS = [
   "hits",
   "errands",
   "sledBest",
+  "skiBest",
+  "kids",
+  "wrapped",
+  "postBest",
+  "schoolBest",
+  "snowmanBest",
+  "starWishes",
+  "dailyDays",
 ] as const;
 
 /** One kind of counted progress. */
@@ -685,6 +793,155 @@ export type World = {
   readonly sky: SkyState;
   /** The snow jetskis standing about the map, or ridden. */
   readonly jetskis: Jetski[];
+  /**
+   * The places of the south land and round it: the ice hockey rink, the snow
+   * castle, the balloon, the cable car with the ski run, the lighthouse and
+   * the railway.
+   */
+  readonly places: PlacesState;
+  /**
+   * Part B: the stage, the magic school, the air mail, the snow angels,
+   * Rudolf's night stars, the visiting children, the snowman contest, the
+   * photo points, shooting stars and fireworks, friendly chats, presents
+   * and Christmas Eve.
+   */
+  readonly extras: ExtrasState;
+};
+
+/** Everything of the new places that changes and mends itself; none of it is saved. */
+export type PlacesState = {
+  readonly hockey: HockeyState;
+  readonly castle: CastleState;
+  readonly balloon: Balloon;
+  readonly cable: CableState;
+  readonly lighthouse: LighthouseState;
+  readonly train: TrainState;
+};
+
+/** A moving point with a speed, map px and map px per second. */
+export type Mover = { x: number; y: number; vx: number; vy: number };
+
+/** The ice hockey rink: the puck, and the match while one is played. */
+export type HockeyState = {
+  readonly puck: Mover;
+  /** Index of who has the puck at the stick, or -1. */
+  owner: number;
+  /** Seconds before the last shooter may take the puck again. */
+  noCatch: number;
+  match: HockeyMatch | null;
+};
+
+/** A match: the player against a forward and a goalie nobody steers. */
+export type HockeyMatch = {
+  readonly player: number;
+  readonly forward: number;
+  readonly goalie: number;
+  /** Goals of the player and of the other side. */
+  readonly score: [number, number];
+  /** Seconds the play still waits after a goal or at the face-off. */
+  pause: number;
+  /** Seconds until the forward makes up its mind again. */
+  thinkIn: number;
+  /** Seconds the final whistle still shows, once somebody has won; 0 while playing. */
+  over: number;
+};
+
+/** The snow castle being built, and melting again. */
+export type CastleState = {
+  /** Snow blocks set so far, 0 to 8. */
+  blocks: number;
+  /** Whether the flag flies on top: the castle is done. */
+  flag: boolean;
+  /** Seconds until the castle starts to melt. */
+  meltIn: number;
+  /** Whether it melts right now, a block at a time. */
+  melting: boolean;
+  /** Seconds until the next block melts away. */
+  dripIn: number;
+};
+
+/** The hot-air balloon: at its field, aloft, or floating home by itself. */
+export type Balloon = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  /** How high the basket floats over its shadow, map px. */
+  altitude: number;
+  /** Index of who stands in the basket, or -1. */
+  rider: number;
+  /**
+   * At its field, up in the air, coming down to land, standing where it
+   * landed, or floating home by itself.
+   */
+  mode: "home" | "flying" | "landing" | "parked" | "returning";
+  /** Seconds it has stood away from its field without a rider. */
+  idle: number;
+  /** Seconds of the burner's flame still burning. */
+  burner: number;
+  /** Seconds this flight has been high up. */
+  airTime: number;
+  /** Which way the wind blows, radians. */
+  wind: number;
+};
+
+/** The cable car's gondola on its way, and a run down the ski slope. */
+export type CableState = {
+  ride: GondolaRide | null;
+  ski: SkiRun | null;
+};
+
+/** Somebody in the gondola, going up or down the cable. */
+export type GondolaRide = {
+  readonly who: number;
+  /** How far along the cable, 0 at the valley station, 1 at the summit. */
+  t: number;
+  readonly up: boolean;
+};
+
+/** A run down the ski slope from the summit. */
+export type SkiRun = {
+  readonly who: number;
+  time: number;
+  speed: number;
+};
+
+/** The lighthouse by the lake. */
+export type LighthouseState = {
+  /** Seconds its light still burns; 0 while it is dark. */
+  on: number;
+  /** Which way the beam points, radians. */
+  angle: number;
+};
+
+/** The narrow-gauge train going round its loop. */
+export type TrainState = {
+  /** How far the engine is along the loop, map px. */
+  dist: number;
+  /** Speed along the track, map px per second. */
+  speed: number;
+  /** The station the train waits at, or -1 while it runs. */
+  stop: number;
+  /** Seconds it still waits there. */
+  wait: number;
+  /** The station it left last, so it does not stop there again at once. */
+  last: number;
+  readonly riders: TrainRider[];
+  /** Seconds until the next puff of steam and the next chuff. */
+  puffIn: number;
+  /** Seconds the train has stood blocked by somebody who cannot step aside. */
+  blocked: number;
+};
+
+/** Somebody riding the train. */
+export type TrainRider = {
+  readonly who: number;
+  /** Which seat: two per wagon. */
+  readonly seat: number;
+  /** How far this ride has gone, map px. */
+  travelled: number;
+  /** Whether the rider gets off at the next station. */
+  alight: boolean;
 };
 
 /**
@@ -993,6 +1250,13 @@ export type GameState = {
   readonly counts: Record<CountId, number>;
   /** Banners of achievements just unlocked, the first on screen. */
   readonly toasts: Toast[];
+  /**
+   * How far the camera has zoomed out, 0 (as ever) to 1 (from the balloon,
+   * showing more of the map); the screen picks its scale from it.
+   */
+  zoom: number;
+  /** What part B keeps between visits: friendships and today's tasks. */
+  readonly keep: ExtrasKeep;
 };
 
 /** What is kept between visits. */
@@ -1007,6 +1271,8 @@ export type SaveData = {
   readonly progress?: Readonly<Partial<Record<ProgressId, readonly string[]>>>;
   /** What has been counted towards achievements, by kind. */
   readonly counts?: Readonly<Partial<Record<CountId, number>>>;
+  /** Friendships and today's tasks; missing in saves from before part B. */
+  readonly extras?: SavedExtras;
 };
 
 /** One achievement as saved. */

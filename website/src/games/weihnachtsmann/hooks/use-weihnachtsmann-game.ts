@@ -59,13 +59,15 @@ import {
   gateLocked,
 } from "@/games/weihnachtsmann/engine/calendar";
 import { spotInReach } from "@/games/weihnachtsmann/engine/interact";
-import { motorLevel, ridingJetski } from "@/games/weihnachtsmann/engine/jetski";
+import { motorLevel } from "@/games/weihnachtsmann/engine/jetski";
+import { vehicleOf } from "@/games/weihnachtsmann/engine/aboard";
 import {
   ACHIEVEMENTS,
   progressOf,
   unlock,
 } from "@/games/weihnachtsmann/engine/achievements";
 import { leaveCinema } from "@/games/weihnachtsmann/engine/cinema";
+import { todayView, type TaskView } from "@/games/weihnachtsmann/engine/daily";
 import { trySky } from "@/games/weihnachtsmann/engine/sky";
 import { mapSize } from "@/games/weihnachtsmann/engine/map";
 import { FIRST_CHARACTER } from "@/games/weihnachtsmann/engine/map-data";
@@ -85,6 +87,7 @@ import {
   loadSave,
   writeSave,
 } from "@/games/weihnachtsmann/storage/save-store";
+import { keepPhoto } from "@/games/weihnachtsmann/storage/album-store";
 import { miniGame } from "@/games/weihnachtsmann/minigames";
 import {
   createSession,
@@ -117,6 +120,11 @@ const MAX_STEPS = 5;
 /** Milliseconds per second. */
 const MS = 1000;
 
+/** The size of a photo for the album, px, and its JPEG quality. */
+const PHOTO_W = 128;
+const PHOTO_H = 72;
+const PHOTO_QUALITY = 0.72;
+
 /** How often the game is saved while playing, in seconds. */
 const SAVE_EVERY = 5;
 
@@ -139,6 +147,12 @@ const MIN_VIEW_H = 135;
 /** Largest view shown, map px - beyond it the picture just gets bigger. */
 const MAX_VIEW_W = 400;
 const MAX_VIEW_H = 240;
+
+/**
+ * How much smaller the scale gets when the camera zooms out all the way from
+ * the balloon - and so how much more of the map shows.
+ */
+const ZOOM_OUT = 0.4;
 
 /** Padding of the dark frame round the canvas on a phone, both sides, CSS px. */
 const TOUCH_FRAME_PADDING = 8;
@@ -201,6 +215,16 @@ export type Hud = {
   readonly bells: number;
   /** The best run down the sledding slope, tenths of a second, 0 for none. */
   readonly sledBest: number;
+  /** Today's three little tasks and how far they are. */
+  readonly daily: readonly TaskView[];
+  /** Friendship points by pair of characters. */
+  readonly friends: readonly (readonly [string, number])[];
+  /** The photo points that have a photo. */
+  readonly photos: readonly string[];
+  /** How many photos were taken this visit: the album reloads on a change. */
+  readonly shots: number;
+  /** Counts and bests of part B, by name of the count. */
+  readonly bests: Readonly<Record<string, number>>;
 };
 
 /** What the hook hands the component. */
@@ -243,6 +267,11 @@ const FIRST_HUD: Hud = {
   progress: [],
   bells: 0,
   sledBest: 0,
+  daily: [],
+  friends: [],
+  photos: [],
+  shots: 0,
+  bests: {},
 };
 
 /**
@@ -509,6 +538,10 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
       let playMs = 0;
       let lastActive = -1;
       let lastAchieved = -1;
+      let shots = 0;
+      const photo = document.createElement("canvas");
+      photo.width = PHOTO_W;
+      photo.height = PHOTO_H;
 
       const flush = () => {
         if (playMs > 0) {
@@ -590,6 +623,7 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
             layoutRef.current,
             visitRef.current !== null,
             state.maps.outdoors,
+            visitRef.current === null ? state.zoom : 0,
           );
           // Whole map pixels, the last one cut off at the canvas's edge.
           const viewW = Math.ceil(canvas.width / scale);
@@ -614,6 +648,13 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
             bctx.setTransform(SHEET_DENSITY, 0, 0, SHEET_DENSITY, 0, 0);
             bctx.imageSmoothingEnabled = false;
             drawFrame(bctx, state, art);
+            const shot = state.world.extras.shot;
+            if (shot !== null) {
+              // A photo of the view as it is now, small, for the album.
+              state.world.extras.shot = null;
+              shots += 1;
+              takePhoto(photo, buffer, shot.id);
+            }
             // Below twice the logical size the buffer has to shrink; smooth
             // that rather than drop every other art pixel.
             ctx.imageSmoothingEnabled = scale < SHEET_DENSITY;
@@ -675,17 +716,31 @@ export function useWeihnachtsmannGame(fullscreen: boolean): WeihnachtsmannGame {
           locked: lockedGates(state),
           inGate: visitRef.current?.number ?? null,
           inCinema: state.cinemaOpen,
-          canUse:
-            spotInReach(state) !== null ||
-            ridingJetski(state, state.chars[state.active]),
-          // On a jetski one gets off before going in anywhere.
-          entry: ridingJetski(state, state.chars[state.active])
-            ? null
-            : entryAt(state),
+          canUse: canUse(state),
+          // On a jetski, in the balloon or on the train one gets off before
+          // going in anywhere.
+          entry:
+            vehicleOf(state, state.chars[state.active]) === null
+              ? entryAt(state)
+              : null,
           achieved: [...state.achieved],
           progress: ACHIEVEMENTS.map((def) => progressOf(state, def.id)),
           bells: state.progress.bells.size,
           sledBest: state.counts.sledBest,
+          daily: todayView(state),
+          friends: [...state.keep.friends],
+          photos: [...state.progress.photos],
+          shots,
+          bests: {
+            postBest: state.counts.postBest,
+            schoolBest: state.counts.schoolBest,
+            snowmanBest: state.counts.snowmanBest,
+            wrapped: state.counts.wrapped,
+            kids: state.counts.kids,
+            starWishes: state.counts.starWishes,
+            dailyDays: state.counts.dailyDays,
+            nightStars: state.progress.nightStars.size,
+          },
         };
         const key = JSON.stringify(next);
         if (key !== hudKeyRef.current) {
@@ -785,6 +840,8 @@ function useLayout(): Layout {
  * @param inGate - whether a minigame is open: upright on a phone the canvas
  *   then takes the field's shape, so nothing is wasted above and below it
  * @param map - the map, so the view is never larger than it
+ * @param zoom - how far the camera has zoomed out, 0 to 1: the scale drops
+ *   and more of the map shows
  * @returns canvas pixels per logical pixel
  * @remarks
  * The scale is a whole number **of device pixels**, and an even one where
@@ -805,6 +862,7 @@ function fitScale(
   layout: Layout,
   inGate: boolean,
   map: GameMap,
+  zoom: number,
 ): number {
   const dots = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
   const holder = canvas.closest("[data-wm-frame]");
@@ -821,18 +879,21 @@ function fitScale(
   // On a sharp phone screen an odd scale shows no uneven art pixels, and the
   // even one below would waste a third of the width.
   const evenOnly = layout === "desktop" || dots < SHEET_DENSITY;
-  const scale =
+  const fitted =
     most >= SHEET_DENSITY && evenOnly ? most - (most % SHEET_DENSITY) : most;
+  // Zoomed out from the balloon: a smaller whole scale, more of the map.
+  const shrink = 1 - ZOOM_OUT * Math.max(0, Math.min(1, zoom));
+  const scale = Math.max(1, Math.round(fitted * shrink));
   const size = mapSize(map);
   // With keyboard and mouse the canvas fills the room exactly, whatever the
   // window's shape: the view is cut at the edge, half a map pixel if need be.
   const desk = layout === "desktop";
   const width = desk
     ? Math.floor(Math.min(size.w * scale, wide))
-    : Math.floor(Math.min(MAX_VIEW_W, size.w, wide / scale)) * scale;
+    : Math.floor(Math.min(MAX_VIEW_W / shrink, size.w, wide / scale)) * scale;
   const height = desk
     ? Math.floor(Math.min(size.h * scale, high))
-    : Math.floor(Math.min(MAX_VIEW_H, size.h, high / scale)) * scale;
+    : Math.floor(Math.min(MAX_VIEW_H / shrink, size.h, high / scale)) * scale;
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
@@ -938,5 +999,55 @@ function keptOf(save: SaveData): SaveData {
     achievements: save.achievements,
     progress: save.progress,
     counts: save.counts,
+    extras: save.extras,
   };
+}
+
+/**
+ * Takes a small photo of the picture just drawn and keeps it in the album.
+ *
+ * @param photo - a canvas of the photo's size
+ * @param buffer - the picture just drawn
+ * @param id - the photo point
+ */
+function takePhoto(
+  photo: HTMLCanvasElement,
+  buffer: HTMLCanvasElement,
+  id: string,
+): void {
+  const ctx = photo.getContext("2d");
+  if (ctx !== null) {
+    // The middle of the view at the photo's shape, scaled down smoothly.
+    const share = Math.min(buffer.width / PHOTO_W, buffer.height / PHOTO_H);
+    const w = PHOTO_W * share;
+    const h = PHOTO_H * share;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(
+      buffer,
+      (buffer.width - w) / 2,
+      (buffer.height - h) / 2,
+      w,
+      h,
+      0,
+      0,
+      PHOTO_W,
+      PHOTO_H,
+    );
+    keepPhoto(id, photo.toDataURL("image/jpeg", PHOTO_QUALITY));
+  }
+}
+
+/**
+ * Whether the talk key uses something right now: a thing in reach, or the
+ * ride one is on (getting off the jetski or the train, landing the balloon,
+ * shooting the puck).
+ */
+function canUse(state: GameState): boolean {
+  const kind = vehicleOf(state, state.chars[state.active]);
+  return (
+    spotInReach(state) !== null ||
+    kind === "jetski" ||
+    kind === "balloon" ||
+    kind === "train"
+  );
 }

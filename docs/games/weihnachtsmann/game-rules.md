@@ -245,6 +245,101 @@ Startplatz, falls er im Wasser war).
   `jetski/`, nutzt `pix.py`), dazu das Abzeichen „Vollgas“ auf dem
   Figurenbogen bei 74,714.
 
+## Teil A: neue Orte (umgesetzt)
+
+Karte jetzt **128 x 96** Felder: südlich des alten Waldrands das Südland
+(Zeilen 64-95), zwei Wege dorthin (Spalten 30-31 von der unteren Straße,
+104-105 vom See). Daten `engine/places-data.ts`, je Ort ein Modul, Zustand
+`World.places` (nicht gespeichert), Zeichnen `components/render-places.ts`,
+Bogen `assets/places-2x.png`.
+
+| Ort            | Wo                                          | Modul           | Was                                                                                                    |
+| -------------- | ------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------ |
+| Eishockey      | Eis 6-25 x 71-80, Bank 18,68                | `hockey.ts`     | Spiel bis 3 gegen zwei nicht gesteuerte Figuren (Stürmer, Torwart); Puck mitnehmen, R schießt          |
+| Schneeburg     | Baustelle 35-40 x 75-77, Haufen 31,75       | `castle.ts`     | Blöcke tragen und setzen: Mauer (4), Türme (4), Fahne; schmilzt nach 150 s (halb gebaut 120 s)         |
+| Ballon         | Platz 48-52 x 72-75                         | `balloon.ts`    | schweben über alles, Wind, Brenner, Zoom, landen nur auf freien Flächen; heim nach 45 s                |
+| Seilbahn, Berg | Talstation 71,70, Berg 88-117 x 78-93       | `cablecar.ts`   | 12 s Gondel zum Ort `summit` (26 x 92): Fernrohr-Rundblick, Bergstation, Skiabfahrt mit Bestzeit       |
+| Leuchtturm     | 109-110 x 57-58                             | `lighthouse.ts` | R: Licht an/aus (240 s), nachts drehender Lichtkegel                                                   |
+| Schmalspurbahn | Rundkurs durch Westen, Norden, Osten, Süden | `railway.ts`    | 5 Halte (Werkstatt-Bahnhof, Sternwarte, Markt, Leuchtturm, Südland), Schranken, schiebt sanft beiseite |
+
+- **Fahrzeuge:** immer nur eins (`aboard.ts`, `vehicleOf`); auf einem
+  Fahrzeug gehören R und Fähigkeit dem Fahrzeug. Figurwechsel wie beim
+  Jetski: die Figur bleibt sitzen. Nicht gesteuerte Figuren steigen nie ein,
+  Tiere und Fliegende auch nicht.
+- **Wechselwirkungen:** Rudolf zieht den Schlitten nur, wenn er auf keinem
+  Fahrzeug sitzt; Ballon, Gondel und Zug sammeln keine Glöckchen; Runden um
+  die Insel zählen nur am Boden; der Ballon landet nicht auf dem Gleis; ein
+  Jetski auf dem Gleis fährt heim; Schneesturm treibt den Ballon stärker; der
+  Gipfel hat Tag/Nacht, Polarlicht und Sturm (`openAir`). Rudolfs
+  Ehrenrunde gilt für die Ecken der gewachsenen Karte.
+- **Speichern:** weiter Version 4; neu und optional sind `progress.stops`
+  und `counts.skiBest` sowie der Ort `summit`.
+
+| Erfolg           | Für  | Bedingung                                                 |
+| ---------------- | ---- | --------------------------------------------------------- |
+| Eishockey-Held   | alle | ein Eishockeyspiel bis 3 gewinnen                         |
+| Burgherr         | alle | die Schneeburg mit Fahne fertig bauen                     |
+| Über den Wolken  | alle | 12 s hoch oben im Ballon                                  |
+| Dachgeheimnis    | alle | im Ballon über das Geschenkelager (Zeichen nur von oben)  |
+| Gipfelstürmer    | alle | mit der Seilbahn auf den Gipfel                           |
+| Abfahrt          | alle | Skiabfahrt bis ins Ziel                                   |
+| Leuchtfeuer      | alle | nachts das Licht des Leuchtturms anschalten               |
+| Alle Halte       | alle | mit dem Zug an allen 5 Halten ankommen (`progress.stops`) |
+| Einmal rundherum | alle | eine ganze Runde im Zug                                   |
+
+Freie Flächen für Teil B: README, Abschnitt „Freie Flächen für Teil B“.
+
+## Teil B: Aktivitäten (umgesetzt)
+
+Daten `engine/extras-data.ts`, je Aktivität ein Modul, Zustand
+`World.extras` (nicht gespeichert), Gespeichertes in `GameState.keep`
+(Freundschaften, Tagesaufgaben) und in Zählern/Sammlungen; Zeichnen
+`components/render-extras.ts`, Bogen `assets/extras-2x.png`, Notizbuch
+`components/notebook-panel.tsx`, Fotos in `storage/album-store.ts`.
+
+| Aktivität           | Wo (Zellen)                                        | Modul           | Bedienung                                                                                                     |
+| ------------------- | -------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
+| Konzert             | Bühne 55-61 x 69-71, Publikum 55-63 x 73-77         | `concert.ts`    | Grantelbart (gesteuert) spielt auf dem Bühnenboden Gitarre: 16 s Konzert, alle anderen kommen und tanzen       |
+| Zauberschule        | Feld 77-86 x 77-85, Körbe 78,79 / 82,78 / 85,80     | `school.ts`     | Gilfi: R am Schild (86,84) startet 40 s; Fähigkeit wirft das schwebende Spielzeug, Stick lenkt es seitwärts     |
+| Luftpost            | Tafel 40,9 (Poststube), 10 Dächer                  | `airmail.ts`    | Trixi: R an der Tafel, 3 zufällige Dächer (goldene Ringe, Randpfeile), fliegend drüber; Bestzeit, max. 120 s    |
+| Engelfeld           | Stern um 53,85 (6 Pflöcke), Schild 47,86           | `angels.ts`     | Balbo fällt (Fähigkeit) auf einen Pflock: Schneeengel 150 s; alle 6 zugleich: goldener Stern (auch Rundblick)  |
+| Nachtsterne         | 8 dunkle Ecken (`NIGHT_STARS`)                     | `nightstars.ts` | nachts (Dunkel >= 0,35) Rudolfs Nasenlicht (64 px); Sterne nur darin sichtbar; Rudolf nimmt sie im Vorbeiflug |
+| Kinder              | Hauptstraße 6/11,5/16,5/23,5 x 20,8                | `kids.ts`       | erscheinen alle 35-75 s (max. 2, nicht im Sturm); Weihnachtsmann-Fähigkeit zeigt den Wunsch; R mit Spielzeug  |
+| Schneemann          | Haufen 13-14,84, Möhren 16, Hüte 18, Schals 20, Platz 17,87, Jury 22,87 | `contest.ts` | Teile tragen (`snowPart`), 3 Kugeln zuerst, dann Nase/Hut/Schal; R an der Jury: 2-5 Sterne                     |
+| Fotopunkte          | 9 Pfosten draußen + Gipfel 22,9 (`PHOTO_POINTS`)   | `photos.ts`     | R: Foto; der Bildschirm nimmt danach ein 128 x 72-JPEG aus dem Puffer (`storage/album-store.ts`)               |
+| Sternschnuppen      | Himmel, nachts (Dunkel >= 0,6)                     | `night-sky.ts`  | alle 22-50 s eine; 2,8 s lang R oder Fähigkeit: Wunsch, Funkenregen, eingepacktes Geschenk in die Hand         |
+| Feuerwerk           | Himmel am 31.12. nachts, 1.1. bis Uhr 6            | `night-sky.ts`  | Raketen alle 0,45-1,3 s, Funken in Bildpixeln (max. 420), Knall; 3 Explosionen draußen: Erfolg                 |
+| Geschenke           | Packtisch Werkstatt 14,11, Geschenkebaum 15-17,34  | `presents.ts`   | Maschine gibt Spielzeug (`toy`), Packtisch 1,4 s (`wrapped`), R am Baum: Stapel wächst (`counts.wrapped`)       |
+| Bescherung          | Geschenkebaum                                      | `presents.ts`   | 24.12. nach Dunkel: R am Baum, alle versammeln sich, Weihnachtsmann verteilt, Glitzer; einmal je Besuch        |
+| Freundschaft        | überall                                            | `friends.ts`    | R mit einer Figur direkt davor (statt Spruch): +1 Punkt je Paar (Pause 3 s); Stufen bei 2/5/9/14 Punkten       |
+| Tagesaufgaben       | Notizbuch                                          | `daily.ts`      | 3 von 12 Aufgaben je Kalendertag (Gerätedatum, `?datum=`), gezählt über `noteTask` an den bestehenden Stellen  |
+
+- **Was sich zurücksetzt:** Schneeengel nach 150 s (20 s Verblassen),
+  Schneemann 60 s nach der Wertung bzw. 180 s nach dem letzten Teil,
+  Konzert nach 16 s, Zauberstunde nach 40 s, Luftpost spätestens nach
+  120 s, Kinder gehen nach 180 s traurig heim, Bescherung einmal je Besuch.
+- **Speichern:** Version 4, optional neu: `progress.nightStars`,
+  `progress.photos`, `counts.kids/wrapped/postBest/schoolBest/snowmanBest/
+  starWishes/dailyDays`, `extras.friends` (Punkte je Paar „a+b“),
+  `extras.daily` (Tag „JJJJ-MM-TT“ und Fortschritt der drei Aufgaben).
+
+| Erfolg                 | Für         | Bedingung                                                                   |
+| ---------------------- | ----------- | --------------------------------------------------------------------------- |
+| Rockkonzert            | Grantelbart | ein 16-s-Konzert auf der Bühne zu Ende spielen, mindestens 4 Tänzer da      |
+| Zauberlehrling         | Gilfi       | 5 Treffer in einer Zauberstunde (Rekord `counts.schoolBest`)                |
+| Luftpost               | Trixi       | alle 3 Pakete eines Auftrags abliefern (Bestzeit `counts.postBest`)         |
+| Engelsstern            | Balbo       | alle 6 Schneeengel zugleich (die gesteuerte Figur setzt den letzten)        |
+| Nachtsterne            | Rudolf      | alle 8 Nachtsterne (`progress.nightStars`)                                  |
+| Kinderaugen            | alle        | 5 Kindern ihren Wunsch erfüllen (`counts.kids`)                             |
+| Fünf Sterne            | alle        | die Jury gibt 5 Sterne (`counts.snowmanBest`)                               |
+| Fotoalbum              | alle        | an allen 10 Fotopunkten fotografiert (`progress.photos`)                    |
+| Sternschnuppe          | alle        | bei einer Sternschnuppe gewünscht (`counts.starWishes`)                     |
+| Prosit Neujahr!        | alle        | 3 Feuerwerks-Explosionen draußen gesehen                                    |
+| Jeden Tag ein bisschen | alle        | an 3 Tagen alle Tagesaufgaben (`counts.dailyDays`)                          |
+| Beste Freunde          | alle        | ein Paar erreicht 14 Punkte (4 Herzen)                                      |
+| Geschenkeberg          | alle        | 10 Geschenke unter dem Baum (`counts.wrapped`)                              |
+| Bescherung             | alle        | die Bescherung an Heiligabend erleben                                       |
+
 ## Fähigkeiten
 
 Datengetrieben: jede Figur nennt ihre Fähigkeit (`fly`, `transform` oder
@@ -295,7 +390,7 @@ R lässt die gesteuerte Figur (oder das Tier) etwas sagen.
 
 ## Erfolge
 
-54 Erfolge, mindestens einer je Figur und Fähigkeit, dazu Erfolge für alle.
+77 Erfolge, mindestens einer je Figur und Fähigkeit, dazu Erfolge für alle.
 Daten in `engine/achievements.ts` (`ACHIEVEMENTS`: id, für wen, Ziel),
 Texte in `i18n/texts.ts` (`ACHIEVEMENT_TEXTS`: Titel, geschafft, Tipp),
 Abzeichen auf dem Figurenbogen (`badge...`, Generator `achieve.py`).

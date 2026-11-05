@@ -1,7 +1,8 @@
 /**
  * Speech bubbles, Trixi's sparkles, puffs of smoke, the transformation poof,
  * steam, soot from the broken machine, floating music notes, flung cookies,
- * clouds of flour, a sleeper's snores and the spray behind a jetski.
+ * clouds of flour, a sleeper's snores, the spray behind a jetski and hearts
+ * of joy.
  *
  * @module
  */
@@ -24,6 +25,7 @@ const LIFE: Readonly<Record<ParticleKind, number>> = {
   flour: 1.6,
   zzz: 2.2,
   spray: 0.45,
+  heart: 1.4,
 };
 
 /** Cookies fall this fast once flung, map px per second squared. */
@@ -74,6 +76,10 @@ const PUFF_DRAG = 4;
 
 /** Sparkles fall this fast, map px per second squared. */
 const SPARKLE_FALL = 18;
+
+/** Hearts sway as they rise: how fast, radians per second, and how far, map px per second. */
+const HEART_SWAY_SPEED = 6;
+const HEART_SWAY = 8;
 
 /** Smoke rises this fast, map px per second. */
 const SMOKE_RISE = 9;
@@ -267,6 +273,9 @@ export function updateEffects(state: GameState, dt: number): void {
       case "spray":
         particle.vy += SPRAY_FALL * dt;
         particle.vx *= 1 - Math.min(1, dt * PUFF_DRAG);
+        break;
+      case "heart":
+        particle.vx = Math.sin(particle.age * HEART_SWAY_SPEED) * HEART_SWAY;
         break;
     }
   }

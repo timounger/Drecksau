@@ -15,10 +15,13 @@
  */
 import { BUBBLE_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { addCount, steered, unlock } from "./achievements";
+import { noteTask } from "./daily";
 import { createBakery, updateBakery } from "./bakery";
 import { collectBell } from "./bells";
 import { createEast, updateEast } from "./east";
+import { createExtras, updateExtras } from "./extras";
 import { createJetskis, updateJetskis } from "./jetski";
+import { createPlaces, updatePlaces } from "./places";
 import { createSky, updateSky } from "./sky";
 import { createPost, updatePost } from "./post";
 import { createStable, updateStable } from "./stable";
@@ -151,6 +154,8 @@ export function createWorld(maps: Readonly<Record<AreaId, GameMap>>): World {
     east: createEast(),
     sky: createSky(),
     jetskis: createJetskis(),
+    places: createPlaces(),
+    extras: createExtras(),
   };
 }
 
@@ -181,6 +186,8 @@ export function updateWorld(state: GameState, dt: number): void {
   updateEast(state, dt);
   updateSky(state, dt);
   updateJetskis(state, dt);
+  updatePlaces(state, dt);
+  updateExtras(state, dt);
 }
 
 /**
@@ -272,6 +279,7 @@ export function toggleLamp(
     world.lampQuiet = 0;
     world.relightIn = 0;
     say(char, pick(state, BUBBLE_TEXTS.lampOff));
+    noteTask(state, char, "lamp");
     if (steered(state, char)) {
       unlock(state, "lampFirst");
       if (world.lampsOff.length >= lampCount(state)) {

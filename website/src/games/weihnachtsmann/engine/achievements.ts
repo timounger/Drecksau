@@ -15,6 +15,9 @@
  * saved; the world changes behind them are not.
  */
 import { BELLS, STALLS } from "./east-data";
+import { STATIONS } from "./places-data";
+import { ANGEL_POINTS, NIGHT_STARS, PHOTO_POINTS } from "./extras-data";
+import { bestLevel } from "./friends";
 import { GATE_COUNT } from "./gates";
 import { CHIMNEYS, TILE, terrainUnder } from "./map";
 import { currentProfile } from "./movement";
@@ -68,6 +71,18 @@ const CRITTER_KINDS = 3;
 /** Laps round the lake's island, and seconds through a storm. */
 const LAP_GOAL = 3;
 const STORM_GOAL = 20;
+
+/** Happy children, presents under the tree and days of tasks it takes. */
+const KID_GOAL = 5;
+const GIFT_GOAL = 10;
+const DAILY_DAYS = 3;
+
+/** Hits in one round at the magic school, and the jury's best. */
+const SCHOOL_HITS = 5;
+const SNOWMAN_STARS = 5;
+
+/** The step of friendship of best friends (see `friends.ts`). */
+const BEST_FRIEND_STEP = 4;
 
 /** The reindeer in the stable, all to be fed at once. */
 const REINDEER = 4;
@@ -156,6 +171,29 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: "errands5", who: [], goal: ERRAND_GOAL },
   { id: "stormWalk", who: [], goal: STORM_GOAL },
   { id: "fullThrottle", who: [], goal: 1 },
+  { id: "hockeyWin", who: [], goal: 1 },
+  { id: "snowCastle", who: [], goal: 1 },
+  { id: "balloonRide", who: [], goal: 1 },
+  { id: "roofSecret", who: [], goal: 1 },
+  { id: "summit", who: [], goal: 1 },
+  { id: "skiRun", who: [], goal: 1 },
+  { id: "lighthouse", who: [], goal: 1 },
+  { id: "trainStops", who: [], goal: STATIONS.length },
+  { id: "trainLoop", who: [], goal: 1 },
+  { id: "stageRock", who: ["grantelbart"], goal: 1 },
+  { id: "magicSchool", who: ["gilfi"], goal: SCHOOL_HITS },
+  { id: "airMail", who: ["trixi"], goal: 1 },
+  { id: "angelStar", who: ["balbo"], goal: ANGEL_POINTS.length },
+  { id: "nightStars", who: ["rudolf"], goal: NIGHT_STARS.length },
+  { id: "happyKids", who: [], goal: KID_GOAL },
+  { id: "snowmanJury", who: [], goal: SNOWMAN_STARS },
+  { id: "photoAlbum", who: [], goal: PHOTO_POINTS.length },
+  { id: "shootingStar", who: [], goal: 1 },
+  { id: "fireworks", who: [], goal: 1 },
+  { id: "dailyTasks", who: [], goal: DAILY_DAYS },
+  { id: "bestFriends", who: [], goal: BEST_FRIEND_STEP },
+  { id: "giftPile", who: [], goal: GIFT_GOAL },
+  { id: "christmasEve", who: [], goal: 1 },
 ];
 /* eslint-enable @typescript-eslint/no-magic-numbers */
 
@@ -166,6 +204,9 @@ const COUNT_GOALS: Readonly<Partial<Record<CountId, number>>> = {
   letters: LETTER_GOAL,
   hits: HIT_GOAL,
   errands: ERRAND_GOAL,
+  kids: KID_GOAL,
+  wrapped: GIFT_GOAL,
+  dailyDays: DAILY_DAYS,
 };
 
 /** Which collection each collecting achievement needs. */
@@ -177,6 +218,9 @@ const PROGRESS_GOALS: Readonly<
   stalls: { id: "marketStalls", goal: STALLS.length },
   bells: { id: "bellsAll", goal: BELLS.length },
   critters: { id: "animalTalk", goal: CRITTER_KINDS },
+  stops: { id: "trainStops", goal: STATIONS.length },
+  nightStars: { id: "nightStars", goal: NIGHT_STARS.length },
+  photos: { id: "photoAlbum", goal: PHOTO_POINTS.length },
 };
 
 /**
@@ -271,6 +315,9 @@ export function checkAchievements(state: GameState): void {
   if (char.area === "iceCave") {
     unlock(state, "iceCave");
   }
+  if (char.area === "summit") {
+    unlock(state, "summit");
+  }
   if (inWorkshop(state) >= CHARACTER_IDS.length) {
     unlock(state, "allInWorkshop");
   }
@@ -360,6 +407,36 @@ export function progressOf(state: GameState, id: AchievementId): number {
       break;
     case "stormWalk":
       done = Math.floor(state.world.sky.stormWalked);
+      break;
+    case "trainStops":
+      done = state.progress.stops.size;
+      break;
+    case "magicSchool":
+      done = state.counts.schoolBest;
+      break;
+    case "angelStar":
+      done = state.world.extras.angels.filter((left) => left > 0).length;
+      break;
+    case "nightStars":
+      done = state.progress.nightStars.size;
+      break;
+    case "happyKids":
+      done = state.counts.kids;
+      break;
+    case "snowmanJury":
+      done = state.counts.snowmanBest;
+      break;
+    case "photoAlbum":
+      done = state.progress.photos.size;
+      break;
+    case "dailyTasks":
+      done = state.counts.dailyDays;
+      break;
+    case "bestFriends":
+      done = bestLevel(state);
+      break;
+    case "giftPile":
+      done = state.counts.wrapped;
       break;
     default:
       done = 0;

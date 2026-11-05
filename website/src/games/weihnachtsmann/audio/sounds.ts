@@ -2,7 +2,11 @@
  * Short synthesised sounds: the door, an Advent gate, the toy machine, a
  * growling guitar riff, a drum fill, a spooky organ chord, the sleigh bells,
  * and for the abilities a wish chime, a magic shimmer, the telescope's
- * zoom and a thud; a jetski starting, its horn and the hum of its motor -
+ * zoom and a thud; a jetski starting, its horn and the hum of its motor;
+ * the engine's whistle and chuffing, a crossing's bell, the puck, the goal
+ * horn, the balloon's burner, the gondola's chime and a snow block set; a
+ * camera's click, rockets and bangs, cheers, rustling wrapping paper and a
+ * shooting star's sigh -
  * oscillators and filtered noise only, every tune made up for this game,
  * all of it quiet. Minigames bring their own recipes.
  *
@@ -358,6 +362,91 @@ const RECIPES: Readonly<Record<SoundId, Recipe>> = {
       ["square", 523, 523, 0.14, 0, 0.25],
       ["square", 415, 415, 0.22, 0.2, 0.35],
       ["square", 523, 523, 0.22, 0.2, 0.25],
+    ],
+  },
+  whistle: {
+    tones: [
+      ["triangle", 880, 880, 0.5, 0, 0.35],
+      ["triangle", 1109, 1109, 0.5, 0, 0.3],
+      ["sine", 660, 660, 0.5, 0, 0.2],
+    ],
+    noise: [[0.5, 0, 3000, 0.12]],
+  },
+  chuff: {
+    noise: [[0.12, 0, 600, 0.35]],
+  },
+  puck: {
+    noise: [[0.04, 0, 2200, 0.6]],
+    tones: [["square", 300, 180, 0.05, 0, 0.2]],
+  },
+  goalHorn: {
+    tones: [
+      ["sawtooth", 220, 220, 0.8, 0, 0.35],
+      ["sawtooth", 277, 277, 0.8, 0, 0.3],
+      ["sawtooth", 330, 330, 0.8, 0, 0.25],
+    ],
+  },
+  burner: {
+    noise: [[0.7, 0, 900, 0.6]],
+    tones: [["sawtooth", 70, 90, 0.6, 0, 0.12]],
+  },
+  gondola: {
+    tones: [
+      ["sine", 660, 660, 0.18, 0, 0.3],
+      ["sine", 880, 880, 0.3, 0.18, 0.3],
+    ],
+    noise: [[0.6, 0.1, 400, 0.15]],
+  },
+  blockSet: {
+    noise: [[0.12, 0, 900, 0.5]],
+    tones: [["triangle", 180, 120, 0.12, 0, 0.3]],
+  },
+  crossing: {
+    tones: [
+      ["triangle", 1320, 1320, 0.12, 0, 0.3],
+      ["triangle", 1320, 1320, 0.12, 0.3, 0.3],
+      ["triangle", 1320, 1320, 0.12, 0.6, 0.3],
+    ],
+  },
+  shutter: {
+    noise: [
+      [0.03, 0, 5200, 0.5],
+      [0.04, 0.07, 3600, 0.4],
+    ],
+    tones: [["square", 2400, 1800, 0.03, 0, 0.12]],
+  },
+  rocket: {
+    noise: [[0.5, 0, 2600, 0.12]],
+    tones: [["sine", 500, 1500, 0.5, 0, 0.08]],
+  },
+  bang: {
+    noise: [
+      [0.35, 0, 260, 0.9],
+      [0.5, 0.05, 1800, 0.25],
+    ],
+    tones: [["sine", 90, 40, 0.3, 0, 0.6]],
+  },
+  cheer: {
+    noise: [[0.9, 0, 1400, 0.35]],
+    tones: [
+      ["triangle", 523, 523, 0.12, 0, 0.4],
+      ["triangle", 659, 659, 0.12, 0.12, 0.4],
+      ["triangle", 784, 784, 0.12, 0.24, 0.4],
+      ["triangle", 1047, 1047, 0.3, 0.36, 0.5],
+    ],
+  },
+  wrap: {
+    noise: [
+      [0.08, 0, 4200, 0.4],
+      [0.08, 0.16, 3800, 0.4],
+      [0.1, 0.34, 4600, 0.35],
+    ],
+    tones: [["sine", 1568, 1568, 0.15, 0.5, 0.3]],
+  },
+  shootingStar: {
+    tones: [
+      ["sine", 2637, 1319, 0.6, 0, 0.25],
+      ["sine", 3136, 1568, 0.5, 0.08, 0.15],
     ],
   },
 };

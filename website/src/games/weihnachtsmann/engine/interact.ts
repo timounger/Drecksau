@@ -7,7 +7,10 @@
  * through and the lost present picked up; out east the booths, the carousel,
  * the sleds, snowballs on the meadow, the ice curtain and the fox's hole, the
  * young firs, the tree stand in the workshop, the mailbox and the animals -
- * and the snow jetskis to get on.
+ * and the snow jetskis to get on; in the south land the hockey rink, the
+ * snow castle, the balloon and the cable car, on the summit the mountain
+ * station, the telescope and the skis, the lighthouse by the lake and the
+ * railway's platforms.
  * Anywhere else it is plain talking.
  *
  * @module
@@ -24,7 +27,31 @@ import { digHole, holeSpot, useCurtain } from "./cave";
 import { enterCinema } from "./cinema";
 import { critterSpot, talkToCritter } from "./critters";
 import { useMailbox } from "./errands";
-import { boardJetski, jetskiSpot, ridingJetski } from "./jetski";
+import { boardJetski, jetskiSpot } from "./jetski";
+import { vehicleOf } from "./aboard";
+import { balloonSpot, boardBalloon } from "./balloon";
+import { rideDown, rideUp, startSki, usePanorama } from "./cablecar";
+import { buildCastle, takeBlock } from "./castle";
+import { puckSpot, useHockey } from "./hockey";
+import { useLighthouse } from "./lighthouse";
+import { usePlatform } from "./railway";
+import { useBoard } from "./airmail";
+import { readAngelSign } from "./angels";
+import {
+  PART_BALL,
+  PART_CARROT,
+  PART_RED_SCARF,
+  PART_TOP_HAT,
+  askJury,
+  buildSnowman,
+  takePart,
+} from "./contest";
+import { noteTask } from "./daily";
+import { befriend } from "./friends";
+import { kidSpot, visitKid } from "./kids";
+import { takePhoto } from "./photos";
+import { handToy, useGiftTree, useTable } from "./presents";
+import { useSchool } from "./school";
 import { fellFir, firSpot, useStand } from "./firs";
 import { rideCarousel, useStall } from "./market";
 import { startSled } from "./sled";
@@ -174,6 +201,37 @@ const HANDLERS: Readonly<
   mailbox: useMailbox,
   critter: talkToCritter,
   jetski: boardJetski,
+  hockey: useHockey,
+  blocks: takeBlock,
+  castle: buildCastle,
+  balloon: boardBalloon,
+  cableCar: rideUp,
+  summitStation: rideDown,
+  panorama: usePanorama,
+  skis: startSki,
+  lighthouse: useLighthouse,
+  platform: usePlatform,
+  school: useSchool,
+  airMail: useBoard,
+  photo: takePhoto,
+  kid: visitKid,
+  partBalls: (state, char) => {
+    takePart(state, char, PART_BALL);
+  },
+  partCarrots: (state, char) => {
+    takePart(state, char, PART_CARROT);
+  },
+  partHats: (state, char) => {
+    takePart(state, char, PART_TOP_HAT);
+  },
+  partScarves: (state, char) => {
+    takePart(state, char, PART_RED_SCARF);
+  },
+  snowmanPlot: buildSnowman,
+  jury: askJury,
+  packTable: useTable,
+  giftTree: useGiftTree,
+  angels: readAngelSign,
 };
 
 /**
@@ -185,8 +243,10 @@ const HANDLERS: Readonly<
 export function spotInReach(state: GameState): Spot | null {
   const char = state.chars[state.active];
   let found: Spot | null = null;
-  if (state.fade === null && ridingJetski(state, char)) {
-    // On a jetski the talk key only gets off.
+  const riding = vehicleOf(state, char);
+  if (state.fade === null && riding !== null) {
+    // On a jetski, in the balloon, on the train ... the talk key belongs to
+    // the ride.
   } else if (
     state.fade === null &&
     !isRiding(state, char) &&
@@ -197,6 +257,7 @@ export function spotInReach(state: GameState): Spot | null {
     const y = char.y - 2 + ay * REACH;
     const map = areaMap(state, char);
     found =
+      puckSpot(state, char) ??
       map.spots.find((spot) => inBox(spot, x, y, SLACK)) ??
       smallSpot(map, x, y) ??
       secretSpot(char, x, y) ??
@@ -204,8 +265,10 @@ export function spotInReach(state: GameState): Spot | null {
       firSpot(state, map, x, y) ??
       holeSpot(state, char, x, y) ??
       critterSpot(state, char) ??
+      kidSpot(state, char, x, y) ??
       meadowSpot(state, char) ??
-      jetskiSpot(state, char, x, y);
+      jetskiSpot(state, char, x, y) ??
+      balloonSpot(state, char, x, y);
   } else if (state.fade === null && !isRiding(state, char)) {
     // Up in the air only the owls can be talked to, by Jordi as a bird -
     // and a jetski below says to land first.
@@ -224,7 +287,7 @@ export function interact(state: GameState): void {
   const spot = spotInReach(state);
   if (spot !== null) {
     HANDLERS[spot.kind](state, char, spot);
-  } else if (!isRiding(state, char)) {
+  } else if (!isRiding(state, char) && !befriend(state)) {
     talk(state);
   }
 }
@@ -314,6 +377,8 @@ function makeToy(state: GameState, char: Character): void {
     say(char, TOY_NAMES[kind]);
     state.sounds.push("toy");
     countToy(state, char);
+    handToy(char, kind);
+    noteTask(state, char, "toy");
   }
 }
 

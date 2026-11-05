@@ -13,7 +13,7 @@ import { EAST_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { steered, unlock } from "./achievements";
 import { say } from "./effects";
 import { nextRandom, randomIn } from "./random";
-import type { GameState, SkyState } from "./types";
+import type { AreaId, GameState, SkyState } from "./types";
 
 /** Seconds of play a whole day takes. */
 export const DAY_SECONDS = 360;
@@ -53,6 +53,17 @@ export const AURORA_SEEN = 0.3;
 
 /** Seconds of walking through one storm the achievement takes. */
 export const STORM_WALK_GOAL = 20;
+
+/**
+ * Whether a place lies under the open sky: the map outside and the summit -
+ * night, northern lights and storms reach them, no room.
+ *
+ * @param area - the place
+ * @returns true under the open sky
+ */
+export function openAir(area: AreaId): boolean {
+  return area === "outdoors" || area === "summit";
+}
 
 /**
  * The sky on a new visit: morning, calm.
@@ -170,7 +181,7 @@ function updateStorm(state: GameState, dt: number): void {
   const char = state.chars[state.active];
   if (sky.storm > 0) {
     sky.storm = Math.max(0, sky.storm - dt);
-    if (char.area === "outdoors" && char.moving && steered(state, char)) {
+    if (openAir(char.area) && char.moving && steered(state, char)) {
       sky.stormWalked += dt;
       if (sky.stormWalked >= STORM_WALK_GOAL) {
         unlock(state, "stormWalk");

@@ -14,6 +14,7 @@ import {
 } from "./building-data";
 import { GRANTEL_HOUSE, WORKSHOP } from "./interior-data";
 import { OUTDOORS } from "./map-data";
+import { SUMMIT } from "./places-data";
 import type {
   AreaData,
   AreaId,
@@ -45,6 +46,7 @@ const AREAS: Readonly<Record<AreaId, AreaData>> = {
   observatory: OBSERVATORY,
   giftStore: GIFT_STORE,
   iceCave: ICE_CAVE,
+  summit: SUMMIT,
 };
 
 /**
@@ -107,6 +109,52 @@ export const BIG_SHAPES: Readonly<Record<BigObjectKind, readonly string[]>> = {
   crystalBig: ["XX"],
   crystalSmall: ["X"],
   crystalViolet: ["X"],
+  hockeyGoalLeft: ["X", "X"],
+  hockeyGoalRight: ["X", "X"],
+  hockeyBench: ["XXX"],
+  blockHeap: ["XX", "XX"],
+  castleSite: ["XXXXXX", "XXXXXX", "XXXXXX"],
+  balloonPad: [".....", ".....", ".....", "....."],
+  valleyStation: ["XXXXX", "XXXXX", "XXXXX"],
+  mountain: [
+    "............XXXXXX............",
+    "...........XXXXXXXX...........",
+    "..........XXXXXXXXXX..........",
+    "..........XXXXXXXXXX..........",
+    ".........XXXXXXXXXXXX.........",
+    "........XXXXXXXXXXXXXX........",
+    ".......XXXXXXXXXXXXXXXX.......",
+    "......XXXXXXXXXXXXXXXXXX......",
+    "......XXXXXXXXXXXXXXXXXX......",
+    ".....XXXXXXXXXXXXXXXXXXXX.....",
+    "....XXXXXXXXXXXXXXXXXXXXXX....",
+    "...XXXXXXXXXXXXXXXXXXXXXXXX...",
+    "..XXXXXXXXXXXXXXXXXXXXXXXXXX..",
+    "..XXXXXXXXXXXXXXXXXXXXXXXXXX..",
+    ".XXXXXXXXXXXXXXXXXXXXXXXXXXXX.",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  ],
+  summitStation: ["XXXXXX", "XXXXXX", "XXXXXX"],
+  panoramaScope: ["X"],
+  skiRack: ["XX"],
+  lighthouse: ["XX", "XX"],
+  stationHouse: ["XXX", "XXX"],
+  // The stage's back wall and the two speakers block; the floor is free.
+  stage: ["XXXXXXX", "X.....X", "......."],
+  magicBasket: ["X"],
+  schoolSign: ["X"],
+  postBoard: ["X"],
+  angelSign: ["X"],
+  contestSign: ["X"],
+  photoPost: ["X"],
+  ballPile: ["XX"],
+  carrotBox: ["X"],
+  hatStand: ["X"],
+  scarfRack: ["X"],
+  snowmanPlot: ["X"],
+  jury: ["XX"],
+  packTable: ["XX"],
+  giftTree: ["XXX"],
 };
 
 /** Big objects lying flat on the ground: drawn under everybody. */
@@ -114,6 +162,8 @@ export const FLAT_OBJECTS: ReadonlySet<BigObjectKind> = new Set([
   "paintedTree",
   "strawBed",
   "carousel",
+  "balloonPad",
+  "stage",
 ]);
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- places matching the
@@ -128,6 +178,7 @@ export const CHIMNEYS: Readonly<
   grantelMain: [64, -50],
   postHouse: [58, -32],
   bakeryHouse: [70, -38],
+  stationHouse: [36, -36],
 };
 /* eslint-enable @typescript-eslint/no-magic-numbers */
 
@@ -194,6 +245,7 @@ export function buildMaps(): Record<AreaId, GameMap> {
     observatory: buildMap("observatory"),
     giftStore: buildMap("giftStore"),
     iceCave: buildMap("iceCave"),
+    summit: buildMap("summit"),
   };
 }
 

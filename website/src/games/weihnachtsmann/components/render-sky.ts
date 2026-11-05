@@ -11,6 +11,7 @@
 import {
   auroraStrength,
   darkness,
+  openAir,
   stormStrength,
 } from "@/games/weihnachtsmann/engine/sky";
 import type { GameState } from "@/games/weihnachtsmann/engine/types";
@@ -61,8 +62,8 @@ export function lightBoost(state: GameState): {
   strength: number;
   reach: number;
 } {
-  const dark = state.viewArea === "outdoors" ? darkness(state) : 1;
-  return state.viewArea === "outdoors"
+  const dark = openAir(state.viewArea) ? darkness(state) : 1;
+  return openAir(state.viewArea)
     ? {
         strength: DAY_LIGHT + (NIGHT_LIGHT - DAY_LIGHT) * dark,
         reach: 1 + NIGHT_REACH * dark,
@@ -85,7 +86,7 @@ export function drawNight(
   cy: number,
 ): void {
   const dark = darkness(state);
-  if (state.viewArea === "outdoors" && dark > 0) {
+  if (openAir(state.viewArea) && dark > 0) {
     ctx.fillStyle = `rgba(${NIGHT_RGB}, ${String(NIGHT_ALPHA * dark)})`;
     ctx.fillRect(cx, cy, state.view.w, state.view.h);
   }
@@ -105,7 +106,7 @@ export function drawSky(
   cx: number,
   cy: number,
 ): void {
-  if (state.viewArea === "outdoors") {
+  if (openAir(state.viewArea)) {
     const aurora = auroraStrength(state);
     if (aurora > 0) {
       drawAurora(ctx, state.time, aurora, state.view);

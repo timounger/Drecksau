@@ -248,7 +248,7 @@ export const WM_RULES: GameRules = {
       body: [
         "Mit jeder Figur und ihrer Fähigkeit kannst du Erfolge freischalten - und es gibt noch ein paar mehr. Ein Erfolg zählt nur, wenn du die Figur gerade selbst steuerst. Schaffst du einen, gleitet oben im Bild ein Banner mit Abzeichen herein, dazu ein Jingle und etwas Konfetti; das Spiel läuft dabei weiter.",
         "Der Knopf Erfolge (oben und unter dem Bild neben dem Adventskalender, auf dem Handy als Stern mit Zahl) zeigt alle Erfolge: geschaffte mit Datum, offene grau mit einem Tipp und, wo es passt, wie weit du schon bist.",
-        "Alles, was du in der Welt veränderst, stellt sich nach einer Weile von selbst wieder her: Ausgeknipste Laternen gehen eine Minute nach der letzten nacheinander flackernd wieder an, umgeschubste Schneemänner stehen nach anderthalb Minuten wieder, platte Schneewehen wachsen nach 45 Sekunden nach, ein neuer Fisch schwimmt nach 25 Sekunden in den Teich, nach einer Minute liegt wieder ein Geschenk auf der Kuppel, und die kaputte Spielzeugmaschine rattert nach zwei Minuten von selbst wieder los, wenn keine Elfe sie repariert. Im Dorf bekommen die Rentiere nach anderthalb Minuten wieder Hunger, der Briefberg wächst nach, die Elfen naschen das Kühlgitter leer, und im Lager wird umgestapelt und ein neues Geschenk geht verloren. Im Osten wächst der Eisvorhang zu, die Tannen wachsen nach und der geschmückte Baum verschwindet wieder. Gespeichert werden nur die Erfolge, die gefundenen Glöckchen und deine beste Rodelzeit - nach dem Neuladen ist die Welt wieder heil.",
+        "Alles, was du in der Welt veränderst, stellt sich nach einer Weile von selbst wieder her: Ausgeknipste Laternen gehen eine Minute nach der letzten nacheinander flackernd wieder an, umgeschubste Schneemänner stehen nach anderthalb Minuten wieder, platte Schneewehen wachsen nach 45 Sekunden nach, ein neuer Fisch schwimmt nach 25 Sekunden in den Teich, nach einer Minute liegt wieder ein Geschenk auf der Kuppel, und die kaputte Spielzeugmaschine rattert nach zwei Minuten von selbst wieder los, wenn keine Elfe sie repariert. Im Dorf bekommen die Rentiere nach anderthalb Minuten wieder Hunger, der Briefberg wächst nach, die Elfen naschen das Kühlgitter leer, und im Lager wird umgestapelt und ein neues Geschenk geht verloren. Im Osten wächst der Eisvorhang zu, die Tannen wachsen nach und der geschmückte Baum verschwindet wieder. Auch Schneeengel, Schneemann und Konzert sind nach einer Weile vorbei. Gespeichert werden nur die Erfolge, die Sammlungen (Glöckchen, Nachtsterne, Fotos), Bestzeiten und Rekorde, der Geschenkestapel, Freundschaften und die Tagesaufgaben - nach dem Neuladen ist die Welt wieder heil.",
       ],
       table: [
         ["Erfolg", "So geht es"],
@@ -411,6 +411,122 @@ export const WM_RULES: GameRules = {
           "Vollgas",
           "Fahr mit einem Jetski ohne abzusteigen vom Westrand der Karte bis ganz in den Osten - oder andersherum.",
         ],
+        [
+          "Eishockey-Held",
+          "Gewinn auf dem Eisplatz im Südland ein Spiel bis drei Tore.",
+        ],
+        [
+          "Burgherr",
+          "Bau die Schneeburg fertig: Mauer, zwei Türme und zum Schluss die Fahne.",
+        ],
+        [
+          "Über den Wolken",
+          "Schweb mit dem Heißluftballon eine Weile hoch über die Karte.",
+        ],
+        [
+          "Dachgeheimnis",
+          "Entdeck vom Ballon aus das Zeichen auf dem Dach des Geschenkelagers.",
+        ],
+        ["Gipfelstürmer", "Fahr mit der Seilbahn auf den Berggipfel."],
+        ["Abfahrt", "Fahr auf Skiern vom Gipfel bis ins Tal."],
+        ["Leuchtfeuer", "Schalte nachts das Licht des Leuchtturms an."],
+        [
+          "Alle Halte",
+          "Komm mit der Schmalspurbahn an allen fünf Haltestellen an.",
+        ],
+        [
+          "Einmal rundherum",
+          "Fahr mit der Schmalspurbahn eine ganze Runde, ohne auszusteigen.",
+        ],
+        [
+          "Rockkonzert",
+          "Grantelbart spielt auf der Bühne im Südland Gitarre (Fähigkeit) - alle kommen und tanzen bis zum Applaus.",
+        ],
+        [
+          "Zauberlehrling",
+          "Gilfi schafft in einer Runde der Zauberschule fünf Treffer in die Körbe.",
+        ],
+        [
+          "Luftpost",
+          "Trixi holt an der Tafel neben der Poststube einen Auftrag und liefert alle drei Pakete fliegend ab.",
+        ],
+        [
+          "Engelsstern",
+          "Balbo fällt auf alle sechs Pflöcke des Engelfelds - die Schneeengel ergeben einen Stern.",
+        ],
+        [
+          "Nachtsterne",
+          "Rudolf findet nachts in seinem Nasenlicht alle acht Nachtsterne in den dunklen Ecken.",
+        ],
+        [
+          "Kinderaugen",
+          "Bring fünf Kindern ihr Wunschspielzeug aus der Werkstatt.",
+        ],
+        [
+          "Fünf Sterne",
+          "Die Pinguin-Jury gibt deinem Schneemann (drei Kugeln, Nase, Hut, Schal) fünf Sterne.",
+        ],
+        ["Fotoalbum", "Mach an allen zehn Fotopunkten ein Foto."],
+        [
+          "Sternschnuppe",
+          "Wünsch dir bei einer Sternschnuppe etwas (schnell R oder Fähigkeit).",
+        ],
+        [
+          "Prosit Neujahr!",
+          "Sieh dir am 31. Dezember nachts das Feuerwerk an.",
+        ],
+        [
+          "Jeden Tag ein bisschen",
+          "Schaffe an drei Tagen alle drei Tagesaufgaben.",
+        ],
+        [
+          "Beste Freunde",
+          "Plaudere so oft mit einer Figur, bis alle vier Herzen voll sind.",
+        ],
+        [
+          "Geschenkeberg",
+          "Leg zehn eingepackte Geschenke unter den Geschenkebaum.",
+        ],
+        [
+          "Bescherung",
+          "Am 24. Dezember abends R am Geschenkebaum: alle kommen, jeder bekommt ein Geschenk.",
+        ],
+      ],
+    },
+    {
+      title: "Neue Aktivitäten",
+      body: [
+        "Bühne (Südland, zwischen Ballon und Seilbahn): Spielt Grantelbart dort oben Gitarre (Fähigkeit), kommen alle anderen Figuren und tanzen; Lichter, Noten und Riffs, bis zum Applaus. Wechselst du die Figur, ist das Konzert vorbei.",
+        "Gilfis Zauberschule (vor dem Berg): R am Schild startet eine Zauberstunde von 40 Sekunden. Ein Spielzeug schwebt neben Gilfi; die Fähigkeit wirft es in Blickrichtung, und solange es fliegt, lenkst du es mit dem Stick seitwärts in einen der drei Körbe. Der Rekord wird gespeichert.",
+        "Luftpost (Tafel neben der Poststube): Trixi holt mit R drei Pakete. Goldene Ringe (und Pfeile am Bildrand) zeigen die Dächer - flieg darüber, dann fällt das Paket. Die Bestzeit wird gespeichert; nach zwei Minuten oder beim Figurwechsel ist der Auftrag weg.",
+        "Engelfeld (Mitte des Südlands): Sechs Pflöcke bilden einen Stern. Fällt Balbo (Fähigkeit) auf einen Pflock, bleibt ein Schneeengel im Schnee. Liegen alle sechs gleichzeitig, leuchtet ein goldener Stern - auch vom Ballon und im Rundblick. Nach zweieinhalb Minuten verweht jeder Engel.",
+        "Rudolfs Nasenlicht: Nachts leuchtet Rudolfs Nase rot und hellt die Umgebung auf. In dunklen Ecken der Karte liegen acht Nachtsterne, die nur in seinem Licht zu sehen sind - flieg mit Rudolf hin, um sie einzusammeln.",
+        "Besuchende Kinder: Ab und zu wartet ein Kind an der Hauptstraße mit einer Wunschblase. Erst die Fähigkeit des Weihnachtsmanns zeigt, was es sich wünscht. R an der Spielzeugmaschine gibt dir ein Spielzeug in die Hand (noch einmal R: ein anderes) - bring das richtige zum Kind, dann freut es sich und geht.",
+        "Schneemann-Wettbewerb (Südwesten): Hol nacheinander drei Schneekugeln vom Haufen, eine Möhre, einen Hut und einen Schal von den Ständen und bring alles mit R zum Bauplatz. R bei der Pinguin-Jury gibt bis zu fünf Sterne. Nach einer Weile schmilzt der Schneemann.",
+        "Fotopunkte: Zehn Pfosten mit Kamera stehen an schönen Stellen, einer auf dem Gipfel. R macht ein Foto - im Notizbuch liegt dann ein kleines Bild davon.",
+        "Nachthimmel: Nachts fliegt ab und zu eine Sternschnuppe übers Bild - drück schnell R oder die Fähigkeit und wünsch dir was. Am 31. Dezember nachts (und am 1. Januar ganz früh) gibt es Feuerwerk über der ganzen Karte.",
+        "Geschenke: Ein Spielzeug aus der Maschine packst du am Packtisch in der Werkstatt ein (R) und legst es unter den Geschenkebaum südlich des Teichs. Der Stapel wächst und bleibt gespeichert. Am 24. Dezember abends ist dort Bescherung: R am Baum, alle versammeln sich, und der Weihnachtsmann verteilt die Geschenke.",
+        "Freundschaft: Steht eine andere Figur direkt vor dir, plaudert ihr mit R. Jedes Gespräch bringt die beiden näher - vier Herzen, jedes mit neuen Sprüchen. Das Notizbuch zeigt die Herzen der gesteuerten Figur.",
+        "Notizbuch (Knopf oben und unter dem Bild): Jeden Tag stehen dort drei kleine Tagesaufgaben aus dem, was man ohnehin tut (Rentiere füttern, Schneebälle werfen, Zug fahren ...), dazu Freundschaften, das Fotoalbum und deine Bestwerte.",
+      ],
+    },
+    {
+      title: "Das Südland",
+      body: [
+        "Hinter dem Wald im Süden liegt das Südland - ein Weg führt von der unteren Straße hinunter, ein zweiter vom See. Dort gibt es einen Eisplatz, eine Schneeburg-Baustelle, den Ballonplatz und die Seilbahn auf den Berg.",
+        "Eishockey: R an der Bank am Eisplatz startet ein Spiel. Zwei andere Figuren kommen dazu - einer stürmt, einer hält das rechte Tor. Lauf über den Puck, dann nimmst du ihn mit; R (oder die Fähigkeit) schießt in die Richtung, in die du läufst - in Richtung Tor geht der Schuss in die Ecke. Wer zuerst drei Tore hat, gewinnt. Wechselst du die Figur oder verlässt du das Eis, ist das Spiel abgepfiffen.",
+        "Schneeburg: R am Blockhaufen gibt dir einen Schneeblock, R an der Baustelle setzt ihn auf den nächsten markierten Platz. Vier Blöcke sind die Mauer, vier weitere die Türme, und mit leeren Händen hisst R die Fahne. Nach ein paar Minuten schmilzt die Burg wieder.",
+        "Heißluftballon: R am Korb, und du steigst ein. Der Ballon steigt hoch, die Karte wird kleiner, und du schwebst mit dem Stick langsam über alles hinweg - der Wind schiebt mit, im Schneesturm kräftig. Von oben siehst du, was unten verborgen ist. Die Fähigkeit feuert den Brenner. R landet - nur wo Platz ist, nicht auf Wasser oder den Gleisen. Ein abgestellter Ballon fliegt nach einer Weile von selbst zu seinem Platz zurück.",
+        "Seilbahn: R vor der Talstation, und die Gondel fährt am Seil hinauf auf den Gipfel. Oben gibt es ein Fernrohr mit Rundblick über die ganze Karte (Gugor sieht dort auch, was versteckt ist), die Bergstation für die Fahrt hinunter und den Skiständer: R schnallt die Skier an, Pfeil links und rechts lenken, hoch bremst. Bäume, Felsen und Fahnen bremsen dich aus. Im Ziel geht es ins Tal; die Bestzeit wird gespeichert. Zu Fuß kommt man unten am Gipfel auch wieder ins Tal.",
+      ],
+    },
+    {
+      title: "Leuchtturm und Schmalspurbahn",
+      body: [
+        "Am Südufer des Sees steht ein Leuchtturm. R an der Tür schaltet das Licht an oder aus. Nachts dreht sich der Lichtkegel über den See und das Land; nach ein paar Minuten geht das Licht von selbst aus.",
+        "Die Schmalspurbahn fährt immer im Kreis: am Werkstatt-Bahnhof hinauf, hinter dem Dorf entlang, an der Tannenschonung hinunter und durchs Südland zurück. Sie hält an fünf Haltestellen: Werkstatt-Bahnhof, Sternwarte, Weihnachtsmarkt, Leuchtturm und Südland. Steh am Bahnsteig und drück R, wenn der Zug hält - dann fährst du mit. Hält der Zug, steigst du mit R aus; fährt er, sagt R: an der nächsten Haltestelle aussteigen. Die Fähigkeit pfeift.",
+        "Die Gleise darf man überqueren; an den Wegen gehen Schranken herunter, wenn der Zug kommt. Steht jemand im Weg, schiebt ihn der Zug sanft zur Seite - und wenn kein Platz ist, wartet er und pfeift.",
+        "Es geht immer nur ein Fahrzeug auf einmal: Wer im Ballon, in der Gondel, im Zug oder auf dem Jetski sitzt, muss erst aussteigen. Wechselst du die Figur, bleibt die alte sitzen und fährt weiter mit.",
       ],
     },
     {

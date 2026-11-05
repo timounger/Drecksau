@@ -50,6 +50,8 @@ import type {
 } from "@/games/weihnachtsmann/engine/types";
 import { EAST_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { OUTDOOR, type OutdoorName } from "./outdoor-atlas";
+import { placeLines } from "./render-places";
+import { extraLines } from "./render-extras";
 import type { GlowFn } from "./render-props";
 import type { SpriteRect } from "./sprite-atlas";
 import { blit, snap, type Art } from "./sprites";
@@ -432,6 +434,8 @@ export function drawEastTexts(
       `${EAST_TEXTS.sledTime}: ${sledTime(run)}${best > 0 ? ` - ${EAST_TEXTS.sledRecord} ${sledTime(best)}` : ""}`,
     );
   }
+  lines.push(...placeLines(state));
+  lines.push(...extraLines(state));
   if (state.overview === null) {
     lines.forEach((line, index) => {
       textLine(ctx, line, scale, index);

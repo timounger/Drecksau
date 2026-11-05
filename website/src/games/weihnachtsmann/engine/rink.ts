@@ -55,6 +55,7 @@ export function updateRink(state: GameState, dt: number): void {
   if (
     char.area === "outdoors" &&
     !char.flying &&
+    char.altitude < 1 &&
     !ridingJetski(state, char) &&
     onRink(map, char.x, char.y)
   ) {

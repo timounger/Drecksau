@@ -10,6 +10,7 @@
  * what hangs on them come with the room picture; the rows only say where one
  * can walk, so they have to match it.
  */
+import { PACK_SPOT, PACK_TABLE } from "./extras-data";
 import type { AreaData } from "./types";
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- places in the rooms
@@ -44,6 +45,8 @@ export const WORKSHOP: AreaData = {
     { kind: "wishBoard", tx: 20, ty: 8 },
     // Where a felled fir is set up and decorated.
     { kind: "treeStand", tx: 7, ty: 12 },
+    // Where toys from the machine are wrapped.
+    PACK_TABLE,
   ],
   doors: [
     {
@@ -63,6 +66,7 @@ export const WORKSHOP: AreaData = {
     { kind: "wishes", tx: 20, ty: 8, w: 2, h: 1 },
     { kind: "armchair", tx: 5, ty: 9, w: 2, h: 1 },
     { kind: "treeStand", tx: 7, ty: 12, w: 1, h: 1 },
+    PACK_SPOT,
   ],
   gates: [],
   shade: null,

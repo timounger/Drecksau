@@ -12,8 +12,10 @@
  */
 import figuresImage from "@/games/weihnachtsmann/assets/figures-2x.png";
 import buildingsImage from "@/games/weihnachtsmann/assets/buildings-2x.png";
+import extrasImage from "@/games/weihnachtsmann/assets/extras-2x.png";
 import jetskiImage from "@/games/weihnachtsmann/assets/jetski-2x.png";
 import outdoorImage from "@/games/weihnachtsmann/assets/outdoor-2x.png";
+import placesImage from "@/games/weihnachtsmann/assets/places-2x.png";
 import worldImage from "@/games/weihnachtsmann/assets/world-2x.png";
 import { SHEET_DENSITY, type SpriteRect } from "./sprite-atlas";
 
@@ -27,6 +29,10 @@ export type Art = {
   readonly outdoor: HTMLImageElement;
   /** The four snow jetskis (`jetski-atlas.ts`). */
   readonly jetski: HTMLImageElement;
+  /** The places of the south land, the lighthouse and the railway (`places-atlas.ts`). */
+  readonly places: HTMLImageElement;
+  /** Part B: stage, magic school, children, snowman contest, presents (`extras-atlas.ts`). */
+  readonly extras: HTMLImageElement;
 };
 
 /**
@@ -41,6 +47,8 @@ export function loadArt(): Art {
     buildings: image(buildingsImage.src),
     outdoor: image(outdoorImage.src),
     jetski: image(jetskiImage.src),
+    places: image(placesImage.src),
+    extras: image(extrasImage.src),
   };
 }
 
@@ -51,9 +59,15 @@ export function loadArt(): Art {
  * @returns true once they can be drawn
  */
 export function artReady(art: Art): boolean {
-  return [art.figures, art.world, art.buildings, art.outdoor, art.jetski].every(
-    (picture) => picture.complete && picture.naturalWidth > 0,
-  );
+  return [
+    art.figures,
+    art.world,
+    art.buildings,
+    art.outdoor,
+    art.jetski,
+    art.places,
+    art.extras,
+  ].every((picture) => picture.complete && picture.naturalWidth > 0);
 }
 
 /**

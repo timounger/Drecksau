@@ -11,6 +11,7 @@
  */
 import { TOWN_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { addCount, steered, unlock } from "./achievements";
+import { noteTask } from "./daily";
 import { SORT_ROW, SORT_SLOTS } from "./building-data";
 import { carries, pickUp } from "./carry";
 import { say, spawn, SPARKLE_TINTS } from "./effects";
@@ -140,6 +141,7 @@ export function sortLetter(
         k % SPARKLE_TINTS,
       );
     }
+    noteTask(state, char, "letter");
     if (steered(state, char)) {
       addCount(state, "letters", "letters10");
     }

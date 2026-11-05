@@ -67,7 +67,19 @@ export type JetskiHome = {
 
 /** The places with a name on the view from the observatory. */
 export type PlaceName =
-  "market" | "slope" | "meadow" | "lake" | "plantation" | "mailbox";
+  | "market"
+  | "slope"
+  | "meadow"
+  | "lake"
+  | "plantation"
+  | "mailbox"
+  | "hockey"
+  | "castle"
+  | "balloon"
+  | "cableCar"
+  | "mountain"
+  | "lighthouse"
+  | "station";
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- places on the map */
 /** The Christmas market: its square, the booths and the carousel. */
@@ -217,6 +229,13 @@ export const PLACE_LABELS: readonly PlaceLabel[] = [
   { name: "lake", tx: 116, ty: 56 },
   { name: "plantation", tx: 94, ty: 40 },
   { name: "mailbox", tx: 16, ty: 15 },
+  { name: "hockey", tx: 16, ty: 72 },
+  { name: "castle", tx: 37, ty: 74 },
+  { name: "balloon", tx: 50, ty: 71 },
+  { name: "cableCar", tx: 73, ty: 69 },
+  { name: "mountain", tx: 103, ty: 86 },
+  { name: "lighthouse", tx: 110, ty: 61 },
+  { name: "station", tx: 10, ty: 16 },
 ];
 
 /** The big objects of the east land and the mailbox, for the outdoor map. */

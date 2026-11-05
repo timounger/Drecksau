@@ -30,6 +30,8 @@ import type {
   GameState,
 } from "@/games/weihnachtsmann/engine/types";
 import { BUILDING_NAMES, TOWN_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
+import { PLACE_ART } from "./places-atlas";
+import { extraCarried } from "./render-extras";
 import { BUILDINGS, OVEN_MOUTH, RACK_SHELVES } from "./building-atlas";
 import { OUTDOOR } from "./outdoor-atlas";
 import type { GlowFn } from "./render-props";
@@ -297,8 +299,11 @@ const OVEN_CORNER = { x: 128, y: 80 } as const;
 /** What each carried thing looks like. */
 const CARRY_ART: Readonly<
   Record<
-    Exclude<CarryKind, "letter" | "found" | "treat">,
-    readonly ["figures" | "buildings" | "outdoor", SpriteRect]
+    Exclude<
+      CarryKind,
+      "letter" | "found" | "treat" | "toy" | "wrapped" | "parcel" | "snowPart"
+    >,
+    readonly ["figures" | "buildings" | "outdoor" | "places", SpriteRect]
   >
 > = {
   fir: ["outdoor", OUTDOOR.firCarried],
@@ -308,6 +313,7 @@ const CARRY_ART: Readonly<
   trayBaked: ["buildings", BUILDINGS.trayBaked],
   trayBurnt: ["buildings", BUILDINGS.trayBurnt],
   present: ["buildings", BUILDINGS.lostGift],
+  snowBlock: ["places", PLACE_ART.snowBlock],
 };
 
 /** The lost things of the errands, and the treats of the three booths. */
@@ -707,6 +713,23 @@ function drawCarried(
     const list = kind === "found" ? FOUND_ART : TREAT_ART;
     const rect = list[tint % list.length];
     blit(ctx, art.outdoor, rect, cx - rect[2] / 2, top - rect[3] + bob);
+  } else if (
+    kind === "toy" ||
+    kind === "wrapped" ||
+    kind === "parcel" ||
+    kind === "snowPart"
+  ) {
+    const picture = extraCarried(kind, tint);
+    if (picture !== null) {
+      const rect = picture.rect;
+      blit(
+        ctx,
+        art[picture.sheet],
+        rect,
+        cx - rect[2] / 2,
+        top - rect[3] + bob,
+      );
+    }
   } else {
     const [sheet, rect] = CARRY_ART[kind];
     blit(ctx, art[sheet], rect, cx - rect[2] / 2, top - rect[3] + bob);

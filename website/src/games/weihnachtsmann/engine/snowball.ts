@@ -7,6 +7,7 @@
  */
 import { EAST_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { addCount, steered } from "./achievements";
+import { noteTask } from "./daily";
 import { say, snowPuff } from "./effects";
 import { MEADOW, TARGETS } from "./east-data";
 import { TILE, inBox, terrainUnder } from "./map";
@@ -95,6 +96,7 @@ export function throwSnowball(state: GameState, char: Character): void {
     say(char, pick(state, EAST_TEXTS.throwLines));
   }
   state.sounds.push("throw");
+  noteTask(state, char, "snowball");
 }
 
 /**

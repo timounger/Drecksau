@@ -11,6 +11,7 @@
  */
 import { BUBBLE_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { unlock } from "./achievements";
+import { vehicleOf } from "./aboard";
 import { CAST } from "./cast";
 import { say, snowPuff, spawn, SPARKLE_TINTS } from "./effects";
 import { TILE, fits, footprint } from "./map";
@@ -90,7 +91,11 @@ export function boardSleigh(state: GameState, char: Character): void {
   } else if (state.sleigh === null && home !== null) {
     const riders: CharacterId[] = ["santa"];
     const rudolf = state.chars.find((other) => other.id === "rudolf");
-    if (rudolf !== undefined && rudolf.area === "outdoors") {
+    if (
+      rudolf !== undefined &&
+      rudolf.area === "outdoors" &&
+      vehicleOf(state, rudolf) === null
+    ) {
       riders.push("rudolf");
       rudolf.flying = false;
       rudolf.altitude = 0;

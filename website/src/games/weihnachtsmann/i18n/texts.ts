@@ -5,6 +5,15 @@
  * @module
  */
 import type { PlaceName } from "@/games/weihnachtsmann/engine/east-data";
+import type { TaskKind } from "@/games/weihnachtsmann/engine/daily";
+import type {
+  ExtraSignId,
+  PhotoId,
+} from "@/games/weihnachtsmann/engine/extras-data";
+import type {
+  PlaceSignId,
+  StationId,
+} from "@/games/weihnachtsmann/engine/places-data";
 import type {
   AchievementId,
   AnimalId,
@@ -398,6 +407,121 @@ export const ACHIEVEMENT_TEXTS: Readonly<
     done: "Als Maus durch ein Mauseloch im Geschenkelager geschlüpft.",
     hint: "Jordi als Maus: Schlüpf im Geschenkelager durch ein Loch unten in einem Paketstapel.",
   },
+  hockeyWin: {
+    title: "Eishockey-Held",
+    done: "Ein Eishockeyspiel bis drei Tore gewonnen.",
+    hint: "Auf dem Eisplatz im Südland: R an der Bank startet ein Spiel gegen zwei andere. Puck mitnehmen, mit R aufs rechte Tor schießen - wer zuerst drei Tore hat, gewinnt.",
+  },
+  snowCastle: {
+    title: "Burgherr",
+    done: "Eine ganze Schneeburg gebaut und die Fahne gehisst.",
+    hint: "Auf der Baustelle im Südland: Schneeblöcke vom Haufen holen (R) und auf die Baustelle setzen (R) - Mauer, zwei Türme, zum Schluss mit leeren Händen die Fahne.",
+  },
+  balloonRide: {
+    title: "Über den Wolken",
+    done: "Mit dem Heißluftballon hoch über die Karte geschwebt.",
+    hint: "Am Ballonplatz im Südland R am Korb: einsteigen und eine Weile hoch oben über die Karte schweben.",
+  },
+  roofSecret: {
+    title: "Dachgeheimnis",
+    done: "Vom Ballon aus das Zeichen auf dem Dach des Geschenkelagers entdeckt.",
+    hint: "Manches sieht man nur von oben: Schweb mit dem Ballon über das Geschenkelager.",
+  },
+  summit: {
+    title: "Gipfelstürmer",
+    done: "Mit der Seilbahn auf den Berggipfel gefahren.",
+    hint: "Die Talstation der Seilbahn steht im Südland: R vor der Station, und die Gondel fährt hinauf.",
+  },
+  skiRun: {
+    title: "Abfahrt",
+    done: "Auf Skiern vom Gipfel bis ins Tal gesaust.",
+    hint: "Oben auf dem Gipfel R am Skiständer: Pfeil links und rechts lenken, hoch bremst - bis durchs Ziel unten.",
+  },
+  lighthouse: {
+    title: "Leuchtfeuer",
+    done: "Nachts das Licht des Leuchtturms angeschaltet.",
+    hint: "Der Leuchtturm steht am Südufer des Sees. Komm nachts hin und schalte mit R an der Tür das Licht an.",
+  },
+  trainStops: {
+    title: "Alle Halte",
+    done: "Mit der Schmalspurbahn an allen fünf Haltestellen gewesen.",
+    hint: "R am Bahnsteig, wenn der Zug dort hält: einsteigen. An jeder Haltestelle zählt es, wenn du im Zug ankommst.",
+  },
+  trainLoop: {
+    title: "Einmal rundherum",
+    done: "Eine ganze Runde mit der Schmalspurbahn gefahren.",
+    hint: "Steig in den Zug und bleib sitzen, bis er einmal die ganze Strecke gefahren ist.",
+  },
+  stageRock: {
+    title: "Rockkonzert",
+    done: "Grantelbart hat auf der Bühne gespielt - und alle haben getanzt!",
+    hint: "Als Grantelbart auf die Bühne im Südland (zwischen Ballon und Seilbahn) und dort die Gitarre spielen (Fähigkeit) - bis zum Applaus.",
+  },
+  magicSchool: {
+    title: "Zauberlehrling",
+    done: "Fünf Treffer in einer Runde der Zauberschule.",
+    hint: "Als Gilfi am Schild der Zauberschule vor dem Berg R drücken, mit der Fähigkeit werfen und mit dem Stick in die Körbe lenken - 5 Treffer in einer Runde.",
+  },
+  airMail: {
+    title: "Luftpost",
+    done: "Alle drei Pakete auf die richtigen Dächer geflogen.",
+    hint: "Als Trixi an der Tafel neben der Poststube einen Auftrag holen und fliegend über die golden markierten Dächer.",
+  },
+  angelStar: {
+    title: "Engelsstern",
+    done: "Sechs Schneeengel ergeben einen leuchtenden Stern!",
+    hint: "Als Balbo auf dem Engelfeld im Südland auf jeden der sechs Pflöcke fallen (Fähigkeit) - bevor die ersten verwehen.",
+  },
+  nightStars: {
+    title: "Nachtsterne",
+    done: "Rudolfs Nase hat alle acht Nachtsterne gefunden.",
+    hint: "Nachts als Rudolf in die dunklen Ecken der Karte - nur in seinem roten Licht sieht man die Nachtsterne.",
+  },
+  happyKids: {
+    title: "Kinderaugen",
+    done: "Fünf Kinder haben ihr Wunschspielzeug bekommen.",
+    hint: "Kinder an der Hauptstraße wünschen sich etwas: die Fähigkeit des Weihnachtsmanns zeigt den Wunsch, das Spielzeug kommt aus der Maschine in der Werkstatt.",
+  },
+  snowmanJury: {
+    title: "Fünf Sterne",
+    done: "Die Pinguin-Jury gibt deinem Schneemann fünf Sterne!",
+    hint: "Beim Schneemann-Wettbewerb im Südwesten drei Kugeln, Nase, Hut und Schal aufs Feld tragen, dann R bei der Jury.",
+  },
+  photoAlbum: {
+    title: "Fotoalbum",
+    done: "Von allen zehn Fotopunkten ein Bild im Album.",
+    hint: "An den Pfosten mit Kamera R drücken - zehn schöne Stellen, eine davon auf dem Gipfel.",
+  },
+  shootingStar: {
+    title: "Sternschnuppe",
+    done: "Bei einer Sternschnuppe etwas gewünscht.",
+    hint: "Nachts draußen zum Himmel schauen: fliegt eine Sternschnuppe, schnell R oder die Fähigkeit drücken.",
+  },
+  fireworks: {
+    title: "Prosit Neujahr!",
+    done: "Das Silvester-Feuerwerk gesehen.",
+    hint: "Am 31. Dezember nachts (oder am 1. Januar ganz früh) draußen sein - dann gibt es Feuerwerk.",
+  },
+  dailyTasks: {
+    title: "Jeden Tag ein bisschen",
+    done: "An drei Tagen alle Tagesaufgaben geschafft.",
+    hint: "Im Notizbuch stehen jeden Tag drei kleine Aufgaben - schaffe sie an drei verschiedenen Tagen.",
+  },
+  bestFriends: {
+    title: "Beste Freunde",
+    done: "Zwei Figuren sind jetzt beste Freunde.",
+    hint: "Mit R vor einer anderen Figur plaudern - immer wieder, bis alle vier Herzen voll sind.",
+  },
+  giftPile: {
+    title: "Geschenkeberg",
+    done: "Zehn eingepackte Geschenke liegen unter dem Baum.",
+    hint: "Spielzeug aus der Maschine am Packtisch in der Werkstatt einpacken und unter den Geschenkebaum südlich des Teichs legen.",
+  },
+  christmasEve: {
+    title: "Bescherung",
+    done: "Heiligabend: alle am Baum, und jeder hat ein Geschenk bekommen.",
+    hint: "Am 24. Dezember abends R am Geschenkebaum südlich des Teichs - dann beginnt die Bescherung.",
+  },
 };
 
 /**
@@ -553,6 +677,7 @@ export const PLACE_TEXTS: Readonly<Record<AreaId, string | null>> = {
   observatory: "in der Sternwarte",
   giftStore: "im Geschenkelager",
   iceCave: "in der Eishöhle",
+  summit: "auf dem Gipfel",
 };
 
 /** The name of every building one can enter, for the sign at its door. */
@@ -567,6 +692,7 @@ export const BUILDING_NAMES: Readonly<
   observatory: "Gugors Sternwarte",
   giftStore: "Geschenkelager",
   iceCave: "Eishöhle",
+  summit: "Berggipfel",
 };
 
 /** The short names of the buildings on the view from the observatory. */
@@ -580,6 +706,7 @@ export const MAP_NAMES: Readonly<Record<Exclude<AreaId, "outdoors">, string>> =
     observatory: "Sternwarte",
     giftStore: "Lager",
     iceCave: "Eishöhle",
+    summit: "Gipfel",
   };
 
 /** What is said and shown in the five buildings of the village. */
@@ -641,6 +768,7 @@ export const TOWN_TEXTS = {
     "Pah - ich weiß, wo das Geschenk ist.",
   ],
   overviewTitle: "Rundblick von der Sternwarte",
+  overviewSummit: "Rundblick vom Gipfel",
   overviewHint: "R, Leertaste oder Esc: zurück",
   overviewEagle: "Gugor sieht auch, was versteckt ist",
   overviewStore: "Lager von innen",
@@ -748,6 +876,13 @@ export const PLACE_NAMES: Readonly<Record<PlaceName, string>> = {
   lake: "See",
   plantation: "Tannenschonung",
   mailbox: "Briefkasten",
+  hockey: "Eishockey",
+  castle: "Schneeburg",
+  balloon: "Ballonplatz",
+  cableCar: "Seilbahn",
+  mountain: "Berg",
+  lighthouse: "Leuchtturm",
+  station: "Werkstatt-Bahnhof",
 };
 
 /** What is said and shown in the east land, at the mailbox and in the sky. */
@@ -841,3 +976,401 @@ export const JETSKI_TEXTS = {
   crash: ["Uff!", "Hoppla!", "Bremsen, bremsen!"],
   snowman: "Ups - der Schneemann!",
 } as const;
+
+/** What is said and shown at the places of the south land, the lighthouse and the railway. */
+export const PLACES_TEXTS = {
+  hockeyBusy: "Das Spiel läuft doch schon!",
+  hockeyAnimal: "Als Tier kann ich keinen Schläger halten.",
+  hockeyNobody: "Keiner hat gerade Zeit für ein Spiel ...",
+  hockeyStart: ["Anpfiff - bis drei Tore!", "Auf geht's!", "Puck frei!"],
+  hockeyGoalie: ["Ich steh im Tor!", "An mir kommt keiner vorbei!"],
+  hockeyGoal: ["Tor!", "TOOOR!", "Drin ist er!"],
+  hockeyWon: "Gewonnen! Drei Tore - Pokal!",
+  hockeyLost: "Verloren ... Revanche?",
+  hockeyOff: "Abgepfiffen!",
+  hockeyScore: "Eishockey: Du {a} : {b} Gegner - R schießt",
+  blockAnimal: "Mit Pfoten? Lieber nicht.",
+  blockHave: "Ich hab doch schon einen Block!",
+  blockTaken: ["Ein Schneeblock!", "Schwer - aber geht!", "Ab zur Baustelle!"],
+  blockSet: ["Passt!", "Noch einer drauf!", "Sitzt fest!"],
+  wallDone: "Die Mauer steht! Jetzt die Türme.",
+  towersDone: "Türme fertig! Fehlt nur noch die Fahne.",
+  flagUp: ["Fahne hoch - die Burg ist fertig!", "Meine Schneeburg!"],
+  castleDone: "Eine prächtige Burg!",
+  castleNeedBlock: "Hol einen Schneeblock vom Haufen!",
+  castleMelting: "Oje, sie schmilzt ... gleich kann man neu bauen.",
+  castleCount: "Schneeburg: {n} von 8 Blöcken",
+  balloonFlying: "Erst landen, dann einsteigen!",
+  balloonAnimal: "Als Tier in den Korb? Lieber nicht.",
+  balloonTaken: "Der Ballon ist gerade unterwegs.",
+  balloonUp: ["Leinen los!", "Auf in die Lüfte!", "Huiii - wir steigen!"],
+  balloonDown: ["Wir landen!", "Sanft runter ..."],
+  balloonNoLand: "Hier kann der Ballon nicht landen.",
+  balloonNoRoom: "Kein Platz zum Aussteigen - weiter!",
+  balloonLanded: ["Gelandet!", "Das war schön!", "Wieder auf dem Boden."],
+  balloonLine: "Ballon - lenken, R/Benutzen: landen, Fähigkeit: Brenner",
+  burner: ["Fauch!", "Mehr heiße Luft!"],
+  roofSecret:
+    "Da steht was auf dem Dach: ein goldener Pfeil nach Osten - ein Glöckchen im Ostwald!",
+  cableFlying: "Erst landen, dann einsteigen!",
+  cableAnimal: "Tiere dürfen leider nicht in die Gondel.",
+  cableBusy: "Die Gondel ist gerade unterwegs.",
+  cableUp: ["Ab auf den Gipfel!", "Gondel, los!", "Hoch hinaus!"],
+  cableTop: ["Was für eine Aussicht!", "Ganz oben!", "Hier oben ist es kalt!"],
+  cableDown: ["Wieder im Tal.", "Schöne Fahrt!"],
+  skiNo: "So kann ich nicht Ski fahren.",
+  skiGo: ["Ski heil!", "Abfahrt!", "Huiii!"],
+  skiCrash: ["Autsch!", "Plumps - weiter!", "Wer hat den Baum da hingestellt?"],
+  skiFinish: "Im Tal! Zeit:",
+  skiBest: "Neue Bestzeit!",
+  skiTime: "Abfahrt",
+  skiRecord: "Bestzeit",
+  seconds: "s",
+  lighthouseNight: [
+    "Klick - das Leuchtfeuer brennt!",
+    "Licht für alle Schiffe!",
+  ],
+  lighthouseDay: "Das Licht dreht sich - nachts sieht man es richtig.",
+  lighthouseOff: "Licht aus im Leuchtturm.",
+  trainFlying: "Erst landen, dann einsteigen!",
+  trainAnimal: "Tiere fahren hier nicht mit.",
+  trainComing: "Der Zug kommt in etwa {s} Sekunden.",
+  trainFull: "Der Zug ist voll.",
+  trainOn: ["Einsteigen, bitte!", "Ich fahr mit!", "Tschu-tschu!"],
+  trainOff: ["Aussteigen!", "Danke fürs Mitnehmen!", "Schöne Fahrt!"],
+  trainNoRoom: "Hier ist kein Platz zum Aussteigen.",
+  trainAlight: "Nächster Halt {name} - da steige ich aus!",
+  trainStayOn: "Doch nicht - ich fahre weiter.",
+  trainGettingOff: "du steigst aus",
+  trainArrive: "Halt: {name}",
+  trainSqueeze: "Hilfe, kein Platz!",
+  trainNext: "Zug - nächster Halt: {name} (R: dort aussteigen)",
+  trainWaiting: "Zug hält: {name} - R: aussteigen",
+  whistle: ["Tuuut!", "Tschu-tschu!"],
+  stationNames: {
+    workshop: "Werkstatt-Bahnhof",
+    observatory: "Sternwarte",
+    market: "Weihnachtsmarkt",
+    lighthouse: "Leuchtturm",
+    south: "Südland",
+  } satisfies Readonly<Record<StationId, string>>,
+  platformHint: "R: einsteigen, wenn der Zug hält",
+  signs: {
+    hockey: ["Eishockey", "R: Anpfiff (bis 3 Tore)"],
+    castle: ["Schneeburg-Baustelle", "R: Block setzen"],
+    blocks: ["Schneeblöcke", "R: einen nehmen"],
+    cableCar: ["Seilbahn - Talstation", "R: hinauf zum Gipfel"],
+    lighthouse: ["Leuchtturm", "R: Licht an/aus"],
+    summitStation: ["Seilbahn - Bergstation", "R: hinab ins Tal"],
+    skis: ["Skiständer", "R: Abfahrt ins Tal"],
+    panorama: ["Fernrohr", "R: Rundblick"],
+  } satisfies Readonly<Record<PlaceSignId, readonly [string, string]>>,
+  balloonName: "Heißluftballon",
+  balloonBoard: "R: einsteigen",
+} as const;
+
+/** What is said and shown at the activities of part B. */
+export const EXTRA_TEXTS = {
+  toyWords: [
+    "einen Teddy",
+    "eine Eisenbahn",
+    "eine Puppe",
+    "einen Ball",
+    "ein Geschenk",
+  ],
+  dailyDone: "Alle Tagesaufgaben geschafft!",
+  concertStart: [
+    "Ruhe da unten - jetzt wird gerockt!",
+    "Eins, zwei, drei, vier!",
+    "Bühne frei für Grantelbart!",
+  ],
+  concertCheer: ["Zugabe!", "Juhuu!", "Super!", "Nochmal!"],
+  concertThanks: "Danke, danke ... grmpf. Gern geschehen.",
+  concertLine: "Konzert! Alle tanzen - Grantelbart rockt",
+  schoolOnlyGilfi: "Das ist Gilfis Zauberschule - nur er kann hier zaubern.",
+  schoolRunning: "Die Stunde läuft doch schon!",
+  schoolStart: "Zauberstunde! Fähigkeit: werfen, Stick: lenken.",
+  schoolEnd: "Ende der Stunde: {n} Treffer!",
+  schoolBest: "Neuer Rekord!",
+  schoolAbort: ["Stunde abgebrochen.", "Zauberschule ist aus."],
+  schoolLine:
+    "Zauberschule: {n} Treffer - noch {s} s - Fähigkeit: werfen, Stick: lenken",
+  mailOnlyTrixi: "Luftpost fliegt nur Trixi.",
+  mailRunning: "Ich hab doch schon einen Auftrag!",
+  mailHandsFull: "Erst die Hände frei machen!",
+  mailStart: "Drei Pakete - ab auf die goldenen Dächer!",
+  mailAbort: ["Auftrag abgebrochen.", "Oje, die Post bleibt liegen."],
+  mailDropped: "Paket {n} von {of} abgeliefert!",
+  mailDone: "Alle Pakete da! Zeit:",
+  mailBest: "neue Bestzeit!",
+  mailLine:
+    "Luftpost: {n} von {of} Paketen - {t} - fliegend über die goldenen Ringe",
+  angelsComplete: "Der Engelsstern leuchtet!",
+  angelsMissing:
+    "Engelfeld: Balbo fällt auf die Pflöcke - noch {n} Schneeengel fehlen.",
+  angelMade: "Ein Schneeengel!",
+  angelStar: "Ein Stern aus Schneeengeln!",
+  nightStar: "Ein Nachtstern! ({n} von {of})",
+  kidSad: "Schade ... dann geh ich wieder heim.",
+  kidThanks: "Danke! Genau das hab ich mir gewünscht!",
+  kidGiven: "Frohe Weihnachten!",
+  kidWrong: "Hm, das wünsch ich mir aber nicht ...",
+  kidWish: "Ich wünsche mir {toy}!",
+  kidSecret: "Was ich mir wünsche? Das weiß nur der Weihnachtsmann!",
+  partNames: [
+    "Eine Schneekugel!",
+    "Eine Möhre für die Nase!",
+    "Ein Zylinder!",
+    "Ein Eimer als Hut!",
+    "Ein roter Schal!",
+    "Ein grüner Schal!",
+  ],
+  contestJudged:
+    "Die Jury hat schon gewertet - bald schmilzt er, dann geht's von vorn los.",
+  contestEnoughBalls: "Drei Kugeln reichen!",
+  contestBallsFirst: "Erst drei Kugeln aufeinander!",
+  contestNeedBall: "Hol eine Schneekugel vom Haufen!",
+  contestNeedParts: "Nase, Hut und Schal liegen an den Ständen.",
+  contestPlaced: ["Passt!", "Schick!", "Schon besser!"],
+  contestLine:
+    "Schneemann: {balls} von 3 Kugeln - Nase {nose} - Hut {hat} - Schal {scarf}",
+  contestYes: "ja",
+  contestNo: "nein",
+  juryWaiting: "Die Jury wartet auf einen Schneemann mit drei Kugeln.",
+  juryVerdicts: [
+    "",
+    "",
+    "Zwei Sterne - ganz schön kahl!",
+    "Drei Sterne - nicht schlecht!",
+    "Vier Sterne - fast perfekt!",
+    "Fünf Sterne - ein Meisterwerk!",
+  ],
+  photoNew: "Klick! Foto {n} von {of} im Album.",
+  photoAgain: "Klick! Noch ein schönes Foto.",
+  starHint: "Eine Sternschnuppe! Schnell R oder Fähigkeit - wünsch dir was!",
+  starWishGift: [
+    "Ich wünsche mir ... oh, ein Geschenk!",
+    "Mein Wunsch ist wahr geworden!",
+  ],
+  starWish: ["Ich hab mir was gewünscht!", "Psst - wird nicht verraten!"],
+  wrapStart: "Papier, Schleife ...",
+  wrapAlready: "Schon eingepackt - ab unter den Baum!",
+  wrapNeedToy: "Erst ein Spielzeug aus der Maschine holen!",
+  wrapDone: "Ich habe {toy} eingepackt!",
+  treeLaid: [
+    "Unter den Baum damit!",
+    "Noch ein Geschenk!",
+    "Der Stapel wächst!",
+  ],
+  treeHint:
+    "Am Heiligabend ist hier Bescherung. Bis dahin: Geschenke darunter legen!",
+  eveRunning: "Die Bescherung läuft!",
+  eveOver: "Die Bescherung war wunderschön.",
+  eveStart: "Ho ho ho! Kommt alle her - Bescherung!",
+  eveCall: "Bescherung! Alle zum Baum!",
+  eveThanks: [
+    "Danke, Weihnachtsmann!",
+    "Oh, wie schön!",
+    "Für mich?",
+    "Frohe Weihnachten!",
+  ],
+  eveEnd: "Frohe Weihnachten, ihr alle!",
+  eveLine: "Heiligabend - Bescherung am Geschenkebaum",
+  pileCount: "{n} Geschenke unter dem Baum",
+  signs: {
+    stage: ["Bühne", "Grantelbart: Gitarre spielen"],
+    school: ["Gilfis Zauberschule", "R: Zauberstunde (nur Gilfi)"],
+    airMail: ["Luftpost", "R: Auftrag (nur Trixi)"],
+    angels: ["Engelfeld", "Balbo: auf die Pflöcke fallen"],
+    contest: ["Schneemann-Wettbewerb", "Teile holen, aufs Feld, R: Jury"],
+    packTable: ["Packtisch", "R: Spielzeug einpacken"],
+    giftTree: ["Geschenkebaum", "R: Geschenk darunter legen"],
+  } satisfies Readonly<Record<ExtraSignId, readonly [string, string]>>,
+  labels: {
+    stage: "Bühne",
+    school: "Zauberschule",
+    angels: "Engelfeld",
+    contest: "Schneemann",
+    giftTree: "Geschenkebaum",
+  } as Readonly<Record<string, string>>,
+  photoNames: {
+    workshop: "Die Werkstatt",
+    grantel: "Grantelbarts Haus",
+    market: "Weihnachtsmarkt",
+    slope: "Rodelhang",
+    waterfall: "Am Wasserfall",
+    lake: "See und Leuchtturm",
+    stage: "Die Bühne",
+    castle: "Eishockey und Burg",
+    angels: "Engelfeld",
+    summit: "Auf dem Gipfel",
+  } satisfies Readonly<Record<PhotoId, string>>,
+  tasks: {
+    feed: "Füttere {n} Rentiere im Stall",
+    snowball: "Wirf {n} Schneebälle",
+    toy: "Bau {n} Spielzeuge an der Maschine",
+    letter: "Sortiere {n} Briefe in der Poststube",
+    carousel: "Fahr Karussell",
+    train: "Fahr mit dem Zug bis zu einem Halt",
+    sled: "Rodel einmal den Hang hinunter",
+    lamp: "Knips {n} Laternen aus",
+    photo: "Mach ein Foto an einem Fotopunkt",
+    kid: "Erfülle einem Kind seinen Wunsch",
+    wrap: "Pack {n} Geschenke ein",
+    chat: "Plaudere {n}-mal mit anderen Figuren",
+  } satisfies Readonly<Record<TaskKind, string>>,
+  notebook: "Notizbuch",
+  notebookOpen: "Notizbuch öffnen: Tagesaufgaben, Freunde, Fotoalbum",
+  notebookTitle: "Notizbuch",
+  notebookClose: "Schließen",
+  dailyTitle: "Tagesaufgaben",
+  dailyIntro:
+    "Jeden Tag drei neue kleine Aufgaben - es zählt, was die gesteuerte Figur tut.",
+  dailyNone: "Gleich da ...",
+  dailyAll: "Heute alles geschafft!",
+  dailyDays: "Tage mit allen Aufgaben:",
+  friendsTitle: "Freundschaften",
+  friendsIntro:
+    "R vor einer anderen Figur: plaudern. Jedes Herz bringt neue Sprüche.",
+  albumTitle: "Fotoalbum",
+  albumIntro: "Fotos von den zehn Fotopunkten (Pfosten mit Kamera, R).",
+  albumMissing: "noch kein Foto",
+  bestsTitle: "Bestwerte und Sammlungen",
+  bestPost: "Luftpost",
+  bestSchool: "Zauberschule",
+  bestSnowman: "Schneemann",
+  bestPile: "Geschenke unter dem Baum",
+  bestKids: "Glückliche Kinder",
+  bestWishes: "Sternschnuppen-Wünsche",
+  bestStars: "Nachtsterne",
+  noTime: "noch keine",
+  hits: "Treffer",
+  stars: "Sterne",
+} as const;
+
+/** What friends say to each other, step by step. */
+export const FRIEND_TEXTS: {
+  /** What the character steered says, by step of friendship; {name} is the other. */
+  readonly greetings: readonly (readonly string[])[];
+  /** What the other answers, by character and step. */
+  readonly replies: Readonly<
+    Record<CharacterId, readonly (readonly string[])[]>
+  >;
+  /** The names of the steps. */
+  readonly steps: readonly string[];
+} = {
+  greetings: [
+    ["Hallo, {name}!", "Na, {name}?"],
+    ["Hallo, {name}! Schön dich zu sehen.", "Wie geht's, {name}?"],
+    ["{name}! Da bist du ja!", "Hey, {name}, was machst du so?"],
+    ["{name}, mein Freund!", "Schön, dass es dich gibt, {name}!"],
+    [
+      "Mein bester Freund {name}!",
+      "{name}! Ohne dich wär's nur halb so schön.",
+    ],
+  ],
+  replies: {
+    santa: [
+      ["Ho ho - hallo!", "Grüß dich!"],
+      ["Schön, dass du vorbeischaust!", "Hast du schon deinen Wunschzettel?"],
+      ["Du hilfst mir sehr in der Werkstatt!", "Ein Plätzchen gefällig?"],
+      ["Auf dich kann ich mich verlassen!", "Komm, wir trinken einen Punsch."],
+      [
+        "Mein liebster Helfer! Ho ho ho!",
+        "Für dich hab ich ein ganz besonderes Geschenk.",
+      ],
+    ],
+    balbo: [
+      ["Brrr - hallo.", "Hast du Fisch?"],
+      ["Schön kalt heute, was?", "Ich bin heute erst dreimal hingefallen!"],
+      ["Willst du mit mir Schneeengel machen?", "Du bist nett!"],
+      ["Mit dir macht sogar Hinfallen Spaß!", "Ich teil meinen Fisch mit dir!"],
+      [
+        "Bester Freund - für immer!",
+        "Komm, ich drück dich - pass auf, ich fall gleich um!",
+      ],
+    ],
+    jordi: [
+      ["Oh, hallo!", "Hast du meine Fernbedienung gesehen?"],
+      ["Ich hab eine neue Erfindung!", "Willst du ein Tier sehen?"],
+      ["Du darfst meine Erfindung ausprobieren!", "Wir sind ein gutes Team!"],
+      [
+        "Für dich verwandle ich mich in jedes Tier!",
+        "Mit dir ist alles ein Abenteuer!",
+      ],
+      [
+        "Bester Freund! Ich erfinde dir was ganz Tolles!",
+        "Wir zwei - unschlagbar!",
+      ],
+    ],
+    trixi: [
+      ["Hi!", "Wer fliegt mit?"],
+      ["Wollen wir ein Wettfliegen machen?", "Juhu, Besuch!"],
+      [
+        "Du bist fast so schnell wie ich!",
+        "Ich zeig dir meinen Lieblingsplatz!",
+      ],
+      ["Mit dir flieg ich überall hin!", "Du bist super!"],
+      [
+        "Allerbeste Freunde - für immer und ewig!",
+        "Ich hab dir Glitzer mitgebracht!",
+      ],
+    ],
+    gilfi: [
+      ["*gähn* ... hallo.", "Hm?"],
+      ["Na gut, ich bin wach.", "Willst du was schweben sehen?"],
+      [
+        "Für dich zaubere ich sogar vor dem Mittagsschlaf.",
+        "Du bist gemütlich!",
+      ],
+      [
+        "Mit dir ist es sogar wach schön.",
+        "Ich lass dir einen Teddy schweben!",
+      ],
+      [
+        "Bester Freund! Du darfst mein Kissen haben.",
+        "Für dich steh ich sogar früh auf!",
+      ],
+    ],
+    grantelbart: [
+      ["Grmpf. Was willst du?", "Aus dem Weg!"],
+      ["Na gut, du darfst kurz bleiben.", "Pah. Hallo."],
+      ["Du bist ... gar nicht so schlimm.", "Willst du mein neues Riff hören?"],
+      [
+        "Grmpf ... ich mag dich. Sag's keinem!",
+        "Du darfst mal an meine Gitarre.",
+      ],
+      [
+        "Bester Freund? ... Na gut. Ja. Bester Freund!",
+        "Für dich spiel ich sogar ein Weihnachtslied. Leise.",
+      ],
+    ],
+    gugor: [
+      ["Alles doof.", "Was willst du?"],
+      ["Na gut. Hallo.", "Ich hab dich durchs Fernrohr gesehen."],
+      [
+        "Du bist weniger doof als die anderen.",
+        "Willst du durchs Fernrohr gucken?",
+      ],
+      ["Psst ... du bist eigentlich ganz toll.", "Ich zeig dir meinen Ball."],
+      [
+        "Bester Freund. Nicht weitersagen!",
+        "Wir zwei beobachten zusammen die Sterne!",
+      ],
+    ],
+    rudolf: [
+      ["Hallo!", "Meine Nase leuchtet!"],
+      ["Willst du meine Nase blinken sehen?", "Hast du eine Möhre?"],
+      ["Mit dir fliege ich gern eine Runde!", "Du bist nett!"],
+      [
+        "Für dich leuchte ich in jede dunkle Ecke!",
+        "Wir sind ein tolles Gespann!",
+      ],
+      [
+        "Bester Freund! Meine Nase leuchtet nur für dich!",
+        "Zusammen ziehen wir jeden Schlitten!",
+      ],
+    ],
+  },
+  steps: ["Fremde", "Bekannte", "Kumpel", "Freunde", "Beste Freunde"],
+};

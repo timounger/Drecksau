@@ -11,6 +11,7 @@
  */
 import { EAST_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { collect, steered, unlock } from "./achievements";
+import { noteTask } from "./daily";
 import { collectBell } from "./bells";
 import { pickUp } from "./carry";
 import { say, spawn } from "./effects";
@@ -104,6 +105,7 @@ export function rideCarousel(state: GameState, char: Character): void {
     char.vx = 0;
     char.vy = 0;
     say(char, pick(state, EAST_TEXTS.carouselOn));
+    noteTask(state, char, "carousel");
     if (steered(state, char)) {
       unlock(state, "carousel");
     }

@@ -37,7 +37,9 @@ export function isSaveData(value: unknown): value is SaveData {
         (Array.isArray(data.achievements) &&
           data.achievements.every(isSavedAchievement))) &&
       (data.progress === undefined || isRecordOf(data.progress, isTextList)) &&
-      (data.counts === undefined || isRecordOf(data.counts, isCount));
+      (data.counts === undefined || isRecordOf(data.counts, isCount)) &&
+      (data.extras === undefined ||
+        (typeof data.extras === "object" && data.extras !== null));
   }
   return ok;
 }

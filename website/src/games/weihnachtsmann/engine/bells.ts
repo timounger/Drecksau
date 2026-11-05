@@ -10,6 +10,7 @@
  * picked up by walking (or flying, swimming) onto it. Nothing here shows on
  * the view from the observatory.
  */
+import { carried, inBalloon } from "./aboard";
 import { EAST_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { collect, steered } from "./achievements";
 import { say, spawn, SPARKLE_TINTS } from "./effects";
@@ -95,6 +96,8 @@ export function updateBells(state: GameState, dt: number): void {
     const at = bellPoint(state, bell);
     if (
       bell.area === char.area &&
+      !inBalloon(state, char) &&
+      !carried(state, char) &&
       bellShows(state, bell) &&
       reachable(bell, state) &&
       Math.hypot(char.x - at.x, char.y - at.y) < REACH

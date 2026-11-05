@@ -12,6 +12,7 @@
  */
 import { EAST_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { steered, unlock } from "./achievements";
+import { noteTask } from "./daily";
 import { CAST } from "./cast";
 import { say, snowPuff } from "./effects";
 import { SLED_FINISH, SLED_START } from "./east-data";
@@ -207,6 +208,7 @@ function finish(state: GameState, char: Character): void {
       `${EAST_TEXTS.sledFinish} ${sledTime(tenths)}${record ? ` - ${EAST_TEXTS.sledBest}` : ""}`,
     );
     state.sounds.push("ding");
+    noteTask(state, char, "sled");
     if (steered(state, char) && sled.time < SLED_GOAL) {
       unlock(state, "sledFast");
     }

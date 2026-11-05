@@ -32,6 +32,19 @@ Stufe 4: das **Dorf** - Rentierstall, Poststube, Elfen-Backstube, Gugors
 Sternwarte und Geschenkelager, jedes zum Hineingehen, mit Aufgaben und elf
 neuen Erfolgen. Die Karte ist dafür auf 128 x 64 Felder gewachsen.
 
+Teil A der neuen Orte: das **Südland** (die Karte ist nach Süden auf
+**128 x 96** Felder gewachsen) mit Eishockey-Platz, Schneeburg-Baustelle,
+Heißluftballon und Seilbahn auf den Berggipfel (eigener Ort `summit` mit
+Fernrohr und Skiabfahrt), dazu der Leuchtturm am See und die
+Schmalspurbahn mit fünf Haltestellen. Neun neue Erfolge (63 insgesamt).
+
+Teil B: **Aktivitäten** - Grantelbarts Bühne, Gilfis Zauberschule,
+Trixis Luftpost, Balbos Schneeengel, Rudolfs Nasenlicht mit
+Nachtsternen, besuchende Kinder, Schneemann-Wettbewerb, Fotopunkte,
+Sternschnuppen, Silvester-Feuerwerk, Tagesaufgaben, Freundschaften,
+Geschenke einpacken und die Bescherung an Heiligabend. Vierzehn neue
+Erfolge (77 insgesamt).
+
 Teil 2: **draußen** - im Osten der Weihnachtsmarkt mit Karussell, der
 Rodelhang, die Schneeballwiese, der gefrorene Wasserfall mit der Eishöhle,
 der See zum Schlittschuhlaufen und die Tannenschonung; dazu zwölf goldene
@@ -95,7 +108,7 @@ eine Elfe repariert sie.
 
 ## Erfolge
 
-54 Erfolge, mindestens einer je Figur und Fähigkeit - Liste und
+77 Erfolge, mindestens einer je Figur und Fähigkeit - Liste und
 Bedingungen in
 [`docs/games/weihnachtsmann/game-rules.md`](../../../../docs/games/weihnachtsmann/game-rules.md#erfolge),
 für Spieler im Regeln-Dialog. Daten: `engine/achievements.ts`
@@ -264,6 +277,141 @@ Noch frei sind die übrigen Flächen der alten Karte (Nordband 40-52 x 3-5 und
 Türchen, Laternen (35), Schneemänner, Schneewehen, das Fuchs-Versteck, die
 Hasen-Runde, die Türen und Wege des Dorfs und alles Obige.
 
+## Neue Orte (Teil A)
+
+Die Karte ist von 64 auf **96 Zeilen** gewachsen; die alte Karte liegt
+unverändert oben (alte Speicherstände passen). Geändert wurden nur ein paar
+kleine Bäume für die Bahn (3,12 / 3,37 / 3,39 / 3,63 / 87,4 / 100,62 /
+100,63) und der Waldrand für zwei Wege ins Südland (Spalten 30-31 und
+104-105, Zeilen 59-63). Daten in `engine/places-data.ts`, je Ort ein Modul,
+zusammen gestartet von `engine/places.ts` (`World.places`), Zeichnen in
+`components/render-places.ts`, Bilder auf dem eigenen Bogen
+`assets/places-2x.png` (`components/places-atlas.ts`, Generator
+`places_art.py` im Scratchpad unter `orte/`, nutzt `pix.py`; schreibt auch
+die neun Abzeichen auf den Figurenbogen, Zeile 714 ab x 91). Wer worauf
+sitzt, fragt `engine/aboard.ts` (`vehicleOf`, `inBalloon`, `inGondola`,
+`trainSeat`, `skiing`, `hockeyHelper`) - ohne die Fahrzeug-Module zu laden.
+
+| Ort            | Wo (Zellen)                                        | Modul           | Bedienung                                                                                                                                     |
+| -------------- | -------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Eishockey      | Eis 6-25 x 71-80, Bank 18,68, Tore 6/25,75         | `hockey.ts`     | R an der Bank: Spiel bis 3 gegen Stürmer und Torwart (zwei nicht gesteuerte Figuren); über den Puck laufen nimmt ihn mit, R/Fähigkeit schießt |
+| Schneeburg     | Baustelle 35-40 x 75-77, Blockhaufen 31,75         | `castle.ts`     | R am Haufen: Block (Tragen `snowBlock`), R an der Baustelle: setzen; 4 Mauer, 4 Türme, dann mit leeren Händen die Fahne                       |
+| Heißluftballon | Platz 48-52 x 72-75, Ballon 50,5/75                | `balloon.ts`    | R am Korb: einsteigen; Stick lenkt langsam, Wind; Fähigkeit: Brenner; R landet (nicht Wasser/Gleis); Kamera zoomt aus                         |
+| Seilbahn, Berg | Talstation 71-75 x 70-72, Berg 88-117 x 78-93      | `cablecar.ts`   | R vor der Talstation: 12 s Gondelfahrt, Überblendung auf den Gipfel                                                                           |
+| Gipfel (Ort)   | `summit`, 26 x 92                                  | `cablecar.ts`   | Bergstation (2,2) R: hinab; Fernrohr (19,4) R: Rundblick; Skiständer (12,8) R: Abfahrt bis Zeile 86,4; unten Weg ins Tal (Tür 10-15,90)       |
+| Leuchtturm     | 109-110 x 57-58 (Südwestufer des Sees)             | `lighthouse.ts` | R an der Tür: Licht an/aus (240 s); nachts dreht sich der Lichtkegel                                                                          |
+| Schmalspurbahn | Rundkurs 3,65 - 3,3 - 44,3 - 44,4 - 100,4 - 100,65 | `railway.ts`    | R am Bahnsteig, wenn der Zug hält: einsteigen; R: aussteigen (hält er) oder am nächsten Halt aussteigen (fährt er); Fähigkeit: Pfeife         |
+
+- **Eishockey:** Puck gleitet (Reibung 0,55/s), prallt an der Bande ab;
+  Schüsse in Richtung Tor gehen in die Ecke weg vom Torwart (`aimAt`). Der
+  Stürmer jagt den Puck, trägt ihn langsamer zum linken Tor und schießt aus
+  6 Feldern mit Streuung; der Spieler kann ihm den Puck abnehmen. Der Torwart
+  folgt dem Puck vor dem rechten Tor und klärt zur Bande. Abbruch bei
+  Figurwechsel, Verlassen des Eises oder Einsteigen. Außerhalb eines Spiels
+  nimmt die gesteuerte Figur den Puck mit, andere schubsen ihn.
+- **Schneeburg:** fertig 150 s, halb gebaut 120 s nach dem letzten Block,
+  dann schmilzt sie Block für Block (1,2 s).
+- **Ballon:** 84 px hoch, Spitze 58 px/s, Wind 9 px/s (Sturm x3,5), dreht
+  langsam. „Über den Wolken“ nach 12 s hoch oben, „Dachgeheimnis“ über dem
+  Geschenkelager: von oben (und nur dann) erscheint dort ein goldener Pfeil
+  mit Glöckchen nach Osten - der Hinweis auf das Glöckchen in der
+  Waldnische. Abgestellt fliegt er nach 45 s von selbst heim. Zoom:
+  `GameState.zoom` (0-1), der Hook nimmt den Maßstab um bis zu 40 % kleiner
+  (`fitScale`, ganzzahlig).
+- **Seilbahn/Ski:** Fahrer versteckt in der Gondel (Kamera folgt), oben
+  Überblendung über eine unsichtbare Tür. Gipfel ist „unter freiem Himmel“
+  (`openAir` in `sky.ts`: Nacht, Polarlicht, Sturm, Schneefall). Ski wie
+  der Rodelhang (`sled.ts`): bis 175 px/s, lenken 110 px/s, Bestzeit in
+  Zehntelsekunden als `counts.skiBest`.
+- **Bahn:** Lok + 3 offene Wagen (je 2 Sitze), 64 px/s, 5 s Halt; eine
+  Runde (5088 px) dauert knapp 2 Minuten. Die Gleise sind kein Teil der
+  Kartenzeilen, sie sperren nichts. Der Zug schiebt Figuren quer zum Gleis
+  zur Seite (90 px/s, nur wohin sie passen); geht es nicht, wartet er und
+  pfeift; ein abgestellter Jetski auf dem Gleis fährt nach 3 s heim.
+  Schranken (Hauptstraße bei 100,18-19 und Weg ins Südland bei 30-31,65)
+  senken sich mit Glocke. Halte: `progress.stops` (gespeichert).
+- **Ein Fahrzeug zur Zeit:** Talk- und Fähigkeitstaste gehören dem
+  Fahrzeug (`placeTalk`, `placeAbility`); auf Fahrzeugen kein „Hinein“,
+  keine Spots. Figurwechsel: die Figur bleibt sitzen (Ballon treibt im Wind,
+  Zug fährt weiter, Gondel kommt an); nur die Skiabfahrt endet. Rudolf
+  spannt sich nicht vor den Schlitten, solange er etwas fährt. Ballon- und
+  Zug-/Gondelfahrer sammeln keine Glöckchen; Runden auf dem See zählen nur
+  am Boden.
+- **Rundblick:** Gleis mit Halten, Zug, Ballon, Seilbahn und die Namen der
+  neuen Orte; vom Gipfel heißt er „Rundblick vom Gipfel“, wer oben ist,
+  steht als Punkt auf dem Berg.
+- **Rudolfs Ehrenrunde:** die Ecken gelten für die ganze Karte - die
+  südlichen Ecken liegen jetzt im Südland.
+
+### Freie Flächen für Teil B
+
+Teil B belegt davon: Bühne 55-63 x 69-77, Zauberschule 77-86 x 77-85,
+Engelfeld 47-58 x 80-89, Schneemann 12-23 x 84-88, Geschenkebaum 15-17 x 34
+(zwei Tannen bei 60,72 und 58,76 sind dafür weg). Ursprünglich frei waren:
+
+Im Südland bewusst frei (Zellen): **6-28 x 83-92** (Südwesten, ein paar
+Tannen), **42-68 x 79-92** (Mitte, einzelne Tannen bei 44/46,88-91 und
+62-66,84-89), **76-87 x 75-92** (vor dem Berg), **52-68 x 68-78** (zwischen
+Ballon und Seilbahn) und **106-122 x 64-76** (Osten, ein Fels bei 112,70).
+Dazu weiter die alten Reste: Nordband 45-84 x 5-6 (Zeile 3-4 ist jetzt
+Gleis), südlich des Teichs 5-18 x 32-36, 4-28 x 40-45. Nicht zubauen: das
+Gleis und eine Zelle rechts und links davon, die Bahnsteige, die Wege
+(Spalten 30-31 und 104-105 ab Zeile 59, Straße Zeilen 66-67), die
+Bauplätze, die Rink-Bande, die Ballon-Landefläche und den Berg-Grundriss.
+
+## Teil B: Aktivitäten
+
+Vierzehn neue Erfolge (77 insgesamt) mit Abzeichen (Figurenbogen Zeile 714,
+x 244-448 und 495). Daten in `engine/extras-data.ts`, je Aktivität ein
+Modul, zusammen gestartet von `engine/extras.ts` (`World.extras`, nicht
+gespeichert); die Formen stehen in `engine/extras-types.ts`. Zeichnen in
+`components/render-extras.ts`, Bilder auf dem eigenen Bogen
+`assets/extras-2x.png` (`components/extras-atlas.ts`, Generator
+`extras_art.py` im Scratchpad unter `teilb/`, nutzt `pix.py`; malt auch die
+Abzeichen auf den Figurenbogen). Das Notizbuch ist
+`components/notebook-panel.tsx`.
+
+| Aktivität      | Wo (Zellen)                                                             | Modul           | Bedienung                                                                                                     |
+| -------------- | ----------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
+| Konzert        | Bühne 55-61 x 69-71, Publikum 55-63 x 73-77                             | `concert.ts`    | Grantelbart (gesteuert) spielt auf dem Bühnenboden Gitarre: 16 s Konzert, alle anderen kommen und tanzen      |
+| Zauberschule   | Feld 77-86 x 77-85, Körbe 78,79 / 82,78 / 85,80                         | `school.ts`     | Gilfi: R am Schild (86,84) startet 40 s; Fähigkeit wirft das schwebende Spielzeug, Stick lenkt es seitwärts   |
+| Luftpost       | Tafel 40,9 (Poststube), 10 Dächer                                       | `airmail.ts`    | Trixi: R an der Tafel, 3 zufällige Dächer (goldene Ringe, Randpfeile), fliegend drüber; Bestzeit, max. 120 s  |
+| Engelfeld      | Stern um 53,85 (6 Pflöcke), Schild 47,86                                | `angels.ts`     | Balbo fällt (Fähigkeit) auf einen Pflock: Schneeengel 150 s; alle 6 zugleich: goldener Stern (auch Rundblick) |
+| Nachtsterne    | 8 dunkle Ecken (`NIGHT_STARS`)                                          | `nightstars.ts` | nachts (Dunkel >= 0,35) Rudolfs Nasenlicht (64 px); Sterne nur darin sichtbar; Rudolf nimmt sie im Vorbeiflug |
+| Kinder         | Hauptstraße 6/11,5/16,5/23,5 x 20,8                                     | `kids.ts`       | erscheinen alle 35-75 s (max. 2, nicht im Sturm); Weihnachtsmann-Fähigkeit zeigt den Wunsch; R mit Spielzeug  |
+| Schneemann     | Haufen 13-14,84, Möhren 16, Hüte 18, Schals 20, Platz 17,87, Jury 22,87 | `contest.ts`    | Teile tragen (`snowPart`), 3 Kugeln zuerst, dann Nase/Hut/Schal; R an der Jury: 2-5 Sterne                    |
+| Fotopunkte     | 9 Pfosten draußen + Gipfel 22,9 (`PHOTO_POINTS`)                        | `photos.ts`     | R: Foto; der Bildschirm nimmt danach ein 128 x 72-JPEG aus dem Puffer (`storage/album-store.ts`)              |
+| Sternschnuppen | Himmel, nachts (Dunkel >= 0,6)                                          | `night-sky.ts`  | alle 22-50 s eine; 2,8 s lang R oder Fähigkeit: Wunsch, Funkenregen, eingepacktes Geschenk in die Hand        |
+| Feuerwerk      | Himmel am 31.12. nachts, 1.1. bis Uhr 6                                 | `night-sky.ts`  | Raketen alle 0,45-1,3 s, Funken in Bildpixeln (max. 420), Knall; 3 Explosionen draußen: Erfolg                |
+| Geschenke      | Packtisch Werkstatt 14,11, Geschenkebaum 15-17,34                       | `presents.ts`   | Maschine gibt Spielzeug (`toy`), Packtisch 1,4 s (`wrapped`), R am Baum: Stapel wächst (`counts.wrapped`)     |
+| Bescherung     | Geschenkebaum                                                           | `presents.ts`   | 24.12. nach Dunkel: R am Baum, alle versammeln sich, Weihnachtsmann verteilt, Glitzer; einmal je Besuch       |
+| Freundschaft   | überall                                                                 | `friends.ts`    | R mit einer Figur direkt davor (statt Spruch): +1 Punkt je Paar (Pause 3 s); Stufen bei 2/5/9/14 Punkten      |
+| Tagesaufgaben  | Notizbuch                                                               | `daily.ts`      | 3 von 12 Aufgaben je Kalendertag (Gerätedatum, `?datum=`), gezählt über `noteTask` an den bestehenden Stellen |
+
+- **Tasten:** `extrasKey` (`engine.ts`, vor allem anderen) nimmt R und
+  Fähigkeit für einen Sternschnuppen-Wunsch, die Fähigkeit für einen Wurf in
+  der Zauberschule. `extrasDrive` bewegt Figuren, die Teil B hält: den
+  rockenden Grantelbart, Gilfi während des Wurfs (der Stick lenkt das
+  Spielzeug), wer gerade einpackt, und die herbeigerufenen Figuren
+  (`gather.ts`: zu Fuß hin, von weit weg oder aus Häusern tauchen sie außer
+  Sicht in der Nähe auf; Tanzen beim Konzert, Zuschauen an Heiligabend).
+- **Wechselwirkungen:** Nichts davon aus Fahrzeugen heraus (Spots gelten nur
+  zu Fuß, Gerufene sitzen auf keinem Fahrzeug, Hockeyspieler bleiben). Ein
+  Figurwechsel beendet Konzert, Zauberstunde und Luftpost. Tiere tragen
+  keine Schneemann-Teile. Kinder kommen nicht im Sturm, Sternschnuppen auch
+  nicht. Der Rundblick zeigt Engel und Stern und beschriftet Bühne,
+  Zauberschule, Engelfeld, Schneemann und Geschenkebaum.
+- **Tragen:** neu `toy`, `wrapped`, `parcel` (gehen durch Türen) und
+  `snowPart`.
+- **Speichern:** weiter Version 4, alles optional: `progress.nightStars`,
+  `progress.photos`, `counts.kids`, `wrapped`, `postBest`, `schoolBest`,
+  `snowmanBest`, `starWishes`, `dailyDays` und `extras` (Freundschaftspunkte
+  je Paar, die Tagesaufgaben mit ihrem Tag). „Neu aufstellen“ behält sie.
+  Die Fotos liegen getrennt unter `weihnachtsmann/album` (je 3-6 kB, höchstens
+  zehn), damit der Spielstand klein bleibt.
+- **Ausprobieren:** `?uhr=22` (Nasenlicht, Sternschnuppen nach 12 s),
+  `?datum=12-31&uhr=23` (Feuerwerk), `?datum=12-24&uhr=20` (Bescherung).
+
 ## Aufbau
 
 ```text
@@ -315,12 +463,27 @@ weihnachtsmann/
     rink.ts        See: Gleiten, Runden um die Insel, Balbo rutscht aus
     jetski.ts      Schnee-Jetskis: auf- und absteigen, fahren, driften,
                    abprallen, Hupe, zurück an den Platz
+    places-data.ts die neuen Orte: Südland, Gipfel (Zeilen), Gleis, Halte
+    places.ts      startet die neuen Orte, Tasten der Fahrzeuge
+    aboard.ts      wer worauf sitzt (ohne Fahrzeug-Module)
+    hockey.ts      Eishockey: Puck, Spiel bis 3, Stürmer und Torwart
+    castle.ts      Schneeburg: Blöcke, Stufen, Fahne, Schmelzen
+    balloon.ts     Heißluftballon: fliegen, Wind, landen, heimfliegen, Zoom
+    cablecar.ts    Seilbahn, Gipfel, Fernrohr, Skiabfahrt
+    lighthouse.ts  Leuchtturm: Licht an/aus, Drehung
+    railway.ts     Schmalspurbahn: Gleis, Zug, Halte, Schranken, Schieben
     firs.ts        Tannenschonung, Christbaum in der Werkstatt
     bells.ts       die 12 goldenen Glöckchen
     critters.ts    Schneehasen, Pinguine, Eulen
     errands.ts     Briefkasten und Aufträge
     sky.ts         Tageszeit, Schneesturm, Polarlichter (World.sky)
     engine.ts      neues Spiel, ein Schritt, Wechsel, Kamera, Abstand halten
+    extras-data.ts Teil B: Orte, Punkte, Schilder (Daten)
+    extras-types.ts  Formen von Teil B
+    extras.ts      startet Teil B, Tasten, gehaltene Figuren, Speichern
+    concert.ts gather.ts school.ts airmail.ts angels.ts nightstars.ts kids.ts
+    contest.ts photos.ts night-sky.ts presents.ts daily.ts friends.ts
+                   je eine Aktivität von Teil B (siehe dort)
     random.ts      Zufallszahlen mit Startwert im Zustand
     save.ts        Prüfung eines gelesenen Speicherstands
   components/    Zeichnen und Oberfläche
@@ -333,7 +496,7 @@ weihnachtsmann/
     render-minigame.ts  ein Minispiel-Feld groß auf die Leinwand, Texte scharf darauf
     render-world.ts  Geschenk auf der Kuppel, springender Fisch, Schraubenschlüssel
                      beim Reparieren, Erfolgs-Banner mit Konfetti
-    achievements-panel.tsx  Knopf „Erfolge x/54“ und der Dialog mit allen Karten,
+    achievements-panel.tsx  Knopf „Erfolge x/77“ und der Dialog mit allen Karten,
                      oben Glöckchen-Zähler und Rodel-Bestzeit
     render-town.ts   das Dorf: Rentiere, Ofen, Gitter, Briefberg, Geschenk,
                      Getragenes, Licht, Türschilder, Fächernamen
@@ -348,7 +511,17 @@ weihnachtsmann/
     render-sky.ts    Nachttönung, Polarlichter, Schneesturm, Licht nach Tageszeit
     outdoor-atlas.ts wo die Bilder auf outdoor-2x.png liegen (generiert)
     render-jetski.ts die Jetskis mit Fahrer, Scheinwerfer, Schild
+    render-places.ts die neuen Orte: Gleis, Bahnsteige, Zug, Schranken, Puck,
+                     Burg, Ballon, Seil und Gondel, Ski, Lichtkegel,
+                     Dachgeheimnis, Schilder und Textzeilen
+    places-atlas.ts  wo die Bilder auf places-2x.png liegen (generiert)
     jetski-atlas.ts  wo die Bilder auf jetski-2x.png liegen (generiert)
+    render-extras.ts Teil B: Zauberfeld, Engel und Stern, Kinder, Schneemann,
+                     Geschenkestapel, Luftpost-Dächer, Bühnenlicht, Nasenlicht,
+                     Nachtsterne, Sternschnuppe, Feuerwerk, Blitz, Schilder
+    extras-atlas.ts  wo die Bilder auf extras-2x.png liegen (generiert)
+    notebook-panel.tsx  Notizbuch: Tagesaufgaben, Freundschaften, Fotoalbum,
+                     Bestwerte
     render-shows.ts  Fähigkeits-Posen, Gedankenblasen mit Wünschen, Wackeln,
                      Fernrohr-Linse mit Zeile, Schwebendes, Sterne über Balbo
     render-props.ts  was sich bewegt und leuchtet: Zahnräder, Lämpchen, Band und
@@ -367,6 +540,7 @@ weihnachtsmann/
                  das offene Minispiel
   storage/save-store.ts             Speicherstand in localStorage
   storage/cinema-store.ts           Kino: letzte Folge, Stellen, gesehene
+  storage/album-store.ts            Fotoalbum (kleine JPEG-Daten-URLs)
   i18n/          texts.ts (alle deutschen Texte), rules.ts (Regeln-Dialog)
 ```
 

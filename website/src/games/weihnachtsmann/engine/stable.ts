@@ -10,6 +10,7 @@
  */
 import { TOWN_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { steered, unlock } from "./achievements";
+import { noteTask } from "./daily";
 import { STABLE_BOXES, STABLE_GATE_ROW, STRAW_BED } from "./building-data";
 import { carries, pickUp } from "./carry";
 import { say, spawn, SPARKLE_TINTS } from "./effects";
@@ -101,6 +102,7 @@ export function feedReindeer(
     stable.munch[index] = MUNCH_SECONDS;
     say(char, `${name} ${pick(state, TOWN_TEXTS.reindeerFed)}`);
     state.sounds.push("munch");
+    noteTask(state, char, "feed");
     const x = (spot.tx + spot.w / 2) * TILE;
     const y = STABLE_GATE_ROW * TILE - HEAD_LIFT;
     for (let k = 0; k < FED_SPARKLES; k += 1) {

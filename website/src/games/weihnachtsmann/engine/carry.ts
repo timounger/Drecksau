@@ -7,7 +7,9 @@
  * Everybody can carry one thing at a time ({@link Character.carry}); it is
  * drawn over the head. Going through a door leaves it behind - only the lost
  * present and the felled fir go along (they have to reach the workshop), and
- * an errand's lost thing or treat. Nothing carried is saved.
+ * an errand's lost thing or treat, a toy from the machine on its way to a
+ * child or the packing table, a wrapped present and Trixi's parcel. Nothing
+ * carried is saved.
  */
 import { TOWN_TEXTS } from "@/games/weihnachtsmann/i18n/texts";
 import { poof, say } from "./effects";
@@ -22,6 +24,9 @@ const THROUGH_DOORS: ReadonlySet<CarryKind> = new Set<CarryKind>([
   "fir",
   "found",
   "treat",
+  "toy",
+  "wrapped",
+  "parcel",
 ]);
 
 /** How far above the feet the poof of a thing left behind sits, map px. */
