@@ -68,6 +68,7 @@ import { THE_DUNGEON } from "../levels/the-dungeon";
 import { THE_BEACH_RESORT } from "../levels/the-beach-resort";
 import { THE_DIVE } from "../levels/the-dive";
 import { THE_ROADHOUSE } from "../levels/the-roadhouse";
+import { THE_SHEEP_PASTURE } from "../levels/the-sheep-pasture";
 import { THE_OASIS } from "../levels/the-oasis";
 import { THE_VILLAGE } from "../levels/the-village";
 import { MACHU_PICCHU } from "../levels/machu-picchu";
@@ -259,6 +260,7 @@ export const LEVELS: readonly Level[] = [
   THE_BEACH_RESORT,
   THE_DIVE,
   THE_ROADHOUSE,
+  THE_SHEEP_PASTURE,
   THE_OASIS,
   THE_VILLAGE,
   MACHU_PICCHU,
