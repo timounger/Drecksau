@@ -47,7 +47,9 @@ export type GameId =
   | "murdle"
   | "sherlock"
   | "zelda"
-  | "weihnachtsmann";
+  | "weihnachtsmann"
+  | "wurfduell"
+  | "frost-fortress";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -438,6 +440,26 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/weihnachtsmann",
     category: "action",
     addedOn: "2026-10-29",
+  },
+  {
+    id: "wurfduell",
+    name: "Wurfduell",
+    tagline:
+      "Tomate, Torte, Kanonenkugel - zielen, Wind lesen und den anderen zuerst k.o. werfen.",
+    emoji: "\u{1F345}",
+    href: "/wurfduell",
+    category: "action",
+    addedOn: "2026-11-12",
+  },
+  {
+    id: "frost-fortress",
+    name: "Frost Fortress",
+    tagline:
+      "Bauen, forschen, verteidigen - mach aus einem Lager im Schnee eine Festung, die jede Welle hält.",
+    emoji: "\u{1F3F0}",
+    href: "/frost-fortress",
+    category: "action",
+    addedOn: "2026-11-12",
   },
 ];
 

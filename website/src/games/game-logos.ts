@@ -47,6 +47,8 @@ import murdle from "./murdle/assets/logo.webp";
 import sherlock from "./sherlock/assets/logo.webp";
 import zelda from "./zelda/assets/logo.webp";
 import weihnachtsmann from "./weihnachtsmann/assets/logo.webp";
+import wurfduell from "./wurfduell/assets/logo.webp";
+import frostFortress from "./frost-fortress/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -86,4 +88,6 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   sherlock,
   zelda,
   weihnachtsmann,
+  wurfduell,
+  "frost-fortress": frostFortress,
 };
