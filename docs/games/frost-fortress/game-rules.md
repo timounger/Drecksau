@@ -147,6 +147,15 @@ Außenposten), Sicht (Flutlichter, Wärmebildoptik).
   Karte: höchste Welle, überstandene Wellen, besiegte Gegner und Bosse,
   gebaute Anlagen, gefallene Festungen.
 
+## Erkundung
+
+- Kosten 40 Nahrung, 15 Treibstoff; dauert 50 s; 15 % Hinterhalt (nichts).
+  Sonst Holz 60-140, Eisen 40-100, Stein 40-100, Energie 0-40, Nahrung
+  20-60, Treibstoff 10-40, je gestarteter Welle +8 %, bis zur Lagergrenze.
+- Haken „Automatisch erneut aussenden“: Der Trupp zieht wieder los, sobald
+  er zurück ist und der Preis bezahlbar ist (sonst wartet er darauf). Die
+  Wahl wird im Spielstand gespeichert.
+
 ## Freies Bauen
 
 - Einstellung „Spielmodus“: Wellen (Standard) oder Freies Bauen. Gilt sofort,

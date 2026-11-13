@@ -36,6 +36,7 @@ export function toSave(game: Game): SaveData {
     over: game.over,
     cheat: game.cheat,
     cheated: game.cheated,
+    autoExplore: game.autoExplore,
   };
   return JSON.parse(JSON.stringify(data)) as SaveData;
 }
@@ -59,6 +60,7 @@ export function fromSave(data: SaveData): Game {
     effects: [...copy.effects],
     cheat: copy.cheat === true,
     cheated: copy.cheated === true || copy.cheat === true,
+    autoExplore: copy.autoExplore === true,
     rangeBoost: 1,
     freeBuild: false,
     messages: [],

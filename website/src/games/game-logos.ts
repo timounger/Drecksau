@@ -49,6 +49,7 @@ import zelda from "./zelda/assets/logo.webp";
 import weihnachtsmann from "./weihnachtsmann/assets/logo.webp";
 import wurfduell from "./wurfduell/assets/logo.webp";
 import frostFortress from "./frost-fortress/assets/logo.webp";
+import imperavis from "./imperavis/assets/logo.webp";
 
 /** One cover logo per game. */
 export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
@@ -90,4 +91,5 @@ export const GAME_LOGOS: Readonly<Record<GameId, StaticImageData>> = {
   weihnachtsmann,
   wurfduell,
   "frost-fortress": frostFortress,
+  imperavis,
 };

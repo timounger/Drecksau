@@ -74,6 +74,7 @@ export type InfoActions = {
   readonly remove: (id: number) => void;
   readonly move: (id: number) => void;
   readonly explore: () => void;
+  readonly autoExplore: () => void;
   readonly openResearch: () => void;
   readonly callEnemies: (kind: EnemyKind) => void;
   readonly callAllies: () => void;
@@ -238,7 +239,11 @@ function Details({
           />
         )}
         {structure.kind === "hq" && (
-          <Expedition game={game} onExplore={actions.explore} />
+          <Expedition
+            game={game}
+            onExplore={actions.explore}
+            onAuto={actions.autoExplore}
+          />
         )}
         {structure.kind === "lab" && structure.built && (
           <ActionButton
@@ -386,22 +391,42 @@ function usedPerSecond(structure: Structure): Cost | null {
 function Expedition({
   game,
   onExplore,
+  onAuto,
 }: {
   readonly game: Game;
   readonly onExplore: () => void;
+  readonly onAuto: () => void;
 }): ReactElement {
   const out = game.expedition > 0;
   return (
-    <ActionButton
-      testId="ff-expedition"
-      disabled={out || !canAfford(game.res, EXPEDITION_COST)}
-      onClick={onExplore}
-      label={out ? T.expeditionOut(game.expedition) : T.expedition}
-      cost={out ? undefined : EXPEDITION_COST}
-      hint={T.expeditionHint}
-      game={game}
-      tone="plain"
-    />
+    <div className="flex flex-col gap-1">
+      <ActionButton
+        testId="ff-expedition"
+        disabled={out || !canAfford(game.res, EXPEDITION_COST)}
+        onClick={onExplore}
+        label={out ? T.expeditionOut(game.expedition) : T.expedition}
+        cost={out ? undefined : EXPEDITION_COST}
+        hint={T.expeditionHint}
+        game={game}
+        tone="plain"
+      />
+      <label
+        title={T.expeditionAutoHint}
+        className="flex cursor-pointer items-center gap-2 px-1 text-[11px] text-slate-300"
+      >
+        <input
+          type="checkbox"
+          data-testid="ff-expedition-auto"
+          checked={game.autoExplore}
+          onChange={onAuto}
+          className="h-3.5 w-3.5 cursor-pointer accent-sky-500"
+        />
+        {T.expeditionAuto}
+        {game.autoExplore && !out && !canAfford(game.res, EXPEDITION_COST) && (
+          <span className="text-amber-300">{T.expeditionWaiting}</span>
+        )}
+      </label>
+    </div>
   );
 }
 
@@ -434,7 +459,11 @@ function Overview({
         game={game}
         tone="repair"
       />
-      <Expedition game={game} onExplore={actions.explore} />
+      <Expedition
+        game={game}
+        onExplore={actions.explore}
+        onAuto={actions.autoExplore}
+      />
       {game.freeBuild && <Summons game={game} actions={actions} />}
       <ActionButton
         testId="ff-research-overview"

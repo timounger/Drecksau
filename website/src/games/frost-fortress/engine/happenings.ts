@@ -188,6 +188,10 @@ export function updateHappenings(game: Game, dt: number): void {
       expeditionReturns(game);
     }
   }
+  if (game.autoExplore && game.expedition <= 0) {
+    // Waits for the price if it cannot be paid yet.
+    startExpedition(game);
+  }
   if (game.time >= EVENTS_FROM) {
     game.eventIn -= dt;
     if (game.eventIn <= 0) {
@@ -212,6 +216,20 @@ export function startExpedition(game: Game): boolean {
     game.expedition = EXPEDITION_TIME;
   }
   return ok;
+}
+
+/**
+ * Switches the automatic expeditions on or off.
+ *
+ * @param game - the game, changed
+ * @returns true (always switched)
+ */
+export function toggleAutoExplore(game: Game): boolean {
+  game.autoExplore = !game.autoExplore;
+  if (game.autoExplore) {
+    startExpedition(game);
+  }
+  return true;
 }
 
 /**

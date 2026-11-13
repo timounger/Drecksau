@@ -50,6 +50,7 @@ import {
   startExpedition,
   summonAllies,
   summonEnemies,
+  toggleAutoExplore,
   startResearch,
   startUpgrade,
   step,
@@ -196,6 +197,8 @@ export type FrostGame = {
   /** Calls allied soldiers to the headquarters. */
   readonly callAllies: () => void;
   readonly explore: () => void;
+  /** Switches the automatic expeditions on or off. */
+  readonly autoExplore: () => void;
   readonly trade: (accept: boolean) => void;
   readonly setSpeed: (speed: number) => void;
   /** Switches the cheat on or off. */
@@ -1087,6 +1090,7 @@ export function useFrostGame(): FrostGame {
     callEnemies: (kind) => act((current) => summonEnemies(current, kind)),
     callAllies: () => act((current) => summonAllies(current) > 0),
     explore: () => act((current) => startExpedition(current)),
+    autoExplore: () => act((current) => toggleAutoExplore(current)),
     trade: (accept) =>
       act((current) => answerOffer(current, accept) || !accept),
     setSpeed,

@@ -41,6 +41,7 @@ const TOAST_MS = 2200;
  */
 export function FrostGame(): ReactElement {
   const {
+    autoExplore,
     beginMove,
     callAllies,
     callEnemies,
@@ -228,6 +229,7 @@ export function FrostGame(): ReactElement {
                   remove: remove,
                   move: beginMove,
                   explore: explore,
+                  autoExplore: autoExplore,
                   openResearch: () => setResearchOpen(true),
                   callEnemies: callEnemies,
                   callAllies: callAllies,

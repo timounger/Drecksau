@@ -343,6 +343,8 @@ export type Game = {
   eventIn: number;
   /** Seconds left on the expedition, or 0 when none is out. */
   expedition: number;
+  /** Sends the next expedition by itself as soon as one is back and paid for. */
+  autoExplore: boolean;
   stats: RunStats;
   /** True once the headquarters fell. */
   over: boolean;
@@ -381,5 +383,7 @@ export type SaveData = {
   readonly over: boolean;
   /** Missing in saves from before the cheat. */
   readonly cheat?: boolean;
+  /** Missing in saves from before automatic expeditions. */
+  readonly autoExplore?: boolean;
   readonly cheated?: boolean;
 };

@@ -49,7 +49,8 @@ export type GameId =
   | "zelda"
   | "weihnachtsmann"
   | "wurfduell"
-  | "frost-fortress";
+  | "frost-fortress"
+  | "imperavis";
 
 /** The shelves the collection is sorted onto. */
 export type GameCategory =
@@ -460,6 +461,16 @@ const ENTRIES: readonly GameDefinition[] = [
     href: "/frost-fortress",
     category: "action",
     addedOn: "2026-11-12",
+  },
+  {
+    id: "imperavis",
+    name: "IMPERAVIS",
+    tagline:
+      "Inseln besiedeln, Waren erzeugen, Bürger versorgen - baue ein Handelsreich über das Meer.",
+    emoji: "\u{1F3DD}\u{FE0F}",
+    href: "/imperavis",
+    category: "action",
+    addedOn: "2026-11-13",
   },
 ];
 

@@ -1,0 +1,634 @@
+/*
+ * The look of IMPERAVIS: dark wood and anthracite, brass frames, gold
+ * accents. Every class starts with "imp-", so nothing here touches another
+ * page even though the stylesheet stays loaded after leaving the game.
+ */
+
+/* In the components layer, so Tailwind's utilities (hidden, md:flex, ...)
+   still win over these base looks. */
+@layer components {
+  .imp-root {
+    --imp-wood-hi: #3d2c1f;
+    --imp-wood: #2b2019;
+    --imp-wood-lo: #1b1512;
+    --imp-coal: #1c1d20;
+    --imp-brass-lo: #6e5634;
+    --imp-brass: #a8875a;
+    --imp-brass-hi: #e3c27a;
+    --imp-gold: #e2c06e;
+    --imp-text: #f1e7d0;
+    --imp-muted: #bfae8d;
+    --imp-faint: #8c7c62;
+    --imp-good: #9cc777;
+    --imp-bad: #e07a63;
+    --imp-warn: #e8b64f;
+    --imp-scale: 1;
+    --imp-display: var(--font-imp-display), Georgia, "Times New Roman", serif;
+    color: var(--imp-text);
+  }
+
+  /* Larger screens get larger letters and symbols. */
+  @media (min-width: 2200px) and (min-height: 1250px) {
+    .imp-root {
+      --imp-scale: 1.3;
+    }
+  }
+  @media (min-width: 3000px) and (min-height: 1700px) {
+    .imp-root {
+      --imp-scale: 1.65;
+    }
+  }
+  @media (min-width: 3600px) and (min-height: 2000px) {
+    .imp-root {
+      --imp-scale: 2;
+    }
+  }
+
+  .imp-hud {
+    zoom: var(--imp-scale);
+  }
+
+  .imp-display {
+    font-family: var(--imp-display);
+    letter-spacing: 0.04em;
+  }
+
+  .imp-muted {
+    color: var(--imp-muted);
+  }
+
+  .imp-faint {
+    color: var(--imp-faint);
+  }
+
+  .imp-gold {
+    color: var(--imp-gold);
+  }
+
+  /* A frame of dark wood with a fine brass rim and four rivets. */
+  .imp-panel {
+    position: relative;
+    pointer-events: auto;
+    color: var(--imp-text);
+    background:
+      radial-gradient(
+        circle at 7px 7px,
+        var(--imp-brass-hi) 0 1.6px,
+        transparent 2.2px
+      ),
+      radial-gradient(
+        circle at calc(100% - 7px) 7px,
+        var(--imp-brass-hi) 0 1.6px,
+        transparent 2.2px
+      ),
+      radial-gradient(
+        circle at 7px calc(100% - 7px),
+        var(--imp-brass-hi) 0 1.6px,
+        transparent 2.2px
+      ),
+      radial-gradient(
+        circle at calc(100% - 7px) calc(100% - 7px),
+        var(--imp-brass-hi) 0 1.6px,
+        transparent 2.2px
+      ),
+      repeating-linear-gradient(
+        100deg,
+        rgb(255 255 255 / 0.012) 0 2px,
+        rgb(0 0 0 / 0.025) 2px 5px
+      ),
+      linear-gradient(180deg, rgb(47 35 26 / 0.95), rgb(25 21 19 / 0.95));
+    border: 1px solid var(--imp-brass-lo);
+    border-radius: 6px;
+    box-shadow:
+      inset 0 0 0 1px rgb(227 194 122 / 0.16),
+      inset 0 1px 0 rgb(255 236 190 / 0.14),
+      0 8px 24px rgb(0 0 0 / 0.45);
+    backdrop-filter: blur(3px);
+  }
+
+  /* The inner hairline of a frame. */
+  .imp-panel::before {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgb(176 141 87 / 0.28);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+
+  .imp-inset {
+    background: rgb(10 8 7 / 0.35);
+    border: 1px solid rgb(176 141 87 / 0.22);
+    border-radius: 4px;
+    box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.5);
+  }
+
+  .imp-card {
+    background: rgb(255 240 210 / 0.035);
+    border: 1px solid rgb(176 141 87 / 0.3);
+    border-radius: 5px;
+    padding: 0.5rem;
+  }
+
+  /* An ornamental rule: a line that fades out, a diamond in the middle. */
+  .imp-rule {
+    height: 9px;
+    background:
+      linear-gradient(
+          45deg,
+          transparent 45%,
+          var(--imp-brass) 45% 55%,
+          transparent 55%
+        )
+        center / 9px 9px no-repeat,
+      linear-gradient(
+          -45deg,
+          transparent 45%,
+          var(--imp-brass) 45% 55%,
+          transparent 55%
+        )
+        center / 9px 9px no-repeat,
+      linear-gradient(
+          90deg,
+          transparent,
+          var(--imp-brass-lo) 20%,
+          var(--imp-brass) 50%,
+          var(--imp-brass-lo) 80%,
+          transparent
+        )
+        center / 100% 1px no-repeat;
+  }
+
+  .imp-title {
+    font-family: var(--imp-display);
+    letter-spacing: 0.06em;
+    color: var(--imp-gold);
+    text-shadow: 0 1px 0 rgb(0 0 0 / 0.6);
+  }
+
+  /* Buttons: brass on wood. */
+  .imp-btn {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    color: var(--imp-text);
+    background: linear-gradient(180deg, #4b3a29, #2d2219);
+    border: 1px solid var(--imp-brass-lo);
+    border-radius: 4px;
+    box-shadow:
+      inset 0 1px 0 rgb(255 230 180 / 0.16),
+      0 1px 2px rgb(0 0 0 / 0.5);
+    transition:
+      background-color 120ms,
+      border-color 120ms,
+      color 120ms,
+      transform 80ms,
+      box-shadow 120ms;
+  }
+  .imp-btn:hover:not(:disabled) {
+    border-color: var(--imp-brass-hi);
+    color: #fff6e0;
+    background: linear-gradient(180deg, #5a4630, #34281d);
+  }
+  .imp-btn:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.6);
+  }
+  .imp-btn[aria-pressed="true"],
+  .imp-btn-primary {
+    border-color: var(--imp-gold);
+    color: #1d150c;
+    background: linear-gradient(180deg, #ecd08a, #b38c4c);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.45),
+      0 0 8px rgb(226 192 110 / 0.35);
+  }
+  .imp-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+  }
+  .imp-btn:focus-visible,
+  .imp-tab:focus-visible,
+  .imp-cat:focus-visible,
+  .imp-tile:focus-visible {
+    outline: 2px solid var(--imp-gold);
+    outline-offset: 1px;
+  }
+  .imp-btn-danger:hover:not(:disabled) {
+    border-color: var(--imp-bad);
+    color: #ffd9cf;
+  }
+
+  /* A large category button of the build bar. */
+  .imp-cat {
+    pointer-events: auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    cursor: pointer;
+    color: var(--imp-muted);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    transition:
+      color 140ms,
+      transform 140ms,
+      border-color 140ms,
+      background-color 140ms;
+  }
+  .imp-cat:hover {
+    color: var(--imp-text);
+    transform: translateY(-2px);
+    background: rgb(227 194 122 / 0.07);
+  }
+  .imp-cat:active {
+    transform: translateY(0);
+    background: rgb(227 194 122 / 0.14);
+  }
+  .imp-cat[aria-pressed="true"] {
+    color: var(--imp-gold);
+    border-color: var(--imp-gold);
+    background: radial-gradient(
+      ellipse at 50% 100%,
+      rgb(227 194 122 / 0.22),
+      transparent 70%
+    );
+    box-shadow: 0 0 10px rgb(226 192 110 / 0.25);
+  }
+  .imp-cat-badge {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    min-width: 1.1rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: #a8332a;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.1rem;
+  }
+
+  /* A brass medallion behind a symbol. */
+  .imp-medal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: radial-gradient(circle at 35% 30%, #4c3b29, #1b1511 75%);
+    border: 1px solid var(--imp-brass);
+    box-shadow:
+      inset 0 0 0 2px rgb(0 0 0 / 0.35),
+      inset 0 0 0 3px rgb(227 194 122 / 0.25),
+      0 2px 4px rgb(0 0 0 / 0.5);
+  }
+
+  /* A building tile of the build window. */
+  .imp-tile {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    text-align: left;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 5px;
+    border: 1px solid rgb(176 141 87 / 0.35);
+    background: linear-gradient(
+      180deg,
+      rgb(70 54 38 / 0.55),
+      rgb(28 22 18 / 0.6)
+    );
+    transition:
+      border-color 120ms,
+      transform 120ms,
+      box-shadow 120ms;
+  }
+  .imp-tile:hover {
+    border-color: var(--imp-brass-hi);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgb(0 0 0 / 0.4);
+  }
+  .imp-tile:active {
+    transform: translateY(0);
+    box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.5);
+  }
+  .imp-tile[aria-pressed="true"] {
+    border-color: var(--imp-gold);
+    box-shadow:
+      0 0 0 1px var(--imp-gold),
+      0 0 12px rgb(226 192 110 / 0.3);
+  }
+  /* The guided start's choice: gold frame, a soft glow and a badge. */
+  .imp-tile[data-recommended="true"] {
+    position: relative;
+    border-color: var(--imp-gold);
+    box-shadow:
+      0 0 0 1px var(--imp-gold),
+      0 0 16px rgb(226 192 110 / 0.45);
+    animation: imp-glow 2.4s ease-in-out infinite;
+  }
+  .imp-tile-badge {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--imp-brass-hi), var(--imp-brass));
+    color: #2b2019;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1rem;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+  }
+  .imp-cat[data-recommended="true"] {
+    color: var(--imp-gold);
+  }
+  .imp-cat-star {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 999px;
+    background: var(--imp-gold);
+    color: #2b2019;
+    animation: imp-glow 2.4s ease-in-out infinite;
+  }
+  .imp-cat[data-dim="true"] {
+    opacity: 0.45;
+    filter: saturate(0.3);
+  }
+  /* A line of advice of the guided start. */
+  .imp-guide {
+    border: 1px solid rgb(226 192 110 / 0.45);
+    border-radius: 4px;
+    background: rgb(226 192 110 / 0.08);
+  }
+  .imp-tile[data-locked="true"] {
+    cursor: not-allowed;
+    filter: saturate(0.3);
+    opacity: 0.7;
+  }
+
+  /* Tabs. */
+  .imp-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    border-bottom: 1px solid var(--imp-brass-lo);
+  }
+  .imp-tab {
+    pointer-events: auto;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    color: var(--imp-muted);
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    margin-bottom: -1px;
+    transition: color 120ms;
+  }
+  /* On a phone the tabs stay one row that scrolls sideways. */
+  @media (max-width: 767px) {
+    .imp-tabs {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .imp-tab {
+      white-space: nowrap;
+    }
+  }
+  .imp-tab:hover {
+    color: var(--imp-text);
+  }
+  .imp-tab:active {
+    color: var(--imp-gold);
+    background: rgb(227 194 122 / 0.08);
+  }
+  .imp-tab[aria-selected="true"] {
+    color: var(--imp-gold);
+    border-color: var(--imp-brass-lo);
+    background: linear-gradient(
+      180deg,
+      rgb(227 194 122 / 0.14),
+      rgb(43 32 25 / 0.95)
+    );
+  }
+
+  /* Form fields inside the game. */
+  .imp-input {
+    color: var(--imp-text);
+    background: rgb(10 8 7 / 0.55);
+    border: 1px solid var(--imp-brass-lo);
+    border-radius: 3px;
+    padding: 0 0.25rem;
+  }
+  .imp-input:focus {
+    outline: 1px solid var(--imp-gold);
+  }
+  .imp-input option {
+    background: #2b2019;
+    color: var(--imp-text);
+  }
+
+  /* Bars. */
+  .imp-bar {
+    height: 6px;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 3px;
+    background: rgb(0 0 0 / 0.45);
+    box-shadow: inset 0 0 0 1px rgb(176 141 87 / 0.25);
+  }
+  .imp-bar > div {
+    height: 100%;
+    transition: width 400ms ease-out;
+  }
+
+  /* The tooltip. */
+  .imp-tip {
+    pointer-events: none;
+    max-width: 300px;
+    padding: 0.4rem 0.6rem;
+    font-size: 12px;
+    line-height: 1.35;
+    white-space: pre-line;
+    color: var(--imp-text);
+    background: linear-gradient(180deg, #33261b, #1d1713);
+    border: 1px solid var(--imp-brass);
+    border-radius: 4px;
+    box-shadow: 0 6px 16px rgb(0 0 0 / 0.55);
+    animation: imp-fade 120ms ease-out;
+  }
+  .imp-tip strong {
+    display: block;
+    color: var(--imp-gold);
+    font-family: var(--imp-display);
+    letter-spacing: 0.04em;
+    margin-bottom: 0.15rem;
+  }
+
+  /* Notifications. */
+  .imp-note {
+    animation: imp-slide 220ms ease-out;
+  }
+  .imp-note[data-level="warning"] {
+    border-color: #9a7130;
+  }
+  .imp-note[data-level="alert"] {
+    border-color: #b44a3a;
+    box-shadow:
+      inset 0 0 0 1px rgb(224 122 99 / 0.35),
+      0 0 14px rgb(180 74 58 / 0.35),
+      0 8px 24px rgb(0 0 0 / 0.45);
+  }
+
+  /* Motion. */
+  .imp-open {
+    animation: imp-rise 180ms ease-out;
+  }
+  .imp-open-side {
+    animation: imp-side 200ms ease-out;
+  }
+  @keyframes imp-rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes imp-side {
+    from {
+      opacity: 0;
+      transform: translateX(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes imp-slide {
+    from {
+      opacity: 0;
+      transform: translateX(18px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes imp-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes imp-glow {
+    50% {
+      box-shadow:
+        0 0 0 1px var(--imp-gold),
+        0 0 4px rgb(226 192 110 / 0.2);
+    }
+  }
+  @keyframes imp-pulse {
+    50% {
+      color: var(--imp-bad);
+    }
+  }
+  .imp-pulse {
+    animation: imp-pulse 1.6s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .imp-open,
+    .imp-open-side,
+    .imp-note,
+    .imp-tip,
+    .imp-pulse,
+    .imp-tile[data-recommended="true"],
+    .imp-cat-star {
+      animation: none;
+    }
+    .imp-cat,
+    .imp-tile,
+    .imp-btn {
+      transition: none;
+    }
+  }
+
+  /* Scrollbars in the brass style. */
+  .imp-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--imp-brass-lo) transparent;
+  }
+
+  /* The layout over the map: bar on top, island overview left, object
+     window and minimap right, the build bar at the bottom, windows between. */
+  .imp-layout {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    gap: 0.5rem;
+    padding: 0 0.25rem 0.25rem;
+    pointer-events: none;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "top" "center" "bottom";
+  }
+  @media (min-width: 768px) {
+    .imp-layout {
+      padding: 0 0.5rem 0.5rem;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        "top top top"
+        "left center right"
+        "bottom bottom right";
+    }
+  }
+  .imp-area-top {
+    grid-area: top;
+    z-index: 20;
+  }
+  .imp-area-left,
+  .imp-area-center,
+  .imp-area-right,
+  .imp-area-bottom {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    gap: 0.5rem;
+  }
+  .imp-area-left {
+    grid-area: left;
+    align-items: flex-start;
+  }
+  .imp-area-center {
+    grid-area: center;
+  }
+  .imp-area-right {
+    grid-area: right;
+    align-items: flex-end;
+  }
+  .imp-area-bottom {
+    grid-area: bottom;
+    align-items: center;
+  }
+}

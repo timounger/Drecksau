@@ -49,7 +49,12 @@ export {
 } from "./build";
 export { callWave, summonEnemies, SUMMON_GROUP } from "./waves";
 export { ALLY_LIMIT, summonAllies } from "./combat";
-export { answerOffer, collectAt, startExpedition } from "./happenings";
+export {
+  answerOffer,
+  collectAt,
+  startExpedition,
+  toggleAutoExplore,
+} from "./happenings";
 
 /** Slices per second at least. */
 const SLICES_PER_SECOND = 30;
@@ -123,6 +128,7 @@ export function createGame(seed: number): Game {
     over: false,
     cheat: false,
     cheated: false,
+    autoExplore: false,
     rangeBoost: 1,
     freeBuild: false,
     messages: [],

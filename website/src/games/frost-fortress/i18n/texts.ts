@@ -286,6 +286,10 @@ export const FROST_TEXTS = {
   tiles: (count: number) => `${count.toFixed(1)} Felder`,
   expedition: "Erkundung aussenden",
   expeditionHint: "Ein Trupp sucht in der Wildnis nach Vorräten",
+  expeditionAuto: "Automatisch erneut aussenden",
+  expeditionAutoHint:
+    "Sobald der Trupp zurück ist und Nahrung und Treibstoff reichen, zieht er wieder los.",
+  expeditionWaiting: "(wartet auf Vorräte)",
   expeditionOut: (seconds: number) =>
     `Erkundung unterwegs - ${Math.ceil(seconds)} s`,
   nothingSelected: "Nichts ausgewählt",
