@@ -27,33 +27,36 @@ Die Regeln mit allen Zahlen stehen in `docs/games/imperavis/game-rules.md`.
 
 ### Systeme (Abschnitt 21 der Vorgabe)
 
-| System            | Datei(en)                                                                                     | Stand  |
-| ----------------- | --------------------------------------------------------------------------------------------- | ------ |
-| WorldManager      | `engine/world.ts`                                                                             | fertig |
-| IslandManager     | `engine/islands.ts`                                                                           | fertig |
-| TerrainSystem     | `engine/terrain.ts`, `engine/noise.ts`                                                        | fertig |
-| BuildingSystem    | `engine/buildings.ts`, `engine/placement.ts`, `engine/buildings-data.ts`, `engine/derived.ts` | fertig |
-| RoadSystem        | `engine/roads.ts` (Straßen, Pflaster), `engine/pathfinding.ts` (A\*, Dijkstra)                | fertig |
-| (Logistik)        | `engine/logistics.ts`, `engine/logistics-data.ts` (Wege der Karren, Tempi)                    | fertig |
-| PopulationManager | `engine/population.ts`, `engine/tiers.ts`                                                     | fertig |
-| EconomyManager    | `engine/economy.ts`                                                                           | fertig |
-| ProductionManager | `engine/production.ts`                                                                        | fertig |
-| ResourceManager   | `engine/goods.ts`                                                                             | fertig |
-| WarehouseManager  | `engine/warehouse.ts` (Lager, Karren)                                                         | fertig |
-| ShipManager       | `engine/ships.ts`, `engine/ships-data.ts`, `engine/fleets.ts` (Flotten, Kriegsbefehle)        | fertig |
-| TradeRouteManager | `engine/trade-routes.ts`                                                                      | fertig |
-| AIManager         | `engine/ai.ts` (KI-Spieler), `engine/trader.ts` (freier Händler), `engine/players.ts`         | fertig |
-| TimeManager       | `engine/time.ts` (Takt, Tag, Jahreszeit, Wetter)                                              | fertig |
-| SaveManager       | `engine/save.ts`, `storage/save-store.ts`                                                     | fertig |
-| CameraController  | `render/camera.ts`                                                                            | fertig |
-| UIManager         | `components/`                                                                                 | fertig |
-| AudioManager      | `audio/sounds.ts`                                                                             | fertig |
-| DiplomacyManager  | `engine/diplomacy.ts`                                                                         | fertig |
-| CombatManager     | `engine/combat.ts`, `engine/troops.ts` (Landtruppen), `engine/units-data.ts` (Einheiten)      | fertig |
-| QuestManager      | `engine/missions.ts`                                                                          | fertig |
-| (Ereignisse)      | `engine/incidents.ts`                                                                         | fertig |
-| (Forschung)       | `engine/research.ts`, `engine/research-data.ts`                                               | fertig |
-| (Einführung)      | `engine/tutorial.ts`, `engine/tutorial-data.ts`, `components/tutorial-panel.tsx`              | fertig |
+| System            | Datei(en)                                                                                                                                               | Stand  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| WorldManager      | `engine/world.ts`                                                                                                                                       | fertig |
+| IslandManager     | `engine/islands.ts`                                                                                                                                     | fertig |
+| TerrainSystem     | `engine/terrain.ts`, `engine/noise.ts`                                                                                                                  | fertig |
+| BuildingSystem    | `engine/buildings.ts`, `engine/placement.ts`, `engine/buildings-data.ts`, `engine/derived.ts`                                                           | fertig |
+| RoadSystem        | `engine/roads.ts` (Straßen, Pflaster), `engine/pathfinding.ts` (A\*, Dijkstra)                                                                          | fertig |
+| (Logistik)        | `engine/logistics.ts`, `engine/logistics-data.ts` (Wege der Karren, Tempi)                                                                              | fertig |
+| PopulationManager | `engine/population.ts`, `engine/tiers.ts`                                                                                                               | fertig |
+| EconomyManager    | `engine/economy.ts`                                                                                                                                     | fertig |
+| ProductionManager | `engine/production.ts`                                                                                                                                  | fertig |
+| ResourceManager   | `engine/goods.ts`                                                                                                                                       | fertig |
+| WarehouseManager  | `engine/warehouse.ts` (Lager, Karren)                                                                                                                   | fertig |
+| ShipManager       | `engine/ships.ts`, `engine/ships-data.ts`, `engine/fleets.ts` (Flotten, Kriegsbefehle)                                                                  | fertig |
+| TradeRouteManager | `engine/trade-routes.ts`                                                                                                                                | fertig |
+| AIManager         | `engine/ai.ts` (KI-Spieler), `engine/trader.ts` (freier Händler), `engine/players.ts`                                                                   | fertig |
+| TimeManager       | `engine/time.ts` (Takt, Tag, Jahreszeit, Wetter)                                                                                                        | fertig |
+| SaveManager       | `engine/save.ts`, `storage/save-store.ts`                                                                                                               | fertig |
+| CameraController  | `render/camera.ts`                                                                                                                                      | fertig |
+| UIManager         | `components/`                                                                                                                                           | fertig |
+| AudioManager      | `audio/sounds.ts`                                                                                                                                       | fertig |
+| DiplomacyManager  | `engine/diplomacy.ts`                                                                                                                                   | fertig |
+| CombatManager     | `engine/combat.ts`, `engine/troops.ts` (Landtruppen), `engine/units-data.ts` (Einheiten)                                                                | fertig |
+| QuestManager      | `engine/missions.ts`                                                                                                                                    | fertig |
+| (Ereignisse)      | `engine/incidents.ts`                                                                                                                                   | fertig |
+| (Katastrophen)    | `engine/disasters.ts`, `engine/disasters-data.ts`, `render/disasters-layer.ts`, `components/game-options.tsx`, `components/disaster-facts.tsx`          | fertig |
+| (Forschung)       | `engine/research.ts`, `engine/research-data.ts`                                                                                                         | fertig |
+| (Völker, Piraten) | `engine/factions.ts`, `engine/factions-data.ts`, `engine/faction-fleet.ts`, `engine/pirates.ts`, `engine/faction-events.ts`, `engine/faction-layout.ts` | fertig |
+| (Schwierigkeit)   | `engine/difficulty-data.ts` (Faktoren je Stufe, `difficultyOf`)                                                                                         | fertig |
+| (Einführung)      | `engine/tutorial.ts`, `engine/tutorial-data.ts`, `components/tutorial-panel.tsx`                                                                        | fertig |
 
 Befehle (`engine/commands.ts`) sind reine Datenobjekte mit der ID des
 Spielers (`PlayerCommand`), die zwischen zwei Takten angewendet werden; die
@@ -115,6 +118,22 @@ Forschung und Freischaltung (`game.players`), Besitz hängt an den Inseln
   Zuordnung der Betriebe zu Lagern sucht in wiederverwendeten Puffern. Das
   langsamste Takt-Stück auf der großen Karte mit drei KI: 6 bis 11 ms
   (vorher 31 bis 40 ms).
+- Fraktionen denken versetzt alle 2 s (Wirtschaft, Verträge, Piraten,
+  Ereignisse), ihre Schiffe einmal je Sekunde (versetzt), Türme alle 3 s.
+  Die Stadt jeder Fraktion ist ein einziges zusammengeführtes Mesh
+  (`render/factions-layer.ts`, Modelle in `render/faction-models.ts`), die
+  Boote im Hafen ein `InstancedMesh`. Langsamster Takt auf der großen Karte
+  mit drei KI und allen Fraktionen: 11 ms.
+- Katastrophen: Die Gefahrenzonen (Abstand zum Meer, Flussufer, tiefe Küste,
+  Seiten jeder Insel) entstehen einmal beim Erzeugen oder Laden der Welt; im
+  Takt wird nur jede Sekunde der Schaden im Wasser gerechnet und alle 60 s
+  gewürfelt. Überflutete Felder stehen in einem Raster (`game.flooded`, nicht
+  gespeichert). Die Ansicht baut Flut-, Dürre- und Schneeflächen nur neu, wenn
+  sich Katastrophe oder Gebäude ändern; Schwarm und Schnee sind feste
+  Partikel-Pools. Langsamster Takt auf der großen Karte mit drei KI, allen
+  Fraktionen und allen Katastrophen über 120 Minuten: 9,6 ms während einer
+  Katastrophe (Saat 12345); Spitzen bis 26 ms auf Saat 4242 kommen aus der
+  Wegsuche der Kriegsschiffe und treten ohne Katastrophen ebenso auf.
 - Karren und Bewohner weiter als 70 Felder vom Blickpunkt werden nicht
   gezeichnet; Schiffe tragen eine Flagge in der Farbe ihres Besitzers und bei
   Schaden einen Lebensbalken. Belastete Straßen, Routenlinien,
@@ -123,8 +142,16 @@ Forschung und Freischaltung (`game.players`), Besitz hängt an den Inseln
 ## Bedienung
 
 Neues Spiel: Kartengröße, Zahl der KI-Gegner (0 bis 3),
-"Friedliches Spiel" (kein Krieg, keine Piraten) und "Geführter Einstieg"
-(Standard an, siehe unten); die Saat ("Startwert der
+"Schwierigkeit" (Leicht / Normal / Schwer, Standard Normal, mit einer Zeile,
+was die Stufe bewirkt; siehe unten), "Friedliches Spiel" (kein Krieg, keine Piratenüberfälle), "Geführter Einstieg"
+(Standard an, siehe unten) und zwei einklappbare Abschnitte: "Ereignisse und
+Katastrophen" (je ein Kästchen für Feuer, Seuche, Sturm, Missernte, gute
+Ernte, Piratenüberfälle, Ereignisse der Fraktionen und die fünf
+Katastrophen, mit "Alle" und "Keine") und "Völker" (Qasirah, Shogunara,
+Valdoria, Skeld, Piraten - ein Kästchen für beide Banden). Die Auswahl steht
+in `GameSettings` (`eventsOff`, `culturesOff`) und damit im Spielstand; das
+Menü merkt sich die letzte (`settings/preferences.ts`), das Pausenmenü zeigt
+sie im laufenden Spiel; die Saat ("Startwert der
 Welt") ist nur bei eingeschaltetem Cheat-Modus zu sehen, sonst wird sie
 gewürfelt. Der Knopf "Cheat-Modus" in der Kopfzeile gibt unendlich Gold und
 volle Lager auf allen eigenen Inseln (`engine/cheat.ts`) sowie die Tempi 10x
@@ -235,7 +262,8 @@ halten, Rückzug und Patrouille. Ein Schiff vor der Küste ihrer Insel (kein
 Kontor nötig) holt sie mit "Einschiffen" an Bord, oder Truppen wählen und
 rechts auf das eigene Schiff klicken; Schiffe vor einer eigenen Werft werden
 schnell repariert; "Angriff: Insel" schickt es zu
-einer Insel eines Feindes im Krieg, "Absetzen: Insel" bringt sie auf jede
+einer Insel eines Feindes im Krieg (Reiter "Truppen" im Schiffsfenster, oder
+Rechtsklick mit dem Schiff auf Land), "Absetzen: Insel" bringt sie auf jede
 andere Insel (eigen, frei oder eines Rivalen); Truppen auf dem Land eines
 Rivalen im Frieden verärgern ihn bis hin zur Kriegserklärung. Verteidigt wird von selbst. Die Verwaltung hat die
 Registerkarte "Militär" (`components/military-view.tsx`). Im Fenster
@@ -338,6 +366,73 @@ Erledigt (Phasen 1-8, dazu die Prüfungen aus Phase 9):
   (Geschützguss, Kriegskunst, Dampfkraft). Speicherformat 4 (1 bis 3 werden
   umgewandelt).
 
+- Runde "Fremde Völker und Piraten": vier Völker (Sultanat von Qasirah,
+  Kaiserreich von Shogunara, Handelsrepublik Valdoria, Nordlande von Skeld)
+  und die Piraten von Krähenfels (große Karte auch die Bruderschaft vom
+  Schwarzriff) auf festen, gesperrten Heimatinseln (`world.factionHomes`,
+  nur in neuen Welten: `settings.factions`); eigene Lager, Betriebe, Gold,
+  Preise nach Bestand und Bedarf (Muster des freien Händlers), Handel nur per
+  Schiff im Hafen und über Handelsrouten, Lieferverträge mit Handelsschiffen
+  der Völker, Beziehung über die vorhandenen Erinnerungen von
+  `diplomacy.ts` (Stufen nur als Anzeige), Aufträge über `missions.ts`,
+  Ereignisse über `incidents.ts`, Freischaltungen (Parfümerie,
+  Lackpanzerung, Handelsprivileg, Skeld-Knarr), Hilfe mit Kriegsschiffen,
+  Exotik als freiwilliges Bedürfnis; Piraten-KI mit Zuständen, Überfällen
+  mit Zielbewertung, Flucht, Entern, Beute, Rache, Werft aus Piratengold,
+  Kanonentürmen, Schutzgeld, Schwarzem Markt, Schatzkarten. Der Rivale
+  "Haus Valdoro" heißt nun "Haus Varenne" (ID gleich, alte Stände laden mit
+  neuem Namen). Speicherformat 5; alte Welten (1 bis 4) laden ohne
+  Fraktionen und mit den Piraten wie bisher.
+
+- Runde "Katastrophen": Überschwemmung (Fluss oder Sturmflut), Dürre,
+  Schneesturm, Heuschreckenplage und Tsunami mit Vorwarnung, Dauer, Wirkung
+  auf Betriebe, Karren, Schiffe, Lager und Zufriedenheit, Darstellung auf der
+  Karte (Flutwasser, verdorrter Boden, Schwarm, Schnee, Welle) und Schutz:
+  Deich, Pumpstation, Bewässerung, Hafenmauer (neue Gebäude mit Modell), der
+  Zierbrunnen zum Teil, Brennmaterial im Lager. Frühestens nach 20 Minuten,
+  nie im geführten Einstieg, Ruhezeiten je Insel, Spieler und Art; die KI
+  baut Schutz nach einem Treffer oder als vorsichtiger Händler, Fraktionen
+  sind ebenso betroffen. Auswahl der Ereignisse und Völker beim neuen Spiel.
+  Speicherformat 6; Format 5 lädt mit allem an.
+
+- Runde "Diplomatie aller Mächte": Das Register "Fraktionen" der
+  Verwaltung ist weg; das Diplomatie-Fenster (`components/diplomacy-view.tsx`)
+  listet Rivalen, Völker und Piraten zusammen (in dieser Reihenfolge, mit
+  Filter Alle / Rivalen / Völker / Piraten), jede Macht als gleiche Karte
+  (`components/power-card.tsx`: Wappen, Name, Art, Status, Meinung mit
+  Stufe und Gründen, Geschenk- und Forderungsknöpfe; Völker und Piraten in
+  `components/faction-diplomacy.tsx`) mit "Hafen öffnen" und "Zur Insel".
+  Alle Diplomatie-Aktionen der Völker (Handelsbeziehungen, Geschenk,
+  Forderung, Waffenstillstand, Hilfe, Piratenjagd, Bündnis, Kunst,
+  Lieferverträge) und das Schutzgeld stehen nur noch dort; das Hafenfenster
+  behält Handel, Aufträge bzw. Taverne, Schwarzen Markt und Nachrichten und
+  verweist mit einem Knopf "Diplomatie" dorthin. Völker nehmen Geschenke
+  wie Rivalen (200 / 1000 Gold, 1 Punkt je 40 Gold, höchstens 25, Ruf +2)
+  und zahlen Forderungen (1000 Gold) aus ihrem eigenen Gold nach Stärke,
+  Charakter und Meinung oder lehnen mit Grund ab. Piraten sind von Beginn
+  an mit allen Spielern im Krieg (kein Waffenstillstand, kein Frieden);
+  Schutzgeld hält ihre Räuber fern, der Krieg bleibt. Ein Bündnis mit ihnen
+  öffnet sich nach 5 versenkten Schiffen anderer Gegner oder einem
+  eroberten bzw. zerstörten Kontor eines Rivalen (`faction.deeds`, je Bande
+  und Spieler); verbündete Piraten überfallen den Spieler nicht mehr und
+  greifen seine Kriegsgegner an, ein Angriff auf sie bricht das Bündnis und
+  setzt den Zähler zurück. Das Speicherformat bleibt 6: Beim Laden wird
+  jede Beziehung zu Piraten ohne Bündnis zu Krieg, ihre Waffenstillstände
+  verfallen, Schutzgeld und Bündnis bleiben, fehlende `deeds` sind leer.
+
+- Runde "Schwierigkeit": Auswahl Leicht / Normal / Schwer beim neuen
+  Spiel (gemerkt in `newGameSetting`), gespeichert als
+  `settings.difficulty`; das Pausenmenü ("In diesem Spiel") und die
+  Spielstandliste zeigen sie. Alle Faktoren stehen in einer Tabelle
+  (`engine/difficulty-data.ts`, gelesen nur über `difficultyOf(game)`):
+  Startgold und Ladung des Menschen; Denk-Takt, Budget, Häuser und Inseln,
+  Arbeitstempo, Unterhalt und Kriegsschwelle (gegen den Menschen) der
+  Rivalen; Pausen, Zahl und Schiffsbau der Piraten; Häufigkeit und Wirkung
+  von Katastrophen, Feuer und Seuche; Einkaufs- und Verkaufspreise des
+  Menschen beim Händler und bei den Völkern. "Normal" ist schrittgleich mit
+  dem Spiel vorher. Speicherformat bleibt 6 (fehlende Stufe = Normal). Die
+  Bestwerte der Statistik unterscheiden die Stufe nicht.
+
 Offen: ein Mehrspielermodus mit Server (bewusst nicht gebaut). Die KI
 erreicht in 120 Minuten Kaufleute, aber noch keine Ingenieure.
 
@@ -360,5 +455,7 @@ Einführung aus, `tutorial` erzwingt die Einführung (auch mit `found` und
 `scholar` erledigt die Forschungen ohne Vorbedingung, `ai=0..3` setzt die
 Zahl der KI-Gegner, `peace` das friedliche Spiel, `debug` stellt
 `window.imperavisDebug` für Browsertests bereit (Befehle, `run(s)`,
-`spawn(owner, kind, x, y)`, `ignite(id)`, `grant(points)`, `stats()` mit
+`spawn(owner, kind, x, y)`, `event(faction, kind)` (Ereignis einer
+Fraktion), `disaster(kind, island)` (kündigt eine Katastrophe sofort an;
+Schneesturm mit Insel -1), `ignite(id)`, `grant(points)`, `stats()` mit
 CPU-Zeit je Bild, Dreiecken und Draw Calls der Ansicht).

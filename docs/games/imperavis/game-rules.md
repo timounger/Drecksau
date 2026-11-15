@@ -10,7 +10,7 @@ stehen als Tabellen in `buildings-data.ts`, `goods.ts`, `tiers.ts`,
 ## Ziel
 
 Aufbauspiel ohne festes Ende gegen 0 bis 3 KI-Gegner (Standard 2). Jeder
-Spieler beginnt mit 3000 Gold und einem Schoner vor seiner Heimatinsel
+Spieler beginnt (auf "Normal", siehe [Schwierigkeit](#schwierigkeit)) mit 3000 Gold und einem Schoner vor seiner Heimatinsel
 (Ladung: 50 Bretter, 14 Werkzeug, 24 Fisch, 10 Ziegel). Es zählt, wie groß
 die Bevölkerung wird und welche Schicht sie erreicht. Die Heimatinseln der
 KI liegen möglichst weit (mindestens 22 % der Kartenbreite) vom Spieler und
@@ -245,12 +245,18 @@ selbst.
 | Maschinenbau     | 3x2   | 2000 Gold, Ziegel 14, Werkzeug 8, Glas 4                     | sofort  | 32            | 6 Ingenieure  | 2 Eisen + 1 Instrumente -> 1 Dampfmaschinen in 45 s | -             | 460                                    | Forschung Dampfkraft            |
 | Wachturm         | 2x2   | 400 Gold, Bretter 6, Steinquader 6, Werkzeug 2               | sofort  | 6             | -             | -                                                   | 9             | 600 (Rüstung 20 %), Kanonen 22/9/2.5 s | 30 Arbeiter                     |
 | Küstenbatterie   | 2x2   | 900 Gold, Ziegel 10, Steinquader 10, Werkzeug 6              | sofort  | 14            | -             | -                                                   | 12            | 1000 (Rüstung 35 %), Kanonen 45/12/4 s | Forschung Festungsbau           |
+| Deich            | 3x1   | 150 Gold, Bretter 2, Steinquader 6                           | sofort  | 2             | -             | -                                                   | 7             | 280                                    | 50 Bauern                       |
+| Pumpstation      | 2x2   | 350 Gold, Bretter 4, Ziegel 6, Werkzeug 3                    | sofort  | 6             | -             | -                                                   | 12            | 340                                    | 40 Arbeiter                     |
+| Bewässerung      | 2x2   | 200 Gold, Bretter 4, Steinquader 4                           | sofort  | 3             | -             | -                                                   | 9             | 340                                    | 30 Arbeiter                     |
+| Hafenmauer       | 3x1   | 400 Gold, Steinquader 12, Werkzeug 2                         | sofort  | 5             | -             | -                                                   | 12            | 900 (30 % Rüstung)                     | 50 Arbeiter                     |
 
 Standortbedarf: Holzfäller mindestens 4 unberührte Waldfelder im Umkreis 5
 (volle Leistung ab 16), Fischerhütte an der Küste mit mindestens 30
 Meerfeldern im Umkreis 6 (voll ab 60), Lehmgrube, Steinbruch und Erzmine ein
-passendes Vorkommen im Umkreis 3, Höfe die Fruchtbarkeit der Insel, Kontor
-und Werft die Küste.
+passendes Vorkommen im Umkreis 3, Höfe die Fruchtbarkeit der Insel, Kontor,
+Werft und Hafenmauer die Küste. Deich und Pumpstation stehen in der
+Infrastruktur, die Bewässerung in der Landwirtschaft, die Hafenmauer im
+Hafen (siehe "Katastrophen").
 
 ## Lager und Karren
 
@@ -541,7 +547,7 @@ und die Forschung.
 
 | KI              | Charakter    | Goldreserve beim Bauen (Kolonie +) | Häuser je Insel | nächste Insel ab Einwohnern je Insel | ab Gold | Inseln höchstens | Gelehrtenhäuser | Soldaten Frieden/Krieg | Kriegsschiffe Frieden/Krieg | Unterhalt der Gebäude | erste Forschung     |
 | --------------- | ------------ | ---------------------------------- | --------------- | ------------------------------------ | ------- | ---------------- | --------------- | ---------------------- | --------------------------- | --------------------- | ------------------- |
-| Haus Valdoro    | Händler      | 900 (+1200)                        | 44              | 110                                  | 2500    | 3                | 2               | 0 / 4                  | 0 / 2                       | 100 %                 | Glasmacherkunst     |
+| Haus Varenne    | Händler      | 900 (+1200)                        | 44              | 110                                  | 2500    | 3                | 2               | 0 / 4                  | 0 / 2                       | 100 %                 | Glasmacherkunst     |
 | Haus Morvaine   | Kriegerisch  | 700 (+1200)                        | 38              | 140                                  | 2500    | 3                | 1               | 4 / 10                 | 2 / 4                       | 100 %                 | Festungsbau         |
 | Haus Elsenreich | Expansionist | 900 (+900)                         | 52              | 45                                   | 1600    | 4                | 1               | 0 / 4                  | 0 / 2                       | 75 %                  | Fruchtwechsel, Glas |
 
@@ -670,6 +676,16 @@ und die Forschung.
   und keinen Pakt mit ihm haben. Im friedlichen Spiel gibt es keinen Krieg.
 - Angebote einer KI an den Spieler (Verträge, Frieden, Forderungen, Tausch)
   stehen 120 s; Krieg, Geschenke und Kündigungen gelten sofort.
+- Das Diplomatie-Fenster (Verwaltung, Register "Diplomatie") listet alle
+  Mächte zusammen: erst die KI-Rivalen, dann die vier Völker, dann die
+  Piratenbanden; ein Filter (Alle / Rivalen / Völker / Piraten) zeigt eine
+  Art allein. Jede Macht ist eine Karte im gleichen Aufbau: Wappen, Name,
+  Art (Rivale, Volk, Piraten), Status (Frieden, Handelsbeziehung, Bündnis,
+  Krieg, "Krieg - Schutzgeld bezahlt", "Friedliches Spiel"), Herrscher bzw.
+  Charakter, Stärke, Meinung mit Balken (bei Völkern und Piraten mit Stufe)
+  und Gründen, darunter ihre Aktionen; Völker und Piraten haben dazu "Hafen
+  öffnen" (ihr Hafenfenster) und "Zur Insel". Ein eigenes Register
+  "Fraktionen" gibt es nicht mehr.
 
 ## Militär
 
@@ -765,7 +781,10 @@ fertiges eigenes Gebäude der Art.
   Kontor liegt oder Land dieser Insel höchstens 4 Felder entfernt ist (jede
   Küste, kein Kontor nötig). Rechtsklick mit gewählten Truppen auf ein eigenes
   Schiff schickt genau diese an Bord (Befehl `embark` mit `soldiers`),
-  Abgesetzt wird auf jeder Insel (Auswahl im Schiffsfenster, nächste zuerst):
+  Abgesetzt wird auf jeder Insel: im Schiffsfenster (Reiter "Truppen" mit
+  Auswahl der Inseln, nächste zuerst; die Übersicht zeigt bei Soldaten an
+  Bord den Knopf "... Soldaten an Bord - jetzt absetzen") oder per Rechtsklick
+  mit dem gewählten Schiff auf Land einer Insel:
   "Angriff: Insel" (Feind im Krieg) schickt das Schiff vor das Kontor; dort
   gehen sie auf dem nächsten Land im Umkreis von 4 Feldern an Land und
   marschieren auf einem einmal gesuchten Weg (A*) zum Kontor. "Absetzen"
@@ -841,6 +860,79 @@ fertiges eigenes Gebäude der Art.
   oder 420 s ab.
 - Ein Sturm beschädigt jedes Schiff auf See einmal um 8 bis 20 % seiner LP
   (versenkt aber keines).
+- Jede Ereignisart lässt sich beim neuen Spiel abwählen (siehe
+  "Spieleinstellungen"): Feuer, Seuche, Sturm auf See (aus: statt Sturm
+  regnet es), Missernte, gute Ernte, Piratenüberfälle (Überfälle der Banden,
+  ihre große Flotte und die Piraten alter Welten), Ereignisse der Völker und
+  Piraten (Hungersnot bis Meuterei; Aufträge der Fraktionen bleiben) und die
+  fünf Katastrophen.
+
+## Katastrophen
+
+Fünf Naturkatastrophen (`engine/disasters.ts`, Zahlen in
+`engine/disasters-data.ts`). Jede wird angekündigt (Meldung mit Sekunden bis
+zum Schlag), schlägt zu, wütet eine Weile, endet mit einer Meldung und ist
+auf der Karte zu sehen. Gewürfelt wird alle 60 s, frühestens nach 20
+Spielminuten, je Insel eines Spielers oder einer Fraktion in fester
+Reihenfolge (Überschwemmung, Dürre, Heuschrecken, Tsunami), höchstens eine
+Katastrophe je Insel. Nach einer Katastrophe hat die Insel 15 Minuten Ruhe,
+ihr Besitzer auf allen Inseln 10 Minuten; jede Art kommt nach ihrem Ende
+erst nach ihrer Pause wieder (Überschwemmung 5, Dürre und Heuschrecken 10,
+Tsunami 25, Schneesturm 7 Minuten). Während des geführten Einstiegs trifft
+keine Katastrophe den Menschen. Überschwemmung, Dürre und Tsunami kommen zu
+einem Spieler erst, wenn er ihren Schutz (Deich, Bewässerung, Hafenmauer)
+bauen könnte.
+
+| Katastrophe       | Chance je Wurf             | Vorwarnung | Dauer                      | Wann                                             | Wirkung                                                                                                                                                                                                                                                                                                                                                                               | Schutz                                                                                                                      |
+| ----------------- | -------------------------- | ---------- | -------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Überschwemmung    | 2,5 % je Insel             | 30 s       | 120 s                      | Insel mit Gebäuden am Fluss oder an tiefer Küste | Entweder tritt der Fluss über die Ufer (Land bis 2 Felder neben dem Fluss) oder eine Sturmflut überspült die tiefe Küste einer Seite (unter Höhe 1,3, bis 3 Felder vom Meer). Betriebe im Wasser stehen still ("Überflutet") und verlieren ihre Waren; Gebäude verlieren 0,3 % LP je Sekunde (nie unter 40 %) und werden im Wasser nicht repariert; Karren fahren nicht durch Wasser. | Deich: in seiner Reichweite (7) läuft kein Wasser. Pumpstation: legt ihre Reichweite (12) 25 s nach dem Hochwasser trocken. |
+| Dürre             | 6 % je Insel               | 45 s       | 300 s                      | Sommer, klares Wetter, Insel mit Höfen           | Höfe und Plantagen (Schaf, Getreide, Wein, Tabak) tragen 35 %.                                                                                                                                                                                                                                                                                                                        | Bewässerung (Reichweite 9): 100 %. Zierbrunnen in Reichweite: 60 %.                                                         |
+| Heuschreckenplage | 1,5 % je Insel             | 20 s       | Schwarm 60 s, Felder 240 s | Insel mit mindestens 2 Höfen                     | Die Hälfte der Höfe (aufgerundet) ist 240 s kahl ("Kahlgefressen", Produktion 0, Ausgang verloren); im Lager frisst der Schwarm 30 % Getreide, 15 % Mehl, 10 % Brot.                                                                                                                                                                                                                  | Kein Gebäude: Vorräte im Lager und Höfe auf anderen Inseln.                                                                 |
+| Tsunami           | 0,5 % je Insel             | 25 s       | Welle 6 s                  | Insel mit Gebäuden an der Küste                  | Die Welle trifft eine Seite der Insel (Felder bis 5 vom Meer): Hafenanlagen (Kontor, Werft, Fischer, Perlentaucher, Küstenbatterie) verlieren 60 % LP, andere Gebäude 45 % (nie unter 15 %); ein getroffenes Kontor verliert 12 % jeder Ware; Schiffe am Kontor 40 % LP, Schiffe auf See bis 40 Felder 10 % (nie unter 10 %).                                                         | Hafenmauer (Reichweite 12): Hafenanlagen 15 %, sonst 40 % der Wucht, Lager und Schiffe am Kontor ebenso. Deich: 50 %.       |
+| Schneesturm       | 15 % je Wurf (ganze Karte) | 30 s       | 150 s                      | nur im Winter                                    | Karren auf Straßen nur im Geländetempo (Straße 0,4, Pflaster 0,6 der Straßengeschwindigkeit, Gelände 85 %), Schiffe 70 % Tempo. Jedes Haus in Reichweite eines Marktes verbrennt 0,02 Brennmaterial je Bewohner und Minute (erst Kohle, dann Holz); fehlt es, sinkt die Zufriedenheit um bis zu 30 Punkte.                                                                            | Holz und Kohle im Lager.                                                                                                    |
+
+Fraktionen werden ebenso getroffen: Ihre Betriebe arbeiten während einer
+Überschwemmung mit 60 %, einer Dürre mit 50 %, bei Heuschrecken mit 40 %
+(die fressen auch ihr Getreide und Brot); ein Tsunami verdirbt 25 % ihrer
+drei größten Bestände und schließt ihren Hafen 90 s. Die KI baut Schutz, wenn
+eine Katastrophe sie getroffen hat (Deich, Pumpstation, Bewässerung,
+Hafenmauer gegen das, was kam), der vorsichtige Händler-Charakter auch
+vorher (außer der Pumpstation); je Insel höchstens 3 Deiche, 1 Pumpstation,
+2 Bewässerungen und 1 Hafenmauer, jeweils neben einem gefährdeten Gebäude.
+
+Anzeige: Das Gebäudefenster nennt die Gefahren am Standort und was davor
+schützt, bei Schutzgebäuden die Zahl der gefährdeten Gebäude in Reichweite;
+Häuser zeigen im Schneesturm, wie gut ihr Brennmaterial reicht. Die
+Bauvorschau eines Schutzgebäudes nennt "schützt hier N Gebäude" und färbt
+die gefährdeten Felder der eigenen Inseln: grün, wo diese Art schon schützt,
+rot, wo nicht. Auf der Karte: Flutwasser über den überfluteten Feldern,
+gelbbrauner Boden bei Dürre, ein dunkler Schwarm über den Höfen, Schnee auf
+Land und Straßen mit dichtem Schneefall, die Welle, die in den letzten 14 s
+auf die Küste zuläuft.
+
+Gemessen (Headless, Saat 777, mittlere Karte, eine KI-Insel nach 50
+Minuten, jede Katastrophe einzeln erzwungen):
+
+| Katastrophe                            | ohne Schutz                                                                                                | mit Schutz                                                                                                                          |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Überschwemmung (88 Felder, 8 Betriebe) | 8 Betriebe 120 s unter Wasser (952 Betriebs-Sekunden), 1426 LP Schaden, Produktion der Insel 344 statt 424 | 11 Deiche: 2 Felder nass, kein Betrieb, kein Schaden; 3 Pumpstationen: nach 30 s noch 1 Betrieb nass, 294 Betriebs-Sekunden, 230 LP |
+| Dürre (11 Höfe, 300 s)                 | Ernte 46 %                                                                                                 | 4 Bewässerungen: 95 %                                                                                                               |
+| Heuschrecken (11 Höfe)                 | 6 Höfe kahl, Getreide 100 -> 73, Brot 100 -> 95, Ernte in 5 min 99 statt 206                               | -                                                                                                                                   |
+| Schneesturm                            | Karren 1,1 statt 2,6 Felder/s, Schiffe 2,2 statt 3,1 Felder/s, Zufriedenheit 67 % statt 73 %               | mit Holz und Kohle: 14 Brennmaterial verbraucht, Zufriedenheit 72 % wie ohne Sturm                                                  |
+| Tsunami (25 Gebäude)                   | Hafenanlagen -60 % LP, andere -45 %, Lager -12 %                                                           | Hafenmauer und Deiche: Hafenanlagen -9 %, andere -18 %, Lager -2 %                                                                  |
+
+Häufigkeit (große Karte, drei KI, alle Fraktionen, 120 Minuten, Saaten
+12345, 777 und 4242 zusammen): 29 Überschwemmungen, 20 Dürren, 13
+Heuschreckenplagen, 6 Tsunamis und 3 Schneestürme; davon trafen die KI 25
+(je KI-Spieler rund eine alle 35 Minuten), die Fraktionen 43, die ganze
+Karte 3. Die erste kam nach 22 Minuten. Die KI baute danach Deiche, Pumpstationen,
+Bewässerung und Hafenmauern (zum Beispiel Saat 4242: Händler 3 Deiche, 1
+Pumpstation, 2 Bewässerungen). KI-Einwohner nach 120 Minuten mit gegen ohne
+Katastrophen: 12345 1360 gegen 1504, 777 1684 gegen 1671, 4242 1469 gegen
+1504 (zusammen 4513 gegen 4679, -3,5 %). Takt: höchstens 9,6 ms (12345),
+8,1 ms (777) während einer Katastrophe; Saat 4242 hat Spitzen bis 26 ms, die
+aus der Wegsuche der Kriegsschiffe kommen und ohne Katastrophen ebenso
+auftreten (20 ms).
 
 ## Forschung
 
@@ -865,10 +957,280 @@ fertiges eigenes Gebäude der Art.
   (Stufe 2 x1,5). Gearbeitet wird an einem Feld; ein fertiges Feld schaltet
   frei, was in der Tabelle steht.
 
+## Fremde Völker und Piraten
+
+Jede neue Welt hat vier fremde Völker und eine Piratenbande (große Karte:
+zwei Banden, die zweite ist die Bruderschaft vom Schwarzriff), je mit einer
+festen, kleinen Heimatinsel (Radius 7,5 Felder). Der Generator legt sie
+direkt nach der Startinsel an: mindestens 30 % der Kartenbreite vom Start
+und 20 % voneinander (die beste von 400 Stellen aus der Saat; eine kleine
+Karte nimmt so viele Völker, wie Platz ist, aber nie weniger als zwei). Die
+üblichen Inseln kommen danach in voller Zahl dazu, die Rivalen starten weit
+weg von den Fraktionen. Die Heimatinseln sind für alle Bauprüfungen
+gesperrt (Grund "Heimatinsel eines fremden Volkes oder von Piraten"), kein
+Siedlungsziel der KI oder eines Auftrags, nicht eroberbar und nicht
+zerstörbar; Truppen landen dort nicht. Aussehen: Sand, Kuppeln und Palmen
+(Qasirah), Pagoden, geschwungene Dächer und Kirschbäume (Shogunara), helle
+Steinhäuser mit roten Ziegeln und Markt (Valdoria), Langhäuser im
+Nadelwald mit Wachtürmen (Skeld), dunkle Klippen mit Festung,
+Kanonentürmen, schwarzen Flaggen, Wracks und Lagerfeuern (Piraten). Die
+Stadt ist je Insel ein einziges Mesh; dazu rudern kleine Boote im Hafen,
+Rauch steigt auf, die Fraktionsschiffe tragen ihre Flagge.
+
+Alte Welten (Spielstände der Formate 1 bis 4) bekommen keine neuen Inseln,
+weil die Karte aus der Saat entsteht: Sie laden ohne Fraktionen, und ihre
+Piraten verhalten sich wie bisher (Überfall auf ein Kontor vom Kartenrand).
+
+| Fraktion                     | Insel       | Herrscher                 | Art     | Start | Gold/min | Betriebe (je min)                           | Verbrauch (je min)                                                                     | verkauft                          | kauft                                                                                                      | Schiffe                                     | Freischaltung                                                                                                                    |
+| ---------------------------- | ----------- | ------------------------- | ------- | ----- | -------- | ------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Sultanat von Qasirah         | Qasirah     | Sultanin Nadira           | Volk    | 10    | 320      | Gewürze 6, Seide 3, Parfüm 1                | Bretter 1,6, Werkzeug 0,8, Glas 0,6, Schmuck 0,25, Instrumente 0,25, Fisch 1,5, Brot 1 | Gewürze, Seide, Parfüm            | Bretter, Holz, Werkzeug, Glas, Schmuck, Instrumente, Fisch, Brot, Eisen                                    | 2 x Frachtschiff, 1 x Fregatte              | Rezept der Parfümerie: ein neuer Betrieb macht aus Gewürzen und Glas Parfüm, das die oberen Schichten lieben. (ab 20, 2500 Gold) |
+| Kaiserreich von Shogunara    | Shogunara   | Kaiserin Sayaka           | Volk    | 0     | 260      | Tee 6, Porzellan 3, Seide 1,5               | Eisen 1,2, Musketen 0,5, Kanonen 0,2, Bretter 1,2, Fisch 1,5, Getreide 1,5             | Tee, Porzellan, Seide             | Eisen, Musketen, Kanonen, Bretter, Holz, Fisch, Getreide, Werkzeug                                         | 1 x Klipper, 3 x Fregatte                   | Lackpanzerung: alle deine Schiffe bekommen 10 Prozentpunkte mehr Rüstung. (ab 20, 3000 Gold)                                     |
+| Handelsrepublik Valdoria     | Valdoria    | Dogin Livia Morosetti     | Volk    | 5     | 380      | Wein 5, Glas 3, Olivenöl 5, Luxusmöbel 1,5  | Holz 2, Bretter 1, Ziegel 1,2, Steinquader 1, Getreide 1,5, Wolle 1, Stoff 0,8         | Wein, Glas, Olivenöl, Luxusmöbel  | Holz, Bretter, Ziegel, Steinquader, Getreide, Wolle, Stoff, Kleidung, Werkzeug und jeden Überschuss (60 %) | 3 x Klipper, 1 x Fregatte                   | Handelsprivileg: 12 % bessere Preise in Valdoria und exklusive Lieferverträge mit 12 % besserem Preis. (ab 60, 0 Gold)           |
+| Nordlande von Skeld          | Skeld       | Jarl Ragnhild             | Volk    | 0     | 180      | Pelze 4, Fisch 8, Wolle 5, Eisen 3, Seile 5 | Getreide 2, Brot 1, Bier 1,2, Wein 0,5, Kleidung 0,6, Werkzeug 0,6                     | Pelze, Fisch, Wolle, Eisen, Seile | Getreide, Brot, Bier, Wein, Kleidung, Stoff, Werkzeug, Ziegel                                              | 1 x Skeld-Knarr, 2 x Kanonenboot            | Bauplan der Skeld-Knarr: ein robuster, schwer gepanzerter Frachter für deine Werften. (ab 20, 2000 Gold)                         |
+| Piraten von Krähenfels       | Krähenfels  | Kapitän Brack Rabenauge   | Piraten | -25   | 140      | Rum 4, Fisch 3, Bretter 2                   | Fisch 1,5, Brot 0,8, Bier 0,6, Wein 0,4, Rum 1                                         | Rum, Schatzkarte                  | Musketen, Kanonen, Werkzeug, Holz, Bretter, Brot, Bier, Wein                                               | 3 Piratenboote zu Beginn, dann eigene Werft | -                                                                                                                                |
+| Bruderschaft vom Schwarzriff | Schwarzriff | Kapitänin Ysolde Riffzahn | Piraten | -30   | 110      | Rum 3, Fisch 3, Bretter 2                   | Fisch 1,5, Brot 0,6, Rum 1, Bier 0,6                                                   | Rum, Schatzkarte                  | Musketen, Kanonen, Werkzeug, Bretter, Brot, Bier, Wein, Kleidung                                           | 2 Piratenboote zu Beginn, dann eigene Werft | -                                                                                                                                |
+
+Jede Fraktion hat ein eigenes Lager (höchstens 400 je Ware) und eigenes
+Gold. Waren entstehen nur in ihren festen Betrieben (Raten oben; bei einer
+Epidemie halb, bei reicher Ernte eine Ware dreifach) und durch Handel; ihre
+Leute verbrauchen die Liste oben (bei Hungersnot Nahrung dreifach). Gold
+kommt von ihren Einwohnern (Gold/min) und aus dem Handel. Lage eines Volkes:
+Ruhig, Produziert, Handelt, Verhandelt, Baut Schiffe, Verteidigt sich,
+Erholt sich; der Piraten: Ruhig, Patrouille, Sucht Beute, Verfolgt, Greift
+an, Plündert, Kehrt heim, Repariert, Verhandelt.
+
+### Preise und Handel
+
+Preis = Wert x (1 + Ausschlag x Druck), Druck = (Ziel - Bestand) / Ziel,
+begrenzt auf -1 bis 1; Ziel 150 bei eigenen Waren, 120 bei gesuchten, 60 bei
+anderem Überschuss (der nur 60 % bringt). Ausschlag 0,5 bis 0,85 (Valdoria
+am stärksten). Kaufpreis = Preis x 1,15, Verkaufspreis = Preis x 0,8,
+jeweils 5 / 10 / 15 % besser bei Freundlich / Verbündet / Vertrauensvoll
+(Misstrauisch 5 % schlechter); bei einer Hungersnot kostet Nahrung 60 % mehr.
+Ein Geschäft rechnet mit dem Bestand nach der halben Menge, also steigt und
+fällt der Preis nachvollziehbar mit jeder Menge. Eine Fraktion behält einen
+Teil ihres Ziels zurück (65 / 40 / 25 / 12 / 5 % von Misstrauisch bis
+Vertrauensvoll) - Freunde bekommen größere Mengen - und kauft nur, solange
+sie mehr als 1500 Gold hat. Ein Volk kauft seine eigenen Waren nicht zurück.
+
+Gehandelt wird nur mit einem eigenen Schiff im Hafen (still, höchstens 3,5
+Felder vom Liegeplatz) und nach "Handelsbeziehungen aufnehmen" (ab der
+Handelsgrenze: Shogunara ab -20, Skeld ab -40, sonst ab -60). Rechtsklick
+auf eine Fraktionsinsel schickt ein Schiff in ihren Hafen; das Schiffsfenster
+zeigt dann "Hafen von ...". Handelsrouten können Fraktionshäfen als Halt
+haben: Ausladen verkauft, Einladen kauft; die Grenze ist der Mindest- bzw.
+Höchstpreis je Einheit (0 = jeder Preis). Ein Sturm im Hafen schließt ihn
+2 Minuten.
+
+### Lieferverträge
+
+Ein Volk schließt bis zu zwei Verträge je Spieler: alle 10 Minuten 10 bis
+100 Einheiten, beim Verkauf zu 95 % des Preises beim Ziel-Bestand (beim
+Kauf umgekehrt); Valdorias Privileg gibt 12 % mehr. Ein Handelsschiff des
+Volkes segelt zum Kontor des Spielers (dem mit dem meisten der Ware), lädt
+bzw. entlädt dort und zahlt bzw. kassiert. Fehlt dem Spieler Ware oder Gold,
+ist die Lieferung ausgesetzt und zählt als Bruch (Erinnerung -6, bei
+Shogunara doppelt); nach 3 Brüchen in Folge kündigt das Volk (weitere -12).
+Fehlt dem Volk die Ware oder ein freies Schiff, ist die Lieferung ohne Bruch
+ausgesetzt. Jede gelungene Lieferung bringt +3 Erinnerung. Wird das Schiff
+unterwegs versenkt, ist die Ladung verloren.
+
+### Beziehung und Diplomatie
+
+Die Beziehung läuft über dieselben Beziehungen und Erinnerungen wie bei den
+Rivalen (`diplomacy.ts`), verblasst aber langsamer (0,997 je 10 s). Meinung
+= Wesen (Start oben) + halber Ruf + Handelsbeziehung 5 + Bündnis 15 +
+Schutzgeld 10 - Feindschaft 40 (nur bei Völkern; der Krieg der Piraten
+zählt nicht extra) + Erinnerungen (Handel bis 4 je Geschäft,
+Geschenke 1 je 40 Gold bis 25, Verträge, Aufträge, Jagd auf Piraten +4 je
+versenktem Piratenschiff, Angriffe -1 je Treffer und -8 je versenktem
+Schiff ...). Das Temperament gewichtet: Qasirah Handel x1,5, Valdoria Handel
+x2, Shogunara Verträge und Brüche x2, Skeld Piratenjagd x2. Stufen: bis -60
+Feindselig, -59 bis -20 Misstrauisch, -19 bis 19 Neutral, 20 bis 59
+Freundlich, 60 bis 89 Verbündet, ab 90 Vertrauensvoll.
+
+Aktionen (alle im Diplomatie-Fenster, Kaufen und Verkaufen im Hafenfenster):
+Handelsbeziehungen aufnehmen, kaufen, verkaufen, Geschenk und Forderung
+(siehe unten), Liefervertrag schließen und kündigen (Kündigen -6),
+militärische Unterstützung anfragen (Shogunara und Skeld, ab Verbündet oder
+mit Bündnis: ihre Kriegsschiffe patrouillieren 5 Minuten vor deinem Kontor,
+dann 5 Minuten Pause; ein Wächter bleibt daheim), gemeinsam Piraten jagen
+(ab Freundlich: Patrouille vor der Pirateninsel), Waffenstillstand (bei
+Feindschaft mit einem Volk nach 2 Minuten; Piraten kennen keinen),
+Bündnisvertrag (ab Verbündet und mit Handelsbeziehung; ein Verbündeter
+schickt bei deinem Krieg oder einem Piratenangriff auf deine Schiffe von
+selbst Hilfe) und ihre Kunst lernen (siehe Tabelle). Wer ein
+Volk angreift (Rechtsklick mit einem Kriegsschiff), bricht den Frieden:
+Feindschaft, Ruf -10, Erinnerung -30. Ein angegriffenes Volk erklärt bei
+Meinung -60 von selbst Feindschaft. Die Wächter eines Volkes jagen Feinde
+bis 22 Felder um ihre Insel und um ihre Händler und brechen eine Jagd 30
+Felder von daheim ab.
+
+Geschenk und Forderung gehen bei Völkern genau wie bei den Rivalen, mit
+denselben Knöpfen und Beträgen: 200 oder 1000 Gold schenken, 1000 Gold
+fordern. Ein Geschenk geht in das Gold des Volkes und bringt 1
+Meinungspunkt je 40 Gold (höchstens 25, Temperament wie oben) und Ruf +2.
+Eine Forderung zahlt das Volk aus seinem eigenen Gold, wenn die Stärke des
+Spielers mindestens das Nötige mal der Stärke des Volkes ist: nötig ist
+sein Charakter (Qasirah 1,5, Valdoria 1,8, Shogunara 2,5, Skeld 2,5) minus
+0,01 je Meinungspunkt (ein Freund zahlt eher, ein Feind seltener),
+mindestens aber 0,5. Antworten: "aus Furcht" bzw. bei Meinung ab 20 "die
+Beziehung ist gut genug"; abgelehnt mit Grund "sie fürchten dich nicht",
+"nicht genug Gold" (es bleiben ihm sonst keine 1500 Gold) oder "ihr seid im
+Krieg". Eine erfüllte Forderung bleibt als Erinnerung -15, eine abgelehnte
+als -5, wie bei den Rivalen; beides steht in den Nachrichten des Volkes.
+Piraten werden nicht zur Kasse gebeten.
+
+Die KI-Rivalen handeln von selbst mit den Völkern: alle 4 Minuten segelt ein
+Händler eines Volkes zu einem Rivalen (reihum), verkauft bis zu 20 Einheiten
+von 2 Waren und kauft Überschuss (über 60) der gesuchten Waren. Diese
+Händler werden genauso überfallen wie die Schiffe der Spieler.
+
+### Spezialwaren und Exotik
+
+| Ware        | Wert | Herkunft                | Verwendung                                               |
+| ----------- | ---- | ----------------------- | -------------------------------------------------------- |
+| Gewürze     | 50   | Qasirah                 | Exotik: Handwerker, Kaufleute; Parfümerie                |
+| Seide       | 70   | Qasirah, Shogunara      | Exotik: Ingenieure, Gehobene Schicht, Wohlhabende Bürger |
+| Tee         | 45   | Shogunara               | Exotik: Kaufleute, Ingenieure                            |
+| Porzellan   | 85   | Shogunara               | Exotik: Ingenieure, Gehobene Schicht, Wohlhabende Bürger |
+| Olivenöl    | 30   | Valdoria                | Exotik: Kaufleute, Ingenieure                            |
+| Luxusmöbel  | 120  | Valdoria                | Exotik: Gehobene Schicht, Wohlhabende Bürger             |
+| Pelze       | 55   | Skeld                   | Exotik: Handwerker, Kaufleute                            |
+| Seile       | 20   | Skeld                   | Bau der Skeld-Knarr                                      |
+| Rum         | 28   | Krähenfels, Schwarzriff | Exotik: Arbeiter, Handwerker                             |
+| Parfüm      | 150  | Qasirah, Parfümerie     | Exotik: Gehobene Schicht, Wohlhabende Bürger             |
+| Schatzkarte | 400  | Schwarzer Markt         | führt zu einem Schatz                                    |
+
+Die Exotik ist ein freiwilliges Bedürfnis: Häuser im Marktbereich nehmen
+diese Waren zusätzlich (0,008 bis 0,02 je Bewohner und Minute). Voll
+versorgt bringt sie +12 % Zufriedenheit; ab 50 % Versorgung steigt ein Haus
+schon auf, wenn jedes Bedürfnis zu 60 % statt 75 % erfüllt ist. Fehlt sie,
+kostet das nichts (keine Mangelmeldung). Der freie Händler führt keine
+dieser Waren. Die Parfümerie (2 x 2, Handwerker, 1 Gewürze + 1 Glas = 1
+Parfüm in 30 s) gibt es nur durch Qasirah. Die Skeld-Knarr ist ein
+Frachter mit 1300 LP, 40 % Rüstung, Tempo 3,6, 5 x 45 Laderaum (1800 Gold,
+30 Bretter, 20 Seile, 8 Werkzeug). Shogunaras Lackpanzerung gibt allen
+eigenen Schiffen 10 Prozentpunkte Rüstung (höchstens 75 %).
+
+### Piraten
+
+| Schiff              | LP   | Rüstung | Tempo | Schaden/Reichweite/Nachladen | Laderaum | Kosten der Bande                  | höchstens |
+| ------------------- | ---- | ------- | ----- | ---------------------------- | -------- | --------------------------------- | --------- |
+| Piratenboot         | 320  | 10 %    | 4.4   | 14/5.5/2.2                   | 2 x 30   | 900 Gold, 14 Bretter, 0 Kanonen   | 4         |
+| Piratenkorvette     | 650  | 20 %    | 4     | 28/7/2.4                     | 3 x 30   | 2200 Gold, 28 Bretter, 2 Kanonen  | 3         |
+| Piratenfregatte     | 1200 | 30 %    | 3.6   | 46/8/2.6                     | 4 x 40   | 4200 Gold, 44 Bretter, 6 Kanonen  | 2         |
+| Piratenkriegsschiff | 2200 | 40 %    | 3     | 70/9/3.2                     | 5 x 40   | 8000 Gold, 70 Bretter, 12 Kanonen | 1         |
+
+Die Bande baut neue Schiffe aus Gold, Brettern und Kanonen ihres Lagers
+(höchstens 6, alle 5 Minuten eines, 500 Gold bleiben übrig); Fregatten erst,
+wenn ein Gegner die Stärke 30 hat, das Kriegsschiff ab 120. Kanonentürme der
+Piraten: Schaden 42, Reichweite 10, alle 3 s (Krähenfels 4, Schwarzriff 3);
+die Türme der Völker: Schaden 30, Reichweite 9.
+
+Krieg: Jede Bande ist von Spielbeginn an mit jedem Spieler im Krieg, mit
+dem Menschen wie mit den KI-Rivalen (im friedlichen Spiel nicht: Status
+"Friedliches Spiel", keine Überfälle). Es gibt keinen Waffenstillstand und
+keinen Frieden per Vorschlag. Der Krieg ist ihr Normalzustand und zählt
+deshalb nicht zusätzlich in ihre Meinung; Handel im Hafen, Schwarzer Markt
+und Taverne bleiben offen (Schmuggel). Schutzgeld ist bezahlter Schutz: Der
+Krieg bleibt, aber die Bande überfällt dich nicht, solange du zahlst
+(Status "Krieg - Schutzgeld bezahlt").
+
+Bündnis: erst möglich, wenn du seit dem letzten gebrochenen Bündnis mit
+dieser Bande 5 Schiffe anderer Gegner versenkt hast (Rivalen oder Völker,
+keine Piraten) oder 1 Kontor eines Rivalen erobert oder zerstört hast. Jede
+Bande zählt das je Spieler (`deeds`); das Diplomatie-Fenster zeigt den
+Fortschritt ("3 von 5 Gegnerschiffen versenkt ...") und den gesperrten Knopf
+mit Grund. Ist die Bedingung erfüllt, nimmt die Bande "Bündnis anbieten" an,
+wenn ihre Meinung über dich mindestens -50 ist; sonst lehnt sie mit Grund
+ab. Jedes versenkte Piratenschiff drückt die Meinung (-8 und die Treffer),
+Geschenke heben sie. Verbündete Piraten: Krieg vorbei (Status "Bündnis",
+Meinung +15), sie überfallen dich und deine Schiffe nicht mehr, ihre Türme
+schießen nicht auf dich, Schutzgeld ist nicht nötig (ein laufendes endet,
+ein neues wird abgelehnt) und eine Schutzgeldforderung bleibt aus. Sie
+greifen deine Kriegsgegner an: Ihre Räuber suchen zuerst Handelsschiffe
+deiner Feinde (1000 Gold Vorrang in der Zielwahl), der große Überfall nach
+dem Sammeln trifft zuerst einen deiner Feinde, und alle 10 Minuten segelt
+ein bereiter Räuber gegen das nächste Kontor eines deiner Kriegsgegner.
+Eine Eskorte durch Piraten gibt es nicht. Greifst du die Bande an
+(Rechtsklick mit einem Kriegsschiff) oder beendest du das Bündnis selbst
+(Erinnerung -12), ist wieder Krieg, und die Bedingung zählt von vorn. Eine
+Meuterei beendet das Bündnis nicht. Die KI-Rivalen bleiben mit den Piraten
+im Krieg; sie schließen kein Bündnis mit ihnen.
+
+Überfälle: frühestens nach 20 Minuten, nie im friedlichen Spiel, nie bei
+Schutzgeld oder Bündnis. Höchstens 1 Räuber zugleich
+(alle 30 Minuten einer mehr, bis 3), 2 Minuten Pause je Überfall, 6 Minuten
+je Opfer. Ein Räuber legt sich 8 Felder neben ein Handelsschiff auf die
+Lauer (Patrouille), sucht 50 s je Stück See (Sicht 16 Felder) und gibt nach
+7 Minuten auf. Er greift an, wenn seine Gruppe (Räuber in 10 Feldern)
+mindestens 1,3-mal so stark ist wie die Eskorte (Kriegsschiffe in 8 Feldern)
+plus 12 je weiterem Handelsschiff im Konvoi (6 Felder) und der Konvoi
+kleiner ist als seine Grenze (Boot 1, Korvette 2, Fregatte 4,
+Kriegsschiff 8). Gewässer bis 28 Felder um ein Volk meidet er. Das
+Handelsschiff flieht zum nächsten eigenen Hafen (oder 14 Felder fort) und
+ruft untätige eigene Kriegsschiffe in 20 Feldern. Unter 35 % LP streicht es
+die Flagge: die Piraten schießen nicht mehr, entern (2,2 Felder) und nehmen
+die Hälfte jeder Ware, so weit ihr Laderaum reicht; die Beute kommt in ihr
+Lager. Ein Räuber unter 40 % LP flieht heim und repariert dort (3 % je
+Sekunde, 0,3 Gold je LP). Wer ein Piratenschiff versenkt, holt 60 % seiner
+Ladung mit einem eigenen Schiff in 8 Feldern zurück - und muss mit Rache
+rechnen: bis zu 2 Räuber greifen sein nächstes Kontor an (Plünderung 40 %,
+die Beute geht an Bord).
+
+Schutzgeld: 1000 Gold + 2 je Einwohner (höchstens 4000, auf 50 gerundet),
+sofort und alle 10 Minuten, 30 Minuten lang. Eine verpasste Zahlung beendet
+den Schutz (Erinnerung -10, die Piraten nehmen dich sofort wieder ins Ziel);
+ein Angriff auf ihre Schiffe hebt ihn auf. Nachrichten kaufen (500 Gold)
+zeigt 10 Minuten die ganze Flotte. Der Schwarze Markt wechselt alle 5
+Minuten (zu 25 % geschlossen): bis zu drei Posten aus dem Lager (Beute, Rum,
+Waffen; je bis 40, zu 90 % des Preises) und zu 50 % eine Schatzkarte für 600
+Gold. Ein Schiff mit der Karte findet den Schatz (1500 bis 4500 Gold) in 3
+Feldern um die Stelle, die das Piratenfenster nennt. Die Gefahrenstufe
+(Ruhig, Wachsam, Gefährlich, Sehr gefährlich) folgt den Räubern auf See.
+
+### Aufträge und Ereignisse der Fraktionen
+
+Jede Fraktion bietet dir alle 5 bis 10 Minuten einen Auftrag an (über das
+Missionssystem, höchstens einer zugleich): Fracht in den Hafen (20 / 40 / 60
+einer gesuchten Ware, Lohn 1,4-facher Wert, im Hafenfenster abgeben),
+Piratenjagd (1 bis 3 Piratenschiffe versenken, nur Völker) und in der
+Taverne der Piraten Kaperaufträge (ein bestimmtes Handelsschiff eines
+Rivalen oder Volkes versenken) und Fracht (Kanonen, Musketen, Werkzeug,
+Wein, Bier). Lohn: Gold, Beziehung +10 je Schwierigkeit, Ruf.
+
+Ereignisse alle 7 bis 14 Minuten je Fraktion: Hungersnot (5 min, Nahrung
+dreifach verbraucht und 60 % teurer, dazu ein dringender Frachtauftrag mit
+doppeltem Lohn), Epidemie (5 min halbe Produktion), Sturm im Hafen (2 min
+kein Handel, die drei größten Bestände verlieren 20 %), reiche Ernte (5 min
+eine Ware dreifach), Bitte um Hilfe (Piratenjagd); bei Piraten: Flotte
+sammelt sich (3 min daheim, dann großer Überfall aller Räuber auf das Kontor
+des reichsten Gegners), ein Kapitän bietet einen Schatz (Karte zum halben
+Preis), Schutzgeldforderung (5 min; wer nicht zahlt: -10 und bevorzugtes
+Ziel), Beutekonvoi (ein Räuber bringt bis zu 40 Beute zu einem Hehler am
+Kartenrand, 81 % des Werts in Gold - abfangen lohnt sich), Piratenschiff
+gesichtet (2 min ganze Flotte sichtbar), Meuterei (neuer Kapitän, alle
+Erinnerungen halbiert, Schutz verfällt, ein Bündnis hält). Eine
+Schutzgeldforderung geht nie an einen Verbündeten.
+
+### Bedienung
+
+Klick auf die Insel eines Volkes oder der Piraten öffnet ihr Hafenfenster
+groß in der Mitte (Übersicht mit Bildnis, Beziehung und Gründen, Angebot und
+Nachfrage mit Kaufen und Verkaufen, Aufträge bzw. Taverne, bei Piraten der
+Schwarze Markt mit Flotte, Stand des Schutzgelds und Gefahrenstufe,
+Nachrichten). Die Diplomatie (Geschenke, Forderungen,
+Verträge, Hilfe, Kunst, Lieferverträge, Bündnis, Schutzgeld) steht nur im
+Diplomatie-Fenster; das Hafenfenster verweist mit dem Knopf "Diplomatie"
+dorthin und zeigt beim Handel und beim Schutzgeld nur den Stand.
+Minimap und Weltkarte zeigen die Inseln mit Küste in der Fraktionsfarbe,
+Stadt und Hafen.
+
 ## Speichern
 
 Automatisch alle 2 Minuten und beim Verlassen der Seite, von Hand in drei
-Spielstände (Format 4). Gespeichert werden Saat, Größe und Einstellungen (die
+Spielstände (Format 6). Gespeichert werden Saat, Größe und Einstellungen (die
 Welt entsteht daraus neu), Spieler mit Kasse, Buchhaltung, Forschung, Ruf und
 KI-Zustand, Gebäude (mit LP, Stufe, Feuer), Straßen, gefällte Bäume,
 Bestände, Karren, Schiffe (mit Besitzer und LP), Routen, Händler,
@@ -903,6 +1265,125 @@ bestellter Soldaten wird zu so vielen Linieninfanteristen, jeder Soldat
 Linieninfanterie ohne Befehl in Linie, keine Flotten, die Waren Musketen,
 Kanonen und Dampfmaschinen beginnen bei 0 (auch beim Händler).
 
+Format 5 (Fremde Völker und Piraten): dazu `factions` (je Fraktion Lager,
+Gold, Lage, Schiffe mit Aufgabe, Verträge, Schutzgeld, Schwarzer Markt,
+Nachrichten, gelehrte Kunst, laufende Ereignisse, Unterstützung,
+Waffenstillstände, Schätze) und `settings.factions`, mit dem die Welt mit
+ihren Heimatinseln entsteht. Format 4 wird umgewandelt: keine Fraktionen,
+die alte Karte; neue Waren beginnen bei 0. Der Rivale "Haus Valdoro" heißt
+seit der Republik Valdoria "Haus Varenne"; alte Spielstände laden mit dem
+neuen Namen (die interne ID bleibt).
+
+Format 6 (Katastrophen): dazu `hazards` (angekündigte und wütende
+Katastrophen mit den überfluteten Feldern, Ruhezeiten je Insel, Besitzer und
+Art, was jeden Spieler schon getroffen hat, Brennmaterial je Insel), je
+Gebäude `blight` (Sekunden, die ein Hof nach Heuschrecken kahl bleibt) und in
+den Einstellungen `eventsOff` und `culturesOff`. Format 5 wird umgewandelt:
+alle Ereignisse und Völker an, keine Katastrophe, keine Schutzgebäude, der
+erste Wurf frühestens nach 20 Minuten bzw. eine Minute nach dem Laden.
+
+Piraten immer im Krieg (Format bleibt 6): Beim Laden jedes Formats wird
+jede Beziehung einer Piratenbande zu einem Spieler zu Krieg, wenn kein
+Bündnis besteht (im friedlichen Spiel zu Frieden); ein Waffenstillstand
+oder Frieden mit Piraten aus einem alten Stand wird so zu Krieg, ihre
+Waffenstillstände verfallen. Ein laufendes Schutzgeld bleibt, ein Bündnis
+mit Piraten bleibt. Neu gespeichert wird je Bande `deeds` (je Spieler die
+versenkten Schiffe anderer Gegner und die eroberten bzw. zerstörten Kontore
+seit dem letzten gebrochenen Bündnis); fehlt es, beginnt es leer. Ein neuer
+Stand ändert sich beim Laden nicht, darum bleibt das Format 6 und das Laden
+schrittgleich.
+
+Schwierigkeit (Format bleibt 6): Die Einstellungen tragen `difficulty`
+(`easy`, `normal`, `hard`). Ein Spielstand ohne das Feld (jedes ältere
+Format und jeder Stand von vorher) lädt als "Normal", also genau wie bisher;
+darum braucht es kein neues Format.
+
+## Spieleinstellungen
+
+Beim neuen Spiel gewählt und in `GameSettings` gespeichert (also auch im
+Spielstand):
+
+- Kartengröße, Zahl der KI-Gegner, Schwierigkeit (siehe unten), friedliches
+  Spiel, geführter Einstieg.
+- "Ereignisse und Katastrophen" (`eventsOff`, die abgewählten): je ein
+  Kästchen für Feuer, Seuche, Sturm auf See, Missernte, gute Ernte,
+  Piratenüberfälle, Ereignisse der Völker und Piraten, Überschwemmung,
+  Dürre, Heuschreckenplage, Tsunami und Schneesturm; Knöpfe "Alle" und
+  "Keine"; Standard: alle an. Das friedliche Spiel schaltet Krieg und
+  Piratenüberfälle weiter selbst ab: Das Kästchen "Piratenüberfälle" ist dann
+  ausgegraut mit Hinweis, ebenso ohne Piraten.
+- "Völker" (`culturesOff`, die abgewählten): Qasirah, Shogunara, Valdoria,
+  Skeld und die Piraten. Ein Kästchen gilt für beide Banden (Krähenfels und
+  auf großer Karte das Schwarzriff), weil sie dieselbe Rolle spielen.
+  Abgewählte bekommen keine Insel; die übrigen werden aus derselben Saat
+  gesetzt, als gäbe es die abgewählten nicht. Dieselbe Saat und Auswahl
+  ergeben dieselbe Welt, und die Spieler haben immer gleich viele Inseln
+  (die Fraktionsinseln kommen oben drauf: klein 8, mittel 13, groß 20). Ohne
+  Piraten gibt es keine Überfälle, keinen Schwarzen Markt, keine Taverne und
+  auch keine Piraten vom Kartenrand.
+- Das Menü merkt sich die letzte Auswahl für das nächste Spiel (gespeicherte
+  Einstellung `imperavis.newGame`). Beide Abschnitte sind zu Beginn
+  eingeklappt und zeigen "n von m".
+- Im laufenden Spiel zeigt das Pausenmenü unter "In diesem Spiel", welche
+  Ereignisse an sind und welche Völker es gibt (nur Anzeige).
+
+## Schwierigkeit
+
+Beim neuen Spiel wählt man "Schwierigkeit: Leicht / Normal / Schwer" (drei
+Knöpfe unter den KI-Gegnern, darunter eine Zeile, was die Stufe bewirkt).
+Standard ist Normal; das Menü merkt sich die letzte Wahl (`difficulty` in
+`imperavis.newGame`, ein älterer gemerkter Wert ohne sie gilt als Normal).
+Die Stufe steht in `GameSettings.difficulty` und damit im Spielstand. Das
+Pausenmenü zeigt sie unter "In diesem Spiel", die Liste der Spielstände im
+Hauptmenü hinter dem Datum, die Ladeknöpfe im Pausenmenü im Tooltip.
+
+Alle Faktoren stehen in `engine/difficulty-data.ts` (`DIFFICULTY`) und
+werden nur über `difficultyOf(game)` gelesen. "Normal" setzt jeden Faktor
+neutral (1 bzw. 0) und verhält sich schrittgleich wie das Spiel vor den
+Stufen.
+
+| Faktor (`DIFFICULTY`) | gilt für           | Wirkung                                                                                                                                                                                                              | Leicht                                               | Normal    | Schwer              |
+| --------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------- | ------------------- |
+| `startGold`           | Mensch             | Startgold (3000)                                                                                                                                                                                                     | x1,5 (4500)                                          | x1 (3000) | x0,7 (2100)         |
+| `startCargo`          | Mensch             | jede Ware der ersten Schiffsladung (gerundet)                                                                                                                                                                        | x1,25 (63 Bretter, 18 Werkzeug, 30 Fisch, 13 Ziegel) | x1        | x1                  |
+| `aiThink`             | Rivalen            | Zeit zwischen zwei Wirtschaftsgedanken (3 s)                                                                                                                                                                         | x1,25 (3,75 s)                                       | x1        | x0,8 (2,4 s)        |
+| `aiBudget`            | Rivalen            | Bauplatzprüfungen (1500) und Straßensuchen (6) je Gedanke                                                                                                                                                            | x0,8 (1200 / 5)                                      | x1        | x1,25 (1875 / 8)    |
+| `aiGrowth`            | Rivalen            | Häuser je Insel des Charakters; Einwohner und Gold vor der nächsten Insel geteilt                                                                                                                                    | x0,8                                                 | x1        | x1,25               |
+| `aiIslands`           | Rivalen            | Inseln, die der Charakter höchstens will (mindestens 1)                                                                                                                                                              | -1                                                   | 0         | +1                  |
+| `aiWork`              | Rivalen            | Arbeitstempo ihrer Betriebe (ein Bonus bzw. Malus, den nur die KI hat)                                                                                                                                               | x0,8                                                 | x1        | x1,25               |
+| `aiUpkeep`            | Rivalen            | Unterhalt der Gebäude, zusätzlich zum Charakter (Expansionist 75 %)                                                                                                                                                  | x1,15                                                | x1        | x0,85               |
+| `aiWarLine`           | Rivalen gegen dich | Punkte auf die Meinung, unter der sie dir den Krieg erklären (-60, Kriegerisch -25) und unter der sie Truppen auf ihrem Land mit Krieg beantworten                                                                   | -15                                                  | 0         | +10                 |
+| `aiWarRatio`          | Rivalen gegen dich | Stärke, die sie vor einem Krieg über dir wollen (1,3, Kriegerisch 1)                                                                                                                                                 | x1,15                                                | x1        | x0,85               |
+| `raidGap`             | Piraten            | Pause der Bande nach dem Auslaufen eines Räubers (120 s) und Ruhe eines Opfers nach einem Überfall (360 s); Piraten vom Kartenrand alter Welten: Wahrscheinlichkeit geteilt                                          | x1,8                                                 | x1        | x0,6                |
+| `raiders`             | Piraten            | Räuber gleichzeitig unterwegs, zu Beginn (1) und höchstens (3), mindestens 1                                                                                                                                         | -1 (1, höchstens 2)                                  | 0         | +1 (2, höchstens 4) |
+| `pirateBuild`         | Piraten            | Pause zwischen zwei neuen Schiffen (300 s) und ihr Goldpreis                                                                                                                                                         | x1,6                                                 | x1        | x0,6                |
+| `hazardChance`        | alle               | Wahrscheinlichkeit je Wurf von Katastrophen, Feuer und Seuche                                                                                                                                                        | x0,5                                                 | x1        | x1,5                |
+| `hazardImpact`        | alle               | Dauer der Katastrophen; Flutschaden, Tsunami-Schaden (auch Lager und Schiffe am Kai), Heuschrecken (Anteil der Höfe, gefressene Vorräte), Feuerschaden; der Ertrag bei Dürre (35 %) wird hoch diesen Faktor genommen | x0,7 (Dürre 48 %)                                    | x1        | x1,3 (Dürre 26 %)   |
+| `buyPrice`            | Mensch             | was du beim freien Händler und bei den Völkern (Hafen, Routen, Lieferverträge) zahlst                                                                                                                                | x0,9                                                 | x1        | x1,1                |
+| `sellPrice`           | Mensch             | was sie dir zahlen                                                                                                                                                                                                   | x1,1                                                 | x1        | x0,9                |
+
+- Was den Menschen betrifft, gilt nur für ihn; was die Rivalen betrifft,
+  nur für sie. Die KI bekommt keine verdeckten Vorteile: `aiWork`,
+  `aiUpkeep` und `aiThink`/`aiBudget` sind die einzigen Abweichungen von
+  den Regeln des Spielers, alle stehen in der Tabelle.
+- Piraten und Katastrophen treffen alle Inseln gleich, auch die der
+  Rivalen und Völker.
+- Die Schonzeit der Katastrophen (frühestens nach 20 Minuten, nie während
+  des geführten Einstiegs) und alle Ruhezeiten gelten auf jeder Stufe.
+- Nicht von der Stufe berührt: die Startausstattung der Rivalen (3000 Gold
+  und dieselbe Ladung), der Schwarze Markt der Piraten, Schutzgeld,
+  gute Ernte und Missernte, Sturm auf See, die Bestwerte der Statistik.
+- Abgestimmt mit einem Bot (die KI des Händlers spielt den Menschen),
+  mittlere Karte, drei Rivalen, alle Völker, 120 Minuten, Saaten 12345, 777
+  und 4242 (Mittelwerte; die Kriege zählen nur Erklärungen der Rivalen an
+  den Menschen):
+
+  | Stufe  | Bot Gold am Ende | Bot Gold am tiefsten | Bot Einwohner | Rivalen Einwohner | Kriege gegen den Bot | Minuten im Krieg | Piratenschiffe gebaut | Räuber-Minuten auf See | Überfälle (alle) | Katastrophen (alle) | Feuer (alle) |
+  | ------ | ---------------- | -------------------- | ------------- | ----------------- | -------------------- | ---------------- | --------------------- | ---------------------- | ---------------- | ------------------- | ------------ |
+  | Leicht | 30769            | 539                  | 826           | 1063              | 0                    | 19               | 9                     | 63                     | 6                | 17                  | 28           |
+  | Normal | 16283            | 239                  | 669           | 1205              | 3                    | 24               | 12                    | 100                    | 5                | 25                  | 51           |
+  | Schwer | 14127            | 41                   | 458           | 1557              | 6                    | 68               | 17                    | 102                    | 7                | 31                  | 61           |
+
 ## Bedienung
 
 - Aufteilung: oben die Ressourcenleiste, links die Inselübersicht
@@ -932,7 +1413,8 @@ Kanonen und Dampfmaschinen beginnen bei 0 (auch beim Händler).
   Kategorien zusätzlich "empfohlen" und "gesperrt bis ..." (siehe
   "Einführung").
 - Neues Spiel: Kartengröße, Rivalen, friedliches Spiel und "Geführter
-  Einstieg" (Standard an).
+  Einstieg" (Standard an), dazu die einklappbaren Abschnitte "Ereignisse und
+  Katastrophen" und "Völker" (siehe "Spieleinstellungen").
 - Baumodus: Vorschau grün (geht, Straße am Rand), gelb ("Ohne Straße:
   Transport langsamer") oder rot (echtes Bauverbot, mit Grund). Im Bau-,
   Straßen-, Pflaster- und Versetzmodus schwebt über jedem eigenen Betrieb ein
@@ -995,7 +1477,8 @@ Kanonen und Dampfmaschinen beginnen bei 0 (auch beim Händler).
   und wie viele Waren in den Betrieben auf Karren warten), Lager, Inseln (mit
   Miniatur, Wappen, Versorgung und Warenproduktion; Klick fährt hin),
   Schiffe (mit Bild, LP, Tempo, Aufgabe, Flotte und Position), Militär,
-  Handelsrouten, Handel, Diplomatie, Aufträge, Forschung.
+  Handelsrouten, Handel, Diplomatie (Rivalen, Völker und Piraten),
+  Aufträge, Forschung.
 - Minimap und Weltkarte: aus den Weltdaten gezeichnet (Gelände, Küsten in
   Besitzerfarbe, Gebäude, Kontore, Schiffe, Kamerafeld; die Weltkarte dazu
   Namen, Handelsrouten, Vorkommen und Fruchtbarkeit). Einen Nebel gibt es
@@ -1062,7 +1545,7 @@ in allen Läufen selbst.
 Stand nach 120 Minuten (Einwohner, höchste Schicht, Inseln, erforschte
 Felder):
 
-| Lauf (Saat, Karte) | Mensch             | Händler (Valdoro)                   | Kriegerisch (Morvaine)              | Expansionist (Elsenreich)           |
+| Lauf (Saat, Karte) | Mensch             | Händler (Varenne)                   | Kriegerisch (Morvaine)              | Expansionist (Elsenreich)           |
 | ------------------ | ------------------ | ----------------------------------- | ----------------------------------- | ----------------------------------- |
 | 12345, mittel      | 274, Handwerker, 1 | 509, Handwerker, 3 Inseln, 5 Felder | 328, Handwerker, 1 Insel, 0         | 235, Arbeiter, 2 Inseln, 0          |
 | 99, mittel         | 336, Kaufleute, 1  | 733, Handwerker, 2 Inseln, 7 Felder | 461, Arbeiter, 2 Inseln, 0          | 492, Handwerker, 4 Inseln, 4 Felder |

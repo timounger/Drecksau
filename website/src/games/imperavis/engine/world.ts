@@ -23,10 +23,13 @@ import {
   type Seeded,
 } from "./random";
 import { CORNERS, DIRS4, DIRS8, isSea, TILE_CENTER } from "./terrain";
+import { CULTURE, NATIONS, PIRATE_BANDS } from "./factions-data";
 import {
   Deposit,
   Terrain,
+  type CultureId,
   type Crop,
+  type FactionHome,
   type IslandInfo,
   type MapSize,
   type World,
@@ -152,21 +155,92 @@ const TOBACCO_CHANCE = 0.35;
 /** Mixed into the hash that decides tobacco, apart from all other chance. */
 const TOBACCO_SALT = 0x70bacc0;
 
+/** Peoples and pirate bands a new world tries to place, per map size. */
+const FACTION_COUNTS: Readonly<
+  Record<MapSize, { nations: number; pirates: number }>
+> = {
+  small: { nations: 4, pirates: 1 },
+  medium: { nations: 4, pirates: 1 },
+  large: { nations: 4, pirates: 2 },
+};
+
+/** A small map holds at least this many peoples, even if crowded. */
+const MIN_NATIONS = 2;
+
+/** Radius of a faction's home island, in tiles - well below the others. */
+const FACTION_RADIUS = 7.5;
+
+/** A faction island keeps this share of the map away from the start... */
+export const FACTION_FROM_START = 0.3;
+
+/** ...and this share from every other faction island. */
+export const FACTION_APART = 0.2;
+
+/** Places tried for each faction island. */
+const FACTION_TRIES = 400;
+
+/** Mixed into the seed for placing the faction islands. */
+const FACTION_SALT = 0xfac7;
+
+/** Peaks of the faction islands: gentle peoples, craggy pirate rocks. */
+const NATION_PEAK = 0.25;
+const PIRATE_PEAK = 1.7;
+
+/** On a pirate island land above this height turns to dark rock. */
+const CLIFF_HEIGHT = 0.95;
+
+/** Qasirah's land below this height is sand. */
+const SAND_HEIGHT = 1.4;
+
+/** Skeld's land this far from its centre (share of the radius) is pine forest. */
+const PINE_FROM = 0.45;
+
+/** Open water a harbour looks out on, in tiles. */
+const HARBOUR_SEA = 5;
+
+/** The berth lies this far out from the quay, in tiles. */
+const BERTH_OUT = 2;
+
+/** The fertility of a faction's home: nothing anyone else could grow. */
+const NO_CROPS: Readonly<Record<Crop, boolean>> = {
+  grain: false,
+  grapes: false,
+  tobacco: false,
+};
+
 /** One island to raise. */
-type Seed = { cx: number; cy: number; r: number; peak: number };
+type Seed = {
+  cx: number;
+  cy: number;
+  r: number;
+  peak: number;
+  /** The faction it is home to, if any. */
+  culture?: CultureId;
+};
 
 /**
  * Builds a world.
  *
  * @param seed - the seed
  * @param size - small, medium or large
+ * @param factions - whether the foreign peoples and pirates get their home
+ *   islands; off for worlds of games from before them, which stay exactly
+ *   as they were
+ * @param left - peoples and pirate bands left out of a world with factions:
+ *   they get no island, and the others are placed as if they were not
+ *   there; the same seed and the same choice give the same world
  * @returns the world
  */
-export function createWorld(seed: number, size: MapSize): World {
+export function createWorld(
+  seed: number,
+  size: MapSize,
+  factions = false,
+  left: readonly CultureId[] = [],
+): World {
   const random: Seeded = { rng: seed };
   const config = SIZES[size];
   const n = config.n;
-  const seeds = placeIslands(random, config);
+  const seeds = placeIslands(random, config, factions ? size : null, left);
   const heights = raiseLand(seed, n, seeds);
   const terrain = new Uint8Array(n * n);
   classify(seed, n, heights, terrain);
@@ -186,52 +260,74 @@ export function createWorld(seed: number, size: MapSize): World {
   // The start island is the land that grew around the first seed.
   const start = islandOf[Math.floor(seeds[0].cy) * n + Math.floor(seeds[0].cx)];
   const startIsland = start >= 0 ? start : 0;
+  const homes = factionIslands(seeds, islandOf, n, startIsland);
+  const reserved = new Set(homes.map((home) => home.island));
+  for (const home of homes) {
+    shapeHome(home.culture, groups[home.island], seeds, heights, terrain, n);
+  }
   const deposits = new Uint8Array(n * n);
   const fertile: Record<Crop, boolean>[] = [];
   groups.forEach((group, id) => {
-    if (
-      group.length >= RIVER_AREA &&
-      (id === startIsland || nextRandom(random) < RIVER_CHANCE)
-    ) {
-      carveRiver(random, n, group, heights, terrain);
+    if (reserved.has(id)) {
+      // A faction's home has no deposits or rivers anyone could use.
+      fertile.push({ ...NO_CROPS });
+    } else {
+      if (
+        group.length >= RIVER_AREA &&
+        (id === startIsland || nextRandom(random) < RIVER_CHANCE)
+      ) {
+        carveRiver(random, n, group, heights, terrain);
+      }
+      const isStart = id === startIsland;
+      placeDeposit(
+        random,
+        n,
+        group,
+        terrain,
+        deposits,
+        Deposit.Stone,
+        isStart || nextRandom(random) < CHANCE.stone,
+      );
+      placeDeposit(
+        random,
+        n,
+        group,
+        terrain,
+        deposits,
+        Deposit.Clay,
+        isStart || nextRandom(random) < CHANCE.clay,
+      );
+      placeDeposit(
+        random,
+        n,
+        group,
+        terrain,
+        deposits,
+        Deposit.Ore,
+        !isStart && nextRandom(random) < CHANCE.ore,
+      );
+      fertile.push(
+        isStart
+          ? { ...START_FERTILE }
+          : drawFertility(random, CHANCE.grain, CHANCE.grapes),
+      );
     }
-    const isStart = id === startIsland;
-    placeDeposit(
-      random,
-      n,
-      group,
-      terrain,
-      deposits,
-      Deposit.Stone,
-      isStart || nextRandom(random) < CHANCE.stone,
-    );
-    placeDeposit(
-      random,
-      n,
-      group,
-      terrain,
-      deposits,
-      Deposit.Clay,
-      isStart || nextRandom(random) < CHANCE.clay,
-    );
-    placeDeposit(
-      random,
-      n,
-      group,
-      terrain,
-      deposits,
-      Deposit.Ore,
-      !isStart && nextRandom(random) < CHANCE.ore,
-    );
-    fertile.push(
-      isStart
-        ? { ...START_FERTILE }
-        : drawFertility(random, CHANCE.grain, CHANCE.grapes),
-    );
   });
-  guaranteeOthers(random, n, groups, startIsland, terrain, deposits, fertile);
-  growTobacco(seed, startIsland, fertile);
+  guaranteeOthers(
+    random,
+    n,
+    groups,
+    startIsland,
+    terrain,
+    deposits,
+    fertile,
+    reserved,
+  );
+  growTobacco(seed, startIsland, fertile, reserved);
   const names = islandNames(random, groups.length);
+  for (const home of homes) {
+    names[home.island] = CULTURE[home.culture].island;
+  }
   const islands: IslandInfo[] = groups.map((group, id) =>
     describeIsland(id, names[id], group, terrain, deposits, n, fertile[id]),
   );
@@ -246,11 +342,20 @@ export function createWorld(seed: number, size: MapSize): World {
     islands,
     startIsland,
     startShip: shipStart(n, terrain, islands[startIsland]),
+    factionHomes: homes.map((home) => harbourOf(home, groups, terrain, n)),
   };
 }
 
-/** Picks island centres and radii with open sea between them. */
-function placeIslands(random: Seeded, config: (typeof SIZES)[MapSize]): Seed[] {
+/**
+ * Picks island centres and radii with open sea between them: the start,
+ * then (in a world with factions) their home islands, then the others.
+ */
+function placeIslands(
+  random: Seeded,
+  config: (typeof SIZES)[MapSize],
+  factions: MapSize | null,
+  left: readonly CultureId[],
+): Seed[] {
   const n = config.n;
   const peak = () => randomRange(random, 1, 2);
   const seeds: Seed[] = [
@@ -262,9 +367,14 @@ function placeIslands(random: Seeded, config: (typeof SIZES)[MapSize]): Seed[] {
       peak: peak() / 2,
     },
   ];
+  if (factions !== null) {
+    placeFactions(random.rng ^ FACTION_SALT, n, seeds, factions, left);
+  }
+  // The factions' islands come on top of the usual number.
+  const wanted = config.islands + seeds.length - 1;
   for (
     let attempt = 0;
-    attempt < PLACE_TRIES && seeds.length < config.islands;
+    attempt < PLACE_TRIES && seeds.length < wanted;
     attempt += 1
   ) {
     const r = randomRange(random, config.minRadius, config.maxRadius);
@@ -575,12 +685,17 @@ function growTobacco(
   seed: number,
   startIsland: number,
   fertile: Record<Crop, boolean>[],
+  reserved: ReadonlySet<number>,
 ): void {
   fertile.forEach((crops, id) => {
     crops.tobacco =
-      id !== startIsland && hash2(id, id, seed ^ TOBACCO_SALT) < TOBACCO_CHANCE;
+      id !== startIsland &&
+      !reserved.has(id) &&
+      hash2(id, id, seed ^ TOBACCO_SALT) < TOBACCO_CHANCE;
   });
-  const others = fertile.map((_, id) => id).filter((id) => id !== startIsland);
+  const others = fertile
+    .map((_, id) => id)
+    .filter((id) => id !== startIsland && !reserved.has(id));
   if (others.length > 0 && !others.some((id) => fertile[id].tobacco)) {
     fertile[others[others.length - 1]].tobacco = true;
   }
@@ -595,8 +710,11 @@ function guaranteeOthers(
   terrain: Uint8Array,
   deposits: Uint8Array,
   fertile: Record<Crop, boolean>[],
+  reserved: ReadonlySet<number>,
 ): void {
-  const others = groups.map((_, id) => id).filter((id) => id !== startIsland);
+  const others = groups
+    .map((_, id) => id)
+    .filter((id) => id !== startIsland && !reserved.has(id));
   if (others.length > 0 && !others.some((id) => fertile[id].grapes)) {
     fertile[others[0]].grapes = true;
   }
@@ -664,4 +782,198 @@ export function shipStart(
     }
   }
   return result;
+}
+
+/**
+ * Places the home islands of the peoples and the pirates right after the
+ * start: far from it and from each other, each the best of many tries. A
+ * crowded small map takes fewer peoples, but never less than
+ * {@link MIN_NATIONS}, and always its pirates. Peoples and bands left out
+ * are skipped.
+ */
+function placeFactions(
+  salt: number,
+  n: number,
+  seeds: Seed[],
+  size: MapSize,
+  left: readonly CultureId[],
+): void {
+  const random: Seeded = { rng: salt };
+  const counts = FACTION_COUNTS[size];
+  const wanted: { culture: CultureId; must: boolean }[] = [
+    ...NATIONS.slice(0, counts.nations)
+      .filter((culture) => !left.includes(culture))
+      .map((culture, index) => ({
+        culture,
+        must: index < MIN_NATIONS,
+      })),
+    ...PIRATE_BANDS.slice(0, counts.pirates)
+      .filter((culture) => !left.includes(culture))
+      .map((culture) => ({
+        culture,
+        must: true,
+      })),
+  ];
+  const start = seeds[0];
+  const margin = FACTION_RADIUS + EDGE + SEA_GAP;
+  for (const { culture, must } of wanted) {
+    let best: Seed | null = null;
+    let bestScore = -Infinity;
+    for (let attempt = 0; attempt < FACTION_TRIES; attempt += 1) {
+      const cx = randomRange(random, margin, n - margin);
+      const cy = randomRange(random, margin, n - margin);
+      const free = seeds.every(
+        (other) =>
+          Math.hypot(other.cx - cx, other.cy - cy) >
+          other.r + FACTION_RADIUS + SEA_GAP,
+      );
+      const fromStart = Math.hypot(start.cx - cx, start.cy - cy);
+      const apart = Math.min(
+        n,
+        ...seeds
+          .filter((other) => other.culture !== undefined)
+          .map((other) => Math.hypot(other.cx - cx, other.cy - cy)),
+      );
+      // Far from the start counts, and from the others while they are close.
+      const score =
+        Math.min(fromStart, n * FACTION_FROM_START) +
+        Math.min(apart, n * FACTION_APART);
+      if (free && score > bestScore) {
+        bestScore = score;
+        best = {
+          cx,
+          cy,
+          r: FACTION_RADIUS,
+          peak: CULTURE[culture].kind === "pirates" ? PIRATE_PEAK : NATION_PEAK,
+          culture,
+        };
+      }
+    }
+    // A full score means both distances are kept.
+    const roomy = bestScore >= n * (FACTION_FROM_START + FACTION_APART) - 1;
+    if (best !== null && (roomy || must)) {
+      seeds.push(best);
+    }
+  }
+}
+
+/** The island that grew around each faction's seed, in seed order. */
+function factionIslands(
+  seeds: readonly Seed[],
+  islandOf: Int16Array,
+  n: number,
+  startIsland: number,
+): { culture: CultureId; island: number }[] {
+  const homes: { culture: CultureId; island: number }[] = [];
+  for (const seed of seeds) {
+    if (seed.culture !== undefined) {
+      let island = -1;
+      // The centre may lie in a bay; look around it for the island's land.
+      for (let r = 0; r <= FACTION_RADIUS && island < 0; r += 1) {
+        for (let dy = -r; dy <= r && island < 0; dy += 1) {
+          for (let dx = -r; dx <= r && island < 0; dx += 1) {
+            const x = Math.floor(seed.cx) + dx;
+            const y = Math.floor(seed.cy) + dy;
+            const inside = x >= 0 && y >= 0 && x < n && y < n;
+            island = inside ? islandOf[y * n + x] : -1;
+          }
+        }
+      }
+      if (
+        island >= 0 &&
+        island !== startIsland &&
+        !homes.some((home) => home.island === island)
+      ) {
+        homes.push({ culture: seed.culture, island });
+      }
+    }
+  }
+  return homes;
+}
+
+/**
+ * Gives a faction's island its look: dark cliffs for pirates, sand for
+ * Qasirah, pine forest for Skeld, open land for the others.
+ */
+function shapeHome(
+  culture: CultureId,
+  tiles: readonly number[],
+  seeds: readonly Seed[],
+  heights: Float32Array,
+  terrain: Uint8Array,
+  n: number,
+): void {
+  const size = n + 1;
+  const seed = seeds.find((s) => s.culture === culture);
+  const pirates = CULTURE[culture].kind === "pirates";
+  for (const index of tiles) {
+    const x = index % n;
+    const y = Math.floor(index / n);
+    const h =
+      (heights[y * size + x] +
+        heights[y * size + x + 1] +
+        heights[(y + 1) * size + x] +
+        heights[(y + 1) * size + x + 1]) /
+      CORNERS;
+    const ground = terrain[index] as Terrain;
+    const far =
+      seed === undefined
+        ? 0
+        : Math.hypot(x - seed.cx, y - seed.cy) / Math.max(1, seed.r);
+    let next = ground;
+    if (pirates) {
+      next =
+        h > CLIFF_HEIGHT && ground !== Terrain.Beach ? Terrain.Rock : ground;
+    } else if (ground === Terrain.Mountain || ground === Terrain.Rock) {
+      next = Terrain.Meadow;
+    } else if (culture === "qasirah") {
+      next = h < SAND_HEIGHT ? Terrain.Beach : Terrain.Meadow;
+    } else if (culture === "skeld") {
+      next =
+        far > PINE_FROM && ground !== Terrain.Beach ? Terrain.Forest : ground;
+    } else if (ground === Terrain.Forest) {
+      next = Terrain.Meadow;
+    }
+    terrain[index] = next;
+  }
+}
+
+/**
+ * Where a faction's harbour lies: the coastal tile that looks out on open
+ * water, as close to the middle of the map as can be, so ships from every
+ * side reach it.
+ */
+function harbourOf(
+  home: { culture: CultureId; island: number },
+  groups: readonly number[][],
+  terrain: Uint8Array,
+  n: number,
+): FactionHome {
+  let quay = groups[home.island][0];
+  let berth = -1;
+  let bestScore = Infinity;
+  for (const index of groups[home.island]) {
+    const x = index % n;
+    const y = Math.floor(index / n);
+    for (const [dx, dy] of DIRS4) {
+      let open = true;
+      for (let step = 1; step <= HARBOUR_SEA && open; step += 1) {
+        const sx = x + dx * step;
+        const sy = y + dy * step;
+        open =
+          sx >= 0 &&
+          sy >= 0 &&
+          sx < n &&
+          sy < n &&
+          isSea(terrain[sy * n + sx] as Terrain);
+      }
+      const score = Math.hypot(x - n / 2, y - n / 2);
+      if (open && score < bestScore) {
+        bestScore = score;
+        quay = index;
+        berth = (y + dy * BERTH_OUT) * n + x + dx * BERTH_OUT;
+      }
+    }
+  }
+  return { culture: home.culture, island: home.island, berth, quay };
 }

@@ -12,7 +12,14 @@ import {
   DECOR_CAP,
   DECOR_KINDS,
 } from "./buildings-data";
+import { burnFuel, coldMood } from "./disasters";
 import { earn } from "./economy";
+import {
+  EXOTIC_EASE_FROM,
+  EXOTIC_MOOD,
+  EXOTIC_RISE_NEED,
+  EXOTIC_WANTS,
+} from "./factions-data";
 import { hasAmounts, takeAmounts } from "./placement";
 import { ownerOf, playerById } from "./players";
 import { TICK } from "./time";
@@ -268,6 +275,7 @@ function consume(game: Game, islandId: number): void {
   const market = game.coverage.market;
   const demand: Partial<Record<GoodId, number>> = {};
   const n = game.world.n;
+  let residents = 0;
   for (const building of game.buildings) {
     const house = building.house;
     if (
@@ -277,20 +285,30 @@ function consume(game: Game, islandId: number): void {
       market !== undefined &&
       market[centerIndex(building, n)] === 1
     ) {
-      for (const want of TIERS[house.tier].goods) {
+      residents += house.residents;
+      for (const want of [
+        ...TIERS[house.tier].goods,
+        ...(EXOTIC_WANTS[house.tier] ?? []),
+      ]) {
         demand[want.good] =
           (demand[want.good] ?? 0) +
           (house.residents * want.rate * POPULATION_EVERY) / PER_MINUTE;
       }
     }
   }
+  // In a blizzard every house in reach of a market burns coal or wood.
+  burnFuel(game, islandId, residents, POPULATION_EVERY);
   for (const [good, amount] of Object.entries(demand) as [GoodId, number][]) {
     const taken = Math.min(amount, island.stock[good]);
     island.stock[good] -= taken;
     const ratio = amount > 0 ? taken / amount : 1;
     const before = island.supply[good];
     island.supply[good] += (ratio - before) * SUPPLY_BLEND;
-    if (before >= SHORTAGE && island.supply[good] < SHORTAGE) {
+    // Exotic goods are a pleasure, never a shortage.
+    const exotic = EXOTIC_WANTS.some((list) =>
+      list.some((w) => w.good === good),
+    );
+    if (!exotic && before >= SHORTAGE && island.supply[good] < SHORTAGE) {
       game.events.push({
         type: "shortage",
         player: island.owner,
@@ -332,14 +350,17 @@ function live(
   const mean =
     needs.reduce((sum, value) => sum + value, 0) / Math.max(1, needs.length);
   const sick = island.plague > 0 && game.coverage.doctor?.[at] !== 1;
+  const exotic = market ? exoticShare(island.supply, house.tier) : 0;
   const target = Math.max(
     0,
     Math.min(
       1,
       mean +
         TAX_LEVELS[owner.taxLevel].mood -
-        (sick ? PLAGUE_MOOD : 0) +
-        beautyAt(game, at),
+        (sick ? PLAGUE_MOOD : 0) -
+        coldMood(game, building.island) +
+        beautyAt(game, at) +
+        exotic * EXOTIC_MOOD,
     ),
   );
   house.satisfaction += (target - house.satisfaction) * SATISFACTION_BLEND;
@@ -365,8 +386,36 @@ function live(
   house.upgrade -= POPULATION_EVERY;
   if (house.upgrade <= 0) {
     house.upgrade = UPGRADE_SECONDS;
-    rise(game, owner, building, house, needs);
+    rise(
+      game,
+      owner,
+      building,
+      house,
+      needs,
+      exotic >= EXOTIC_EASE_FROM ? EXOTIC_RISE_NEED : RISE_NEED,
+    );
   }
+}
+
+/**
+ * How well a tier's exotic wants are met on an island: the mean supply of
+ * the goods of the foreign peoples it enjoys.
+ *
+ * @param supply - the island's supply per good
+ * @param tier - the tier index
+ * @returns 0 to 1, 0 for a tier without such wants
+ */
+export function exoticShare(
+  supply: Readonly<Record<GoodId, number>>,
+  tier: number,
+): number {
+  const wants = EXOTIC_WANTS[tier] ?? [];
+  return wants.length === 0
+    ? 0
+    : wants.reduce(
+        (sum, w) => sum + Math.max(0, Math.min(1, supply[w.good])),
+        0,
+      ) / wants.length;
 }
 
 /** A badly supplied house falls back a tier. */
@@ -397,6 +446,7 @@ function rise(
   building: Building,
   house: HouseState,
   needs: readonly number[],
+  least: number,
 ): void {
   const next = house.tier + 1;
   const stock = game.islands[building.island].stock;
@@ -404,7 +454,7 @@ function rise(
   if (house.tier >= TOP_TIER) {
     blocked = "locked";
   } else if (
-    !needs.every((value) => value >= RISE_NEED) ||
+    !needs.every((value) => value >= least) ||
     house.satisfaction < RISE_SATISFACTION
   ) {
     blocked = "needs";

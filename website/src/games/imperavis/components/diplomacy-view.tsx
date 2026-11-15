@@ -1,7 +1,9 @@
 /**
- * The diplomacy window: every rival with character, strength, treaties and
- * what they think of the player and why; proposals, gifts, demands and
- * trades of goods; offers the rivals made; and the log of answers.
+ * The diplomacy window: every power together - the rivals first, then the
+ * foreign peoples, then the pirate bands - each with what it thinks of the
+ * player and why, its status and what can be done with it; for the rivals
+ * proposals, gifts, demands and trades of goods, their offers and the log
+ * of answers. A filter shows one kind at a time.
  *
  * @module
  */
@@ -33,12 +35,12 @@ import {
   TEXTS as T,
   TREATY_NAMES,
 } from "@/games/imperavis/i18n/texts";
+import { FX } from "@/games/imperavis/i18n/faction-texts";
+import { NationEntry, PirateEntry } from "./faction-diplomacy";
+import { Crest } from "./icons";
 import type { OverviewProps } from "./overviews";
-import { Bar, Btn } from "./ui";
-
-/** Gold of a small and of a large gift or demand. */
-const GIFT_SMALL = 200;
-const GIFT_LARGE = 1000;
+import { GoldDeals, PowerCard, signed } from "./power-card";
+import { Btn, Tabs } from "./ui";
 
 /** Units in a goods deal unless changed. */
 const DEAL_UNITS = 20;
@@ -46,15 +48,14 @@ const DEAL_UNITS = 20;
 /** Log entries shown. */
 const LOG_SHOWN = 8;
 
-/** Relations run from minus to plus this; the bar shows it as 0 to 1. */
-const RELATION_SPAN = 100;
-
-/** Base and digits of a colour written as #RRGGBB. */
-const HEX = 16;
-const COLOUR_DIGITS = 6;
+/** Crest size in the list, px. */
+const CREST = 32;
 
 /** The treaties in the order of the buttons. */
 const TREATIES: readonly Treaty[] = ["trade", "pact", "alliance"];
+
+/** Which powers the list shows. */
+type Filter = "all" | "rivals" | "nations" | "pirates";
 
 /**
  * Renders the diplomacy window.
@@ -64,7 +65,20 @@ const TREATIES: readonly Treaty[] = ["trade", "pact", "alliance"];
  */
 export function Diplomacy(props: OverviewProps): ReactElement {
   const { game, island, onCommand } = props;
+  const [filter, setFilter] = useState<Filter>("all");
   const rivals = game.players.filter((player) => player.ai !== null);
+  const nations = game.factions.filter((f) => f.kind === "nation");
+  const bands = game.factions.filter((f) => f.kind === "pirates");
+  const show = (kind: Filter) => filter === "all" || filter === kind;
+  const filters: { id: Filter; label: string }[] = [
+    {
+      id: "all",
+      label: `${FX.filterAll} (${rivals.length + game.factions.length})`,
+    },
+    { id: "rivals", label: `${FX.filterRivals} (${rivals.length})` },
+    { id: "nations", label: `${FX.filterNations} (${nations.length})` },
+    { id: "pirates", label: `${FX.filterPirates} (${bands.length})` },
+  ];
   const human = game.players[HUMAN];
   const offers = game.diplomacy.offers.filter((offer) => offer.to === HUMAN);
   const log = game.diplomacy.log
@@ -140,10 +154,35 @@ export function Diplomacy(props: OverviewProps): ReactElement {
           </ul>
         </section>
       )}
-      {rivals.length === 0 ? (
-        <p>{T.noRivals}</p>
-      ) : (
-        rivals.map((rival) => <Rival key={rival.id} {...props} rival={rival} />)
+      {game.factions.length > 0 && (
+        <Tabs
+          tabs={filters}
+          value={filter}
+          onChange={setFilter}
+          testPrefix="imp-dip-filter"
+        />
+      )}
+      {show("rivals") &&
+        (rivals.length === 0 ? (
+          <p className="imp-muted">{T.noRivals}</p>
+        ) : (
+          rivals.map((rival) => (
+            <Rival key={rival.id} {...props} rival={rival} />
+          ))
+        ))}
+      {(show("nations") || show("pirates")) && game.factions.length === 0 && (
+        <p className="imp-muted">{FX.noFactions}</p>
+      )}
+      {show("nations") &&
+        nations.map((faction) => (
+          <NationEntry key={faction.id} {...props} faction={faction} />
+        ))}
+      {show("pirates") &&
+        bands.map((faction) => (
+          <PirateEntry key={faction.id} {...props} faction={faction} />
+        ))}
+      {game.factions.length > 0 && (
+        <p className="text-xs imp-muted">{FX.harbourHint}</p>
       )}
       {log.length > 0 && (
         <section>
@@ -180,61 +219,29 @@ function Rival({
   const [takeAmount, setTakeAmount] = useState(DEAL_UNITS * DEAL_UNITS);
   const relation = relationOf(game, HUMAN, rival.id);
   const opinion = opinionOf(game, rival.id, HUMAN);
-  const reasons = opinionReasons(game, rival.id, HUMAN).filter(
-    (m) => Math.round(m.value) !== 0,
-  );
   const act = (action: DiplomacyAction) =>
     onCommand({ type: "diplomacy", to: rival.id, action, island });
   const takeDeal: Deal =
     take === "gold"
       ? { gold: takeAmount, good: null, amount: 0 }
       : { gold: 0, good: take, amount: takeAmount };
-  const colour = `#${rival.color.toString(HEX).padStart(COLOUR_DIGITS, "0")}`;
+  const war = relation?.war === true;
   return (
-    <section className="imp-card" data-testid={`imp-rival-${rival.id}`}>
-      <header className="flex flex-wrap items-center gap-2">
-        <span
-          className="inline-block h-3 w-3 rounded-full"
-          style={{ background: colour }}
-        />
-        <b>{rival.name}</b>
-        <span className="text-xs imp-muted">
-          {T.personality}:{" "}
-          {PERSONALITY_NAMES[rival.ai?.personality ?? "trader"]}
-        </span>
-        <span
-          className={`ml-auto text-xs font-semibold ${relation?.war ? "text-red-600" : "text-[var(--imp-good)]"}`}
-        >
-          {rival.alive
-            ? relation?.war
-              ? T.atWar
-              : T.atPeace
-            : ANSWER_TEXTS.gone}
-        </span>
-      </header>
-      <p className="text-xs imp-muted">
-        {T.islandsOf(islandsOf(game, rival.id).length)} -{" "}
-        {T.residentsOf(populationOf(game, rival.id))} - {T.strength}{" "}
-        {Math.round(strengthOf(game, rival.id))} ({T.yourStrength}{" "}
-        {Math.round(strengthOf(game, HUMAN))})
-      </p>
-      <div className="mt-1 flex items-center gap-2">
-        <span className="w-32 text-xs">
-          {T.opinion}:{" "}
-          <b data-testid={`imp-opinion-${rival.id}`}>{Math.round(opinion)}</b>
-        </span>
-        <Bar
-          value={(opinion + RELATION_SPAN) / (RELATION_SPAN * 2)}
-          color={opinion < 0 ? "bg-red-500" : "bg-emerald-500"}
-        />
-      </div>
-      {reasons.length > 0 && (
-        <p className="text-xs imp-muted">
-          {reasons
-            .map((m) => `${REASON_NAMES[m.reason]} ${signed(m.value)}`)
-            .join(", ")}
-        </p>
-      )}
+    <PowerCard
+      emblem={<Crest color={rival.color} size={CREST} variant={rival.id} />}
+      name={rival.name}
+      kind={FX.kindRival}
+      status={rival.alive ? (war ? T.atWar : T.atPeace) : ANSWER_TEXTS.gone}
+      tone={!rival.alive ? "plain" : war ? "bad" : "good"}
+      sub={`${T.personality}: ${PERSONALITY_NAMES[rival.ai?.personality ?? "trader"]}`}
+      facts={`${T.islandsOf(islandsOf(game, rival.id).length)} - ${T.residentsOf(populationOf(game, rival.id))} - ${T.strength} ${Math.round(strengthOf(game, rival.id))} (${T.yourStrength} ${Math.round(strengthOf(game, HUMAN))})`}
+      opinion={opinion}
+      bar={opinion < 0 ? "bg-red-500" : "bg-emerald-500"}
+      reasons={opinionReasons(game, rival.id, HUMAN)}
+      opinionId={`imp-opinion-${rival.id}`}
+      testId={`imp-rival-${rival.id}`}
+      power="rival"
+    >
       <p className="mt-1 text-xs">
         {TREATIES.filter((treaty) => relation?.[treaty] === true)
           .map((treaty) => TREATY_NAMES[treaty])
@@ -282,31 +289,16 @@ function Rival({
               {T.declareWar}
             </Btn>
           )}
-          {[GIFT_SMALL, GIFT_LARGE].map((gold) => (
-            <Btn
-              key={`gift-${gold}`}
-              small
-              onClick={() =>
-                act({ type: "gift", give: { gold, good: null, amount: 0 } })
-              }
-              testId={`imp-gift-${gold}-${rival.id}`}
-            >
-              {T.giftGold(gold)}
-            </Btn>
-          ))}
-          <Btn
-            small
-            disabled={relation.war}
-            onClick={() =>
-              act({
-                type: "demand",
-                take: { gold: GIFT_LARGE, good: null, amount: 0 },
-              })
+          <GoldDeals
+            testKey={String(rival.id)}
+            onGift={(gold) =>
+              act({ type: "gift", give: { gold, good: null, amount: 0 } })
             }
-            testId={`imp-demand-${rival.id}`}
-          >
-            {T.demandGold(GIFT_LARGE)}
-          </Btn>
+            onDemand={(gold) =>
+              act({ type: "demand", take: { gold, good: null, amount: 0 } })
+            }
+            demandClosed={relation.war}
+          />
         </div>
       )}
       {rival.alive && relation !== null && !relation.war && (
@@ -379,7 +371,7 @@ function Rival({
           </span>
         </div>
       )}
-    </section>
+    </PowerCard>
   );
 }
 
@@ -441,10 +433,4 @@ function dealText(deal: Deal): string {
     parts.push(`${deal.amount} ${GOOD_NAMES[deal.good]}`);
   }
   return parts.join(" + ");
-}
-
-/** A number with its sign. */
-function signed(value: number): string {
-  const rounded = Math.round(value);
-  return rounded > 0 ? `+${rounded}` : `${rounded}`;
 }

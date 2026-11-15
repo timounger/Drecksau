@@ -12,7 +12,8 @@ import * as THREE from "three";
 import { TICK } from "@/games/imperavis/engine/time";
 import { CART_SPEED, NO_ROAD } from "@/games/imperavis/engine/logistics-data";
 import { groundHeight } from "@/games/imperavis/engine/terrain";
-import { playerById, PIRATES } from "@/games/imperavis/engine/players";
+import { ownerColor } from "@/games/imperavis/engine/factions";
+import { PIRATES } from "@/games/imperavis/engine/players";
 import { SHIP, SHIPS } from "@/games/imperavis/engine/ships-data";
 import {
   UNIT,
@@ -228,9 +229,8 @@ export function createUnitsLayer(material: THREE.Material): UnitsLayer {
         seen.add(ship.id);
         let view = ships.get(ship.id);
         if (view === undefined) {
-          const owner = playerById(game, ship.owner);
           const color =
-            owner?.color ??
+            ownerColor(game, ship.owner) ??
             (ship.owner === PIRATES ? PIRATE_FLAG : TRADER_FLAG);
           view = makeShip(ship, hulls, sails, material);
           const flag = new THREE.Mesh(flagGeometry, flagMaterial(color));
@@ -400,7 +400,7 @@ export function createUnitsLayer(material: THREE.Material): UnitsLayer {
           const kitAt = counts.get(kit) ?? 0;
           body.setMatrixAt(bodyAt, matrix);
           kit.setMatrixAt(kitAt, matrix);
-          tint.setHex(playerById(game, soldier.owner)?.color ?? PIRATE_FLAG);
+          tint.setHex(ownerColor(game, soldier.owner) ?? PIRATE_FLAG);
           body.setColorAt(bodyAt, tint);
           tint.setHex(0xffffff);
           kit.setColorAt(kitAt, tint);

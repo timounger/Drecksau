@@ -18,6 +18,11 @@ import {
   SHIP_REPAIR_GOLD,
 } from "@/games/imperavis/engine/combat";
 import { OFFER_SECONDS } from "@/games/imperavis/engine/diplomacy";
+import {
+  DIFFICULTIES,
+  DIFFICULTY,
+  type DifficultyFactors,
+} from "@/games/imperavis/engine/difficulty-data";
 import { START_GOLD } from "@/games/imperavis/engine/game";
 import {
   EXTINGUISH_SECONDS,
@@ -26,6 +31,14 @@ import {
   PLAGUE_SECONDS,
 } from "@/games/imperavis/engine/incidents";
 import { MOST_ACTIVE } from "@/games/imperavis/engine/missions";
+import {
+  DISASTER_KINDS,
+  DISASTER_SECONDS,
+  DISASTERS_FROM,
+  ISLAND_CALM,
+  WARNING_SECONDS,
+} from "@/games/imperavis/engine/disasters-data";
+import type { DisasterKind } from "@/games/imperavis/engine/types";
 import {
   BUILDABLE_SHIPS,
   RUNNING_REFUND,
@@ -44,6 +57,32 @@ import {
   SETTLE_REACH,
 } from "@/games/imperavis/engine/placement";
 import { MAX_AI } from "@/games/imperavis/engine/players";
+import {
+  CULTURES,
+  EXOTIC_MOOD,
+  EXOTIC_RISE_NEED,
+} from "@/games/imperavis/engine/factions-data";
+import {
+  BREACH_LIMIT,
+  CONTRACT_EVERY,
+  CONTRACTS_EACH,
+  DEMAND_MET_MEMORY,
+  DEMAND_REFUSED_MEMORY,
+  GIFT_GOLD_PER_POINT,
+  GIFT_MOST,
+} from "@/games/imperavis/engine/factions";
+import {
+  ALLIANCE_OPINION,
+  ALLIANCE_SUNK,
+  ALLIANCE_TAKEN,
+  INTEL_GOLD,
+  LOOT_SHARE,
+  MAP_PRICE,
+  PROTECTION_EVERY,
+  PROTECTION_SECONDS,
+  STRUCK_SHARE,
+} from "@/games/imperavis/engine/pirates";
+import { PERK_TEXTS } from "./faction-texts";
 import {
   DECLINE_SATISFACTION,
   DECLINE_SECONDS,
@@ -67,6 +106,7 @@ import {
 import { ROAD_GRACE } from "@/games/imperavis/engine/tutorial-data";
 import {
   BUILDING_NAMES,
+  DIFFICULTY_NAMES,
   GOOD_NAMES,
   RESEARCH_NAMES,
   SHIP_NAMES,
@@ -100,6 +140,53 @@ const DECOR_LINES: readonly string[] = DECOR_KINDS.map(
 const TUTORIAL_LINES: readonly string[] = TUTORIAL_STEPS.map(
   (step, index) =>
     `${index + 1}. ${TUTORIAL_STEP_TEXTS[step.id].title}${step.releases.length > 0 ? ` - gibt frei: ${step.releases.map((kind) => BUILDING_NAMES[kind]).join(", ")}` : ""}`,
+);
+
+/** What each factor of a difficulty level changes, in words. */
+const FACTOR_NAMES: Readonly<Record<keyof DifficultyFactors, string>> = {
+  startGold: "Startgold",
+  startCargo: "Ladung des ersten Schiffs",
+  aiThink: "Zeit zwischen zwei Gedanken der Rivalen",
+  aiBudget: "Bauplatzprüfungen und Straßensuchen je Gedanke der Rivalen",
+  aiGrowth:
+    "Häuser je Insel der Rivalen (Schwelle für die nächste Insel geteilt)",
+  aiIslands: "Inseln, die ein Rivale höchstens will",
+  aiWork: "Arbeitstempo der Betriebe der Rivalen",
+  aiUpkeep: "Unterhalt der Gebäude der Rivalen",
+  aiWarLine: "Meinung, ab der ein Rivale dir den Krieg erklärt (Punkte dazu)",
+  aiWarRatio: "Stärke, die ein Rivale vor dem Krieg über dir will",
+  raidGap: "Pausen zwischen Piratenüberfällen",
+  raiders: "Piraten gleichzeitig unterwegs",
+  pirateBuild: "Bauzeit und Goldpreis der Piratenschiffe",
+  hazardChance: "Wahrscheinlichkeit von Katastrophen, Feuer und Seuche",
+  hazardImpact: "Dauer und Schaden von Katastrophen und Feuer",
+  buyPrice: "Deine Einkaufspreise bei Händler und Völkern",
+  sellPrice: "Deine Verkaufspreise bei Händler und Völkern",
+};
+
+/** Factors that add or take a number instead of multiplying. */
+const OFFSETS: readonly (keyof DifficultyFactors)[] = [
+  "aiIslands",
+  "aiWarLine",
+  "raiders",
+];
+
+/** One factor of one level in words: x1,5 or +1. */
+function factorWords(key: keyof DifficultyFactors, value: number): string {
+  const number = String(value).replace(".", ",");
+  return OFFSETS.includes(key)
+    ? value > 0
+      ? `+${number}`
+      : number
+    : `x${number}`;
+}
+
+/** One line per factor: what it changes and its value on each level. */
+const DIFFICULTY_LINES: readonly string[] = (
+  Object.keys(FACTOR_NAMES) as (keyof DifficultyFactors)[]
+).map(
+  (key) =>
+    `${FACTOR_NAMES[key]}: ${DIFFICULTIES.map((level) => `${DIFFICULTY_NAMES[level]} ${factorWords(key, DIFFICULTY[level][key])}`).join(", ")}`,
 );
 
 /** A price in words: gold first, then the goods. */
@@ -138,6 +225,26 @@ const RESEARCH_LINES: readonly string[] = RESEARCH.map(
     `${RESEARCH_NAMES[def.id]} (${def.cost} Punkte${def.needs.length > 0 ? `, nach ${def.needs.map((need) => RESEARCH_NAMES[need]).join(" und ")}` : ""})`,
 );
 
+/** What each disaster does and what keeps it off, in one line. */
+const DISASTER_WORDS: Readonly<Record<DisasterKind, string>> = {
+  flood:
+    "Überschwemmung: Ein Fluss tritt über die Ufer oder eine Sturmflut überspült die tiefe Küste einer Seite. Betriebe im Wasser stehen still, verlieren ihre Waren und nehmen Schaden, Karren kommen nicht durch. Ein Deich hält das Wasser in seiner Reichweite ab, eine Pumpstation legt das Land nach 25 Sekunden trocken.",
+  drought:
+    "Dürre (nur im Sommer bei klarem Wetter): Höfe und Plantagen tragen nur ein Drittel. Bewässerung bringt die volle Ernte zurück, ein Zierbrunnen hilft zum Teil.",
+  locusts:
+    "Heuschreckenplage: Die Hälfte der Höfe einer Insel ist vier Minuten kahl, der Schwarm frisst Getreide, Mehl und Brot im Lager an. Hier helfen nur Vorräte und Höfe auf anderen Inseln.",
+  tsunami:
+    "Tsunami (selten): Eine Flutwelle trifft eine Küste - Hafenanlagen, Kontor, Werft, Fischer und Häuser nehmen schweren Schaden, das Kontor verliert Waren, Schiffe am Kai werden beschädigt. Eine Hafenmauer fängt den größten Teil ab, ein Deich die Hälfte.",
+  blizzard:
+    "Schneesturm (nur im Winter, auf der ganzen Karte): Straßen verschneien, Karren fahren nur im Geländetempo, Schiffe langsamer, und die Häuser verbrennen Holz oder Kohle aus dem Lager - fehlt es, sinkt die Zufriedenheit.",
+};
+
+/** Each disaster with its warning time and how long it lasts. */
+const DISASTER_LINES: readonly string[] = DISASTER_KINDS.map(
+  (kind) =>
+    `${DISASTER_WORDS[kind]} Vorwarnung ${WARNING_SECONDS[kind]} s, Dauer ${DISASTER_SECONDS[kind]} s.`,
+);
+
 /** What the rules button opens. */
 export const IMPERAVIS_RULES: GameRules = {
   title: "IMPERAVIS",
@@ -164,6 +271,14 @@ export const IMPERAVIS_RULES: GameRules = {
         "Mit Cheat hält die Einführung nichts zurück; sie läuft aber weiter und greift wieder, sobald der Cheat aus ist.",
       ],
       list: TUTORIAL_LINES,
+    },
+    {
+      title: "Schwierigkeit",
+      body: [
+        `Beim neuen Spiel wählst du Leicht, Normal oder Schwer (Standard Normal; das Menü merkt sich die letzte Wahl). Die Stufe ändert dein Startgold (${DIFFICULTIES.map((level) => `${DIFFICULTY_NAMES[level]} ${Math.round(START_GOLD * DIFFICULTY[level].startGold)}`).join(", ")}) und die Ladung, wie schnell und klug die Rivalen wachsen und wie leicht sie dir den Krieg erklären, wie oft und wie stark Piraten kommen, wie oft und wie hart Katastrophen treffen und deine Preise bei Händler und Völkern.`,
+        "Normal ist das Spiel wie vorgesehen, alle Werte bleiben. Was dich betrifft (Start, Preise), gilt nur für dich, was die Rivalen betrifft, nur für sie; außer den hier genannten Abweichungen (Denk-Takt, Ehrgeiz, Arbeitstempo und Unterhalt) spielen die Rivalen nach denselben Regeln wie du. Piraten und Katastrophen treffen alle gleich. Die Schonzeit der Katastrophen gilt auf jeder Stufe. Das Pausenmenü und die Liste der Spielstände zeigen die Stufe.",
+      ],
+      list: DIFFICULTY_LINES,
     },
     {
       title: "Straßen und Lager",
@@ -238,16 +353,43 @@ export const IMPERAVIS_RULES: GameRules = {
       body: [
         "Beim neuen Spiel wählst du bis zu drei Rivalen: einen Händler, einen kriegerischen und einen expansiven. Sie bauen mit denselben Regeln wie du, besiedeln Inseln, forschen, bauen gezielt Ziegel-, Stein- und Weinketten für den Aufstieg auf, handeln mit dem freien Händler, untereinander und mit dir und reagieren auf Mangel, Geldnot und Krieg.",
         "Auch untereinander leben die Rivalen Diplomatie: Sie schließen und kündigen Abkommen, Pakte und Bündnisse, beschenken einander, stellen Forderungen, tauschen Waren, streiten um freie Inseln und an ihren Grenzen, erklären Krieg und schließen wieder Frieden. Ein Krieg endet spätestens, wenn eine Seite des Krieges müde ist oder ihr Kriegsziel - eine eroberte Insel - erreicht hat.",
-        "Im Fenster Diplomatie siehst du, was jeder Rivale von dir hält und warum (Charakter, dein Ruf, Verträge, Nachbarschaft, Geschenke, Angriffe ...). Du kannst Handelsabkommen, Nichtangriffspakt und Bündnis vorschlagen, Frieden anbieten, Krieg erklären, Gold oder Waren schenken, Gold fordern und Waren gegen Gold oder Waren tauschen. Jede Antwort nennt ihren Grund.",
+        "Im Fenster Diplomatie stehen alle Mächte zusammen: erst die Rivalen, dann die fremden Völker, dann die Piraten (ein Filter zeigt eine Art allein). Bei jeder siehst du, was sie von dir hält und warum (Charakter, dein Ruf, Verträge, Nachbarschaft, Geschenke, Angriffe ...), und ihren Status. Rivalen kannst du Handelsabkommen, Nichtangriffspakt und Bündnis vorschlagen, Frieden anbieten, Krieg erklären, Gold oder Waren schenken, Gold fordern und Waren gegen Gold oder Waren tauschen. Jede Antwort nennt ihren Grund.",
         `Ein Handelsabkommen bringt beiden laufend Gold. Ein Bündnis zieht die Partner mit in den Krieg: der Angegriffene ruft seine Verbündeten, und die Verbündeten des Angreifers folgen, wenn sie den Angegriffenen nicht mögen. Einen Pakt zu kündigen kostet Ruf. Angebote der Rivalen an dich stehen ${OFFER_SECONDS} Sekunden.`,
       ],
+    },
+    {
+      title: "Fremde Völker und Piraten",
+      body: [
+        "Jede neue Welt hat vier fremde Völker und eine Piratenbande (auf der großen Karte zwei), jede auf einer kleinen, festen Heimatinsel weit vom Start. Niemand baut, landet oder siedelt dort; die Inseln sind nicht eroberbar. Ein Klick auf ihre Insel öffnet ihr Hafenfenster (Handel, Aufträge, bei Piraten Schwarzer Markt und Taverne); alles Diplomatische - Geschenke, Forderungen, Verträge, Hilfe, Bündnis, Schutzgeld - steht im Fenster Diplomatie, das jeden Eintrag auch mit „Hafen öffnen“ verbindet.",
+        "Jedes Volk und jede Bande hat eigenes Lager und Gold. Ihre Waren kommen nur aus ihren eigenen Betrieben und aus dem Handel; die Preise folgen Bestand und Bedarf. Kaufen und verkaufen kannst du nur mit einem eigenen Schiff in ihrem Hafen (Rechtsklick auf die Insel), nachdem du Handelsbeziehungen aufgenommen hast; Handelsrouten können ihre Häfen anfahren.",
+        `Völker behandelst du wie Rivalen: Ein Geschenk bringt 1 Punkt Meinung je ${GIFT_GOLD_PER_POINT} Gold, höchstens ${GIFT_MOST}, und etwas Ruf. Forderst du Gold, zahlt das Volk aus seinem eigenen Schatz, wenn du stark genug bist - wie stark, hängt von seinem Charakter ab (${CULTURES.filter(
+          (def) => def.kind === "nation",
+        )
+          .map(
+            (def) =>
+              `${def.island} ${def.demandFear.toLocaleString("de-DE")}-mal`,
+          )
+          .join(
+            ", ",
+          )} so stark wie das Volk); Freunde zahlen eher, Feinde seltener, sonst lehnt es mit Grund ab. Eine erfüllte Forderung kostet ${-DEMAND_MET_MEMORY} Punkte Meinung, eine abgelehnte ${-DEMAND_REFUSED_MEMORY}.`,
+        `Lieferverträge: alle ${CONTRACT_EVERY / MINUTE} Minuten eine feste Menge gegen festes Gold, höchstens ${CONTRACTS_EACH} je Volk. Ein Schiff des Volkes holt oder bringt die Ware an deinem Kontor. Fehlt dir Ware oder Gold, ist die Lieferung ausgesetzt und zählt als Bruch; nach ${BREACH_LIMIT} Brüchen kündigt das Volk.`,
+        "Die Beziehung reicht von -100 bis 100: Feindselig, Misstrauisch, Neutral, Freundlich, Verbündet, Vertrauensvoll. Handel, Geschenke, erfüllte Aufträge, eingehaltene Verträge und versenkte Piraten heben sie; Angriffe, Brüche und gescheiterte Aufträge senken sie. Bessere Stufen bringen bessere Preise, größere Mengen, Bündnis und Hilfe: Shogunara und Skeld schicken ihren Freunden Kriegsschiffe.",
+        `Die Waren der Völker sind Exotik für deine oberen Schichten: freiwillig, aber voll versorgt +${Math.round(EXOTIC_MOOD * PERCENT)} % Zufriedenheit, und der Aufstieg braucht dann nur ${Math.round(EXOTIC_RISE_NEED * PERCENT)} % je Bedürfnis.`,
+        `Piraten lauern Handelsschiffen auf und greifen an, wenn Eskorte und Konvoi schwach sind. Ein Schiff unter ${Math.round(STRUCK_SHARE * PERCENT)} % LP streicht die Flagge, die Piraten nehmen ${Math.round(LOOT_SHARE * PERCENT)} % jeder Ware. Kriegsschiffe als Eskorte und größere Konvois schrecken ab. Nachrichten (${INTEL_GOLD} Gold) zeigen ihre Flotte, der Schwarze Markt wechselt und bietet manchmal Schatzkarten (${MAP_PRICE} Gold). Wer Piraten versenkt, muss mit Rache rechnen.`,
+        `Mit Piraten herrscht von Beginn an Krieg - mit dir und mit jedem Rivalen; es gibt keinen Waffenstillstand und keinen Frieden. Schutzgeld (sofort und alle ${PROTECTION_EVERY / MINUTE} min, ${PROTECTION_SECONDS / MINUTE} min lang) ist bezahlter Schutz: Der Krieg bleibt, aber sie überfallen dich nicht, solange du zahlst. Im friedlichen Spiel gibt es weder Krieg noch Überfälle.`,
+        `Ein Bündnis mit Piraten wird erst möglich, wenn du ${ALLIANCE_SUNK} Schiffe anderer Gegner (Rivalen oder Völker) versenkt oder ${ALLIANCE_TAKEN} Kontor eines Rivalen erobert oder zerstört hast; die Diplomatie zeigt den Fortschritt. Dann nehmen sie an, wenn ihre Meinung über dich mindestens ${ALLIANCE_OPINION} ist - versenkte Piratenschiffe drücken sie, Geschenke heben sie. Verbündete Piraten überfallen dich nicht mehr, Schutzgeld ist unnötig, und sie greifen deine Kriegsgegner an. Greifst du sie an, ist wieder Krieg, und die Bedingung zählt von vorn.`,
+      ],
+      list: CULTURES.map(
+        (def) =>
+          `${def.name} (${def.island}): ${def.perk === null ? "Piraten" : PERK_TEXTS[def.perk]}`,
+      ),
     },
     {
       title: "Krieg",
       body: [
         "Gekämpft wird nur nach einer Kriegserklärung - und gegen Piraten. Kriegsschiffe (Werft), Wachtürme und Küstenbatterien schießen selbst auf Feinde in Reichweite; Rüstung schluckt einen Teil jedes Treffers.",
         `Ein Kontor mit 0 Lebenspunkten wird erobert: die Insel mit allen Gebäuden und Waren wechselt den Besitzer, die Hälfte der Bewohner flieht. Piraten erobern nicht, sondern plündern ${Math.round(PLUNDER_SHARE * PERCENT)} % der Waren. Andere Gebäude mit 0 Lebenspunkten sind zerstört.`,
-        `Schiffe werden vor einer eigenen Werft schnell und an einem eigenen Kontor langsamer repariert (${SHIP_REPAIR_GOLD} Gold je Lebenspunkt), Gebäude reparieren sich nach einer Weile Ruhe selbst (${BUILDING_REPAIR_GOLD} Gold je Lebenspunkt) - oder sofort mit „Reparieren“ im Objektfenster für ${INSTANT_REPAIR_GOLD} Gold je Lebenspunkt, wenn es nicht brennt. Im friedlichen Spiel gibt es weder Krieg noch Piraten.`,
+        `Schiffe werden vor einer eigenen Werft schnell und an einem eigenen Kontor langsamer repariert (${SHIP_REPAIR_GOLD} Gold je Lebenspunkt), Gebäude reparieren sich nach einer Weile Ruhe selbst (${BUILDING_REPAIR_GOLD} Gold je Lebenspunkt) - oder sofort mit „Reparieren“ im Objektfenster für ${INSTANT_REPAIR_GOLD} Gold je Lebenspunkt, wenn es nicht brennt. Im friedlichen Spiel gibt es weder Krieg noch Piratenüberfälle.`,
       ],
     },
     {
@@ -257,7 +399,7 @@ export const IMPERAVIS_RULES: GameRules = {
         "Die Arten ergänzen sich: Fernkämpfer schießen von weitem, sind im Nahkampf aber schwach; Grenadiere und Artillerie zerlegen Gebäude und Stellungen, die Artillerie trifft alle nahe am Ziel; Kavallerie ist schnell, aber gegen haltende Truppen, Türme und Kontore schwach.",
         `Spezialisten: Pioniere reparieren eigene Gebäude im Umkreis von ${SKILL_RANGE} Feldern im Feld, Sanitäter heilen eigene Einheiten im selben Umkreis, Aufklärer sehen weit - Einheiten bei ihnen erkennen Feinde früher, und im Umkreis von ${SCOUT_REVEAL} Feldern zeigen Minimap und Weltkarte feindliche Truppen und Schiffe.`,
         "Steuerung: Linksklick oder Rechteck wählt Einheiten, Rechtsklick ins Gelände schickt sie hin, Rechtsklick auf eine feindliche Einheit, ein Gebäude oder ein Schiff am Ufer greift an. Im Fenster der Auswahl: Formation (Linie, Block, locker), Position halten (eingegraben, mehr Panzerung), Rückzug zur nächsten Kaserne oder zum Kontor und Patrouille; Strg plus Zahl speichert eine Steuergruppe.",
-        `So geht ein Angriff über See: Fahre ein Schiff dicht an die Küste der Insel, auf der deine Truppen stehen (ein Kontor ist nicht nötig), und drücke „Einschiffen“ - die Einheiten der Insel gehen an Bord. Oder wähle Truppen und klicke mit rechts auf das Schiff (Truppenplätze: ${BUILDABLE_SHIPS.map((kind) => `${SHIP_NAMES[kind]} ${SHIP[kind].troops}`).join(", ")}). Dann „Angriff: Insel“ für eine Insel eines Feindes im Krieg - oder „Absetzen“ auf jeder anderen Insel: einer eigenen, einer freien oder der eines Rivalen. Truppen auf dem Land eines Rivalen im Frieden verärgern ihn, solange sie dort stehen; im Extremfall erklärt er dir den Krieg (der Kriegerische am schnellsten, der Händler am spätesten). Das Schiff segelt vor das Kontor, die Einheiten gehen an Land und stürmen es; bei 0 Lebenspunkten wird die Insel erobert.`,
+        `So geht ein Angriff über See: Fahre ein Schiff dicht an die Küste der Insel, auf der deine Truppen stehen (ein Kontor ist nicht nötig), und drücke „Einschiffen“ - die Einheiten der Insel gehen an Bord. Oder wähle Truppen und klicke mit rechts auf das Schiff (Truppenplätze: ${BUILDABLE_SHIPS.map((kind) => `${SHIP_NAMES[kind]} ${SHIP[kind].troops}`).join(", ")}). Dann im Reiter „Truppen“ des Schiffsfensters eine Insel wählen (oder mit dem gewählten Schiff mit rechts auf Land einer Insel klicken) und „Angriff: Insel“ für eine Insel eines Feindes im Krieg - oder „Absetzen“ auf jeder anderen Insel: einer eigenen, einer freien oder der eines Rivalen. Truppen auf dem Land eines Rivalen im Frieden verärgern ihn, solange sie dort stehen; im Extremfall erklärt er dir den Krieg (der Kriegerische am schnellsten, der Händler am spätesten). Das Schiff segelt vor das Kontor, die Einheiten gehen an Land und stürmen es; bei 0 Lebenspunkten wird die Insel erobert.`,
         "Verteidigt wird von selbst: Einheiten auf ihrer Insel gehen auf gelandete Feinde los, Wachtürme und Küstenbatterien schießen auch auf Einheiten, und die Wache jedes Kontors schlägt zu, wer an seinen Mauern steht. Nach einem Friedensschluss kehren Einheiten auf fremdem Boden heim.",
       ],
       list: UNIT_LINES,
@@ -268,7 +410,15 @@ export const IMPERAVIS_RULES: GameRules = {
         `Die Krone und die Rivalen bieten laufend Aufträge an: Lieferung, Besiedlung, Produktionsziel, Handelsauftrag, Wirtschaftsziel, Diplomatie, Rettung von Schiffbrüchigen und Bauaufträge. Jeder hat Schwierigkeit, Zeitlimit und Belohnung; höchstens ${MOST_ACTIVE} laufen gleichzeitig. Erfüllte Aufträge bringen Gold, Ruf und Beziehung, gescheiterte kosten beides.`,
         "Aufträge der Krone (Lieferung, Besiedlung, Produktions-, Handels-, Wirtschafts- und Bauziel) nehmen auch die Rivalen an. Wer zuerst erfüllt, bekommt die Belohnung; für alle anderen ist der Auftrag verloren, ohne Strafe. Das Fenster Aufträge zeigt unter „Konkurrenz“, wer mitläuft und wie weit er ist.",
         `Feuer brennt bis zu ${FIRE_SECONDS} Sekunden; eine Feuerwache in Reichweite löscht nach ${EXTINGUISH_SECONDS} Sekunden. Eine Seuche dauert ${PLAGUE_SECONDS} Sekunden und kostet Häuser ohne Medikus Bewohner und Zufriedenheit. Stürme beschädigen Schiffe auf See, gute Ernten und Missernten verändern die Höfe einer Insel für eine Weile. Piraten kommen frühestens nach ${PIRATES_FROM / MINUTE} Minuten.`,
+        "Welche Ereignisse und Katastrophen es gibt und welche Völker in der Welt leben, wählst du beim neuen Spiel unter „Ereignisse und Katastrophen“ und „Völker“; das Pausenmenü zeigt die Auswahl des laufenden Spiels.",
       ],
+    },
+    {
+      title: "Katastrophen",
+      body: [
+        `Frühestens nach ${DISASTERS_FROM / MINUTE} Minuten und nie während des geführten Einstiegs können Katastrophen kommen. Jede wird angekündigt, und nach einer hat die Insel ${ISLAND_CALM / MINUTE} Minuten Ruhe.`,
+      ],
+      list: DISASTER_LINES,
     },
     {
       title: "Forschung",

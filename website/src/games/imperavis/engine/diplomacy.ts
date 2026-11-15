@@ -12,8 +12,10 @@
  * and always says why. Proposals of an AI to the human wait as offers.
  */
 import { strengthOf as combatStrength } from "./combat";
+import { difficultyOf } from "./difficulty-data";
 import { earn, spend } from "./economy";
 import { GOOD } from "./goods";
+import { isFactionIsland } from "./factions";
 import { HUMAN, islandsOf, playerById } from "./players";
 import { populationOf } from "./population";
 import { TICK } from "./time";
@@ -40,6 +42,12 @@ const ROUND_STEPS = Math.round(DIPLOMACY_EVERY / TICK);
 
 /** Memories keep this share per round. */
 const MEMORY_KEEP = 0.98;
+
+/**
+ * Memories of a foreign people or pirate band keep this share per round:
+ * they last much longer than the rivals' moods.
+ */
+const FACTION_MEMORY_KEEP = 0.997;
 
 /** Reputation keeps this share per round. */
 const REPUTATION_KEEP = 0.995;
@@ -500,8 +508,9 @@ export function answerOffer(
 export function stepDiplomacy(game: Game): void {
   if (game.tick % ROUND_STEPS === 0) {
     for (const relation of game.diplomacy.relations) {
-      fade(relation.memory, MEMORY_KEEP);
-      if (relation.trade && !relation.war) {
+      const faction = relation.a < 0;
+      fade(relation.memory, faction ? FACTION_MEMORY_KEEP : MEMORY_KEEP);
+      if (!faction && relation.trade && !relation.war) {
         tradeIncome(game, relation.a, relation.b);
         tradeIncome(game, relation.b, relation.a);
       }
@@ -554,7 +563,9 @@ export function trespass(
     remember(game, owner, intruder, "trespass", -anger * share);
     const war =
       !game.settings.peaceful &&
-      opinionOf(game, owner, intruder) <= TRESPASS_WAR[host.ai.personality];
+      opinionOf(game, owner, intruder) <=
+        TRESPASS_WAR[host.ai.personality] +
+          (intruder === HUMAN ? difficultyOf(game).aiWarLine : 0);
     if (landed > 0 || war) {
       game.events.push({ type: "trespass", owner, intruder, war });
     }
@@ -994,6 +1005,7 @@ function islandRivalry(game: Game, a: number, b: number): number {
     const info = game.world.islands[state.id];
     if (
       state.owner < 0 &&
+      !isFactionIsland(game.world, state.id) &&
       near(a, info.cx, info.cy) &&
       near(b, info.cx, info.cy)
     ) {

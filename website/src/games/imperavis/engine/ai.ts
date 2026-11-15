@@ -40,12 +40,29 @@ import {
   TRADE_OPINION,
 } from "./diplomacy";
 import { markOccupied, refreshDerived } from "./derived";
+import {
+  DEFAULT_DIFFICULTY,
+  DIFFICULTIES,
+  DIFFICULTY,
+  difficultyOf,
+  levelOf,
+  type DifficultyFactors,
+} from "./difficulty-data";
+import { protectionPlan } from "./disasters";
+import { PROTECTION_KINDS } from "./disasters-data";
 import { NO_ROAD } from "./logistics-data";
 import { contractOf, CROWN, RACE_KINDS } from "./missions";
 import { lineBalance } from "./economy";
 import { GOOD, GOOD_IDS } from "./goods";
 import { checkPlacement, FOUND_RANGE, hasAmounts } from "./placement";
-import { HUMAN, islandsByAge, islandsOf } from "./players";
+import { isFactionIsland } from "./factions";
+import {
+  HUMAN,
+  islandOwner,
+  islandsByAge,
+  islandsOf,
+  playerById,
+} from "./players";
 import { populationOf, residentsByTier } from "./population";
 import { nextRandom } from "./random";
 import { openFields } from "./research";
@@ -63,6 +80,7 @@ import {
   type Building,
   type BuildingKind,
   type Command,
+  type Difficulty,
   type Game,
   type GoodId,
   type IslandInfo,
@@ -261,6 +279,24 @@ export const CHARACTERS: Readonly<Record<Personality, Character>> = {
   },
 };
 /* eslint-enable @typescript-eslint/no-magic-numbers */
+
+/**
+ * The characters on each level: a rival on an easier level wants fewer
+ * houses and islands and settles later, on a harder one more and sooner.
+ */
+const LEVEL_CHARACTERS: Readonly<
+  Record<Difficulty, Readonly<Record<Personality, Character>>>
+> = Object.fromEntries(
+  DIFFICULTIES.map((level) => [
+    level,
+    Object.fromEntries(
+      (Object.keys(CHARACTERS) as Personality[]).map((personality) => [
+        personality,
+        onLevel(CHARACTERS[personality], DIFFICULTY[level]),
+      ]),
+    ),
+  ]),
+) as Record<Difficulty, Record<Personality, Character>>;
 
 /** Above this gold the AI raises buildings to their second stage. */
 const RICH = 8000;
@@ -570,7 +606,8 @@ export function stepAi(game: Game): void {
     const ai = player.ai;
     if (ai !== null && player.alive) {
       if (game.time >= ai.nextThink) {
-        ai.nextThink = game.time + THINK_EVERY;
+        ai.nextThink =
+          game.time + THINK_EVERY * rivalFactors(game, player).aiThink;
         think(game, player);
       }
       if (game.time >= ai.nextDiplomacy) {
@@ -581,10 +618,47 @@ export function stepAi(game: Game): void {
   }
 }
 
+/**
+ * A rival's character on the game's level: an AI playing for the human
+ * (a test bot) has the one of normal.
+ */
+function characterOf(game: Game, player: Player): Character {
+  const level =
+    player.id === HUMAN ? DEFAULT_DIFFICULTY : levelOf(game.settings);
+  return LEVEL_CHARACTERS[level][player.ai?.personality ?? "trader"];
+}
+
+/**
+ * The level's factors for a player's mind: a rival's are the level's,
+ * an AI playing for the human (a test bot) thinks as on normal.
+ */
+function rivalFactors(game: Game, player: Player): DifficultyFactors {
+  return player.id === HUMAN ? DIFFICULTY.normal : difficultyOf(game);
+}
+
+/**
+ * A character changed by a level: houses per island times its growth,
+ * the thresholds for the next island divided by it, islands plus its
+ * offset (at least one).
+ */
+function onLevel(character: Character, level: DifficultyFactors): Character {
+  return {
+    ...character,
+    houses: Math.round(character.houses * level.aiGrowth),
+    settleAt: Math.round(character.settleAt / level.aiGrowth),
+    settleGold: Math.round(character.settleGold / level.aiGrowth),
+    islands: Math.max(1, character.islands + level.aiIslands),
+  };
+}
+
 /** One thought about the economy, ships and research. */
 function think(game: Game, player: Player): void {
   const ai = player.ai;
-  const budget: Budget = { checks: CHECK_BUDGET, paths: PATH_BUDGET };
+  const factor = rivalFactors(game, player).aiBudget;
+  const budget: Budget = {
+    checks: Math.round(CHECK_BUDGET * factor),
+    paths: Math.round(PATH_BUDGET * factor),
+  };
   refreshDerived(game);
   const islands = islandsByAge(game, player.id).filter(
     (id) => kontorOf(game, id) !== null,
@@ -743,7 +817,7 @@ function money(game: Game, player: Player, home: number): void {
       ai.thrifty = false;
       command(game, player, { type: "tax", level: 1 });
     }
-    const character = CHARACTERS[ai.personality];
+    const character = characterOf(game, player);
     const capacity = capacityOf(game, home);
     const stock = game.islands[home].stock;
     const wanted = buyList(game, player);
@@ -954,7 +1028,7 @@ function nextBuilding(
   home: boolean,
 ): BuildingKind | null {
   const ai = player.ai;
-  const character = CHARACTERS[ai?.personality ?? "trader"];
+  const character = characterOf(game, player);
   const counts = countKinds(game, island);
   const count = (kind: BuildingKind) => counts.get(kind) ?? 0;
   // Saving up for the next colony keeps gold back from all but the basics.
@@ -1068,6 +1142,11 @@ function nextBuilding(
   pick("battery", war && count("battery") < 1);
   pick("fireStation", houses >= CIVIC_HOUSES && count("fireStation") < 1);
   pick("doctor", houses >= CIVIC_HOUSES && count("doctor") < 1);
+  // Protection against the disasters that struck before, or against all
+  // of them for a careful character.
+  for (const want of protectionPlan(game, player, island)) {
+    pick(want.kind, true);
+  }
   if (!home) {
     // A colony makes what home cannot: its raw goods go home by route, and
     // so does what home lacks but has no room for.
@@ -1120,7 +1199,7 @@ function ladder(
   highest: number,
   houses: number,
 ): (readonly [BuildingKind, number])[] {
-  const character = CHARACTERS[player.ai?.personality ?? "trader"];
+  const character = characterOf(game, player);
   const done = player.research.done;
   const rungs: (readonly [BuildingKind, number])[] = [];
   const add = (when: boolean, ...kinds: [BuildingKind, number][]) => {
@@ -1413,6 +1492,9 @@ const DEPOSIT_SPACING = 6;
 /** ...each searched this far around. */
 const DEPOSIT_RADIUS = 4;
 
+/** A protection building stands this far inside its reach of its ward. */
+const PROTECTION_MARGIN = 2;
+
 /** Where a kind is best looked for on an island. */
 function anchorsFor(game: Game, island: number, kind: BuildingKind): Anchor[] {
   const def = BUILDING[kind];
@@ -1436,7 +1518,18 @@ function anchorsFor(game: Game, island: number, kind: BuildingKind): Anchor[] {
     radius,
   });
   let anchors: Anchor[];
-  if (kind === "market") {
+  const owner = playerById(game, islandOwner(game, island));
+  if (PROTECTION_KINDS.includes(kind) && owner !== null) {
+    // Right by the endangered building it is meant to guard.
+    anchors = protectionPlan(game, owner, island)
+      .filter((want) => want.kind === kind)
+      .map((want) => ({
+        x: want.x,
+        y: want.y,
+        min: 0,
+        radius: def.radius - PROTECTION_MARGIN,
+      }));
+  } else if (kind === "market") {
     anchors =
       markets.length === 0
         ? [...stores.map((b) => around(b, 0, SEARCH_RADIUS)), middle]
@@ -1689,7 +1782,7 @@ function colonize(
           game,
           player,
           islands[0],
-          bestShip(game, player, CHARACTERS[ai.personality].merchants),
+          bestShip(game, player, characterOf(game, player).merchants),
         );
       }
     }
@@ -1766,7 +1859,7 @@ function voyage(
  */
 function wantsColony(game: Game, player: Player): boolean {
   const ai = player.ai;
-  const character = CHARACTERS[ai?.personality ?? "trader"];
+  const character = characterOf(game, player);
   const islands = islandsByAge(game, player.id);
   const settleAt = lacksClay(game, islands)
     ? Math.min(character.settleAt, CLAY_SETTLE_AT)
@@ -1793,7 +1886,7 @@ function wantsColony(game: Game, player: Player): boolean {
 
 /** Gold the AI wants at hand before it sets out for a new island. */
 function settleGold(game: Game, player: Player): number {
-  const character = CHARACTERS[player.ai?.personality ?? "trader"];
+  const character = characterOf(game, player);
   return lacksClay(game, islandsByAge(game, player.id))
     ? Math.min(character.settleGold, CLAY_SETTLE_GOLD)
     : character.settleGold;
@@ -1969,7 +2062,11 @@ function bestColony(game: Game, player: Player, x: number, y: number): number {
   };
   for (const state of game.islands) {
     const info = game.world.islands[state.id];
-    if (state.owner < 0 && info.buildable > 0) {
+    if (
+      state.owner < 0 &&
+      info.buildable > 0 &&
+      !isFactionIsland(game.world, state.id)
+    ) {
       const adds =
         (info.fertile.grapes ? weight.grapes : 0) +
         (info.fertile.tobacco ? weight.tobacco : 0) +
@@ -2013,6 +2110,7 @@ function nearestFreeIsland(
     if (
       state.owner < 0 &&
       info.buildable > 0 &&
+      !isFactionIsland(game.world, state.id) &&
       score < bestScore &&
       player >= 0
     ) {
@@ -2035,7 +2133,7 @@ function bestShip(
 ): ShipKind {
   const home = islandsByAge(game, player.id)[0];
   const stock = home === undefined ? null : game.islands[home].stock;
-  const reserve = CHARACTERS[player.ai?.personality ?? "trader"].reserve;
+  const reserve = characterOf(game, player).reserve;
   return (
     kinds.find(
       (kind) =>
@@ -2056,7 +2154,7 @@ function nextUnit(
   player: Player,
   barracks: Building,
 ): UnitKind | null {
-  const character = CHARACTERS[player.ai?.personality ?? "trader"];
+  const character = characterOf(game, player);
   const stock = game.islands[barracks.island].stock;
   let best: UnitKind | null = null;
   let bestScore = Infinity;
@@ -2101,9 +2199,7 @@ function orderShip(
     )[0];
   if (
     yard !== undefined &&
-    player.gold >=
-      SHIP[kind].cost.gold +
-        CHARACTERS[player.ai?.personality ?? "trader"].reserve
+    player.gold >= SHIP[kind].cost.gold + characterOf(game, player).reserve
   ) {
     command(game, player, { type: "buildShip", yard: yard.id, kind });
   }
@@ -2113,7 +2209,7 @@ function orderShip(
 function ships(game: Game, player: Player, islands: number[]): void {
   const ai = player.ai;
   if (ai !== null) {
-    const character = CHARACTERS[ai.personality];
+    const character = characterOf(game, player);
     const enemies = game.players.filter(
       (other) => other.alive && atWar(game, player.id, other.id),
     );
@@ -2192,7 +2288,7 @@ function wantsSoldiers(game: Game, player: Player): boolean {
   return (
     ai !== null &&
     !game.settings.peaceful &&
-    (war || CHARACTERS[ai.personality].soldiers > 0)
+    (war || characterOf(game, player).soldiers > 0)
   );
 }
 
@@ -2204,7 +2300,7 @@ function wantsSoldiers(game: Game, player: Player): boolean {
 function troops(game: Game, player: Player, islands: number[]): void {
   const ai = player.ai;
   if (ai !== null) {
-    const character = CHARACTERS[ai.personality];
+    const character = characterOf(game, player);
     const enemies = game.players.filter(
       (other) => other.alive && atWar(game, player.id, other.id),
     );
@@ -2436,13 +2532,12 @@ function canManage(
         player.unlocked.includes(kind) &&
         player.gold >=
           BUILDING[kind].cost.gold * mission.goal +
-            CHARACTERS[player.ai?.personality ?? "trader"].reserve;
+            characterOf(game, player).reserve;
       break;
     }
     case "settle":
       result =
-        islands.length <
-          CHARACTERS[player.ai?.personality ?? "trader"].islands &&
+        islands.length < characterOf(game, player).islands &&
         freeCargoShip(game, player) !== null &&
         player.gold >= settleGold(game, player);
       break;
@@ -2481,7 +2576,7 @@ function choose(game: Game, player: Player): void {
   const ai = player.ai;
   if (ai !== null && player.research.current === null) {
     const open = openFields(player);
-    const next = CHARACTERS[ai.personality].research.find((id) =>
+    const next = characterOf(game, player).research.find((id) =>
       open.includes(id),
     );
     if (next !== undefined) {
@@ -2537,10 +2632,15 @@ function thinkDiplomacy(game: Game, player: Player): void {
           propose(game, player.id, other.id, action, -1);
         }
       };
+      // The level moves the line towards the human only.
+      const level = difficultyOf(game);
+      const toward = other.id === HUMAN;
       const warLine =
-        ai.personality === "warlike" ? WAR_OPINION_WARLIKE : WAR_OPINION;
+        (ai.personality === "warlike" ? WAR_OPINION_WARLIKE : WAR_OPINION) +
+        (toward ? level.aiWarLine : 0);
       const warRatio =
-        ai.personality === "warlike" ? WAR_RATIO_WARLIKE : WAR_RATIO;
+        (ai.personality === "warlike" ? WAR_RATIO_WARLIKE : WAR_RATIO) *
+        (toward ? level.aiWarRatio : 1);
       const deal = traded ? null : goodsDeal(game, player, other);
       const gift = giftFor(game, player, opinion, mine, theirs);
       if (relation.war) {

@@ -21,16 +21,33 @@
  * orders and formations, the training queue of the barracks (with pause),
  * the war orders of ships (attack, patrol, escort) and the fleets; the
  * goods weapons, cannons and steam engines start at nothing in older saves.
- * Formats 1 (the first version, one player), 2 (rivals, before troops) and
- * 3 (before format 4) are converted on loading; anything else is refused.
+ * Format 5 brought the foreign peoples and pirate bands (`factions`): their
+ * stocks, gold, fleets, contracts, protection, black market and minds; the
+ * world of such a game is made with their home islands (`settings.factions`).
+ * Older saves load without factions: their world comes from the seed as it
+ * always did, without the new islands, and their pirates behave as before.
+ * Format 6 brought the natural disasters (`hazards`, the bare fields of a
+ * building after locusts as `blight`) and the choice of events and peoples
+ * in the settings (`eventsOff`, `culturesOff`); a format 5 save loads with
+ * every event on, no disaster yet and no protection building.
+ * Since the pirates are always at war, every load sets their relations to
+ * war (but for an alliance or a peaceful game) and forgets their
+ * ceasefires; protection money runs on, and the deeds towards an alliance
+ * (`deeds`) start at nothing when a save has none. That holds for every
+ * format and changes nothing in a newer save, so the format stays 6.
+ * Formats 1 (the first version, one player), 2 (rivals, before troops), 3
+ * (before format 4), 4 (before the factions) and 5 (before the disasters)
+ * are converted on loading; anything else is refused.
  */
 import { FIRST_MISSION } from "./missions";
 import { emptyGame } from "./game";
 import { emptyLine } from "./economy";
 import { perGood } from "./goods";
+import { createHazards, refreshFlooded } from "./disasters";
+import { DISASTER_ROLL, DISASTERS_FROM } from "./disasters-data";
 import { FIRST_INCIDENT } from "./incidents";
 import { NO_ROAD, PAVED_ROAD, PLAIN_ROAD } from "./logistics-data";
-import { emptyStats } from "./players";
+import { emptyStats, RENAMED_RIVALS } from "./players";
 import { SHIP } from "./ships-data";
 import { OLD_SOLDIER } from "./units-data";
 import { createTrader } from "./trader";
@@ -41,9 +58,11 @@ import type {
   Building,
   Cart,
   DiplomacyState,
+  Faction,
   Fleet,
   Game,
   GameSettings,
+  HazardState,
   Incident,
   IslandState,
   MapSize,
@@ -58,7 +77,13 @@ import type {
 } from "./types";
 
 /** Version of the format. */
-export const SAVE_FORMAT = 4;
+export const SAVE_FORMAT = 6;
+
+/** The format before the natural disasters, still loaded. */
+export const FACTIONS_FORMAT = 5;
+
+/** The format before the foreign peoples and pirate bands, still loaded. */
+export const FLEETS_FORMAT = 4;
 
 /** The format before fleets, unit kinds and queues, still loaded. */
 export const TROOPS_FORMAT = 3;
@@ -114,6 +139,10 @@ export type SaveData = {
   readonly goldBeforeCheat?: number;
   /** Missing in saves from before the guided start: then it is off. */
   readonly tutorial?: TutorialState;
+  /** The foreign peoples and pirate bands (format 5). */
+  readonly factions?: Faction[];
+  /** The natural disasters (format 6). */
+  readonly hazards?: HazardState;
 };
 
 /**
@@ -157,6 +186,8 @@ export function toSave(game: Game): SaveData {
     cheated: game.cheated,
     goldBeforeCheat: game.goldBeforeCheat,
     tutorial: game.tutorial,
+    factions: game.factions,
+    hazards: game.hazards,
   };
   // A deep copy, so the stored game never shares objects with the live one.
   return JSON.parse(JSON.stringify(data)) as SaveData;
@@ -174,17 +205,33 @@ export function fromSave(data: SaveData): Game {
   const copy =
     data.format === SAVE_FORMAT
       ? plain
-      : upgradeTroops(
-          data.format === TROOPS_FORMAT
+      : upgradeHazards(
+          data.format === FACTIONS_FORMAT
             ? plain
-            : upgradeRivals(
-                data.format === OLD_FORMAT
-                  ? upgradeOld(plain as unknown as OldSave)
-                  : plain,
+            : upgradeFactions(
+                data.format === FLEETS_FORMAT
+                  ? plain
+                  : upgradeTroops(
+                      data.format === TROOPS_FORMAT
+                        ? plain
+                        : upgradeRivals(
+                            data.format === OLD_FORMAT
+                              ? upgradeOld(plain as unknown as OldSave)
+                              : plain,
+                          ),
+                    ),
               ),
         );
   const fresh = createTrader();
-  const game = emptyGame(createWorld(copy.seed, copy.size), copy.settings);
+  const game = emptyGame(
+    createWorld(
+      copy.seed,
+      copy.size,
+      copy.settings.factions === true,
+      copy.settings.culturesOff ?? [],
+    ),
+    copy.settings,
+  );
   for (const index of copy.roads) {
     game.roads[index] = PLAIN_ROAD;
   }
@@ -202,6 +249,8 @@ export function fromSave(data: SaveData): Game {
     // decorations) are opened for everyone.
     players: copy.players.map((player) => ({
       ...player,
+      // A rival renamed since (the trading house that shared Valdoria's name).
+      name: RENAMED_RIVALS[player.name] ?? player.name,
       unlocked: [
         ...player.unlocked,
         ...STARTING_UNLOCKS.filter((kind) => !player.unlocked.includes(kind)),
@@ -217,6 +266,7 @@ export function fromSave(data: SaveData): Game {
     buildings: copy.buildings.map((building) => ({
       ...building,
       priority: building.priority === true,
+      blight: building.blight ?? 0,
     })),
     nextId: copy.nextId,
     carts: copy.carts,
@@ -232,7 +282,7 @@ export function fromSave(data: SaveData): Game {
     traderShip: copy.traderShip,
     weather: copy.weather,
     weatherUntil: copy.weatherUntil,
-    diplomacy: copy.diplomacy,
+    diplomacy: atWarWithPirates(copy),
     missions: copy.missions,
     nextMission: copy.nextMission,
     incidents: copy.incidents,
@@ -243,8 +293,44 @@ export function fromSave(data: SaveData): Game {
     cheated: copy.cheated === true || copy.cheat === true,
     goldBeforeCheat: copy.goldBeforeCheat ?? 0,
     tutorial: copy.tutorial ?? createTutorial(false),
+    factions: (copy.factions ?? []).map((faction) => ({
+      ...faction,
+      stock: { ...perGood(0), ...faction.stock },
+      // The pirates know no ceasefire any more.
+      ceasefire: faction.kind === "pirates" ? {} : faction.ceasefire,
+      deeds: faction.deeds ?? {},
+    })),
+    hazards: copy.hazards ?? createHazards(),
   });
+  refreshFlooded(game);
   return game;
+}
+
+/**
+ * The saved diplomacy with every pirate band at war with every player it
+ * is not allied with (none in a peaceful game): a ceasefire or a peace
+ * with them from an older save turns into war.
+ *
+ * @param data - the saved form
+ * @returns the diplomacy to play on with
+ */
+function atWarWithPirates(data: SaveData): DiplomacyState {
+  const bands = new Set(
+    (data.factions ?? [])
+      .filter((faction) => faction.kind === "pirates")
+      .map((faction) => faction.id),
+  );
+  return {
+    ...data.diplomacy,
+    relations: data.diplomacy.relations.map((relation) =>
+      bands.has(relation.a)
+        ? {
+            ...relation,
+            war: !relation.alliance && !data.settings.peaceful,
+          }
+        : relation,
+    ),
+  };
 }
 
 /**
@@ -273,6 +359,8 @@ export function isSaveData(value: unknown): value is SaveData {
   return (
     common &&
     (((data.format === SAVE_FORMAT ||
+      data.format === FACTIONS_FORMAT ||
+      data.format === FLEETS_FORMAT ||
       data.format === TROOPS_FORMAT ||
       data.format === RIVALS_FORMAT) &&
       Array.isArray(data.players) &&
@@ -298,6 +386,35 @@ type OldSave = Omit<
 };
 
 /**
+ * Converts a save of format 5: no disaster has come yet, every event is on
+ * (the settings have no list of events switched off), and the first dice
+ * are rolled no earlier than in a new game.
+ */
+function upgradeHazards(old: SaveData): SaveData {
+  return {
+    ...old,
+    format: SAVE_FORMAT,
+    hazards: {
+      ...createHazards(),
+      next: Math.max(DISASTERS_FROM, old.time + DISASTER_ROLL),
+    },
+  };
+}
+
+/**
+ * Converts a save of format 4: a world from before the foreign peoples and
+ * pirate bands, so there are none - the map stays as the seed made it.
+ */
+function upgradeFactions(old: SaveData): SaveData {
+  return {
+    ...old,
+    format: FACTIONS_FORMAT,
+    settings: { ...old.settings, factions: false },
+    factions: [],
+  };
+}
+
+/**
  * Converts a save of format 3: shipyards get an empty queue, the barracks'
  * count of soldiers on order becomes a queue of line infantry, every
  * soldier becomes line infantry without an order, standing in a line, and
@@ -306,7 +423,7 @@ type OldSave = Omit<
 function upgradeTroops(old: SaveData): SaveData {
   return {
     ...old,
-    format: SAVE_FORMAT,
+    format: FLEETS_FORMAT,
     buildings: old.buildings.map((building) => {
       const drill = building.drill as unknown as {
         queue: number | string[];

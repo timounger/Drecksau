@@ -34,6 +34,10 @@ const BATTERY_HP = 1000;
 const BATTERY_ARMOUR = 0.35;
 const BATTERY_GUNS = { damage: 45, range: 12, reload: 4 } as const;
 
+/** The breakwater: heavy stone that takes the sea. */
+const BREAKWATER_HP = 900;
+const BREAKWATER_ARMOUR = 0.3;
+
 /** Every building, in build-menu order. */
 export const BUILDINGS: readonly BuildingDef[] = [
   {
@@ -1479,6 +1483,135 @@ export const BUILDINGS: readonly BuildingDef[] = [
     research: null,
     science: 0,
   },
+  // Qasirah's art: perfume from its spices and glass. It opens only when
+  // the Sultanate teaches it (see factions.ts), never by residents.
+  {
+    kind: "perfumery",
+    category: "craft",
+    w: 2,
+    h: 2,
+    cost: { gold: 900, planks: 6, bricks: 8, tools: 4 },
+    buildSeconds: 26,
+    upkeep: 16,
+    workers: { tier: CRAFTSMEN, count: 5 },
+    recipe: {
+      inputs: [
+        { good: "spices", amount: 1 },
+        { good: "glass", amount: 1 },
+      ],
+      output: "perfume",
+      amount: 1,
+      seconds: 30,
+      seasonal: "none",
+    },
+    radius: 0,
+    influence: 0,
+    needs: [],
+    unlock: null,
+    storage: 0,
+    carts: 0,
+    smoke: true,
+    hp: siteHp({ w: 2, h: 2 }),
+    armour: 0,
+    guns: null,
+    research: null,
+    science: 0,
+    faction: "qasirah",
+  },
+  // Protection against the natural disasters (see disasters.ts): each
+  // guards the tiles in its reach.
+  {
+    kind: "dike",
+    category: "logistics",
+    w: 3,
+    h: 1,
+    cost: { gold: 150, planks: 2, stone: 6 },
+    buildSeconds: 16,
+    upkeep: 2,
+    workers: null,
+    recipe: null,
+    radius: 7,
+    influence: 0,
+    needs: [],
+    unlock: { tier: FARMERS, residents: 50 },
+    storage: 0,
+    carts: 0,
+    smoke: false,
+    hp: siteHp({ w: 3, h: 1 }),
+    armour: 0,
+    guns: null,
+    research: null,
+    science: 0,
+  },
+  {
+    kind: "pumpStation",
+    category: "logistics",
+    w: 2,
+    h: 2,
+    cost: { gold: 350, planks: 4, bricks: 6, tools: 3 },
+    buildSeconds: 22,
+    upkeep: 6,
+    workers: null,
+    recipe: null,
+    radius: 12,
+    influence: 0,
+    needs: [],
+    unlock: { tier: WORKERS, residents: 40 },
+    storage: 0,
+    carts: 0,
+    smoke: false,
+    hp: siteHp({ w: 2, h: 2 }),
+    armour: 0,
+    guns: null,
+    research: null,
+    science: 0,
+  },
+  {
+    kind: "irrigation",
+    category: "farm",
+    w: 2,
+    h: 2,
+    cost: { gold: 200, planks: 4, stone: 4 },
+    buildSeconds: 16,
+    upkeep: 3,
+    workers: null,
+    recipe: null,
+    radius: 9,
+    influence: 0,
+    needs: [],
+    unlock: { tier: WORKERS, residents: 30 },
+    storage: 0,
+    carts: 0,
+    smoke: false,
+    hp: siteHp({ w: 2, h: 2 }),
+    armour: 0,
+    guns: null,
+    research: null,
+    science: 0,
+  },
+  {
+    kind: "breakwater",
+    category: "harbour",
+    w: 3,
+    h: 1,
+    cost: { gold: 400, stone: 12, tools: 2 },
+    buildSeconds: 24,
+    upkeep: 5,
+    workers: null,
+    recipe: null,
+    radius: 12,
+    influence: 0,
+    needs: [{ type: "coast" }],
+    unlock: { tier: WORKERS, residents: 50 },
+    storage: 0,
+    carts: 0,
+    smoke: false,
+    hp: BREAKWATER_HP,
+    armour: BREAKWATER_ARMOUR,
+    guns: null,
+    research: null,
+    science: 0,
+  },
 ];
 
 /** Looking a building up by kind. */
@@ -1559,7 +1692,8 @@ export const INPUT_CAPACITY = 4;
 
 /** Kinds open from the start. */
 export const STARTING_UNLOCKS: readonly BuildingKind[] = BUILDINGS.filter(
-  (def) => def.unlock === null && def.research === null,
+  (def) =>
+    def.unlock === null && def.research === null && def.faction === undefined,
 ).map((def) => def.kind);
 
 /**

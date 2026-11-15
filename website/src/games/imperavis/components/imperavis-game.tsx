@@ -25,11 +25,16 @@ import {
 } from "react";
 import { GameHeader } from "@/components/game-header";
 import { HUMAN } from "@/games/imperavis/engine/players";
-import type { Game } from "@/games/imperavis/engine/types";
+import type {
+  CultureId,
+  Game,
+  GameSettings,
+} from "@/games/imperavis/engine/types";
 import { useImperavis } from "@/games/imperavis/hooks/use-imperavis";
 import { HUD } from "@/games/imperavis/i18n/hud-texts";
 import { IMPERAVIS_RULES } from "@/games/imperavis/i18n/rules";
-import { TEXTS as T } from "@/games/imperavis/i18n/texts";
+import { levelOf } from "@/games/imperavis/engine/difficulty-data";
+import { DIFFICULTY_NAMES, TEXTS as T } from "@/games/imperavis/i18n/texts";
 import { TUTORIAL } from "@/games/imperavis/i18n/tutorial-texts";
 import type { Pick } from "@/games/imperavis/render/view";
 import type { SavedGame } from "@/games/imperavis/storage/save-store";
@@ -40,6 +45,7 @@ import {
   BuildWindow,
   type BuildGroup,
 } from "./build-menu";
+import { GameSummary } from "./game-options";
 import { Icon } from "./icons";
 import { InfoPanel } from "./info-panel";
 import { IslandPanel } from "./island-panel";
@@ -381,12 +387,14 @@ export function ImperavisGame(): ReactElement {
                     )}
                     {big === null && group === null && showInfo && (
                       <InfoPanel
+                        onDiplomacy={() => openAdmin("diplomacy")}
                         game={game}
                         selection={selection}
                         onCommand={command}
                         onTool={setTool}
                         onClose={() => select({ type: "none" })}
                         onSelect={select}
+                        onFocus={focus}
                       />
                     )}
                     {big === null && group === null && !showInfo && (
@@ -454,12 +462,14 @@ export function ImperavisGame(): ReactElement {
                         data-testid="imp-workshop"
                       >
                         <InfoPanel
+                          onDiplomacy={() => openAdmin("diplomacy")}
                           game={game}
                           selection={selection}
                           onCommand={command}
                           onTool={setTool}
                           onClose={() => select({ type: "none" })}
                           onSelect={select}
+                          onFocus={focus}
                           wide
                         />
                       </div>
@@ -487,6 +497,7 @@ export function ImperavisGame(): ReactElement {
                     <div className="flex min-h-0 w-full flex-1 flex-col items-end">
                       {showInfo && (!workshop || group !== null) && (
                         <InfoPanel
+                          onDiplomacy={() => openAdmin("diplomacy")}
                           game={game}
                           selection={selection}
                           onCommand={command}
@@ -561,6 +572,8 @@ export function ImperavisGame(): ReactElement {
           {phase === "playing" && game !== null && menuOpen && (
             <PauseMenu
               guided={game.tutorial.active}
+              settings={game.settings}
+              cultures={game.factions.map((faction) => faction.culture)}
               onEndTutorial={() => command({ type: "tutorialEnd" })}
               onResume={() => setMenuOpen(false)}
               onSave={saveTo}
@@ -593,15 +606,18 @@ export function ImperavisGame(): ReactElement {
  * @returns true for an own shipyard or barracks
  */
 function workshopPicked(game: Game, selection: Pick): boolean {
+  // A faction's harbour window opens large too.
+  const faction = selection.type === "faction";
   const building =
     selection.type === "building"
       ? game.buildings.find((b) => b.id === selection.id)
       : undefined;
   return (
-    building !== undefined &&
-    building.complete &&
-    (building.yard !== null || building.drill !== null) &&
-    game.islands[building.island].owner === HUMAN
+    faction ||
+    (building !== undefined &&
+      building.complete &&
+      (building.yard !== null || building.drill !== null) &&
+      game.islands[building.island].owner === HUMAN)
   );
 }
 
@@ -660,9 +676,14 @@ function activeIsland(
   return island;
 }
 
-/** The pause menu: on, save, load, settings, end the guided start, main menu. */
+/**
+ * The pause menu: on, save, load, settings, end the guided start, what the
+ * game was started with, main menu.
+ */
 function PauseMenu({
   guided,
+  settings,
+  cultures,
   onEndTutorial,
   onResume,
   onSave,
@@ -672,6 +693,10 @@ function PauseMenu({
 }: {
   /** Whether the guided start runs and can be ended here. */
   readonly guided: boolean;
+  /** The game's settings, shown read-only: events and peoples. */
+  readonly settings: GameSettings;
+  /** The peoples and pirate bands of this world. */
+  readonly cultures: readonly CultureId[];
   readonly onEndTutorial: () => void;
   readonly onResume: () => void;
   readonly onSave: (slot: number) => void;
@@ -686,7 +711,7 @@ function PauseMenu({
       className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 p-3"
       data-testid="imp-pause-menu"
     >
-      <Panel className="imp-hud imp-open flex w-full max-w-80 flex-col gap-2 p-4">
+      <Panel className="imp-hud imp-open flex max-h-full w-full max-w-80 flex-col gap-2 overflow-y-auto p-4">
         <h2 className="imp-title flex items-center gap-2 text-lg">
           <Icon name="pause" size={18} /> {T.menu}
         </h2>
@@ -714,6 +739,7 @@ function PauseMenu({
               key={slot}
               small
               disabled={slots[slot - 1] === null}
+              tip={slotTip(slots[slot - 1])}
               onClick={() => onLoad(slot)}
               testId={`imp-loadslot-${slot}`}
             >
@@ -758,6 +784,9 @@ function PauseMenu({
             </div>
           </div>
         )}
+        <div className="imp-inset p-2">
+          <GameSummary settings={settings} cultures={cultures} />
+        </div>
         <Btn icon="chevronLeft" onClick={onMainMenu} testId="imp-main-menu">
           {T.mainMenu}
         </Btn>
@@ -765,4 +794,17 @@ function PauseMenu({
       </Panel>
     </div>
   );
+}
+
+/**
+ * The tip of a load button in the pause menu: when the slot was saved and
+ * on which difficulty.
+ *
+ * @param slot - the stored game, or null for an empty slot
+ * @returns the tip, or nothing for an empty slot
+ */
+function slotTip(slot: SavedGame | null): string | undefined {
+  return slot === null
+    ? undefined
+    : `${T.savedAt(new Date(slot.savedAt).toLocaleString("de-DE"))}, ${T.difficultyTitle}: ${DIFFICULTY_NAMES[levelOf(slot.game.settings)]}`;
 }

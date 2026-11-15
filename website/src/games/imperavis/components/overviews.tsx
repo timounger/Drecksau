@@ -1,8 +1,8 @@
 /**
  * The administration: one window with a tab for each overview - finances,
  * population, production with its bottlenecks, warehouses, every island,
- * ships, the military, trade routes, the free trader, diplomacy, missions
- * and research.
+ * ships, the military, trade routes, the free trader, diplomacy (rivals,
+ * peoples and pirates together), missions and research.
  *
  * @module
  */
@@ -62,7 +62,12 @@ import {
   type EconomyState,
 } from "./hud-data";
 import { Crest, GoodIcon, Icon, type IconName } from "./icons";
+import {
+  factionOfIsland,
+  tradeRefusal,
+} from "@/games/imperavis/engine/factions";
 import { drawIsland } from "./minimap";
+import { FX } from "@/games/imperavis/i18n/faction-texts";
 import { Bar, Btn, goldText, percent, rateText, Tabs, Window } from "./ui";
 
 /** The overviews there are. */
@@ -853,7 +858,12 @@ function Routes({ game, onCommand }: OverviewProps): ReactElement {
           key={route.id}
           game={game}
           route={route}
-          owned={owned}
+          owned={[
+            ...owned,
+            ...game.factions
+              .filter((f) => tradeRefusal(game, f, HUMAN) === null)
+              .map((f) => f.island),
+          ]}
           ships={ships.map((ship) => ({
             id: ship.id,
             name: ship.name,
@@ -930,10 +940,15 @@ function RouteEditor({
               >
                 {owned.map((id) => (
                   <option key={id} value={id}>
-                    {game.world.islands[id].name}
+                    {factionOfIsland(game, id) === null
+                      ? game.world.islands[id].name
+                      : FX.harbourStop(game.world.islands[id].name)}
                   </option>
                 ))}
               </select>
+              {factionOfIsland(game, stop.island) !== null && (
+                <span className="imp-muted text-xs">{FX.harbourStopHint}</span>
+              )}
               {stops.length > 2 && (
                 <Btn
                   small
@@ -1174,10 +1189,10 @@ function Trade(props: OverviewProps): ReactElement {
                     {Math.floor(state.stock[good])}
                   </td>
                   <td className="text-right">
-                    {sellPrice(game, good).toFixed(1)}
+                    {sellPrice(game, good, HUMAN).toFixed(1)}
                   </td>
                   <td className="text-right">
-                    {buyPrice(game, good).toFixed(1)}
+                    {buyPrice(game, good, HUMAN).toFixed(1)}
                   </td>
                   <td className="text-right">
                     <input

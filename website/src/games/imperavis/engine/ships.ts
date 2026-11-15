@@ -17,7 +17,9 @@ import { cheatPays } from "./cheat";
 import { spend } from "./economy";
 import { findPath } from "./pathfinding";
 import { hasAmounts, takeAmounts } from "./placement";
-import { ownerOf, PIRATES, playerById, TRADER } from "./players";
+import { relationOf } from "./diplomacy";
+import { factionById, hasPerk } from "./factions";
+import { HUMAN, ownerOf, PIRATES, playerById, TRADER } from "./players";
 import {
   BUILDABLE_SHIPS,
   RUNNING_REFUND,
@@ -25,6 +27,7 @@ import {
   YARD_ORDERS,
 } from "./ships-data";
 import { DIRS4, DIRS8, inBounds, isSea, TILE_CENTER } from "./terrain";
+import { seaPace } from "./disasters";
 import { TICK, WEATHER_EFFECT } from "./time";
 import { addStock, capacityOf } from "./warehouse";
 import {
@@ -103,7 +106,14 @@ const SHIP_FORMATION: readonly (readonly [number, number])[] =
 
 /** Why a ship cannot be ordered: not open yet, or something else. */
 export type ShipRefusal =
-  "noYard" | "unknown" | "tier" | "research" | "busy" | "gold" | "materials";
+  | "noYard"
+  | "unknown"
+  | "tier"
+  | "research"
+  | "taught"
+  | "busy"
+  | "gold"
+  | "materials";
 
 /** Sea cost per tile, cached per world. */
 const seaCosts = new WeakMap<World, Float32Array>();
@@ -242,13 +252,86 @@ export function sailTo(game: Game, ship: Ship, target: number): boolean {
   return path !== null;
 }
 
+/** A course is kept while it ends at least this close to a new goal, tiles. */
+export const COURSE_SLACK = 2;
+
+/**
+ * Most new courses the ships of the computer (rivals, peoples, pirates) may
+ * search in one step; the others wait a step. A sea search across a large
+ * map costs a few milliseconds, and a fleet setting out or turning home
+ * together would otherwise put them all into one step. The human's ships
+ * never wait.
+ */
+const SEARCHES_PER_STEP = 2;
+
+/** The game and step the search allowance below belongs to. */
+let allowanceGame: Game | null = null;
+let allowanceTick = -1;
+
+/** New courses still allowed in that step. */
+let allowanceLeft = 0;
+
+/**
+ * Whether a ship may search a new course in this step, using up one of the
+ * computer's allowance; the human's ships always may.
+ *
+ * @param game - the game
+ * @param ship - the ship
+ * @returns true when it may search now
+ */
+export function searchAllowed(game: Game, ship: Ship): boolean {
+  if (allowanceGame !== game || allowanceTick !== game.tick) {
+    allowanceGame = game;
+    allowanceTick = game.tick;
+    allowanceLeft = SEARCHES_PER_STEP;
+  }
+  const human = ship.owner === HUMAN;
+  const allowed = human || allowanceLeft > 0;
+  if (allowed && !human) {
+    allowanceLeft -= 1;
+  }
+  return allowed;
+}
+
+/**
+ * Sets a ship's course towards a tile, but keeps the present course when it
+ * already ends close to the goal or the ship is there - a goal that barely
+ * moved needs no new search, which spares the costly ones of chases.
+ *
+ * @param game - the game
+ * @param ship - the ship
+ * @param goal - the tile index
+ * @param slack - how far the old course may end from the goal, tiles
+ * @returns true when the ship has a course (kept or new) or is there
+ */
+export function steerTo(
+  game: Game,
+  ship: Ship,
+  goal: number,
+  slack = COURSE_SLACK,
+): boolean {
+  const n = game.world.n;
+  const gx = goal % n;
+  const gy = Math.floor(goal / n);
+  const end = ship.path[ship.path.length - 1];
+  const kept =
+    end !== undefined &&
+    Math.hypot((end % n) - gx, Math.floor(end / n) - gy) <= slack;
+  const there =
+    Math.hypot(Math.floor(ship.x) - gx, Math.floor(ship.y) - gy) <= slack;
+  // Without a search allowed this step the old course stays for now.
+  return (
+    kept || there || (searchAllowed(game, ship) && sailTo(game, ship, goal))
+  );
+}
+
 /**
  * Moves every ship one step and docks those that arrived.
  *
  * @param game - the game
  */
 export function stepShips(game: Game): void {
-  const weather = WEATHER_EFFECT[game.weather].ships;
+  const weather = WEATHER_EFFECT[game.weather].ships * seaPace(game);
   const costs = seaCostsOf(game.world);
   const n = game.world.n;
   const pace = fleetPace(game);
@@ -350,17 +433,20 @@ export function yardLabour(game: Game, yard: Building): number {
  * @param game - the game
  * @param player - the player
  * @param kind - the ship
- * @returns null when open, else "tier" or "research"
+ * @returns null when open, else "tier", "research" or "taught" (a ship a
+ *   foreign people has not taught the player yet)
  */
 export function shipLocked(
   game: Game,
   player: Player,
   kind: ShipKind,
-): "tier" | "research" | null {
+): "tier" | "research" | "taught" | null {
   const def = SHIP[kind];
-  let reason: "tier" | "research" | null = null;
+  let reason: "tier" | "research" | "taught" | null = null;
   if (!cheatPays(game, player.id)) {
-    if (player.stats.peakTier < def.tier) {
+    if (def.faction !== undefined && !hasPerk(game, def.faction, player.id)) {
+      reason = "taught";
+    } else if (player.stats.peakTier < def.tier) {
       reason = "tier";
     } else if (
       def.research !== null &&
@@ -659,8 +745,9 @@ export function transfer(
 }
 
 /**
- * Whether a ship may lie at a kontor: its own owner's, or any for the free
- * trader; pirates dock nowhere.
+ * Whether a ship may lie at a kontor: its own owner's, any for the free
+ * trader, and that of a trade partner for a foreign people's merchant;
+ * pirates dock nowhere.
  *
  * @param game - the game
  * @param ship - the ship
@@ -668,9 +755,15 @@ export function transfer(
  * @returns true if it may dock there
  */
 export function mayDock(game: Game, ship: Ship, kontor: Building): boolean {
+  const owner = ownerOf(game, kontor);
+  const people = factionById(game, ship.owner);
+  const partner =
+    people?.kind === "nation" &&
+    relationOf(game, people.id, owner)?.trade === true &&
+    relationOf(game, people.id, owner)?.war === false;
   return (
     ship.owner !== PIRATES &&
-    (ship.owner === TRADER || ownerOf(game, kontor) === ship.owner)
+    (ship.owner === TRADER || owner === ship.owner || partner)
   );
 }
 

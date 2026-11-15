@@ -96,6 +96,7 @@ export function placeBuilding(
       fire: 0,
       hitAt: 0,
       reload: 0,
+      blight: 0,
     };
     game.nextId += 1;
     game.buildings.push(building);

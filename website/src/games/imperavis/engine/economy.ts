@@ -5,6 +5,7 @@
  * @module
  */
 import { BUILDING, LEVEL_UPKEEP } from "./buildings-data";
+import { difficultyOf } from "./difficulty-data";
 import { SHIP } from "./ships-data";
 import { troopUpkeep } from "./troops";
 import { TICK } from "./time";
@@ -126,7 +127,9 @@ export function spend(player: Player, amount: number, kind: ExpenseKind): void {
  */
 export function buildingUpkeep(game: Game, player: number): number {
   const personality = game.players[player]?.ai?.personality;
-  const factor = personality === undefined ? 1 : AI_UPKEEP[personality];
+  const level =
+    game.players[player]?.human === true ? 1 : difficultyOf(game).aiUpkeep;
+  const factor = personality === undefined ? 1 : AI_UPKEEP[personality] * level;
   let sum = 0;
   for (const building of game.buildings) {
     if (game.islands[building.island].owner === player) {

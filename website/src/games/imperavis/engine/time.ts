@@ -4,6 +4,7 @@
  *
  * @module
  */
+import { eventOn } from "./disasters-data";
 import { nextRandom, randomRange } from "./random";
 import type { Game, Season, WeatherKind } from "./types";
 
@@ -148,6 +149,13 @@ export function stepTime(game: Game): void {
       }
       roll -= odds[index];
     });
+    // Without storms the dark sky only rains.
+    if (
+      (chosen as WeatherKind) === "storm" &&
+      !eventOn(game.settings, "storm")
+    ) {
+      chosen = "rain";
+    }
     if (chosen !== game.weather) {
       game.events.push({ type: "weather", weather: chosen });
     }

@@ -8,6 +8,7 @@
 "use client";
 
 import type { ReactElement } from "react";
+import { ownerName } from "@/games/imperavis/engine/factions";
 import { rivalsOf } from "@/games/imperavis/engine/missions";
 import { HUMAN, playerById } from "@/games/imperavis/engine/players";
 import { dayNumber } from "@/games/imperavis/engine/time";
@@ -18,6 +19,7 @@ import {
   GOOD_NAMES,
   MISSION_KIND_NAMES,
   MISSION_STATE_NAMES,
+  SHIP_NAMES,
   TEXTS as T,
   TIER_NAMES,
 } from "@/games/imperavis/i18n/texts";
@@ -88,6 +90,21 @@ export function Missions({
                     )}
                   {mission.kind === "rescue" && (
                     <Btn small onClick={() => onFocus(mission.x, mission.y)}>
+                      {T.goTo}
+                    </Btn>
+                  )}
+                  {(mission.kind === "cargo" || mission.kind === "sink") && (
+                    <Btn
+                      small
+                      onClick={() => {
+                        const prey = game.ships.find(
+                          (ship) => ship.id === mission.target,
+                        );
+                        const home = game.world.islands[mission.island];
+                        onFocus(prey?.x ?? home.cx, prey?.y ?? home.cy);
+                      }}
+                      testId="imp-mission-goto"
+                    >
                       {T.goTo}
                     </Btn>
                   )}
@@ -217,7 +234,7 @@ function MissionText({
   readonly game: Game;
   readonly mission: Mission;
 }): ReactElement {
-  const giver = playerById(game, mission.giver);
+  const giver = ownerName(game, mission.giver);
   const goods = Object.entries(mission.reward.goods)
     .map(
       ([good, amount]) =>
@@ -234,7 +251,7 @@ function MissionText({
       </p>
       <p>{goalText(game, mission)}</p>
       <p className="text-xs imp-muted">
-        {T.from(giver?.name ?? T.crown)} - {T.reward}: {"\u{1FA99}"}{" "}
+        {T.from(giver ?? T.crown)} - {T.reward}: {"\u{1FA99}"}{" "}
         {goldText(mission.reward.gold)} {goods}
         {giver !== null
           ? ` - ${T.relationGain(mission.reward.relation)}`
@@ -251,7 +268,8 @@ function goalText(game: Game, mission: Mission): string {
   const good = mission.good === null ? "" : GOOD_NAMES[mission.good];
   const island =
     mission.island >= 0 ? game.world.islands[mission.island].name : "";
-  const partner = playerById(game, mission.partner)?.name ?? "";
+  const partner = ownerName(game, mission.partner) ?? "";
+  const prey = game.ships.find((ship) => ship.id === mission.target);
   const goals: Record<Mission["kind"], string> = {
     delivery: `Liefere ${mission.goal} ${good}.`,
     settle: `Gründe ein Kontor auf ${island}.`,
@@ -267,6 +285,12 @@ function goalText(game: Game, mission: Mission): string {
         ? "Schiffbrüchige treiben auf einem Floß: hol sie mit einem Schiff ab."
         : "Die Schiffbrüchigen sind an Bord: bring sie in einen deiner Häfen.",
     build: `Baue ${mission.goal} x ${mission.building === null ? "" : BUILDING_NAMES[mission.building]}.`,
+    cargo: `Bring ${mission.goal} ${good} mit einem Schiff in den Hafen von ${island} (dort im Hafenfenster abgeben).`,
+    hunt: `Versenke ${mission.goal} Piratenschiffe.`,
+    sink:
+      prey === undefined
+        ? "Das Ziel ist versenkt."
+        : `Versenke das Schiff ${SHIP_NAMES[prey.kind]} von ${ownerName(game, prey.owner) ?? ""}.`,
   };
   return goals[mission.kind];
 }

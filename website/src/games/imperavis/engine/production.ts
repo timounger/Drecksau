@@ -8,6 +8,8 @@
  * @module
  */
 import { BUILDING, LEVEL_SPEED, OUTPUT_CAPACITY } from "./buildings-data";
+import { difficultyOf } from "./difficulty-data";
+import { droughtFactor, isFlooded } from "./disasters";
 import { ownerOf, playerById } from "./players";
 import { RESEARCH } from "./research-data";
 import {
@@ -78,10 +80,15 @@ export function speedOf(game: Game, building: Building): number {
     factor *= DAMAGED_SPEED;
   }
   factor *= 1 + researchBonus(game, building);
+  // A rival works faster or slower on the level (documented in the rules).
+  if (playerById(game, ownerOf(game, building))?.human === false) {
+    factor *= difficultyOf(game).aiWork;
+  }
   switch (recipe.seasonal) {
     case "crop": {
       const harvest = game.islands[building.island].harvest;
-      factor *= CROP_FACTOR[season] * weather.crop;
+      factor *=
+        CROP_FACTOR[season] * weather.crop * droughtFactor(game, building);
       if (harvest !== null && harvest.until > game.time) {
         factor *= harvest.factor;
       }
@@ -134,6 +141,10 @@ export function stepProduction(game: Game): void {
         status = "building";
       } else if (building.paused || building.fire > 0) {
         status = "paused";
+      } else if (building.blight > 0) {
+        status = "ravaged";
+      } else if (isFlooded(game, building)) {
+        status = "flooded";
       } else {
         status = work(game, building, prod, recipe);
       }

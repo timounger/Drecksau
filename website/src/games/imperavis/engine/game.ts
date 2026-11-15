@@ -17,6 +17,15 @@ import { fillIfCheating } from "./cheat";
 import { stepCombat } from "./combat";
 import { refreshDerived } from "./derived";
 import { createRelations, stepDiplomacy } from "./diplomacy";
+import { factionLayout } from "./faction-layout";
+import {
+  createFactions,
+  factionRelations,
+  launchFactions,
+  stepFactions,
+} from "./factions";
+import { createHazards, prepareZones, stepDisasters } from "./disasters";
+import { DIFFICULTY, levelOf } from "./difficulty-data";
 import { stepEconomy } from "./economy";
 import { perGood } from "./goods";
 import { FIRST_INCIDENT, stepIncidents } from "./incidents";
@@ -67,7 +76,12 @@ const THINK_STAGGER = 0.7;
 /** AI home islands should lie at least this share of the map apart. */
 const RIVAL_SPACING = 0.22;
 
-/** Settings of a new game unless chosen otherwise. */
+/**
+ * Settings of a new game unless chosen otherwise. A world has the foreign
+ * peoples and pirates only when `factions` is set - the game screen sets
+ * it for every new game; left out, the world is the one of earlier
+ * versions.
+ */
 export const DEFAULT_SETTINGS: GameSettings = {
   aiCount: DEFAULT_AI,
   peaceful: false,
@@ -89,11 +103,18 @@ export function createGame(
   size: MapSize,
   settings: GameSettings = DEFAULT_SETTINGS,
 ): Game {
-  const world = createWorld(seed, size);
+  const world = createWorld(
+    seed,
+    size,
+    settings.factions === true,
+    settings.culturesOff ?? [],
+  );
   const aiCount = Math.max(0, Math.min(MAX_AI, Math.round(settings.aiCount)));
   const game = emptyGame(world, { ...settings, aiCount });
+  launchFactions(game);
+  clearTowns(game);
   const ship = createShip(game, 0, "cog", world.startShip.x, world.startShip.y);
-  ship.cargo = { ...START_CARGO };
+  ship.cargo = startCargo(settings);
   for (const [index, island] of rivalIslands(world, aiCount).entries()) {
     const id = index + 1;
     const start = shipStart(world.n, world.terrain, world.islands[island]);
@@ -113,8 +134,10 @@ export function createGame(
 export function emptyGame(world: World, settings: GameSettings): Game {
   const n = world.n;
   prepareSea(world);
+  prepareZones(world);
+  const factions = createFactions(world);
   const players = [
-    createPlayer(0, START_GOLD, null, 0),
+    createPlayer(0, startGold(settings), null, 0),
     ...RIVALS.slice(0, settings.aiCount).map((rival, index) =>
       createPlayer(
         index + 1,
@@ -161,7 +184,10 @@ export function emptyGame(world: World, settings: GameSettings): Game {
     weather: "clear",
     weatherUntil: FIRST_WEATHER,
     diplomacy: {
-      relations: createRelations(players.length),
+      relations: [
+        ...createRelations(players.length),
+        ...factionRelations(factions, players.length, settings.peaceful),
+      ],
       offers: [],
       log: [],
     },
@@ -169,6 +195,9 @@ export function emptyGame(world: World, settings: GameSettings): Game {
     nextMission: FIRST_MISSION,
     incidents: [],
     nextIncident: FIRST_INCIDENT,
+    hazards: createHazards(),
+    flooded: new Uint8Array(n * n),
+    factions,
     events: [],
     version: 0,
     dirty: true,
@@ -178,6 +207,32 @@ export function emptyGame(world: World, settings: GameSettings): Game {
     tutorial: createTutorial(settings.guided === true),
     tutorialSeen: -1,
   };
+}
+
+/**
+ * The human's gold at the start, after the level.
+ *
+ * @param settings - the settings of the new game
+ * @returns gold
+ */
+export function startGold(settings: GameSettings): number {
+  return Math.round(START_GOLD * DIFFICULTY[levelOf(settings)].startGold);
+}
+
+/**
+ * What the human's first ship carries, after the level.
+ *
+ * @param settings - the settings of the new game
+ * @returns the cargo
+ */
+export function startCargo(settings: GameSettings): Amounts {
+  const factor = DIFFICULTY[levelOf(settings)].startCargo;
+  return Object.fromEntries(
+    Object.entries(START_CARGO).map(([good, amount]) => [
+      good,
+      Math.round(amount * factor),
+    ]),
+  );
 }
 
 /**
@@ -196,10 +251,12 @@ export function stepGame(game: Game): void {
   stepShipyards(game);
   stepRoutes(game);
   stepTrader(game);
+  stepFactions(game);
   stepShips(game);
   stepCombat(game);
   stepTroops(game);
   stepIncidents(game);
+  stepDisasters(game);
   stepResearch(game);
   stepDiplomacy(game);
   stepMissions(game);
@@ -231,7 +288,9 @@ export function runFor(game: Game, seconds: number): void {
  * @returns island ids
  */
 function rivalIslands(world: World, count: number): number[] {
-  const chosen: number[] = [world.startIsland];
+  // The factions' islands are never a rival's; rivals keep away from them too.
+  const homes = world.factionHomes.map((home) => home.island);
+  const chosen: number[] = [world.startIsland, ...homes];
   const spacing = world.n * RIVAL_SPACING;
   for (let k = 0; k < count; k += 1) {
     let best = -1;
@@ -261,5 +320,19 @@ function rivalIslands(world: World, count: number): number[] {
       chosen.push(best);
     }
   }
-  return chosen.slice(1);
+  return chosen.slice(1 + homes.length);
+}
+
+/** No trees grow where the factions' towns stand. */
+function clearTowns(game: Game): void {
+  const n = game.world.n;
+  for (const home of game.world.factionHomes) {
+    for (const site of factionLayout(game.world, home)) {
+      for (let y = site.y; y < site.y + site.h; y += 1) {
+        for (let x = site.x; x < site.x + site.w; x += 1) {
+          game.cleared[y * n + x] = 1;
+        }
+      }
+    }
+  }
 }

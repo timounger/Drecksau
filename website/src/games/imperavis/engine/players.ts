@@ -24,16 +24,25 @@ export const MAX_AI = 3;
 /** AI players a new game has unless the player chooses otherwise. */
 export const DEFAULT_AI = 2;
 
-/** The rivals there can be, in order: made-up houses of this game. */
+/**
+ * The rivals there can be, in order: made-up houses of this game. The
+ * first was called "Haus Valdoro" before the Republic of Valdoria came;
+ * saves of that time get the new name (see {@link RENAMED_RIVALS}).
+ */
 export const RIVALS: readonly {
   readonly name: string;
   readonly color: number;
   readonly personality: Personality;
 }[] = [
-  { name: "Haus Valdoro", color: 0x2f6fd0, personality: "trader" },
+  { name: "Haus Varenne", color: 0x2f6fd0, personality: "trader" },
   { name: "Haus Morvaine", color: 0xc23b3b, personality: "warlike" },
   { name: "Haus Elsenreich", color: 0x3f9a4a, personality: "expansionist" },
 ];
+
+/** Old names of rivals and the names they go by now. */
+export const RENAMED_RIVALS: Readonly<Record<string, string>> = {
+  "Haus Valdoro": "Haus Varenne",
+};
 
 /** The human's colour. */
 export const HUMAN_COLOR = 0xd6a21e;

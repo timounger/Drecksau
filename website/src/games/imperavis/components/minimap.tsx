@@ -13,17 +13,22 @@
  */
 "use client";
 
+import { FactionLine } from "./faction-window";
+import { FX } from "@/games/imperavis/i18n/faction-texts";
+import {
+  cultureOf,
+  factionOfIsland,
+  homeOf,
+  isPirates,
+  ownerColor,
+} from "@/games/imperavis/engine/factions";
+import { factionLayout } from "@/games/imperavis/engine/faction-layout";
 import { useEffect, useRef, type ReactElement } from "react";
 import { hostile } from "@/games/imperavis/engine/combat";
 import { berthOf, kontorOf } from "@/games/imperavis/engine/ships";
 import { scoutsOf } from "@/games/imperavis/engine/troops";
 import { SCOUT_REVEAL } from "@/games/imperavis/engine/units-data";
-import {
-  HUMAN,
-  PIRATES,
-  playerById,
-  TRADER,
-} from "@/games/imperavis/engine/players";
+import { HUMAN, playerById, TRADER } from "@/games/imperavis/engine/players";
 import { Terrain, type Game, type World } from "@/games/imperavis/engine/types";
 import { HUD } from "@/games/imperavis/i18n/hud-texts";
 import { GOOD_NAMES, TEXTS as T } from "@/games/imperavis/i18n/texts";
@@ -229,6 +234,15 @@ export function WorldMap({
             <Crest color={null} size={16} />
             {HUD.legendFree}
           </div>
+          {game.factions.length > 0 && (
+            <>
+              <div className="imp-rule my-1" />
+              <p className="imp-title text-[0.8rem]">{FX.peoples}</p>
+              {game.factions.map((faction) => (
+                <FactionLine key={faction.id} game={game} faction={faction} />
+              ))}
+            </>
+          )}
           <div className="imp-rule my-1" />
           <div className="flex items-center gap-1.5">
             <span className="h-0.5 w-5 bg-[#fbbf24]" />
@@ -329,6 +343,30 @@ function drawMap(
       }
     }
   }
+  // The factions' islands: coast in their colour, the town and harbour marked.
+  for (const faction of game.factions) {
+    const home = game.world.factionHomes.find(
+      (h) => h.island === faction.island,
+    );
+    context.fillStyle = css(cultureOf(faction).color);
+    for (const index of coast[faction.island] ?? []) {
+      context.fillRect(index % n, Math.floor(index / n), 1, 1);
+    }
+    if (home !== undefined) {
+      context.fillStyle = css(cultureOf(faction).accent);
+      for (const site of factionLayout(world, home)) {
+        if (site.kind !== "tree") {
+          context.fillRect(site.x, site.y, site.w, site.h);
+        }
+      }
+      const qx = home.quay % n;
+      const qy = Math.floor(home.quay / n);
+      context.fillStyle = "#ffffff";
+      context.fillRect(qx - 1, qy - 1, 3, 3);
+      context.fillStyle = css(cultureOf(faction).color);
+      context.fillRect(qx - 0.4, qy - 0.4, 1.8, 1.8);
+    }
+  }
   // Buildings, a lighter shade of the owner; kontors as harbours.
   for (const building of game.buildings) {
     const owner = playerById(game, game.islands[building.island].owner);
@@ -352,18 +390,18 @@ function drawMap(
   // Ships.
   const radius = Math.max(1.2, (large ? 5 : 3.2) / scale);
   for (const ship of game.ships) {
-    const owner = playerById(game, ship.owner);
+    const color = ownerColor(game, ship.owner);
     context.beginPath();
     context.arc(ship.x, ship.y, radius, 0, Math.PI * 2);
     context.fillStyle =
-      ship.owner === PIRATES
-        ? "#1a1a1a"
-        : ship.owner === TRADER
-          ? "#f2ead6"
-          : css(owner?.color ?? 0xffffff);
+      ship.owner === TRADER
+        ? "#f2ead6"
+        : color === null
+          ? "#1a1a1a"
+          : css(color);
     context.fill();
     context.lineWidth = Math.max(0.4, 1.4 / scale);
-    context.strokeStyle = ship.owner === PIRATES ? "#e07a63" : "#ffffff";
+    context.strokeStyle = isPirates(game, ship.owner) ? "#e07a63" : "#ffffff";
     context.stroke();
   }
   drawScouted(context, game, radius, scale);
@@ -441,8 +479,15 @@ function drawRoutes(
     .filter((route) => route.owner === HUMAN)
     .forEach((route, index) => {
       const points = route.stops
-        .map((stop) => kontorOf(game, stop.island))
-        .map((kontor) => (kontor === null ? -1 : berthOf(game, kontor)))
+        .map((stop) => {
+          const kontor = kontorOf(game, stop.island);
+          const people = factionOfIsland(game, stop.island);
+          return people !== null
+            ? homeOf(game, people).berth
+            : kontor === null
+              ? -1
+              : berthOf(game, kontor);
+        })
         .filter((berth) => berth >= 0)
         .map((berth) => [(berth % n) + 0.5, Math.floor(berth / n) + 0.5]);
       if (points.length > 1) {

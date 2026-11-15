@@ -17,6 +17,8 @@ import {
   BUILDING,
   WAREHOUSE_KINDS,
 } from "@/games/imperavis/engine/buildings-data";
+import { guardedBy } from "@/games/imperavis/engine/disasters";
+import { PROTECTION_KINDS } from "@/games/imperavis/engine/disasters-data";
 import { buildingAt } from "@/games/imperavis/engine/derived";
 import { HUMAN } from "@/games/imperavis/engine/players";
 import { berthOf, kontorOf } from "@/games/imperavis/engine/ships";
@@ -55,6 +57,7 @@ import {
 } from "@/games/imperavis/engine/types";
 import { createBuildingsLayer } from "./buildings-layer";
 import { CameraController, type CameraState } from "./camera";
+import { createDisastersLayer } from "./disasters-layer";
 import { createEffects } from "./effects";
 import { createInput, type InputAction, type Modifiers } from "./input";
 import { createLandscape } from "./landscape";
@@ -67,6 +70,8 @@ import {
 } from "./materials";
 import { buildingModel, wreckModel } from "./models";
 import { createUnitsLayer } from "./units";
+import { createFactionsLayer } from "./factions-layer";
+import { factionOfIsland } from "@/games/imperavis/engine/factions";
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- light, colour and input tuning */
 
@@ -101,12 +106,15 @@ export type Hit =
   | { readonly type: "building"; readonly id: number }
   | { readonly type: "ship"; readonly id: number }
   | { readonly type: "soldier"; readonly id: number }
+  /** A foreign people's or pirate band's island, by the faction's id. */
+  | { readonly type: "faction"; readonly id: number }
   | { readonly type: "none" };
 
 /** What is selected: one building or ship, or a group of own units. */
 export type Pick =
   | { readonly type: "building"; readonly id: number }
   | { readonly type: "ship"; readonly id: number }
+  | { readonly type: "faction"; readonly id: number }
   | {
       readonly type: "units";
       readonly ships: readonly number[];
@@ -128,6 +136,8 @@ export type Hint =
       readonly type: "placement";
       readonly issue: PlacementIssue | null;
       readonly noRoad: boolean;
+      /** Endangered buildings a protection building would guard here, or null. */
+      readonly guards: number | null;
     }
   | {
       readonly type: "road";
@@ -443,9 +453,18 @@ export function createView(
     uniforms,
   );
   const buildings = createBuildingsLayer(buildingMaterial);
+  const towns = createFactionsLayer(game, buildingMaterial);
   const units = createUnitsLayer(buildingMaterial);
   const effects = createEffects();
-  scene.add(landscape.group, buildings.group, units.group, effects.group);
+  const disasters = createDisastersLayer(game);
+  scene.add(
+    disasters.group,
+    landscape.group,
+    buildings.group,
+    towns.group,
+    units.group,
+    effects.group,
+  );
 
   // Overlays.
   const overlay = new THREE.Group();
@@ -770,7 +789,7 @@ export function createView(
   const pickAt = (
     clientX: number,
     clientY: number,
-    ray: { building: number } | null,
+    ray: { building: number; x: number; z: number } | null,
   ): Hit => {
     let best: Hit = { type: "none" };
     let bestDistance = Number.POSITIVE_INFINITY;
@@ -814,6 +833,18 @@ export function createView(
     }
     if (best.type === "none" && ray !== null && ray.building >= 0) {
       best = { type: "building", id: ray.building };
+    } else if (best.type === "none" && ray !== null) {
+      // The land of a faction's island stands for the faction.
+      const tx = Math.floor(ray.x);
+      const tz = Math.floor(ray.z);
+      const island =
+        tx >= 0 && tz >= 0 && tx < n && tz < n
+          ? world.islandOf[tz * n + tx]
+          : -1;
+      const people = island >= 0 ? factionOfIsland(current, island) : null;
+      if (people !== null) {
+        best = { type: "faction", id: people.id };
+      }
     }
     return best;
   };
@@ -1223,7 +1254,18 @@ export function createView(
         setCircle(ring, cx, cz, radius);
         ring.visible = true;
       }
-      setHint({ type: "placement", issue: check.issue, noRoad: check.noRoad });
+      const island = inBounds(world, at.x, at.y)
+        ? world.islandOf[Math.floor(cz) * n + Math.floor(cx)]
+        : -1;
+      setHint({
+        type: "placement",
+        issue: check.issue,
+        noRoad: check.noRoad,
+        guards:
+          PROTECTION_KINDS.includes(kind) && island >= 0
+            ? guardedBy(current, kind, island, cx, cz)
+            : null,
+      });
     } else if (tool.type === "demolish") {
       const x = Math.floor(hover.x);
       const y = Math.floor(hover.y);
@@ -1500,8 +1542,10 @@ export function createView(
     const night = 1 - daylight;
     const dusk = Math.max(0, 1 - Math.abs(elevation) * 4) * 0.9;
     const weather = frameGame.weather;
-    const gloom =
-      weather === "storm"
+    const blizzard = disasters.snowing;
+    const gloom = blizzard
+      ? 0.45
+      : weather === "storm"
         ? 0.55
         : weather === "rain"
           ? 0.3
@@ -1516,13 +1560,15 @@ export function createView(
     scene.background = sky;
     fog.color.copy(sky);
     const fogTarget =
-      (weather === "fog"
-        ? 0.022
-        : weather === "storm"
-          ? 0.011
-          : weather === "rain"
-            ? 0.0075
-            : 0.0032) * (drawOptions.weather ? 1 : 0.6);
+      (blizzard
+        ? 0.016
+        : weather === "fog"
+          ? 0.022
+          : weather === "storm"
+            ? 0.011
+            : weather === "rain"
+              ? 0.0075
+              : 0.0032) * (drawOptions.weather ? 1 : 0.6);
     fog.density += (fogTarget - fog.density) * Math.min(1, dt * 0.8);
     const direction = new THREE.Vector3(
       Math.cos(angle) * 0.75,
@@ -1573,17 +1619,19 @@ export function createView(
         ? THREE.MathUtils.smoothstep(progress, 0, 0.25) *
           (1 - THREE.MathUtils.smoothstep(progress, 0.8, 1))
         : 0;
-    uniforms.snow.value = snow;
+    // A blizzard snows the land in whatever season.
+    uniforms.snow.value = blizzard ? 1 : snow;
     return {
       night,
       foliage: foliageTint(index, progress),
-      rain: drawOptions.weather
-        ? weather === "storm"
-          ? 2
-          : weather === "rain"
-            ? 1
-            : 0
-        : 0,
+      rain:
+        drawOptions.weather && !blizzard
+          ? weather === "storm"
+            ? 2
+            : weather === "rain"
+              ? 1
+              : 0
+          : 0,
     };
   };
 
@@ -1857,6 +1905,7 @@ export function createView(
         tool.type === "relocate";
       landscape.update(camera, target, showBorder, look.foliage);
       buildings.animate(liveClock);
+      towns.animate(liveClock);
       units.update(frameGame, alpha, liveClock, dt, gameDt > 0, target);
       refreshRoutes(frameGame);
       refreshWrecks(frameGame, liveClock);
@@ -1867,10 +1916,18 @@ export function createView(
         refreshTraffic(frameGame);
         around = nearby(frameGame);
       }
+      disasters.update(
+        frameGame,
+        liveClock,
+        gameDt > 0 ? dt : 0,
+        new THREE.Vector3(target.x, Math.max(0, under), target.y),
+        tool.type === "build" ? tool.kind : null,
+      );
       effects.update(
         gameDt > 0 ? dt : 0,
         [
           ...buildings.smoke(frameGame),
+          ...towns.smoke(),
           ...puffs.map((puff) => ({ ...puff, strength: 4 })),
         ],
         look.rain,
@@ -1951,8 +2008,10 @@ export function createView(
       unitRings.dispose();
       landscape.dispose();
       buildings.dispose();
+      towns.dispose();
       units.dispose();
       effects.dispose();
+      disasters.dispose();
       for (const geometry of ghostCache.values()) {
         geometry.dispose();
       }

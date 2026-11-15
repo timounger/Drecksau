@@ -10,8 +10,10 @@
  */
 import { BUILDING } from "./buildings-data";
 import { removeBuilding } from "./buildings";
+import { eventOn, raidsOn } from "./disasters-data";
+import { difficultyOf } from "./difficulty-data";
 import { hitShip } from "./combat";
-import { islandsOf, ownerOf, PIRATES } from "./players";
+import { islandsOf, ownerOf, PIRATES, TRADER } from "./players";
 import { populationOf } from "./population";
 import { nextRandom, randomPick, randomRange } from "./random";
 import { SHIP } from "./ships-data";
@@ -90,8 +92,8 @@ const GONE_RANGE = 4;
 /** Seconds between two new courses of a pirate. */
 const PIRATE_COURSE = 4;
 
-/** Who "fires" when the weather hits a ship: nobody to blame. */
-const NATURE = PIRATES - 1;
+/** Who "fires" when the weather hits a ship: nobody, far below every owner. */
+const NATURE = -1000;
 
 /** Ended events kept for the list. */
 const KEEP_ENDED = 20;
@@ -144,7 +146,8 @@ function burn(game: Game): void {
         Math.floor(building.x + building.w / 2);
       const covered = game.coverage.fireStation?.[at] === 1;
       building.fire -= TICK;
-      building.hp -= def.hp * FIRE_DAMAGE * TICK;
+      building.hp -=
+        def.hp * FIRE_DAMAGE * difficultyOf(game).hazardImpact * TICK;
       building.hitAt = game.time;
       if (covered && FIRE_SECONDS - building.fire >= EXTINGUISH_SECONDS) {
         building.fire = 0;
@@ -176,7 +179,8 @@ function storm(game: Game): void {
     addIncident(game, "storm", -1, -1, 0, 0, game.weatherUntil - game.time);
     for (const ship of game.ships) {
       const def = SHIP[ship.kind];
-      if (ship.docked < 0 && ship.owner !== PIRATES) {
+      // The factions' ships ride out storms in their own waters.
+      if (ship.docked < 0 && ship.owner >= TRADER) {
         const loss = def.hp * randomRange(game, STORM_LOW, STORM_HIGH);
         const floor = def.hp * STORM_FLOOR;
         if (ship.hp - loss > floor) {
@@ -226,8 +230,9 @@ function roll(game: Game): void {
     const guarded = player.unlocked.includes("fireStation");
     if (
       guarded &&
+      eventOn(game.settings, "fire") &&
       buildings.length >= FIRE_FROM &&
-      nextRandom(game) < FIRE_CHANCE
+      nextRandom(game) < FIRE_CHANCE * difficultyOf(game).hazardChance
     ) {
       ignite(game, randomPick(game, buildings));
     }
@@ -240,7 +245,8 @@ function roll(game: Game): void {
       if (
         people >= PLAGUE_FROM &&
         island.plague <= 0 &&
-        nextRandom(game) < PLAGUE_CHANCE
+        eventOn(game.settings, "plague") &&
+        nextRandom(game) < PLAGUE_CHANCE * difficultyOf(game).hazardChance
       ) {
         island.plague = PLAGUE_SECONDS;
         addIncident(
@@ -261,7 +267,7 @@ function roll(game: Game): void {
         fields &&
         (island.harvest === null || island.harvest.until < game.time)
       ) {
-        if (harvest < HARVEST_CHANCE) {
+        if (harvest < HARVEST_CHANCE && eventOn(game.settings, "goodHarvest")) {
           island.harvest = {
             factor: GOOD_HARVEST,
             until: game.time + HARVEST_SECONDS,
@@ -275,7 +281,11 @@ function roll(game: Game): void {
             info.cy,
             HARVEST_SECONDS,
           );
-        } else if (harvest < HARVEST_CHANCE * 2) {
+        } else if (
+          harvest >= HARVEST_CHANCE &&
+          harvest < HARVEST_CHANCE * 2 &&
+          eventOn(game.settings, "badHarvest")
+        ) {
           island.harvest = {
             factor: BAD_HARVEST,
             until: game.time + HARVEST_SECONDS,
@@ -294,11 +304,14 @@ function roll(game: Game): void {
     }
   }
   const raiding = game.ships.some((ship) => ship.owner === PIRATES);
+  // In a world with pirate bands the raids come from their islands; a new
+  // world whose bands were left out has no pirates at all.
   if (
-    !game.settings.peaceful &&
+    game.settings.factions !== true &&
+    raidsOn(game.settings) &&
     !raiding &&
     game.time >= PIRATES_FROM &&
-    nextRandom(game) < PIRATE_CHANCE
+    nextRandom(game) < PIRATE_CHANCE / difficultyOf(game).raidGap
   ) {
     raid(game);
   }
@@ -334,13 +347,20 @@ function raid(game: Game): void {
   }
 }
 
-/** Pirates head for their target's kontor, then home over the edge. */
+/**
+ * Pirates of a world from before the pirate bands head for their target's
+ * kontor, then home over the edge.
+ */
 function pirates(game: Game): void {
   const raid = game.incidents.find((incident) => incident.kind === "pirates");
   const course = Math.round(PIRATE_COURSE / TICK);
   const n = game.world.n;
   for (const ship of [...game.ships]) {
-    if (ship.owner === PIRATES && game.tick % course === ship.id % course) {
+    if (
+      game.settings.factions !== true &&
+      ship.owner === PIRATES &&
+      game.tick % course === ship.id % course
+    ) {
       const active = raid !== undefined && raid.until > game.time;
       const kontor = active ? kontorOf(game, raid.island) : null;
       if (kontor !== null) {
@@ -360,8 +380,18 @@ function pirates(game: Game): void {
   }
 }
 
-/** Records an event for the list and tells the screen. */
-function addIncident(
+/**
+ * Records an event for the list and tells the screen.
+ *
+ * @param game - the game
+ * @param kind - what happens
+ * @param owner - whom it concerns: a player, a faction, or -1
+ * @param island - where, or -1
+ * @param x - where, tiles
+ * @param y - where, tiles
+ * @param seconds - how long it lasts
+ */
+export function addIncident(
   game: Game,
   kind: IncidentKind,
   owner: number,

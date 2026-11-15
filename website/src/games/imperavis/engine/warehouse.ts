@@ -14,6 +14,7 @@ import {
   WAREHOUSE_KINDS,
 } from "./buildings-data";
 import { CART_SPEED, COLLECT_FROM } from "./logistics-data";
+import { cartSpeed, pathFlooded } from "./disasters";
 import { tileSpeed } from "./logistics";
 import { TICK } from "./time";
 import type { Building, Cart, Game, GoodId } from "./types";
@@ -129,9 +130,12 @@ export function stepCarts(game: Game): void {
   for (const cart of game.carts) {
     const tile =
       cart.path[Math.min(cart.path.length - 1, Math.floor(cart.pos))];
-    // Each tile sets the pace: paved, plain road, forest or open land.
+    // Each tile sets the pace: paved, plain road, forest or open land -
+    // and a flood or a blizzard.
     cart.pos +=
-      step * tileSpeed(game, tile) * trafficFactor(game.traffic[tile] ?? 0);
+      step *
+      cartSpeed(game, tile, tileSpeed(game, tile)) *
+      trafficFactor(game.traffic[tile] ?? 0);
     if (cart.target >= 0 && cart.pos >= cart.turn) {
       arrive(game, cart);
     }
@@ -249,7 +253,12 @@ function sendOne(game: Game, home: Building): void {
   }
   if (best !== null) {
     const link = game.links.get(best.building.id);
-    if (link !== undefined && link.warehouse === home.id) {
+    // No cart sets out through flood water.
+    if (
+      link !== undefined &&
+      link.warehouse === home.id &&
+      !pathFlooded(game, link.path)
+    ) {
       const there = [...link.path];
       const back = there.slice(0, -1).reverse();
       const cart: Cart = {

@@ -66,11 +66,29 @@ export type GoodId =
   | "jewelry"
   | "weapons"
   | "cannons"
-  | "engines";
+  | "engines"
+  // Goods of the foreign peoples and the pirates (see factions-data.ts).
+  | "spices"
+  | "silk"
+  | "tea"
+  | "porcelain"
+  | "oliveOil"
+  | "furniture"
+  | "furs"
+  | "ropes"
+  | "rum"
+  | "perfume"
+  | "treasureMap";
 
 /** What a good is used for, for grouping in lists. */
 export type GoodCategory =
-  "raw" | "material" | "intermediate" | "food" | "luxury";
+  | "raw"
+  | "material"
+  | "intermediate"
+  | "food"
+  | "luxury"
+  /** Goods of the foreign peoples: only they make them, nobody else sells them. */
+  | "exotic";
 
 /** The fixed facts about a good. */
 export type GoodDef = {
@@ -144,7 +162,13 @@ export type BuildingKind =
   | "plaza"
   | "park"
   | "fountain"
-  | "statue";
+  | "statue"
+  | "perfumery"
+  // Protection against the natural disasters (see disasters.ts).
+  | "dike"
+  | "pumpStation"
+  | "irrigation"
+  | "breakwater";
 
 /** The shelves of the build menu. */
 export type BuildingCategory =
@@ -252,6 +276,11 @@ export type BuildingDef = {
   readonly research: ResearchId | null;
   /** Research points per minute at full staff (scholars), else 0. */
   readonly science: number;
+  /**
+   * The foreign people who teach it: such a building opens only through
+   * good relations with them, never by residents or research.
+   */
+  readonly faction?: CultureId;
 };
 
 /** A population tier, from farmers (0) to wealthy citizens (6). */
@@ -322,7 +351,289 @@ export type World = {
   readonly startIsland: number;
   /** Where the first ship waits, a water tile. */
   readonly startShip: { readonly x: number; readonly y: number };
+  /**
+   * The home islands of the foreign peoples and pirates, in the order of
+   * their factions; empty for worlds made before them (the map comes from
+   * the seed, so older worlds keep theirs).
+   */
+  readonly factionHomes: readonly FactionHome[];
 };
+
+/** The foreign peoples and pirate bands there can be. */
+export type CultureId =
+  "qasirah" | "shogunara" | "valdoria" | "skeld" | "crows" | "blackreef";
+
+/** A civilised island power or a band of pirates. */
+export type FactionKind = "nation" | "pirates";
+
+/** Where a faction lives, fixed when the world is made. */
+export type FactionHome = {
+  readonly culture: CultureId;
+  /** The island, closed to everyone else. */
+  readonly island: number;
+  /** The sea tile ships lie at to trade, as an index. */
+  readonly berth: number;
+  /** The land tile of the harbour beside it, as an index. */
+  readonly quay: number;
+};
+
+/** What a people's mind is busy with. */
+export type NationMood =
+  | "idle"
+  | "producing"
+  | "trading"
+  | "negotiating"
+  | "expanding"
+  | "defending"
+  | "recovering";
+
+/** What a pirate band's mind is busy with. */
+export type PirateMood =
+  | "idle"
+  | "patrolling"
+  | "searching"
+  | "chasing"
+  | "attacking"
+  | "looting"
+  | "returning"
+  | "repairing"
+  | "negotiating";
+
+/** What one ship of a faction does. */
+export type FactionShipRole = "merchant" | "guard" | "raider";
+
+/** One ship of a faction with its task. */
+export type FactionShip = {
+  readonly ship: number;
+  readonly role: FactionShipRole;
+  /** Its state: a pirate's raid or a people's voyage. */
+  state: PirateMood | NationMood;
+  /** The ship, island or player its task is about, or -1. */
+  target: number;
+  /** A point at sea it heads for, in tiles. */
+  x: number;
+  y: number;
+  /** Game second the state began. */
+  since: number;
+};
+
+/** A standing delivery between a faction and a player. */
+export type SupplyContract = {
+  readonly id: number;
+  /** The faction's id. */
+  readonly faction: number;
+  readonly player: number;
+  readonly good: GoodId;
+  /** Units per delivery. */
+  readonly amount: number;
+  /** Gold paid per delivery. */
+  readonly gold: number;
+  /** Seconds between two deliveries. */
+  readonly every: number;
+  /** "sell": the player delivers and is paid; "buy": the faction delivers. */
+  readonly direction: "sell" | "buy";
+  /** Game second of the next delivery. */
+  next: number;
+  /** Deliveries made. */
+  deliveries: number;
+  /** Deliveries the player failed, in a row. */
+  breaches: number;
+  /** True while the last delivery could not be made. */
+  suspended: boolean;
+  /** Valdoria's charter: a better price for its friends. */
+  readonly exclusive: boolean;
+};
+
+/** One lot on the pirates' black market. */
+export type MarketLot = {
+  readonly good: GoodId;
+  amount: number;
+  /** Gold per unit. */
+  readonly price: number;
+};
+
+/** Protection money a player pays a pirate band. */
+export type Protection = {
+  readonly player: number;
+  /** Gold per payment. */
+  readonly gold: number;
+  /** Game second of the next payment. */
+  next: number;
+  /** Game second the agreement ends. */
+  readonly until: number;
+};
+
+/** A treasure a map leads to. */
+export type Treasure = {
+  readonly owner: number;
+  readonly x: number;
+  readonly y: number;
+  readonly gold: number;
+};
+
+/** Things a faction's window reports, newest last. */
+export type FactionNoteKind =
+  | "bought"
+  | "sold"
+  | "contract"
+  | "contractCancelled"
+  | "suspended"
+  | "breach"
+  | "delivered"
+  | "gift"
+  | "demand"
+  | "support"
+  | "raid"
+  | "assault"
+  /** Allied pirates set out against a kontor of their ally's enemy. */
+  | "allyStrike"
+  | "loot"
+  | "lostShip"
+  | "newShip"
+  | "protection"
+  | "protectionEnded"
+  | "market"
+  | "unlock"
+  | "ceasefire"
+  | "alliance"
+  | "war"
+  | "aiTrade"
+  | "treasure"
+  | "mutiny"
+  | "trade";
+
+/** One line of a faction's news. */
+export type FactionNote = {
+  readonly time: number;
+  readonly kind: FactionNoteKind;
+  /** The player concerned, or -1. */
+  readonly player: number;
+  readonly good: GoodId | null;
+  readonly amount: number;
+};
+
+/** Running effects of a faction's events, each until a game second. */
+export type FactionEffects = {
+  /** Production is halved (epidemic). */
+  plague: number;
+  /** Food is wanted urgently (famine). */
+  famine: number;
+  /** The harbour is damaged: no trade until then. */
+  storm: number;
+  /** The pirates gather their fleet for a great raid. */
+  gathering: number;
+  /** One good is made three times as fast (a rich harvest or caravan). */
+  boost: number;
+  boostGood: GoodId | null;
+};
+
+/** A foreign people or a pirate band: its island, goods, ships and mind. */
+export type Faction = {
+  /** The owner id of its ships, below the trader's. */
+  readonly id: number;
+  readonly culture: CultureId;
+  readonly kind: FactionKind;
+  readonly island: number;
+  /** The ruler's name; a mutiny among pirates can change it. */
+  leader: string;
+  gold: number;
+  /** Its warehouse, apart from every player's. */
+  stock: Record<GoodId, number>;
+  mood: NationMood | PirateMood;
+  /** Game second of its next look at the world. */
+  nextThink: number;
+  fleet: FactionShip[];
+  /** Earliest game second it builds or replaces a ship. */
+  nextShip: number;
+  contracts: SupplyContract[];
+  protection: Protection[];
+  /** The black market (pirates only) and when it changes. */
+  market: MarketLot[];
+  marketUntil: number;
+  notes: FactionNote[];
+  /** Players it taught its special art (recipe, refit, ship or charter). */
+  granted: number[];
+  effects: FactionEffects;
+  /** The player it sends war ships to help, and until when. */
+  support: { player: number; until: number; hunt: boolean } | null;
+  /** Earliest game second the next raid on each owner may start. */
+  raidAt: Record<string, number>;
+  /** Until when each player may see its whole fleet (bought news). */
+  intel: Record<string, number>;
+  /** Gold of goods traded with the human so far. */
+  traded: number;
+  /** Game second it offers a new mission, has an event, trades with rivals. */
+  nextMission: number;
+  nextEvent: number;
+  nextDeal: number;
+  /** Treasures its maps lead to (pirates). */
+  treasures: Treasure[];
+  /** Game second until which it holds a ceasefire with each player. */
+  ceasefire: Record<string, number>;
+  /** Pirates demanding protection money from a player, until a second. */
+  demand: { player: number; until: number } | null;
+  /**
+   * What each player did to other enemies since its last alliance with this
+   * band broke (pirates only; missing in older saves, then empty): what
+   * opens the way to an alliance with them.
+   */
+  deeds: Record<string, PirateDeeds>;
+};
+
+/** A player's deeds against enemies that are not pirates, as a band counts them. */
+export type PirateDeeds = {
+  /** Ships sunk of rivals and peoples it fought. */
+  sunk: number;
+  /** Kontors of rivals taken or destroyed. */
+  taken: number;
+};
+
+/** What a player can do with a faction. */
+export type FactionAction =
+  /** Opens trade relations. */
+  | { readonly type: "open" }
+  | {
+      readonly type: "buy" | "sell";
+      /** The player's ship lying in the faction's harbour. */
+      readonly ship: number;
+      readonly good: GoodId;
+      readonly amount: number;
+    }
+  | { readonly type: "gift"; readonly gold: number }
+  /** Asks a people for gold; it pays or refuses by opinion, character and strength. */
+  | { readonly type: "demand"; readonly gold: number }
+  | {
+      readonly type: "contract";
+      readonly good: GoodId;
+      readonly amount: number;
+      readonly direction: "sell" | "buy";
+    }
+  | { readonly type: "cancelContract"; readonly contract: number }
+  /** War ships to guard the player for a while. */
+  | { readonly type: "support" }
+  /** War ships to hunt the pirates together. */
+  | { readonly type: "hunt" }
+  | { readonly type: "ceasefire" }
+  | { readonly type: "alliance" }
+  | { readonly type: "cancelAlliance" }
+  /** The special art the faction teaches its friends. */
+  | { readonly type: "learn" }
+  | { readonly type: "protection" }
+  | { readonly type: "endProtection" }
+  /** Buys news of the pirates' whole fleet. */
+  | { readonly type: "intel" }
+  | {
+      readonly type: "market";
+      readonly ship: number;
+      readonly lot: number;
+      readonly amount: number;
+    }
+  /** Hands over goods of a mission from a ship in the harbour. */
+  | {
+      readonly type: "deliver";
+      readonly mission: number;
+      readonly ship: number;
+    };
 
 /** Why a producer is or is not working. */
 export type ProducerStatus =
@@ -334,7 +645,11 @@ export type ProducerStatus =
   | "noResource"
   /** Its store is full or its inputs are out, and no cart can reach it. */
   | "noRoad"
-  | "paused";
+  | "paused"
+  /** Under water in a flood. */
+  | "flooded"
+  /** Its fields eaten bare by locusts. */
+  | "ravaged";
 
 /** How a producer is joined to its store: by road, over land, or not at all. */
 export type LinkKind = "road" | "land" | "none";
@@ -445,6 +760,11 @@ export type Building = {
   hitAt: number;
   /** Seconds until its guns are loaded again. */
   reload: number;
+  /**
+   * Seconds its fields still lie bare after locusts, 0 when none; missing
+   * in saves from before the disasters.
+   */
+  blight: number;
 };
 
 /** What a cart is doing. */
@@ -485,7 +805,12 @@ export type ShipKind =
   | "lineShip"
   | "cruiser"
   | "trader"
-  | "pirate";
+  | "pirate"
+  | "knarr"
+  | "pirateBoat"
+  | "corvette"
+  | "pirateFrigate"
+  | "pirateWarship";
 
 /** What a ship is for: carrying goods, fighting, or neither (trader, pirates). */
 export type ShipRole = "trade" | "war" | "other";
@@ -522,6 +847,8 @@ export type ShipDef = {
   readonly research: ResearchId | null;
   /** Soldiers it can carry. */
   readonly troops: number;
+  /** The foreign people whose friendship opens it to a shipyard, if any. */
+  readonly faction?: CultureId;
 };
 
 /** What a ship is doing. */
@@ -888,6 +1215,23 @@ export type GameEvent =
       readonly x: number;
       readonly y: number;
     }
+  /** A disaster is coming: it strikes in so many seconds. */
+  | {
+      readonly type: "disasterWarning";
+      readonly kind: DisasterKind;
+      readonly player: number;
+      readonly island: number;
+      readonly seconds: number;
+      readonly x: number;
+      readonly y: number;
+    }
+  /** A disaster is over. */
+  | {
+      readonly type: "disasterOver";
+      readonly kind: DisasterKind;
+      readonly player: number;
+      readonly island: number;
+    }
   | {
       readonly type: "fireOut";
       readonly player: number;
@@ -935,6 +1279,12 @@ export type GameEvent =
       readonly war: boolean;
     }
   | {
+      /** A faction did something worth telling. */
+      readonly type: "faction";
+      readonly faction: number;
+      readonly note: FactionNote;
+    }
+  | {
       readonly type: "researched";
       readonly player: number;
       readonly research: ResearchId;
@@ -964,6 +1314,8 @@ export type GameStats = {
   sunk: number;
   /** Missions fulfilled. */
   missions: number;
+  /** Pirate ships sunk (missing in older saves). */
+  pirates?: number;
 };
 
 /** How much tax a player asks. */
@@ -1046,7 +1398,18 @@ export type RelationReason =
   | "rivalry"
   | "incident"
   | "conquest"
-  | "trespass";
+  | "trespass"
+  // Reasons of the foreign peoples and pirates.
+  | "culture"
+  | "contract"
+  | "breach"
+  | "piracy"
+  | "pirateHunt"
+  | "protection"
+  | "support"
+  | "urgent"
+  | "ceasefire"
+  | "provoked";
 
 /** One reason with its weight. */
 export type Modifier = { reason: RelationReason; value: number };
@@ -1168,7 +1531,13 @@ export type MissionKind =
   | "economy"
   | "diplomacy"
   | "rescue"
-  | "build";
+  | "build"
+  /** Goods a faction needs, brought by ship into its harbour. */
+  | "cargo"
+  /** Pirate ships to sink for a people. */
+  | "hunt"
+  /** One ship to sink for the pirates. */
+  | "sink";
 
 /** Where a mission stands. */
 export type MissionState =
@@ -1230,11 +1599,90 @@ export type Mission = {
   readonly contract: number;
   /** Who fulfilled the order first, or -1. */
   wonBy: number;
+  /** The ship to sink for a pirates' order, missing otherwise. */
+  readonly target?: number;
 };
 
 /** The kinds of chance event. */
 export type IncidentKind =
-  "fire" | "plague" | "storm" | "pirates" | "goodHarvest" | "badHarvest";
+  | "fire"
+  | "plague"
+  | "storm"
+  | "pirates"
+  | "goodHarvest"
+  | "badHarvest"
+  // Events of the foreign peoples (owner: the faction).
+  | "famine"
+  | "epidemic"
+  | "harbourStorm"
+  | "caravan"
+  | "aid"
+  // Events of the pirates (owner: the band).
+  | "gathering"
+  | "treasure"
+  | "demand"
+  | "convoy"
+  | "sighted"
+  | "mutiny"
+  // The natural disasters (owner: the island's owner, -1 for the sea).
+  | DisasterKind;
+
+/** The natural disasters. */
+export type DisasterKind =
+  "flood" | "drought" | "blizzard" | "locusts" | "tsunami";
+
+/** Every kind of event a new game can switch off. */
+export type EventOption =
+  | "fire"
+  | "plague"
+  | "storm"
+  | "badHarvest"
+  | "goodHarvest"
+  | "pirateRaids"
+  | "factionEvents"
+  | DisasterKind;
+
+/** A disaster announced, raging or just over. */
+export type Disaster = {
+  readonly id: number;
+  readonly kind: DisasterKind;
+  /** The island it strikes, -1 for a blizzard over the whole map. */
+  readonly island: number;
+  /** Game second it was announced. */
+  readonly warned: number;
+  /** Game second it strikes. */
+  readonly strikes: number;
+  /** Game second it is over. */
+  until: number;
+  /**
+   * Side of the island the water comes from - 0 north, 1 east, 2 south,
+   * 3 west - for a storm tide and a tsunami; -1 for a river flood and the
+   * other disasters.
+   */
+  readonly side: number;
+  /** Tiles under water while a flood lasts, set when it strikes. */
+  tiles: number[];
+  /** Whether it has struck yet. */
+  struck: boolean;
+};
+
+/** The disasters of a game and what they left behind. */
+export type HazardState = {
+  /** Disasters announced or raging. */
+  disasters: Disaster[];
+  /** Game second the dice are rolled next. */
+  next: number;
+  /** Per island, the game second until which no new disaster comes. */
+  calm: Record<number, number>;
+  /** Per player or faction, the game second until which none of its islands is struck. */
+  rest: Record<number, number>;
+  /** Per kind, the game second it last ended anywhere. */
+  last: Partial<Record<DisasterKind, number>>;
+  /** Per player, the disasters that struck them - the AI builds against them. */
+  hit: Record<number, DisasterKind[]>;
+  /** Per island, how well its fuel need was met lately, 0 to 1. */
+  warmth: Record<number, number>;
+};
 
 /** A chance event that happened or still goes on. */
 export type Incident = {
@@ -1248,17 +1696,40 @@ export type Incident = {
   readonly y: number;
 };
 
+/** How hard a game is: the level chosen for a new game. */
+export type Difficulty = "easy" | "normal" | "hard";
+
 /** Choices made when the game began. */
 export type GameSettings = {
   /** AI players, 0 to 3. */
   readonly aiCount: number;
-  /** No wars and no pirates when true. */
+  /** No wars and no pirate raids when true. */
   readonly peaceful: boolean;
+  /**
+   * Whether the world has foreign peoples and pirate bands on their own
+   * islands; missing (as in older saves) means a world from before them.
+   */
+  readonly factions?: boolean;
   /**
    * Whether the guided start leads the human through the first tasks;
    * missing (as in older saves) counts as off.
    */
   readonly guided?: boolean;
+  /**
+   * Chance events and disasters switched off for this game; missing (as
+   * in older saves) means every one is on.
+   */
+  readonly eventsOff?: readonly EventOption[];
+  /**
+   * Foreign peoples and pirate bands left out of this world (no home
+   * island, no ships, no trade); missing means none is left out.
+   */
+  readonly culturesOff?: readonly CultureId[];
+  /**
+   * How hard the game is (the factors stand in `difficulty-data.ts`);
+   * missing (as in older saves) means normal.
+   */
+  readonly difficulty?: Difficulty;
 };
 
 /** The tasks of the guided start, in their order. */
@@ -1339,6 +1810,15 @@ export type Game = {
   incidents: Incident[];
   /** Game second chance events are rolled next. */
   nextIncident: number;
+  /** The natural disasters. */
+  hazards: HazardState;
+  /**
+   * 1 on tiles under water in a flood (derived from
+   * {@link HazardState.disasters}, not saved).
+   */
+  flooded: Uint8Array;
+  /** The foreign peoples and pirate bands (none in older worlds). */
+  factions: Faction[];
   events: GameEvent[];
   /** Grows on every change of buildings or roads, for the view. */
   version: number;
@@ -1546,6 +2026,15 @@ export type Command =
   | {
       /** Ends the guided start for good; everything opens as usual. */
       readonly type: "tutorialEnd";
+    }
+  | {
+      /** Trade, diplomacy and deals with a foreign people or pirates. */
+      readonly type: "faction";
+      /** The faction's id. */
+      readonly faction: number;
+      readonly action: FactionAction;
+      /** The player's island goods come from, where it matters. */
+      readonly island: number;
     };
 
 /** A command together with the player who gives it. */

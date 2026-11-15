@@ -4,7 +4,21 @@
  * fill, higher priorities first - and a route that cannot be sailed says why.
  *
  * @module
+ * @remarks
+ * A stop can also be the harbour of a foreign people or pirate band the
+ * player trades with: there unloading sells and loading buys, at the
+ * faction's prices; the limit is the least price to sell at and the most
+ * to pay (0 for any price).
  */
+import {
+  askPrice,
+  bidPrice,
+  factionAction,
+  factionOfIsland,
+  homeOf,
+  inHarbour,
+  tradeRefusal,
+} from "./factions";
 import { berthOf, kontorOf, sailTo, transfer } from "./ships";
 import { TICK } from "./time";
 import type {
@@ -95,9 +109,12 @@ export function stepRoutes(game: Game): void {
     const sailing = game.ships.some(
       (ship) => ship.order.type === "route" && ship.order.route === route.id,
     );
-    const missing = route.stops.some(
-      (stop) => ownKontor(game, route.owner, stop.island) === null,
-    );
+    const missing = route.stops.some((stop) => {
+      const people = factionOfIsland(game, stop.island);
+      return people === null
+        ? ownKontor(game, route.owner, stop.island) === null
+        : tradeRefusal(game, people, route.owner) !== null;
+    });
     route.blocked = missing
       ? "noKontor"
       : !sailing
@@ -132,7 +149,35 @@ function sail(
 ): void {
   const stop = route.stops[order.stop % route.stops.length];
   const kontor = ownKontor(game, route.owner, stop.island);
-  if (kontor !== null) {
+  const people = factionOfIsland(game, stop.island);
+  if (people !== null) {
+    if (inHarbour(game, people, ship)) {
+      if (order.wait <= 0) {
+        trade(game, ship, stop, people, route.owner);
+        order.wait = STOP_SECONDS;
+      }
+      order.wait -= TICK;
+      if (order.wait <= 0) {
+        order.stop = (order.stop + 1) % route.stops.length;
+        if (order.stop === 0) {
+          route.trips += 1;
+        }
+        order.wait = 0;
+        // Out of the harbour, so the next stop is sailed for.
+        ship.path = [];
+        const ok = sailTo(game, ship, nextBerth(game, route, order.stop));
+        route.blocked = ok ? null : "noPath";
+      }
+    } else if (ship.path.length === 0) {
+      if (order.wait > 0) {
+        order.wait -= TICK;
+      } else {
+        const ok = sailTo(game, ship, homeOf(game, people).berth);
+        route.blocked = ok ? null : "noPath";
+        order.wait = ok ? 0 : RETRY_SECONDS;
+      }
+    }
+  } else if (kontor !== null) {
     if (ship.docked === kontor.id) {
       if (order.wait <= 0) {
         handle(game, ship, stop);
@@ -202,6 +247,64 @@ function handle(game: Game, ship: Ship, stop: RouteStop): void {
       if (amount > 0) {
         transfer(game, ship, action.good, amount);
       }
+    }
+  }
+}
+
+/** The berth of a route's stop: a kontor's or a faction harbour's. */
+function nextBerth(game: Game, route: TradeRoute, index: number): number {
+  const stop = route.stops[index % route.stops.length];
+  const people = factionOfIsland(game, stop.island);
+  const kontor = people === null ? kontorOf(game, stop.island) : null;
+  return people !== null
+    ? homeOf(game, people).berth
+    : kontor === null
+      ? -1
+      : berthOf(game, kontor);
+}
+
+/**
+ * Trades at a faction's harbour by the stop's rules: unloading sells, at
+ * no less than the limit per unit; loading buys, at no more (0 = any).
+ */
+function trade(
+  game: Game,
+  ship: Ship,
+  stop: RouteStop,
+  people: NonNullable<ReturnType<typeof factionOfIsland>>,
+  owner: number,
+): void {
+  const ordered: RouteAction[] = [...stop.actions].sort(
+    (a, b) => (b.priority ?? 1) - (a.priority ?? 1),
+  );
+  for (const action of ordered) {
+    const have = ship.cargo[action.good] ?? 0;
+    const price =
+      action.mode === "unload"
+        ? bidPrice(game, people, owner, action.good)
+        : askPrice(game, people, owner, action.good);
+    const fair =
+      action.limit <= 0 ||
+      (action.mode === "unload"
+        ? price >= action.limit
+        : price <= action.limit);
+    const amount =
+      action.mode === "unload"
+        ? Math.min(action.amount, have)
+        : Math.max(0, action.amount - have);
+    if (fair && amount > 0) {
+      factionAction(
+        game,
+        owner,
+        people.id,
+        {
+          type: action.mode === "unload" ? "sell" : "buy",
+          ship: ship.id,
+          good: action.good,
+          amount,
+        },
+        -1,
+      );
     }
   }
 }

@@ -12,6 +12,9 @@
  */
 "use client";
 
+import { FACTION_REFUSALS } from "@/games/imperavis/i18n/faction-texts";
+import { happen } from "@/games/imperavis/engine/faction-events";
+import { factionById } from "@/games/imperavis/engine/factions";
 import {
   useCallback,
   useEffect,
@@ -29,6 +32,7 @@ import {
   stepGame,
   TICK,
 } from "@/games/imperavis/engine/game";
+import { forceDisaster } from "@/games/imperavis/engine/disasters";
 import { ignite } from "@/games/imperavis/engine/incidents";
 import { HUMAN, islandsOf } from "@/games/imperavis/engine/players";
 import { createShip } from "@/games/imperavis/engine/ships";
@@ -44,11 +48,13 @@ import { fromSave, toSave } from "@/games/imperavis/engine/save";
 import type {
   BuildingKind,
   Command,
+  DisasterKind,
   Game,
   GameEvent,
   GameSettings,
   MapSize,
   PlayerCommand,
+  IncidentKind,
   ShipKind,
 } from "@/games/imperavis/engine/types";
 import {
@@ -440,7 +446,11 @@ export function useImperavis(): ImperavisApi {
   const newGame = useCallback(
     (seed: number, size: MapSize, settings: GameSettings) => {
       soundRef.current?.resume();
-      const game = createGame(seed, size, settings);
+      // Every new world has the foreign peoples and pirate bands.
+      const game = createGame(seed, size, {
+        ...settings,
+        factions: settings.factions ?? true,
+      });
       applyFlags(game, flagsRef.current);
       if (cheatRef.current) {
         setCheat(game, true);
@@ -681,6 +691,15 @@ export function useImperavis(): ImperavisApi {
           gameRef.current === null
             ? null
             : planRoad(gameRef.current, HUMAN, from, to),
+        event: (faction: number, kind: IncidentKind) => {
+          const game = gameRef.current;
+          const target = game === null ? null : factionById(game, faction);
+          return game !== null && target !== null && happen(game, target, kind);
+        },
+        disaster: (kind: DisasterKind, island: number) =>
+          gameRef.current === null
+            ? null
+            : (forceDisaster(gameRef.current, kind, island)?.id ?? null),
         spawn: (owner: number, kind: ShipKind, x: number, y: number) =>
           gameRef.current === null
             ? null
@@ -1139,7 +1158,9 @@ function mine(event: GameEvent): boolean {
 function refusalText(reason: string): string {
   const answer = reason.startsWith("dip:")
     ? ANSWER_TEXTS[reason.slice("dip:".length) as keyof typeof ANSWER_TEXTS]
-    : undefined;
+    : reason.startsWith("fx:")
+      ? FACTION_REFUSALS[reason.slice("fx:".length)]
+      : undefined;
   return answer ?? REFUSAL_TEXTS[reason] ?? reason;
 }
 

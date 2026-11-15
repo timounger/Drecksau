@@ -27,6 +27,7 @@ import type {
   BuildingKind,
   Game,
 } from "@/games/imperavis/engine/types";
+import { DISASTER_TEXTS as DT } from "@/games/imperavis/i18n/disaster-texts";
 import { HUD } from "@/games/imperavis/i18n/hud-texts";
 import {
   BUILDING_INFO,
@@ -921,9 +922,9 @@ export function hintText(hint: Hint): string {
       text =
         hint.issue !== null
           ? `${HUD.cannotBuild}: ${ISSUE_TEXTS[hint.issue]}`
-          : hint.noRoad
-            ? HUD.limited
-            : HUD.canBuild;
+          : `${hint.noRoad ? HUD.limited : HUD.canBuild}${
+              hint.guards === null ? "" : ` - ${DT.previewGuards(hint.guards)}`
+            }`;
       break;
     case "road":
       text = roadHint(hint);

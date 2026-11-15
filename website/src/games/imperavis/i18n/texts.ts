@@ -14,6 +14,7 @@ import { YARD_ORDERS } from "@/games/imperavis/engine/ships-data";
 import { DRILL_ORDERS } from "@/games/imperavis/engine/units-data";
 import type {
   BuildingCategory,
+  Difficulty,
   DiplomacyAnswer,
   IncidentKind,
   MissionKind,
@@ -68,6 +69,17 @@ export const GOOD_NAMES: Readonly<Record<GoodId, string>> = {
   weapons: "Musketen",
   cannons: "Kanonen",
   engines: "Dampfmaschinen",
+  spices: "Gewürze",
+  silk: "Seide",
+  tea: "Tee",
+  porcelain: "Porzellan",
+  oliveOil: "Olivenöl",
+  furniture: "Luxusmöbel",
+  furs: "Pelze",
+  ropes: "Seile",
+  rum: "Rum",
+  perfume: "Parfüm",
+  treasureMap: "Schatzkarte",
 };
 
 /** A small symbol per good. */
@@ -102,6 +114,17 @@ export const GOOD_ICONS: Readonly<Record<GoodId, string>> = {
   weapons: "\u{2694}\u{FE0F}",
   cannons: "\u{1F4A3}",
   engines: "\u{2699}\u{FE0F}",
+  spices: "\u{1F336}",
+  silk: "\u{1F9E3}",
+  tea: "\u{1F375}",
+  porcelain: "\u{1F3FA}",
+  oliveOil: "\u{1FAD2}",
+  furniture: "\u{1FA91}",
+  furs: "\u{1F43B}",
+  ropes: "\u{1FAA2}",
+  rum: "\u{1F943}",
+  perfume: "\u{1F338}",
+  treasureMap: "\u{1F5FA}",
 };
 
 /** Names of the good categories. */
@@ -111,6 +134,7 @@ export const GOOD_CATEGORY_NAMES: Readonly<Record<GoodCategory, string>> = {
   intermediate: "Zwischenprodukt",
   food: "Bedarfsgut",
   luxury: "Luxusgut",
+  exotic: "Ware fremder Völker",
 };
 
 /** Names of the buildings. */
@@ -169,6 +193,11 @@ export const BUILDING_NAMES: Readonly<Record<BuildingKind, string>> = {
   park: "Park",
   fountain: "Brunnen",
   statue: "Statue",
+  perfumery: "Parfümerie",
+  dike: "Deich",
+  pumpStation: "Pumpstation",
+  irrigation: "Bewässerung",
+  breakwater: "Hafenmauer",
 };
 
 /** One line on what a building does. */
@@ -241,9 +270,18 @@ export const BUILDING_INFO: Readonly<Record<BuildingKind, string>> = {
   plaza: "Ein Platz zum Verweilen: +3 Punkte Zufriedenheit in Reichweite.",
   park: "Wiese, Bäume und Bänke: +5 Punkte Zufriedenheit in Reichweite.",
   fountain:
-    "Frisches Wasser und Ansehen: +5 Punkte Zufriedenheit in Reichweite.",
+    "Frisches Wasser und Ansehen: +5 Punkte Zufriedenheit in Reichweite. In einer Dürre hält er Höfe in Reichweite zum Teil feucht (60 % statt 35 % Ertrag).",
   statue:
     "Ein Denkmal für die Stadt: +6 Punkte Zufriedenheit in Reichweite. Verschiedene Zierden zählen zusammen, höchstens +15.",
+  perfumery:
+    "Die Kunst des Sultanats von Qasirah: macht aus Gewürzen und Glas Parfüm für die oberen Schichten. Wird nur durch gute Beziehungen zu Qasirah freigeschaltet.",
+  dike: "Ein Erdwall gegen das Wasser: In seiner Reichweite (7 Felder) überflutet weder ein Fluss noch eine Sturmflut das Land, und eine Flutwelle trifft dort nur mit halber Kraft.",
+  pumpStation:
+    "Pumpt überflutetes Land in ihrer Reichweite (12 Felder) schon 25 Sekunden nach dem Hochwasser trocken - Betriebe arbeiten früher weiter und nehmen weniger Schaden.",
+  irrigation:
+    "Zisterne mit Kanälen: Höfe und Plantagen in Reichweite (9 Felder) tragen in einer Dürre so viel wie sonst. Ein Zierbrunnen hilft dabei nur zum Teil.",
+  breakwater:
+    "Steinerne Mauer an der Küste: Eine Flutwelle trifft Hafenanlagen in ihrer Reichweite (12 Felder) mit nur 15 % ihrer Kraft, andere Gebäude mit 40 %. Auch Schiffe am Kontor sind geschützt.",
 };
 
 /** Names of the build-menu shelves. */
@@ -282,6 +320,11 @@ export const SHIP_NAMES: Readonly<Record<ShipKind, string>> = {
   cruiser: "Schlachtkreuzer",
   trader: "Freier Händler",
   pirate: "Piratenschiff",
+  knarr: "Skeld-Knarr",
+  pirateBoat: "Piratenboot",
+  corvette: "Piratenkorvette",
+  pirateFrigate: "Piratenfregatte",
+  pirateWarship: "Piratenkriegsschiff",
 };
 
 /** Names of the fields of research. */
@@ -340,6 +383,16 @@ export const REASON_NAMES: Readonly<Record<RelationReason, string>> = {
   incident: "Zwischenfälle",
   conquest: "Eroberte Inseln",
   trespass: "Truppen auf ihrem Land",
+  culture: "Wesen des Volkes",
+  contract: "Eingehaltene Verträge",
+  breach: "Vertragsbrüche",
+  piracy: "Überfälle",
+  pirateHunt: "Jagd auf Piraten",
+  protection: "Schutzgeld",
+  support: "Hilfe in der Not",
+  urgent: "Dringende Lieferungen",
+  ceasefire: "Waffenstillstand",
+  provoked: "Grundloser Angriff",
 };
 
 /** Why a proposal was taken or turned down. */
@@ -376,6 +429,9 @@ export const MISSION_KIND_NAMES: Readonly<Record<MissionKind, string>> = {
   diplomacy: "Diplomatie",
   rescue: "Rettung",
   build: "Bauauftrag",
+  cargo: "Fracht in den Hafen",
+  hunt: "Piratenjagd",
+  sink: "Kaperauftrag",
 };
 
 /** Names of the states of a mission. */
@@ -396,6 +452,22 @@ export const INCIDENT_NAMES: Readonly<Record<IncidentKind, string>> = {
   pirates: "Piraten",
   goodHarvest: "Gute Ernte",
   badHarvest: "Missernte",
+  famine: "Hungersnot",
+  epidemic: "Epidemie",
+  harbourStorm: "Sturm im Hafen",
+  caravan: "Reiche Ernte",
+  aid: "Bitte um Hilfe",
+  gathering: "Piratenflotte sammelt sich",
+  treasure: "Ein Kapitän bietet einen Schatz",
+  demand: "Schutzgeldforderung",
+  convoy: "Beutekonvoi",
+  sighted: "Piratenschiff gesichtet",
+  mutiny: "Meuterei",
+  flood: "Überschwemmung",
+  drought: "Dürre",
+  blizzard: "Schneesturm",
+  locusts: "Heuschreckenplage",
+  tsunami: "Tsunami",
 };
 
 /** Names of the seasons. */
@@ -420,6 +492,20 @@ export const WEATHER_ICONS: Readonly<Record<WeatherKind, string>> = {
   rain: "\u{1F327}\u{FE0F}",
   fog: "\u{1F32B}\u{FE0F}",
   storm: "\u{26C8}\u{FE0F}",
+};
+
+/** Names of the difficulty levels. */
+export const DIFFICULTY_NAMES: Readonly<Record<Difficulty, string>> = {
+  easy: "Leicht",
+  normal: "Normal",
+  hard: "Schwer",
+};
+
+/** What each difficulty level does, in one line for the menu. */
+export const DIFFICULTY_HINTS: Readonly<Record<Difficulty, string>> = {
+  easy: "Mehr Startgold und Ladung, bessere Preise, ruhigere Rivalen, seltenere und schwächere Piraten, seltenere und mildere Katastrophen.",
+  normal: "Das Spiel wie vorgesehen: alle Werte ausgewogen.",
+  hard: "Weniger Startgold, schlechtere Preise, schnellere und angriffslustigere Rivalen, mehr und stärkere Piraten, häufigere und härtere Katastrophen.",
 };
 
 /** Names of the map sizes. */
@@ -467,6 +553,8 @@ export const ISSUE_TEXTS: Readonly<Record<PlacementIssue, string>> = {
   kontorExists:
     "Diese Insel hat schon ein Kontor - erweitere das Baugebiet mit Lagerhäusern",
   foreign: "Diese Insel gehört einer anderen Partei",
+  faction:
+    "Heimatinsel eines fremden Volkes oder von Piraten - hier baut niemand außer ihnen",
 };
 
 /** Reasons a command was refused, by code. */
@@ -506,6 +594,9 @@ export const REFUSAL_TEXTS: Readonly<Record<string, string>> = {
   unknown: "Unbekannter Befehl",
   burning: "Erst muss das Feuer aus sein",
   whole: "Das Gebäude ist unbeschädigt",
+  faction:
+    "Heimatinsel eines fremden Volkes oder von Piraten - hier landet und baut niemand",
+  taught: "Diesen Schiffstyp lehrt erst ein fremdes Volk (Skeld)",
 };
 
 /** What a producer is doing. */
@@ -518,6 +609,8 @@ export const STATUS_TEXTS: Readonly<Record<ProducerStatus, string>> = {
   noResource: "Standort ungeeignet (Wald, Vorkommen oder Fruchtbarkeit fehlt)",
   noRoad: "Kein Transportweg - kein Karren erreicht den Betrieb",
   paused: "Angehalten",
+  flooded: "Überflutet - steht still, bis das Wasser abläuft",
+  ravaged: "Von Heuschrecken kahlgefressen - wächst nach",
 };
 
 /** Why a house does not rise. */
@@ -785,6 +878,7 @@ export const TEXTS = {
             : `Auftrag verfallen: ${kind}`,
   eventResearched: (name: string) => `Erforscht: ${name}`,
   // New game
+  difficultyTitle: "Schwierigkeit",
   rivals: "KI-Gegner",
   rivalsHint:
     "Rivalen mit eigenem Charakter: Händler, Kriegerisch, Expansionist.",
@@ -930,6 +1024,7 @@ export const TEXTS = {
   landHome: (island: string) => `Absetzen: ${island}`,
   landAttack: (island: string) => `Angriff: ${island}`,
   landFree: "frei",
+  toLanding: (count: number) => `${count} Soldaten an Bord - jetzt absetzen`,
   landRivalWarning: (who: string) =>
     `Diese Insel gehört ${who}. Truppen auf seinem Land verärgern ihn, solange sie dort stehen - im Extremfall erklärt er dir den Krieg.`,
   landing: (island: string) => `Unterwegs zur Landung: ${island}`,

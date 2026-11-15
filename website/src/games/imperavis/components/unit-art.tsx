@@ -204,7 +204,108 @@ const SHIP_DRAW: Readonly<Record<ShipKind, ReactNode>> = {
       <rect x="24" y="1" width="6" height="3.5" fill="#111" />
     </>
   ),
+  knarr: (
+    <>
+      <path d="M24 3V20" stroke={HULL_DARK} />
+      <path
+        d="M16 5H32L33 17H15z"
+        fill={SAIL}
+        stroke="#b9ad90"
+        strokeWidth="0.6"
+      />
+      <path d="M16 9H32M16 13H32" stroke="#b33b2e" strokeWidth="1.6" />
+      <path
+        d="M5 15Q8 26 14 26H34Q40 26 43 15Q40 20 34 21H14Q8 20 5 15z"
+        fill="#9a6a3c"
+        stroke={HULL_DARK}
+        strokeWidth="0.8"
+      />
+      <path d="M5 15Q4 12 6 11M43 15Q44 12 42 11" stroke={HULL_DARK} />
+      {[14, 19, 24, 29, 34].map((x, k) => (
+        <circle
+          key={x}
+          cx={x}
+          cy="21.5"
+          r="1.8"
+          fill={k % 2 === 0 ? "#b33b2e" : GOLD}
+          stroke={HULL_DARK}
+          strokeWidth="0.5"
+        />
+      ))}
+    </>
+  ),
+  pirateBoat: (
+    <>
+      {darkSail(23, 7, 18, 9)}
+      {hull(13, 35, 3.5, "#2b2420")}
+      {pirateFlag(23, 1)}
+    </>
+  ),
+  corvette: (
+    <>
+      {darkSail(18, 6, 17, 8)}
+      {darkSail(28, 5, 17, 9)}
+      {hull(8, 40, 4.5, "#2b2420")}
+      <path d="M10 21H38" stroke="#7a2a22" strokeWidth="0.8" />
+      {ports(23.3, 13, 35, 4)}
+      {pirateFlag(28, 0)}
+    </>
+  ),
+  pirateFrigate: (
+    <>
+      {darkSail(15, 5, 16, 7)}
+      {darkSail(24, 3, 16, 9)}
+      {darkSail(33, 6, 16, 7)}
+      {hull(5, 43, 5.5, "#241e1b", 2)}
+      <path d="M7 20.5H41" stroke="#7a2a22" strokeWidth="0.8" />
+      {ports(23, 10, 38, 7)}
+      {pirateFlag(15, 0)}
+    </>
+  ),
+  pirateWarship: (
+    <>
+      {darkSail(13, 4, 13, 8)}
+      {darkSail(24, 2, 13, 11)}
+      {darkSail(35, 4, 13, 8)}
+      {hull(2, 46, 8, "#1c1715", 3)}
+      <path d="M4 18.5H44M4 21.8H44" stroke="#7a2a22" strokeWidth="0.6" />
+      {ports(20.2, 7, 41, 9)}
+      {ports(23.5, 7, 41, 9)}
+      {pirateFlag(13, 0)}
+    </>
+  ),
 };
+
+/** A dark pirate sail on a mast at x, from top to bottom, this wide. */
+function darkSail(
+  x: number,
+  top: number,
+  bottom: number,
+  width: number,
+): ReactNode {
+  return (
+    <>
+      <path d={`M${x} ${top - 2}V${bottom + 2}`} stroke={HULL_DARK} />
+      <path
+        d={`M${x - width / 2} ${top}Q${x} ${top + 1.5} ${x + width / 2} ${top}L${x + width / 2 + 1} ${bottom}Q${x} ${bottom + 2} ${x - width / 2 - 1} ${bottom}z`}
+        fill="#2a2626"
+        stroke="#141212"
+        strokeWidth="0.6"
+      />
+    </>
+  );
+}
+
+/** A tiny black flag with a white skull dot on a mast at x, its top at y. */
+function pirateFlag(x: number, y: number): ReactNode {
+  return (
+    <>
+      <path d={`M${x} ${y + 4}V${y}`} stroke={HULL_DARK} />
+      <rect x={x} y={y} width="5" height="3.2" fill="#111" />
+      <circle cx={x + 2.5} cy={y + 1.5} r="0.8" fill="#f1ede2" />
+    </>
+  );
+}
 
 /** A standing figure in a coat, with what it holds. */
 function figure(gear: ReactNode, coat = COAT, hat?: ReactNode): ReactNode {

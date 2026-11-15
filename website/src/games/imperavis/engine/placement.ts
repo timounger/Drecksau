@@ -16,6 +16,7 @@ import {
   terrainAt,
 } from "./terrain";
 import { buildOpen, cheatPays, guidedHolds } from "./cheat";
+import { isFactionIsland } from "./factions";
 import { playerById } from "./players";
 import type { Amounts, BuildingKind, Game, GoodId, Ship } from "./types";
 
@@ -58,7 +59,9 @@ export type PlacementIssue =
   | "shipCargo"
   | "notOwned"
   | "kontorExists"
-  | "foreign";
+  | "foreign"
+  /** The island is the home of a foreign people or pirate band. */
+  | "faction";
 
 /** The outcome of a placement check. */
 export type Placement = {
@@ -164,7 +167,12 @@ export function checkPlacement(
   const isKontor = kind === "kontor";
   // A kontor founds a free island and is paid from a ship; each island holds
   // one kontor - the building area grows with warehouses and markets.
-  const founding = isKontor && state !== null && state.owner < 0;
+  const reserved = island >= 0 && isFactionIsland(world, island);
+  const founding = isKontor && state !== null && state.owner < 0 && !reserved;
+  if (reserved) {
+    // Nobody builds on a faction's island, not even the cheat.
+    issue = "faction";
+  }
   if (issue === null && state !== null) {
     if (isKontor) {
       if (state.owner >= 0 && moving === null) {
@@ -353,6 +361,7 @@ export function freeCoastNear(game: Game, x: number, y: number): number {
       if (
         id >= 0 &&
         game.islands[id].owner < 0 &&
+        !isFactionIsland(world, id) &&
         distance <= SETTLE_REACH &&
         distance < best
       ) {
@@ -455,6 +464,7 @@ function touchesRoad(
     fire: 0,
     hitAt: 0,
     reload: 0,
+    blight: 0,
   };
   return roadAccess(game, probe).length > 0;
 }

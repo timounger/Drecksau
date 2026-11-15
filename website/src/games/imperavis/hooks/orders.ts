@@ -19,6 +19,7 @@ import { HUMAN, ownerOf } from "@/games/imperavis/engine/players";
 import { SHIP } from "@/games/imperavis/engine/ships-data";
 import { berthOf, formationGoals } from "@/games/imperavis/engine/ships";
 import { inBounds, isSea } from "@/games/imperavis/engine/terrain";
+import { aboard } from "@/games/imperavis/engine/troops";
 import {
   Terrain,
   type Command,
@@ -128,7 +129,11 @@ export function clickPick(
     });
   } else if (additive) {
     pick = current;
-  } else if (hit.type === "building" || hit.type === "ship") {
+  } else if (
+    hit.type === "building" ||
+    hit.type === "ship" ||
+    hit.type === "faction"
+  ) {
     pick = hit;
   } else {
     pick = own === null ? { type: "none" } : pickOf(own);
@@ -280,6 +285,7 @@ export function planOrders(
         ) ?? null)
       : null;
   const armed = ships.filter((ship) => SHIP[ship.kind].guns !== null);
+  const carriers = ships.filter((ship) => aboard(game, ship) > 0);
   // Soldiers sent onto an own ship go aboard it.
   const ownShip =
     hit.type === "ship"
@@ -353,6 +359,12 @@ export function planOrders(
     refusal = ships.length === 0 ? REFUSAL_TEXTS.notWalkable : null;
   } else if (soldiers.length > 0) {
     march();
+  } else if (carriers.length > 0 && world.islandOf[ty * n + tx] >= 0) {
+    // Ships with soldiers aboard set them down on the island clicked.
+    const island = world.islandOf[ty * n + tx];
+    carriers.forEach((ship) =>
+      commands.push({ type: "land", ship: ship.id, island }),
+    );
   } else if (nearWater(game, tx, ty)) {
     ships.forEach((ship) =>
       commands.push({ type: "moveShip", ship: ship.id, x: tx, y: ty }),

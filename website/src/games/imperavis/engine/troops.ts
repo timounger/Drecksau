@@ -20,6 +20,7 @@
  * pieces from the sea does. When two players make peace, units on the
  * other's land go home.
  */
+import { isFactionIsland } from "./factions";
 import { BUILDING } from "./buildings-data";
 import { cheatPays } from "./cheat";
 import { BUILDING_REPAIR_GOLD, hitBuilding, hitShip, hostile } from "./combat";
@@ -483,6 +484,9 @@ export function landTroops(
   let reason: string | null = null;
   if (ship === undefined || aboard(game, ship) === 0) {
     reason = "noSoldiers";
+  } else if (isFactionIsland(game.world, island)) {
+    // A faction's home cannot be stormed or settled.
+    reason = "faction";
   } else if (game.islands[island] === undefined || goal < 0) {
     reason = "noPath";
   } else if (!sailTo(game, ship, goal)) {

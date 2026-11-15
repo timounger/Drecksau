@@ -8,6 +8,7 @@
  */
 "use client";
 
+import { CULTURE } from "@/games/imperavis/engine/factions-data";
 import { useState, type ReactElement, type ReactNode } from "react";
 import { HUMAN } from "@/games/imperavis/engine/players";
 import {
@@ -357,6 +358,7 @@ function ShipTile({
           ...(def.research === null
             ? []
             : [MIL.unlockResearch(RESEARCH_NAMES[def.research])]),
+          ...(def.faction === undefined ? [] : [CULTURE[def.faction].name]),
         ].join(", ")}
       </Fact>
       {Object.keys(missing).length > 0 && (

@@ -10,6 +10,19 @@
  * last, so each change is told once, and its first look only takes notes,
  * so a freshly loaded game does not flood the corner.
  */
+import { cultureOf, factionById } from "@/games/imperavis/engine/factions";
+import { TRADER } from "@/games/imperavis/engine/players";
+import { DISASTER_KINDS } from "@/games/imperavis/engine/disasters-data";
+import type {
+  DisasterKind,
+  FactionNoteKind,
+} from "@/games/imperavis/engine/types";
+import {
+  DISASTER_OVER,
+  DISASTER_STRIKES,
+  DISASTER_WARNINGS,
+} from "@/games/imperavis/i18n/disaster-texts";
+import { NOTE_TEXTS } from "@/games/imperavis/i18n/faction-texts";
 import {
   TUTORIAL_STEPS,
   tutorialHolds,
@@ -43,6 +56,52 @@ import {
   TUTORIAL_STEP_TEXTS,
 } from "@/games/imperavis/i18n/tutorial-texts";
 import type { Message, MessageLevel, News } from "./use-imperavis";
+
+/** What a faction tells the human about. */
+const TOLD: readonly FactionNoteKind[] = [
+  "raid",
+  "assault",
+  "war",
+  "support",
+  "unlock",
+  "contract",
+  "contractCancelled",
+  "breach",
+  "suspended",
+  "protection",
+  "protectionEnded",
+  "treasure",
+  "ceasefire",
+  "alliance",
+  "trade",
+  "demand",
+  "allyStrike",
+];
+
+/** Faction news that is an alarm, and that is a warning. */
+const ALARMS: readonly FactionNoteKind[] = ["raid", "assault", "war"];
+const WARNINGS: readonly FactionNoteKind[] = [
+  "contractCancelled",
+  "breach",
+  "suspended",
+  "protectionEnded",
+  "mutiny",
+];
+
+/** How the faction news calls the human. */
+const FX_YOU = "Du";
+
+/**
+ * A faction's note told as news: the faction already names the line, so
+ * the "Du:" the window puts in front is left out.
+ *
+ * @param text - the note as the faction window shows it
+ * @returns the text for the news
+ */
+function withoutYou(text: string): string {
+  const prefix = `${FX_YOU}: `;
+  return text.startsWith(prefix) ? text.slice(prefix.length) : text;
+}
 
 /** Residents between two "the town has grown" messages. */
 const GROWTH_STEP = 100;
@@ -254,8 +313,23 @@ export function describe(game: Game, event: GameEvent): News | null {
       where = islandAt(event.island);
       break;
     case "incident":
+      if (DISASTER_KINDS.includes(event.kind as DisasterKind)) {
+        // Only the human's islands and the blizzard over the whole map.
+        text =
+          own || event.island < 0
+            ? DISASTER_STRIKES[event.kind as DisasterKind](
+                islandName(event.island),
+              )
+            : null;
+        level = event.kind === "tsunami" ? "alert" : "warning";
+        where = event.island < 0 ? null : islandAt(event.island);
+        break;
+      }
       text =
-        own || event.kind === "pirates" || event.kind === "storm"
+        own ||
+        event.kind === "pirates" ||
+        event.kind === "storm" ||
+        event.player < TRADER
           ? T.eventIncident(
               INCIDENT_NAMES[event.kind],
               event.island >= 0 ? islandName(event.island) : "",
@@ -263,6 +337,49 @@ export function describe(game: Game, event: GameEvent): News | null {
           : null;
       level = event.kind === "goodHarvest" ? "info" : "warning";
       where = { x: event.x, y: event.y };
+      break;
+    case "faction": {
+      const faction = factionById(game, event.faction);
+      const note = event.note;
+      const told =
+        faction !== null &&
+        (note.kind === "mutiny" ||
+          (note.player === HUMAN && TOLD.includes(note.kind)));
+      text =
+        faction === null || !told
+          ? null
+          : `${cultureOf(faction).name}: ${withoutYou(
+              NOTE_TEXTS[note.kind](
+                FX_YOU,
+                note.good === null ? "" : GOOD_NAMES[note.good],
+                note.amount,
+              ),
+            )}`;
+      level = ALARMS.includes(note.kind)
+        ? "alert"
+        : WARNINGS.includes(note.kind)
+          ? "warning"
+          : "info";
+      where = islandAt(faction?.island ?? -1);
+      break;
+    }
+    case "disasterWarning":
+      text =
+        own || event.island < 0
+          ? DISASTER_WARNINGS[event.kind](
+              islandName(event.island),
+              Math.round(event.seconds),
+            )
+          : null;
+      level = event.kind === "tsunami" ? "alert" : "warning";
+      where = event.island < 0 ? null : islandAt(event.island);
+      break;
+    case "disasterOver":
+      text =
+        own || event.island < 0
+          ? DISASTER_OVER[event.kind](islandName(event.island))
+          : null;
+      where = event.island < 0 ? null : islandAt(event.island);
       break;
     case "fireOut":
       text = own ? T.eventFireOut(BUILDING_NAMES[event.kind]) : null;

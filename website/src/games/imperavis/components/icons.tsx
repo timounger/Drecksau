@@ -80,7 +80,11 @@ export type IconName =
   | "coins"
   | "globe"
   | "handshake"
-  | "fullscreen";
+  | "fullscreen"
+  | "wave"
+  | "wall"
+  | "pump"
+  | "snow";
 
 /** The drawing of each symbol, on a 24 x 24 grid. */
 const ICONS: Readonly<Record<IconName, ReactNode>> = {
@@ -341,6 +345,32 @@ const ICONS: Readonly<Record<IconName, ReactNode>> = {
     <>
       <path d="M12 6.5c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5z" />
       <path d="M12 6.5v13" />
+    </>
+  ),
+  wave: (
+    <>
+      <path d="M3 15c2-4 5.5-8 10-8 2.6 0 4.2 1.4 4.2 3.2 0 1.4-1 2.3-2.3 2.3-1.1 0-1.9-.7-1.9-1.7" />
+      <path d="M3 19c2 0 2.5-1.2 4.5-1.2S10 19 12 19s2.5-1.2 4.5-1.2S19 19 21 19" />
+    </>
+  ),
+  wall: (
+    <>
+      <path d="M3 9h18v10H3z" fill="currentColor" fillOpacity="0.18" />
+      <path d="M3 9h18v10H3zM3 14h18M8 9v5M16 9v5M12 14v5M3 6.5h4v2.5H3zM10 6.5h4v2.5h-4zM17 6.5h4v2.5h-4z" />
+    </>
+  ),
+  pump: (
+    <>
+      <path d="M4 20V10h8v10M4 20h16" />
+      <path d="M6 10l2-3 2 3M15 20V5h3v15" />
+      <circle cx="8" cy="15" r="2.2" />
+      <path d="M12 17h3" />
+    </>
+  ),
+  snow: (
+    <>
+      <path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9" />
+      <path d="M10 4.5l2 1.5 2-1.5M10 19.5l2-1.5 2 1.5M4.5 10l2.2-.6-.5-2.4M19.5 14l-2.2.6.5 2.4M4.5 14l2.2.6-.5 2.4M19.5 10l-2.2-.6.5-2.4" />
     </>
   ),
   drop: (
@@ -871,6 +901,197 @@ const GOODS: Readonly<Record<GoodId, { color: string; draw: ReactNode }>> = {
       </>
     ),
   },
+  spices: {
+    color: "#c8643a",
+    draw: (
+      <>
+        <path
+          d="M7 11.5c1-3.5 3-5 5-5s4 1.5 5 5z"
+          fill="currentColor"
+          fillOpacity="0.6"
+        />
+        <path
+          d="M3.5 12h17a8.5 8.5 0 0 1-17 0z"
+          fill="currentColor"
+          fillOpacity="0.25"
+        />
+        <path d="M3.5 12h17a8.5 8.5 0 0 1-17 0zM7 11.5c1-3.5 3-5 5-5s4 1.5 5 5M9 18.5h6" />
+        <path d="M10 9h.1M13.5 8.5h.1M12 10.2h.1M18 5l1-1.5M20 7l1.5-.5" />
+      </>
+    ),
+  },
+  silk: {
+    color: "#e07fb0",
+    draw: (
+      <>
+        <path d="M4 8.5l8-4 8 4-8 4z" fill="currentColor" fillOpacity="0.45" />
+        <path
+          d="M4 8.5v7l8 4v-7zM20 8.5v7l-8 4"
+          fill="currentColor"
+          fillOpacity="0.2"
+        />
+        <path d="M4 8.5l8-4 8 4-8 4zM4 8.5v7l8 4 8-4v-7M12 12.5v7M7 7l8 4M6.5 12.5l3 1.5" />
+      </>
+    ),
+  },
+  tea: {
+    color: "#7fae5a",
+    draw: (
+      <>
+        <path
+          d="M4 12h16c0 4.5-3.5 7.5-8 7.5S4 16.5 4 12z"
+          fill="currentColor"
+          fillOpacity="0.3"
+        />
+        <path d="M4 12h16c0 4.5-3.5 7.5-8 7.5S4 16.5 4 12zM9 20.5h6" />
+        <path d="M9 9c-1-1.5 1-2.5 0-4.5M12.5 9c-1-1.5 1-2.5 0-4.5" />
+        <path
+          d="M15.5 9.5c0-3 2-4.5 5-4.5 0 3-2 4.5-5 4.5zM15.5 9.5l3-3"
+          fill="currentColor"
+          fillOpacity="0.5"
+        />
+      </>
+    ),
+  },
+  porcelain: {
+    color: "#cfdcf0",
+    draw: (
+      <>
+        <path
+          d="M9.5 3.5h5v2.5c3.5 1.5 5 4.5 5 7.5 0 4-3 7-7.5 7S4.5 17.5 4.5 13.5c0-3 1.5-6 5-7.5z"
+          fill="currentColor"
+          fillOpacity="0.3"
+        />
+        <path d="M9.5 3.5h5v2.5c3.5 1.5 5 4.5 5 7.5 0 4-3 7-7.5 7S4.5 17.5 4.5 13.5c0-3 1.5-6 5-7.5zM9.5 6h5" />
+        <path
+          d="M7 12.5c1.5-1.5 3-1.5 5 0s3.5 1.5 5 0M8.5 16.5c1-1 2.5-1 3.5 0s2.5 1 3.5 0"
+          stroke="#3f6fb5"
+        />
+      </>
+    ),
+  },
+  oliveOil: {
+    color: "#b9b84a",
+    draw: (
+      <>
+        <path
+          d="M10 7.5h4v2.5c2.5 1.5 3.5 4 3.5 6.5 0 2.5-2 4-5.5 4s-5.5-1.5-5.5-4c0-2.5 1-5 3.5-6.5z"
+          fill="currentColor"
+          fillOpacity="0.35"
+        />
+        <path d="M10 7.5h4v2.5c2.5 1.5 3.5 4 3.5 6.5 0 2.5-2 4-5.5 4s-5.5-1.5-5.5-4c0-2.5 1-5 3.5-6.5zM9.5 5.5h5v2h-5zM10 10h4M17 12h2.5a1.5 1.5 0 0 1 0 3H17" />
+        <ellipse
+          cx="7"
+          cy="5"
+          rx="1.5"
+          ry="2.2"
+          fill="currentColor"
+          fillOpacity="0.6"
+        />
+        <path d="M7 7.2l1 2" />
+      </>
+    ),
+  },
+  furniture: {
+    color: "#a8703f",
+    draw: (
+      <>
+        <path d="M7 3.5h10v8H7z" fill="currentColor" fillOpacity="0.3" />
+        <path d="M7 11.5V4.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v7M9.5 6.5c1.5 1.5 3.5 1.5 5 0M10 9.5h4" />
+        <path d="M5.5 11.5h13v3h-13z" fill="currentColor" fillOpacity="0.5" />
+        <path d="M5.5 11.5h13v3h-13zM7 14.5l-.5 6M17 14.5l.5 6M7.3 17.5h9.4" />
+      </>
+    ),
+  },
+  furs: {
+    color: "#a07a58",
+    draw: (
+      <>
+        <path
+          d="M8 4.5c1.5 1 6.5 1 8 0l1 3.5 3 1-1.5 3 1 4-3 .5-.5 3.5h-8L7.5 16.5l-3-.5 1-4-1.5-3 3-1z"
+          fill="currentColor"
+          fillOpacity="0.35"
+        />
+        <path d="M8 4.5c1.5 1 6.5 1 8 0l1 3.5 3 1-1.5 3 1 4-3 .5-.5 3.5h-8L7.5 16.5l-3-.5 1-4-1.5-3 3-1z" />
+        <path d="M12 7.5v11M9.5 10l1 1.5M14.5 10l-1 1.5M9.5 14.5l1 1M14.5 14.5l-1 1" />
+      </>
+    ),
+  },
+  ropes: {
+    color: "#c9a96e",
+    draw: (
+      <>
+        <ellipse
+          cx="11"
+          cy="13"
+          rx="7.5"
+          ry="6"
+          fill="currentColor"
+          fillOpacity="0.25"
+        />
+        <ellipse cx="11" cy="13" rx="7.5" ry="6" />
+        <ellipse cx="11" cy="13" rx="5" ry="3.8" />
+        <ellipse cx="11" cy="13" rx="2.5" ry="1.8" />
+        <path d="M18.5 13c1.5 1 2 3 1.5 5.5M7 8.5l1 1.5M14 17.5l-.8-1.2" />
+      </>
+    ),
+  },
+  rum: {
+    color: "#8a4a2a",
+    draw: (
+      <>
+        <path
+          d="M10 3.5h4v4c2.5 1 3.5 3 3.5 5.5v6a1.5 1.5 0 0 1-1.5 1.5H8a1.5 1.5 0 0 1-1.5-1.5v-6c0-2.5 1-4.5 3.5-5.5z"
+          fill="currentColor"
+          fillOpacity="0.55"
+        />
+        <path d="M10 3.5h4v4c2.5 1 3.5 3 3.5 5.5v6a1.5 1.5 0 0 1-1.5 1.5H8a1.5 1.5 0 0 1-1.5-1.5v-6c0-2.5 1-4.5 3.5-5.5zM10 5.5h4" />
+        <rect
+          x="8.5"
+          y="13"
+          width="7"
+          height="4.5"
+          rx=".6"
+          fill="#efe6cf"
+          fillOpacity="0.8"
+        />
+      </>
+    ),
+  },
+  perfume: {
+    color: "#c58ad8",
+    draw: (
+      <>
+        <path
+          d="M6 15a6 6 0 0 1 12 0c0 3-2.5 5.5-6 5.5S6 18 6 15z"
+          fill="currentColor"
+          fillOpacity="0.35"
+        />
+        <path d="M6 15a6 6 0 0 1 12 0c0 3-2.5 5.5-6 5.5S6 18 6 15zM10.5 9.2V7h3v2.2" />
+        <path
+          d="M12 2.5l2 2.5-2 2-2-2z"
+          fill="currentColor"
+          fillOpacity="0.6"
+        />
+        <path d="M9 13.5c1-1 2-1.2 3-1" />
+      </>
+    ),
+  },
+  treasureMap: {
+    color: "#d9c08a",
+    draw: (
+      <>
+        <path d="M5 5.5h12v13H5z" fill="currentColor" fillOpacity="0.3" />
+        <path d="M5 5.5h12M5 18.5h12M5 5.5a2 2 0 0 0 0 4M5 5.5a2 2 0 0 1 0 4v9M17 5.5a2 2 0 0 1 0 4M17 5.5a2 2 0 0 0 0 4v9a2 2 0 0 0 0-4" />
+        <path d="M7.5 15c1.5-2 3-1 4-3" strokeDasharray="1 1.4" />
+        <path
+          d="M12.5 9.5l3 3M15.5 9.5l-3 3"
+          stroke="#d0392b"
+          strokeWidth="1.8"
+        />
+      </>
+    ),
+  },
 };
 
 /** The symbol of each building kind, for its tile and its window. */
@@ -899,6 +1120,10 @@ const BUILDING_ICONS: Readonly<Partial<Record<BuildingKind, IconName>>> = {
   park: "park",
   fountain: "fountain",
   statue: "statue",
+  dike: "wave",
+  pumpStation: "pump",
+  irrigation: "drop",
+  breakwater: "wall",
 };
 
 /** Props of {@link Icon}. */

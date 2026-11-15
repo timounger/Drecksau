@@ -20,6 +20,12 @@ import { answerOffer, propose } from "./diplomacy";
 import { createFleet, disbandFleet, moveFleet } from "./fleets";
 import { isGoodId } from "./goods";
 import { acceptMission, declineMission, deliver } from "./missions";
+import {
+  factionAction,
+  factionOfIsland,
+  homeOf,
+  tradeRefusal,
+} from "./factions";
 import { ownerOf, playerById } from "./players";
 import { chooseResearch } from "./research";
 import { layRoad, paveRoad } from "./roads";
@@ -163,8 +169,8 @@ export function applyCommand(
         reason = setOrder(game, command);
         break;
       case "routeCreate":
-        reason = command.stops.every(
-          (stop) => game.islands[stop.island]?.owner === player,
+        reason = command.stops.every((stop) =>
+          stopAllowed(game, player, stop.island),
         )
           ? null
           : "notOwned";
@@ -292,6 +298,15 @@ export function applyCommand(
       case "tutorialEnd":
         reason = endTutorial(game, player);
         break;
+      case "faction":
+        reason = factionAction(
+          game,
+          player,
+          command.faction,
+          command.action,
+          command.island,
+        );
+        break;
       default:
         reason = "unknown";
     }
@@ -365,9 +380,16 @@ function shipTarget(game: Game, x: number, y: number): number {
   const world = game.world;
   const n = world.n;
   const building = buildingAt(game, x, y);
+  const people =
+    inBounds(world, x, y) && world.islandOf[y * n + x] >= 0
+      ? factionOfIsland(game, world.islandOf[y * n + x])
+      : null;
   let target = -1;
   if (building !== null) {
     target = berthOf(game, building);
+  } else if (people !== null) {
+    // Land of a faction's island: its harbour.
+    target = homeOf(game, people).berth;
   } else if (isSea(world.terrain[y * n + x] as Terrain)) {
     target = y * n + x;
   } else {
@@ -412,6 +434,18 @@ function setOrder(
   return reason;
 }
 
+/**
+ * Whether a route may stop at an island: the player's own kontor, or the
+ * harbour of a faction it trades with.
+ */
+function stopAllowed(game: Game, player: number, island: number): boolean {
+  const people = factionOfIsland(game, island);
+  return (
+    game.islands[island]?.owner === player ||
+    (people !== null && tradeRefusal(game, people, player) === null)
+  );
+}
+
 /** Changes the stops and the state of a route of the player's. */
 function updateRoute(
   game: Game,
@@ -420,11 +454,17 @@ function updateRoute(
   const route = game.routes.find(
     (r) => r.id === command.route && r.owner === command.player,
   );
-  if (route !== undefined) {
+  // Faction harbours need trade relations; own stops stay as they were.
+  const allowed = command.stops.every(
+    (stop) =>
+      factionOfIsland(game, stop.island) === null ||
+      stopAllowed(game, command.player, stop.island),
+  );
+  if (route !== undefined && allowed) {
     route.stops = command.stops.map(copyStop);
     route.active = command.active;
   }
-  return route === undefined ? "missing" : null;
+  return route === undefined ? "missing" : allowed ? null : "notOwned";
 }
 
 /** Deletes a route of the player's; its ships stop. */

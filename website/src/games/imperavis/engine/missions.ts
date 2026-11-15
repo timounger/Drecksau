@@ -14,6 +14,7 @@ import { changeReputation, relationOf, remember } from "./diplomacy";
 import { earn } from "./economy";
 import { GOOD } from "./goods";
 import { HUMAN, islandsOf, ownerOf, playerById } from "./players";
+import { inHarbour, isFactionIsland, note } from "./factions";
 import { populationOf } from "./population";
 import { nextRandom, randomInt, randomPick } from "./random";
 import { TICK } from "./time";
@@ -21,6 +22,7 @@ import { addStock } from "./warehouse";
 import type {
   Amounts,
   BuildingKind,
+  Faction,
   Game,
   GoodId,
   Mission,
@@ -488,7 +490,7 @@ function check(game: Game, mission: Mission): void {
     mission.state = "expired";
     mission.endedAt = game.time;
   } else if (mission.state === "active") {
-    if (mission.kind !== "delivery") {
+    if (mission.kind !== "delivery" && mission.kind !== "cargo") {
       mission.progress = Math.max(
         mission.progress,
         Math.min(mission.goal, counter(game, mission) - mission.base),
@@ -551,6 +553,12 @@ export function counter(game: Game, mission: Mission): number {
       break;
     case "rescue":
       value = rescue(game, mission);
+      break;
+    case "hunt":
+      value = player?.stats.pirates ?? 0;
+      break;
+    case "sink":
+      value = game.ships.some((ship) => ship.id === mission.target) ? 0 : 1;
       break;
     case "build":
       value = game.buildings.filter(
@@ -649,6 +657,115 @@ function end(game: Game, mission: Mission, state: "done" | "failed"): void {
 }
 
 /**
+ * Offers the human a mission of a foreign people or a pirate band: goods
+ * to bring by ship into its harbour, pirate ships to sink, or one ship to
+ * sink for the pirates.
+ *
+ * @param game - the game
+ * @param faction - the giver
+ * @param kind - "cargo", "hunt" or "sink"
+ * @param difficulty - 1 to 3
+ * @param what - the good and amount, the gold, and the ship to sink
+ */
+export function offerFactionMission(
+  game: Game,
+  faction: Faction,
+  kind: "cargo" | "hunt" | "sink",
+  difficulty: number,
+  what: { good: GoodId | null; goal: number; gold: number; target: number },
+): void {
+  const id = game.nextId;
+  game.nextId += 1;
+  const info = game.world.islands[faction.island];
+  game.missions.push({
+    id,
+    kind,
+    giver: faction.id,
+    taker: HUMAN,
+    state: "offered",
+    difficulty,
+    offeredAt: game.time,
+    offerUntil: game.time + OFFER_SECONDS,
+    duration: TIME_PER_STEP * (difficulty + 1),
+    deadline: 0,
+    good: what.good,
+    building: null,
+    island: faction.island,
+    partner: faction.id,
+    metric: null,
+    x: info.cx,
+    y: info.cy,
+    goal: what.goal,
+    progress: 0,
+    base: 0,
+    carrier: -1,
+    reward: {
+      gold: what.gold > 0 ? what.gold : REWARD_GOLD * difficulty,
+      goods: {},
+      relation: REWARD_RELATION * difficulty,
+      reputation: REWARD_REPUTATION * difficulty,
+    },
+    minTier: 0,
+    endedAt: 0,
+    contract: id,
+    wonBy: -1,
+    target: what.target >= 0 ? what.target : undefined,
+  });
+  game.events.push({ type: "mission", mission: id, state: "offered" });
+}
+
+/**
+ * Hands over the goods of a faction's cargo mission from a ship lying in
+ * its harbour; they go into the faction's warehouse.
+ *
+ * @param game - the game
+ * @param faction - the faction
+ * @param owner - the player
+ * @param id - the mission
+ * @param shipId - the ship in the harbour
+ * @returns null when something was handed over, else why not
+ */
+export function deliverCargo(
+  game: Game,
+  faction: Faction,
+  owner: Player,
+  id: number,
+  shipId: number,
+): string | null {
+  const mission = game.missions.find((m) => m.id === id);
+  const ship = game.ships.find((s) => s.id === shipId && s.owner === owner.id);
+  let reason: string | null = null;
+  if (
+    mission?.kind !== "cargo" ||
+    mission.state !== "active" ||
+    mission.good === null ||
+    mission.giver !== faction.id ||
+    mission.taker !== owner.id
+  ) {
+    reason = "missing";
+  } else if (ship === undefined || !inHarbour(game, faction, ship)) {
+    reason = "fx:noShip";
+  } else {
+    const good = mission.good;
+    const amount = Math.floor(
+      Math.min(ship.cargo[good] ?? 0, mission.goal - mission.progress),
+    );
+    if (amount <= 0) {
+      reason = "materials";
+    } else {
+      ship.cargo[good] = (ship.cargo[good] ?? 0) - amount;
+      if ((ship.cargo[good] ?? 0) <= 0) {
+        delete ship.cargo[good];
+      }
+      faction.stock[good] += amount;
+      mission.progress += amount;
+      note(game, faction, "delivered", owner.id, good, amount);
+    }
+  }
+  return reason;
+}
+
+/**
  * Whether a trade agreement with a rival is still worth a mission: none
  * yet, and no such mission waiting or running.
  */
@@ -665,9 +782,11 @@ function tradeWanted(game: Game, taker: Player, rival: number): boolean {
   );
 }
 
-/** Islands nobody owns. */
+/** Islands nobody owns (the factions' homes are no one's to take). */
 function freeIslands(game: Game): number[] {
-  return game.islands.filter((i) => i.owner < 0).map((i) => i.id);
+  return game.islands
+    .filter((i) => i.owner < 0 && !isFactionIsland(game.world, i.id))
+    .map((i) => i.id);
 }
 
 /** The AI players still in the game. */

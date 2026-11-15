@@ -94,6 +94,14 @@ export const SHIP_INFO: Readonly<Record<ShipKind, string>> = {
     "Gepanzerter Schlachtkreuzer mit Dampfantrieb und weittragenden Geschützen.",
   trader: "Der freie Händler.",
   pirate: "Ein Piratenschiff.",
+  knarr:
+    "Robuster Frachtsegler der Nordlande von Skeld - schwer gepanzert, viel Laderaum; Skeld lehrt ihn seine Freunde.",
+  pirateBoat:
+    "Kleines, schnelles Piratenboot für Überfälle auf einzelne Schiffe.",
+  corvette: "Piratenkorvette: mittelgroß, gut bewaffnet, jagt Handelsschiffe.",
+  pirateFrigate: "Starke Piratenfregatte, wagt sich auch an Konvois.",
+  pirateWarship:
+    "Seltenes, sehr starkes Piratenkriegsschiff für große Angriffe.",
 };
 
 /** Why a unit is not open yet. */

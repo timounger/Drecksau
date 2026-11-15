@@ -9,7 +9,8 @@
 import { earn, spend } from "./economy";
 import { GOOD, GOOD_IDS, perGood } from "./goods";
 import { nextRandom, randomRange } from "./random";
-import { playerById, TRADER } from "./players";
+import { HUMAN, playerById, TRADER } from "./players";
+import { difficultyOf } from "./difficulty-data";
 import { berthOf, createShip, kontorOf, sailTo } from "./ships";
 import { TICK } from "./time";
 import { addStock } from "./warehouse";
@@ -61,9 +62,14 @@ const EDGE_IN = 2;
  * @returns the state
  */
 export function createTrader(): TraderState {
+  const stock = perGood(TRADER_STOCK);
+  for (const good of GOOD_IDS) {
+    // The goods of the foreign peoples are theirs alone.
+    stock[good] = GOOD[good].category === "exotic" ? 0 : TRADER_STOCK;
+  }
   return {
     pressure: perGood(0),
-    stock: perGood(TRADER_STOCK),
+    stock,
     nextVisit: FIRST_VISIT,
     queue: [],
     lastDeal: null,
@@ -82,25 +88,29 @@ export function priceOf(game: Game, good: GoodId): number {
 }
 
 /**
- * Gold the trader pays for one unit.
+ * Gold the trader pays for one unit; the level changes it for the human.
  *
  * @param game - the game
  * @param good - the good
+ * @param player - the seller
  * @returns gold
  */
-export function sellPrice(game: Game, good: GoodId): number {
-  return priceOf(game, good) * SELL_SHARE;
+export function sellPrice(game: Game, good: GoodId, player: number): number {
+  const level = player === HUMAN ? difficultyOf(game).sellPrice : 1;
+  return priceOf(game, good) * SELL_SHARE * level;
 }
 
 /**
- * Gold the trader asks for one unit.
+ * Gold the trader asks for one unit; the level changes it for the human.
  *
  * @param game - the game
  * @param good - the good
+ * @param player - the buyer
  * @returns gold
  */
-export function buyPrice(game: Game, good: GoodId): number {
-  return priceOf(game, good) * BUY_SHARE;
+export function buyPrice(game: Game, good: GoodId, player: number): number {
+  const level = player === HUMAN ? difficultyOf(game).buyPrice : 1;
+  return priceOf(game, good) * BUY_SHARE * level;
 }
 
 /**
@@ -112,7 +122,7 @@ export function stepTrader(game: Game): void {
   const trader = game.trader;
   for (const good of GOOD_IDS) {
     trader.pressure[good] *= 1 - PRESSURE_FADE * TICK;
-    if (trader.stock[good] < TRADER_STOCK) {
+    if (trader.stock[good] < TRADER_STOCK && GOOD[good].category !== "exotic") {
       trader.stock[good] = Math.min(
         TRADER_STOCK,
         trader.stock[good] + REFILL * TICK,
@@ -210,16 +220,19 @@ function dealWith(game: Game, owner: Player, islandId: number): void {
   const island = game.islands[islandId];
   let bought = 0;
   let sold = 0;
-  for (const [good, order] of Object.entries(island.orders) as [
-    GoodId,
-    NonNullable<(typeof island.orders)[GoodId]>,
-  ][]) {
+  const orders = (
+    Object.entries(island.orders) as [
+      GoodId,
+      NonNullable<(typeof island.orders)[GoodId]>,
+    ][]
+  ).filter(([good]) => GOOD[good].category !== "exotic");
+  for (const [good, order] of orders) {
     if (order.sellAbove !== null && island.stock[good] > order.sellAbove) {
       const units = Math.floor(
         Math.min(island.stock[good] - order.sellAbove, VISIT_LIMIT),
       );
       if (units > 0) {
-        const gold = units * sellPrice(game, good);
+        const gold = units * sellPrice(game, good, owner.id);
         island.stock[good] -= units;
         trader.stock[good] += units;
         trader.pressure[good] = Math.max(
@@ -233,7 +246,7 @@ function dealWith(game: Game, owner: Player, islandId: number): void {
       }
     }
     if (order.buyBelow !== null && island.stock[good] < order.buyBelow) {
-      const price = buyPrice(game, good);
+      const price = buyPrice(game, good, owner.id);
       const affordable = Math.max(0, Math.floor(owner.gold / price));
       const units = Math.floor(
         Math.min(

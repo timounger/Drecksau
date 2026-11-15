@@ -5,7 +5,20 @@
  * @module
  */
 import { BUILDING } from "@/games/imperavis/engine/buildings-data";
-import { ownerOf, PIRATES, playerById } from "@/games/imperavis/engine/players";
+import {
+  cultureOf,
+  factionById,
+  factionOpinion,
+  ownerName as factionName,
+  stageOf,
+} from "@/games/imperavis/engine/factions";
+import {
+  HUMAN,
+  ownerOf,
+  PIRATES,
+  playerById,
+} from "@/games/imperavis/engine/players";
+import { FX, STAGE_NAMES } from "@/games/imperavis/i18n/faction-texts";
 import { SHIP } from "@/games/imperavis/engine/ships-data";
 import { aboard } from "@/games/imperavis/engine/troops";
 import { UNIT } from "@/games/imperavis/engine/units-data";
@@ -66,15 +79,25 @@ export function worldTipText(game: Game, hit: Hit): string | null {
         HUD.tipState(share(soldier.hp, UNIT[soldier.kind].hp)),
       ];
     }
+  } else if (hit.type === "faction") {
+    const faction = factionById(game, hit.id);
+    if (faction !== null) {
+      const stage = stageOf(factionOpinion(game, faction, HUMAN));
+      lines = [
+        cultureOf(faction).name,
+        `${faction.leader} - ${STAGE_NAMES[stage]}`,
+        FX.islandHint,
+      ];
+    }
   }
   return lines === null ? null : lines.join("\n");
 }
 
-/** The name of a player, the pirates or nobody. */
+/** The name of a player, a faction, the pirates of old or nobody. */
 function ownerName(game: Game, owner: number): string {
-  return owner === PIRATES
+  return owner === PIRATES && factionById(game, owner) === null
     ? T.pirates
-    : (playerById(game, owner)?.name ?? HUD.free);
+    : (factionName(game, owner) ?? playerById(game, owner)?.name ?? HUD.free);
 }
 
 /** A share as whole percent, at most 100. */

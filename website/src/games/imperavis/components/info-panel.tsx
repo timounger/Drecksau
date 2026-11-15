@@ -11,6 +11,11 @@
  */
 "use client";
 
+import { FactionWindow } from "./faction-window";
+import { harbourOfShip, ownerName } from "@/games/imperavis/engine/factions";
+import { FX } from "@/games/imperavis/i18n/faction-texts";
+import { EXOTIC_WANTS } from "@/games/imperavis/engine/factions-data";
+import { exoticShare } from "@/games/imperavis/engine/population";
 import { useState, type ReactElement, type ReactNode } from "react";
 import {
   levelGold,
@@ -81,6 +86,7 @@ import {
 import type { Pick, Tool } from "@/games/imperavis/render/view";
 import { TUTORIAL } from "@/games/imperavis/i18n/tutorial-texts";
 import { MIL } from "@/games/imperavis/i18n/military-texts";
+import { DisasterFacts } from "./disaster-facts";
 import { BarracksPanel } from "./barracks-panel";
 import { BuildingArt, GoodIcon, Icon } from "./icons";
 import { ShipOrders, shipTask, UnitOrders } from "./ship-orders";
@@ -160,6 +166,10 @@ type InfoPanelProps = {
   readonly onSelect: (pick: Pick) => void;
   /** Drawn large in the middle (shipyard, barracks) instead of at the side. */
   readonly wide?: boolean;
+  /** Moves the camera to a point (used by the faction window). */
+  readonly onFocus?: (x: number, y: number) => void;
+  /** Opens the diplomacy window (from a faction's harbour window). */
+  readonly onDiplomacy?: () => void;
 };
 
 /**
@@ -187,6 +197,18 @@ export function InfoPanel(props: InfoPanelProps): ReactElement | null {
     if (ship !== undefined) {
       content = <ShipWindow key={`s${ship.id}`} {...props} ship={ship} />;
     }
+  } else if (selection.type === "faction") {
+    content = (
+      <FactionWindow
+        key={`f${selection.id}`}
+        game={game}
+        faction={selection.id}
+        onCommand={props.onCommand}
+        onClose={props.onClose}
+        onFocus={props.onFocus ?? (() => undefined)}
+        onDiplomacy={props.onDiplomacy}
+      />
+    );
   } else if (
     selection.type === "units" &&
     (game.ships.some((ship) => selection.ships.includes(ship.id)) ||
@@ -581,6 +603,7 @@ function BuildingOverview({
         {BUILDING_INFO[building.kind]}
       </p>
       <Health hp={building.hp} max={def.hp} />
+      <DisasterFacts game={game} building={building} />
       {!building.complete && (
         <Bar
           value={building.built / def.buildSeconds}
@@ -1016,6 +1039,18 @@ function HouseTab({
           ? HUD.beautyValue(Math.round(beauty * PERCENT))
           : HUD.beautyNone}
       </Fact>
+      {(EXOTIC_WANTS[house.tier] ?? []).length > 0 && (
+        <Fact
+          label={FX.exotic}
+          tip={(EXOTIC_WANTS[house.tier] ?? [])
+            .map((want) => GOOD_NAMES[want.good])
+            .join(", ")}
+        >
+          {percent(
+            exoticShare(game.islands[building.island].supply, house.tier),
+          )}
+        </Fact>
+      )}
       <Section>{T.needs}</Section>
       <ul className="flex flex-col gap-1 text-xs">
         {names.map((need, index) => (
@@ -1186,10 +1221,12 @@ function ShipWindow({
   onCommand,
   onTool,
   onClose,
+  onSelect,
 }: InfoPanelProps & { readonly ship: Ship }): ReactElement {
   const def = SHIP[ship.kind];
   const own = ship.owner === HUMAN;
   const owner = playerById(game, ship.owner);
+  const harbour = harbourOfShip(game, ship);
   const kontor = game.buildings.find((b) => b.id === ship.docked);
   const tabs: TabDef<Tab>[] = [{ id: "overview", label: HUD.tabOverview }];
   if (own) {
@@ -1207,9 +1244,11 @@ function ShipWindow({
   const state =
     kontor !== undefined
       ? T.docked(game.world.islands[kontor.island].name)
-      : ship.stuck
-        ? T.stuck
-        : T.atSea;
+      : harbour !== null
+        ? FX.atHarbour(game.world.islands[harbour.island].name)
+        : ship.stuck
+          ? T.stuck
+          : T.atSea;
   const used = Object.values(ship.cargo).reduce(
     (sum, amount) => sum + (amount ?? 0),
     0,
@@ -1255,6 +1294,26 @@ function ShipWindow({
           )}
         </div>
       )}
+      {own && harbour !== null && (
+        <Btn
+          icon="anchor"
+          className="imp-btn-primary w-full"
+          onClick={() => onSelect({ type: "faction", id: harbour.id })}
+          testId="imp-ship-harbour"
+        >
+          {FX.tradeTo(game.world.islands[harbour.island].name)}
+        </Btn>
+      )}
+      {own && aboard(game, ship) > 0 && (
+        <Btn
+          icon="people"
+          className="imp-btn-primary w-full"
+          onClick={() => setTab("troops")}
+          testId="imp-to-landing"
+        >
+          {T.toLanding(aboard(game, ship))}
+        </Btn>
+      )}
       <div className="flex justify-center">
         <ShipArt kind={ship.kind} size={96} />
       </div>
@@ -1263,6 +1322,7 @@ function ShipWindow({
       <Fact label={MIL.task}>{shipTask(game, ship)}</Fact>
       <Fact label={MIL.owner}>
         {owner?.name ??
+          ownerName(game, ship.owner) ??
           (ship.owner === PIRATES ? T.pirates : SHIP_NAMES.trader)}
       </Fact>
       <Fact label={MIL.position}>

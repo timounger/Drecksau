@@ -22,7 +22,7 @@ import type {
 /* eslint-disable @typescript-eslint/no-magic-numbers -- model geometry: sizes, offsets and colours */
 
 /** Colours used across the models. */
-const C = {
+export const C = {
   plaster: 0xe9dfc6,
   plasterWarm: 0xe3cfa4,
   timber: 0x6b4a2f,
@@ -73,7 +73,7 @@ const C = {
 } as const;
 
 /** Builds one model from simple parts. */
-class ModelBuilder {
+export class ModelBuilder {
   /** The parts so far. */
   private readonly parts: THREE.BufferGeometry[] = [];
 
@@ -371,7 +371,7 @@ function upgradeExtras(m: ModelBuilder, w: number, h: number): void {
  * @param draw - draws the part
  * @param place - moves and turns the finished part
  */
-function part(
+export function part(
   m: ModelBuilder,
   draw: (b: ModelBuilder) => void,
   place: (g: THREE.BufferGeometry) => void,
@@ -394,7 +394,7 @@ function part(
  * @param z - centre z
  * @param color - colour
  */
-function pyramid(
+export function pyramid(
   m: ModelBuilder,
   r: number,
   h: number,
@@ -423,7 +423,7 @@ function pyramid(
  * @param rotY - turn around the vertical axis
  * @param len - barrel length
  */
-function cannon(
+export function cannon(
   m: ModelBuilder,
   x: number,
   y: number,
@@ -583,6 +583,13 @@ export function hullModel(kind: ShipKind): THREE.BufferGeometry {
     }
     m.box(0.6, 0.3, beam * 0.85, length / 2 - 0.4, 0.25, 0, hull);
   }
+  if (kind === "knarr") {
+    knarrExtras(m, length, beam, hull);
+  }
+  if (PIRATE_KINDS.includes(kind) && kind !== "pirateBoat") {
+    // A dark red rail cap along the bulwark of the bigger raiders.
+    m.box(length * 0.8, 0.05, beam + 0.03, -0.05, 0.47, 0, 0x4a1a18);
+  }
   const spacing = s.guns > 3 ? 0.7 : 0.75;
   for (let deck = 0; deck < s.decks; deck += 1) {
     if (deck > 0) {
@@ -622,8 +629,12 @@ export function hullModel(kind: ShipKind): THREE.BufferGeometry {
     m.cyl(0.05, 0.06, mast.height, mast.x, 0.25, 0, C.timberDark, 5);
   }
   const main = s.masts[0];
-  if (kind === "pirate") {
-    m.box(0.55, 0.36, 0.04, main.x + 0.3, main.height - 0.2, 0, C.flag);
+  if (PIRATE_KINDS.includes(kind)) {
+    // A black flag with a white skull and crossed bones near the masthead.
+    const fx = main.x + 0.3;
+    const fy = main.height - 0.2;
+    m.box(0.55, 0.36, 0.04, fx, fy, 0, C.sailPirate);
+    skullMark(m, fx, fy + 0.18, 0);
   } else if (
     kind !== "warship" &&
     kind !== "frigate" &&
@@ -656,6 +667,129 @@ export function sailModel(kind: ShipKind): THREE.BufferGeometry {
     m.box(0.06, mast.sailH, mast.sailW, mast.x + 0.08, mast.sailY, 0, s.sail);
   }
   return m.build();
+}
+
+/** The ship kinds sailed by pirates: they fly the black flag. */
+const PIRATE_KINDS: readonly ShipKind[] = [
+  "pirate",
+  "pirateBoat",
+  "corvette",
+  "pirateFrigate",
+  "pirateWarship",
+];
+
+/**
+ * A white skull over crossed bones, centred on a point of a flag cloth that
+ * lies in the x/y plane; the shapes stick out on both faces of the cloth.
+ *
+ * @param m - the model
+ * @param x - centre x
+ * @param y - centre y
+ * @param z - centre z (the cloth's middle)
+ * @param scale - size, 1 for a flag of about 0.5 x 0.3
+ */
+export function skullMark(
+  m: ModelBuilder,
+  x: number,
+  y: number,
+  z: number,
+  scale = 1,
+): void {
+  const bone = 0xf2efe6;
+  m.ball(0.055 * scale, x, y + 0.03 * scale, z, bone);
+  m.box(
+    0.06 * scale,
+    0.035 * scale,
+    0.05 * scale,
+    x,
+    y - 0.04 * scale,
+    z,
+    bone,
+  );
+  for (const turn of [0.6, -0.6]) {
+    part(
+      m,
+      (b) => b.box(0.18 * scale, 0.025 * scale, 0.045 * scale, 0, 0, 0, bone),
+      (g) => {
+        g.rotateZ(turn);
+        g.translate(x, y - 0.1 * scale, z);
+      },
+    );
+  }
+}
+
+/**
+ * The touches of a Nordic knarr: overlapping strakes, tall curved stem and
+ * stern posts and a row of round shields along each rail.
+ *
+ * @param m - the model
+ * @param length - hull length
+ * @param beam - hull beam
+ * @param hull - hull colour
+ */
+function knarrExtras(
+  m: ModelBuilder,
+  length: number,
+  beam: number,
+  hull: number,
+): void {
+  // Clinker strakes: slightly proud planks overlapping down the side.
+  for (const [y, inset] of [
+    [-0.12, 0.06],
+    [0.02, 0.03],
+    [0.16, 0],
+  ]) {
+    m.box(
+      length - 0.3 - inset * 4,
+      0.05,
+      beam + 0.04 - inset,
+      0,
+      y,
+      0,
+      0x4e3725,
+    );
+  }
+  // Stem and stern posts curving up and inwards, in three pieces each.
+  for (const end of [1, -1]) {
+    for (const [tilt, dx, y] of [
+      [0.5, -0.1, 0.15],
+      [0.2, 0.05, 0.43],
+      [-0.3, 0.11, 0.74],
+    ]) {
+      part(
+        m,
+        (b) => b.box(0.1, 0.32, 0.09, 0, 0, 0, hull),
+        (g) => {
+          g.rotateZ(-end * tilt);
+          g.translate(end * (length / 2 + dx), y, 0);
+        },
+      );
+    }
+  }
+  // Round shields along both rails, alternating colours.
+  for (let i = 0; i < 5; i += 1) {
+    const x = -0.9 + i * 0.42;
+    for (const side of [1, -1]) {
+      part(
+        m,
+        (b) =>
+          b.cyl(
+            0.13,
+            0.13,
+            0.03,
+            0,
+            0,
+            0,
+            i % 2 === 0 ? 0xb3402a : 0xd9cfae,
+            8,
+          ),
+        (g) => {
+          g.rotateX(Math.PI / 2);
+          g.translate(x, 0.42, side * (beam / 2 + 0.03));
+        },
+      );
+    }
+  }
 }
 
 /**
@@ -1026,6 +1160,72 @@ const SHIPS: Readonly<Record<ShipKind, ShipShape>> = {
     stripe: null,
     guns: 2,
     masts: TWO_MASTS,
+  },
+  knarr: {
+    ...PLAIN,
+    // Skeld's trader: clinker-built, one big square sail, cargo amidships.
+    length: 3.2,
+    beam: 1.15,
+    hull: 0x6a4a30,
+    sail: 0xd8c8a2,
+    stripe: null,
+    guns: 0,
+    cargo: true,
+    masts: [{ x: 0, height: 2.3, sailY: 0.7, sailH: 1.4, sailW: 1.75 }],
+  },
+  pirateBoat: {
+    ...PLAIN,
+    // A small fast sloop: dark hull, one black sail, a single gun a side.
+    length: 2.4,
+    beam: 0.8,
+    hull: 0x231d1a,
+    sail: 0x1c1c1c,
+    stripe: null,
+    guns: 1,
+    masts: [{ x: 0.1, height: 2.0, sailY: 0.75, sailH: 1.2, sailW: 1.05 }],
+  },
+  corvette: {
+    ...PLAIN,
+    length: 3.2,
+    beam: 1.0,
+    hull: 0x2a221d,
+    sail: 0x262626,
+    stripe: 0x5c1a1a,
+    guns: 3,
+    masts: [
+      { x: 0.3, height: 2.5, sailY: 0.75, sailH: 1.45, sailW: 1.4 },
+      { x: -0.85, height: 1.9, sailY: 0.8, sailH: 1.05, sailW: 1.05 },
+    ],
+  },
+  pirateFrigate: {
+    ...PLAIN,
+    length: 3.9,
+    beam: 1.15,
+    hull: 0x251e1a,
+    sail: 0x2e2a28,
+    stripe: 0x7a6a44,
+    guns: 4,
+    masts: [
+      { x: 0.2, height: 3.0, sailY: 0.8, sailH: 1.8, sailW: 1.55 },
+      { x: 1.2, height: 2.5, sailY: 0.8, sailH: 1.35, sailW: 1.2 },
+      { x: -1.0, height: 2.4, sailY: 0.9, sailH: 1.25, sailW: 1.15 },
+    ],
+  },
+  pirateWarship: {
+    ...PLAIN,
+    // The pirate flagship: huge, two gun decks, dark red sails.
+    length: 4.5,
+    beam: 1.5,
+    hull: 0x1f1916,
+    sail: 0x4a1a1a,
+    stripe: 0x6b1f1f,
+    guns: 5,
+    decks: 2,
+    masts: [
+      { x: 0.1, height: 3.5, sailY: 0.85, sailH: 2.05, sailW: 1.85 },
+      { x: 1.25, height: 3.0, sailY: 0.9, sailH: 1.6, sailW: 1.5 },
+      { x: -1.15, height: 2.9, sailY: 0.95, sailH: 1.5, sailW: 1.4 },
+    ],
   },
 };
 
@@ -2206,6 +2406,120 @@ const MODELS: Readonly<
     m.box(0.06, 0.32, 0.06, 0.13, 0.9, 0.04, C.patina);
     m.box(0.06, 0.06, 0.32, -0.13, 1.1, 0.1, C.patina);
     m.cyl(0.11, 0.12, 0.05, 0, 1.36, 0, C.brass, 8);
+  },
+  dike: (m) => {
+    // An earth wall along the footprint, grassed, with a stone foot and a
+    // path on its crown.
+    m.box(2.95, 0.12, 0.95, 0, 0, 0, C.stoneDark);
+    m.box(2.9, 0.32, 0.8, 0, 0.12, 0, C.soil);
+    m.box(2.85, 0.22, 0.56, 0, 0.44, 0, C.green);
+    m.box(2.85, 0.03, 0.18, 0, 0.66, 0, C.path);
+    for (const x of [-1.2, -0.4, 0.4, 1.2]) {
+      m.box(0.32, 0.18, 0.12, x, 0.12, 0.44, C.stone);
+    }
+    m.cyl(0.03, 0.03, 0.5, 1.3, 0.66, 0, C.timberDark, 4);
+    m.box(0.22, 0.12, 0.02, 1.3, 1.0, 0.02, C.awningB);
+  },
+  pumpStation: (m) => {
+    // A brick engine house with a tall chimney, a wheel and a sluice.
+    m.box(1.2, 0.9, 1.1, -0.25, 0, -0.2, C.brick);
+    m.roof(1.3, 0.5, 1.2, -0.25, 0.9, -0.2, C.roofSlate);
+    m.box(0.3, 0.45, 0.02, -0.25, 0, 0.36, C.door);
+    m.box(0.25, 0.22, 0.02, -0.6, 0.5, 0.36, C.window, 1);
+    m.cyl(0.11, 0.14, 1.9, 0.55, 0, -0.55, C.brick, 8);
+    m.cyl(0.14, 0.14, 0.08, 0.55, 1.9, -0.55, C.stoneDark, 8);
+    m.box(0.7, 0.12, 0.5, 0.55, 0, 0.55, C.stone);
+    m.box(0.56, 0.05, 0.36, 0.55, 0.1, 0.55, C.water);
+    part(
+      m,
+      (b) => b.cyl(0.36, 0.36, 0.08, 0, 0, 0, C.timber, 12),
+      (g) => {
+        g.rotateX(Math.PI / 2);
+        g.translate(0.55, 0.5, 0.8);
+      },
+    );
+    m.box(0.08, 0.5, 0.08, 0.55, 0.12, 0.8, C.timberDark);
+  },
+  irrigation: (m) => {
+    // A round stone cistern with a well head, and channels to the fields.
+    m.box(1.9, 0.05, 1.9, 0, 0, 0, C.soil);
+    m.cyl(0.55, 0.6, 0.45, -0.25, 0.05, -0.25, C.stone, 12);
+    m.cyl(0.47, 0.47, 0.04, -0.25, 0.45, -0.25, C.water, 12);
+    for (const x of [-0.65, 0.15]) {
+      m.box(0.06, 0.7, 0.06, x, 0.45, -0.25, C.timber);
+    }
+    m.roof(0.95, 0.25, 0.4, -0.25, 1.15, -0.25, C.thatch);
+    m.box(1.0, 0.06, 0.16, 0.45, 0.05, 0.55, C.stoneDark);
+    m.box(0.8, 0.02, 0.1, 0.45, 0.1, 0.55, C.water);
+    m.box(0.16, 0.06, 1.0, 0.65, 0.05, -0.05, C.stoneDark);
+    m.box(0.1, 0.02, 0.8, 0.65, 0.1, -0.05, C.water);
+    m.box(0.3, 0.2, 0.2, 0.25, 0.05, 0.2, C.wood);
+  },
+  breakwater: (m) => {
+    // A heavy wall of dressed stone with a walk and a small beacon.
+    m.box(3, 0.2, 1, 0, 0, 0, C.stoneDark);
+    m.box(2.9, 0.6, 0.7, 0, 0.2, 0, C.stone);
+    for (const x of [-1.25, -0.75, -0.25, 0.25, 0.75, 1.25]) {
+      m.box(0.36, 0.14, 0.18, x, 0.8, 0.26, C.stone);
+    }
+    m.box(2.9, 0.04, 0.3, 0, 0.8, -0.1, C.path);
+    m.cyl(0.14, 0.18, 0.5, 1.25, 0.8, -0.15, C.stoneDark, 8);
+    m.box(0.2, 0.18, 0.2, 1.25, 1.3, -0.15, C.glass, 1);
+    m.cyl(0, 0.16, 0.14, 1.25, 1.48, -0.15, C.metal, 4);
+  },
+  perfumery: (m) => {
+    // A sandstone workshop in Qasirah's manner with a small golden dome.
+    const sandstone = 0xd9b98a;
+    const ochre = 0xb8925f;
+    const gilt = 0xd8b04a;
+    m.box(1.45, 1.15, 1.1, -0.2, 0, -0.3, sandstone);
+    m.box(1.53, 0.08, 1.18, -0.2, 1.15, -0.3, ochre);
+    for (const z of [-0.86, 0.26]) {
+      m.box(1.53, 0.14, 0.06, -0.2, 1.23, z, ochre);
+    }
+    m.cyl(0.32, 0.34, 0.2, -0.45, 1.23, -0.35, sandstone, 10);
+    m.dome(0.33, -0.45, 1.43, -0.35, gilt);
+    m.cyl(0.02, 0.03, 0.22, -0.45, 1.72, -0.35, gilt, 5);
+    m.ball(0.05, -0.45, 1.97, -0.35, gilt);
+    // Arched door: a dark inset with a round head.
+    m.box(0.3, 0.5, 0.03, -0.6, 0, 0.26, C.door);
+    part(
+      m,
+      (b) => b.cyl(0.15, 0.15, 0.03, 0, -0.015, 0, C.door, 8),
+      (g) => {
+        g.rotateX(Math.PI / 2);
+        g.translate(-0.6, 0.5, 0.26);
+      },
+    );
+    // A lit window with coloured glass flasks on its sill.
+    m.box(0.5, 0.34, 0.02, 0.15, 0.4, 0.26, C.window, 1);
+    m.box(0.58, 0.05, 0.12, 0.15, 0.36, 0.3, ochre);
+    for (const [x, color] of [
+      [-0.03, 0x9f5fa8],
+      [0.1, 0x5fa8a0],
+      [0.23, 0xd8a03a],
+      [0.34, 0xc0607a],
+    ]) {
+      m.cyl(0.02, 0.045, 0.12, x, 0.41, 0.31, color, 6);
+      m.ball(0.025, x, 0.56, 0.31, color);
+    }
+    // The still: a copper kettle with a coil, and its slender chimney.
+    m.cyl(0.24, 0.28, 0.45, 0.65, 0, 0.45, C.copper, 10);
+    m.dome(0.24, 0.65, 0.45, 0.45, C.copper);
+    part(
+      m,
+      (b) => b.cyl(0.025, 0.025, 0.55, 0, 0, 0, C.copper, 5),
+      (g) => {
+        g.rotateZ(1.0);
+        g.translate(0.62, 0.62, 0.45);
+      },
+    );
+    m.cyl(0.1, 0.12, 0.3, 0.2, 0, 0.6, C.timber, 8);
+    m.cyl(0.07, 0.09, 1.85, 0.65, 0, -0.55, ochre, 8);
+    m.cyl(0.11, 0.11, 0.08, 0.65, 1.85, -0.55, sandstone, 8);
+    // Sacks of blossoms and spice.
+    m.ball(0.14, -0.85, 0.1, 0.55, 0xc87a8a, 0.7);
+    m.ball(0.13, -0.6, 0.1, 0.7, C.awningC, 0.7);
   },
 };
 /* eslint-enable @typescript-eslint/no-magic-numbers */

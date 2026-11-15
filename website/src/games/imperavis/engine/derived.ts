@@ -9,6 +9,7 @@
  * Rebuilt only when something was built, moved or torn down, never per step.
  */
 import { BUILDING, DECOR_KINDS, SERVICE_KINDS } from "./buildings-data";
+import { PROTECTION_KINDS } from "./disasters-data";
 import { NO_ROAD } from "./logistics-data";
 import { assignLinks, sideTiles } from "./logistics";
 import { countAround, inBounds, isSea, TILE_CENTER } from "./terrain";
@@ -216,12 +217,15 @@ function rebuildTerritory(game: Game): void {
   }
 }
 
-/** Marks the tiles each public building and each decoration reaches. */
+/**
+ * Marks the tiles each public building, each decoration and each
+ * protection against disasters reaches.
+ */
 function rebuildCoverage(game: Game): void {
   const n = game.world.n;
   // The grids are reused: cleared, not made anew, to spare the memory.
   const coverage: Partial<Record<BuildingKind, Uint8Array>> = {};
-  for (const kind of [...SERVICE_KINDS, ...DECOR_KINDS]) {
+  for (const kind of [...SERVICE_KINDS, ...DECOR_KINDS, ...PROTECTION_KINDS]) {
     const old = game.coverage[kind];
     coverage[kind] =
       old?.length === n * n ? old.fill(0) : new Uint8Array(n * n);

@@ -13,15 +13,25 @@
  * building (chased until it is gone), a patrol between two points and an
  * escort of an own ship (see `fleets.ts` for the commands).
  */
+import { isFlooded } from "./disasters";
 import { BUILDING } from "./buildings-data";
 import { hasOtherKontor, removeBuilding } from "./buildings";
 import { atWar, remember } from "./diplomacy";
 import { spend } from "./economy";
 import { pruneFleets, warShipOf } from "./fleets";
-import { islandsOf, ownerOf, PIRATES, playerById, TRADER } from "./players";
+import { LACQUER_ARMOUR, MAX_ARMOUR } from "./factions-data";
+import {
+  factionById,
+  factionHostile,
+  hasPerk,
+  isFactionId,
+  provoke,
+} from "./factions";
+import { countDeed, shipSunk, STRUCK_SHARE } from "./pirates";
+import { HUMAN, islandsOf, ownerOf, playerById, TRADER } from "./players";
 import { randomRange } from "./random";
 import { SHIP } from "./ships-data";
-import { berthOf, kontorOf, sailTo } from "./ships";
+import { berthOf, kontorOf, roomFor, sailTo, steerTo } from "./ships";
 import { inBounds, isSea, TILE_CENTER } from "./terrain";
 import { TICK } from "./time";
 import { hitSoldier, nearestEnemySoldier, troopStrength } from "./troops";
@@ -55,6 +65,19 @@ const CHASE_EVERY = 3;
 
 /** Steps between two new courses while chasing. */
 const CHASE_STEPS = Math.round(CHASE_EVERY / TICK);
+
+/**
+ * Whether a ship's turn to search a new course has come: every few seconds,
+ * each ship in a round of its own, so the searches of a whole fleet do not
+ * fall into one step.
+ *
+ * @param game - the game
+ * @param ship - the ship
+ * @returns true in the ship's round
+ */
+function courseDue(game: Game, ship: Ship): boolean {
+  return (game.tick + ship.id * ROUND_STEPS) % CHASE_STEPS < ROUND_STEPS;
+}
 
 /** An escort stays within this distance of its charge, tiles. */
 const ESCORT_DISTANCE = 3;
@@ -125,8 +148,9 @@ export function hostile(game: Game, a: number, b: number): boolean {
   let result: boolean;
   if (a === b || a === TRADER || b === TRADER) {
     result = false;
-  } else if (a === PIRATES || b === PIRATES) {
-    result = !game.settings.peaceful;
+  } else if (isFactionId(a) || isFactionId(b)) {
+    // The foreign peoples and the pirates (also the pirates of older worlds).
+    result = factionHostile(game, a, b);
   } else {
     result = atWar(game, a, b);
   }
@@ -202,12 +226,27 @@ export function hitShip(
   damage: number,
   attacker: number,
 ): void {
-  ship.hp -= damage * (1 - SHIP[ship.kind].armour);
+  ship.hp -= damage * (1 - armourOf(game, ship));
   ship.hitAt = game.time;
   remember(game, attacker, ship.owner, "attacked", HIT_RELATION);
   if (ship.hp <= 0) {
     sink(game, ship, attacker);
   }
+}
+
+/**
+ * The share of every hit a ship shrugs off: its kind's armour, more with
+ * Shogunara's lacquer refit.
+ *
+ * @param game - the game
+ * @param ship - the ship
+ * @returns 0 to {@link MAX_ARMOUR}
+ */
+export function armourOf(game: Game, ship: Ship): number {
+  const base = SHIP[ship.kind].armour;
+  return ship.owner >= 0 && hasPerk(game, "shogunara", ship.owner)
+    ? Math.min(MAX_ARMOUR, base + LACQUER_ARMOUR)
+    : base;
 }
 
 /**
@@ -231,6 +270,15 @@ export function orderAttack(
   const ship = warShipOf(game, player, shipId);
   const goal = ship === null ? null : targetOf(game, target, building);
   let reason: string | null = null;
+  if (
+    ship !== null &&
+    goal !== null &&
+    factionById(game, goal.owner) !== null &&
+    !hostile(game, player, goal.owner)
+  ) {
+    // Turning the guns on a faction at peace breaks that peace.
+    provoke(game, player, goal.owner);
+  }
   if (ship === null) {
     reason = "noGuns";
   } else if (goal === null || !hostile(game, player, goal.owner)) {
@@ -344,7 +392,8 @@ function shipFires(game: Game, ship: Ship, guns: Guns): void {
       shoot(game, ship.x, ship.y, enemy.x, enemy.y);
       ship.reload = guns.reload;
       hitShip(game, enemy, roll(game, guns), ship.owner);
-    } else {
+    } else if (factionById(game, ship.owner) === null) {
+      // A faction's ships shoot at buildings only when sent against one.
       const target = enemyBuilding(
         game,
         ship.owner,
@@ -416,9 +465,19 @@ export function nearestEnemyShip(
 ): Ship | null {
   let best: Ship | null = null;
   let bestDistance = range;
+  // Pirates spare a merchant that struck its flag: they board it instead.
+  const spares = owner < TRADER && game.factions.length > 0;
   for (const other of game.ships) {
     const distance = Math.hypot(other.x - x, other.y - y);
-    if (distance <= bestDistance && hostile(game, owner, other.owner)) {
+    const struck =
+      spares &&
+      SHIP[other.kind].guns === null &&
+      other.hp < SHIP[other.kind].hp * STRUCK_SHARE;
+    if (
+      distance <= bestDistance &&
+      !struck &&
+      hostile(game, owner, other.owner)
+    ) {
       best = other;
       bestDistance = distance;
     }
@@ -480,12 +539,16 @@ export function hitBuilding(
     // Only the island's last kontor is plundered or taken (games saved while
     // a second kontor per island was allowed may hold two).
     if (building.kind === "kontor" && !hasOtherKontor(game, building)) {
-      if (attacker === PIRATES) {
-        plunder(game, building);
+      if (attacker < TRADER) {
+        plunder(game, building, attacker);
       } else {
         capture(game, building, attacker);
       }
     } else {
+      if (building.kind === "kontor") {
+        // A rival's kontor destroyed counts with the pirates.
+        countDeed(game, attacker, owner, "taken");
+      }
       removeBuilding(game, building, false);
       game.events.push({
         type: "destroyed",
@@ -501,6 +564,7 @@ export function hitBuilding(
 /** A ship goes down. */
 function sink(game: Game, ship: Ship, attacker: number): void {
   game.ships = game.ships.filter((other) => other.id !== ship.id);
+  shipSunk(game, ship, attacker);
   const winner = playerById(game, attacker);
   if (winner !== null) {
     winner.stats.sunk += 1;
@@ -547,6 +611,7 @@ function capture(game: Game, kontor: Building, attacker: number): void {
   if (owner !== null) {
     owner.stats.founded += 1;
   }
+  countDeed(game, attacker, from, "taken");
   game.events.push({
     type: "captured",
     island: kontor.island,
@@ -557,12 +622,28 @@ function capture(game: Game, kontor: Building, attacker: number): void {
   checkAlive(game, from);
 }
 
-/** Pirates empty part of the stores and leave the kontor standing. */
-function plunder(game: Game, kontor: Building): void {
+/**
+ * Pirates empty part of the stores and leave the kontor standing; a band's
+ * ship nearby takes the loot aboard as far as its hold allows.
+ */
+function plunder(game: Game, kontor: Building, attacker: number): void {
   const island = game.islands[kontor.island];
   kontor.hp = BUILDING.kontor.hp * PLUNDERED_HP;
+  const raider =
+    factionById(game, attacker) === null
+      ? null
+      : nearestShipOf(game, attacker, kontor);
   for (const good of Object.keys(island.stock) as GoodId[]) {
-    island.stock[good] = Math.floor(island.stock[good] * (1 - PLUNDER_SHARE));
+    const taken =
+      island.stock[good] - Math.floor(island.stock[good] * (1 - PLUNDER_SHARE));
+    island.stock[good] -= taken;
+    if (raider !== null && taken > 0) {
+      const room = roomFor(raider, good);
+      raider.cargo[good] = (raider.cargo[good] ?? 0) + Math.min(room, taken);
+      if ((raider.cargo[good] ?? 0) <= 0) {
+        delete raider.cargo[good];
+      }
+    }
   }
   for (const incident of game.incidents) {
     if (incident.kind === "pirates") {
@@ -575,6 +656,24 @@ function plunder(game: Game, kontor: Building): void {
     island: kontor.island,
     player: island.owner,
   });
+}
+
+/** The ship of an owner nearest a building. */
+function nearestShipOf(
+  game: Game,
+  owner: number,
+  building: Building,
+): Ship | null {
+  let best: Ship | null = null;
+  let bestDistance = Infinity;
+  for (const ship of game.ships) {
+    const distance = Math.hypot(ship.x - building.x, ship.y - building.y);
+    if (ship.owner === owner && distance < bestDistance) {
+      best = ship;
+      bestDistance = distance;
+    }
+  }
+  return best;
 }
 
 /** A player with neither islands nor ships is out of the game. */
@@ -679,20 +778,23 @@ export function seaNear(
 function stepShipOrder(game: Game, ship: Ship, guns: Guns): void {
   const order = ship.order;
   const n = game.world.n;
-  const now = game.tick % CHASE_STEPS < ROUND_STEPS;
+  const now = courseDue(game, ship);
   if (order.type === "attack") {
     const target = targetOf(game, order.target, order.building);
     if (target === null || !hostile(game, ship.owner, target.owner)) {
       ship.order = { type: "idle" };
       ship.path = [];
     } else if (
-      (now || ship.path.length === 0) &&
+      // The human's ship sets off at once; the many ships of rivals,
+      // peoples and pirates wait for their own round, so a fleet that sets
+      // out together does not search all its courses in one step.
+      (now || (ship.path.length === 0 && ship.owner === HUMAN)) &&
       Math.hypot(target.x - ship.x, target.y - ship.y) >
         guns.range * HALF_RANGE + target.size / 2
     ) {
       const water = seaNear(game, target.x, target.y, WATER_REACH);
       if (water >= 0) {
-        sailTo(game, ship, water);
+        steerTo(game, ship, water);
       }
     }
   } else if (order.type === "escort") {
@@ -704,13 +806,13 @@ function stepShipOrder(game: Game, ship: Ship, guns: Guns): void {
     if (charge === undefined || charge.owner !== ship.owner) {
       ship.order = { type: "idle" };
     } else if (threat !== null && now) {
-      sailTo(game, ship, Math.floor(threat.y) * n + Math.floor(threat.x));
+      steerTo(game, ship, Math.floor(threat.y) * n + Math.floor(threat.x));
     } else if (
       threat === null &&
       now &&
       Math.hypot(charge.x - ship.x, charge.y - ship.y) > ESCORT_DISTANCE
     ) {
-      sailTo(game, ship, Math.floor(charge.y) * n + Math.floor(charge.x));
+      steerTo(game, ship, Math.floor(charge.y) * n + Math.floor(charge.x));
     }
   } else if (order.type === "patrol") {
     if (!chase(game, ship, guns) && ship.path.length === 0) {
@@ -741,11 +843,11 @@ function chase(game: Game, ship: Ship, guns: Guns): boolean {
   const enemy = nearestEnemyShip(game, ship.owner, ship.x, ship.y, CHASE_RANGE);
   if (
     enemy !== null &&
-    game.tick % CHASE_STEPS < ROUND_STEPS &&
+    courseDue(game, ship) &&
     Math.hypot(enemy.x - ship.x, enemy.y - ship.y) > guns.range * HALF_RANGE
   ) {
     const n = game.world.n;
-    sailTo(game, ship, Math.floor(enemy.y) * n + Math.floor(enemy.x));
+    steerTo(game, ship, Math.floor(enemy.y) * n + Math.floor(enemy.x));
   }
   return enemy !== null;
 }
@@ -810,6 +912,8 @@ function mend(game: Game): void {
       owner !== null &&
       building.complete &&
       building.fire <= 0 &&
+      // Nothing is mended under flood water.
+      !isFlooded(game, building) &&
       building.hp < def.hp &&
       game.time - building.hitAt > BUILDING_CALM &&
       owner.gold > 0

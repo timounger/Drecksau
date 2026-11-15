@@ -1,7 +1,7 @@
 /**
- * The main menu: a new game with map size, AI rivals and peace (and the
- * seed while the cheat mode is on), continue the automatic save, load a
- * slot, settings and statistics.
+ * The main menu: a new game with map size, AI rivals, difficulty, peace,
+ * the events and peoples (and the seed while the cheat mode is on),
+ * continue the automatic save, load a slot, settings and statistics.
  *
  * @module
  */
@@ -13,9 +13,20 @@ import { seedFromText } from "@/games/imperavis/engine/random";
 import { DEFAULT_AI, MAX_AI } from "@/games/imperavis/engine/players";
 import type { GameSettings, MapSize } from "@/games/imperavis/engine/types";
 import { HUD } from "@/games/imperavis/i18n/hud-texts";
-import { SIZE_NAMES, TEXTS as T } from "@/games/imperavis/i18n/texts";
+import { levelOf } from "@/games/imperavis/engine/difficulty-data";
+import {
+  DIFFICULTY_NAMES,
+  SIZE_NAMES,
+  TEXTS as T,
+} from "@/games/imperavis/i18n/texts";
 import { TUTORIAL } from "@/games/imperavis/i18n/tutorial-texts";
 import type { SavedGame } from "@/games/imperavis/storage/save-store";
+import {
+  DifficultyChoice,
+  GameOptions,
+  useNewGameChoice,
+  withChoice,
+} from "./game-options";
 import { Crest, Icon } from "./icons";
 import { Btn } from "./ui";
 import "./imperavis.css";
@@ -73,6 +84,7 @@ export function MainMenu({
   const [peaceful, setPeaceful] = useState(false);
   const [guided, setGuided] = useState(true);
   const [showLoad, setShowLoad] = useState(false);
+  const choice = useNewGameChoice();
   return (
     <div
       data-theme="dark"
@@ -147,6 +159,7 @@ export function MainMenu({
             ))}
           </div>
           <p className="imp-muted mb-3 text-xs">{T.rivalsHint}</p>
+          <DifficultyChoice />
           <label className="mb-4 flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -175,15 +188,16 @@ export function MainMenu({
               </span>
             </span>
           </label>
+          <GameOptions peaceful={peaceful} />
           <button
             type="button"
             data-testid="imp-start"
             onClick={() =>
-              onNew(seedOf(showSeed, seed), size, {
-                aiCount: rivals,
-                peaceful,
-                guided,
-              })
+              onNew(
+                seedOf(showSeed, seed),
+                size,
+                withChoice({ aiCount: rivals, peaceful, guided }, choice),
+              )
             }
             className="imp-btn imp-btn-primary imp-display w-full py-2.5 text-base font-semibold"
           >
@@ -226,7 +240,7 @@ export function MainMenu({
                     ? unreadable.includes(index + 1)
                       ? T.unreadableSave
                       : T.emptySlot
-                    : T.savedAt(new Date(slot.savedAt).toLocaleString("de-DE"))}
+                    : `${T.savedAt(new Date(slot.savedAt).toLocaleString("de-DE"))}, ${DIFFICULTY_NAMES[levelOf(slot.game.settings)]}`}
                 </Btn>
               ))}
             </div>

@@ -26,6 +26,7 @@ const CHIMNEYS: Partial<Record<string, readonly [number, number, number]>> = {
   bathhouse: [0, 2.1, 0],
   glassworks: [-0.3, 2.6, -0.3],
   tobacconist: [0.35, 1.65, -0.6],
+  perfumery: [0.65, 2.0, -0.55],
   house1: [0.4, 1.75, -0.2],
   house2: [-0.45, 2.5, 0.25],
 };
