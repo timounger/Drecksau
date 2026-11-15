@@ -44,12 +44,6 @@ import {
   isSea,
 } from "@/games/imperavis/engine/terrain";
 import {
-  dayFraction,
-  seasonAt,
-  seasonProgress,
-  SEASONS,
-} from "@/games/imperavis/engine/time";
-import {
   Terrain,
   type BuildingKind,
   type Game,
@@ -61,17 +55,25 @@ import { createDisastersLayer } from "./disasters-layer";
 import { createEffects } from "./effects";
 import { createInput, type InputAction, type Modifiers } from "./input";
 import { createLandscape } from "./landscape";
+import { createLighting } from "./lighting";
 import {
   createBuildingMaterial,
   createTerrainMaterial,
   createUniforms,
-  createWaterMaterial,
-  foliageTint,
 } from "./materials";
-import { buildingModel, wreckModel } from "./models";
+import { createPost } from "./post";
+import { QUALITY_PROFILES, type QualityProfile } from "./quality";
+import { buildingModel, setModelDetail, wreckModel } from "./models";
 import { createUnitsLayer } from "./units";
+import {
+  createSeaMap,
+  createWakeMaterial,
+  createWaterMaterial,
+  setWaterQuality,
+} from "./water";
 import { createFactionsLayer } from "./factions-layer";
 import { factionOfIsland } from "@/games/imperavis/engine/factions";
+import type { Quality } from "@/games/imperavis/settings/preferences";
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- light, colour and input tuning */
 
@@ -212,6 +214,8 @@ export type ViewCallbacks = {
 
 /** Settings that change how the view draws. */
 export type ViewOptions = {
+  /** The graphics level. */
+  readonly quality: Quality;
   readonly shadows: boolean;
   readonly weather: boolean;
   /** Whether the screen edges move the camera. */
@@ -226,6 +230,12 @@ export type FrameStats = {
   readonly triangles: number;
   /** Draw calls of the last frame. */
   readonly calls: number;
+  /** Geometries the renderer holds on the GPU. */
+  readonly geometries: number;
+  /** Textures the renderer holds on the GPU. */
+  readonly textures: number;
+  /** Shader programs compiled. */
+  readonly programs: number;
 };
 
 /** The handle the game screen holds. */
@@ -250,6 +260,12 @@ export type View = {
   flash(x: number, y: number): void;
   /** Where the camera heads, for browser tests. */
   cameraState(): CameraState;
+  /**
+   * Puts the camera at once at a state, for browser tests.
+   *
+   * @param state - target, distance, turn and angle
+   */
+  place(state: CameraState): void;
   /**
    * The patch of sea level the camera sees, for the minimap: the four
    * corners of the screen cast onto the water, in tiles, clockwise from the
@@ -393,6 +409,12 @@ const SKY_REACH = 4;
 /** How far around the camera's target sounds are counted, tiles. */
 const HEARING = 26;
 
+/** Exposure of the filmic (ACES) tone mapping. */
+const EXPOSURE = 0.82;
+
+/** At night the eye adapts: exposure rises by this share. */
+const NIGHT_ADAPT = 0.6;
+
 /**
  * Creates the view on a canvas.
  *
@@ -415,28 +437,38 @@ export function createView(
     antialias: true,
     powerPreference: "high-performance",
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = EXPOSURE;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  // Counted over the whole frame (scene, shadows and post passes).
+  renderer.info.autoReset = false;
   const scene = new THREE.Scene();
-  const fog = new THREE.FogExp2(0x9cc9e8, 0.004);
-  scene.fog = fog;
   const uniforms = createUniforms();
   const buildingMaterial = createBuildingMaterial(uniforms);
   const terrainMaterial = createTerrainMaterial(uniforms);
-  const waterMaterial = createWaterMaterial(uniforms);
+  const seaMap = createSeaMap(world);
+  const waterMaterial = createWaterMaterial(uniforms, {
+    river: false,
+    seaMap,
+    mapSize: n + 1,
+  });
+  const riverMaterial = createWaterMaterial(uniforms, {
+    river: true,
+    seaMap: null,
+    mapSize: n + 1,
+  });
+  const wakeMaterial = createWakeMaterial(uniforms);
   const controller = new CameraController(1, n);
   const camera = controller.camera;
   const start = world.startShip;
   const home = world.islands[world.startIsland];
   controller.jump((start.x + home.cx) / 2, (start.y + home.cy) / 2, 55);
 
-  // Light.
-  const hemi = new THREE.HemisphereLight(0xcfe6ff, 0x55603a, 1.1);
-  const sun = new THREE.DirectionalLight(0xffffff, 2.4);
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.bias = -0.0008;
-  sun.shadow.normalBias = 0.03;
-  scene.add(hemi, sun, sun.target);
+  // Light, sky and the post effects.
+  const lighting = createLighting(scene, uniforms);
+  const post = createPost(renderer, scene, camera);
+  let profile: QualityProfile | null = null;
 
   // Sea.
   const waterGeometry = new THREE.PlaneGeometry(n * 3, n * 3, 160, 160);
@@ -449,12 +481,15 @@ export function createView(
   const landscape = createLandscape(
     world,
     terrainMaterial,
-    waterMaterial,
+    riverMaterial,
     uniforms,
   );
-  const buildings = createBuildingsLayer(buildingMaterial);
-  const towns = createFactionsLayer(game, buildingMaterial);
-  const units = createUnitsLayer(buildingMaterial);
+  // The models are built at the detail of the starting level.
+  let modelDetail = QUALITY_PROFILES[options.quality].detail;
+  setModelDetail(modelDetail);
+  let buildings = createBuildingsLayer(buildingMaterial);
+  let towns = createFactionsLayer(game, buildingMaterial);
+  let units = createUnitsLayer(buildingMaterial, wakeMaterial);
   const effects = createEffects();
   const disasters = createDisastersLayer(game);
   scene.add(
@@ -633,10 +668,14 @@ export function createView(
     frameMs: 0,
     triangles: 0,
     calls: 0,
+    geometries: 0,
+    textures: 0,
+    programs: 0,
   };
   let fpsValue = 0;
   let fpsClock = 0;
   let lastShadows = !options.shadows;
+  let pixelRatio = 0;
   let drawOptions = options;
 
   // ---------------------------------------------------------------- input
@@ -1518,121 +1557,58 @@ export function createView(
   const resize = () => {
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
+    const ratio = Math.min(
+      window.devicePixelRatio,
+      profile?.pixelRatio ?? window.devicePixelRatio,
+    );
     if (
-      canvas.width !== Math.floor(width * renderer.getPixelRatio()) ||
-      canvas.height !== Math.floor(height * renderer.getPixelRatio())
+      ratio !== pixelRatio ||
+      canvas.width !== Math.floor(width * ratio) ||
+      canvas.height !== Math.floor(height * ratio)
     ) {
+      pixelRatio = ratio;
+      renderer.setPixelRatio(ratio);
       renderer.setSize(width, height, false);
+      post.setSize(width, height, ratio);
+      effects.setPixelRatio(ratio);
       camera.aspect = width / Math.max(1, height);
       camera.updateProjectionMatrix();
     }
   };
 
-  const sky = new THREE.Color();
-  const dayColor = new THREE.Color(0x9cc9e8);
-  const duskColor = new THREE.Color(0xe7a774);
-  const nightColor = new THREE.Color(0x0c1322);
-  const stormColor = new THREE.Color(0x5d6b78);
-
-  const lightAndSky = (frameGame: Game, dt: number) => {
-    const fraction = dayFraction(frameGame.time);
-    const angle = (fraction - 0.25) * Math.PI * 2;
-    const elevation = Math.sin(angle);
-    const daylight = THREE.MathUtils.smoothstep(elevation, -0.12, 0.25);
-    const night = 1 - daylight;
-    const dusk = Math.max(0, 1 - Math.abs(elevation) * 4) * 0.9;
-    const weather = frameGame.weather;
-    const blizzard = disasters.snowing;
-    const gloom = blizzard
-      ? 0.45
-      : weather === "storm"
-        ? 0.55
-        : weather === "rain"
-          ? 0.3
-          : weather === "fog"
-            ? 0.2
-            : 0;
-    sky
-      .copy(dayColor)
-      .lerp(duskColor, dusk)
-      .lerp(nightColor, night)
-      .lerp(stormColor, gloom * daylight);
-    scene.background = sky;
-    fog.color.copy(sky);
-    const fogTarget =
-      (blizzard
-        ? 0.016
-        : weather === "fog"
-          ? 0.022
-          : weather === "storm"
-            ? 0.011
-            : weather === "rain"
-              ? 0.0075
-              : 0.0032) * (drawOptions.weather ? 1 : 0.6);
-    fog.density += (fogTarget - fog.density) * Math.min(1, dt * 0.8);
-    const direction = new THREE.Vector3(
-      Math.cos(angle) * 0.75,
-      Math.max(0.15, elevation),
-      0.45,
-    ).normalize();
-    if (elevation < 0) {
-      // The moon stands opposite.
-      direction
-        .set(-Math.cos(angle) * 0.6, Math.max(0.3, -elevation), -0.4)
-        .normalize();
+  /** Builds buildings, towns, ships and people again at another detail. */
+  const rebuildModels = (detail: number) => {
+    modelDetail = detail;
+    setModelDetail(detail);
+    for (const layer of [buildings, towns, units]) {
+      scene.remove(layer.group);
+      layer.dispose();
     }
-    const flash = effects.flash;
-    sun.color
-      .setHex(elevation < 0 ? 0x8fa8d8 : 0xffffff)
-      .lerp(duskColor, dusk * 0.6);
-    sun.intensity = (elevation < 0 ? 0.35 : 2.6 * daylight) * (1 - gloom * 0.6);
-    hemi.intensity = (0.35 + 0.85 * daylight) * (1 - gloom * 0.3) + flash * 2.5;
-    hemi.color.setHex(0xcfe6ff).lerp(new THREE.Color(0x40507a), night);
-    uniforms.night.value = night;
-    uniforms.sun.value.copy(direction);
-    uniforms.sunColor.value.copy(sun.color).multiplyScalar(daylight);
-    uniforms.waves.value +=
-      ((weather === "storm" ? 2.6 : weather === "rain" ? 1.4 : 1) -
-        uniforms.waves.value) *
-      Math.min(1, dt);
-    const target = controller.target;
-    const shadowSize = THREE.MathUtils.clamp(controller.distance * 0.9, 18, 80);
-    sun.position.set(
-      target.x + direction.x * 90,
-      direction.y * 90,
-      target.y + direction.z * 90,
-    );
-    sun.target.position.set(target.x, 0, target.y);
-    const shadowCamera = sun.shadow.camera;
-    shadowCamera.left = -shadowSize;
-    shadowCamera.right = shadowSize;
-    shadowCamera.top = shadowSize;
-    shadowCamera.bottom = -shadowSize;
-    shadowCamera.far = 220;
-    shadowCamera.updateProjectionMatrix();
-    // Seasons: snow and foliage.
-    const season = seasonAt(frameGame.time);
-    const progress = seasonProgress(frameGame.time);
-    const index = SEASONS.indexOf(season);
-    const snow =
-      season === "winter"
-        ? THREE.MathUtils.smoothstep(progress, 0, 0.25) *
-          (1 - THREE.MathUtils.smoothstep(progress, 0.8, 1))
-        : 0;
-    // A blizzard snows the land in whatever season.
-    uniforms.snow.value = blizzard ? 1 : snow;
-    return {
-      night,
-      foliage: foliageTint(index, progress),
-      rain:
-        drawOptions.weather && !blizzard
-          ? weather === "storm"
-            ? 2
-            : weather === "rain"
-              ? 1
-              : 0
-          : 0,
-    };
+    buildings = createBuildingsLayer(buildingMaterial);
+    towns = createFactionsLayer(current, buildingMaterial);
+    units = createUnitsLayer(buildingMaterial, wakeMaterial);
+    scene.add(buildings.group, towns.group, units.group);
+    for (const geometry of ghostCache.values()) {
+      geometry.dispose();
+    }
+    ghostCache.clear();
+    builtVersion = -1;
+  };
+
+  /** Takes on a graphics level, live: resolution, shadows, effects, detail. */
+  const applyQuality = (level: Quality) => {
+    const next = QUALITY_PROFILES[level];
+    if (next !== profile) {
+      profile = next;
+      lighting.setProfile(next);
+      post.setProfile(next);
+      setWaterQuality(waterMaterial, next.water);
+      setWaterQuality(riverMaterial, next.water);
+      landscape.setProfile(next);
+      if (next.detail !== modelDetail) {
+        rebuildModels(next.detail);
+      }
+    }
   };
 
   /** Dashed lines from harbour to harbour for each of the player's routes. */
@@ -1845,6 +1821,9 @@ export function createView(
     cameraState() {
       return controller.state();
     },
+    place(state) {
+      controller.place(state);
+    },
     viewArea() {
       const reach = controller.distance * SKY_REACH;
       const target = controller.target;
@@ -1866,11 +1845,14 @@ export function createView(
     },
     frame(frameGame, alpha, dt, gameDt) {
       const frameStart = performance.now();
+      renderer.info.reset();
       current = frameGame;
+      applyQuality(drawOptions.quality);
       resize();
       clock += dt;
       liveClock += gameDt > 0 ? dt : 0;
       uniforms.time.value = clock;
+      uniforms.liveTime.value = liveClock;
       if (builtVersion !== frameGame.version) {
         builtVersion = frameGame.version;
         landscape.rebuild(frameGame);
@@ -1882,7 +1864,7 @@ export function createView(
       if (lastShadows !== drawOptions.shadows) {
         lastShadows = drawOptions.shadows;
         renderer.shadowMap.enabled = drawOptions.shadows;
-        sun.castShadow = drawOptions.shadows;
+        lighting.setShadows(drawOptions.shadows);
         scene.traverse((object) => {
           const material = (object as THREE.Mesh).material as
             THREE.Material | undefined;
@@ -1897,7 +1879,17 @@ export function createView(
       // The camera matrices are needed now for the hover ray.
       camera.updateMatrixWorld();
       followPointer(dt);
-      const look = lightAndSky(frameGame, dt);
+      const look = lighting.update({
+        game: frameGame,
+        dt,
+        blizzard: disasters.snowing,
+        flash: effects.flash,
+        weatherShown: drawOptions.weather,
+        target,
+        floor: Math.max(0, under),
+        distance: controller.distance,
+        camera,
+      });
       const showBorder =
         tool.type === "build" ||
         tool.type === "road" ||
@@ -1936,7 +1928,12 @@ export function createView(
       );
       placeRings();
       fadeFlash(dt);
-      renderer.render(scene, camera);
+      renderer.toneMappingExposure = EXPOSURE * (1 + look.night * NIGHT_ADAPT);
+      post.render({
+        night: look.night,
+        sun: lighting.sun.intensity,
+        flash: effects.flash,
+      });
       frames += 1;
       frameCost += performance.now() - frameStart;
       fpsClock += dt;
@@ -1946,6 +1943,9 @@ export function createView(
           frameMs: frameCost / Math.max(1, frames),
           triangles: renderer.info.render.triangles,
           calls: renderer.info.render.calls,
+          geometries: renderer.info.memory.geometries,
+          textures: renderer.info.memory.textures,
+          programs: renderer.info.programs?.length ?? 0,
         };
         frames = 0;
         frameCost = 0;
@@ -2012,10 +2012,12 @@ export function createView(
       units.dispose();
       effects.dispose();
       disasters.dispose();
+      post.dispose();
       for (const geometry of ghostCache.values()) {
         geometry.dispose();
       }
       waterGeometry.dispose();
+      seaMap.dispose();
       routeLines.geometry.dispose();
       busyRoads.geometry.dispose();
       wreckGeometry.dispose();
@@ -2028,6 +2030,8 @@ export function createView(
         buildingMaterial,
         terrainMaterial,
         waterMaterial,
+        riverMaterial,
+        wakeMaterial,
         ghostMaterial,
         padMaterial,
         ringMaterial,

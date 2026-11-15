@@ -69,6 +69,7 @@ import {
 import { HUD } from "@/games/imperavis/i18n/hud-texts";
 import { tutorialLockText } from "@/games/imperavis/i18n/tutorial-texts";
 import type { InputAction } from "@/games/imperavis/render/input";
+import type { CameraState } from "@/games/imperavis/render/camera";
 import type {
   Hint,
   Hit,
@@ -80,14 +81,17 @@ import type {
 } from "@/games/imperavis/render/view";
 import {
   autosaveSetting,
+  currentQuality,
   edgeScrollSetting,
   mutedSetting,
+  qualitySetting,
   shadowsSetting,
   CHEAT_SPEEDS,
   NORMAL_TOP,
   speedSetting,
   SPEEDS,
   weatherSetting,
+  type Quality,
 } from "@/games/imperavis/settings/preferences";
 import { describe, emptyWatch, keep, watch, type Watch } from "./news";
 import {
@@ -675,6 +679,8 @@ export function useImperavis(): ImperavisApi {
         project: (x: number, y: number) =>
           viewRef.current?.project(x, y) ?? null,
         camera: () => viewRef.current?.cameraState() ?? null,
+        place: (state: CameraState) => viewRef.current?.place(state),
+        quality: (level: Quality | null) => qualitySetting.save(level),
         selection: () => selectionRef.current,
         focus: (x: number, y: number) => viewRef.current?.focus(x, y),
         run: (seconds: number) => {
@@ -968,9 +974,12 @@ export function useImperavis(): ImperavisApi {
   // Options from the settings page.
   useEffect(() => {
     const apply = () => viewRef.current?.setOptions(viewOptions());
-    const stops = [shadowsSetting, weatherSetting, edgeScrollSetting].map(
-      (setting) => setting.subscribe(apply),
-    );
+    const stops = [
+      qualitySetting,
+      shadowsSetting,
+      weatherSetting,
+      edgeScrollSetting,
+    ].map((setting) => setting.subscribe(apply));
     return () => stops.forEach((stop) => stop());
   }, []);
 
@@ -1142,6 +1151,7 @@ function settle<T>(game: Game, result: T): T {
 /** The drawing settings as they are stored. */
 function viewOptions(): ViewOptions {
   return {
+    quality: currentQuality(),
     shadows: shadowsSetting.load(),
     weather: weatherSetting.load(),
     edgeScroll: edgeScrollSetting.load(),

@@ -135,6 +135,20 @@ export class CameraController {
   }
 
   /**
+   * Puts the camera at once where a state says, for browser tests that
+   * want the same picture before and after a change.
+   *
+   * @param state - target, distance, turn and angle
+   */
+  place(state: CameraState): void {
+    this.jump(state.x, state.z, state.distance);
+    this.goal.yaw = state.yaw;
+    this.yaw = state.yaw;
+    this.goal.pitch = THREE.MathUtils.clamp(state.pitch, MIN_PITCH, MAX_PITCH);
+    this.pitch = this.goal.pitch;
+  }
+
+  /**
    * Glides to a point.
    *
    * @param x - tiles

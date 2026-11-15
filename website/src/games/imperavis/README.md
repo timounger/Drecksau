@@ -96,6 +96,7 @@ Forschung und Freischaltung (`game.players`), Besitz hängt an den Inseln
   Gelände (Wiese 1,2, Fels 0,9, Wald 0,75 Felder/s). Die Tempi stehen in
   `engine/logistics-data.ts`, die Tabelle in der Doku unter "Lager und Karren".
 - Pause: Möwen, Bewohner, Karren, schaukelnde Schiffe, Mühlen, Wracks, Rauch,
+  Bäume und Gras im Wind,
   Regen und Blitze stehen still (eigene Uhr der Ansicht, die nur läuft, wenn
   das Spiel läuft); nur das Wasser bewegt sich weiter. Regen, Donner, Stadt-
   und Hafengeräusche schweigen, das Meer wird leiser. Pausenmenü und
@@ -138,6 +139,52 @@ Forschung und Freischaltung (`game.players`), Besitz hängt an den Inseln
   gezeichnet; Schiffe tragen eine Flagge in der Farbe ihres Besitzers und bei
   Schaden einen Lebensbalken. Belastete Straßen, Routenlinien,
   Kanonenkugeln und Schiffbrüchige sind eigene, gebündelte Überlagerungen.
+
+## Darstellung
+
+Alles ist prozedural und ohne fremde Bilder erzeugt (Low-Poly-Stil, fein
+ausgearbeitet). Die Ansicht liegt in `render/`; die Grafikqualität stellt
+`render/quality.ts` an einer Stelle zusammen.
+
+| Was             | Niedrig                   | Mittel                                                                           | Hoch                                  |
+| --------------- | ------------------------- | -------------------------------------------------------------------------------- | ------------------------------------- |
+| Auflösung       | bis 1,5-fach              | bis 1,5-fach                                                                     | bis 2-fach                            |
+| Schatten        | 2048, harte Kante         | 2048, weich (PCF mit Radius)                                                     | 4096, weich                           |
+| Nachbearbeitung | keine                     | Bloom nur nachts                                                                 | GTAO (Umgebungsverdeckung) und Bloom  |
+| Gelände         | flache Kacheln wie früher | weiche Normalen, Farbübergänge, feine Körnung                                    | wie Mittel                            |
+| Pflanzen        | keine                     | Gras, Blumen, Büsche, Steine (halbe Dichte)                                      | volle Dichte                          |
+| Wind            | aus                       | Bäume und Gras wiegen sich                                                       | wie Mittel                            |
+| Modelle         | einfache Formen           | Fensterrahmen, Türen, Dachziegelreihen, First, gewölbte Segel, Takelage, Figuren | wie Mittel                            |
+| Wasser          | Tiefenfarbe, Brandung     | dazu Kräuselung und Glanzlicht                                                   | dazu Spiegelung des Himmels (Fresnel) |
+
+- Licht (`render/lighting.ts`): ACES-Tonemapping mit sRGB-Ausgabe, Sonne
+  und Mond, Hemisphärenlicht mit Himmels- und Bodenfarbe je Jahreszeit,
+  warme Abende, kühle Winter, Wetter dämpft das Licht. Der Nebel wird mit
+  der Kameraentfernung dünner, damit er das Bild der Minimap nicht
+  verdeckt. Die Schattenkamera umschließt den sichtbaren Boden in
+  Blickrichtung (auf ganze Texel gerastet, damit nichts flimmert).
+- Nachbearbeitung (`render/post.ts`): die Szene geht in ein
+  mehrfach abgetastetes Halbfloat-Ziel mit Tiefentextur; GTAO liest nur die
+  Tiefe (kein zweites Zeichnen der Szene), Bloom erfasst nur, was heller
+  ist, als Tageslicht eine Fläche machen kann - leuchtende Fenster,
+  Laternen, Glut und Feuer. Ohne Effekt wird direkt gezeichnet.
+- Wasser (`render/water.ts`): eine kleine Textur aus der Höhenkarte (Höhe
+  und Abstand zum Land je Feldecke) gibt Tiefenfarbe (türkis an der Küste,
+  tiefblau draußen) und die Brandung genau an der Uferlinie. Fahrende
+  Schiffe ziehen ein Kielwasser mit Schaum am Rumpf, als Instanzen.
+- Gelände (`render/landscape.ts`, `render/vegetation.ts`): Die Ecken der
+  Felder bleiben, wo sie sind - Bauvorschau, Überlagerungen und Picking
+  passen auf allen Stufen. Eine Abnutzungsmaske je Feld (Straßen,
+  Gebäude) lässt Wege und Vorplätze weich in den Boden übergehen. Bäume und
+  Pflanzen werden nur in den Kacheln neu gebaut, in denen sich Straßen,
+  Gebäude oder Rodungen geändert haben.
+- Die Stufe lässt sich live umschalten; Modelle, Gelände und Pflanzen werden
+  dann neu gebaut. `stats()` im Debug-Modus nennt zusätzlich die Geometrien,
+  Texturen und Shader-Programme der GPU; `quality(level)` stellt die Stufe
+  um, `place(state)` setzt die Kamera für Vergleichsbilder.
+- Das Wasser hatte vorher eine Kopie der gemeinsamen Werte (Zeit, Sonne,
+  Nacht) und stand deshalb still; jetzt bewegt es sich wie beschrieben,
+  auch in der Pause.
 
 ## Bedienung
 
@@ -455,7 +502,8 @@ Einführung aus, `tutorial` erzwingt die Einführung (auch mit `found` und
 `scholar` erledigt die Forschungen ohne Vorbedingung, `ai=0..3` setzt die
 Zahl der KI-Gegner, `peace` das friedliche Spiel, `debug` stellt
 `window.imperavisDebug` für Browsertests bereit (Befehle, `run(s)`,
-`spawn(owner, kind, x, y)`, `event(faction, kind)` (Ereignis einer
+`spawn(owner, kind, x, y)`, `place(state)` (Kamera setzen), `quality(level)`
+(Grafikqualität), `event(faction, kind)` (Ereignis einer
 Fraktion), `disaster(kind, island)` (kündigt eine Katastrophe sofort an;
 Schneesturm mit Insel -1), `ignite(id)`, `grant(points)`, `stats()` mit
 CPU-Zeit je Bild, Dreiecken und Draw Calls der Ansicht).

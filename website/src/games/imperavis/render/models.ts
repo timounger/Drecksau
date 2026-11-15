@@ -72,10 +72,58 @@ export const C = {
   ember: 0xff8a2a,
 } as const;
 
+/** The glow value of fire: lit by day as well as by night. */
+const FIRE_GLOW = 2;
+
+/**
+ * Detail of the models built from now on: 0 the simple shapes, 1 with
+ * window frames, doors, roof tiles and trims, curved sails and rigging.
+ * Set by the graphics level before the layers build their models.
+ */
+let modelDetail = 0;
+
+/** Parts thinner than this are panes or doors set in a wall. */
+const PANE = 0.07;
+
+/** Window frames: how much wider than the pane, and the bars across it. */
+const FRAME = 0.06;
+const BAR = 0.022;
+
+/** Colour of painted window and door frames. */
+const FRAME_COLOR = 0xd8c8a6;
+
+/** Roof tile rows per slope, and how much darker they are. */
+const TILE_ROWS = 3;
+const TILE_SHADE = 0.8;
+
+/** Shade of the ridge and the eave boards against the roof. */
+const RIDGE_SHADE = 0.62;
+
+/** How far a sail bellies out, as a share of its width. */
+const SAIL_BELLY = 0.16;
+
+/** Colours of a townsperson. */
+const WALKER = { tunic: 0x6d5a8a, legs: 0x4a3b2c, skin: 0xe0b48a } as const;
+
+/** Colour of ropes and stays. */
+const ROPE = 0x3b3128;
+
+/**
+ * Sets the detail of the models built from now on.
+ *
+ * @param detail - 0 simple, 1 fine
+ */
+export function setModelDetail(detail: number): void {
+  modelDetail = detail;
+}
+
 /** Builds one model from simple parts. */
 export class ModelBuilder {
   /** The parts so far. */
   private readonly parts: THREE.BufferGeometry[] = [];
+
+  /** Detail of this model, from {@link setModelDetail} at its start. */
+  readonly detail = modelDetail;
 
   /**
    * Adds a box.
@@ -105,7 +153,46 @@ export class ModelBuilder {
     const geometry = new THREE.BoxGeometry(w, h, d);
     geometry.rotateY(rotY);
     geometry.translate(x, y + h / 2, z);
-    return this.add(geometry, color, glow);
+    this.add(geometry, color, glow);
+    const pane = Math.min(w, d) < PANE;
+    if (this.detail > 0 && pane && glow === 1 && color === C.window) {
+      this.frame(w, h, d, x, y, z, rotY, true);
+    } else if (this.detail > 0 && pane && color === C.door) {
+      this.frame(w, h, d, x, y, z, rotY, false);
+    }
+    return this;
+  }
+
+  /**
+   * A frame around a window or door pane set in a wall: a border behind
+   * it, and for windows bars across the glass and a stone sill.
+   */
+  private frame(
+    w: number,
+    h: number,
+    d: number,
+    x: number,
+    y: number,
+    z: number,
+    rotY: number,
+    window: boolean,
+  ): void {
+    const alongX = d <= w;
+    const deep = Math.min(w, d);
+    const size = alongX ? w : d;
+    const across = (wide: number, thin: number) =>
+      alongX ? [wide, thin] : [thin, wide];
+    const below = window ? FRAME / 2 : 0;
+    const [fw, fd] = across(size + FRAME, deep * 0.6);
+    this.box(fw, h + below, fd, x, y - below, z, FRAME_COLOR, 0, rotY);
+    if (window) {
+      const [bw, bd] = across(BAR, deep + BAR);
+      this.box(bw, h, bd, x, y, z, FRAME_COLOR, 0, rotY);
+      const [cw, cd] = across(size, deep + BAR);
+      this.box(cw, BAR, cd, x, y + h / 2 - BAR / 2, z, FRAME_COLOR, 0, rotY);
+      const [sw, sd] = across(size + FRAME * 1.6, deep + FRAME);
+      this.box(sw, BAR * 1.4, sd, x, y - below - BAR, z, C.stone, 0, rotY);
+    }
   }
 
   /**
@@ -143,7 +230,132 @@ export class ModelBuilder {
     geometry.translate(0, 0, -w / 2);
     geometry.rotateY(Math.PI / 2 + rotY);
     geometry.translate(x, y, z);
+    this.add(geometry, color, 0);
+    if (this.detail > 0) {
+      this.roofDetail(w, h, d, x, y, z, color, rotY);
+    }
+    return this;
+  }
+
+  /** Tile rows on both slopes, a ridge beam and boards along the eaves. */
+  private roofDetail(
+    w: number,
+    h: number,
+    d: number,
+    x: number,
+    y: number,
+    z: number,
+    color: number,
+    rotY: number,
+  ): void {
+    const tile = new THREE.Color(color).multiplyScalar(TILE_SHADE).getHex();
+    const dark = new THREE.Color(color).multiplyScalar(RIDGE_SHADE).getHex();
+    const half = d / 2;
+    const slope = Math.hypot(h, half);
+    const angle = Math.atan2(h, half);
+    const lift = 0.012;
+    for (const side of [1, -1]) {
+      for (let row = 0; row < TILE_ROWS; row += 1) {
+        const t = (row + 0.5) / (TILE_ROWS + 0.4);
+        const strip = new THREE.BoxGeometry(
+          w + 0.02,
+          0.022,
+          (slope / TILE_ROWS) * 0.42,
+        );
+        strip.rotateX(side * angle);
+        strip.translate(
+          0,
+          h * t + (half / slope) * lift,
+          side * (half * (1 - t) + (h / slope) * lift),
+        );
+        strip.rotateY(rotY);
+        strip.translate(x, y, z);
+        this.add(strip, tile, 0);
+      }
+      // The eave board along the lower edge of the slope.
+      const ox = side * (half - 0.02) * Math.sin(rotY);
+      const oz = side * (half - 0.02) * Math.cos(rotY);
+      this.box(w + 0.04, 0.05, 0.05, x + ox, y - 0.03, z + oz, dark, 0, rotY);
+    }
+    this.box(w + 0.05, 0.07, 0.08, x, y + h - 0.045, z, dark, 0, rotY);
+  }
+
+  /**
+   * Adds a thin rod between two points (ropes, stays, poles).
+   *
+   * @param a - one end
+   * @param b - the other end
+   * @param r - radius
+   * @param color - colour
+   * @returns this
+   */
+  rod(
+    a: readonly [number, number, number],
+    b: readonly [number, number, number],
+    r: number,
+    color: number,
+  ): this {
+    const from = new THREE.Vector3(...a);
+    const to = new THREE.Vector3(...b);
+    const geometry = new THREE.CylinderGeometry(
+      r,
+      r,
+      from.distanceTo(to),
+      3,
+      1,
+      true,
+    );
+    geometry.applyQuaternion(
+      new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        to.clone().sub(from).normalize(),
+      ),
+    );
+    geometry.translate(
+      (from.x + to.x) / 2,
+      (from.y + to.y) / 2,
+      (from.z + to.z) / 2,
+    );
     return this.add(geometry, color, 0);
+  }
+
+  /**
+   * Adds a sail that bellies out towards +x: a curved sheet, seen from
+   * both sides.
+   *
+   * @param w - width (z)
+   * @param h - height (y)
+   * @param x - x of the yard
+   * @param y - bottom y
+   * @param z - centre z
+   * @param belly - how far the middle bulges, along +x
+   * @param color - colour
+   * @returns this
+   */
+  sheet(
+    w: number,
+    h: number,
+    x: number,
+    y: number,
+    z: number,
+    belly: number,
+    color: number,
+  ): this {
+    const segments = 4;
+    for (const face of [1, -1]) {
+      const geometry = new THREE.PlaneGeometry(w, h, segments, segments);
+      geometry.rotateY(face * (Math.PI / 2));
+      const position = geometry.getAttribute("position");
+      for (let i = 0; i < position.count; i += 1) {
+        const u = (position.getZ(i) / w) * 2;
+        const v = (position.getY(i) / h) * 2;
+        const bulge = belly * (1 - u * u) * (1 - v * v * 0.6);
+        position.setX(i, bulge - face * 0.004);
+      }
+      geometry.translate(x, y + h / 2, z);
+      this.add(geometry, color, 0);
+    }
+    return this;
   }
 
   /**
@@ -226,6 +438,22 @@ export class ModelBuilder {
   }
 
   /**
+   * Adds loose triangles of one colour.
+   *
+   * @param positions - x, y, z of every corner, three corners a triangle
+   * @param color - colour
+   * @returns this
+   */
+  mesh(positions: readonly number[], color: number): this {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(positions, 3),
+    );
+    return this.add(geometry, color, 0);
+  }
+
+  /**
    * Adds a finished geometry that already has colour and glow.
    *
    * @param geometry - the geometry
@@ -272,9 +500,11 @@ export class ModelBuilder {
       colors[i * 3 + 2] = tint.b;
     }
     flat.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    // Lit embers glow day and night (2), windows only at night (1).
+    const light = glow > 0 && color === C.ember ? FIRE_GLOW : glow;
     flat.setAttribute(
       "glow",
-      new THREE.BufferAttribute(new Float32Array(count).fill(glow), 1),
+      new THREE.BufferAttribute(new Float32Array(count).fill(light), 1),
     );
     this.parts.push(flat);
     return this;
@@ -558,6 +788,16 @@ export function farTreeModel(conifer: boolean): THREE.BufferGeometry {
 }
 
 /**
+ * The length of a ship kind's hull, for its wake.
+ *
+ * @param kind - the ship kind
+ * @returns tiles from stern to bow
+ */
+export function shipLength(kind: ShipKind): number {
+  return SHIPS[kind].length;
+}
+
+/**
  * A ship's hull, deck and masts (the sails are separate, they billow).
  *
  * @param kind - the ship kind
@@ -567,66 +807,85 @@ export function hullModel(kind: ShipKind): THREE.BufferGeometry {
   const m = new ModelBuilder();
   const s = SHIPS[kind];
   const { length, beam, hull } = s;
-  m.box(length, 0.45, beam, 0, -0.2, 0, hull);
-  m.box(length * 0.75, 0.2, beam * 0.8, -0.1, 0.25, 0, C.plank);
-  m.box(0.5, 0.35, beam * 0.9, length / 2 - 0.1, -0.1, 0, hull, 0, 0);
-  m.box(0.6, 0.45, beam, -length / 2 + 0.3, 0.25, 0, hull);
-  if (s.stripe !== null) {
-    m.box(length + 0.02, 0.08, beam + 0.02, 0, 0.05, 0, s.stripe);
+  hullBody(m, s, kind);
+  const stern = -length / 2;
+  if (!s.steel) {
+    // A raised quarterdeck over the stern.
+    const qx = stern + 0.4;
+    m.box(
+      0.7,
+      0.16,
+      hullHalf(s, stern) * 1.8,
+      qx,
+      deckAt(s, qx) - 0.02,
+      0,
+      hull,
+    );
   }
   if (kind === "galleon") {
     // High stern castle with lit windows and a rail.
-    m.box(1.0, 0.75, beam, -length / 2 + 0.5, 0.25, 0, hull);
-    m.box(1.04, 0.08, beam + 0.04, -length / 2 + 0.5, 1.0, 0, C.gold);
-    for (const z of [-0.3, 0.3]) {
-      m.box(0.02, 0.2, 0.22, -length / 2 - 0.01, 0.6, z, C.window, 1);
+    const cw = hullHalf(s, stern) * 1.9;
+    const cx = stern + 0.5;
+    m.box(1.0, 0.6, cw, cx, deckAt(s, cx), 0, hull);
+    m.box(1.04, 0.08, cw + 0.04, cx, deckAt(s, cx) + 0.6, 0, C.gold);
+    for (const z of [-0.25, 0.25]) {
+      m.box(0.02, 0.2, 0.2, stern - 0.01, deckAt(s, cx) + 0.2, z, C.window, 1);
     }
-    m.box(0.6, 0.3, beam * 0.85, length / 2 - 0.4, 0.25, 0, hull);
+    const fx = length / 2 - 0.4;
+    m.box(0.6, 0.3, hullHalf(s, fx + 0.3) * 1.8, fx, deckAt(s, fx), 0, hull);
   }
   if (kind === "knarr") {
-    knarrExtras(m, length, beam, hull);
-  }
-  if (PIRATE_KINDS.includes(kind) && kind !== "pirateBoat") {
-    // A dark red rail cap along the bulwark of the bigger raiders.
-    m.box(length * 0.8, 0.05, beam + 0.03, -0.05, 0.47, 0, 0x4a1a18);
+    knarrExtras(m, s);
   }
   const spacing = s.guns > 3 ? 0.7 : 0.75;
   for (let deck = 0; deck < s.decks; deck += 1) {
-    if (deck > 0) {
-      // A second, higher gun deck along the whole hull.
-      m.box(length * 0.85, 0.32, beam * 0.92, -0.05, 0.42, 0, hull);
-      m.box(length * 0.86, 0.05, beam * 0.94, -0.05, 0.74, 0, s.stripe ?? hull);
-    }
     for (let i = 0; i < s.guns; i += 1) {
       const x = (i - (s.guns - 1) / 2) * spacing;
       for (const side of [1, -1]) {
-        const z = side * (beam / 2 - 0.15);
+        const z = side * (hullHalf(s, x) - 0.15);
         cannon(m, x, 0.18 + deck * 0.38, z, side > 0 ? 0 : Math.PI, 0.42);
       }
     }
   }
   if (s.cargo) {
     for (const x of [-0.9, 0.7]) {
-      m.box(0.5, 0.22, beam * 0.5, x, 0.45, 0, C.plank);
-      m.box(0.24, 0.22, 0.24, x + 0.1, 0.67, -0.1, C.wood);
+      const y = deckAt(s, x);
+      m.box(0.5, 0.22, beam * 0.5, x, y, 0, C.plank);
+      m.box(0.24, 0.22, 0.24, x + 0.1, y + 0.22, -0.1, C.wood);
     }
   }
   for (const fx of s.funnels) {
-    m.cyl(0.16, 0.18, 1.3, fx, 0.45, 0, 0x2b2b2e, 10);
-    m.cyl(0.17, 0.17, 0.12, fx, 1.5, 0, C.awningA, 10);
+    const y = deckAt(s, fx);
+    m.cyl(0.16, 0.18, 1.3, fx, y, 0, 0x2b2b2e, 10);
+    m.cyl(0.17, 0.17, 0.12, fx, y + 1.05, 0, C.awningA, 10);
   }
   if (s.steel) {
     // Superstructure and two gun turrets with long barrels.
-    m.box(1.4, 0.45, beam * 0.6, 0, 0.45, 0, s.hull);
-    m.box(0.7, 0.3, beam * 0.45, 0.2, 0.9, 0, s.hull);
+    const y = deckAt(s, 0);
+    m.box(1.4, 0.45, beam * 0.6, 0, y, 0, s.hull);
+    m.box(0.7, 0.3, beam * 0.45, 0.2, y + 0.45, 0, s.hull);
     for (const tx of [length / 2 - 0.9, -length / 2 + 0.9]) {
-      m.cyl(0.26, 0.3, 0.22, tx, 0.45, 0, 0x4a5058, 10);
+      const ty = deckAt(s, tx);
+      m.cyl(0.26, 0.3, 0.22, tx, ty, 0, 0x4a5058, 10);
       const facing = tx > 0 ? -Math.PI / 2 : Math.PI / 2;
-      cannon(m, tx, 0.58, 0, facing, 0.75);
+      cannon(m, tx, ty + 0.13, 0, facing, 0.75);
     }
   }
   for (const mast of s.masts) {
     m.cyl(0.05, 0.06, mast.height, mast.x, 0.25, 0, C.timberDark, 5);
+  }
+  // A bowsprit for every sailing ship but the knarr with its tall stem.
+  const tipX = length / 2;
+  const sprit: [number, number, number] | null =
+    s.steel || kind === "knarr"
+      ? null
+      : [tipX + 0.55, gunwaleAt(s, tipX) + 0.3, 0];
+  if (sprit !== null) {
+    const base = tipX - 0.5;
+    m.rod([base, deckAt(s, base) + 0.05, 0], sprit, 0.035, C.timberDark);
+  }
+  if (m.detail > 0) {
+    shipDetail(m, s, sprit ?? [tipX, gunwaleAt(s, tipX), 0]);
   }
   const main = s.masts[0];
   if (PIRATE_KINDS.includes(kind)) {
@@ -664,7 +923,30 @@ export function sailModel(kind: ShipKind): THREE.BufferGeometry {
   const m = new ModelBuilder();
   const s = SHIPS[kind];
   for (const mast of s.masts) {
-    m.box(0.06, mast.sailH, mast.sailW, mast.x + 0.08, mast.sailY, 0, s.sail);
+    const x = mast.x + 0.08;
+    if (m.detail > 0) {
+      // A curved sail hung from a yard.
+      m.sheet(
+        mast.sailW,
+        mast.sailH,
+        x,
+        mast.sailY,
+        0,
+        SAIL_BELLY * mast.sailW,
+        s.sail,
+      );
+      m.box(
+        0.05,
+        0.05,
+        mast.sailW + 0.12,
+        x,
+        mast.sailY + mast.sailH,
+        0,
+        C.timberDark,
+      );
+    } else {
+      m.box(0.06, mast.sailH, mast.sailW, x, mast.sailY, 0, s.sail);
+    }
   }
   return m.build();
 }
@@ -718,37 +1000,298 @@ export function skullMark(
   }
 }
 
+/** Where the bow starts to narrow, as a share of half the length. */
+const BOW_START = 0.15;
+
+/** Where the stern starts to round in, as a share of half the length. */
+const STERN_START = -0.55;
+
+/** How much narrower the transom is than the widest beam. */
+const STERN_NARROW = 0.3;
+
+/** Half width left at the very tip of the bow. */
+const BOW_TIP = 0.008;
+
+/** Height of the gunwale amidships over the waterline, one gun deck. */
+const FREEBOARD = 0.58;
+
+/** Extra height of each further gun deck. */
+const DECK_STEP = 0.38;
+
+/** How far the gunwale sweeps up towards bow and stern. */
+const BOW_SHEER = 0.2;
+const STERN_SHEER = 0.14;
+
+/** The deck lies this far under the gunwale. */
+const DECK_DROP = 0.13;
+
+/** Bottom of the keel. */
+const KEEL = -0.22;
+
+/** The stem rakes up from this share of half the length on, this high. */
+const STEM_START = 0.55;
+const STEM_RISE = 0.55;
+
+/** The keel lifts a little at the stern from this share on, this high. */
+const HEEL_START = -0.85;
+const HEEL_RISE = 0.12;
+
+/** Thickness of the bulwark, and its most as a share of the half width. */
+const BULWARK = 0.06;
+const BULWARK_SHARE = 0.45;
+
 /**
- * The touches of a Nordic knarr: overlapping strakes, tall curved stem and
- * stern posts and a row of round shields along each rail.
+ * The cross section of one side of the hull, gunwale to keel: share of the
+ * half width and share of the depth. Narrow bands mark the stripe and the
+ * plank seams.
+ */
+const PROFILE: readonly (readonly [number, number])[] = [
+  [1, 0],
+  [1, 0.08],
+  [1, 0.17],
+  [0.995, 0.33],
+  [0.99, 0.36],
+  [0.95, 0.55],
+  [0.935, 0.58],
+  [0.78, 0.78],
+  [0.5, 0.92],
+  [0.12, 1],
+];
+
+/** The profile band painted as the stripe. */
+const STRIPE_BAND = 1;
+
+/** The profile bands painted as plank seams. */
+const SEAM_BANDS: readonly number[] = [3, 5];
+
+/** Cross sections along the hull, simple and fine. */
+const HULL_RINGS = 9;
+const HULL_RINGS_FINE = 17;
+
+/** Colour of the rail cap of the bigger pirate ships. */
+const PIRATE_RAIL = 0x4a1a18;
+
+/**
+ * Half the hull's width at a point along it.
+ *
+ * @param s - the ship's shape
+ * @param x - position along the hull, bow towards +x
+ * @returns half the width
+ */
+function hullHalf(s: ShipShape, x: number): number {
+  const t = Math.max(-1, Math.min(1, (2 * x) / s.length));
+  let share = 1;
+  if (t > BOW_START) {
+    const u = (t - BOW_START) / (1 - BOW_START);
+    share = 1 - u * u;
+  } else if (t < STERN_START) {
+    const u = (STERN_START - t) / (1 + STERN_START);
+    share = 1 - STERN_NARROW * u * u;
+  }
+  return Math.max(BOW_TIP, (s.beam / 2) * share);
+}
+
+/**
+ * Height of the gunwale at a point along the hull.
+ *
+ * @param s - the ship's shape
+ * @param x - position along the hull
+ * @returns y
+ */
+function gunwaleAt(s: ShipShape, x: number): number {
+  const t = Math.max(-1, Math.min(1, (2 * x) / s.length));
+  const sheer = t > 0 ? BOW_SHEER : STERN_SHEER;
+  return FREEBOARD + (s.decks - 1) * DECK_STEP + sheer * t * t;
+}
+
+/**
+ * Height of the deck at a point along the hull.
+ *
+ * @param s - the ship's shape
+ * @param x - position along the hull
+ * @returns y
+ */
+function deckAt(s: ShipShape, x: number): number {
+  return gunwaleAt(s, x) - DECK_DROP;
+}
+
+/**
+ * Height of the keel at a point along the hull: it rakes up into the stem.
+ *
+ * @param t - position as a share of half the length, -1 stern to 1 bow
+ * @returns y
+ */
+function keelAt(t: number): number {
+  const stem = t > STEM_START ? (t - STEM_START) / (1 - STEM_START) : 0;
+  const heel = t < HEEL_START ? (HEEL_START - t) / (1 + HEEL_START) : 0;
+  return KEEL + STEM_RISE * stem * stem + HEEL_RISE * heel * heel;
+}
+
+/**
+ * One cross section of the hull as a closed ring: down the starboard side,
+ * up the port side, then over the port bulwark, across the deck and over
+ * the starboard bulwark.
+ *
+ * @param s - the ship's shape
+ * @param t - position as a share of half the length
+ * @returns the ring's corners
+ */
+function hullRing(s: ShipShape, t: number): [number, number, number][] {
+  const x = (t * s.length) / 2;
+  const half = hullHalf(s, x);
+  const top = gunwaleAt(s, x);
+  const keel = keelAt(t);
+  const deck = top - DECK_DROP;
+  const inner = half - Math.min(BULWARK, half * BULWARK_SHARE);
+  const side = (sign: number): [number, number, number][] =>
+    PROFILE.map(([zf, yf]) => [x, top + (keel - top) * yf, sign * half * zf]);
+  return [
+    ...side(1),
+    ...side(-1).reverse(),
+    [x, top, -inner],
+    [x, deck, -inner],
+    [x, deck, inner],
+    [x, top, inner],
+  ];
+}
+
+/**
+ * The colour of one band of the ring, from one corner to the next.
+ *
+ * @param s - the ship's shape
+ * @param kind - the ship kind
+ * @param band - index of the band's first corner
+ * @param detail - model detail
+ * @returns the colour
+ */
+function bandColor(
+  s: ShipShape,
+  kind: ShipKind,
+  band: number,
+  detail: number,
+): number {
+  const sides = PROFILE.length * 2;
+  // The port side runs the profile backwards.
+  const profileBand = band < PROFILE.length ? band : sides - 2 - band;
+  const seam = new THREE.Color(s.hull).multiplyScalar(TILE_SHADE).getHex();
+  const pirateRail = PIRATE_KINDS.includes(kind) && kind !== "pirateBoat";
+  let color = s.hull;
+  if (band === sides + 1) {
+    color = C.plank;
+  } else if (band === sides - 1 || band === sides + 3) {
+    color = pirateRail ? PIRATE_RAIL : s.hull;
+  } else if (band >= sides) {
+    color = s.hull;
+  } else if (profileBand === STRIPE_BAND && s.stripe !== null) {
+    color = s.stripe;
+  } else if (SEAM_BANDS.includes(profileBand) && detail > 0) {
+    color = seam;
+  }
+  return color;
+}
+
+/**
+ * The hull itself: cross sections lofted from the transom to the stem, a
+ * pointed bow, a rounded bilge, a sheer rising to both ends, a bulwark and
+ * an open deck.
  *
  * @param m - the model
- * @param length - hull length
- * @param beam - hull beam
- * @param hull - hull colour
+ * @param s - the ship's shape
+ * @param kind - the ship kind
  */
-function knarrExtras(
-  m: ModelBuilder,
-  length: number,
-  beam: number,
-  hull: number,
-): void {
-  // Clinker strakes: slightly proud planks overlapping down the side.
-  for (const [y, inset] of [
-    [-0.12, 0.06],
-    [0.02, 0.03],
-    [0.16, 0],
-  ]) {
-    m.box(
-      length - 0.3 - inset * 4,
-      0.05,
-      beam + 0.04 - inset,
-      0,
-      y,
-      0,
-      0x4e3725,
+function hullBody(m: ModelBuilder, s: ShipShape, kind: ShipKind): void {
+  const count = m.detail > 0 ? HULL_RINGS_FINE : HULL_RINGS;
+  const rings: [number, number, number][][] = [];
+  for (let k = 0; k < count; k += 1) {
+    // Closer rings towards the ends, where the shape bends most.
+    rings.push(
+      hullRing(s, Math.sin((Math.PI / 2) * (-1 + (2 * k) / (count - 1)))),
     );
   }
+  const byColor = new Map<number, number[]>();
+  const put = (color: number, ...corners: [number, number, number][]) => {
+    const list = byColor.get(color) ?? [];
+    for (const corner of corners) {
+      list.push(...corner);
+    }
+    byColor.set(color, list);
+  };
+  const size = rings[0].length;
+  for (let k = 0; k + 1 < count; k += 1) {
+    const a = rings[k];
+    const b = rings[k + 1];
+    for (let j = 0; j < size; j += 1) {
+      const next = (j + 1) % size;
+      const color = bandColor(s, kind, j, m.detail);
+      put(color, a[j], b[next], b[j]);
+      put(color, a[j], a[next], b[next]);
+    }
+  }
+  // Transom and stem: the end rings filled, facing aft and forward.
+  for (const [ring, facing] of [
+    [rings[0], -1],
+    [rings[count - 1], 1],
+  ] as const) {
+    const contour = ring.map(([, y, z]) => new THREE.Vector2(z, y));
+    for (const face of THREE.ShapeUtils.triangulateShape(contour, [])) {
+      const [p, q, r] = face.map((i) => ring[i]);
+      const cross =
+        (q[2] - p[2]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[2] - p[2]);
+      // The face's normal along x is minus this cross product.
+      put(s.hull, ...(-cross * facing > 0 ? [p, q, r] : [p, r, q]));
+    }
+  }
+  for (const [color, positions] of byColor) {
+    m.mesh(positions, color);
+  }
+}
+
+/**
+ * The finer parts of a ship: the standing rigging from the mastheads to
+ * bow, stern and the sides.
+ *
+ * @param m - the model
+ * @param s - the ship's shape
+ * @param bow - where the forestay ends
+ */
+function shipDetail(
+  m: ModelBuilder,
+  s: ShipShape,
+  bow: readonly [number, number, number],
+): void {
+  const sternX = -s.length / 2 + 0.05;
+  const stern: [number, number, number] = [sternX, gunwaleAt(s, sternX), 0];
+  s.masts.forEach((mast, index) => {
+    const top: [number, number, number] = [mast.x, 0.25 + mast.height, 0];
+    const ahead = s.masts[index - 1];
+    m.rod(
+      top,
+      ahead === undefined ? bow : [ahead.x, 0.25 + ahead.height * 0.8, 0],
+      0.012,
+      ROPE,
+    );
+    m.rod(top, stern, 0.012, ROPE);
+    const foot = mast.x - 0.25;
+    for (const side of [1, -1]) {
+      m.rod(
+        [mast.x, 0.25 + mast.height * 0.85, 0],
+        [foot, gunwaleAt(s, foot), side * hullHalf(s, foot)],
+        0.01,
+        ROPE,
+      );
+    }
+  });
+}
+
+/**
+ * The touches of a Nordic knarr: tall curved stem and stern posts and a row
+ * of round shields along each rail (the clinker strakes are the seams).
+ *
+ * @param m - the model
+ * @param s - the ship's shape
+ */
+function knarrExtras(m: ModelBuilder, s: ShipShape): void {
+  const { length, hull } = s;
   // Stem and stern posts curving up and inwards, in three pieces each.
   for (const end of [1, -1]) {
     for (const [tilt, dx, y] of [
@@ -785,7 +1328,7 @@ function knarrExtras(
           ),
         (g) => {
           g.rotateX(Math.PI / 2);
-          g.translate(x, 0.42, side * (beam / 2 + 0.03));
+          g.translate(x, gunwaleAt(s, x) - 0.1, side * (hullHalf(s, x) + 0.03));
         },
       );
     }
@@ -864,8 +1407,20 @@ export function cartModel(): THREE.BufferGeometry {
  */
 export function walkerModel(): THREE.BufferGeometry {
   const m = new ModelBuilder();
-  m.cyl(0.06, 0.08, 0.26, 0, 0, 0, 0x6d5a8a, 5);
-  m.ball(0.06, 0, 0.33, 0, 0xe0b48a);
+  if (m.detail > 0) {
+    // Legs, a tunic with a belt, arms, a head and a cap.
+    m.box(0.035, 0.12, 0.04, 0, 0, -0.03, WALKER.legs);
+    m.box(0.035, 0.12, 0.04, 0, 0, 0.03, WALKER.legs);
+    m.cyl(0.05, 0.075, 0.17, 0, 0.11, 0, WALKER.tunic, 6);
+    m.box(0.1, 0.02, 0.12, 0, 0.16, 0, C.timberDark);
+    m.box(0.03, 0.13, 0.03, 0, 0.14, -0.075, WALKER.tunic);
+    m.box(0.03, 0.13, 0.03, 0, 0.14, 0.075, WALKER.tunic);
+    m.ball(0.055, 0, 0.33, 0, WALKER.skin);
+    m.cyl(0.03, 0.065, 0.05, 0, 0.36, 0, C.awningB, 6);
+  } else {
+    m.cyl(0.06, 0.08, 0.26, 0, 0, 0, WALKER.tunic, 5);
+    m.ball(0.06, 0, 0.33, 0, WALKER.skin);
+  }
   return m.build();
 }
 

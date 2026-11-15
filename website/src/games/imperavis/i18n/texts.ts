@@ -809,8 +809,15 @@ export const TEXTS = {
   backToGame: "Zum Spiel",
   soundTitle: "Ton",
   soundHint: "Meer, Vögel, Bauen, Münzen und Meldungen.",
+  qualityTitle: "Grafikqualität",
+  qualityHint:
+    "Niedrig für Handys und schwache Grafik. Mittel mit weichen Übergängen, Wellen, Pflanzen und Leuchten bei Nacht, Hoch zusätzlich mit Umgebungsschatten, Himmelsspiegelung und feineren Schatten. Ohne Auswahl entscheidet das Gerät; wirkt sofort.",
+  qualityLow: "Niedrig",
+  qualityMedium: "Mittel",
+  qualityHigh: "Hoch",
   shadowsTitle: "Schatten",
-  shadowsHint: "Schöner, kostet auf schwachen Geräten Bildrate.",
+  shadowsHint:
+    "Schöner, kostet auf schwachen Geräten Bildrate. Schärfe und Weichheit richten sich nach der Grafikqualität.",
   weatherTitle: "Wettereffekte",
   weatherHint:
     "Regen, Sturm und dichter Nebel in der Ansicht. Das Wetter wirkt auf die Wirtschaft auch ohne.",

@@ -66,6 +66,82 @@ export const shadowsSetting: StoredValue<boolean> = createStoredValue(
   isBoolean,
 );
 
+/** The graphics levels, from cheapest to finest. */
+export const QUALITIES = ["low", "medium", "high"] as const;
+
+/** One graphics level. */
+export type Quality = (typeof QUALITIES)[number];
+
+/**
+ * Below this many CSS pixels on the shorter screen side a device counts as a
+ * phone and starts on the lowest graphics level.
+ */
+const SMALL_SCREEN = 700;
+
+/**
+ * The graphics level chosen on the settings page, or null while none was
+ * chosen and the device decides (see {@link deviceQuality}).
+ */
+export const qualitySetting: StoredValue<Quality | null> = createStoredValue(
+  storageKey("imperavis", "quality"),
+  VERSION,
+  null as Quality | null,
+  (value): value is Quality | null =>
+    value === null || QUALITIES.includes(value as Quality),
+);
+
+/** Names of graphics drivers that draw without a graphics card. */
+const SOFTWARE_GPU = /swiftshader|llvmpipe|software|basic render/i;
+
+/** Whether the device draws without a real graphics card, found once. */
+let softwareGpu: boolean | null = null;
+
+/**
+ * The level a device starts with: low on phones, small or touch-first
+ * screens and without a graphics card, medium everywhere else.
+ *
+ * @returns the level
+ * @remarks
+ * Deliberately simple - the screen and the driver's name tell enough.
+ * Reads the window, so only call it in the browser.
+ */
+export function deviceQuality(): Quality {
+  const small =
+    Math.min(window.screen.width, window.screen.height) < SMALL_SCREEN;
+  const touch = window.matchMedia("(pointer: coarse)").matches;
+  softwareGpu ??= detectSoftwareGpu();
+  return small || touch || softwareGpu ? "low" : "medium";
+}
+
+/**
+ * Asks a throwaway WebGL context for the driver's name.
+ *
+ * @returns true when the drawing is done in software (or not at all)
+ */
+function detectSoftwareGpu(): boolean {
+  const gl = document.createElement("canvas").getContext("webgl2");
+  let software = gl === null;
+  if (gl !== null) {
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    const name =
+      info === null
+        ? ""
+        : String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL));
+    software = SOFTWARE_GPU.test(name);
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+  }
+  return software;
+}
+
+/**
+ * The graphics level in force: the chosen one, or the device's.
+ *
+ * @returns the level
+ */
+export function currentQuality(): Quality {
+  return qualitySetting.load() ?? deviceQuality();
+}
+
 /** Whether rain, storm and thick fog are drawn. */
 export const weatherSetting: StoredValue<boolean> = createStoredValue(
   storageKey("imperavis", "weather"),

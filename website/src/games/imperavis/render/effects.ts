@@ -43,6 +43,8 @@ export type Effects = {
     center: THREE.Vector3,
     night: number,
   ): void;
+  /** Sizes the smoke puffs for the drawing resolution. */
+  setPixelRatio(ratio: number): void;
   /** Brightness of a lightning flash now, 0 to 1. */
   readonly flash: number;
   dispose(): void;
@@ -79,14 +81,19 @@ export function createEffects(): Effects {
   const smokeMaterial = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
-    uniforms: { uMap: { value: texture }, uNight: { value: 0 } },
+    uniforms: {
+      uMap: { value: texture },
+      uNight: { value: 0 },
+      uPixelRatio: { value: 1 },
+    },
     vertexShader: `
       attribute float alpha;
+      uniform float uPixelRatio;
       varying float vAlpha;
       void main() {
         vAlpha = alpha;
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = (1.0 + (1.0 - alpha) * 2.5) * 260.0 / -mv.z;
+        gl_PointSize = (1.0 + (1.0 - alpha) * 2.5) * 173.0 * uPixelRatio / -mv.z;
         gl_Position = projectionMatrix * mv;
       }
     `,
@@ -96,8 +103,11 @@ export function createEffects(): Effects {
       varying float vAlpha;
       void main() {
         vec4 t = texture2D(uMap, gl_PointCoord);
-        vec3 c = mix(vec3(0.78, 0.78, 0.76), vec3(0.25, 0.26, 0.3), uNight);
+        // Linear colours of smoke by day and by night.
+        vec3 c = mix(vec3(0.57, 0.57, 0.54), vec3(0.05, 0.055, 0.07), uNight);
         gl_FragColor = vec4(c, t.a * vAlpha * 0.55);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }
     `,
   });
@@ -133,6 +143,9 @@ export function createEffects(): Effects {
     group,
     get flash() {
       return flash;
+    },
+    setPixelRatio(ratio) {
+      smokeMaterial.uniforms.uPixelRatio.value = ratio;
     },
     update(dt, sources, rainLevel, center, night) {
       smokeMaterial.uniforms.uNight.value = night;

@@ -30,10 +30,12 @@ import {
   cartModel,
   hullModel,
   sailModel,
+  shipLength,
   unitBodyModel,
   unitGearModel,
   walkerModel,
 } from "./models";
+import { MAX_WAKES, wakeGeometry } from "./water";
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- animation amplitudes, speeds and pool sizes */
 
@@ -65,6 +67,12 @@ const WALK_SPEED = 0.9;
 const TRADER_FLAG = 0xc9873f;
 const PIRATE_FLAG = 0x111111;
 
+/** Speed in tiles per second at which a wake is at its full strength. */
+const WAKE_FULL_SPEED = 2.2;
+
+/** How quickly a wake follows a change of speed, per second. */
+const WAKE_EASE = 1.5;
+
 /** Carts and walkers farther than this from the camera's target are not drawn. */
 const UNIT_RANGE = 70;
 
@@ -77,6 +85,8 @@ type ShipView = {
   x: number;
   z: number;
   heading: number;
+  /** Strength of the wake, 0 to 1, following the speed. */
+  wake: number;
 };
 
 /** A walker's state, owned by the view only. */
@@ -111,10 +121,22 @@ export type UnitsLayer = {
  * Creates the layer.
  *
  * @param material - the material of hulls, carts and people
+ * @param wakeMaterial - the material of the foam behind ships
  * @returns the layer
  */
-export function createUnitsLayer(material: THREE.Material): UnitsLayer {
+export function createUnitsLayer(
+  material: THREE.Material,
+  wakeMaterial: THREE.Material,
+): UnitsLayer {
   const group = new THREE.Group();
+  const wakeShape = wakeGeometry();
+  const wakes = new THREE.InstancedMesh(wakeShape, wakeMaterial, MAX_WAKES);
+  wakes.count = 0;
+  wakes.frustumCulled = false;
+  wakes.renderOrder = 2;
+  wakes.setColorAt(0, new THREE.Color(0, 0, 0));
+  group.add(wakes);
+  const wakeTint = new THREE.Color();
   const hulls = new Map<ShipKind, THREE.BufferGeometry>();
   const sails = new Map<ShipKind, THREE.BufferGeometry>();
   for (const def of SHIPS) {
@@ -247,8 +269,16 @@ export function createUnitsLayer(material: THREE.Material): UnitsLayer {
           group.add(view.group);
         }
         const blend = 1 - Math.exp(-8 * dt);
+        const lastX = view.x;
+        const lastZ = view.z;
         view.x += (ship.x - view.x) * blend;
         view.z += (ship.y - view.z) * blend;
+        if (running && dt > 0) {
+          // The wake follows the speed; in pause it stays as it was.
+          const speed = Math.hypot(view.x - lastX, view.z - lastZ) / dt;
+          const wanted = Math.min(1, speed / WAKE_FULL_SPEED);
+          view.wake += (wanted - view.wake) * Math.min(1, dt * WAKE_EASE);
+        }
         let turn = ship.heading - view.heading;
         turn = Math.atan2(Math.sin(turn), Math.cos(turn));
         view.heading += turn * blend;
@@ -280,6 +310,28 @@ export function createUnitsLayer(material: THREE.Material): UnitsLayer {
           group.remove(view.group);
           ships.delete(id);
         }
+      }
+      // Wakes of the ships under way.
+      let wakeCount = 0;
+      for (const ship of game.ships) {
+        const view = ships.get(ship.id);
+        if (view !== undefined && view.wake > 0.02 && wakeCount < MAX_WAKES) {
+          const size = shipLength(ship.kind);
+          euler.set(0, -view.heading, 0);
+          quaternion.setFromEuler(euler);
+          position.set(view.x, 0, view.z);
+          scale.set(size, 1, size);
+          matrix.compose(position, quaternion, scale);
+          wakes.setMatrixAt(wakeCount, matrix);
+          wakes.setColorAt(wakeCount, wakeTint.setRGB(view.wake, 0, 0));
+          wakeCount += 1;
+        }
+      }
+      scale.set(1, 1, 1);
+      wakes.count = wakeCount;
+      wakes.instanceMatrix.needsUpdate = true;
+      if (wakes.instanceColor !== null) {
+        wakes.instanceColor.needsUpdate = true;
       }
       // Carts, a little ahead of the last step for smooth driving.
       const ahead = running ? CART_SPEED * TICK * alpha : 0;
@@ -459,6 +511,7 @@ export function createUnitsLayer(material: THREE.Material): UnitsLayer {
         ...bodyGeometries.values(),
         ...gearGeometries.values(),
         gullGeometry,
+        wakeShape,
         flagGeometry,
         barGeometry,
       ]) {
@@ -476,6 +529,7 @@ export function createUnitsLayer(material: THREE.Material): UnitsLayer {
         mesh.dispose();
       }
       gulls.dispose();
+      wakes.dispose();
     },
   };
 }
@@ -503,6 +557,7 @@ function makeShip(
     x: ship.x,
     z: ship.y,
     heading: ship.heading,
+    wake: 0,
   };
 }
 

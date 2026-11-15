@@ -1,5 +1,5 @@
 /**
- * IMPERAVIS settings: sound, shadows, weather effects, autosave, the
+ * IMPERAVIS settings: sound, graphics level, shadows, weather effects, autosave, the
  * camera at the screen edges and the starting speed.
  *
  * @module
@@ -15,13 +15,24 @@ import { TEXTS as T } from "@/games/imperavis/i18n/texts";
 import {
   autosaveSetting,
   edgeScrollSetting,
+  deviceQuality,
   mutedSetting,
+  QUALITIES,
+  qualitySetting,
   shadowsSetting,
   speedSetting,
   SPEEDS,
   weatherSetting,
+  type Quality,
 } from "@/games/imperavis/settings/preferences";
 import type { StoredValue } from "@/lib/storage/stored-value";
+
+/** The names of the graphics levels. */
+const QUALITY_LABELS: Readonly<Record<Quality, string>> = {
+  low: T.qualityLow,
+  medium: T.qualityMedium,
+  high: T.qualityHigh,
+};
 
 /**
  * Renders the settings page.
@@ -30,6 +41,9 @@ import type { StoredValue } from "@/lib/storage/stored-value";
  */
 export function ImperavisSettingsView(): ReactElement {
   const muted = useStored(mutedSetting);
+  const chosenQuality = useStored(qualitySetting);
+  const ownQuality = useDeviceQuality();
+  const quality = chosenQuality ?? ownQuality;
   const shadows = useStored(shadowsSetting);
   const weather = useStored(weatherSetting);
   const autosave = useStored(autosaveSetting);
@@ -67,6 +81,16 @@ export function ImperavisSettingsView(): ReactElement {
           label: on ? T.on : T.off,
           active: on === !muted,
           choose: () => mutedSetting.save(!on),
+        }))}
+      />
+      <Setting
+        title={T.qualityTitle}
+        hint={T.qualityHint}
+        options={QUALITIES.map((level) => ({
+          id: `quality-${level}`,
+          label: QUALITY_LABELS[level],
+          active: level === quality,
+          choose: () => qualitySetting.save(level),
         }))}
       />
       <Setting
@@ -154,4 +178,19 @@ function useStored<T>(store: StoredValue<T>): T {
     store.getSnapshot,
     store.getServerSnapshot,
   );
+}
+
+/** Nothing to subscribe to: the device does not change while the page lives. */
+function subscribeNever(): () => void {
+  return () => undefined;
+}
+
+/** The prerender knows no device and assumes a desktop. */
+function serverQuality(): Quality {
+  return "medium";
+}
+
+/** The graphics level the device would start with, hydration-safe. */
+function useDeviceQuality(): Quality {
+  return useSyncExternalStore(subscribeNever, deviceQuality, serverQuality);
 }

@@ -1,7 +1,8 @@
 /**
  * The landscape in 3D: island terrain meshes from the height map, the sea
- * floor, rivers, roads, the territory border and instanced trees and rocks
- * in chunks that the camera can cull and simplify when far away.
+ * floor, rivers, roads, the territory border, instanced trees and rocks and
+ * the small plants, in chunks that the camera can cull and simplify when far
+ * away.
  *
  * @module
  */
@@ -25,8 +26,10 @@ import {
   type Game,
   type World,
 } from "@/games/imperavis/engine/types";
-import type { SharedUniforms } from "./materials";
+import { setGroundLevel, type SharedUniforms } from "./materials";
 import { farTreeModel, treeModel } from "./models";
+import type { QualityProfile } from "./quality";
+import { createVegetationMaterial, vegetationGeometry } from "./vegetation";
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- colours, offsets and chunk sizes of the landscape */
 
@@ -56,6 +59,26 @@ const CHUNK = 24;
 /** Beyond this camera distance chunks use the simple trees. */
 const FAR_TREES = 70;
 
+/** Small plants are drawn up to this far (distance plus camera height). */
+const PLANT_REACH = 75;
+
+/** How far tree tops sway, per unit of height, at gust 1. */
+const TREE_SWAY = 0.035;
+
+/** Worn-ground mask values for a plain road and a paved road or building. */
+const MASK_ROAD = 200;
+const MASK_FULL = 255;
+
+/** The corners of a tile's two triangles, in order. */
+const TILE_CORNERS: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0, 1],
+  [1, 0],
+  [1, 0],
+  [0, 1],
+  [1, 1],
+];
+
 /** Tiles of sea floor drawn around each island. */
 const SHELF = 5;
 
@@ -74,16 +97,32 @@ const PAVED_LIFT = 0.08;
 /** The landscape objects and how to keep them current. */
 export type Landscape = {
   readonly group: THREE.Group;
-  /** Rebuilds what buildings and roads change: roads, border, trees. */
+  /** Rebuilds what buildings and roads change: roads, border, trees, plants. */
   rebuild(game: Game): void;
-  /** Per frame: tree detail by distance, border visibility. */
+  /** Per frame: tree detail by distance, plants near the camera, border. */
   update(
     camera: THREE.Camera,
     target: THREE.Vector2,
     showBorder: boolean,
     foliage: THREE.Color,
   ): void;
+  /** Takes on the ground, plants and wind of a graphics level. */
+  setProfile(profile: QualityProfile): void;
   dispose(): void;
+};
+
+/** One block of tiles with its trees and small plants. */
+type Chunk = {
+  /** Centre, tiles. */
+  readonly cx: number;
+  readonly cz: number;
+  /** First column and row. */
+  readonly x0: number;
+  readonly y0: number;
+  trees: THREE.InstancedMesh[];
+  plants: THREE.Mesh | null;
+  /** What the trees and plants were built for (roads, buildings, clearings). */
+  signature: number;
 };
 
 /**
@@ -103,21 +142,28 @@ export function createLandscape(
 ): Landscape {
   const group = new THREE.Group();
   const disposables: { dispose(): void }[] = [];
-  for (const island of world.islands) {
-    const mesh = new THREE.Mesh(
-      islandGeometry(
+  let ground = -1;
+  let density = 0;
+  let lastGame: Game | null = null;
+  const islands = world.islands.map((island) => {
+    const mesh = new THREE.Mesh(new THREE.BufferGeometry(), terrainMaterial);
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    return { island, mesh };
+  });
+  const buildIslands = () => {
+    for (const { island, mesh } of islands) {
+      mesh.geometry.dispose();
+      mesh.geometry = islandGeometry(
         world,
         island.minX - SHELF,
         island.minY - SHELF,
         island.maxX + SHELF,
         island.maxY + SHELF,
-      ),
-      terrainMaterial,
-    );
-    mesh.receiveShadow = true;
-    group.add(mesh);
-    disposables.push(mesh.geometry);
-  }
+        ground > 0,
+      );
+    }
+  };
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(world.n * 3, world.n * 3),
     new THREE.MeshLambertMaterial({ color: 0x1d3a4a }),
@@ -132,6 +178,19 @@ export function createLandscape(
     group.add(mesh);
     disposables.push(river);
   }
+  // Worn ground under roads and buildings, read by the terrain shader.
+  const maskData = new Uint8Array(world.n * world.n * 4);
+  const groundMask = new THREE.DataTexture(
+    maskData,
+    world.n,
+    world.n,
+    THREE.RGBAFormat,
+  );
+  groundMask.magFilter = THREE.LinearFilter;
+  groundMask.minFilter = THREE.LinearFilter;
+  uniforms.groundMask.value = groundMask;
+  uniforms.mapTiles.value = world.n;
+  disposables.push(groundMask);
   // Roads and the border change with the game.
   const roadMaterial = new THREE.MeshLambertMaterial({
     color: 0xa88a5f,
@@ -186,10 +245,37 @@ export function createLandscape(
     borderMaterial,
     rivalMaterial,
   );
-  // Trees and rocks.
+  // Trees sway a little in the wind; the rocks share the material but are
+  // too low to move.
+  const wind = { value: 0 };
   const foliageMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
   foliageMaterial.onBeforeCompile = (shader) => {
     shader.uniforms.uSnow = uniforms.snow;
+    shader.uniforms.uLiveTime = uniforms.liveTime;
+    shader.uniforms.uGust = uniforms.gust;
+    shader.uniforms.uWind = wind;
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+        uniform float uLiveTime;
+        uniform float uGust;
+        uniform float uWind;
+        const float TREE_SWAY = ${TREE_SWAY.toFixed(3)};`,
+      )
+      .replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+          vec2 root = vec2(instanceMatrix[3].x, instanceMatrix[3].z);
+        #else
+          vec2 root = vec2(0.0);
+        #endif
+        float bend = max(0.0, position.y - 0.4) * TREE_SWAY * uGust * uWind;
+        float phase = dot(root, vec2(0.31, 0.47));
+        transformed.x += sin(uLiveTime * 1.2 + phase) * bend;
+        transformed.z += cos(uLiveTime * 0.9 + phase * 1.7) * bend * 0.6;`,
+      );
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", "#include <common>\nuniform float uSnow;")
       .replace(
@@ -197,6 +283,7 @@ export function createLandscape(
         "#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.94, 0.98), uSnow * 0.55);",
       );
   };
+  const plantMaterial = createVegetationMaterial(uniforms, wind);
   const geometries = {
     near: [treeModel(true), treeModel(false)],
     far: [farTreeModel(true), farTreeModel(false)],
@@ -213,19 +300,23 @@ export function createLandscape(
   );
   disposables.push(
     foliageMaterial,
+    plantMaterial,
     rockGeometry,
     ...geometries.near,
     ...geometries.far,
   );
-  const chunks: { cx: number; cz: number; meshes: THREE.InstancedMesh[] }[] =
-    [];
+  const chunks: Chunk[] = [];
   const chunkCount = Math.ceil(world.n / CHUNK);
   for (let cy = 0; cy < chunkCount; cy += 1) {
     for (let cx = 0; cx < chunkCount; cx += 1) {
       chunks.push({
         cx: (cx + 0.5) * CHUNK,
         cz: (cy + 0.5) * CHUNK,
-        meshes: [],
+        x0: cx * CHUNK,
+        y0: cy * CHUNK,
+        trees: [],
+        plants: null,
+        signature: Number.NaN,
       });
     }
   }
@@ -239,78 +330,103 @@ export function createLandscape(
   const position = new THREE.Vector3();
   const scale = new THREE.Vector3();
 
-  const rebuildTrees = (game: Game) => {
-    for (const chunk of chunks) {
-      for (const mesh of chunk.meshes) {
-        group.remove(mesh);
-        mesh.dispose();
-      }
-      chunk.meshes = [];
+  /** Builds the trees of one chunk. */
+  const buildTrees = (game: Game, chunk: Chunk) => {
+    for (const mesh of chunk.trees) {
+      group.remove(mesh);
+      mesh.dispose();
     }
-    chunks.forEach((chunk, index) => {
-      const x0 = (index % chunkCount) * CHUNK;
-      const y0 = Math.floor(index / chunkCount) * CHUNK;
-      const spots: [number[], number[]] = [[], []];
-      for (let y = y0; y < Math.min(world.n, y0 + CHUNK); y += 1) {
-        for (let x = x0; x < Math.min(world.n, x0 + CHUNK); x += 1) {
-          const i = y * world.n + x;
-          const free =
-            game.cleared[i] === 0 &&
-            game.occupancy[i] === 0 &&
-            game.roads[i] === 0;
-          if (world.terrain[i] === Terrain.Forest && free) {
-            const kind = hash2(x, y, world.seed + 3) < 0.55 ? 0 : 1;
-            spots[kind].push(
-              x + 0.2 + hash2(x, y, world.seed + 5) * 0.6,
-              y + 0.2 + hash2(x, y, world.seed + 7) * 0.6,
+    chunk.trees = [];
+    const spots: [number[], number[]] = [[], []];
+    for (let y = chunk.y0; y < Math.min(world.n, chunk.y0 + CHUNK); y += 1) {
+      for (let x = chunk.x0; x < Math.min(world.n, chunk.x0 + CHUNK); x += 1) {
+        const i = y * world.n + x;
+        const free =
+          game.cleared[i] === 0 &&
+          game.occupancy[i] === 0 &&
+          game.roads[i] === 0;
+        if (world.terrain[i] === Terrain.Forest && free) {
+          const kind = hash2(x, y, world.seed + 3) < 0.55 ? 0 : 1;
+          spots[kind].push(
+            x + 0.2 + hash2(x, y, world.seed + 5) * 0.6,
+            y + 0.2 + hash2(x, y, world.seed + 7) * 0.6,
+          );
+          if (hash2(x, y, world.seed + 11) < 0.35) {
+            spots[1 - kind].push(
+              x + hash2(x, y, world.seed + 13) * 0.9,
+              y + hash2(x, y, world.seed + 17) * 0.9,
             );
-            if (hash2(x, y, world.seed + 11) < 0.35) {
-              spots[1 - kind].push(
-                x + hash2(x, y, world.seed + 13) * 0.9,
-                y + hash2(x, y, world.seed + 17) * 0.9,
-              );
-            }
           }
         }
       }
-      spots.forEach((list, kind) => {
-        const count = list.length / 2;
-        if (count > 0) {
-          const mesh = new THREE.InstancedMesh(
-            geometries.near[kind],
-            foliageMaterial,
-            count,
+    }
+    spots.forEach((list, kind) => {
+      const count = list.length / 2;
+      if (count > 0) {
+        const mesh = new THREE.InstancedMesh(
+          geometries.near[kind],
+          foliageMaterial,
+          count,
+        );
+        for (let k = 0; k < count; k += 1) {
+          const px = list[k * 2];
+          const pz = list[k * 2 + 1];
+          const size =
+            0.6 +
+            hash2(Math.floor(px * 7), Math.floor(pz * 7), world.seed) * 0.6;
+          quaternion.setFromAxisAngle(
+            up,
+            hash2(Math.floor(px * 3), Math.floor(pz * 3), world.seed + 1) *
+              Math.PI *
+              2,
           );
-          for (let k = 0; k < count; k += 1) {
-            const px = list[k * 2];
-            const pz = list[k * 2 + 1];
-            const size =
-              0.6 +
-              hash2(Math.floor(px * 7), Math.floor(pz * 7), world.seed) * 0.6;
-            quaternion.setFromAxisAngle(
-              up,
-              hash2(Math.floor(px * 3), Math.floor(pz * 3), world.seed + 1) *
-                Math.PI *
-                2,
-            );
-            position.set(px, groundHeight(world, px, pz) - 0.05, pz);
-            scale.set(size, size, size);
-            matrix.compose(position, quaternion, scale);
-            mesh.setMatrixAt(k, matrix);
-          }
-          mesh.castShadow = true;
-          mesh.computeBoundingSphere();
-          mesh.userData.kind = kind;
-          chunk.meshes.push(mesh);
-          group.add(mesh);
+          position.set(px, groundHeight(world, px, pz) - 0.05, pz);
+          scale.set(size, size, size);
+          matrix.compose(position, quaternion, scale);
+          mesh.setMatrixAt(k, matrix);
         }
-      });
+        mesh.castShadow = true;
+        mesh.computeBoundingSphere();
+        mesh.userData.kind = kind;
+        chunk.trees.push(mesh);
+        group.add(mesh);
+      }
     });
+  };
+
+  /** Builds the small plants of one chunk, as dense as the level wants. */
+  const buildPlants = (game: Game, chunk: Chunk) => {
+    if (chunk.plants !== null) {
+      group.remove(chunk.plants);
+      chunk.plants.geometry.dispose();
+      chunk.plants = null;
+    }
+    const geometry =
+      density > 0
+        ? vegetationGeometry(game, chunk.x0, chunk.y0, CHUNK, density)
+        : null;
+    if (geometry !== null) {
+      chunk.plants = new THREE.Mesh(geometry, plantMaterial);
+      chunk.plants.receiveShadow = true;
+      group.add(chunk.plants);
+    }
+  };
+
+  /** Fills the worn-ground mask from the roads and buildings. */
+  const paintMask = (game: Game) => {
+    for (let i = 0; i < world.n * world.n; i += 1) {
+      const road = game.roads[i];
+      maskData[i * 4] =
+        road === NO_ROAD ? 0 : road === PAVED_ROAD ? MASK_FULL : MASK_ROAD;
+      maskData[i * 4 + 1] = game.occupancy[i] === 0 ? 0 : MASK_FULL;
+    }
+    groundMask.needsUpdate = true;
   };
 
   return {
     group,
     rebuild(game) {
+      lastGame = game;
       roads.geometry.dispose();
       roads.geometry = roadGeometry(game, PLAIN_ROAD, ROAD_INSET, LIFT);
       paved.geometry.dispose();
@@ -321,87 +437,192 @@ export function createLandscape(
       border.geometry = borderGeometry(game, (owner) => owner === HUMAN);
       rivalBorder.geometry.dispose();
       rivalBorder.geometry = borderGeometry(game, (owner) => owner > HUMAN);
-      rebuildTrees(game);
+      paintMask(game);
+      // Only the chunks whose roads, buildings or clearings changed.
+      for (const chunk of chunks) {
+        const signature = chunkSignature(game, chunk.x0, chunk.y0);
+        if (signature !== chunk.signature) {
+          chunk.signature = signature;
+          buildTrees(game, chunk);
+          buildPlants(game, chunk);
+        }
+      }
     },
     update(camera, target, showBorder, foliage) {
       border.visible = showBorder;
       foliageMaterial.color.copy(foliage);
+      plantMaterial.color.copy(foliage);
       for (const chunk of chunks) {
-        const far =
+        const reach =
           Math.hypot(chunk.cx - target.x, chunk.cz - target.y) +
-            camera.position.y * 0.6 >
-          FAR_TREES;
-        for (const mesh of chunk.meshes) {
+          camera.position.y * 0.6;
+        const far = reach > FAR_TREES;
+        for (const mesh of chunk.trees) {
           const kind = mesh.userData.kind as number;
           mesh.geometry = far ? geometries.far[kind] : geometries.near[kind];
           mesh.castShadow = !far;
+        }
+        if (chunk.plants !== null) {
+          chunk.plants.visible = reach < PLANT_REACH;
+        }
+      }
+    },
+    setProfile(profile) {
+      wind.value = profile.wind ? 1 : 0;
+      if (profile.ground !== ground) {
+        ground = profile.ground;
+        setGroundLevel(terrainMaterial, ground);
+        buildIslands();
+      }
+      if (profile.vegetation !== density) {
+        density = profile.vegetation;
+        for (const chunk of chunks) {
+          if (lastGame !== null) {
+            buildPlants(lastGame, chunk);
+          }
         }
       }
     },
     dispose() {
       for (const chunk of chunks) {
-        for (const mesh of chunk.meshes) {
+        for (const mesh of chunk.trees) {
           mesh.dispose();
         }
+        chunk.plants?.geometry.dispose();
+      }
+      for (const { mesh } of islands) {
+        mesh.geometry.dispose();
       }
       rocks?.dispose();
       roads.geometry.dispose();
+      paved.geometry.dispose();
+      kerb.geometry.dispose();
       border.geometry.dispose();
       rivalBorder.geometry.dispose();
       for (const item of disposables) {
         item.dispose();
       }
+      uniforms.groundMask.value = null;
     },
   };
 }
 
-/** Flat-shaded quads for the tiles of one island and its shelf. */
+/**
+ * A number that changes when the roads, buildings or clearings of a chunk
+ * change, so only those chunks are rebuilt.
+ *
+ * @param game - the game
+ * @param x0 - first column of the chunk
+ * @param y0 - first row
+ * @returns the signature
+ */
+function chunkSignature(game: Game, x0: number, y0: number): number {
+  const n = game.world.n;
+  let signature = 0;
+  for (let y = y0; y < Math.min(n, y0 + CHUNK); y += 1) {
+    for (let x = x0; x < Math.min(n, x0 + CHUNK); x += 1) {
+      const i = y * n + x;
+      const tile =
+        (game.occupancy[i] === 0 ? 0 : 1) +
+        (game.roads[i] + 1) * 2 +
+        game.cleared[i] * 16;
+      signature = (Math.imul(signature, 31) + tile * (i + 1)) | 0;
+    }
+  }
+  return signature;
+}
+
+/**
+ * Quads for the tiles of one island and its shelf: flat-shaded tiles with a
+ * colour each, or on the finer ground level soft light (normals from the
+ * height map at every corner) and colours blended across tile edges. The
+ * corners stay where they are, so picking and overlays fit either way.
+ */
 function islandGeometry(
   world: World,
   x0: number,
   y0: number,
   x1: number,
   y1: number,
+  smooth: boolean,
 ): THREE.BufferGeometry {
   const n = world.n;
   const minX = Math.max(0, x0);
   const minY = Math.max(0, y0);
   const maxX = Math.min(n - 1, x1);
   const maxY = Math.min(n - 1, y1);
-  const tiles = (maxX - minX + 1) * (maxY - minY + 1);
+  const width = maxX - minX + 1;
+  const height = maxY - minY + 1;
+  const tiles = width * height;
   const positions = new Float32Array(tiles * 18);
   const colors = new Float32Array(tiles * 18);
+  const normals = new Float32Array(tiles * 18);
   const color = new THREE.Color();
   const deposit = new THREE.Color();
+  const normal = new THREE.Vector3();
+  // The colour of each tile; when smooth, each corner takes the mean of the
+  // tiles around it.
+  const tileColors = new Float32Array(tiles * 3);
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      tileColor(world, x, y, color, deposit);
+      const t = ((y - minY) * width + (x - minX)) * 3;
+      tileColors[t] = color.r;
+      tileColors[t + 1] = color.g;
+      tileColors[t + 2] = color.b;
+    }
+  }
+  const cornerColor = (cx: number, cy: number) => {
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let count = 0;
+    for (let dy = -1; dy <= 0; dy += 1) {
+      for (let dx = -1; dx <= 0; dx += 1) {
+        const tx = cx + dx - minX;
+        const ty = cy + dy - minY;
+        if (tx >= 0 && ty >= 0 && tx < width && ty < height) {
+          const t = (ty * width + tx) * 3;
+          r += tileColors[t];
+          g += tileColors[t + 1];
+          b += tileColors[t + 2];
+          count += 1;
+        }
+      }
+    }
+    color.setRGB(r / count, g / count, b / count);
+  };
+  const h = (cx: number, cy: number) =>
+    cornerHeight(
+      world,
+      THREE.MathUtils.clamp(cx, 0, n),
+      THREE.MathUtils.clamp(cy, 0, n),
+    );
   let v = 0;
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
-      const i = y * n + x;
-      const ground = world.terrain[i] as Terrain;
-      const h = tileHeight(world, x, y);
-      color.setHex(TERRAIN_COLORS[ground]);
-      if (isSea(ground)) {
-        // Shallows are sand, darkening with depth.
-        color.lerp(new THREE.Color(0x2c5566), Math.min(1, Math.max(0, -h / 3)));
-      }
-      if (world.deposits[i] !== Deposit.None) {
-        deposit.setHex(DEPOSIT_COLORS[world.deposits[i] as Deposit]);
-        color.lerp(deposit, 0.55);
-      }
-      const shade = 0.93 + hash2(x, y, world.seed + 21) * 0.12;
-      color.multiplyScalar(shade);
-      const corners = [
-        [x, y],
-        [x, y + 1],
-        [x + 1, y],
-        [x + 1, y],
-        [x, y + 1],
-        [x + 1, y + 1],
-      ];
-      for (const [cx, cy] of corners) {
-        positions[v * 3] = cx;
-        positions[v * 3 + 1] = cornerHeight(world, cx, cy);
-        positions[v * 3 + 2] = cy;
+      const t = ((y - minY) * width + (x - minX)) * 3;
+      for (const [cx, cy] of TILE_CORNERS) {
+        const px = x + cx;
+        const py = y + cy;
+        positions[v * 3] = px;
+        positions[v * 3 + 1] = cornerHeight(world, px, py);
+        positions[v * 3 + 2] = py;
+        if (smooth) {
+          cornerColor(px, py);
+          normal
+            .set(
+              h(px - 1, py) - h(px + 1, py),
+              2,
+              h(px, py - 1) - h(px, py + 1),
+            )
+            .normalize();
+          normals[v * 3] = normal.x;
+          normals[v * 3 + 1] = normal.y;
+          normals[v * 3 + 2] = normal.z;
+        } else {
+          color.setRGB(tileColors[t], tileColors[t + 1], tileColors[t + 2]);
+        }
         colors[v * 3] = color.r;
         colors[v * 3 + 1] = color.g;
         colors[v * 3 + 2] = color.b;
@@ -412,9 +633,45 @@ function islandGeometry(
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  geometry.computeVertexNormals();
+  if (smooth) {
+    geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+  } else {
+    geometry.computeVertexNormals();
+  }
   geometry.computeBoundingSphere();
   return geometry;
+}
+
+/**
+ * The colour of one tile: its terrain, shallows darkening with depth,
+ * deposits, and a little variation.
+ *
+ * @param world - the world
+ * @param x - column
+ * @param y - row
+ * @param color - set to the colour
+ * @param deposit - scratch colour
+ */
+function tileColor(
+  world: World,
+  x: number,
+  y: number,
+  color: THREE.Color,
+  deposit: THREE.Color,
+): void {
+  const i = y * world.n + x;
+  const ground = world.terrain[i] as Terrain;
+  const h = tileHeight(world, x, y);
+  color.setHex(TERRAIN_COLORS[ground]);
+  if (isSea(ground)) {
+    color.lerp(deposit.setHex(0x2c5566), Math.min(1, Math.max(0, -h / 3)));
+  }
+  if (world.deposits[i] !== Deposit.None) {
+    deposit.setHex(DEPOSIT_COLORS[world.deposits[i] as Deposit]);
+    color.lerp(deposit, 0.55);
+  }
+  const shade = 0.93 + hash2(x, y, world.seed + 21) * 0.12;
+  color.multiplyScalar(shade);
 }
 
 /** Water quads lying in the river beds. */
