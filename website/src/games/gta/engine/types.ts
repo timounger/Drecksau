@@ -1507,6 +1507,19 @@ export type Input = {
    * ignored, because walking was already a compass.
    */
   readonly steer: Vec | null;
+  /**
+   * Which way to walk, as a direction in the city, or null for the keys.
+   *
+   * @remarks
+   * **For a camera that turns.** The four keys are the four points of the
+   * compass, which is right as long as north is up the screen. Behind the
+   * player in 3D it is not: there up is wherever he faces, and "forward"
+   * can point anywhere. The view turns the keys and the stick by its own
+   * heading and sends the result here; the engine walks that way instead of
+   * reading the keys. Its length does not matter - only the direction - and
+   * nought means standing. Left out by everything that never turns.
+   */
+  readonly walk?: Vec | null;
   /** True on the frame the player gets in or out of a car. */
   readonly use: boolean;
   /**

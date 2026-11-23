@@ -1,5 +1,5 @@
 /**
- * GTA settings: how close the camera stands.
+ * GTA settings: 3D or 2D, how close the camera stands, and the clock.
  *
  * @module
  */
@@ -8,7 +8,7 @@
 import Link from "next/link";
 import { useSyncExternalStore, type ReactElement } from "react";
 import { GTA_TEXTS as T } from "@/games/gta/i18n/texts";
-import { ZOOM_STEPS } from "@/games/gta/settings/app-settings";
+import { ZOOM_STEPS, type GtaView } from "@/games/gta/settings/app-settings";
 import {
   getServerSettingsSnapshot,
   getSettingsSnapshot,
@@ -62,6 +62,38 @@ export function GtaSettingsView({
           {T.backToGame}
         </Link>
       </header>
+
+      <section className="flex flex-col gap-3 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+        <div>
+          <h2 className="text-sm font-semibold">{T.viewLabel}</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {T.viewHint}
+          </p>
+        </div>
+        <div
+          role="radiogroup"
+          aria-label={T.viewLabel}
+          className="flex flex-wrap gap-1.5"
+        >
+          {VIEWS.map((view) => (
+            <button
+              key={view}
+              type="button"
+              role="radio"
+              aria-checked={view === settings.view}
+              data-testid={`gta-view-${view}`}
+              onClick={() => updateSettings({ ...settings, view })}
+              className={`h-11 w-24 cursor-pointer rounded-lg border text-sm font-semibold ${
+                view === settings.view
+                  ? "border-indigo-500 bg-indigo-600 text-white"
+                  : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {view === "3d" ? T.view3d : T.view2d}
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="flex flex-col gap-3 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
         <div>
@@ -156,6 +188,9 @@ function blocksAcross(zoom: number): number {
   const block = TILE * BLOCK_TILES;
   return Math.round((VIEW_WIDTH / zoom / block) * TENTHS) / TENTHS;
 }
+
+/** The two pictures on offer, the default first. */
+const VIEWS: readonly GtaView[] = ["3d", "2d"];
 
 /** Rounding to one decimal, which is as fine as "how much fits" gets. */
 const TENTHS = 10;

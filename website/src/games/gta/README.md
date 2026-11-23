@@ -12,12 +12,17 @@ kann.
 ## Spielen
 
 - Gegen die Stadt: `/gta`
-- **W A S D** oder Pfeiltasten: zu Fuß in alle vier Richtungen, im Auto Gas,
-  Bremse und Lenkung
+- **W A S D** oder Pfeiltasten: zu Fuß in alle vier Richtungen - in 3D
+  relativ zur Kamera hinter dir, in 2D nach den Himmelsrichtungen -, im Auto
+  Gas, Bremse und Lenkung
+- **Klick ins Bild** (3D): fängt die Maus, dann dreht sie die Kamera und
+  geschossen wird aufs Fadenkreuz; **Esc** gibt sie frei
 - **Maus**: zu Fuß der Blick - **Klick** schießt dorthin
 - **E** oder **Enter**: ein- und aussteigen
 - **Shift** halten: rennen. Mit dem **Cheat-Modus** zu Fuß zehnfach, im Auto
   dreifach
+- **V** oder der Knopf **Ansicht** über dem Spiel: zwischen 3D und 2D
+  umschalten
 
 ## Was von GTA San Andreas übrig bleibt
 
@@ -85,6 +90,96 @@ fahren kann, ist kein Wagen.
 Geschossen wird nur zu Fuß. Ein Drive-by wäre ein anderes Spiel - er braucht
 eine zweite Hand am Lenkrad, und ein schießendes Auto macht aus jeder Verfolgung
 ein Schießbudenspiel.
+
+## Die 3D-Ansicht - und die Schrägsicht bleibt
+
+Standardmäßig ist die Stadt in **3D** zu sehen: eine echte three.js-Szene mit
+gekippter Perspektivkamera, Licht, Schatten und Nacht, gebaut nach dem Muster
+von IMPERAVIS. Die bisherige 2D-Schrägsicht bleibt vollständig erhalten.
+Umgeschaltet wird mit **V**, mit dem Knopf **Ansicht** oben oder in den
+Einstellungen (**Ansicht: 3D | 2D**) - mitten im Spiel, ohne Neuladen: das
+Spiel läuft im selben Zustand weiter, nur das Bild wechselt.
+
+**Gespeichert** wird die Wahl in den GTA-Einstellungen (`view`). Ältere
+Einträge ohne das Feld werden als 3D gelesen; die Schema-Version ist
+unverändert geblieben. Kann der Browser kein WebGL, fällt das Spiel still auf
+2D zurück.
+
+**Der Motor weiß davon nichts.** Die Szene liest den Zustand jedes Bild neu
+und ändert nie etwas. Stadt-x ist three-x, Stadt-y ist three-z, alles in
+Stadtpixeln - nur Höhen (Dächer, Jetpack, Hubschrauber) werden mit
+`HEIGHT_SCALE` (2) gestreckt, damit aus 26 Pixeln Bungalow ein Haus mit
+Stockwerken wird. Weil das für *jede* Höhe gilt, landet der Jetpack auf dem
+Dach, das man sieht.
+
+**Wo der Code liegt:** `components/three/`. Geladen wird er erst, wenn 3D
+gewählt ist (`import()` im Hook) - three.js landet in keinem anderen Bundle,
+und die 2D-Ansicht bleibt so leicht wie vorher.
+
+- `view.ts` - Renderer, Licht nach der Uhrzeit (dieselbe Tabelle wie das
+  2D-Licht, `hourLight`), Schattenkamera, die mit dem Blick wandert, und die
+  Nachbearbeitung von IMPERAVIS (`createPost`) für das Glühen bei Nacht.
+- `ground.ts` - **der Boden ist das 2D-Bild.** `drawFloor` in `render.ts`
+  malt Felder, Spurmarkierung, Brückendecks, Gleise, Parkplätze und Rollbahn
+  mit genau den Funktionen der Schrägsicht, nur senkrecht von oben. Einmal
+  grob für die ganze Karte, darüber scharfe Kacheln rund um die Kamera, ein
+  bis zwei pro Bild nachgemalt. Wasser bleibt durchsichtig; darunter liegt ein
+  bewegtes Meer mit Brandung an den Ufern.
+- `city.ts` - die Häuser kommen aus dem Boden selbst: jedes Gebäudefeld, so
+  hoch wie `roofAt`, zu Kästen zusammengefasst. Fassaden mit Fenstern (nachts
+  zum Teil erleuchtet), Dachrand, Klimageräte, Wassertanks, Antennen,
+  Schilder über den benannten Häusern, Bäume, Straßenlaternen mit
+  Lichtkegeln, Ampeln in der aktuellen Farbe, Zäune.
+- `models.ts` - alle Modelle aus einfachen Formen. Die Fahrzeuge werden aus
+  den Umrissen gebaut, nach denen die 2D-Ansicht sie zeichnet
+  (`bodyOutline`, `cabinOutline`, `tiersOf`) - gleich lang, breit und hoch
+  in beiden Ansichten.
+- `actors.ts`, `effects.ts` - alles, was sich bewegt oder passiert: Verkehr,
+  Polizei (mit Blaulicht), Leute (gekleidet wie in 2D, mit Schrittbewegung,
+  liegend, sitzend, mit Waffe), Katzen und Hunde, Hubschrauber, Flugzeuge,
+  Zug, Flak, Schüsse, Raketen, Explosionen (mit Lichtblitz), Feuer, Rauch,
+  Reifenspuren, Pickups, Sprengladungen und die Ringe der Aufträge und Läden.
+  Je Sorte ein instanziertes Mesh (`batch.ts`), nur was in Reichweite ist.
+- `camera.ts` - dritte Person: die Kamera steht hinter dem Spieler und dreht
+  sich mit, geradeaus im Bild ist immer geradeaus für ihn. Hinter einem
+  Lenkrad schwenkt sie dem Wagen nach; zu Fuß dreht sie die gefangene Maus
+  (Pointer Lock, erster Klick ins Bild, Esc lässt los). Ohne gefangene Maus -
+  auf dem Handy oder vor dem ersten Klick - folgt sie nur, wer geradeaus
+  läuft: wer zur Seite tritt, lässt sie stehen, sonst liefe er im Kreis. Der
+  Zoom der Einstellungen ist der Abstand hinter ihm, schnelles Fahren zieht
+  sie zurück, Jetpack und Hubschrauber nehmen sie mit nach oben.
+
+**Laufen relativ zur Kamera.** Die Tasten und der Daumenstick werden in 3D
+um die Blickrichtung der Kamera gedreht und gehen als Richtung
+(`Input.walk`) an die Engine - vier Tasten nach Himmelsrichtung können eine
+schräg stehende Kamera nicht ausdrücken. Im Auto bleibt alles wie es war:
+Gas, Bremse und Lenkung beziehen sich ohnehin auf den Wagen. Der Stick am
+Handy, der im Auto eine Kompassrichtung schickt, wird ebenfalls gedreht.
+
+**Zielen.** Die Maus ist in 3D ein Strahl und wird dort auf die Stadt gelegt,
+wo er die Höhe trifft, auf der Schüsse fliegen (Brusthöhe) - der Schuss geht
+also genau durch das Fadenkreuz. Bei gefangener Maus ist das ein festes
+Fadenkreuz knapp über der Bildmitte; ein Strahl über dem Horizont wird flach
+gelegt und weit voraus abgesetzt. Liegt die Maus auf dem Polizeihubschrauber,
+wird daraus der Punkt, an dem der Motor einen Treffer auf ihn prüft; Schüsse
+auf den Hubschrauber treffen damit in 3D wie in 2D.
+
+**Nichts verschwindet hinter Häusern.** Was zwischen Kamera und Figur steht,
+wird an dieser Stelle zu einem Punktraster ausgedünnt - man sieht durch das
+Haus, ohne dass es verschwindet.
+
+**Das Armaturenbrett bleibt 2D.** Über der WebGL-Leinwand liegt die alte
+Leinwand (`gta-canvas`), in 3D durchsichtig, mit Karte, Status, Auftrag,
+Radio, Knöpfen und den Touch-Steuerelementen (`drawHud`). Klicks, Touch und
+alle Testkennungen gehen weiter an dieselbe Leinwand.
+
+**Innenräume** - Bank, Notendruckerei, Gefängnis - zeigt auch die 3D-Ansicht
+mit den bisherigen 2D-Renderern; draußen geht es in 3D weiter.
+
+**Qualität** wählt das Gerät: Telefone und Touch bekommen eine leichtere
+Stufe (weniger Pixel, kleinere Schatten, weniger Bäume, kein Glühen), alles
+andere die volle. Beim Wechsel auf 2D wird alles auf der GPU freigegeben und
+der WebGL-Kontext zurückgegeben.
 
 ## Die Schrägsicht
 

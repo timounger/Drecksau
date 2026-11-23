@@ -15,9 +15,11 @@ export const GTA_RULES: GameRules = {
     {
       title: "Steuerung",
       body: [
-        "W A S D oder die Pfeiltasten. Zu Fuß sind das die vier Himmelsrichtungen: W geht nach oben, egal wohin du schaust. Im Auto sind es Gas, Bremse und Lenkung; rückwärts fährt, wer im Stand weiter bremst.",
+        "W A S D oder die Pfeiltasten. In 3D steht die Kamera hinter dir und dreht sich mit: W geht immer geradeaus ins Bild, S zurück, A und D zur Seite. In der 2D-Ansicht sind es zu Fuß die vier Himmelsrichtungen - W geht nach oben, egal wohin du schaust. Im Auto sind es Gas, Bremse und Lenkung; rückwärts fährt, wer im Stand weiter bremst.",
         "Die Maus ist dein Blick: Zu Fuß drehst du dich immer dorthin, wo der Zeiger steht. So kannst du rückwärts weglaufen und dabei nach vorn zielen.",
+        "In 3D fängt der erste Klick ins Bild die Maus: Dann dreht die Maus die Kamera, und geschossen wird auf das Fadenkreuz in der Mitte. Esc gibt die Maus wieder frei. Ohne gefangene Maus - und auf dem Handy - schwenkt die Kamera von selbst hinter dich, sobald du geradeaus läufst. Im Auto bleibt sie immer hinter dem Wagen.",
         "Linke Maustaste: schießen, dorthin, wo der Zeiger steht. Nur zu Fuß - aus dem fahrenden Auto wird nicht geschossen.",
+        'V: zwischen der 3D-Ansicht und der 2D-Schrägsicht umschalten. Auf dem Handy geht das über den Knopf "Ansicht" über dem Spiel.',
         "Rechte Maustaste: im Panzer das Maschinengewehr neben der Kanone, solange du sie gedrückt hältst. Zu Fuß legt sie mit dem Fernzünder in der Hand eine Ladung ab.",
         "Mausrad: zu Fuß die Waffe wechseln - leere Fächer werden übersprungen. Im Auto dreht dasselbe Rad am Radio und schaltet den Sender weiter.",
         "Am Hafen liegen an drei Stegen Motorboote: einsteigen wie in ein Auto, losfahren, und an Land kommen sie nicht - Wasser ist für sie die Straße. Wer mitten auf dem Wasser aussteigt, schwimmt. Vom Hafen führt eine Meerenge quer durch die Karte bis an den Ostrand; wo Straße oder Bahn sie kreuzen, steht eine Brücke, und da fährst du mit dem Boot einfach darunter hindurch.",
@@ -77,6 +79,7 @@ export const GTA_RULES: GameRules = {
         "Jeder erledigte Auftrag zählt für das Viertel, in dem er endet. Drei Aufträge, und das Viertel gehört dir.",
         "Die Karte unten links zeigt die ganze Stadt: der weiße Punkt bist du, gelb oder grün ist der Auftrag, hellblau die Lackiererei, dunkelblau jede Streife.",
         "Wie nah die Kamera steht, stellst du in den Einstellungen ein - von 1,5-fach bis 6-fach. Näher heißt größer, aber weniger Übersicht.",
+        'Die Stadt ist standardmäßig in 3D zu sehen: echte Häuser, Licht und Schatten, nachts Straßenlaternen und Scheinwerfer. Die Taste V oder der Knopf "Ansicht" oben schaltet mitten im Spiel auf die bisherige 2D-Schrägsicht und zurück - das Spiel läuft dabei einfach weiter. Dauerhaft einstellen lässt es sich in den Einstellungen. Steht ein Haus zwischen Kamera und Figur, wird es an dieser Stelle durchsichtig. Bank, Druckerei und Gefängnis von innen zeigt auch die 3D-Ansicht in 2D.',
       ],
     },
     {

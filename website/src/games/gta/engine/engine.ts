@@ -2214,10 +2214,12 @@ function walk(
   dt: number,
   steer: Vec | null = null,
 ): GameState {
+  // A turned camera sends its own direction - see {@link Input.walk}.
+  const along = steer ?? input.walk ?? null;
   const dx =
-    steer === null ? (input.right ? 1 : 0) - (input.left ? 1 : 0) : steer.x;
+    along === null ? (input.right ? 1 : 0) - (input.left ? 1 : 0) : along.x;
   const dy =
-    steer === null ? (input.down ? 1 : 0) - (input.up ? 1 : 0) : steer.y;
+    along === null ? (input.down ? 1 : 0) - (input.up ? 1 : 0) : along.y;
   const length = Math.hypot(dx, dy);
   // **In the water one swims, and swimming is slow.** Two speeds rather than
   // one: on the surface he is paddling with his head out of it, under it he is

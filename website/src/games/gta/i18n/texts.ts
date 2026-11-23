@@ -44,6 +44,14 @@ export const GTA_TEXTS = {
   dayOn: "An",
   dayOff: "Aus",
   dayHours: "Ein ganzer Tag dauert 24 Minuten.",
+  viewLabel: "Ansicht",
+  viewHint:
+    "3D zeigt die Stadt mit echter Höhe, Licht, Schatten und Nacht. 2D ist die bisherige Schrägsicht und schont schwache Geräte. Im Spiel schaltet die Taste V um.",
+  view3d: "3D",
+  view2d: "2D",
+  viewButton: (view: string): string => `Ansicht: ${view.toUpperCase()}`,
+  view2dFallback:
+    "Dieses Gerät kann kein WebGL - es wird die 2D-Ansicht gezeigt.",
   radioLabel: "Autoradio",
   radioHint:
     "Steigst du in ein Auto, läuft ein Sender - beim nächsten Auto ein anderer. Mit dem Mausrad schaltest du im Auto weiter; unten rechts steht, was läuft. Die Lieder liegen in public/gta/radio/.",

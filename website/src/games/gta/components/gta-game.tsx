@@ -160,6 +160,7 @@ export function GtaScreen({
     loading,
     attach,
     onPointer,
+    onCatch,
     onPress,
     onFire,
     onPlant,
@@ -173,6 +174,10 @@ export function GtaScreen({
     save,
     load,
     forget,
+    view,
+    noGl,
+    attachGl,
+    toggleView,
   } = useGtaGame(stations, tunes);
 
   // The picture, on its own, is what fills the screen: the ticker and the
@@ -211,6 +216,20 @@ export function GtaScreen({
         >
           {T.god}
         </button>
+        <button
+          type="button"
+          data-testid="gta-view"
+          aria-pressed={view === "3d"}
+          title={noGl ? T.view2dFallback : T.viewHint}
+          onClick={(event) => {
+            toggleView();
+            // Off the button again, for the same reason as the cheat.
+            event.currentTarget.blur();
+          }}
+          className={LINK}
+        >
+          {T.viewButton(view)}
+        </button>
         <VolumeSlider />
         {fullscreen.supported && (
           <button
@@ -241,6 +260,19 @@ export function GtaScreen({
             art={pick(splashes, loading.art)}
           />
         )}
+        {/* **The 3D picture lies under the 2D one.** In 3D the canvas on top
+            turns see-through and carries only the dashboard - the map, the
+            money, the goal, the buttons - so every press and every test
+            still goes to the same canvas. The WebGL one is only in the page
+            while 3D is asked for: taking it out is what gives the GPU back. */}
+        {view === "3d" && (
+          <canvas
+            ref={attachGl}
+            data-testid="gta-canvas-3d"
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 block h-full w-full"
+          />
+        )}
         <canvas
           ref={(box) => {
             shot.current = box;
@@ -253,8 +285,10 @@ export function GtaScreen({
           onPointerDown={(event) => {
             onPointer(event);
             // A button drawn into the picture takes the press first: buying a
-            // pistol must not also swing a fist at the shopkeeper.
-            if (onPress(event)) {
+            // pistol must not also swing a fist at the shopkeeper. In 3D the
+            // first click out in the city catches the mouse for the camera
+            // and fires nothing.
+            if (onPress(event) || onCatch(event)) {
               return;
             }
             // Left sets things off, right puts them down. The context menu is
@@ -283,7 +317,7 @@ export function GtaScreen({
           onContextMenu={(event) => event.preventDefault()}
           // touch-none: a thumb on the stick must drive the game, not scroll
           // the page out from under it.
-          className="block w-full touch-none cursor-crosshair bg-zinc-900"
+          className="relative block w-full touch-none cursor-crosshair bg-zinc-900"
           style={{ aspectRatio: `${VIEW_WIDTH} / ${VIEW_HEIGHT}` }}
         />
         {fullscreen.active && (
@@ -319,7 +353,11 @@ export function GtaScreen({
         <h2 className="mb-1 text-sm font-semibold">{T.controls}</h2>
         <ul className="flex flex-col gap-0.5 text-zinc-600 dark:text-zinc-400">
           <li>
-            <b>W A S D</b> - bewegen
+            <b>W A S D</b> - bewegen, in 3D relativ zur Kamera
+          </li>
+          <li>
+            <b>Klick ins Bild</b> - in 3D Maus fangen: Maus dreht die Kamera,{" "}
+            <b>Esc</b> gibt sie frei
           </li>
           <li>
             <b>Shift</b> - rennen
@@ -330,6 +368,9 @@ export function GtaScreen({
           <li>
             <b>Leertaste</b> - Jetpack steigen, im Wasser tauchen, im Auto
             Handbremse
+          </li>
+          <li>
+            <b>V</b> - Ansicht 3D / 2D umschalten
           </li>
         </ul>
       </section>

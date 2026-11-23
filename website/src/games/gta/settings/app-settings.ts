@@ -39,6 +39,19 @@ export const DEFAULT_ZOOM = 1.5;
 export const ZOOM_STEPS: readonly number[] = [1, 1.5, 2, 2.5, 3];
 /* eslint-enable @typescript-eslint/no-magic-numbers */
 
+/**
+ * How the city is shown.
+ *
+ * @remarks
+ * `3d` is the lit three.js city with real height, shadows and night; `2d` is
+ * the tilted canvas picture the game was drawn in before. The same game
+ * underneath either way - switching changes the picture, never the city.
+ */
+export type GtaView = "3d" | "2d";
+
+/** The view a first-time visitor sees, and what an old entry without one gets. */
+export const DEFAULT_VIEW: GtaView = "3d";
+
 /** What the player can configure. */
 export type GtaSettings = {
   /** How much closer than life size the city is drawn. */
@@ -52,12 +65,22 @@ export type GtaSettings = {
    * it is half past eleven.
    */
   readonly dayNight: boolean;
+  /**
+   * Which picture the city is drawn in.
+   *
+   * @remarks
+   * Added after the first version of this entry, which is why it is read
+   * with a fallback rather than with a new schema version: an entry written
+   * before it simply has none, and gets the default.
+   */
+  readonly view: GtaView;
 };
 
 /** What a first-time visitor plays with. */
 export const DEFAULT_SETTINGS: GtaSettings = {
   zoom: DEFAULT_ZOOM,
   dayNight: false,
+  view: DEFAULT_VIEW,
 };
 
 /**
@@ -70,6 +93,7 @@ export function loadSettings(): GtaSettings {
   return {
     zoom: clampZoom(stored?.zoom),
     dayNight: stored?.dayNight === true,
+    view: viewOf(stored?.view),
   };
 }
 
@@ -82,6 +106,7 @@ export function saveSettings(settings: GtaSettings): void {
   writeStored(SETTINGS_KEY, SETTINGS_VERSION, {
     zoom: clampZoom(settings.zoom),
     dayNight: settings.dayNight,
+    view: viewOf(settings.view),
   });
 }
 
@@ -99,6 +124,16 @@ export function clampZoom(zoom: unknown): number {
       Math.abs(step - wanted) < Math.abs(best - wanted) ? step : best,
     DEFAULT_ZOOM,
   );
+}
+
+/**
+ * A view read back from storage or a control.
+ *
+ * @param view - whatever was stored
+ * @returns `2d` only where that was asked for, otherwise the default
+ */
+export function viewOf(view: unknown): GtaView {
+  return view === "2d" ? "2d" : DEFAULT_VIEW;
 }
 
 /** Whether a stored value could be a settings object at all. */

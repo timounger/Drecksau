@@ -17,7 +17,8 @@ import {
   useState,
   type PointerEvent,
 } from "react";
-import { draw } from "@/games/gta/components/render";
+import { draw, drawHud } from "@/games/gta/components/render";
+import type { ThreeView } from "@/games/gta/components/three/view";
 import { actionAt } from "@/games/gta/components/gta-actions";
 import { drawBank } from "@/games/gta/components/bank-render";
 import { drawMint } from "@/games/gta/components/mint-render";
@@ -41,10 +42,15 @@ import {
   worldAt,
   FLAT,
 } from "@/games/gta/components/projection";
-import { DEFAULT_ZOOM } from "@/games/gta/settings/app-settings";
+import {
+  DEFAULT_VIEW,
+  DEFAULT_ZOOM,
+  type GtaView,
+} from "@/games/gta/settings/app-settings";
 import {
   getSettingsSnapshot,
   subscribeSettings,
+  updateSettings,
 } from "@/games/gta/settings/settings-store";
 import {
   breakOut,
@@ -125,6 +131,25 @@ const MS_PER_SECOND = 1000;
  * stick walks, more and a phone feels slow to turn.
  */
 const STICK_GATE = 0.34;
+
+/** How far a caught mouse turns the 3D camera, radians per screen pixel. */
+const MOUSE_TURN = 0.0035;
+
+/**
+ * Where the crosshair of a caught mouse sits, as shares of the picture.
+ *
+ * @remarks
+ * A little above the middle: the camera looks at a point just ahead of the
+ * player, so the middle of the picture is at his feet, and a shot aimed there
+ * would go into the road in front of him rather than down the street.
+ */
+const CROSS_U = 0.5;
+const CROSS_V = 0.4;
+
+/** The crosshair: arm length, the gap in the middle and the line width. */
+const CROSS_ARM = 9;
+const CROSS_GAP = 3;
+const CROSS_LINE = 2;
 
 /** What the screen needs to know about the city. */
 export type Heads = {
@@ -243,6 +268,12 @@ export type GtaSession = {
   readonly onPointer: (event: PointerEvent<HTMLCanvasElement>) => void;
   /** The mouse button, down and up. */
   readonly onFire: (down: boolean) => void;
+  /**
+   * A press that catches the mouse for the 3D camera.
+   *
+   * @returns true if the press was spent catching it, and does nothing else
+   */
+  readonly onCatch: (event: PointerEvent<HTMLCanvasElement>) => boolean;
   /** The right button, once per press: one charge on the ground. */
   readonly onPlant: () => void;
   /** And the same button held down, which is the tank's machine gun. */
@@ -275,6 +306,20 @@ export type GtaSession = {
   readonly load: (at: number) => void;
   /** And throws one away. */
   readonly forget: (at: number) => void;
+  /**
+   * Which picture the settings ask for.
+   *
+   * @remarks
+   * `3d` until the browser has said it cannot do WebGL; then `2d` for the
+   * rest of the visit, whatever the settings say.
+   */
+  readonly view: GtaView;
+  /** Whether WebGL turned out not to be there, so 3D fell back to 2D. */
+  readonly noGl: boolean;
+  /** Hand the WebGL canvas over as soon as it exists. */
+  readonly attachGl: (canvas: HTMLCanvasElement | null) => void;
+  /** Switches between 3D and 2D, for good - it is written to the settings. */
+  readonly toggleView: () => void;
   /** What the player pressed at a counter - bought, refilled, robbed, ran. */
   readonly order: (order: Order) => void;
   /**
@@ -388,6 +433,41 @@ const SHARPEST = 2;
 const FIT_EVERY = 20;
 
 /**
+ * The crosshair of a caught mouse, where the shot goes: four short arms
+ * round a gap, white on a dark edge so it reads on a sunny wall and at night.
+ *
+ * @param ctx - the dashboard canvas, in view pixels
+ */
+function drawCross(ctx: CanvasRenderingContext2D): void {
+  const x = CROSS_U * VIEW_WIDTH;
+  const y = CROSS_V * VIEW_HEIGHT;
+  ctx.save();
+  ctx.lineCap = "round";
+  for (const [color, width] of [
+    ["rgba(0,0,0,0.6)", CROSS_LINE * 2],
+    ["#ffffff", CROSS_LINE],
+  ] as const) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      ctx.moveTo(x + dx * CROSS_GAP, y + dy * CROSS_GAP);
+      ctx.lineTo(
+        x + dx * (CROSS_GAP + CROSS_ARM),
+        y + dy * (CROSS_GAP + CROSS_ARM),
+      );
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
  * Gives the canvas as many real pixels as its box and the display allow.
  *
  * @param box - the canvas on screen
@@ -408,6 +488,17 @@ function fitCanvas(box: HTMLCanvasElement): void {
     box.height = high;
   }
 }
+
+/** The key that switches between 3D and 2D. */
+const VIEW_KEY = "KeyV";
+
+/** Which phases are the city, which the 3D view draws - the rest are rooms. */
+const OUTDOORS: ReadonlySet<Phase> = new Set<Phase>([
+  "playing",
+  "busted",
+  "wasted",
+  "won",
+]);
 
 /** Which key does what. */
 const KEYS: Readonly<Record<string, keyof Input>> = {
@@ -495,6 +586,12 @@ export function useGtaGame(
   // Whether the day runs at all - read from the settings the same way the zoom
   // is, so switching it on shows up in the next frame.
   const daylight = useRef(false);
+  // Which picture: the setting, mirrored into state for the screen, and the
+  // 3D view itself once it has been loaded and made.
+  const [view, setView] = useState<GtaView>(DEFAULT_VIEW);
+  const [noGl, setNoGl] = useState(false);
+  const [glCanvas, setGlCanvas] = useState<HTMLCanvasElement | null>(null);
+  const three = useRef<ThreeView | null>(null);
   const [heads, setHeads] = useState<Heads>(START_HEADS);
   const counted = useRef(false);
 
@@ -523,6 +620,17 @@ export function useGtaGame(
     [onWheel],
   );
 
+  /** The WebGL canvas, in state: making the 3D view waits for it. */
+  const attachGl = useCallback((element: HTMLCanvasElement | null) => {
+    setGlCanvas(element);
+  }, []);
+
+  /** 3D to 2D and back, written to the settings like the page does it. */
+  const toggleView = useCallback(() => {
+    const now = getSettingsSnapshot();
+    updateSettings({ ...now, view: now.view === "3d" ? "2d" : "3d" });
+  }, []);
+
   /** Hands Shift to the loop. */
   const applyRun = useCallback(() => {
     keys.current = { ...keys.current, boost: held.current };
@@ -543,12 +651,49 @@ export function useGtaGame(
     if (event.pointerType === "touch") {
       return;
     }
+    // **A caught mouse has no place, only movement**: sideways it turns the
+    // camera, and the crosshair stays where it is drawn.
+    if (document.pointerLockElement === event.currentTarget) {
+      three.current?.turn(event.movementX * MOUSE_TURN);
+      return;
+    }
     const rect = event.currentTarget.getBoundingClientRect();
     pointer.current = {
       x: ((event.clientX - rect.left) / rect.width) * VIEW_WIDTH,
       y: ((event.clientY - rect.top) / rect.height) * VIEW_HEIGHT,
     };
   }, []);
+
+  /**
+   * Catches the mouse for the camera behind the player.
+   *
+   * @remarks
+   * Only with a mouse, only out in the 3D city, and only with the left
+   * button: the first click in the picture catches it, and that click fires
+   * nothing. Esc lets it go again - the browser's own rule, and the one way
+   * out that always works. Inside the bank, the mint or the jail, which are
+   * drawn flat, nothing is caught.
+   */
+  const onCatch = useCallback(
+    (event: PointerEvent<HTMLCanvasElement>): boolean => {
+      const box = event.currentTarget;
+      const wanted =
+        event.pointerType === "mouse" &&
+        event.button === 0 &&
+        three.current !== null &&
+        OUTDOORS.has(world.current.phase) &&
+        document.pointerLockElement !== box &&
+        typeof box.requestPointerLock === "function";
+      if (wanted) {
+        // Some browsers answer with a promise that can be turned down - a
+        // page that just let go has to wait a moment - and then nothing
+        // happens but the press itself being spent.
+        Promise.resolve(box.requestPointerLock()).catch(() => undefined);
+      }
+      return wanted;
+    },
+    [],
+  );
 
   /** The trigger. */
   const onFire = useCallback((down: boolean) => {
@@ -599,10 +744,15 @@ export function useGtaGame(
   const onPress = useCallback(
     (event: PointerEvent<HTMLCanvasElement>): boolean => {
       const rect = event.currentTarget.getBoundingClientRect();
-      return pressAt({
-        x: ((event.clientX - rect.left) / rect.width) * VIEW_WIDTH,
-        y: ((event.clientY - rect.top) / rect.height) * VIEW_HEIGHT,
-      });
+      // A caught mouse points at the crosshair, not at a button.
+      const caught = document.pointerLockElement === event.currentTarget;
+      return (
+        !caught &&
+        pressAt({
+          x: ((event.clientX - rect.left) / rect.width) * VIEW_WIDTH,
+          y: ((event.clientY - rect.top) / rect.height) * VIEW_HEIGHT,
+        })
+      );
     },
     [pressAt],
   );
@@ -764,6 +914,13 @@ export function useGtaGame(
       const key = KEYS[event.code];
       held.current = event.shiftKey;
       applyRun();
+      // Not while somebody is typing the name of a saved game.
+      const typing =
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement;
+      if (event.code === VIEW_KEY && !event.repeat && !typing) {
+        toggleView();
+      }
       if (key !== undefined) {
         event.preventDefault();
         if (key === "use" && !keys.current.use) {
@@ -801,7 +958,7 @@ export function useGtaGame(
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("resize", onResize);
     };
-  }, [applyRun]);
+  }, [applyRun, toggleView]);
 
   // The camera setting, now and whenever it changes - here and in other tabs.
   useEffect(() => {
@@ -809,6 +966,7 @@ export function useGtaGame(
       const settings = getSettingsSnapshot();
       zoom.current = settings.zoom;
       daylight.current = settings.dayNight;
+      setView(settings.view);
     };
     read();
     return subscribeSettings(read);
@@ -854,6 +1012,60 @@ export function useGtaGame(
   // that attempt away, and the last one standing is the one on the screen.
   useEffect(() => build(true), [build]);
 
+  // The 3D view: loaded when it is asked for and there is a canvas and a city
+  // to put on it, thrown away - and the GPU with it - when either goes.
+  const standing = loading === null;
+  useEffect(() => {
+    let dropped = false;
+    if (view === "3d" && !noGl && glCanvas !== null && standing) {
+      import("@/games/gta/components/three/view")
+        .then(({ createThreeView }) => {
+          if (!dropped) {
+            const made = createThreeView(glCanvas, world.current);
+            if (made === null) {
+              setNoGl(true);
+            }
+            three.current = made;
+          }
+        })
+        .catch(() => {
+          if (!dropped) {
+            setNoGl(true);
+          }
+        });
+    }
+    return () => {
+      dropped = true;
+      three.current?.dispose();
+      three.current = null;
+    };
+  }, [view, noGl, glCanvas, standing]);
+
+  // A handle for the browser scripts that check the game: the city as it
+  // stands, to read and to set, and what the 3D view costs. Development only.
+  useEffect(() => {
+    const debug = process.env.NODE_ENV !== "production";
+    if (debug) {
+      Object.assign(window, {
+        gtaDebug: {
+          get: (): GameState => world.current,
+          set: (next: GameState): void => {
+            world.current = next;
+          },
+          stats: () => three.current?.stats() ?? null,
+          screenOf: (x: number, y: number, high: number) =>
+            three.current?.screenOf(x, y, high) ?? null,
+          heading: () => three.current?.heading() ?? null,
+        },
+      });
+    }
+    return () => {
+      if (debug) {
+        Reflect.deleteProperty(window, "gtaDebug");
+      }
+    };
+  }, []);
+
   // The loop itself.
   useEffect(() => {
     let frame = 0;
@@ -861,6 +1073,8 @@ export function useGtaGame(
     let last = performance.now();
     let played = last;
     let kept = played;
+    // Whether the canvas is see-through for the 3D view under it right now.
+    let glazed = false;
     const tick = (now: number) => {
       // Nothing to step and nothing to draw until there is a city: while it is
       // being laid out the loading screen has the canvas covered anyway.
@@ -903,15 +1117,35 @@ export function useGtaGame(
           : world.current.phase === "mint"
             ? world.current.mint
             : null;
-      const aim = worldAt(
-        room === null ? world.current.player : room.hero,
-        VIEW_WIDTH,
-        VIEW_HEIGHT,
-        point.x,
-        point.y,
-        zoom.current,
-        room === null ? DEPTH : FLAT,
-      );
+      // **And through the 3D camera when that is what is on the screen**:
+      // there the mouse is a ray, and it is put on the city where it meets
+      // the height shots fly at.
+      const lens = three.current;
+      const shown3d = lens !== null && OUTDOORS.has(world.current.phase);
+      // A caught mouse aims through the crosshair; anywhere flat it is let
+      // go, or the pointer would stay hidden over a picture that needs it.
+      const caught = box !== null && document.pointerLockElement === box;
+      if (caught && !shown3d) {
+        document.exitPointerLock();
+      }
+      const aim =
+        shown3d && room === null && caught
+          ? lens.aim(CROSS_U, CROSS_V, world.current)
+          : shown3d && room === null
+            ? lens.aim(
+                point.x / VIEW_WIDTH,
+                point.y / VIEW_HEIGHT,
+                world.current,
+              )
+            : worldAt(
+                room === null ? world.current.player : room.hero,
+                VIEW_WIDTH,
+                VIEW_HEIGHT,
+                point.x,
+                point.y,
+                zoom.current,
+                room === null ? DEPTH : FLAT,
+              );
       const push = finger?.move ?? { x: 0, y: 0 };
       // The stick, turned from the screen into the city. Only the depth of the
       // view is undone: the picture squashes north and south, so a thumb
@@ -919,8 +1153,36 @@ export function useGtaGame(
       // same push read flat - otherwise the car goes where the thumb points on
       // the **screen** rather than where it points on the **map**.
       const reach = Math.hypot(push.x, push.y);
+      // **Behind the player in 3D, up is straight ahead**: the keys and the
+      // stick are turned by the camera's heading before the engine sees
+      // them. Ahead is (cos, sin) of it, and right is ahead turned a quarter
+      // clockwise - with the city's y running south, that is (-sin, cos).
+      const yaw = shown3d ? lens.heading() : 0;
+      const aheadX = Math.cos(yaw);
+      const aheadY = Math.sin(yaw);
+      const turned3d = (side: number, forward: number): Vec => ({
+        x: aheadX * forward - aheadY * side,
+        y: aheadY * forward + aheadX * side,
+      });
       const steer =
-        reach > STICK_GATE ? { x: push.x, y: push.y / DEPTH } : null;
+        reach <= STICK_GATE
+          ? null
+          : shown3d
+            ? turned3d(push.x, -push.y)
+            : { x: push.x, y: push.y / DEPTH };
+      const pressed = keys.current;
+      const side =
+        (pressed.right ? 1 : 0) -
+        (pressed.left ? 1 : 0) +
+        (reach > STICK_GATE ? push.x : 0);
+      const forward =
+        (pressed.up ? 1 : 0) -
+        (pressed.down ? 1 : 0) -
+        (reach > STICK_GATE ? push.y : 0);
+      const walkWay =
+        shown3d && (side !== 0 || forward !== 0)
+          ? turned3d(side, forward)
+          : null;
       const turned = wheel.current + (touch.current?.consumeWheel() ?? 0);
       if (turned !== 0 && riding.current) {
         radio.current?.turn(turned > 0 ? 1 : -1);
@@ -929,6 +1191,7 @@ export function useGtaGame(
       const input: Input = {
         ...keys.current,
         steer,
+        walk: walkWay,
         up: keys.current.up || push.y < -STICK_GATE,
         down: keys.current.down || push.y > STICK_GATE,
         left: keys.current.left || push.x < -STICK_GATE,
@@ -967,9 +1230,38 @@ export function useGtaGame(
         // however many real pixels the display has to offer.
         const sharpness = box.width / VIEW_WIDTH;
         ctx.setTransform(sharpness, 0, 0, sharpness, 0, 0);
+        // Over the 3D picture this canvas is glass with the dashboard on it;
+        // anywhere else it is the picture itself.
+        const glass = lens !== null && OUTDOORS.has(world.current.phase);
+        if (glass !== glazed) {
+          glazed = glass;
+          box.style.backgroundColor = glass ? "transparent" : "";
+        }
         // Two worlds, two pictures. The jail shares the projection and the
         // figures with the city and nothing else - see ./prison-render.
-        if (world.current.phase === "prison") {
+        if (glass && lens !== null) {
+          ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+          lens.render(
+            world.current,
+            zoom.current,
+            daylight.current,
+            dt,
+            caught,
+          );
+          drawHud(
+            ctx,
+            world.current,
+            VIEW_WIDTH,
+            VIEW_HEIGHT,
+            daylight.current,
+            playing.current,
+            finger?.engaged ?? false,
+            false,
+          );
+          if (caught) {
+            drawCross(ctx);
+          }
+        } else if (world.current.phase === "prison") {
           drawPrison(ctx, world.current, VIEW_WIDTH, VIEW_HEIGHT, zoom.current);
         } else if (world.current.phase === "mint") {
           drawMint(ctx, world.current, VIEW_WIDTH, VIEW_HEIGHT, zoom.current);
@@ -1103,6 +1395,7 @@ export function useGtaGame(
     loading,
     attach,
     onPointer,
+    onCatch,
     onFire,
     onPlant,
     onSpray,
@@ -1117,6 +1410,10 @@ export function useGtaGame(
     save,
     load,
     forget,
+    view: noGl ? "2d" : view,
+    noGl,
+    attachGl,
+    toggleView,
   };
 }
 

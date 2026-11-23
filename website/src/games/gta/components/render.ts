@@ -511,14 +511,143 @@ export function draw(
   drawChargeLights(ctx, state, view);
   drawBlasts(ctx, state, view);
   ctx.restore();
+  drawHud(ctx, state, width, height, day, radio, thumbs, true);
+}
+
+/**
+ * Paints everything one reads over the city: the light of the hour, the map,
+ * the status, the goal, the radio and the buttons.
+ *
+ * @param ctx - the canvas to paint on
+ * @param state - the city as it stands
+ * @param width - the canvas width in view pixels
+ * @param height - the canvas height in view pixels
+ * @param day - whether the clock runs and the city gets dark at night
+ * @param radio - what is playing, or null
+ * @param thumbs - whether the touch controls are on the screen
+ * @param light - false where the city is lit by something else - the 3D view
+ *   has real light, and a tint laid over it on top would be night twice
+ * @remarks
+ * Its own function so that the 3D view can lay exactly this over its own
+ * picture: the same corners, the same buttons, read by the same
+ * {@link ./gta-actions} hit test.
+ */
+export function drawHud(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  width: number,
+  height: number,
+  day: boolean,
+  radio: string | null,
+  thumbs: boolean,
+  light: boolean,
+): void {
   // The light goes over the city and under everything one reads: a dashboard
   // that dimmed at dusk would be a dashboard nobody can use at dusk.
-  drawLight(ctx, state, width, height, day);
+  if (light) {
+    drawLight(ctx, state, width, height, day);
+  }
   drawMinimap(ctx, state, height);
   drawStatus(ctx, state, width, day);
   drawGoal(ctx, state);
   drawRadio(ctx, radio, width, height, thumbs);
   drawActions(ctx, state, width, height);
+}
+
+/**
+ * The flat floor of a stretch of city, seen straight from above.
+ *
+ * @param ctx - the canvas to paint on, already scaled to city pixels
+ * @param state - the city, for the floor and the plan
+ * @param view - a camera with {@link FLAT} squash over the stretch
+ * @param seen - the stretch itself, in city pixels
+ * @remarks
+ * **The ground of the 3D view.** Everything that lies flat - the squares,
+ * the country roads, the bridge decks, the lane paint, the car parks, the
+ * villa's paving, the track, the runway and the platforms - painted by the
+ * same functions the tilted picture uses, so the two views can never
+ * disagree about where a lane runs. Left out: everything that stands up
+ * (the 3D view builds that itself), everything that changes (tyre marks,
+ * fires, the board on the platform) and the water, which stays transparent
+ * so the animated sea of the 3D view shows through it.
+ */
+export function drawFloor(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  seen: Seen,
+): void {
+  const fromCol = Math.max(0, Math.floor(seen.left / TILE));
+  const fromRow = Math.max(0, Math.floor(seen.top / TILE));
+  const toCol = Math.min(CITY_TILES - 1, Math.ceil(seen.right / TILE));
+  const toRow = Math.min(CITY_TILES - 1, Math.ceil(seen.bottom / TILE));
+  for (let row = fromRow; row <= toRow; row += 1) {
+    for (let col = fromCol; col <= toCol; col += 1) {
+      const cell = cellUnder(state.cells, col * TILE, row * TILE);
+      if (cell !== "water" && cell !== "bridge") {
+        ctx.fillStyle = GROUND[cell];
+        const at = project(view, col * TILE, row * TILE);
+        ctx.fillRect(at.x, at.y, TILE + 1, TILE + 1);
+      }
+    }
+  }
+  drawMountain(ctx, state, view);
+  drawCountryRoads(ctx, state.cells, view, seen);
+  drawBridgeEdges(ctx, state, view, seen);
+  drawLanes(ctx, state, view, seen);
+  for (let row = fromRow; row <= toRow; row += 1) {
+    for (let col = fromCol; col <= toCol; col += 1) {
+      if (cellUnder(state.cells, col * TILE, row * TILE) === "field") {
+        drawFurrows(ctx, view, col, row);
+      }
+    }
+  }
+  drawCarParks(ctx, view, fromCol, fromRow, toCol, toRow);
+  villaGround(ctx, view, state);
+  drawTrack(ctx, view, fromCol, fromRow, toCol, toRow);
+  drawRunway(ctx, view);
+  drawPlatforms(ctx, state, view, false);
+}
+
+/**
+ * Where the tree on a square of woodland stands, if one does.
+ *
+ * @param cells - the city floor
+ * @param col - the square, across
+ * @param row - the square, down
+ * @returns the foot of the tree and the radius of its crown, in city pixels,
+ *   or null where no tree grows
+ * @remarks
+ * The same rule {@link drawScenery} plants by, so the 3D wood stands where
+ * the flat one does.
+ */
+export function treeAt(
+  cells: readonly Cell[],
+  col: number,
+  row: number,
+): { readonly x: number; readonly y: number; readonly wide: number } | null {
+  const grows =
+    cellUnder(cells, col * TILE, row * TILE) === "forest" &&
+    spread(col, row) > TREE_SHARE &&
+    rooted(cells, col, row);
+  const jitter = spread(col + 7, row + 3);
+  return grows
+    ? {
+        x: (col + 0.2 + jitter * 0.6) * TILE,
+        y: (row + 0.2 + spread(col + 1, row + 9) * 0.6) * TILE,
+        wide: TILE * (0.17 + jitter * 0.13),
+      }
+    : null;
+}
+
+/**
+ * How much a camera squashes depth.
+ *
+ * @param view - the camera
+ * @returns its own squash, or the tilt of the city
+ */
+function squashOf(view: View): number {
+  return view.squash ?? DEPTH;
 }
 
 /**
@@ -761,7 +890,7 @@ function clockText(time: number): string {
  * blue city is the picture everybody knows from the hour either side of the
  * sun, and it is what makes a clock worth having on the screen.
  */
-type Sky = {
+export type Sky = {
   /** The hour it belongs to. */
   readonly hour: number;
   readonly red: number;
@@ -796,7 +925,30 @@ function drawLight(
   if (!day) {
     return;
   }
-  const hour = clockAt(state.time) / HOUR_MINUTES;
+  const tint = hourLight(state.time);
+  if (tint.weight > 0) {
+    ctx.save();
+    ctx.globalAlpha = tint.weight;
+    ctx.fillStyle = `rgb(${String(tint.red)},${String(tint.green)},${String(
+      tint.blue,
+    )})`;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+}
+
+/**
+ * The colour of the hour and how much of it lies over the city.
+ *
+ * @param time - the game clock, in seconds
+ * @returns the tint, whole numbers from nought to 255, and its weight from
+ *   nought (broad day) to {@link NIGHT_WEIGHT} (the dead of night)
+ * @remarks
+ * Shared with the 3D view, which lights its city by the same table rather
+ * than laying the tint over it.
+ */
+export function hourLight(time: number): Sky {
+  const hour = clockAt(time) / HOUR_MINUTES;
   let before = SKY[0] ?? null;
   let after = SKY[SKY.length - 1] ?? null;
   for (const stop of SKY) {
@@ -810,21 +962,25 @@ function drawLight(
       after = stop;
     }
   }
+  let tint: Sky = { hour, red: 255, green: 255, blue: 255, weight: 0 };
   if (before !== null && after !== null && before.weight + after.weight > 0) {
     const span = after.hour - before.hour;
     const part = span <= 0 ? 0 : (hour - before.hour) / span;
     const mix = (one: number, other: number) =>
       Math.round(one + (other - one) * part);
-    const weight = before.weight + (after.weight - before.weight) * part;
-    ctx.save();
-    ctx.globalAlpha = weight;
-    ctx.fillStyle = `rgb(${String(mix(before.red, after.red))},${String(
-      mix(before.green, after.green),
-    )},${String(mix(before.blue, after.blue))})`;
-    ctx.fillRect(0, 0, width, height);
-    ctx.restore();
+    tint = {
+      hour,
+      red: mix(before.red, after.red),
+      green: mix(before.green, after.green),
+      blue: mix(before.blue, after.blue),
+      weight: before.weight + (after.weight - before.weight) * part,
+    };
   }
+  return tint;
 }
+
+/** How much tint the darkest hour lays over the city. */
+export const NIGHT_WEIGHT = 0.62;
 
 /**
  * The suspension bridges, wherever one stands.
@@ -2273,7 +2429,9 @@ function drawPlatforms(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   view: View,
+  boards = true,
 ): void {
+  const squash = squashOf(view);
   STATIONS.forEach((stop, which) => {
     // The plan knows where the concrete goes - it keeps the houses off it.
     const box = platformBox(stop);
@@ -2282,13 +2440,13 @@ function drawPlatforms(
     const deep = (box.bottom - box.top) * TILE;
     const corner = project(view, box.left * TILE, box.top * TILE);
     ctx.fillStyle = "#d6d3d1";
-    ctx.fillRect(corner.x, corner.y, across, deep * DEPTH);
+    ctx.fillRect(corner.x, corner.y, across, deep * squash);
     ctx.fillStyle = "#facc15";
     ctx.fillRect(
       corner.x,
       corner.y,
       down ? across : 4,
-      down ? 4 : deep * DEPTH,
+      down ? 4 : deep * squash,
     );
     // On the far side of the platform from the track: in the middle it would
     // be under the feet of everybody waiting.
@@ -2298,7 +2456,9 @@ function drawPlatforms(
       x: x * TILE + (down ? 0 : BOARD_OFF),
       y: y * TILE + (down ? BOARD_OFF : 0),
     };
-    drawDueBoard(ctx, view, board, trainDue(state.train, state.time, which));
+    if (boards) {
+      drawDueBoard(ctx, view, board, trainDue(state.train, state.time, which));
+    }
   });
 }
 
@@ -2385,7 +2545,7 @@ function drawTrack(
       if (at % TIE_EVERY === 0) {
         ctx.save();
         ctx.translate(spot.x, spot.y);
-        ctx.scale(1, DEPTH);
+        ctx.scale(1, squashOf(view));
         ctx.rotate(Math.atan2(dy, dx));
         ctx.fillRect(-TIE_THICK / 2, -TIE_LONG / 2, TIE_THICK, TIE_LONG);
         ctx.restore();
@@ -2400,7 +2560,7 @@ function drawTrack(
         const off = (hand * GAUGE) / 2 / long;
         const to = {
           x: spot.x - dy * off,
-          y: spot.y + dx * off * DEPTH,
+          y: spot.y + dx * off * squashOf(view),
         };
         if (running) {
           rail.lineTo(to.x, to.y);
@@ -2725,7 +2885,13 @@ function drawMountain(
       (MOUNTAIN.x - MOUNTAIN.radius - MOUNTAIN_EDGE) * TILE,
       (MOUNTAIN.y - MOUNTAIN.radius - MOUNTAIN_EDGE) * TILE,
     );
-    ctx.drawImage(sheet, corner.x, corner.y, span * TILE, span * TILE * DEPTH);
+    ctx.drawImage(
+      sheet,
+      corner.x,
+      corner.y,
+      span * TILE,
+      span * TILE * squashOf(view),
+    );
   }
 }
 
@@ -3039,10 +3205,10 @@ function drawFurrows(
     const part = line / FURROWS;
     if (down) {
       ctx.moveTo(at.x + part * TILE, at.y);
-      ctx.lineTo(at.x + part * TILE, at.y + TILE * DEPTH);
+      ctx.lineTo(at.x + part * TILE, at.y + TILE * squashOf(view));
     } else {
-      ctx.moveTo(at.x, at.y + part * TILE * DEPTH);
-      ctx.lineTo(at.x + TILE, at.y + part * TILE * DEPTH);
+      ctx.moveTo(at.x, at.y + part * TILE * squashOf(view));
+      ctx.lineTo(at.x + TILE, at.y + part * TILE * squashOf(view));
     }
   }
   ctx.stroke();
@@ -3864,7 +4030,7 @@ function drawRunway(ctx: CanvasRenderingContext2D, view: View): void {
   );
   ctx.save();
   ctx.translate(at.x, at.y);
-  ctx.scale(1, DEPTH);
+  ctx.scale(1, squashOf(view));
   ctx.fillText(APRON_WORD, 0, 0);
   ctx.restore();
   ctx.textAlign = "left";
@@ -7934,7 +8100,7 @@ function villaLawn(
     return;
   }
   const kerb = project(view, plot.left * TILE, plot.bottom * TILE);
-  const deep = (grounds.bottom - plot.bottom) * TILE * DEPTH;
+  const deep = (grounds.bottom - plot.bottom) * TILE * squashOf(view);
 
   // **Flowers in the grass.** Not scattered at random: every clump comes out
   // of `scatter` on the square it stands on, so the same border is in the same
@@ -7991,8 +8157,8 @@ function villaLawn(
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(bay.x + BAY_IN, bay.y);
-  ctx.lineTo(bay.x + BAY_IN, bay.y + TILE * DEPTH - BAY_IN);
-  ctx.lineTo(bay.x + TILE - BAY_IN, bay.y + TILE * DEPTH - BAY_IN);
+  ctx.lineTo(bay.x + BAY_IN, bay.y + TILE * squashOf(view) - BAY_IN);
+  ctx.lineTo(bay.x + TILE - BAY_IN, bay.y + TILE * squashOf(view) - BAY_IN);
   ctx.lineTo(bay.x + TILE - BAY_IN, bay.y);
   ctx.stroke();
 
@@ -8011,7 +8177,7 @@ function villaLawn(
       0,
       0,
       (yard.right - yard.left) * TILE,
-      (yard.bottom - yard.top) * TILE * DEPTH,
+      (yard.bottom - yard.top) * TILE * squashOf(view),
     );
     ctx.restore();
   }
@@ -8036,7 +8202,7 @@ function villaLawn(
 function garden(ctx: CanvasRenderingContext2D, view: View, block: Vec): void {
   const grounds = villaGrounds(block.x, block.y);
   const edge = project(view, grounds.left * TILE, grounds.top * TILE);
-  const down = (grounds.bottom - grounds.top) * TILE * DEPTH;
+  const down = (grounds.bottom - grounds.top) * TILE * squashOf(view);
 
   // **The hedge is the line between the pavement and the garden**, not the
   // line between the garden and the street: it stands **inside** the footway
@@ -12264,7 +12430,7 @@ function drawTurret(
  * the palette, minus those last two colours for the bodies that would be
  * confused with them.
  */
-function paintOf(car: Car): string {
+export function paintOf(car: Car): string {
   let paint: string;
   switch (car.body) {
     case "dmc":
@@ -12846,7 +13012,7 @@ function drawDamage(
  * green and orange - because those two must be told apart across a street; the
  * rest is texture: a dark suit, a torn coat, a bright dress.
  */
-function outfit(person: Person): {
+export function outfit(person: Person): {
   readonly shirt: string;
   readonly trousers: string;
   readonly skin: string;
