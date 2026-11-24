@@ -159,6 +159,17 @@ export function isStandableFor(level: Level, id: string, cell: Cell): boolean {
 }
 
 /**
+ * Whether a piece of the case is a thing rather than a person.
+ *
+ * @param level - the case
+ * @param id - the piece
+ * @returns true for a piece marked as an object - the ball
+ */
+export function isObject(level: Level, id: string): boolean {
+  return level.suspects.some((one) => one.id === id && one.object === true);
+}
+
+/**
  * Whether any piece of the case may lie on a field - where pencil marks and
  * crosses make sense.
  *
@@ -215,6 +226,8 @@ export function contextOf(
     Object.entries(placement).find(
       ([, there]) => there.row === cell.row && there.col === cell.col,
     )?.[0] ?? null;
+  // A piece that is a thing - the ball - is nobody's company.
+  const someone = (id: string) => !isObject(level, id);
   return {
     level,
     placement,
@@ -237,9 +250,9 @@ export function contextOf(
     personAt,
     peopleIn: (area) =>
       Object.entries(placement)
-        .filter(([, there]) => areaOf(there) === area)
+        .filter(([id, there]) => areaOf(there) === area && someone(id))
         .map(([id]) => id),
-    people: () => Object.keys(placement),
+    people: () => Object.keys(placement).filter(someone),
     has: (id, trait) => {
       const suspect = level.suspects.find((one) => one.id === id);
       return (
@@ -405,7 +418,9 @@ function alongsideVictim(level: Level, placement: Placement): string | null {
       : Object.entries(placement)
           .filter(
             ([id, there]) =>
-              id !== victim.id && areaAt(level, there)?.key === area,
+              id !== victim.id &&
+              !isObject(level, id) &&
+              areaAt(level, there)?.key === area,
           )
           .map(([id]) => id);
   return company.length === 1 ? (company[0] ?? null) : null;

@@ -211,6 +211,13 @@ export type Suspect = {
    * can stand on - a buried treasure. People never can.
    */
   readonly buried?: boolean;
+  /**
+   * Whether the piece is a thing rather than a person - the ball at a
+   * football match. It takes a row and a column of its own like everybody,
+   * but it is never company: nobody is "with" it, it never makes somebody
+   * less alone, and it is never the culprit.
+   */
+  readonly object?: boolean;
   readonly clue: Clue;
   /** The colour of the pawn and the portrait. */
   readonly colour: string;

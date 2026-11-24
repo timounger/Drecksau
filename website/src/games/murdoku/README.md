@@ -40,6 +40,13 @@ Schatz liegt in Reihe 4, Spalte 11". Auch hier hat der Löser die einzige
 Lösung gefunden (mit einem eigenen Vorausblick im Fall, `prune`), und der
 Lösungsweg ist selbst geschrieben.
 
+**Figuren, die keine Personen sind.** In "Das Fußballspiel" (Auf Weltreise 27)
+ist der Ball eine Figur: Er belegt wie alle eine eigene Zeile und Spalte, ist
+aber "nur ein Ball". Ein Stück mit `object: true` zählt deshalb nirgends als
+Gesellschaft - `peopleIn` und `people` lassen es aus, also macht es niemanden
+weniger allein - und `culpritOf` nennt es nie als Täter (`isObject` in
+[engine/rules.ts](engine/rules.ts)).
+
 ## Reihen und Fallauswahl
 
 Jeder Fall gehört zu einer Reihe (`series: { book, number }` am Fall); ohne
